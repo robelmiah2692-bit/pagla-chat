@@ -1,4 +1,4 @@
-name: Build APK
+name: Build APK and Get SHA1
 on: [push]
 jobs:
   build:
@@ -14,27 +14,36 @@ jobs:
 
       - name: Create and Build APK
         run: |
-          # প্রজেক্ট তৈরি
+          # ১. প্রজেক্ট তৈরি
           flutter create --org com.pagla.chat pagla_app
           
-          # ফাইলটি খোঁজা এবং সঠিক জায়গায় বসানো
-          # এখানে আমরা সব জায়গায় খুঁজবো যদি ফাইলটি থাকে
+          # ২. গুগল সার্ভিস ফাইলটি সঠিক জায়গায় সরানো
           find . -name "google-services.json" -exec cp {} pagla_app/android/app/ \;
           
-          # বাকি ফাইলগুলো কপি করা
+          # ৩. ফাইল কপি করা (pubspec, main.dart)
           mkdir -p pagla_app/assets
           cp -f pubspec.yaml pagla_app/pubspec.yaml || echo "pubspec not found"
           cp -f lib/main.dart pagla_app/lib/main.dart || echo "main.dart not found"
           cp -f assets/logo.jpg pagla_app/assets/logo.jpg || echo "logo not found"
           
-          # SDK ভার্সন ঠিক করা
+          # ৪. SDK ভার্সন ঠিক করা
           sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' pagla_app/android/app/build.gradle
           
-          # বিল্ড শুরু
+          # ৫. SHA-1 চাবি বের করা (জিমেইল লগইনের জন্য)
+          echo "------ SHA-1 চাবি নিচে পাবেন ------"
+          cd pagla_app/android && ./gradlew signingReport
+          cd ../..
+
+          # ৬. ফাইনাল বিল্ড শুরু
           cd pagla_app
           flutter pub get
           flutter build apk --release
 
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PaglaChat-Final-APK
+          path: pagla_app/build/app/outputs/flutter-apk/app-release.apk
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
