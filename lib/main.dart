@@ -1,113 +1,20 @@
-import 'package:flutter/material.dart';
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
-import 'package:permission_handler/permission_handler.dart';
-
-void main() {
-  runApp(const PaglaChatApp());
-}
-
-class PaglaChatApp extends StatelessWidget {
-  const PaglaChatApp({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(primarySwatch: Colors.indigo, useMaterial3: true),
-      // প্রথমে স্প্ল্যাশ স্ক্রিন দেখাবে
-      home: const SplashScreen(),
-    );
-  }
-}
-
-// ১. স্প্ল্যাশ স্ক্রিন (লোগো এখানে দেখাবে)
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
-  @override
-  State<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen> {
-  @override
-  void initState() {
-    super.initState();
-    // ৩ সেকেন্ড পর মেইন স্ক্রিনে যাবে
-    Future.delayed(const Duration(seconds: 3), () {
-      Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (context) => const MainScreen()));
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // আপনার assets ফোল্ডারের লোগো
-            Image.asset('assets/logo.jpg', width: 180), 
-            const SizedBox(height: 30),
-            const CircularProgressIndicator(color: Colors.indigo),
-            const SizedBox(height: 10),
-            const Text("পাগলা চ্যাট লোড হচ্ছে...", style: TextStyle(color: Colors.grey)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ২. মেইন স্ক্রিন (চ্যাট এবং মাল্টি-মাইক কল)
-class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
-  @override
-  State<MainScreen> createState() => _MainScreenState();
-}
-
-class _MainScreenState extends State<MainScreen> {
-  final String appId = "348a9f9d55b14667891657dfc53dfbeb";
-  late RtcEngine _engine;
-  bool _isCalling = false;
-  List<int> _remoteUsers = [];
-  final List<String> _messages = [];
-  final TextEditingController _controller = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _initAgora();
-  }
-
-  Future<void> _initAgora() async {
-    await [Permission.microphone].request();
-    _engine = createAgoraRtcEngine();
-    await _engine.initialize(RtcEngineContext(appId: appId));
-
-    _engine.registerEventHandler(
-      RtcEngineEventHandler(
-        onJoinChannelSuccess: (connection, elapsed) => setState(() => _isCalling = true),
-        onUserJoined: (connection, remoteUid, elapsed) => setState(() => _remoteUsers.add(remoteUid)),
-        onUserOffline: (connection, remoteUid, reason) => setState(() => _remoteUsers.remove(remoteUid)),
-        onLeaveChannel: (connection, stats) => setState(() { _isCalling = false; _remoteUsers.clear(); }),
-      ),
-    );
-  }
-
-  @override
+@override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("পাগলা চ্যাট ও কল"),
+        title: const Text("পাগলা গ্রুপ কল"),
+        centerTitle: true,
         actions: [
           IconButton(
-            icon: Icon(_isCalling ? Icons.call_end : Icons.call, color: _isCalling ? Colors.red : Colors.green),
+            icon: Icon(_isCalling ? Icons.call_end : Icons.call, 
+                color: _isCalling ? Colors.red : Colors.green, size: 30),
             onPressed: () async {
               if (_isCalling) {
                 await _engine.leaveChannel();
               } else {
                 await _engine.joinChannel(token: '', channelId: "pagla_room", uid: 0, 
-                  options: const ChannelMediaOptions(clientRoleType: ClientRoleType.clientRoleBroadcaster, channelProfile: ChannelProfileType.channelProfileCommunication));
+                  options: const ChannelMediaOptions(clientRoleType: ClientRoleType.clientRoleBroadcaster, 
+                  channelProfile: ChannelProfileType.channelProfileCommunication));
               }
             },
           ),
@@ -115,19 +22,30 @@ class _MainScreenState extends State<MainScreen> {
       ),
       body: Column(
         children: [
+          // কল এরিয়া: ১০ জন পর্যন্ত ইউজারকে গ্রিড আকারে দেখাবে
           if (_isCalling)
             Container(
-              height: 120,
-              color: Colors.indigo[50],
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.all(10),
-                children: [
-                  _userIcon("আপনি", Colors.blue),
-                  ..._remoteUsers.map((uid) => _userIcon("ইউজার $uid", Colors.green)),
-                ],
+              height: 250, // গ্রিডের জন্য উচ্চতা বাড়ানো হয়েছে
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Colors.indigo.withOpacity(0.1)),
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4, // এক লাইনে ৪ জন করে বসবে
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                ),
+                itemCount: _remoteUsers.length + 1, // আপনি + বাকি সবাই
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return _userIcon("আপনি", Colors.blue);
+                  } else {
+                    return _userIcon("ইউজার ${_remoteUsers[index - 1]}", Colors.green);
+                  }
+                },
               ),
             ),
+          
+          // চ্যাট মেসেজ এরিয়া
           Expanded(
             child: ListView.builder(
               itemCount: _messages.length,
@@ -135,23 +53,32 @@ class _MainScreenState extends State<MainScreen> {
                 title: Align(
                   alignment: Alignment.centerRight,
                   child: Container(
-                    padding: const EdgeInsets.all(10),
-                    margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 10),
-                    decoration: BoxDecoration(color: Colors.indigo[100], borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.indigo[100], 
+                      borderRadius: BorderRadius.circular(15)),
                     child: Text(_messages[index]),
                   ),
                 ),
               ),
             ),
           ),
+          
+          // মেসেজ টাইপ বার
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(10.0),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _controller,
-                    decoration: const InputDecoration(hintText: "মেসেজ লিখুন...", border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(30)))),
+                    decoration: InputDecoration(
+                      hintText: "মেসেজ লিখুন...", 
+                      filled: true,
+                      fillColor: Colors.grey[200],
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+                    ),
                   ),
                 ),
                 IconButton(
@@ -170,15 +97,22 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  // ইউজার আইকন ডিজাইন
   Widget _userIcon(String name, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: Column(
-        children: [
-          CircleAvatar(radius: 25, backgroundColor: color, child: const Icon(Icons.mic, color: Colors.white)),
-          Text(name, style: const TextStyle(fontSize: 10)),
-        ],
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CircleAvatar(
+          radius: 25, 
+          backgroundColor: color, 
+          child: const Icon(Icons.mic, color: Colors.white, size: 24)
+        ),
+        const SizedBox(height: 4),
+        Text(
+          name, 
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
     );
   }
-}
