@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "25052070011-jeu5h8qqv2flvkusr0j9e14fc7bo1423.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pagla.chat",
+            "certificate_hash": "b071617ba5a7f0865179402f5802f0d1287ee22f"
+          }
+        },
+        {
           "client_id": "25052070011-ernp28c3e48cqvuupm9gq28q560u5po6.apps.googleusercontent.com",
           "client_type": 3
         }
