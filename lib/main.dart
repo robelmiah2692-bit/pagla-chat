@@ -13,108 +13,171 @@ class PaglaChatApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(primarySwatch: Colors.indigo, useMaterial3: true),
-      home: const AudioCallScreen(),
+      // প্রথমে স্প্ল্যাশ স্ক্রিন দেখাবে
+      home: const SplashScreen(),
     );
   }
 }
 
-class AudioCallScreen extends StatefulWidget {
-  const AudioCallScreen({super.key});
+// ১. স্প্ল্যাশ স্ক্রিন (লোগো এখানে দেখাবে)
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
   @override
-  State<AudioCallScreen> createState() => _AudioCallScreenState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _AudioCallScreenState extends State<AudioCallScreen> {
-  String appId = "348a9f9d55b14667891657dfc53dfbeb"; // আপনার দেওয়া আইডি
-  String channelName = "pagla_room"; // ডিফল্ট রুম নাম
-  late RtcEngine _engine;
-  bool _localUserJoined = false;
-  bool _isCalling = false;
-
+class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    initAgora();
-  }
-
-  Future<void> initAgora() async {
-    // মাইক্রোফোন পারমিশন নেওয়া
-    await [Permission.microphone].request();
-
-    // অগোরা ইঞ্জিন সেটআপ
-    _engine = createAgoraRtcEngine();
-    await _engine.initialize(RtcEngineContext(appId: appId));
-
-    _engine.registerEventHandler(
-      RtcEngineEventHandler(
-        onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
-          setState(() { _localUserJoined = true; });
-        },
-        onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("অন্যজন কলে যুক্ত হয়েছেন!")),
-          );
-        },
-        onLeaveChannel: (RtcConnection connection, RtcStats stats) {
-          setState(() { _localUserJoined = false; });
-        },
-      ),
-    );
-  }
-
-  Future<void> joinCall() async {
-    setState(() => _isCalling = true);
-    await _engine.joinChannel(
-      token: '', // টেস্টিংয়ের জন্য টোকেন খালি রাখলে হবে
-      channelId: channelName,
-      uid: 0,
-      options: const ChannelMediaOptions(
-        clientRoleType: ClientRoleType.clientRoleBroadcaster,
-        channelProfile: ChannelProfileType.channelProfileCommunication,
-      ),
-    );
-  }
-
-  Future<void> leaveCall() async {
-    await _engine.leaveChannel();
-    setState(() {
-      _isCalling = false;
-      _localUserJoined = false;
+    // ৩ সেকেন্ড পর মেইন স্ক্রিনে যাবে
+    Future.delayed(const Duration(seconds: 3), () {
+      Navigator.pushReplacement(
+          context, MaterialPageRoute(builder: (context) => const MainScreen()));
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("পাগলা অডিও কল")),
+      backgroundColor: Colors.white,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              _isCalling ? Icons.mic : Icons.mic_off,
-              size: 100,
-              color: _isCalling ? Colors.green : Colors.red,
-            ),
-            const SizedBox(height: 20),
-            Text(
-              _isCalling ? "কল চলছে..." : "কলে নেই",
-              style: const TextStyle(fontSize: 20),
-            ),
-            const SizedBox(height: 50),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isCalling ? Colors.red : Colors.green,
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-              ),
-              onPressed: _isCalling ? leaveCall : joinCall,
-              child: Text(
-                _isCalling ? "কল শেষ করুন" : "কল শুরু করুন",
-                style: const TextStyle(color: Colors.white),
-              ),
-            ),
+            // আপনার assets ফোল্ডারের লোগো
+            Image.asset('assets/logo.jpg', width: 180), 
+            const SizedBox(height: 30),
+            const CircularProgressIndicator(color: Colors.indigo),
+            const SizedBox(height: 10),
+            const Text("পাগলা চ্যাট লোড হচ্ছে...", style: TextStyle(color: Colors.grey)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ২. মেইন স্ক্রিন (চ্যাট এবং মাল্টি-মাইক কল)
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  final String appId = "348a9f9d55b14667891657dfc53dfbeb";
+  late RtcEngine _engine;
+  bool _isCalling = false;
+  List<int> _remoteUsers = [];
+  final List<String> _messages = [];
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _initAgora();
+  }
+
+  Future<void> _initAgora() async {
+    await [Permission.microphone].request();
+    _engine = createAgoraRtcEngine();
+    await _engine.initialize(RtcEngineContext(appId: appId));
+
+    _engine.registerEventHandler(
+      RtcEngineEventHandler(
+        onJoinChannelSuccess: (connection, elapsed) => setState(() => _isCalling = true),
+        onUserJoined: (connection, remoteUid, elapsed) => setState(() => _remoteUsers.add(remoteUid)),
+        onUserOffline: (connection, remoteUid, reason) => setState(() => _remoteUsers.remove(remoteUid)),
+        onLeaveChannel: (connection, stats) => setState(() { _isCalling = false; _remoteUsers.clear(); }),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("পাগলা চ্যাট ও কল"),
+        actions: [
+          IconButton(
+            icon: Icon(_isCalling ? Icons.call_end : Icons.call, color: _isCalling ? Colors.red : Colors.green),
+            onPressed: () async {
+              if (_isCalling) {
+                await _engine.leaveChannel();
+              } else {
+                await _engine.joinChannel(token: '', channelId: "pagla_room", uid: 0, 
+                  options: const ChannelMediaOptions(clientRoleType: ClientRoleType.clientRoleBroadcaster, channelProfile: ChannelProfileType.channelProfileCommunication));
+              }
+            },
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          if (_isCalling)
+            Container(
+              height: 120,
+              color: Colors.indigo[50],
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.all(10),
+                children: [
+                  _userIcon("আপনি", Colors.blue),
+                  ..._remoteUsers.map((uid) => _userIcon("ইউজার $uid", Colors.green)),
+                ],
+              ),
+            ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _messages.length,
+              itemBuilder: (context, index) => ListTile(
+                title: Align(
+                  alignment: Alignment.centerRight,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 10),
+                    decoration: BoxDecoration(color: Colors.indigo[100], borderRadius: BorderRadius.circular(12)),
+                    child: Text(_messages[index]),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: const InputDecoration(hintText: "মেসেজ লিখুন...", border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(30)))),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send, color: Colors.indigo),
+                  onPressed: () {
+                    if (_controller.text.isNotEmpty) {
+                      setState(() { _messages.add(_controller.text); _controller.clear(); });
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _userIcon(String name, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Column(
+        children: [
+          CircleAvatar(radius: 25, backgroundColor: color, child: const Icon(Icons.mic, color: Colors.white)),
+          Text(name, style: const TextStyle(fontSize: 10)),
+        ],
       ),
     );
   }
