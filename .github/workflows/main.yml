@@ -9,30 +9,30 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0' # লেটেস্ট ভার্সন ব্যবহার করছি
+          flutter-version: '3.19.0'
           cache: true
 
       - name: Create and Build APK
         run: |
-          # ১. একটি ক্লিন প্রজেক্ট তৈরি করো
+          # ১. প্রজেক্ট তৈরি
           flutter create --org com.pagla.chat pagla_app
           
-          # ২. ফাইলগুলো ঠিক জায়গায় আছে কি না চেক করে কপি করো
-          # যদি assets ফোল্ডার না থাকে তবে তৈরি করো
-          mkdir -p pagla_app/assets
+          # ২. SDK ভার্সন ১৯ থেকে ২১ এ পরিবর্তন করা (খুবই জরুরি)
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' pagla_app/android/app/build.gradle
           
-          # ৩. আপনার ফাইলগুলো নতুন প্রজেক্টে জোর করে রিপ্লেস করো
+          # ৩. ফাইল কপি করা
+          mkdir -p pagla_app/assets
           cp -f pubspec.yaml pagla_app/pubspec.yaml || echo "pubspec not found"
           cp -f lib/main.dart pagla_app/lib/main.dart || echo "main.dart not found"
           cp -f assets/logo.jpg pagla_app/assets/logo.jpg || echo "logo not found"
           
-          # ৪. প্রজেক্টের ভেতর গিয়ে বিল্ড করো
+          # ৪. বিল্ড শুরু
           cd pagla_app
           flutter pub get
-          flutter build apk --release --split-per-abi
+          flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-APK
+          name: PaglaChat-Final-APK
           path: pagla_app/build/app/outputs/flutter-apk/app-release.apk
