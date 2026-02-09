@@ -5,14 +5,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.10.0'
           cache: true
-      - run: flutter pub get
-      - run: flutter build apk --release
+
+      - name: Create Project and Move Files
+        run: |
+          # ১. নতুন একটি ফ্ল্যাটার প্রজেক্ট তৈরি করবে
+          flutter create --org com.paglachat.app temp_build
+          
+          # ২. আপনার দেওয়া ফাইলগুলো নতুন প্রজেক্টে কপি করবে
+          cp pubspec.yaml temp_build/
+          cp lib/main.dart temp_build/lib/
+          mkdir -p temp_build/assets
+          cp assets/logo.jpg temp_build/assets/ || true
+          
+          cd temp_build
+          flutter pub get
+          flutter build apk --release
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: temp_build/build/app/outputs/flutter-apk/app-release.apk
