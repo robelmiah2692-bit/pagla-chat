@@ -14,7 +14,7 @@ jobs:
 
       - name: Create and Build APK
         run: |
-          # ১. প্রজেক্ট তৈরি
+          # ১. নতুন প্রজেক্ট তৈরি
           flutter create --org com.pagla.chat pagla_app
           
           # ২. গুগল সার্ভিস ফাইলটি সঠিক জায়গায় সরানো
@@ -29,10 +29,11 @@ jobs:
           # ৪. SDK ভার্সন ঠিক করা
           sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' pagla_app/android/app/build.gradle
           
-          # ৫. SHA-1 চাবি বের করা (জিমেইল লগইনের জন্য)
-          echo "------ SHA-1 চাবি নিচে পাবেন ------"
+          # ৫. SHA-1 চাবি বের করা (জিমেইল লগইনের জন্য এটিই লাগবে)
+          echo "---------- SHA1 KEY START ----------"
           cd pagla_app/android && ./gradlew signingReport
           cd ../..
+          echo "---------- SHA1 KEY END ----------"
 
           # ৬. ফাইনাল বিল্ড শুরু
           cd pagla_app
@@ -42,10 +43,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Final-APK
-          path: pagla_app/build/app/outputs/flutter-apk/app-release.apk
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: PaglaChat-Final-APK
+          name: PaglaChat-Build-${{ github.run_number }}
           path: pagla_app/build/app/outputs/flutter-apk/app-release.apk
