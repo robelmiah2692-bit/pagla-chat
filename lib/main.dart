@@ -1,46 +1,79 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
-void main() => runApp(MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: PaglaChatSignPage(),
-    ));
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // ফায়ারবেস চালু করার কমান্ড
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    print("Firebase Error: $e");
+  }
+  runApp(MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: PaglaChatLoginPage(),
+  ));
+}
 
-class PaglaChatSignPage extends StatelessWidget {
+class PaglaChatLoginPage extends StatelessWidget {
+  // জিমেইল লগইন ফাংশন
+  Future<void> signInWithGoogle() async {
+    try {
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      final GoogleSignInAuthentication? googleAuth = await googleUser?.authentication;
+
+      if (googleAuth != null) {
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        await FirebaseAuth.instance.signInWithCredential(credential);
+        print("লগইন সফল হয়েছে!");
+      }
+    } catch (e) {
+      print("Error during Google Sign-In: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF1A0033), // লোগোর থিম কালার
+      backgroundColor: Color(0xFF1A0033), // বেগুনি থিম
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // আপনার লোগো (assets ফোল্ডারে logo.jpg নামে থাকতে হবে)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Image.asset(
-                'assets/logo.jpg',
-                width: 150,
-                height: 150,
-                errorBuilder: (context, error, stackTrace) => Icon(Icons.mic, size: 100, color: Colors.purpleAccent),
-              ),
+            // লোগো (আপনার assets/logo.jpg এখানে থাকবে)
+            CircleAvatar(
+              radius: 60,
+              backgroundColor: Colors.white,
+              child: Icon(Icons.mic, size: 70, color: Colors.purple), 
             ),
-            SizedBox(height: 40),
-            Text("Pagla Chat", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
-            Text("Live Voice Adda", style: TextStyle(color: Colors.white70, fontSize: 16)),
+            SizedBox(height: 30),
+            Text("পাগলা চ্যাট", style: TextStyle(color: Colors.white, fontSize: 35, fontWeight: FontWeight.bold)),
             SizedBox(height: 50),
-            
-            // সাইন ইন বাটন
-            ElevatedButton.icon(
-              icon: Icon(Icons.phone_android, color: Colors.white),
-              label: Text("Sign In with Mobile", style: TextStyle(color: Colors.white)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purpleAccent,
-                padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+
+            // জিমেইল লগইন বাটন
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  minimumSize: Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                ),
+                onPressed: () => signInWithGoogle(),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.login, color: Colors.red),
+                    SizedBox(width: 10),
+                    Text("Continue with Gmail", style: TextStyle(color: Colors.black, fontSize: 18)),
+                  ],
+                ),
               ),
-              onPressed: () {
-                // এখানে পরে লগইন সিস্টেম যোগ হবে
-              },
             ),
           ],
         ),
