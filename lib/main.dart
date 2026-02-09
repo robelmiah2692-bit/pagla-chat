@@ -5,17 +5,42 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  runApp(const MaterialApp(home: LoginScreen()));
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    print("Firebase Error: $e");
+  }
+  runApp(const PaglaChatApp());
 }
 
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
+class PaglaChatApp extends StatelessWidget {
+  const PaglaChatApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: const LoginScreen(),
+    );
+  }
+}
 
-  Future<void> signInWithGoogle(BuildContext context) async {
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  bool isLoading = false;
+
+  Future<void> signInWithGoogle() async {
+    setState(() => isLoading = true);
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) return;
+      if (googleUser == null) {
+        setState(() => isLoading = false);
+        return;
+      }
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final AuthCredential credential = GoogleAuthProvider.credential(
@@ -24,29 +49,53 @@ class LoginScreen extends StatelessWidget {
       );
 
       await FirebaseAuth.instance.signInWithCredential(credential);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("লগইন সফল হয়েছে!")),
-      );
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("লগইন সফল হয়েছে!")),
+        );
+      }
     } catch (e) {
-      // এটি আপনাকে ফোনের স্ক্রিনে এরর মেসেজটি দেখাবে
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text("লগইন এরর"),
-          content: Text(e.toString()),
-        ),
-      );
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("লগইন এরর"),
+            content: Text(e.toString()),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Center(
-        child: ElevatedButton(
-          onPressed: () => signInWithGoogle(context),
-          child: const Text("জিমেইল দিয়ে লগইন করুন"),
-        ),
+        child: isLoading 
+          ? const CircularProgressIndicator() 
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset('assets/logo.jpg', height: 120),
+                const SizedBox(height: 30),
+                const Text("পাগলা চ্যাট", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 50),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: signInWithGoogle,
+                  icon: const Icon(Icons.login),
+                  label: const Text("গুগল দিয়ে লগইন করুন"),
+                ),
+              ],
+            ),
       ),
     );
   }
