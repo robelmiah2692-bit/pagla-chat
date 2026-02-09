@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(const PaglaChatApp());
@@ -10,109 +12,109 @@ class PaglaChatApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'পাগলা চ্যাট',
-      theme: ThemeData(
-        primarySwatch: Colors.indigo,
-        useMaterial3: true,
-      ),
-      home: const ChatScreen(),
+      theme: ThemeData(primarySwatch: Colors.indigo, useMaterial3: true),
+      home: const AudioCallScreen(),
     );
   }
 }
 
-class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+class AudioCallScreen extends StatefulWidget {
+  const AudioCallScreen({super.key});
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
+  State<AudioCallScreen> createState() => _AudioCallScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
-  final List<String> _messages = [];
-  final TextEditingController _controller = TextEditingController();
+class _AudioCallScreenState extends State<AudioCallScreen> {
+  String appId = "348a9f9d55b14667891657dfc53dfbeb"; // আপনার দেওয়া আইডি
+  String channelName = "pagla_room"; // ডিফল্ট রুম নাম
+  late RtcEngine _engine;
+  bool _localUserJoined = false;
+  bool _isCalling = false;
 
-  void _sendMessage() {
-    if (_controller.text.isNotEmpty) {
-      setState(() {
-        _messages.add(_controller.text);
-        _controller.clear();
-      });
-    }
+  @override
+  void initState() {
+    super.initState();
+    initAgora();
+  }
+
+  Future<void> initAgora() async {
+    // মাইক্রোফোন পারমিশন নেওয়া
+    await [Permission.microphone].request();
+
+    // অগোরা ইঞ্জিন সেটআপ
+    _engine = createAgoraRtcEngine();
+    await _engine.initialize(RtcEngineContext(appId: appId));
+
+    _engine.registerEventHandler(
+      RtcEngineEventHandler(
+        onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
+          setState(() { _localUserJoined = true; });
+        },
+        onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("অন্যজন কলে যুক্ত হয়েছেন!")),
+          );
+        },
+        onLeaveChannel: (RtcConnection connection, RtcStats stats) {
+          setState(() { _localUserJoined = false; });
+        },
+      ),
+    );
+  }
+
+  Future<void> joinCall() async {
+    setState(() => _isCalling = true);
+    await _engine.joinChannel(
+      token: '', // টেস্টিংয়ের জন্য টোকেন খালি রাখলে হবে
+      channelId: channelName,
+      uid: 0,
+      options: const ChannelMediaOptions(
+        clientRoleType: ClientRoleType.clientRoleBroadcaster,
+        channelProfile: ChannelProfileType.channelProfileCommunication,
+      ),
+    );
+  }
+
+  Future<void> leaveCall() async {
+    await _engine.leaveChannel();
+    setState(() {
+      _isCalling = false;
+      _localUserJoined = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("পাগলা চ্যাট"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.videocam),
-            onPressed: () => _showCallDialog("ভিডিও কল"),
-          ),
-          IconButton(
-            icon: const Icon(Icons.call),
-            onPressed: () => _showCallDialog("অডিও কল"),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _messages.isEmpty
-                ? const Center(child: Text("চ্যাট শুরু করতে মেসেজ লিখুন..."))
-                : ListView.builder(
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      return ListTile(
-                        title: Align(
-                          alignment: Alignment.centerRight,
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.indigo[100],
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(_messages[index]),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: const InputDecoration(
-                      hintText: "মেসেজ লিখুন...",
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.send, color: Colors.indigo),
-                  onPressed: _sendMessage,
-                ),
-              ],
+      appBar: AppBar(title: const Text("পাগলা অডিও কল")),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _isCalling ? Icons.mic : Icons.mic_off,
+              size: 100,
+              color: _isCalling ? Colors.green : Colors.red,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showCallDialog(String type) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(type),
-        content: Text("$type ফিচারটি অগোরা (Agora) দিয়ে কানেক্ট করা হচ্ছে।"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("ওকে")),
-        ],
+            const SizedBox(height: 20),
+            Text(
+              _isCalling ? "কল চলছে..." : "কলে নেই",
+              style: const TextStyle(fontSize: 20),
+            ),
+            const SizedBox(height: 50),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isCalling ? Colors.red : Colors.green,
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+              ),
+              onPressed: _isCalling ? leaveCall : joinCall,
+              child: Text(
+                _isCalling ? "কল শেষ করুন" : "কল শুরু করুন",
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
