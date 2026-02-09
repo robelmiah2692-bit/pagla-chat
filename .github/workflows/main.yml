@@ -14,23 +14,23 @@ jobs:
 
       - name: Create and Build APK
         run: |
-          # ১. প্রজেক্ট তৈরি
+          # প্রজেক্ট তৈরি
           flutter create --org com.pagla.chat pagla_app
           
-          # ২. গুগল সার্ভিস ফাইলটি সঠিক জায়গায় সরানো
-          mkdir -p pagla_app/android/app
-          cp google-services.json pagla_app/android/app/google-services.json
+          # ফাইলটি খোঁজা এবং সঠিক জায়গায় বসানো
+          # এখানে আমরা সব জায়গায় খুঁজবো যদি ফাইলটি থাকে
+          find . -name "google-services.json" -exec cp {} pagla_app/android/app/ \;
           
-          # ৩. SDK ভার্সন ২১ এ পরিবর্তন করা
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' pagla_app/android/app/build.gradle
-          
-          # ৪. ফাইল কপি করা
+          # বাকি ফাইলগুলো কপি করা
           mkdir -p pagla_app/assets
           cp -f pubspec.yaml pagla_app/pubspec.yaml || echo "pubspec not found"
           cp -f lib/main.dart pagla_app/lib/main.dart || echo "main.dart not found"
           cp -f assets/logo.jpg pagla_app/assets/logo.jpg || echo "logo not found"
           
-          # ৫. বিল্ড শুরু
+          # SDK ভার্সন ঠিক করা
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' pagla_app/android/app/build.gradle
+          
+          # বিল্ড শুরু
           cd pagla_app
           flutter pub get
           flutter build apk --release
