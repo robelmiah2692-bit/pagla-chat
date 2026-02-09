@@ -17,16 +17,20 @@ jobs:
           # ১. প্রজেক্ট তৈরি
           flutter create --org com.pagla.chat pagla_app
           
-          # ২. SDK ভার্সন ১৯ থেকে ২১ এ পরিবর্তন করা (খুবই জরুরি)
+          # ২. গুগল সার্ভিস ফাইলটি সঠিক জায়গায় সরানো
+          mkdir -p pagla_app/android/app
+          cp google-services.json pagla_app/android/app/google-services.json
+          
+          # ৩. SDK ভার্সন ২১ এ পরিবর্তন করা
           sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' pagla_app/android/app/build.gradle
           
-          # ৩. ফাইল কপি করা
+          # ৪. ফাইল কপি করা
           mkdir -p pagla_app/assets
           cp -f pubspec.yaml pagla_app/pubspec.yaml || echo "pubspec not found"
           cp -f lib/main.dart pagla_app/lib/main.dart || echo "main.dart not found"
           cp -f assets/logo.jpg pagla_app/assets/logo.jpg || echo "logo not found"
           
-          # ৪. বিল্ড শুরু
+          # ৫. বিল্ড শুরু
           cd pagla_app
           flutter pub get
           flutter build apk --release
