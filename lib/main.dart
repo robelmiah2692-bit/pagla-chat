@@ -15,11 +15,11 @@ class MainNavigation extends StatefulWidget {
 }
 
 class _MainNavigationState extends State<MainNavigation> {
-  int _currentIndex = 1; 
+  int _currentIndex = 1; // ডিফল্ট রুম পেজ ওপেন হবে
   final List<Widget> _pages = [
-    const Center(child: Text("হোম পেজ", style: TextStyle(color: Colors.white))), 
+    const HomePage(), 
     const VoiceRoom(), 
-    const Center(child: Text("ইনবক্স", style: TextStyle(color: Colors.white))), 
+    const Center(child: Text("ইনবক্স (শীঘ্রই আসছে)", style: TextStyle(color: Colors.white54))), 
     const ProfilePage()
   ];
 
@@ -45,7 +45,29 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- রুম সেকশন (সরাসরি সিট + গিফট প্যানেল) ---
+// --- ১. হোম সেকশন ---
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F1E),
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, title: const Text("পাগলা চ্যাট হোম")),
+      body: Padding(
+        padding: const EdgeInsets.all(15.0),
+        child: Column(children: [
+          Container(
+            height: 150, width: double.infinity,
+            decoration: BoxDecoration(gradient: const LinearGradient(colors: [Colors.purple, Colors.pink]), borderRadius: BorderRadius.circular(15)),
+            child: const Center(child: Text("Pro Plus Member", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// --- ২. রুম সেকশন (সরাসরি সিট + গিফট অপশন) ---
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -56,7 +78,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   late RtcEngine _engine;
   bool _isJoined = false;
   int? _mySeatIndex;
-  int userDiamonds = 1000; // প্রাথমিক ডায়মন্ড ব্যালেন্স
+  int userDiamonds = 1000;
   String? myName;
   String? myImagePath;
   List<Map<String, String?>> seats = List.generate(10, (index) => {"name": null, "image": null});
@@ -98,7 +120,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
     }
   }
 
-  // গিফট প্যানেল ওপেন করার ফাংশন
   void _openGiftPanel() {
     showModalBottomSheet(
       context: context,
@@ -108,20 +129,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
         return Container(
           padding: const EdgeInsets.all(20),
           height: 350,
-          child: Column(
-            children: [
-              const Text("গিফট পাঠান", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                _giftItem("🌹", "রোজ", 200),
-                _giftItem("👑", "ক্রাউন", 500),
-                _giftItem("🚗", "কার", 1000),
-              ]),
-              const Spacer(),
-              Text("আপনার ব্যালেন্স: $userDiamonds 💎", style: const TextStyle(color: Colors.amber)),
-              const SizedBox(height: 10),
-            ],
-          ),
+          child: Column(children: [
+            const Text("গিফট পাঠান", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+              _giftItem("🌹", "রোজ", 200),
+              _giftItem("👑", "ক্রাউন", 500),
+              _giftItem("🚗", "কার", 1000),
+            ]),
+            const Spacer(),
+            Text("ব্যালেন্স: $userDiamonds 💎", style: const TextStyle(color: Colors.amber, fontSize: 16)),
+            const SizedBox(height: 10),
+          ]),
         );
       },
     );
@@ -135,109 +154,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
           final prefs = await SharedPreferences.getInstance();
           prefs.setInt('diamonds', userDiamonds);
           Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text("$name গিফট পাঠানো হয়েছে! -$price 💎"),
-            backgroundColor: Colors.pinkAccent,
-          ));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$name পাঠানো হয়েছে! -$price 💎"), backgroundColor: Colors.pinkAccent));
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("পর্যাপ্ত ডায়মন্ড নেই!")));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("ডায়মন্ড নেই!")));
         }
       },
       child: Column(children: [
         Container(padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15)), child: Text(icon, style: const TextStyle(fontSize: 30))),
-        const SizedBox(height: 5),
-        Text(name, style: const TextStyle(color: Colors.white)),
+        Text(name, style: const TextStyle(color: Colors.white70)),
         Text("$price 💎", style: const TextStyle(color: Colors.cyanAccent, fontSize: 12)),
       ]),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1E),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent, elevation: 0,
-        title: const Text("পাগলা আড্ডা বোর্ড", style: TextStyle(color: Colors.white, fontSize: 18)),
-        actions: [const Icon(Icons.add_box, color: Colors.cyanAccent), const SizedBox(width: 15), Text("$userDiamonds 💎  ", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))],
-      ),
-      body: Column(children: [
-        Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.all(20),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, childAspectRatio: 0.8),
-            itemCount: 10,
-            itemBuilder: (context, index) {
-              var user = seats[index];
-              return GestureDetector(
-                onTap: () => _handleSeat(index),
-                child: Column(children: [
-                  CircleAvatar(
-                    radius: 25, backgroundColor: Colors.white10,
-                    backgroundImage: user["image"] != null ? FileImage(File(user["image"]!)) : null,
-                    child: user["name"] == null ? const Icon(Icons.person, color: Colors.white24) : null,
-                  ),
-                  Text(user["name"] ?? "Seat ${index + 1}", style: const TextStyle(color: Colors.white38, fontSize: 10), overflow: TextOverflow.ellipsis),
-                ]),
-              );
-            },
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(children: [
-            const Icon(Icons.mic, color: Colors.white54, size: 28),
-            const SizedBox(width: 15),
-            Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 15), decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(30)), child: const TextField(style: TextStyle(color: Colors.white), decoration: InputDecoration(hintText: "কিছু লিখুন...", border: BorderSide.none, hintStyle: TextStyle(color: Colors.white24))))),
-            const SizedBox(width: 15),
-            GestureDetector(onTap: _openGiftPanel, child: const Icon(Icons.card_giftcard, color: Colors.amber, size: 30)), 
-            const SizedBox(width: 15),
-            const Icon(Icons.send, color: Colors.pinkAccent, size: 28),
-          ]),
-        )
-      ]),
-    );
-  }
-}
-
-// --- প্রোফাইল সেকশন (ID ও ব্যালেন্স সহ) ---
-class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
-  @override
-  State<ProfilePage> createState() => _ProfilePageState();
-}
-
-class _ProfilePageState extends State<ProfilePage> {
-  String name = "পাগলা ইউজার";
-  File? img;
-  int diamonds = 1000;
-
-  @override
-  void initState() { super.initState(); _loadData(); }
-
-  _loadData() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      name = prefs.getString('name') ?? "পাগলা ইউজার";
-      diamonds = prefs.getInt('diamonds') ?? 1000;
-      String? path = prefs.getString('image');
-      if (path != null) img = File(path);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1E),
-      body: Center(
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          CircleAvatar(radius: 60, backgroundColor: const Color(0xFFE5D5FF), backgroundImage: img != null ? FileImage(img!) : null, child: img == null ? const Icon(Icons.person, size: 50) : null),
-          const SizedBox(height: 15),
-          Text(name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-          Text("ব্যালেন্স: $diamonds 💎", style: const TextStyle(color: Colors.amber)),
-          const Text("ID: 359210", style: TextStyle(color: Colors.white24)),
-        ]),
-      ),
-    );
-  }
-}
