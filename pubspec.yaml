@@ -1,5 +1,5 @@
 name: pagla_app
-description: "Achat Style Social Voice Chat Room"
+description: "Achat Style Voice Chat App"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -11,12 +11,11 @@ dependencies:
     sdk: flutter
   agora_rtc_engine: ^6.3.0
   permission_handler: ^11.0.0
-  cached_network_image: ^3.3.0 # প্রোফাইল পিকের জন্য
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_launcher_icons: "^0.13.1" # লোগো স্থায়ী করার জন্য
+  flutter_launcher_icons: "^0.13.1"
 
 flutter_launcher_icons:
   android: "launcher_icon"
