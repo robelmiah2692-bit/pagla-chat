@@ -70,7 +70,7 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// ২. ভয়েস রুম (সব ফিচার এখানে)
+// ২. ভয়েস রুম (সিট + মিউজিক + ফলো সব ফিক্সড)
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -97,4 +97,164 @@ class _VoiceRoomState extends State<VoiceRoom> {
     _initAgora();
   }
 
-  Future
+  Future<void> _initAgora() async {
+    await [Permission.microphone, Permission.storage].request();
+    _engine = createAgoraRtcEngine();
+    await _engine.initialize(const RtcEngineContext(appId: "348a9f9d55b14667891657dfc53dfbeb"));
+    _engine.registerEventHandler(RtcEngineEventHandler(
+      onJoinChannelSuccess: (c, e) => setState(() => _isJoined = true),
+      onLeaveChannel: (c, s) => setState(() => _isJoined = false),
+    ));
+    await _engine.enableAudio();
+  }
+
+  Future<void> _pickAndPlayMusic() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.audio);
+    if (result != null) {
+      File file = File(result.files.single.path!);
+      setState(() {
+        currentSong = result.files.single.name;
+        _showMusicBar = true;
+        _isPlaying = true;
+      });
+      await _audioPlayer.play(DeviceFileSource(file.path));
+      await _engine.startAudioMixing(filePath: file.path, loopback: false, cycle: -1);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF1A1A2E), Color(0xFF0F0F1E)], begin: Alignment.topCenter)),
+        child: Column(
+          children: [
+            const SizedBox(height: 50),
+            ListTile(
+              onTap: () async {
+                final img = await ImagePicker().pickImage(source: ImageSource.gallery);
+                if (img != null) setState(() => _boardImage = File(img.path));
+              },
+              leading: CircleAvatar(backgroundImage: _boardImage != null ? FileImage(_boardImage!) : null, child: _boardImage == null ? const Icon(Icons.group) : null),
+              title: Row(children: [
+                Text(groupName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                IconButton(icon: Icon(_isBoardFollowed ? Icons.check_box : Icons.add_box, color: Colors.cyanAccent), onPressed: () => setState(() => _isBoardFollowed = !_isBoardFollowed)),
+              ]),
+              trailing: IconButton(icon: const Icon(Icons.library_music, color: Colors.white), onPressed: _pickAndPlayMusic),
+            ),
+            Expanded(
+              flex: 2,
+              child: GridView.builder(
+                padding: const EdgeInsets.all(15),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5),
+                itemCount: 10,
+                itemBuilder: (context, index) => Column(
+                  children: [
+                    CircleAvatar(radius: 22, backgroundColor: (_isJoined && index == 0) ? Colors.pinkAccent : Colors.white10, child: const Icon(Icons.person, color: Colors.white)),
+                    Text("Seat ${index+1}", style: const TextStyle(color: Colors.white54, fontSize: 8)),
+                  ],
+                ),
+              ),
+            ),
+            if (_showMusicBar)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.pinkAccent.withOpacity(0.5))),
+                child: Row(children: [
+                  const Icon(Icons.music_note, color: Colors.pinkAccent),
+                  Expanded(child: Text(currentSong, style: const TextStyle(color: Colors.white, fontSize: 10), overflow: TextOverflow.ellipsis)),
+                  IconButton(icon: Icon(_isPlaying ? Icons.pause_circle : Icons.play_circle, color: Colors.white), onPressed: () async {
+                    _isPlaying ? await _audioPlayer.pause() : await _audioPlayer.resume();
+                    setState(() => _isPlaying = !_isPlaying);
+                  }),
+                  IconButton(icon: const Icon(Icons.close, color: Colors.redAccent, size: 20), onPressed: () {
+                    _audioPlayer.stop();
+                    _engine.stopAudioMixing();
+                    setState(() => _showMusicBar = false);
+                  }),
+                ]),
+              ),
+            Expanded(flex: 3, child: ListView.builder(reverse: true, itemCount: messages.length, itemBuilder: (context, index) => ListTile(dense: true, title: Text("${messages[index]["user"]}: ${messages[index]["msg"]}", style: const TextStyle(color: Colors.white70))))),
+            Container(
+              padding: const EdgeInsets.all(10), color: Colors.black45,
+              child: Row(children: [
+                IconButton(icon: Icon(_isMuted ? Icons.mic_off : Icons.mic, color: Colors.white), onPressed: () => setState(() { _isMuted = !_isMuted; _engine.muteLocalAudioStream(_isMuted); })),
+                Expanded(child: TextField(controller: _msgController, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: "কিছু লিখুন...", filled: true, fillColor: Colors.white10, suffixIcon: IconButton(icon: const Icon(Icons.send_rounded, color: Colors.pinkAccent), onPressed: () {
+                  if (_msgController.text.isNotEmpty) { setState(() => messages.insert(0, {"user": "আপনি", "msg": _msgController.text})); _msgController.clear(); }
+                }), border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none)))),
+                const SizedBox(width: 10),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: _isJoined ? Colors.red : Colors.green, shape: const StadiumBorder()),
+                  onPressed: () async {
+                    if (_isJoined) { await _engine.leaveChannel(); }
+                    else { await _engine.joinChannel(token: "", channelId: "pagla_room_1", uid: 0, options: const ChannelMediaOptions()); }
+                  },
+                  child: Text(_isJoined ? "নামুন" : "বসুন"),
+                ),
+              ]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ৩. প্রোফাইল পেজ
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({super.key});
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  String userName = "পাগলা ইউজার";
+  String userId = (Random().nextInt(899999) + 100000).toString();
+  File? _userImage;
+  bool _isFollowed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F1E),
+      body: Column(
+        children: [
+          const SizedBox(height: 50),
+          GestureDetector(
+            onTap: () async {
+              final img = await ImagePicker().pickImage(source: ImageSource.gallery);
+              if (img != null) setState(() => _userImage = File(img.path));
+            },
+            child: CircleAvatar(radius: 55, backgroundImage: _userImage != null ? FileImage(_userImage!) : null, child: _userImage == null ? const Icon(Icons.person, size: 50) : null),
+          ),
+          const SizedBox(height: 10),
+          Text(userName, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+          Text("ID: $userId", style: const TextStyle(color: Colors.white38)),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: _isFollowed ? Colors.white12 : Colors.pinkAccent),
+            onPressed: () => setState(() => _isFollowed = !_isFollowed),
+            child: Text(_isFollowed ? "Unfollow" : "Follow"),
+          ),
+          const SizedBox(height: 30),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            _buildStat(_isFollowed ? "১" : "০", "ফলোয়ার"),
+            const SizedBox(width: 50),
+            _buildStat("০", "ফলোইং"),
+          ]),
+        ],
+      ),
+    );
+  }
+  Widget _buildStat(String count, String label) {
+    return Column(children: [Text(count, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)), Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12))]);
+  }
+}
+
+// ৪. ডায়মন্ড স্টোর
+class DiamondStore extends StatelessWidget {
+  const DiamondStore({super.key});
+  @override
+  Widget build(BuildContext context) => const Scaffold(backgroundColor: Color(0xFF0F0F1E), body: Center(child: Text("স্টোর", style: TextStyle(color: Colors.white))));
+}
