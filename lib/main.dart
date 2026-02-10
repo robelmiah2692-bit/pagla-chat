@@ -16,7 +16,12 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 1; 
-  final List<Widget> _pages = [const HomePage(), const VoiceRoom(), const Center(child: Text("ইনবক্স")), const ProfilePage()];
+  final List<Widget> _pages = [
+    const HomePage(), 
+    const VoiceRoom(), 
+    const Center(child: Text("ইনবক্স (শীঘ্রই আসছে)", style: TextStyle(color: Colors.white54))), 
+    const ProfilePage()
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -40,19 +45,28 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- ১. হোম সেকশন ---
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
-      body: Center(child: Container(margin: const EdgeInsets.all(20), height: 150, decoration: BoxDecoration(gradient: const LinearGradient(colors: [Colors.blue, Colors.purple]), borderRadius: BorderRadius.circular(20)), child: const Center(child: Text("পাগলা চ্যাট এ স্বাগতম", style: TextStyle(color: Colors.white, fontSize: 20))))),
+      body: Center(
+        child: Container(
+          margin: const EdgeInsets.all(20),
+          height: 160,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Colors.blueAccent, Colors.purpleAccent]),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Center(child: Text("পাগলা চ্যাট এ স্বাগতম", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold))),
+        ),
+      ),
     );
   }
 }
 
-// --- ২. রুম সেকশন (সরাসরি বসা + রুম এডিট) ---
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -88,7 +102,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
     await _engine.enableAudio();
   }
 
-  // সরাসরি সিটে বসার লজিক
   void _toggleSeat(int index) async {
     if (_mySeatIndex == index) {
       setState(() { seats[index] = {"name": null, "img": null}; _mySeatIndex = null; });
@@ -114,7 +127,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
             p.setString('roomImage', x.path); 
             setState(() => roomImage = x.path);
           }
-        }, child: const Text("ছবি পাল্টান")),
+        }, child: const Text("ছবি")),
         TextButton(onPressed: () async {
           final p = await SharedPreferences.getInstance();
           p.setString('roomName', c.text);
@@ -125,13 +138,60 @@ class _VoiceRoomState extends State<VoiceRoom> {
     ));
   }
 
+  void _openGiftPanel() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(15),
+        height: 400,
+        child: Column(children: [
+          const Text("গিফট পাঠান", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 15),
+          Expanded(
+            child: GridView.count(
+              crossAxisCount: 4,
+              children: [
+                _giftItem("🌹", "Rose", 10), _giftItem("🍫", "Choco", 20),
+                _giftItem("💍", "Ring", 100), _giftItem("👑", "Crown", 500),
+                _giftItem("🚗", "Car", 1000), _giftItem("✈️", "Plane", 2000),
+                _giftItem("🏰", "Castle", 5000), _giftItem("💎", "Gem", 100),
+                _giftItem("🔥", "Fire", 30), _giftItem("🎸", "Guitar", 150),
+              ],
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _giftItem(String icon, String name, int price) {
+    return GestureDetector(
+      onTap: () async {
+        if (userDiamonds >= price) {
+          setState(() => userDiamonds -= price);
+          final prefs = await SharedPreferences.getInstance();
+          prefs.setInt('diamonds', userDiamonds);
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$name পাঠানো হয়েছে!"), backgroundColor: Colors.pinkAccent));
+        }
+      },
+      child: Column(children: [
+        Text(icon, style: const TextStyle(fontSize: 25)),
+        Text(name, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+        Text("$price 💎", style: const TextStyle(color: Colors.cyanAccent, fontSize: 10)),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
       appBar: AppBar(
         backgroundColor: Colors.transparent, elevation: 0,
-        leading: GestureDetector(onTap: _editRoom, child: Padding(padding: const EdgeInsets.all(8.0), child: CircleAvatar(backgroundImage: roomImage != null ? FileImage(File(roomImage!)) : null, backgroundColor: Colors.white12, child: roomImage == null ? const Icon(Icons.camera_alt, size: 18) : null))),
+        leading: GestureDetector(onTap: _editRoom, child: Padding(padding: const EdgeInsets.all(8.0), child: CircleAvatar(backgroundImage: roomImage != null ? FileImage(File(roomImage!)) : null, backgroundColor: Colors.white12, child: roomImage == null ? const Icon(Icons.camera_alt, size: 18, color: Colors.white) : null))),
         title: Text(roomName, style: const TextStyle(fontSize: 16, color: Colors.white)),
         actions: [const Icon(Icons.add_box, color: Colors.cyanAccent), const SizedBox(width: 15), Text("$userDiamonds 💎", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)), const SizedBox(width: 15)],
       ),
@@ -160,13 +220,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
       IconButton(onPressed: _openGiftPanel, icon: const Icon(Icons.card_giftcard, color: Colors.amber)),
     ]));
   }
-
-  void _openGiftPanel() {
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), builder: (ctx) => GridView.count(crossAxisCount: 4, children: List.generate(10, (i) => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const Text("🌹", style: TextStyle(fontSize: 25)), Text("${(i+1)*10} 💎", style: const TextStyle(color: Colors.cyanAccent, fontSize: 10))])))));
-  }
 }
 
-// --- ৪. প্রোফাইল সেকশন (সব সক্রিয় ফিচার) ---
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
   @override
@@ -189,4 +244,67 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   _editProfile() async {
-    TextEditingController c = TextEditingController(text
+    TextEditingController c = TextEditingController(text: name);
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: const Text("প্রোফাইল এডিট"),
+      content: TextField(controller: c),
+      actions: [
+        TextButton(onPressed: () async {
+          final x = await ImagePicker().pickImage(source: ImageSource.gallery);
+          if (x != null) { 
+            final p = await SharedPreferences.getInstance(); 
+            p.setString('image', x.path); 
+            setState(() => imgPath = x.path); 
+          }
+        }, child: const Text("ছবি")),
+        TextButton(onPressed: () async {
+          final p = await SharedPreferences.getInstance(); 
+          p.setString('name', c.text); 
+          setState(() => name = c.text); 
+          Navigator.pop(ctx);
+        }, child: const Text("সেভ")),
+      ],
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F1E),
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, actions: [const Icon(Icons.settings, color: Colors.white70), const SizedBox(width: 15)]),
+      body: SingleChildScrollView(
+        child: Column(children: [
+          const SizedBox(height: 20),
+          GestureDetector(onTap: _editProfile, child: CircleAvatar(radius: 60, backgroundColor: const Color(0xFFE5D5FF), backgroundImage: imgPath != null ? FileImage(File(imgPath!)) : null, child: imgPath == null ? const Icon(Icons.camera_alt, color: Colors.black45, size: 30) : null)),
+          const SizedBox(height: 15),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Text(name, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            IconButton(onPressed: _editProfile, icon: const Icon(Icons.edit, color: Colors.pinkAccent, size: 18))
+          ]),
+          const SizedBox(height: 5),
+          Text("Followers: $followers", style: const TextStyle(color: Colors.white54)),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () async { 
+              setState(() => followers++); 
+              final p = await SharedPreferences.getInstance(); p.setInt('followers', followers);
+            }, 
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF14E8B), minimumSize: const Size(150, 45), shape: const StadiumBorder()), 
+            child: const Text("Follow", style: TextStyle(color: Colors.white)),
+          ),
+          const SizedBox(height: 30),
+          const Divider(color: Colors.white10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              const Text("আপনার স্টোরি পোস্ট", style: TextStyle(color: Colors.white, fontSize: 16)),
+              const Icon(Icons.add_a_photo, color: Colors.cyanAccent, size: 22),
+            ]),
+          ),
+          const SizedBox(height: 60),
+          const Text("এখনো কোনো পোস্ট নেই", style: TextStyle(color: Colors.white24)),
+        ]),
+      ),
+    );
+  }
+}
