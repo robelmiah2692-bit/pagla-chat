@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:agora_rtc_engine/agora_rtc_engine.dart'; // ভয়েস সার্ভার
-import 'package:permission_handler/permission_handler.dart'; // মাইক্রোফোন পারমিশন
+import 'package:agora_rtc_engine/agora_rtc_engine.dart'; 
+import 'package:permission_handler/permission_handler.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 void main() {
@@ -12,7 +12,7 @@ void main() {
   ));
 }
 
-// ১. স্প্ল্যাশ স্ক্রিন (পুরোনো ডাটা অক্ষত)
+// ১. স্প্ল্যাশ স্ক্রিন (লোগো সহ)
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
   @override
@@ -41,7 +41,7 @@ class _SplashScreenState extends State<SplashScreen> {
               child: Image.asset('assets/logo.jpg', width: 140, height: 140, fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => const Icon(Icons.stars, size: 100, color: Colors.amber)),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 25),
             const Text("পাগলা চ্যাট", style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             const CircularProgressIndicator(color: Colors.pinkAccent),
@@ -52,7 +52,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-// ২. মেইন নেভিগেশন (রুম, স্টোর, প্রোফাইল)
+// ২. মেইন নেভিগেশন
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
   @override
@@ -83,7 +83,7 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// ৩. ভয়েস রুম (১০ জনের বোর্ড + সবাই বলতে ও শুনতে পারবে)
+// ৩. ভয়েস রুম (১০ জন কথা বলতে পারবে)
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -94,7 +94,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   late RtcEngine _engine;
   bool _isJoined = false;
   bool _isMicMuted = false;
-  Set<int> _remoteUsers = {}; // রুমে যারা আছে তাদের আইডি
+  Set<int> _remoteUsers = {}; 
 
   @override
   void initState() {
@@ -103,23 +103,21 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   Future<void> _initAgora() async {
-    // মাইক্রোফোন পারমিশন নেয়া
     await [Permission.microphone].request();
-
     _engine = createAgoraRtcEngine();
-    await _engine.initialize(const RtcEngineContext(
-      appId: "YOUR_APP_ID", // এখানে তোমার Agora App ID বসাও
-    ));
+    
+    // তোমার Agora App ID এখানে বসাও
+    await _engine.initialize(const RtcEngineContext(appId: "YOUR_APP_ID")); 
 
     _engine.registerEventHandler(RtcEngineEventHandler(
       onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
         setState(() => _isJoined = true);
       },
       onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
-        setState(() => _remoteUsers.add(remoteUid)); // নতুন কেউ এলে লিস্টে যোগ হবে
+        setState(() => _remoteUsers.add(remoteUid));
       },
       onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
-        setState(() => _remoteUsers.remove(remoteUid)); // কেউ চলে গেলে রিমুভ হবে
+        setState(() => _remoteUsers.remove(remoteUid));
       },
       onLeaveChannel: (RtcConnection connection, RtcStats stats) {
         setState(() { _isJoined = false; _remoteUsers.clear(); });
@@ -127,21 +125,14 @@ class _VoiceRoomState extends State<VoiceRoom> {
     ));
 
     await _engine.enableAudio();
-    // এই লাইনটি সবাইকে কথা বলার অনুমতি দেয় (Broadcaster Mode)
     await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
   }
 
-  // সিটে বসা বা সিট ছাড়ার ফাংশন
   Future<void> _toggleSeat() async {
     if (_isJoined) {
       await _engine.leaveChannel();
     } else {
-      await _engine.joinChannel(
-        token: "", // টোকেন আপাতত খালি
-        channelId: "pagla_room_01", 
-        uid: 0, 
-        options: const ChannelMediaOptions(),
-      );
+      await _engine.joinChannel(token: "", channelId: "pagla_room_01", uid: 0, options: const ChannelMediaOptions());
     }
   }
 
@@ -149,22 +140,16 @@ class _VoiceRoomState extends State<VoiceRoom> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent, 
-        title: const Text("লাইভ আড্ডা রুম", style: TextStyle(fontWeight: FontWeight.bold)),
-        actions: [IconButton(icon: const Icon(Icons.music_note, color: Colors.cyanAccent), onPressed: () {})],
-      ),
+      appBar: AppBar(backgroundColor: Colors.transparent, title: const Text("লাইভ আড্ডা")),
       body: Column(
         children: [
-          // ১০ জন বসার বোর্ড ডিজাইন (আগের ডাটা অনুযায়ী)
           Expanded(
             child: GridView.builder(
               padding: const EdgeInsets.all(15),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 15),
               itemCount: 10,
               itemBuilder: (context, index) {
-                // সিট একটিভ কি না তার লজিক
-                bool isBroadcasting = _isJoined && (index == 0 || index <= _remoteUsers.length);
+                bool active = _isJoined && (index == 0 || index <= _remoteUsers.length);
                 return GestureDetector(
                   onTap: _toggleSeat,
                   child: Column(
@@ -173,15 +158,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
                         width: 75, height: 75,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: isBroadcasting ? Colors.greenAccent : (index == 0 ? Colors.amber : Colors.blueAccent), width: 3),
+                          border: Border.all(color: active ? Colors.greenAccent : (index == 0 ? Colors.amber : Colors.blueAccent), width: 3),
                         ),
-                        child: CircleAvatar(
-                          radius: 32, 
-                          backgroundColor: Colors.white10, 
-                          child: Icon(isBroadcasting ? Icons.mic : Icons.person_outline, color: Colors.white)
-                        ),
+                        child: CircleAvatar(radius: 32, backgroundColor: Colors.white10, child: Icon(active ? Icons.mic : Icons.person, color: Colors.white)),
                       ),
-                      const SizedBox(height: 5),
                       Text(index == 0 ? "Host" : "Seat ${index + 1}", style: const TextStyle(color: Colors.white, fontSize: 10)),
                     ],
                   ),
@@ -189,7 +169,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
               },
             ),
           ),
-          // কন্ট্রোল বার
           _buildControlBar(),
         ],
       ),
@@ -213,9 +192,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
             },
           ),
           ElevatedButton(
-            onPressed: _toggleSeat,
+            onPressed: _toggleSeat, 
             style: ElevatedButton.styleFrom(backgroundColor: _isJoined ? Colors.red : Colors.blueAccent),
-            child: Text(_isJoined ? "সিট ছাড়ুন" : "সিটে বসুন"),
+            child: Text(_isJoined ? "সিট ছাড়ুন" : "সিটে বসুন")
           ),
           const Icon(Icons.card_giftcard, color: Colors.amber, size: 30),
         ],
@@ -224,56 +203,30 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 }
 
-// ৪. ডায়মন্ড স্টোর (পুরোনো ডাটা অক্ষত)
+// ৪. স্টোর ও ৫. প্রোফাইল
 class DiamondStore extends StatelessWidget {
   const DiamondStore({super.key});
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
-      appBar: AppBar(title: const Text("কয়েন স্টোর"), backgroundColor: Colors.indigo),
-      body: GridView.count(
-        padding: const EdgeInsets.all(15),
-        crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10,
-        children: [
-          _buildItem("১০০ কয়েন", "৳ ১০০", Icons.diamond),
-          _buildItem("৫০০ কয়েন", "৳ ৪৫০", Icons.auto_awesome),
-        ],
-      ),
-    );
-  }
-  Widget _buildItem(String title, String price, IconData icon) => Card(
-    color: Colors.white10,
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: Colors.cyanAccent, size: 40),
-        const SizedBox(height: 5),
-        Text(title, style: const TextStyle(color: Colors.white)),
-        ElevatedButton(onPressed: () {}, child: Text(price)),
-      ],
-    ),
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: const Color(0xFF1A1A2E), 
+    appBar: AppBar(title: const Text("কয়েন স্টোর")),
+    body: const Center(child: Text("ডায়মন্ড প্যাকেজ লোড হচ্ছে...", style: TextStyle(color: Colors.white)))
   );
 }
 
-// ৫. প্রোফাইল পেজ (পুরোনো ডাটা অক্ষত)
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF121212),
-      body: Center(
-        child: Column(
-          children: [
-            const SizedBox(height: 80),
-            Container(width: 120, height: 120, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.pinkAccent, width: 3))),
-            const SizedBox(height: 20),
-            const Text("পাগলা ইউজার", style: TextStyle(color: Colors.white, fontSize: 22)),
-            const Text("ID: 2692001", style: TextStyle(color: Colors.grey)),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: const Color(0xFF121212), 
+    body: Column(
+      children: [
+        const SizedBox(height: 80),
+        Center(child: Container(width: 120, height: 120, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.pinkAccent, width: 3)))),
+        const SizedBox(height: 20),
+        const Text("পাগলা ইউজার", style: TextStyle(color: Colors.white, fontSize: 22)),
+        const Text("ID: 2692001", style: TextStyle(color: Colors.grey)),
+      ],
+    )
+  );
 }
