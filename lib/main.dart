@@ -12,7 +12,7 @@ void main() {
   ));
 }
 
-// ১. স্প্ল্যাশ স্ক্রিন (লোগো সহ)
+// ১. স্প্ল্যাশ স্ক্রিন (লোগো এবং এনিমেশন)
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
   @override
@@ -43,7 +43,7 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 25),
             const Text("পাগলা চ্যাট", style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
+            const SizedBox(height: 15),
             const CircularProgressIndicator(color: Colors.pinkAccent),
           ],
         ),
@@ -52,7 +52,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-// ২. মেইন নেভিগেশন
+// ২. মেইন নেভিগেশন (রুম, স্টোর, প্রোফাইল)
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
   @override
@@ -74,16 +74,16 @@ class _MainNavigationState extends State<MainNavigation> {
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.mic), label: "রুম"),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_bag), label: "স্টোর"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "প্রোফাইল"),
+          BottomNavigationBarItem(icon: Icon(Icons.mic_rounded), label: "রুম"),
+          BottomNavigationBarItem(icon: Icon(Icons.shopping_bag_rounded), label: "স্টোর"),
+          BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: "প্রোফাইল"),
         ],
       ),
     );
   }
 }
 
-// ৩. ভয়েস রুম (১০ জন কথা বলতে পারবে)
+// ৩. ভয়েস রুম (Agora কানেকশন সহ)
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -106,8 +106,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
     await [Permission.microphone].request();
     _engine = createAgoraRtcEngine();
     
-    // তোমার Agora App ID এখানে বসাও
-    await _engine.initialize(const RtcEngineContext(appId: "YOUR_APP_ID")); 
+    // তোমার দেওয়া অরিজিনাল Agora ID এখানে বসিয়ে দিয়েছি
+    await _engine.initialize(const RtcEngineContext(
+      appId: "348a9f9d55b14667891657dfc53dfbeb",
+    )); 
 
     _engine.registerEventHandler(RtcEngineEventHandler(
       onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
@@ -132,7 +134,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
     if (_isJoined) {
       await _engine.leaveChannel();
     } else {
-      await _engine.joinChannel(token: "", channelId: "pagla_room_01", uid: 0, options: const ChannelMediaOptions());
+      await _engine.joinChannel(
+        token: "", 
+        channelId: "pagla_room_01", 
+        uid: 0, 
+        options: const ChannelMediaOptions()
+      );
     }
   }
 
@@ -140,15 +147,22 @@ class _VoiceRoomState extends State<VoiceRoom> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
-      appBar: AppBar(backgroundColor: Colors.transparent, title: const Text("লাইভ আড্ডা")),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent, 
+        elevation: 0,
+        title: const Text("লাইভ আড্ডা রুম", style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [IconButton(icon: const Icon(Icons.music_note, color: Colors.cyanAccent), onPressed: () {})],
+      ),
       body: Column(
         children: [
+          // ১০ জন বসার বোর্ড
           Expanded(
             child: GridView.builder(
               padding: const EdgeInsets.all(15),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 15),
               itemCount: 10,
               itemBuilder: (context, index) {
+                // হোস্ট এবং মেম্বারদের সিট বর্ডার চেক
                 bool active = _isJoined && (index == 0 || index <= _remoteUsers.length);
                 return GestureDetector(
                   onTap: _toggleSeat,
@@ -158,10 +172,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
                         width: 75, height: 75,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: active ? Colors.greenAccent : (index == 0 ? Colors.amber : Colors.blueAccent), width: 3),
+                          border: Border.all(
+                            color: active ? Colors.greenAccent : (index == 0 ? Colors.amber : Colors.blueAccent), 
+                            width: 3
+                          ),
                         ),
-                        child: CircleAvatar(radius: 32, backgroundColor: Colors.white10, child: Icon(active ? Icons.mic : Icons.person, color: Colors.white)),
+                        child: CircleAvatar(
+                          radius: 32, 
+                          backgroundColor: Colors.white10, 
+                          child: Icon(active ? Icons.mic : Icons.person_outline, color: Colors.white)
+                        ),
                       ),
+                      const SizedBox(height: 5),
                       Text(index == 0 ? "Host" : "Seat ${index + 1}", style: const TextStyle(color: Colors.white, fontSize: 10)),
                     ],
                   ),
@@ -169,21 +191,25 @@ class _VoiceRoomState extends State<VoiceRoom> {
               },
             ),
           ),
-          _buildControlBar(),
+          // কন্ট্রোল প্যানেল
+          _buildBottomBar(),
         ],
       ),
     );
   }
 
-  Widget _buildControlBar() {
+  Widget _buildBottomBar() {
     return Container(
-      padding: const EdgeInsets.all(15),
-      color: Colors.black45,
+      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+      decoration: const BoxDecoration(
+        color: Colors.black45,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(
-            icon: Icon(_isMicMuted ? Icons.mic_off : Icons.mic, color: Colors.white),
+            icon: Icon(_isMicMuted ? Icons.mic_off : Icons.mic, color: Colors.white, size: 28),
             onPressed: () {
               setState(() {
                 _isMicMuted = !_isMicMuted;
@@ -192,41 +218,100 @@ class _VoiceRoomState extends State<VoiceRoom> {
             },
           ),
           ElevatedButton(
-            onPressed: _toggleSeat, 
-            style: ElevatedButton.styleFrom(backgroundColor: _isJoined ? Colors.red : Colors.blueAccent),
-            child: Text(_isJoined ? "সিট ছাড়ুন" : "সিটে বসুন")
+            onPressed: _toggleSeat,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _isJoined ? Colors.redAccent : Colors.pinkAccent,
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+              shape: RoundedRectangleGift(borderRadius: BorderRadius.circular(25)),
+            ),
+            child: Text(_isJoined ? "সিট ছাড়ুন" : "সিটে বসুন", style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
-          const Icon(Icons.card_giftcard, color: Colors.amber, size: 30),
+          const Icon(Icons.card_giftcard, color: Colors.amber, size: 32),
         ],
       ),
     );
   }
 }
 
-// ৪. স্টোর ও ৫. প্রোফাইল
+// ৪. ডায়মন্ড স্টোর (আগের ডিজাইন অক্ষত)
 class DiamondStore extends StatelessWidget {
   const DiamondStore({super.key});
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: const Color(0xFF1A1A2E), 
-    appBar: AppBar(title: const Text("কয়েন স্টোর")),
-    body: const Center(child: Text("ডায়মন্ড প্যাকেজ লোড হচ্ছে...", style: TextStyle(color: Colors.white)))
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF1A1A2E),
+      appBar: AppBar(title: const Text("কয়েন স্টোর"), backgroundColor: Colors.indigo),
+      body: GridView.count(
+        padding: const EdgeInsets.all(15),
+        crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10,
+        children: [
+          _buildCoinCard("১০০ ডায়মন্ড", "৳ ১০০", Icons.diamond),
+          _buildCoinCard("৫০০ ডায়মন্ড", "৳ ৪৫০", Icons.auto_awesome),
+          _buildCoinCard("১০০০ ডায়মন্ড", "৳ ৮০০", Icons.stars),
+          _buildCoinCard("৫০০০ ডায়মন্ড", "৳ ৩০০০", Icons.workspace_premium),
+        ],
+      ),
+    );
+  }
+  Widget _buildCoinCard(String title, String price, IconData icon) => Card(
+    color: Colors.white10,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, color: Colors.cyanAccent, size: 40),
+        const SizedBox(height: 8),
+        Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        ElevatedButton(onPressed: () {}, child: Text(price)),
+      ],
+    ),
   );
 }
 
+// ৫. প্রোফাইল পেজ (আগের ডিজাইন অক্ষত)
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: const Color(0xFF121212), 
-    body: Column(
-      children: [
-        const SizedBox(height: 80),
-        Center(child: Container(width: 120, height: 120, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.pinkAccent, width: 3)))),
-        const SizedBox(height: 20),
-        const Text("পাগলা ইউজার", style: TextStyle(color: Colors.white, fontSize: 22)),
-        const Text("ID: 2692001", style: TextStyle(color: Colors.grey)),
-      ],
-    )
-  );
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF121212),
+      body: Column(
+        children: [
+          const SizedBox(height: 80),
+          Center(
+            child: Container(
+              width: 130, height: 130,
+              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.pinkAccent, width: 4)),
+              child: const CircleAvatar(radius: 60, backgroundColor: Colors.white10, child: Icon(Icons.person, size: 60, color: Colors.white24)),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text("পাগলা ইউজার", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+          const Text("ID: 2692001", style: TextStyle(color: Colors.grey)),
+          const Divider(color: Colors.white10, height: 60, indent: 40, endIndent: 40),
+          ListTile(leading: const Icon(Icons.grid_view_rounded, color: Colors.amber), title: const Text("আমার ফ্রেম ও ব্যাজ", style: TextStyle(color: Colors.white))),
+          ListTile(leading: const Icon(Icons.settings, color: Colors.blueAccent), title: const Text("সেটিংস", style: TextStyle(color: Colors.white))),
+        ],
+      ),
+    );
+  }
+}
+
+// কাস্টম বাটন শেপ এর জন্য
+class RoundedRectangleGift extends OutlinedBorder {
+  final BorderRadiusGeometry borderRadius;
+  const RoundedRectangleGift({this.borderRadius = BorderRadius.zero});
+  @override
+  OutlinedBorder copyWith({BorderSide? side, BorderRadiusGeometry? borderRadius}) => RoundedRectangleGift(borderRadius: borderRadius ?? this.borderRadius);
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) => Path()..addRRect(borderRadius.resolve(textDirection).toRRect(rect).deflate(side.width));
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) => Path()..addRRect(borderRadius.resolve(textDirection).toRRect(rect));
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
+    if (rect.isEmpty) return;
+    final RRect rrect = borderRadius.resolve(textDirection).toRRect(rect);
+    canvas.drawRRect(rrect, side.toPaint());
+  }
 }
