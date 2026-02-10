@@ -15,12 +15,12 @@ class MainNavigation extends StatefulWidget {
 }
 
 class _MainNavigationState extends State<MainNavigation> {
-  int _currentIndex = 1; // ডিফল্ট রুম পেজ ওপেন হবে
+  int _currentIndex = 1; 
   final List<Widget> _pages = [
     const HomePage(), 
     const VoiceRoom(), 
     const Center(child: Text("ইনবক্স (শীঘ্রই আসছে)", style: TextStyle(color: Colors.white54))), 
-    const ProfilePage()
+    const ProfilePage(),
   ];
 
   @override
@@ -45,7 +45,6 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- ১. হোম সেকশন ---
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
   @override
@@ -67,7 +66,6 @@ class HomePage extends StatelessWidget {
   }
 }
 
-// --- ২. রুম সেকশন (সরাসরি সিট + গিফট অপশন) ---
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -164,3 +162,91 @@ class _VoiceRoomState extends State<VoiceRoom> {
         Text(name, style: const TextStyle(color: Colors.white70)),
         Text("$price 💎", style: const TextStyle(color: Colors.cyanAccent, fontSize: 12)),
       ]),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F1E),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent, elevation: 0,
+        title: const Text("আড্ডা বোর্ড", style: TextStyle(color: Colors.white, fontSize: 18)),
+        actions: [Text("$userDiamonds 💎  ", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))],
+      ),
+      body: Column(children: [
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(20),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, childAspectRatio: 0.8),
+            itemCount: 10,
+            itemBuilder: (context, index) {
+              var user = seats[index];
+              return GestureDetector(
+                onTap: () => _handleSeat(index),
+                child: Column(children: [
+                  CircleAvatar(radius: 25, backgroundColor: Colors.white10, backgroundImage: user["image"] != null ? FileImage(File(user["image"]!)) : null, child: user["name"] == null ? const Icon(Icons.person, color: Colors.white24) : null),
+                  Text(user["name"] ?? "Seat ${index + 1}", style: const TextStyle(color: Colors.white38, fontSize: 10), overflow: TextOverflow.ellipsis),
+                ]),
+              );
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(children: [
+            const Icon(Icons.mic, color: Colors.white54, size: 28),
+            const SizedBox(width: 15),
+            Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 15), decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(30)), child: const TextField(style: TextStyle(color: Colors.white), decoration: InputDecoration(hintText: "কিছু লিখুন...", border: InputBorder.none, hintStyle: TextStyle(color: Colors.white24))))),
+            const SizedBox(width: 15),
+            GestureDetector(onTap: _openGiftPanel, child: const Icon(Icons.card_giftcard, color: Colors.amber, size: 30)), 
+            const SizedBox(width: 15),
+            const Icon(Icons.send, color: Colors.pinkAccent, size: 28),
+          ]),
+        )
+      ]),
+    );
+  }
+}
+
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({super.key});
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  String name = "পাগলা ইউজার";
+  File? img;
+  int diamonds = 1000;
+
+  @override
+  void initState() { super.initState(); _loadData(); }
+
+  _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      name = prefs.getString('name') ?? "পাগলা ইউজার";
+      diamonds = prefs.getInt('diamonds') ?? 1000;
+      String? path = prefs.getString('image');
+      if (path != null) img = File(path);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F1E),
+      body: Center(
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          CircleAvatar(radius: 60, backgroundColor: Colors.white12, backgroundImage: img != null ? FileImage(img!) : null, child: img == null ? const Icon(Icons.person, size: 50, color: Colors.white24) : null),
+          const SizedBox(height: 15),
+          Text(name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+          Text("ID: 359210", style: const TextStyle(color: Colors.white24)),
+          const SizedBox(height: 10),
+          Text("ব্যালেন্স: $diamonds 💎", style: const TextStyle(color: Colors.amber, fontSize: 18)),
+        ]),
+      ),
+    );
+  }
+}
