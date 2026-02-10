@@ -1,5 +1,5 @@
 name: pagla_app
-description: "A new Flutter project."
+description: "Achat Style Social Voice Chat Room"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -9,17 +9,19 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.6
-  firebase_core: ^2.24.2
-  firebase_auth: ^4.15.3
-  google_sign_in: ^6.1.6
   agora_rtc_engine: ^6.3.0
   permission_handler: ^11.0.0
+  cached_network_image: ^3.3.0 # প্রোফাইল পিকের জন্য
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
+  flutter_launcher_icons: "^0.13.1" # লোগো স্থায়ী করার জন্য
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  image_path: "assets/logo.jpg"
+  adaptive_icon_background: "#1A1A2E"
 
 flutter:
   uses-material-design: true
