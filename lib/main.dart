@@ -10,11 +10,7 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
-  final List<Widget> _pages = [
-    const VoiceChatRoom(), // ১০ সিটের বোর্ড
-    const DiamondStore(),  // ডায়মন্ড ও কয়েন
-    const ProfilePage(),   // প্রোফাইল ও ফ্রেম
-  ];
+  final List<Widget> _pages = [const VoiceChatRoom(), const DiamondStore(), const ProfilePage()];
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +19,7 @@ class _MainNavigationState extends State<MainNavigation> {
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFF1A1A2E),
         selectedItemColor: Colors.pinkAccent,
-        unselectedItemColor: Colors.white54,
+        unselectedItemColor: Colors.white,
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
@@ -36,138 +32,41 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- ১. ভয়েস রুম (বোর্ড ও সিট) ---
+// ভয়েস রুম স্ক্রিন
 class VoiceChatRoom extends StatelessWidget {
   const VoiceChatRoom({super.key});
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        title: const Text("পাগলা ড্রিম রুম", style: TextStyle(color: Colors.white)),
-        actions: [
-          IconButton(icon: const Icon(Icons.games, color: Colors.greenAccent), onPressed: () {}), // গেমস
-          IconButton(icon: const Icon(Icons.music_note, color: Colors.cyan), onPressed: () {}), // মিউজিক
-        ],
-      ),
+      appBar: AppBar(backgroundColor: Colors.transparent, title: const Text("পাগলা ড্রিম রুম", style: TextStyle(color: Colors.white))),
       body: Column(
         children: [
           Expanded(
             child: GridView.builder(
               padding: const EdgeInsets.all(20),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3, 
-                mainAxisSpacing: 25,
-                childAspectRatio: 0.8,
-              ),
-              itemCount: 10, // ১০টি বসার বোর্ড
-              itemBuilder: (context, index) => _buildSeat(index),
-            ),
-          ),
-          _buildBottomBar(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSeat(int index) {
-    return Column(
-      children: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            // প্রোফাইল ফ্রেম
-            Container(
-              width: 80, height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: index == 0 ? Colors.orange : Colors.blueAccent, width: 3),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 30),
+              itemCount: 10,
+              itemBuilder: (context, index) => Column(
+                children: [
+                  Container(
+                    width: 70, height: 70,
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: index == 0 ? Colors.gold : Colors.cyan, width: 3)),
+                    child: const CircleAvatar(radius: 30, backgroundColor: Colors.white12, child: Icon(Icons.person, color: Colors.white)),
+                  ),
+                  Text(index == 0 ? "Host" : "Seat ${index + 1}", style: const TextStyle(color: Colors.white, fontSize: 10)),
+                ],
               ),
             ),
-            const CircleAvatar(radius: 34, backgroundColor: Colors.grey, child: Icon(Icons.person, color: Colors.white)),
-            if (index == 0) const Positioned(top: 0, child: Icon(Icons.workspace_premium, color: Colors.gold, size: 20)),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(index == 0 ? "Host" : "Seat ${index + 1}", style: const TextStyle(color: Colors.white, fontSize: 11)),
-      ],
-    );
-  }
-
-  Widget _buildBottomBar() {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      color: Colors.black45,
-      child: Row(
-        children: [
-          const Icon(Icons.chat, color: Colors.white70),
-          const SizedBox(width: 10),
-          Expanded(child: Container(height: 40, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20)), 
-          child: const TextField(decoration: InputDecoration(hintText: "কথা বলুন...", border: InputBorder.none, contentPadding: EdgeInsets.only(left: 15))))),
-          IconButton(icon: const Icon(Icons.card_giftcard, color: Colors.yellow, size: 32), onPressed: () {}), // গিফটিং
-        ],
-      ),
-    );
-  }
-}
-
-// --- ২. ডায়মন্ড স্টোর ---
-class DiamondStore extends StatelessWidget {
-  const DiamondStore({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
-      appBar: AppBar(title: const Text("ডায়মন্ড ও কয়েন স্টোর"), backgroundColor: Colors.indigo),
-      body: ListView(
-        padding: const EdgeInsets.all(15),
-        children: [
-          _buildItem("১০০ কয়েন", "৳ ১০০", Icons.diamond),
-          _buildItem("৫০০ কয়েন", "৳ ৪৫০", Icons.auto_awesome),
-          _buildItem("১০০০ কয়েন", "৳ ৮০০", Icons.stars),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildItem(String name, String price, IconData icon) {
-    return Card(color: Colors.white10, child: ListTile(leading: Icon(icon, color: Colors.amber), title: Text(name, style: const TextStyle(color: Colors.white)), trailing: ElevatedButton(onPressed: () {}, child: Text(price))));
-  }
-}
-
-// --- ৩. প্রোফাইল ও ফ্রেম ---
-class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF121212),
-      body: Column(
-        children: [
-          const SizedBox(height: 70),
-          Center(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(width: 130, height: 130, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.pink, width: 5))), // প্রফেশনাল ফ্রেম
-                const CircleAvatar(radius: 55, backgroundColor: Colors.blueGrey, child: Icon(Icons.add_a_photo, size: 30)),
-              ],
-            ),
           ),
-          const SizedBox(height: 15),
-          const Text("আপনার নাম", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-          const Text("ID: 2692001", style: TextStyle(color: Colors.grey)),
-          const Divider(color: Colors.white12, height: 40),
-          _profileOption(Icons.image, "আমার স্টোরি"),
-          _profileOption(Icons.workspace_premium, "আমার ফ্রেম ও ব্যাজ"),
-          _profileOption(Icons.settings, "সেটিংস"),
+          _bottomBar(),
         ],
       ),
     );
   }
-
-  Widget _profileOption(IconData icon, String title) {
-    return ListTile(leading: Icon(icon, color: Colors.pinkAccent), title: Text(title, style: const TextStyle(color: Colors.white)), trailing: const Icon(Icons.arrow_forward_ios, size: 15, color: Colors.grey));
-  }
+  Widget _bottomBar() => Container(padding: const EdgeInsets.all(15), color: Colors.white10, child: const Row(children: [Icon(Icons.chat, color: Colors.white), Spacer(), Icon(Icons.card_giftcard, color: Colors.yellow, size: 30)]));
 }
+
+// ডায়মন্ড স্টোর এবং প্রোফাইল পেজ (সংক্ষেপে)
+class DiamondStore extends StatelessWidget { const DiamondStore({super.key}); @override Widget build(BuildContext context) => Scaffold(backgroundColor: const Color(0xFF1A1A2E), body: const Center(child: Text("কয়েন স্টোর কামিং সুন", style: TextStyle(color: Colors.white)))); }
+class ProfilePage extends StatelessWidget { const ProfilePage({super.key}); @override Widget build(BuildContext context) => Scaffold(backgroundColor: const Color(0xFF1A1A2E), body: const Center(child: Text("প্রোফাইল ও ফ্রেম সেকশন", style: TextStyle(color: Colors.white)))); }
