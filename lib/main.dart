@@ -12,7 +12,7 @@ void main() {
   ));
 }
 
-// ১. স্প্ল্যাশ স্ক্রিন (লোগো এবং এনিমেশন)
+// ১. স্প্ল্যাশ স্ক্রিন (তোমার লোগো ও নাম)
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
   @override
@@ -52,7 +52,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-// ২. মেইন নেভিগেশন (রুম, স্টোর, প্রোফাইল)
+// ২. মেইন নেভিগেশন
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
   @override
@@ -83,7 +83,7 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// ৩. ভয়েস রুম (Agora কানেকশন সহ)
+// ৩. ভয়েস রুম (Agora ID সহ)
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -106,7 +106,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     await [Permission.microphone].request();
     _engine = createAgoraRtcEngine();
     
-    // তোমার দেওয়া অরিজিনাল Agora ID এখানে বসিয়ে দিয়েছি
+    // তোমার দেওয়া Agora App ID
     await _engine.initialize(const RtcEngineContext(
       appId: "348a9f9d55b14667891657dfc53dfbeb",
     )); 
@@ -155,14 +155,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
       ),
       body: Column(
         children: [
-          // ১০ জন বসার বোর্ড
           Expanded(
             child: GridView.builder(
               padding: const EdgeInsets.all(15),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 15),
               itemCount: 10,
               itemBuilder: (context, index) {
-                // হোস্ট এবং মেম্বারদের সিট বর্ডার চেক
                 bool active = _isJoined && (index == 0 || index <= _remoteUsers.length);
                 return GestureDetector(
                   onTap: _toggleSeat,
@@ -191,7 +189,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
               },
             ),
           ),
-          // কন্ট্রোল প্যানেল
           _buildBottomBar(),
         ],
       ),
@@ -222,7 +219,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
             style: ElevatedButton.styleFrom(
               backgroundColor: _isJoined ? Colors.redAccent : Colors.pinkAccent,
               padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-              shape: RoundedRectangleGift(borderRadius: BorderRadius.circular(25)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)), // সমস্যা এখানেই ছিল, ঠিক করে দিয়েছি
             ),
             child: Text(_isJoined ? "সিট ছাড়ুন" : "সিটে বসুন", style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
@@ -233,7 +230,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 }
 
-// ৪. ডায়মন্ড স্টোর (আগের ডিজাইন অক্ষত)
+// ৪. ডায়মন্ড স্টোর
 class DiamondStore extends StatelessWidget {
   const DiamondStore({super.key});
   @override
@@ -247,8 +244,6 @@ class DiamondStore extends StatelessWidget {
         children: [
           _buildCoinCard("১০০ ডায়মন্ড", "৳ ১০০", Icons.diamond),
           _buildCoinCard("৫০০ ডায়মন্ড", "৳ ৪৫০", Icons.auto_awesome),
-          _buildCoinCard("১০০০ ডায়মন্ড", "৳ ৮০০", Icons.stars),
-          _buildCoinCard("৫০০০ ডায়মন্ড", "৳ ৩০০০", Icons.workspace_premium),
         ],
       ),
     );
@@ -269,7 +264,7 @@ class DiamondStore extends StatelessWidget {
   );
 }
 
-// ৫. প্রোফাইল পেজ (আগের ডিজাইন অক্ষত)
+// ৫. প্রোফাইল পেজ
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
   @override
@@ -291,27 +286,8 @@ class ProfilePage extends StatelessWidget {
           const Text("ID: 2692001", style: TextStyle(color: Colors.grey)),
           const Divider(color: Colors.white10, height: 60, indent: 40, endIndent: 40),
           ListTile(leading: const Icon(Icons.grid_view_rounded, color: Colors.amber), title: const Text("আমার ফ্রেম ও ব্যাজ", style: TextStyle(color: Colors.white))),
-          ListTile(leading: const Icon(Icons.settings, color: Colors.blueAccent), title: const Text("সেটিংস", style: TextStyle(color: Colors.white))),
         ],
       ),
     );
-  }
-}
-
-// কাস্টম বাটন শেপ এর জন্য
-class RoundedRectangleGift extends OutlinedBorder {
-  final BorderRadiusGeometry borderRadius;
-  const RoundedRectangleGift({this.borderRadius = BorderRadius.zero});
-  @override
-  OutlinedBorder copyWith({BorderSide? side, BorderRadiusGeometry? borderRadius}) => RoundedRectangleGift(borderRadius: borderRadius ?? this.borderRadius);
-  @override
-  Path getInnerPath(Rect rect, {TextDirection? textDirection}) => Path()..addRRect(borderRadius.resolve(textDirection).toRRect(rect).deflate(side.width));
-  @override
-  Path getOuterPath(Rect rect, {TextDirection? textDirection}) => Path()..addRRect(borderRadius.resolve(textDirection).toRRect(rect));
-  @override
-  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
-    if (rect.isEmpty) return;
-    final RRect rrect = borderRadius.resolve(textDirection).toRRect(rect);
-    canvas.drawRRect(rrect, side.toPaint());
   }
 }
