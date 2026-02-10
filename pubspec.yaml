@@ -1,16 +1,20 @@
 name: pagla_app
-description: "Achat Style Social Voice Chat App"
+description: "A new Flutter project for Pagla Chat."
 publish_to: 'none'
+
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.2.0 <4.0.0'
+  sdk: '>=3.1.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   agora_rtc_engine: ^6.3.0
   permission_handler: ^11.0.0
+  package_info_plus: ^5.0.1
+  firebase_core: ^2.24.2
+  firebase_remote_config: ^4.3.8
   cached_network_image: ^3.3.0
 
 dev_dependencies:
@@ -20,8 +24,9 @@ dev_dependencies:
 
 flutter_launcher_icons:
   android: "launcher_icon"
+  ios: true
   image_path: "assets/logo.jpg"
-  adaptive_icon_background: "#1A1A2E"
+  adaptive_icon_background: "#0F0F1E"
 
 flutter:
   uses-material-design: true
