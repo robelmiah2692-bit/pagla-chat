@@ -13,20 +13,21 @@ if (flutterRoot == null) {
 
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
-apply plugin: 'com.google.gms.google-services' // ফায়ারবেস প্লাগইন
+// ১. ফায়ারবেস এবং ফ্লাটার প্লাগইন - এই লাইনগুলো সিরিয়াল অনুযায়ী থাকতে হবে
 apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
+apply plugin: 'com.google.gms.google-services' 
 
 android {
-    namespace "com.pagla.chat" // সঠিক প্যাকেজ নাম
+    namespace "com.pagla.chat" 
     compileSdkVersion 34
 
     defaultConfig {
-        applicationId "com.pagla.chat" // json ফাইলের সাথে মিলানো হয়েছে
-        minSdkVersion 23        
+        applicationId "com.pagla.chat" 
+        minSdkVersion 23 // আগোরা এবং ফায়ারবেসের জন্য ঠিক আছে
         targetSdkVersion 34    
         versionCode 1
         versionName "1.0"
-        multiDexEnabled true    
+        multiDexEnabled true // এটি সাদা স্ক্রিন রোধ করতে সাহায্য করবে
     }
 
     buildTypes {
@@ -40,10 +41,13 @@ android {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation 'com.android.support:multidex:1.0.3'
     
-    // ফায়ারবেস বোম (BoM) এবং ডাটাবেস
+    // ২. মাল্টিডেক্স আপডেট (পুরাতন ভার্সন ০.৩ ছিল, এখন ২.০.১ ব্যবহার করা ভালো)
+    implementation 'androidx.multidex:multidex:2.0.1'
+    
+    // ৩. ফায়ারবেস বোম (BoM) এবং ডাটাবেস
     implementation platform('com.google.firebase:firebase-bom:33.1.0')
     implementation 'com.google.firebase:firebase-analytics'
-    implementation 'com.google.firebase:firebase-database' // রিয়েলটাইম ডাটাবেস
+    implementation 'com.google.firebase:firebase-database'
+    implementation 'com.google.firebase:firebase-auth' // প্রোফাইলের জন্য এটিও লাগবে
 }
