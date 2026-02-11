@@ -12,13 +12,18 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: Fix Permissions and Build
+      - name: Reconstruct and Build
         run: |
-          # এন্ড্রয়েড ফাইল চালানোর অনুমতি দেওয়া (এটি আপনার এরর সমাধান করবে)
+          # হারানো এন্ড্রয়েড ফাইলগুলো অটোমেটিক তৈরি করবে
+          flutter create . --platforms android
+          
+          # আপনার নিজের সাজানো ফাইলগুলো যাতে ডিলিট না হয় তাই পাব গেট করা
+          flutter pub get
+          
+          # ফাইল চালানোর পারমিশন ফিক্স করা
           chmod +x android/gradlew
           
-          # আপনার গিটহাবের ফাইলগুলো থেকে বিল্ড শুরু
-          flutter pub get
+          # ফাইনাল বিল্ড শুরু
           flutter build apk --release
 
       - name: Upload APK
