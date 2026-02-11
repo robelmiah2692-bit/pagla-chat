@@ -12,10 +12,12 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: Build APK
+      - name: Fix Permissions and Build
         run: |
-          # কোনো নতুন প্রজেক্ট তৈরি হবে না
-          # সরাসরি আপনার গিটহাবের ফাইলগুলো ব্যবহার হবে
+          # এন্ড্রয়েড ফাইল চালানোর অনুমতি দেওয়া (এটি আপনার এরর সমাধান করবে)
+          chmod +x android/gradlew
+          
+          # আপনার গিটহাবের ফাইলগুলো থেকে বিল্ড শুরু
           flutter pub get
           flutter build apk --release
 
