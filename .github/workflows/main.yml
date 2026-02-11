@@ -14,16 +14,14 @@ jobs:
 
       - name: Reconstruct and Build
         run: |
-          # হারানো এন্ড্রয়েড ফাইলগুলো অটোমেটিক তৈরি করবে
-          flutter create . --platforms android
+          # ড্যাশ এরর এড়াতে নতুন প্রজেক্ট নাম দিয়ে তৈরি করা
+          flutter create --project-name pagla_chat . --platforms android
           
-          # আপনার নিজের সাজানো ফাইলগুলো যাতে ডিলিট না হয় তাই পাব গেট করা
+          # ফাইলগুলোর পারমিশন এবং ডিপেন্ডেন্সি ঠিক করা
           flutter pub get
-          
-          # ফাইল চালানোর পারমিশন ফিক্স করা
           chmod +x android/gradlew
           
-          # ফাইনাল বিল্ড শুরু
+          # ফাইনাল বিল্ড
           flutter build apk --release
 
       - name: Upload APK
