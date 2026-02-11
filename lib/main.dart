@@ -9,8 +9,9 @@ void main() {
   ));
 }
 
+// --- আপনার নতুন App ID সেট করা হয়েছে ---
 class PaglaConfig {
-  static const String appId = "348a9f9d55b14667891657dfc53dfbeb";
+  static const String appId = "bd010dec4aa141228c87ec2cb9d4f6e8";
 }
 
 class MainNavigation extends StatefulWidget {
@@ -85,11 +86,16 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
         onLeaveChannel: (RtcConnection connection, RtcStats stats) {
           if (mounted) setState(() => isJoined = false);
         },
+        // কথা বললে সিটে ইফেক্ট দেওয়ার জন্য এটি লাগবে
+        onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int speakerNumber, int totalVolume) {
+           // এখানে কথা বলার এনিমেশন লজিক আসবে
+        },
       ),
     );
 
     await _engine.enableAudio();
     await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+    await _engine.enableAudioVolumeIndication(interval: 200, smooth: 3, reportVad: true);
   }
 
   Future<void> _toggleCall() async {
@@ -97,8 +103,8 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
       await _engine.leaveChannel();
     } else {
       await _engine.joinChannel(
-        token: '',
-        channelId: "pagla_room_1",
+        token: '', // APP ID Only মোডে এটি খালি থাকবে
+        channelId: "pagla_adda", // দুই ফোনেই এই নাম এক থাকতে হবে
         uid: 0,
         options: const ChannelMediaOptions(
           publishMicrophoneTrack: true,
@@ -120,28 +126,49 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
     return Column(
       children: [
         const SizedBox(height: 50),
-        const Text("পাগলা আড্ডা ঘর", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        const Text("পাগলা আড্ডা ঘর (Live)", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        
+        // ভিডিও/মিউজিক এরিয়া
         Container(
-          height: 140,
-          width: double.infinity,
-          margin: const EdgeInsets.all(15),
-          decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(15)),
-          child: const Icon(Icons.video_collection, color: Colors.red, size: 40),
+          height: 140, width: double.infinity, margin: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Colors.indigo, Colors.black]),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: Colors.white10)
+          ),
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.music_video, color: Colors.pinkAccent, size: 40),
+              Text("Music is playing...", style: TextStyle(color: Colors.white30, fontSize: 12))
+            ],
+          ),
         ),
+        
+        // ২০টি সিট গ্রিড
         Expanded(
           child: GridView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 15),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 10),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 15),
             itemCount: 20,
             itemBuilder: (context, index) {
               return GestureDetector(
                 onTap: () => setState(() => seats[index] = !seats[index]),
                 child: Column(
                   children: [
-                    CircleAvatar(
-                      backgroundColor: seats[index] ? Colors.pink : Colors.white10,
-                      child: Icon(index < 5 ? Icons.star : Icons.person, size: 18, color: Colors.white54),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CircleAvatar(
+                          radius: 22,
+                          backgroundColor: seats[index] ? Colors.pinkAccent : Colors.white12,
+                          child: Icon(index < 5 ? Icons.star : Icons.person, size: 20, color: Colors.white70),
+                        ),
+                        if(seats[index]) 
+                          const Positioned(bottom: 0, right: 0, child: Icon(Icons.mic, color: Colors.green, size: 12)),
+                      ],
                     ),
+                    const SizedBox(height: 4),
                     Text("${index + 1}", style: const TextStyle(color: Colors.white30, fontSize: 10)),
                   ],
                 ),
@@ -149,25 +176,36 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
             },
           ),
         ),
+
+        // কন্ট্রোল বার
         Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          decoration: const BoxDecoration(color: Color(0xFF151525), borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: Color(0xFF151525), 
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30))
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              IconButton(
-                icon: Icon(isJoined ? Icons.call_end : Icons.add_call, color: isJoined ? Colors.red : Colors.green, size: 30),
-                onPressed: _toggleCall,
+              // কল জয়েন বাটন
+              GestureDetector(
+                onTap: _toggleCall,
+                child: CircleAvatar(
+                  backgroundColor: isJoined ? Colors.red : Colors.green,
+                  radius: 25,
+                  child: Icon(isJoined ? Icons.call_end : Icons.add_call, color: Colors.white),
+                ),
               ),
+              // মাইক কন্ট্রোল
               IconButton(
-                icon: Icon(isMuted ? Icons.mic_off : Icons.mic, color: Colors.white),
+                icon: Icon(isMuted ? Icons.mic_off : Icons.mic, color: isMuted ? Colors.red : Colors.white),
                 onPressed: () {
                   setState(() => isMuted = !isMuted);
                   _engine.muteLocalAudioStream(isMuted);
                 },
               ),
-              const Icon(Icons.card_giftcard, color: Colors.pink),
-              const Icon(Icons.videogame_asset, color: Colors.orange),
+              const Icon(Icons.card_giftcard, color: Colors.orangeAccent, size: 28),
+              const Icon(Icons.emoji_emotions, color: Colors.yellow, size: 28),
             ],
           ),
         ),
