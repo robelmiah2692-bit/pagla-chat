@@ -72,33 +72,45 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
   // অ্যাগোরা ইঞ্জিন সেটআপ
   Future<void> _initAgora() async {
     await [Permission.microphone].request();
-    _engine = createAgoraRtcEngine();
+    _engine = createAgora_rtc_engine(); // ইঞ্জিন তৈরি করা
     await _engine.initialize(const RtcEngineContext(appId: PaglaAgoraConfig.appId));
 
     _engine.registerEventHandler(
       RtcEngineEventHandler(
         onJoinChannelSuccess: (connection, elapsed) {
-          setState(() => PaglaAgoraConfig.isJoined = true);
+          if (mounted) setState(() => PaglaAgoraConfig.isJoined = true);
         },
-        onUserJoined: (connection, remoteUid, elapsed) {},
         onLeaveChannel: (connection, stats) {
-          setState(() => PaglaAgoraConfig.isJoined = false);
+          if (mounted) setState(() => PaglaAgoraConfig.isJoined = false);
         },
       ),
     );
 
     await _engine.enableAudio();
     await _engine.setChannelProfile(ChannelProfileType.channelProfileLiveBroadcasting);
-    await _engine.setClientRole(ClientRoleType.clientRoleBroadcaster);
+    
+    // 🔥 এরর ফিক্স: এখানে লিখার নিয়ম আপডেট করা হয়েছে
+    await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
   }
 
-  // রুমে জয়েন/লিভ লজিক
   void _toggleJoin() async {
     if (!PaglaAgoraConfig.isJoined) {
-      await _engine.joinChannel(token: '', channelId: "pagla_room_1", uid: 0, options: const ChannelMediaOptions());
+      await _engine.joinChannel(
+        token: '', 
+        channelId: "pagla_room_1", 
+        uid: 0, 
+        options: const ChannelMediaOptions()
+      );
     } else {
       await _engine.leaveChannel();
     }
+  }
+
+  @override
+  void dispose() {
+    _engine.leaveChannel();
+    _engine.release();
+    super.dispose();
   }
 
   @override
@@ -109,7 +121,7 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Row(children: [
-          const Text("পাগলা আড্ডা ঘর", style: TextStyle(fontSize: 16)),
+          const Text("পাগলা আড্ডা ঘর", style: TextStyle(fontSize: 16, color: Colors.white)),
           const SizedBox(width: 5),
           if(PaglaAgoraConfig.isLocked) const Icon(Icons.lock, color: Colors.red, size: 16),
         ]),
@@ -118,19 +130,15 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
             icon: Icon(PaglaAgoraConfig.isLocked ? Icons.lock : Icons.lock_open, color: Colors.white),
             onPressed: () => setState(() => PaglaAgoraConfig.isLocked = !PaglaAgoraConfig.isLocked),
           ),
-          IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
         ],
       ),
       body: Column(
         children: [
-          // ভিডিও/ইউটিউব স্ক্রিন (সক্রিয় হবে পরের ধাপে)
           Container(
             height: 150, width: double.infinity, margin: const EdgeInsets.all(15),
             decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
             child: const Center(child: Icon(Icons.video_library, color: Colors.red, size: 50)),
           ),
-          
-          // ২০ সিট গ্রিড (চাপ দিলে ইউজার বসবে)
           Expanded(
             child: GridView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -148,8 +156,6 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
               ),
             ),
           ),
-
-          // চ্যাট লিস্ট ও কন্ট্রোল বার
           _buildBottomAction(),
         ],
       ),
@@ -160,32 +166,22 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: const BoxDecoration(color: Color(0xFF151525), borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              // জয়েন/লিভ কল বাটন
-              IconButton(
-                icon: Icon(PaglaAgoraConfig.isJoined ? Icons.call_end : Icons.add_call, color: PaglaAgoraConfig.isJoined ? Colors.red : Colors.green, size: 30),
-                onPressed: _toggleJoin,
-              ),
-              // মাইক বাটন
-              IconButton(
-                icon: Icon(PaglaAgoraConfig.isMuted ? Icons.mic_off : Icons.mic, color: Colors.white70),
-                onPressed: () {
-                  setState(() => PaglaAgoraConfig.isMuted = !PaglaAgoraConfig.isMuted);
-                  _engine.muteLocalAudioStream(PaglaAgoraConfig.isMuted);
-                },
-              ),
-              const Icon(Icons.card_giftcard, color: Colors.pink),
-              const Icon(Icons.videogame_asset, color: Colors.orange),
-              const Icon(Icons.music_note, color: Colors.blue),
-            ],
+          IconButton(
+            icon: Icon(PaglaAgoraConfig.isJoined ? Icons.call_end : Icons.add_call, color: PaglaAgoraConfig.isJoined ? Colors.red : Colors.green, size: 30),
+            onPressed: _toggleJoin,
           ),
-          const SizedBox(height: 10),
-          const Text("💬 চ্যাট করার জন্য এখানে লিখুন...", style: TextStyle(color: Colors.white24, fontSize: 12)),
+          IconButton(
+            icon: Icon(PaglaAgoraConfig.isMuted ? Icons.mic_off : Icons.mic, color: Colors.white70),
+            onPressed: () {
+              setState(() => PaglaAgoraConfig.isMuted = !PaglaAgoraConfig.isMuted);
+              _engine.muteLocalAudioStream(PaglaAgoraConfig.isMuted);
+            },
+          ),
+          const Icon(Icons.card_giftcard, color: Colors.pink),
+          const Icon(Icons.videogame_asset, color: Colors.orange),
         ],
       ),
     );
