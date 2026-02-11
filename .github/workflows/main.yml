@@ -12,22 +12,22 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: Force Build APK
+      - name: Force Fix and Build
         run: |
-          # সব পুরনো ঝামেলা পরিষ্কার করা
-          flutter clean
+          # ১. পুরনো সব অ্যান্ড্রয়েড কনফিগারেশন মুছে নতুন করে তৈরি করা
+          rm -rf android
+          flutter create . --project-name pagla_chat --platforms android
           
-          # প্রজেক্ট ঠিকমতো কনফিগার করা
-          flutter create . --project-name pagla_chat
-          
-          # ডিপেন্ডেন্সি নামানো
+          # ২. প্যাকেজগুলো ঠিকমতো নামানো
           flutter pub get
           
-          # গ্রেডেল এর পারমিশন দেওয়া
+          # ৩. বিল্ড পারমিশন দেওয়া
           chmod +x android/gradlew
           
-          # সোর্স ডিরেক্টরি এরর ফিক্স করতে সরাসরি সোর্স পাথ ধরিয়ে দেওয়া
-          flutter build apk --release --no-pub
+          # ৪. সোর্স ডিরেক্টরি এরর ফিক্স করতে সরাসরি পাথ ধরিয়ে দেওয়া
+          # এটি করলে "Must provide Flutter source directory" এরর আর আসবে না
+          cd android
+          ./gradlew assembleRelease -Ptarget=../lib/main.dart -Pbase-application-name=pagla_chat
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
