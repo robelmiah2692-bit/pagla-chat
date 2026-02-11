@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
 import 'dart:io';
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
@@ -18,12 +15,8 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
-  final List<Widget> _pages = [
-    const HomePage(), 
-    const VoiceRoom(), 
-    const Center(child: Text("ইনবক্স মেসেজ", style: TextStyle(color: Colors.white54, fontSize: 18))), 
-    const ProfilePage()
-  ];
+  // ৪টি পাতা: হোম, রুম, ইনবক্স, প্রোফাইল
+  final List<Widget> _pages = [const HomePage(), const VoiceRoom(), const Center(child: Text("ইনবক্স মেসেজ", style: TextStyle(color: Colors.white))), const ProfilePage()];
 
   @override
   Widget build(BuildContext context) {
@@ -47,42 +40,22 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- ১. হোম স্ক্রিন (আপনার দেওয়া ফিক্সড ছবিসহ) ---
+// --- ১. হোম স্ক্রিন (ফিক্সড ছবি) ---
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
   @override
   Widget build(BuildContext context) {
-    const String myFixedImageUrl = "https://i.ibb.co/5XPJS3x3/94e336499de49a794948d2ddf0aea5a5-1.jpg"; 
-
     return Scaffold(
-      body: Stack(
-        children: [
-          SizedBox.expand(
-            child: Image.network(
-              myFixedImageUrl, 
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(color: const Color(0xFF0F0F1E)),
-            ),
-          ),
-          Container(color: Colors.black.withOpacity(0.4)), // হালকা আবরণ
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.bolt_rounded, size: 80, color: Colors.pinkAccent),
-                const Text("PAGLA CHAT", style: TextStyle(color: Colors.white, fontSize: 35, fontWeight: FontWeight.bold, letterSpacing: 3)),
-                const SizedBox(height: 100),
-                const Text("Welcome to the Hub", style: TextStyle(color: Colors.white70, fontSize: 16)),
-              ],
-            ),
-          ),
-        ],
-      ),
+      body: Stack(children: [
+        SizedBox.expand(child: Image.network("https://i.ibb.co/5XPJS3x3/94e336499de49a794948d2ddf0aea5a5-1.jpg", fit: BoxFit.cover)),
+        Container(color: Colors.black45),
+        const Center(child: Text("PAGLA CHAT", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 4))),
+      ]),
     );
   }
 }
 
-// --- ২. রুম (সব ফিচার + নতুন মিউজিক প্লেয়ার + ডিলিট) ---
+// --- ২. রুম স্ক্রিন (এডিট, ফলো +, চ্যাট, গিফট, মিউজিক এড/ডিলিট) ---
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -90,71 +63,55 @@ class VoiceRoom extends StatefulWidget {
 }
 
 class _VoiceRoomState extends State<VoiceRoom> {
-  late RtcEngine _engine;
   final AudioPlayer _audioPlayer = AudioPlayer();
-  bool isMicMuted = true, isPlaying = false;
+  bool isMicMuted = true, isFollowed = false;
   String roomName = "পাগলা আড্ডা বোর্ড", currentSongName = "গান চলছে না";
-  String? roomImage, myName, myImage;
-  int? _mySeatIndex;
-  List<Map<String, String>> userPlaylist = []; 
-  List<Map<String, String?>> seats = List.generate(10, (index) => {"name": null, "img": null});
+  String? roomImage;
+  List<String> messages = [];
+  List<Map<String, String>> userPlaylist = [];
   final TextEditingController _chatController = TextEditingController();
 
-  @override
-  void initState() { super.initState(); _initAgora(); _loadData(); }
-  _loadData() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      myName = prefs.getString('name') ?? "ইউজার";
-      myImage = prefs.getString('image');
-      roomName = prefs.getString('roomName') ?? "পাগলা আড্ডা বোর্ড";
-      roomImage = prefs.getString('roomImage');
-    });
-  }
-  Future<void> _initAgora() async {
-    await [Permission.microphone, Permission.storage].request();
-    _engine = createAgoraRtcEngine();
-    await _engine.initialize(const RtcEngineContext(appId: "348a9f9d55b14667891657dfc53dfbeb"));
-    await _engine.enableAudio();
+  // রুম এডিট ফাংশন (ছবি ও নাম)
+  void _editRoom() async {
+    TextEditingController c = TextEditingController(text: roomName);
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      backgroundColor: const Color(0xFF1A1A2E),
+      title: const Text("রুম এডিট", style: TextStyle(color: Colors.white)),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: c, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: "রুমের নাম")),
+        TextButton(onPressed: () async {
+          final x = await ImagePicker().pickImage(source: ImageSource.gallery);
+          if (x != null) setState(() => roomImage = x.path);
+        }, child: const Text("ছবি পাল্টান"))
+      ]),
+      actions: [TextButton(onPressed: () { setState(() => roomName = c.text); Navigator.pop(ctx); }, child: const Text("সেভ"))],
+    ));
   }
 
+  // গিফট বক্স (আইটেম ও দামসহ)
+  void _showGifts() {
+    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), builder: (ctx) => GridView.count(
+      crossAxisCount: 4, padding: const EdgeInsets.all(15),
+      children: [_giftItem("💎", "10"), _giftItem("🌹", "50"), _giftItem("🚗", "500"), _giftItem("👑", "1000")],
+    ));
+  }
+  Widget _giftItem(String icon, String price) => Column(children: [Text(icon, style: const TextStyle(fontSize: 30)), Text("$price 💎", style: const TextStyle(color: Colors.white54, fontSize: 10))]);
+
+  // মিউজিক প্লেয়ার (অ্যাড ও ডিলিট অপশনসহ)
   void _showMusicPlayer() {
-    showModalBottomSheet(
-      context: context, backgroundColor: const Color(0xFF1A1A2E),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => StatefulBuilder(builder: (context, setModalState) => Container(
-        padding: const EdgeInsets.all(20), height: 400,
-        child: Column(children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            const Text("পাগলা প্লেয়ার 🎵", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            IconButton(icon: const Icon(Icons.add_circle, color: Colors.pinkAccent), onPressed: () async {
-              FilePickerResult? r = await FilePicker.platform.pickFiles(type: FileType.audio);
-              if (r != null) setModalState(() => userPlaylist.add({"name": r.files.single.name, "path": r.files.single.path!}));
-            })
-          ]),
-          const Divider(color: Colors.white10),
-          Expanded(child: ListView.builder(itemCount: userPlaylist.length, itemBuilder: (ctx, i) => ListTile(
-            leading: const Icon(Icons.music_note, color: Colors.cyanAccent),
-            title: Text(userPlaylist[i]["name"]!, style: const TextStyle(color: Colors.white, fontSize: 13), maxLines: 1),
-            trailing: IconButton(icon: const Icon(Icons.delete, color: Colors.redAccent, size: 20), onPressed: () {
-              setModalState(() { if(currentSongName == userPlaylist[i]["name"]) { _audioPlayer.stop(); isPlaying = false; currentSongName = "গান চলছে না"; } userPlaylist.removeAt(i); });
-            }),
-            onTap: () async {
-              await _audioPlayer.play(DeviceFileSource(userPlaylist[i]["path"]!));
-              setModalState(() { currentSongName = userPlaylist[i]["name"]!; isPlaying = true; });
-              setState(() {});
-            },
-          ))),
-          Row(children: [
-            Expanded(child: Text(currentSongName, style: const TextStyle(color: Colors.white54, fontSize: 12))),
-            IconButton(icon: Icon(isPlaying ? Icons.pause_circle : Icons.play_circle, color: Colors.pinkAccent, size: 35), onPressed: () {
-              isPlaying ? _audioPlayer.pause() : _audioPlayer.resume();
-              setModalState(() => isPlaying = !isPlaying); setState(() {});
-            })
-          ])
-        ]),
-      )),
-    );
+    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), builder: (ctx) => StatefulBuilder(builder: (context, setModalState) => Column(
+      children: [
+        ListTile(title: const Text("প্লেয়ার", style: TextStyle(color: Colors.white)), trailing: IconButton(icon: const Icon(Icons.add_circle, color: Colors.cyanAccent), onPressed: () async {
+          FilePickerResult? r = await FilePicker.platform.pickFiles(type: FileType.audio);
+          if (r != null) setModalState(() => userPlaylist.add({"name": r.files.single.name, "path": r.files.single.path!}));
+        })),
+        Expanded(child: ListView.builder(itemCount: userPlaylist.length, itemBuilder: (ctx, i) => ListTile(
+          title: Text(userPlaylist[i]["name"]!, style: const TextStyle(color: Colors.white, fontSize: 12)),
+          trailing: IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => setModalState(() => userPlaylist.removeAt(i))),
+          onTap: () async { await _audioPlayer.play(DeviceFileSource(userPlaylist[i]["path"]!)); setState(() => currentSongName = userPlaylist[i]["name"]!); },
+        ))),
+      ],
+    )));
   }
 
   @override
@@ -163,24 +120,15 @@ class _VoiceRoomState extends State<VoiceRoom> {
       backgroundColor: const Color(0xFF0F0F1E),
       appBar: AppBar(
         backgroundColor: Colors.transparent, elevation: 0,
-        leading: GestureDetector(onTap: () async {
-          final x = await ImagePicker().pickImage(source: ImageSource.gallery);
-          if (x != null) { final p = await SharedPreferences.getInstance(); p.setString('roomImage', x.path); setState(() => roomImage = x.path); }
-        }, child: Padding(padding: const EdgeInsets.all(8.0), child: CircleAvatar(backgroundImage: roomImage != null ? FileImage(File(roomImage!)) : null, child: roomImage == null ? const Icon(Icons.camera_alt, size: 18) : null))),
-        title: Text(roomName, style: const TextStyle(fontSize: 16, color: Colors.white)),
-        actions: const [Icon(Icons.more_vert, color: Colors.white), SizedBox(width: 15)],
+        leading: GestureDetector(onTap: _editRoom, child: Padding(padding: const EdgeInsets.all(8.0), child: CircleAvatar(backgroundImage: roomImage != null ? FileImage(File(roomImage!)) : null, child: roomImage == null ? const Icon(Icons.camera_alt) : null))),
+        title: Row(children: [
+          GestureDetector(onTap: _editRoom, child: Text(roomName, style: const TextStyle(fontSize: 15))),
+          const SizedBox(width: 5),
+          GestureDetector(onTap: () => setState(() => isFollowed = !isFollowed), child: Icon(isFollowed ? Icons.check_circle : Icons.add_circle, color: Colors.pinkAccent, size: 20)),
+        ]),
       ),
       body: Column(children: [
-        Expanded(child: GridView.builder(padding: const EdgeInsets.all(20), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, childAspectRatio: 0.7), itemCount: 10, itemBuilder: (ctx, i) => GestureDetector(
-          onTap: () => setState(() {
-            if (_mySeatIndex == i) { seats[i] = {"name": null, "img": null}; _mySeatIndex = null; }
-            else if (seats[i]["name"] == null) {
-              if (_mySeatIndex != null) seats[_mySeatIndex!] = {"name": null, "img": null};
-              _mySeatIndex = i; seats[i] = {"name": myName, "img": myImage};
-            }
-          }),
-          child: Column(children: [CircleAvatar(radius: 22, backgroundColor: Colors.white10, backgroundImage: seats[i]["img"] != null ? FileImage(File(seats[i]["img"]!)) : null, child: seats[i]["img"] == null ? const Icon(Icons.person, color: Colors.white24) : null), Text(seats[i]["name"] ?? "Seat ${i+1}", style: const TextStyle(color: Colors.white38, fontSize: 9), overflow: TextOverflow.ellipsis)]),
-        ))),
+        Expanded(child: ListView.builder(itemCount: messages.length, itemBuilder: (ctx, i) => ListTile(title: Text(messages[i], style: const TextStyle(color: Colors.white70))))),
         _bottomBar(),
       ]),
     );
@@ -188,15 +136,16 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   Widget _bottomBar() {
     return Container(padding: const EdgeInsets.all(10), color: const Color(0xFF1A1A2E), child: Row(children: [
-      IconButton(icon: Icon(isMicMuted ? Icons.mic_off : Icons.mic, color: isMicMuted ? Colors.red : Colors.green), onPressed: () => setState(() => isMicMuted = !isMicMuted)),
-      Expanded(child: TextField(controller: _chatController, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: "বলুন কিছু...", border: InputBorder.none, hintStyle: TextStyle(color: Colors.white24)))),
+      IconButton(icon: Icon(isMicMuted ? Icons.mic_off : Icons.mic, color: Colors.red), onPressed: () => setState(() => isMicMuted = !isMicMuted)),
+      Expanded(child: TextField(controller: _chatController, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: "মেসেজ...", border: InputBorder.none))),
+      IconButton(icon: const Icon(Icons.send, color: Colors.pinkAccent), onPressed: () { if(_chatController.text.isNotEmpty) { setState(() => messages.add("আমি: ${_chatController.text}")); _chatController.clear(); } }),
       IconButton(icon: const Icon(Icons.music_note, color: Colors.cyanAccent), onPressed: _showMusicPlayer),
-      IconButton(icon: const Icon(Icons.card_giftcard, color: Colors.amber), onPressed: () {}),
+      IconButton(icon: const Icon(Icons.card_giftcard, color: Colors.amber), onPressed: _showGifts),
     ]));
   }
 }
 
-// --- ৩. প্রোফাইল (সব ফিচার সচল: এডিট, ডায়মন্ড প্লাস, ফলোয়ার্স ও স্টোরি) ---
+// --- ৩. প্রোফাইল (সেটিংস, ডায়মন্ড শপ +, ফলো কাউন্টার, স্টোরি নিচে) ---
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
   @override
@@ -204,20 +153,18 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  String name = "পাগলা ইউজার"; String? imgPath; int diamonds = 100, followers = 0, following = 0;
-  List<String> userStories = [];
+  int diamonds = 100, followers = 1200, following = 500;
+  List<String> stories = [];
 
-  @override
-  void initState() { super.initState(); _loadData(); }
-  _loadData() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() { 
-      name = prefs.getString('name') ?? "পাগলা ইউজার"; 
-      imgPath = prefs.getString('image'); 
-      diamonds = prefs.getInt('diamonds') ?? 100;
-      followers = prefs.getInt('followers') ?? 0;
-      following = prefs.getInt('following') ?? 0;
-    });
+  void _diamondShop() {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      backgroundColor: const Color(0xFF1A1A2E),
+      title: const Text("ডায়মন্ড কিনুন", style: TextStyle(color: Colors.white)),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        ListTile(title: const Text("১০০ 💎"), trailing: const Text("৳ ১০০", style: TextStyle(color: Colors.cyanAccent))),
+        ListTile(title: const Text("৫০০ 💎"), trailing: const Text("৳ ৪৫০", style: TextStyle(color: Colors.cyanAccent))),
+      ]),
+    ));
   }
 
   @override
@@ -225,39 +172,37 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
       appBar: AppBar(
-        backgroundColor: Colors.transparent, elevation: 0,
-        leading: Container(margin: const EdgeInsets.all(10), padding: const EdgeInsets.symmetric(horizontal: 5), decoration: BoxDecoration(color: Colors.black38, borderRadius: BorderRadius.circular(15)), child: Row(children: [Text("$diamonds", style: const TextStyle(color: Colors.white, fontSize: 12)), const Icon(Icons.add_circle, color: Colors.amber, size: 16)])),
-        actions: const [Icon(Icons.settings, color: Colors.white70), SizedBox(width: 15)],
+        backgroundColor: Colors.transparent,
+        leading: Row(children: [const SizedBox(width: 10), Text("$diamonds", style: const TextStyle(color: Colors.white)), GestureDetector(onTap: _diamondShop, child: const Icon(Icons.add_circle, color: Colors.amber, size: 18))]),
+        actions: [const Icon(Icons.settings, color: Colors.white70), const SizedBox(width: 15)],
       ),
-      body: SingleChildScrollView(
-        child: Column(children: [
-          const SizedBox(height: 20),
+      body: Column(children: [
+        const CircleAvatar(radius: 50, child: Icon(Icons.person, size: 50)),
+        const SizedBox(height: 10),
+        const Text("পাগলা ইউজার", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 15),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          _count("ফলোয়ার", followers), const SizedBox(width: 40), _count("ফলোইং", following),
+        ]),
+        const SizedBox(height: 20),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          ElevatedButton(onPressed: () {}, child: const Text("Follow")),
+          const SizedBox(width: 10),
+          OutlinedButton(onPressed: () {}, child: const Text("Message", style: TextStyle(color: Colors.white))),
+        ]),
+        const Spacer(),
+        const Divider(color: Colors.white24),
+        const Text("স্টোরি বোর্ড", style: TextStyle(color: Colors.white70)),
+        SizedBox(height: 100, child: ListView(scrollDirection: Axis.horizontal, children: [
           GestureDetector(onTap: () async {
             final x = await ImagePicker().pickImage(source: ImageSource.gallery);
-            if (x != null) { 
-              final p = await SharedPreferences.getInstance(); 
-              p.setString('image', x.path); 
-              setState(() => imgPath = x.path); 
-            }
-          }, child: CircleAvatar(radius: 55, backgroundImage: imgPath != null ? FileImage(File(imgPath!)) : null, child: imgPath == null ? const Icon(Icons.person, size: 40) : null)),
-          const SizedBox(height: 10),
-          Text(name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Column(children: [Text("$followers", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), const Text("Followers", style: TextStyle(color: Colors.white54, fontSize: 12))]),
-            const SizedBox(width: 40),
-            Column(children: [Text("$following", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), const Text("Following", style: TextStyle(color: Colors.white54, fontSize: 12))]),
-          ]),
-          const SizedBox(height: 20),
-          ElevatedButton(onPressed: () async {
-            final x = await ImagePicker().pickImage(source: ImageSource.gallery);
-            if (x != null) setState(() => userStories.add(x.path));
-          }, style: ElevatedButton.styleFrom(backgroundColor: Colors.cyanAccent), child: const Text("স্টোরি দিন +", style: TextStyle(color: Colors.black))),
-          const Divider(color: Colors.white10, height: 40),
-          userStories.isEmpty ? const Text("কোনো স্টোরি নেই", style: TextStyle(color: Colors.white24)) :
-          SizedBox(height: 120, child: ListView.builder(scrollDirection: Axis.horizontal, itemCount: userStories.length, itemBuilder: (ctx, i) => Container(margin: const EdgeInsets.all(5), width: 80, decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), image: DecorationImage(image: FileImage(File(userStories[i])), fit: BoxFit.cover)))))
-        ]),
-      ),
+            if (x != null) setState(() => stories.add(x.path));
+          }, child: Container(width: 70, margin: const EdgeInsets.all(5), color: Colors.white10, child: const Icon(Icons.add, color: Colors.white))),
+          ...stories.map((s) => Container(width: 70, margin: const EdgeInsets.all(5), child: Image.file(File(s), fit: BoxFit.cover))),
+        ])),
+        const SizedBox(height: 10),
+      ]),
     );
   }
+  Widget _count(String t, int n) => Column(children: [Text("$n", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), Text(t, style: const TextStyle(color: Colors.white54, fontSize: 12))]);
 }
