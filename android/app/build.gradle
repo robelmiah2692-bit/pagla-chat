@@ -6,14 +6,20 @@ if (localPropertiesFile.exists()) {
     }
 }
 
+// গিটহাব অ্যাকশনের জন্য এই অংশটুকু স্মার্টলি হ্যান্ডেল করা হয়েছে
 def flutterRoot = localProperties.getProperty('flutter.sdk')
 if (flutterRoot == null) {
-    throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
+    flutterRoot = System.getenv('FLUTTER_ROOT') ?: System.getenv('FLUTTER_HOME')
+}
+
+// এই চেকটি গিটহাবে বিল্ড করার জন্য জরুরি
+if (flutterRoot == null) {
+    throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file or FLUTTER_ROOT environment variable.")
 }
 
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
-// ১. ফায়ারবেস এবং ফ্লাটার প্লাগইন - এই লাইনগুলো সিরিয়াল অনুযায়ী থাকতে হবে
+// ফ্লাটার এবং গুগল সার্ভিস প্লাগইন
 apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 apply plugin: 'com.google.gms.google-services' 
 
@@ -23,16 +29,16 @@ android {
 
     defaultConfig {
         applicationId "com.pagla.chat" 
-        minSdkVersion 23 // আগোরা এবং ফায়ারবেসের জন্য ঠিক আছে
+        minSdkVersion 23 // আগোরার জন্য ২১ এর বেশি প্রয়োজন, তাই এটি ঠিক আছে
         targetSdkVersion 34    
         versionCode 1
         versionName "1.0"
-        multiDexEnabled true // এটি সাদা স্ক্রিন রোধ করতে সাহায্য করবে
+        multiDexEnabled true // আপনার ৯টি ফিচারের বড় অ্যাপের জন্য এটি মাস্ট
     }
 
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.debug // বর্তমানে ডিবাগ সাইনিং দিয়ে টেস্ট করা যাবে
             minifyEnabled false
             shrinkResources false
         }
@@ -42,12 +48,10 @@ android {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     
-    // ২. মাল্টিডেক্স আপডেট (পুরাতন ভার্সন ০.৩ ছিল, এখন ২.০.১ ব্যবহার করা ভালো)
+    // মাল্টিডেক্স এবং ফায়ারবেস
     implementation 'androidx.multidex:multidex:2.0.1'
-    
-    // ৩. ফায়ারবেস বোম (BoM) এবং ডাটাবেস
     implementation platform('com.google.firebase:firebase-bom:33.1.0')
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.firebase:firebase-database'
-    implementation 'com.google.firebase:firebase-auth' // প্রোফাইলের জন্য এটিও লাগবে
+    implementation 'com.google.firebase:firebase-auth'
 }
