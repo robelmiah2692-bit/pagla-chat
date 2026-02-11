@@ -5,32 +5,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: Recreate Android and Build
+      - name: Ultimate Force Build
         run: |
-          # ১. প্রজেক্ট রি-কনফিগার করা (এতে gradlew ফাইল ফিরে আসবে)
-          flutter create . --project-name pagla_chat --platforms android
+          # ১. একদম গোড়া থেকে ক্লিন করা
+          flutter clean
           
-          # ২. আপনার কাঙ্ক্ষিতSdkVersion সরাসরি ইনজেক্ট করা (যাতে এরর না আসে)
-          sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
-          
-          # ৩. প্যাকেজ আপডেট
+          # ২. প্যাকেজগুলো নতুন করে নামানো
           flutter pub get
           
-          # ৪. পারমিশন দেওয়া
-          chmod +x android/gradlew
+          # ৩. অ্যান্ড্রয়েড ফোল্ডার রি-জেনারেট করা (নামের ঝামেলা এড়াতে)
+          flutter create . --platforms android
           
-          # ৫. ফাইনাল বিল্ড
-          flutter build apk --release --target=lib/main.dart
+          # ৪. আগোরা এরর সমাধান (সরাসরি ফাইলেSdkVersion পরিবর্তন)
+          sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
+          
+          # ৫. সবচাইতে গুরুত্বপূর্ণ: সোর্স ডিরেক্টরি ফোর্স করা
+          # আমরা সরাসরি ডিরেক্টরি ডিফাইন করে বিল্ড করছি
+          flutter build apk --release --target lib/main.dart --source-dir .
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Success
+          name: PaglaChat-Success-APK
           path: build/app/outputs/flutter-apk/app-release.apk
