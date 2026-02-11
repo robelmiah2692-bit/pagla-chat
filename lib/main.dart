@@ -6,7 +6,11 @@ import 'package:firebase_database/firebase_database.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint("Firebase Error: $e");
+  }
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
     home: MainNavigation(),
@@ -64,8 +68,9 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
   bool isJoined = false;
   bool isMuted = false;
   bool isLocked = false;
-  String roomTheme = "0xFF0F0F1E";
-  List<bool> seats = List.generate(15, (index) => false); // ২০টির বদলে ১৫টি দেখাচ্ছি গ্রিড সুন্দর করতে
+  // ডিফল্ট কালার সরাসরি সেট করা হলো যাতে ফায়ারবেস কানেক্ট না হলেও স্ক্রিন সাদা না হয়
+  Color currentThemeColor = const Color(0xFF0F0F1E); 
+  List<bool> seats = List.generate(15, (index) => false);
 
   @override
   void initState() {
@@ -74,18 +79,20 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
     _listenToRoomData();
   }
 
-  // ফায়ারবেস থেকে রুমের সব ডাটা শোনা
   void _listenToRoomData() {
     _dbRef.onValue.listen((event) {
       if (event.snapshot.value != null) {
-        final data = event.snapshot.value as Map<dynamic, dynamic>;
+        final data = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
         if (mounted) {
           setState(() {
             if (data['seats'] != null) {
-              seats = (data['seats'] as List).map((e) => e as bool).toList();
+              seats = List<bool>.from(data['seats']);
             }
             isLocked = data['isLocked'] ?? false;
-            roomTheme = data['theme'] ?? "0xFF0F0F1E";
+            // থিম ডাটা না থাকলে ডিফল্ট কালার থাকবে
+            if (data['theme'] != null) {
+               currentThemeColor = Color(int.parse(data['theme']));
+            }
           });
         }
       }
@@ -109,90 +116,30 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
     await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
   }
 
-  // থ্রি-ডট মেনু অপশন
-  void _showRoomSettings() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) {
-        return Wrap(
-          children: [
-            ListTile(
-              leading: Icon(isLocked ? Icons.lock_open : Icons.lock, color: Colors.white),
-              title: Text(isLocked ? "রুম আনলক করুন" : "রুম লক করুন", style: const TextStyle(color: Colors.white)),
-              onTap: () {
-                _dbRef.update({"isLocked": !isLocked});
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.palette, color: Colors.white),
-              title: const Text("রুম থিম পাল্টান", style: TextStyle(color: Colors.white)),
-              onTap: () {
-                _dbRef.update({"theme": "0xFF2D1B4E"}); // উদাহরণ থিম
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.workspace_premium, color: Colors.amber),
-              title: const Text("রুম প্রিমিয়াম করুন", style: TextStyle(color: Colors.white)),
-              onTap: () => Navigator.pop(context),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(color: Color(int.parse(roomTheme))),
+      color: currentThemeColor, // সরাসরি কালার অবজেক্ট ব্যবহার
       child: Column(
         children: [
           const SizedBox(height: 50),
-          // --- রুম হেডার (নাম, ছবি, ফলো, থ্রি-ডট) ---
+          // রুম হেডার
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 15),
             child: Row(
               children: [
-                const CircleAvatar(
-                  radius: 20,
-                  backgroundImage: NetworkImage("https://via.placeholder.com/150"), // রুমের ছবি
-                ),
+                const CircleAvatar(radius: 20, backgroundColor: Colors.pink),
                 const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Text("পাগলা আড্ডা ঘর", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          if(isLocked) const Icon(Icons.lock, size: 14, color: Colors.white54),
-                        ],
-                      ),
-                      const Text("ID: 123456", style: TextStyle(color: Colors.white38, fontSize: 10)),
-                    ],
-                  ),
+                const Expanded(
+                  child: Text("পাগলা আড্ডা ঘর", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
-                // ফলো বাটন
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.pinkAccent, borderRadius: BorderRadius.circular(20)),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.add, size: 16, color: Colors.white),
-                      Text("ফলো", style: TextStyle(color: Colors.white, fontSize: 12)),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                // থ্রি ডট মেনু
+                if(isLocked) const Icon(Icons.lock, color: Colors.white54, size: 16),
                 IconButton(
                   icon: const Icon(Icons.more_vert, color: Colors.white),
-                  onPressed: _showRoomSettings,
-                ),
+                  onPressed: () {
+                    // সেটিংস মেনু
+                  },
+                )
               ],
             ),
           ),
@@ -208,20 +155,15 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
                   seats[i] = !seats[i];
                   _dbRef.update({"seats": seats});
                 },
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: seats[i] ? Colors.pink : Colors.white10,
-                      child: Icon(i < 3 ? Icons.star : Icons.person, color: Colors.white54, size: 20),
-                    ),
-                    Text("${i+1}", style: const TextStyle(color: Colors.white24, fontSize: 10)),
-                  ],
+                child: CircleAvatar(
+                  backgroundColor: seats[i] ? Colors.pink : Colors.white10,
+                  child: Icon(Icons.person, color: Colors.white54, size: 20),
                 ),
               ),
             ),
           ),
           
-          // বটম কন্ট্রোল বার
+          // কন্ট্রোল বার
           _buildControls(),
         ],
       ),
@@ -231,32 +173,18 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
   Widget _buildControls() {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: Color(0xFF151525),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30))
-      ),
+      color: const Color(0xFF151525),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           IconButton(
-            icon: Icon(isJoined ? Icons.call_end : Icons.add_call, color: isJoined ? Colors.red : Colors.green, size: 30),
+            icon: Icon(isJoined ? Icons.call_end : Icons.add_call, color: isJoined ? Colors.red : Colors.green),
             onPressed: () async {
-               if (isJoined) {
-                await _engine.leaveChannel();
-              } else {
-                await _engine.joinChannel(token: '', channelId: "pagla_adda", uid: 0, options: const ChannelMediaOptions(publishMicrophoneTrack: true, autoSubscribeAudio: true, clientRoleType: ClientRoleType.clientRoleBroadcaster));
-              }
+              if (isJoined) await _engine.leaveChannel();
+              else await _engine.joinChannel(token: '', channelId: "pagla_adda", uid: 0, options: const ChannelMediaOptions(publishMicrophoneTrack: true, autoSubscribeAudio: true, clientRoleType: ClientRoleType.clientRoleBroadcaster));
             },
           ),
-          IconButton(
-            icon: Icon(isMuted ? Icons.mic_off : Icons.mic, color: Colors.white),
-            onPressed: () {
-              setState(() => isMuted = !isMuted);
-              _engine.muteLocalAudioStream(isMuted);
-            },
-          ),
-          const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 30),
-          const Icon(Icons.emoji_emotions, color: Colors.yellow, size: 30),
+          const Icon(Icons.card_giftcard, color: Colors.pinkAccent),
         ],
       ),
     );
