@@ -12,29 +12,27 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: Force Build
+      - name: Fix Path and Build
         run: |
-          # ১. নামের ভুলটা গায়ের জোরে ঠিক করা
+          # ১. প্রজেক্টের নাম ফিক্স করা
           sed -i 's/name: .*/name: pagla_chat/g' pubspec.yaml
           
-          # ২. পুরোনো সব জঞ্জাল ডিলিট করা
+          # ২. পুরোনো সব ফাইল ক্লিন করা
           flutter clean
           
-          # ৩. প্যাকেজগুলো নতুন করে নামানো
+          # ৩. প্যাকেজ গেট করা
           flutter pub get
           
-          # ৪. অ্যান্ড্রয়েড কনফিগারেশন আপডেট
-          flutter create . --project-name pagla_chat --platforms android
+          # ৪. এই ধাপটি সবচেয়ে গুরুত্বপূর্ণ: সোর্স পাথ ম্যানুয়ালি ধরিয়ে দেওয়া
+          export FLUTTER_ROOT=$FLUTTER_HOME
           
-          # ৫.SdkVersion ঠিক করা (আগোরা এরর বন্ধ করতে)
-          sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
-          
-          # ৬. গ্রেডেল পারমিশন ও বিল্ড
+          # ৫. সরাসরি বিল্ড করা (কোনো নতুন প্রজেক্ট ক্রিয়েট না করে)
+          # আমরা আগের সব কনফিগারেশন বাদ দিয়ে সরাসরি অ্যান্ড্রয়েড ফোল্ডার থেকে বিল্ড করব
           chmod +x android/gradlew
-          flutter build apk --release --target=lib/main.dart
+          flutter build apk --release --no-pub --target=lib/main.dart
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Success
+          name: PaglaChat-Final-APK
           path: build/app/outputs/flutter-apk/app-release.apk
