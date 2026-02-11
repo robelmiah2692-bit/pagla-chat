@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-// আপনার প্রজেক্টের প্যাকেজ পাথ অনুযায়ী ইমপোর্ট করা হলো
+// আপনার প্রজেক্টের মেইন কনস্ট্যান্ট ফাইলটি ইমপোর্ট করা হলো
 import 'package:pagla_app/core/constants.dart';
 import 'package:pagla_app/screens/profile_screen.dart'; 
 import 'package:pagla_app/screens/room_screen.dart';    
@@ -18,6 +18,7 @@ class PaglaChatApp extends StatelessWidget {
       title: 'পাগলা চ্যাট',
       theme: ThemeData(
         brightness: Brightness.dark,
+        // এখানে AppConstants ব্যবহার করা হয়েছে
         primaryColor: AppConstants.primaryColor,
         scaffoldBackgroundColor: AppConstants.primaryColor,
         colorScheme: ColorScheme.fromSeed(
@@ -38,13 +39,13 @@ class MainNavigation extends StatefulWidget {
 }
 
 class _MainNavigationState extends State<MainNavigation> {
-  int _currentIndex = 1; // সরাসরি 'রুম' পেজটি ওপেন হবে
+  int _currentIndex = 1; 
 
   final List<Widget> _pages = [
     const Center(child: Text("হোম ফিড", style: TextStyle(color: Colors.white54))), 
-    const VoiceRoomScreen(), // ২০ সিটের রুম (লিঙ্কড)
+    const VoiceRoomScreen(), 
     const Center(child: Text("মেসেজ বক্স", style: TextStyle(color: Colors.white54))),
-    const RealProfileScreen(), // প্রোফাইল সিস্টেম (লিঙ্কড)
+    const RealProfileScreen(), 
   ];
 
   @override
@@ -61,6 +62,7 @@ class _MainNavigationState extends State<MainNavigation> {
             _currentIndex = index;
           });
         },
+        // এখান থেকেই আপনার এররটি আসছিল, এখন এটি ঠিক করা হয়েছে
         backgroundColor: AppConstants.cardColor,
         selectedItemColor: AppConstants.accentColor,
         unselectedItemColor: Colors.white38,
