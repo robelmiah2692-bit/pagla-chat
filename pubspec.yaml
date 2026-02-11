@@ -1,4 +1,4 @@
-name: pagla_app
+name: pagla_chat
 description: "A new Flutter project for Pagla Chat."
 publish_to: 'none'
 
@@ -10,13 +10,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # --- ভয়েস চ্যাট ---
+    
+  # --- ভয়েস চ্যাট ---
   agora_rtc_engine: ^6.3.2
   permission_handler: ^11.3.0
   
-  # --- ফায়ারবেস (এইগুলো মাস্ট লাগবে) ---
+  # --- ফায়ারবেস ---
   firebase_core: ^2.27.0
-  firebase_database: ^10.4.9       # এই লাইনটি আমি যোগ করেছি (সিট সিস্টেমের জন্য)
+  firebase_database: ^10.4.9
   firebase_remote_config: ^4.3.8
   
   # --- অন্যান্য দরকারি প্যাকেজ ---
