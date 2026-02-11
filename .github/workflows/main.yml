@@ -5,33 +5,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: Ultimate Force Build
+      - name: Fix Package Name and Build
         run: |
-          # ১. একদম গোড়া থেকে ক্লিন করা
-          flutter clean
+          # ১. pubspec.yaml ফাইলে যদি ড্যাশ থাকে সেটা আন্ডারস্কোর করে দাও
+          sed -i 's/name: pagla-chat/name: pagla_chat/g' pubspec.yaml
           
-          # ২. প্যাকেজগুলো নতুন করে নামানো
+          # ২. প্রজেক্ট ক্লিন করে নতুন করে কনফিগার করা
+          flutter clean
           flutter pub get
           
-          # ৩. অ্যান্ড্রয়েড ফোল্ডার রি-জেনারেট করা (নামের ঝামেলা এড়াতে)
-          flutter create . --platforms android
+          # ৩. অ্যান্ড্রয়েড ফোল্ডার রি-জেনারেট (যাতে নামের ঝামেলা না থাকে)
+          flutter create . --project-name pagla_chat --platforms android
           
-          # ৪. আগোরা এরর সমাধান (সরাসরি ফাইলেSdkVersion পরিবর্তন)
+          # ৪. আগোরা এসডিকে এরর ফিক্স করা
           sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
           
-          # ৫. সবচাইতে গুরুত্বপূর্ণ: সোর্স ডিরেক্টরি ফোর্স করা
-          # আমরা সরাসরি ডিরেক্টরি ডিফাইন করে বিল্ড করছি
-          flutter build apk --release --target lib/main.dart --source-dir .
+          # ৫. বিল্ড শুরু
+          chmod +x android/gradlew
+          flutter build apk --release --target=lib/main.dart
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Success-APK
+          name: PaglaChat-Fixed-APK
           path: build/app/outputs/flutter-apk/app-release.apk
