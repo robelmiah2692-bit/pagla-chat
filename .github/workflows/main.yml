@@ -12,20 +12,24 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: Force Clean and Repair
+      - name: Hard Reset and Build
         run: |
-          # ১. পুরনো সব আবর্জনা পরিষ্কার করা
-          flutter clean
+          # ১. পুরনো সব ক্ষতিকর ফাইল ও ফোল্ডার মুছে ফেলা
+          rm -rf android
+          rm -rf build
+          rm -f .flutter-plugins
+          rm -f .flutter-plugins-dependencies
           
-          # ২. অ্যান্ড্রয়েড ফোল্ডার রি-কানেক্ট করা (আপনার সোর্স ফাইলগুলো অক্ষত থাকবে)
+          # ২. আপনার কোড অনুযায়ী একদম নতুন অ্যান্ড্রয়েড ফাইল তৈরি
           flutter create . --project-name pagla_chat --platforms android
           
-          # ৩. প্যাকেজগুলো নতুন করে ডাউনলোড করা
+          # ৩. প্যাকেজগুলো নতুন করে কানেক্ট করা
           flutter pub get
-
-      - name: Build APK (Final Attempt)
-        run: |
-          # ৪. মেইন ফাইলটিকে ফোর্সফুলি চিনিয়ে দিয়ে বিল্ড করা
+          
+          # ৪. পারমিশন দেওয়া
+          chmod +x android/gradlew
+          
+          # ৫. বিল্ড শুরু (সরাসরি মেইন পাথ চিনিয়ে দিয়ে)
           flutter build apk --release --target=lib/main.dart
 
       - name: Upload APK
