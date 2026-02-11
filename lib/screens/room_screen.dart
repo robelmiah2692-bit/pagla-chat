@@ -1,38 +1,82 @@
 import 'package:flutter/material.dart';
+import 'package:pagla_app/core/constants.dart';
+import 'package:pagla_app/widgets/seat_widget.dart';
+import 'package:pagla_app/widgets/action_menu.dart';
 
-class SeatWidget extends StatelessWidget {
-  final int index;
-  final bool isSpeaking;
+class VoiceRoomScreen extends StatefulWidget {
+  const VoiceRoomScreen({super.key});
 
-  const SeatWidget({super.key, required this.index, this.isSpeaking = false});
+  @override
+  State<VoiceRoomScreen> createState() => _VoiceRoomScreenState();
+}
+
+class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
+  void _openActionMenu() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const RoomActionMenu(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            if (isSpeaking)
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          color: AppConstants.primaryColor,
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // ভিডিও/ইউটিউব উইন্ডো
               Container(
-                width: 50,
-                height: 50,
+                height: 200,
+                margin: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.pinkAccent, width: 2),
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Center(child: Icon(Icons.play_circle_fill, color: Colors.red, size: 50)),
+              ),
+              // ২০টি সিট
+              Expanded(
+                child: GridView.builder(
+                  padding: const EdgeInsets.all(10),
+                  itemCount: 20,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 5,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                  ),
+                  itemBuilder: (context, index) => SeatWidget(index: index),
                 ),
               ),
-            const CircleAvatar(
-              radius: 22,
-              backgroundColor: Colors.white10,
-              child: Icon(Icons.chair_outlined, color: Colors.white24, size: 18),
-            ),
-          ],
+              // নিচের কন্ট্রোল বার
+              Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 15),
+                        decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(25)),
+                        child: const TextField(decoration: InputDecoration(hintText: "বলুন কিছু...", border: InputBorder.none)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle, color: AppConstants.accentColor, size: 35),
+                      onPressed: _openActionMenu,
+                    ),
+                  ],
+                ),
+              )
+            ],
+          ),
         ),
-        const SizedBox(height: 4),
-        Text("${index + 1}", style: const TextStyle(color: Colors.white38, fontSize: 10)),
-      ],
+      ),
     );
   }
 }
