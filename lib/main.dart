@@ -6,11 +6,7 @@ import 'package:firebase_database/firebase_database.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await Firebase.initializeApp();
-  } catch (e) {
-    debugPrint("Firebase Error: $e");
-  }
+  await Firebase.initializeApp();
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
     home: MainNavigation(),
@@ -68,31 +64,23 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
   bool isJoined = false;
   bool isMuted = false;
   bool isLocked = false;
-  // ডিফল্ট কালার সরাসরি সেট করা হলো যাতে ফায়ারবেস কানেক্ট না হলেও স্ক্রিন সাদা না হয়
-  Color currentThemeColor = const Color(0xFF0F0F1E); 
   List<bool> seats = List.generate(15, (index) => false);
 
   @override
   void initState() {
     super.initState();
     _initAgora();
-    _listenToRoomData();
+    _listenToRoom();
   }
 
-  void _listenToRoomData() {
+  void _listenToRoom() {
     _dbRef.onValue.listen((event) {
       if (event.snapshot.value != null) {
         final data = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
         if (mounted) {
           setState(() {
-            if (data['seats'] != null) {
-              seats = List<bool>.from(data['seats']);
-            }
+            if (data['seats'] != null) seats = List<bool>.from(data['seats']);
             isLocked = data['isLocked'] ?? false;
-            // থিম ডাটা না থাকলে ডিফল্ট কালার থাকবে
-            if (data['theme'] != null) {
-               currentThemeColor = Color(int.parse(data['theme']));
-            }
           });
         }
       }
@@ -106,85 +94,103 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
       appId: "bd010dec4aa141228c87ec2cb9d4f6e8",
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
-
     _engine.registerEventHandler(RtcEngineEventHandler(
-      onJoinChannelSuccess: (conn, elapsed) => setState(() => isJoined = true),
-      onLeaveChannel: (conn, stats) => setState(() => isJoined = false),
+      onJoinChannelSuccess: (c, e) => setState(() => isJoined = true),
+      onLeaveChannel: (c, s) => setState(() => isJoined = false),
     ));
-
     await _engine.enableAudio();
-    await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+  }
+
+  void _handleSeatAction(int index) async {
+    if (!seats[index]) {
+      if (!isJoined) {
+        await _engine.joinChannel(token: '', channelId: "pagla_adda", uid: 0, options: const ChannelMediaOptions(publishMicrophoneTrack: true, autoSubscribeAudio: true, clientRoleType: ClientRoleType.clientRoleBroadcaster));
+      }
+      Map<String, dynamic> userData = {"name": "ইউজার ${index + 1}", "image": "https://i.pravatar.cc/150?u=$index", "isOccupied": true};
+      await _dbRef.child("seat_details").child("$index").set(userData);
+      setState(() { seats[index] = true; isJoined = true; });
+    } else {
+      await _engine.leaveChannel();
+      await _dbRef.child("seat_details").child("$index").remove();
+      setState(() { seats[index] = false; isJoined = false; });
+    }
+    _dbRef.update({"seats": seats});
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: currentThemeColor, // সরাসরি কালার অবজেক্ট ব্যবহার
-      child: Column(
-        children: [
-          const SizedBox(height: 50),
-          // রুম হেডার
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15),
-            child: Row(
-              children: [
-                const CircleAvatar(radius: 20, backgroundColor: Colors.pink),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text("পাগলা আড্ডা ঘর", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-                if(isLocked) const Icon(Icons.lock, color: Colors.white54, size: 16),
-                IconButton(
-                  icon: const Icon(Icons.more_vert, color: Colors.white),
-                  onPressed: () {
-                    // সেটিংস মেনু
-                  },
-                )
-              ],
-            ),
+    return Column(
+      children: [
+        const SizedBox(height: 50),
+        // হেডার
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15),
+          child: Row(
+            children: [
+              const CircleAvatar(radius: 20, backgroundImage: NetworkImage("https://via.placeholder.com/150")),
+              const SizedBox(width: 10),
+              const Expanded(child: Text("পাগলা আড্ডা ঘর", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+              IconButton(icon: Icon(isLocked ? Icons.lock : Icons.lock_open, color: Colors.white), onPressed: () => _dbRef.update({"isLocked": !isLocked})),
+            ],
           ),
-          
-          // সিট গ্রিড
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.all(20),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 20),
-              itemCount: 15,
-              itemBuilder: (ctx, i) => GestureDetector(
-                onTap: () {
-                  seats[i] = !seats[i];
-                  _dbRef.update({"seats": seats});
-                },
-                child: CircleAvatar(
-                  backgroundColor: seats[i] ? Colors.pink : Colors.white10,
-                  child: Icon(Icons.person, color: Colors.white54, size: 20),
-                ),
-              ),
-            ),
+        ),
+        // সিট গ্রিড
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(20),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 25),
+            itemCount: 15,
+            itemBuilder: (ctx, i) => _buildSeat(i),
           ),
-          
-          // কন্ট্রোল বার
-          _buildControls(),
-        ],
-      ),
+        ),
+        // বটম বার
+        _buildBottomBar(),
+      ],
     );
   }
 
-  Widget _buildControls() {
+  Widget _buildSeat(int i) {
+    return StreamBuilder(
+      stream: _dbRef.child("seat_details").child("$i").onValue,
+      builder: (context, snapshot) {
+        String name = "${i + 1}";
+        String? imageUrl;
+        bool occupied = false;
+        if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
+          var data = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
+          name = data['name'] ?? "${i + 1}";
+          imageUrl = data['image'];
+          occupied = true;
+        }
+        return GestureDetector(
+          onTap: () => _handleSeatAction(i),
+          child: Column(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: occupied ? Colors.pinkAccent : Colors.white10,
+                backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+                child: !occupied ? const Icon(Icons.person_add, color: Colors.white24, size: 20) : null,
+              ),
+              const SizedBox(height: 4),
+              Text(name, style: TextStyle(color: occupied ? Colors.white : Colors.white24, fontSize: 10), overflow: TextOverflow.ellipsis),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomBar() {
     return Container(
       padding: const EdgeInsets.all(20),
       color: const Color(0xFF151525),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          IconButton(
-            icon: Icon(isJoined ? Icons.call_end : Icons.add_call, color: isJoined ? Colors.red : Colors.green),
-            onPressed: () async {
-              if (isJoined) await _engine.leaveChannel();
-              else await _engine.joinChannel(token: '', channelId: "pagla_adda", uid: 0, options: const ChannelMediaOptions(publishMicrophoneTrack: true, autoSubscribeAudio: true, clientRoleType: ClientRoleType.clientRoleBroadcaster));
-            },
-          ),
-          const Icon(Icons.card_giftcard, color: Colors.pinkAccent),
+          IconButton(icon: Icon(isMuted ? Icons.mic_off : Icons.mic, color: isJoined ? Colors.white : Colors.white10), onPressed: isJoined ? () { setState(() => isMuted = !isMuted); _engine.muteLocalAudioStream(isMuted); } : null),
+          IconButton(icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 30), onPressed: () {}),
+          const Icon(Icons.emoji_emotions, color: Colors.yellow, size: 30),
         ],
       ),
     );
