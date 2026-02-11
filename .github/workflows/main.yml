@@ -12,19 +12,25 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: Build Release APK
+      - name: Recreate Android and Build
         run: |
-          # ১. ডিপেন্ডেন্সি বা প্যাকেজগুলো লোড করা
+          # ১. প্রজেক্ট রি-কনফিগার করা (এতে gradlew ফাইল ফিরে আসবে)
+          flutter create . --project-name pagla_chat --platforms android
+          
+          # ২. আপনার কাঙ্ক্ষিতSdkVersion সরাসরি ইনজেক্ট করা (যাতে এরর না আসে)
+          sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
+          
+          # ৩. প্যাকেজ আপডেট
           flutter pub get
           
-          # ২. গ্রেডেল ফাইল এক্সিকিউট করার পারমিশন দেওয়া
+          # ৪. পারমিশন দেওয়া
           chmod +x android/gradlew
           
-          # ৩. সরাসরি বিল্ড করা (কোনো ফাইল ডিলিট না করে)
+          # ৫. ফাইনাল বিল্ড
           flutter build apk --release --target=lib/main.dart
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Success-Build
+          name: PaglaChat-Success
           path: build/app/outputs/flutter-apk/app-release.apk
