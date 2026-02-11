@@ -12,25 +12,25 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: Repair and Build
+      - name: Force Build APK
         run: |
-          # সব ক্যাশ পরিষ্কার করা
+          # সব পুরনো ঝামেলা পরিষ্কার করা
           flutter clean
           
-          # আপনার প্রজেক্টের নাম ঠিক করা (ড্যাশ সমস্যা এড়াতে)
-          flutter create --project-name pagla_chat . --platforms android
+          # প্রজেক্ট ঠিকমতো কনফিগার করা
+          flutter create . --project-name pagla_chat
           
-          # প্যাকেজগুলো নামানো
+          # ডিপেন্ডেন্সি নামানো
           flutter pub get
           
-          # বিল্ড পারমিশন দেওয়া
+          # গ্রেডেল এর পারমিশন দেওয়া
           chmod +x android/gradlew
           
-          # ফাইনাল বিল্ড শুরু
-          flutter build apk --release
-
+          # সোর্স ডিরেক্টরি এরর ফিক্স করতে সরাসরি সোর্স পাথ ধরিয়ে দেওয়া
+          flutter build apk --release --no-pub
+          
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Success-Build
+          name: PaglaChat-Final-Build
           path: build/app/outputs/flutter-apk/app-release.apk
