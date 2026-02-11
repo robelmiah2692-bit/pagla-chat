@@ -1,4 +1,4 @@
-name: Build APK and Get SHA1
+name: Build APK
 on: [push]
 jobs:
   build:
@@ -12,38 +12,15 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: Create and Build APK
+      - name: Build APK
         run: |
-          # ১. প্রজেক্ট তৈরি
-          flutter create --org com.pagla.chat pagla_app
-          
-          # ২. গুগল সার্ভিস ফাইল কপি
-          find . -name "google-services.json" -exec cp {} pagla_app/android/app/ \;
-          
-          # ৩. ফাইল কপি করা (pubspec, main.dart)
-          mkdir -p pagla_app/assets
-          cp -f pubspec.yaml pagla_app/pubspec.yaml || echo "pubspec not found"
-          cp -f lib/main.dart pagla_app/lib/main.dart || echo "main.dart not found"
-          cp -f assets/logo.jpg pagla_app/assets/logo.jpg || echo "logo not found"
-          
-          # ৪. SDK ভার্সন ঠিক করা
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' pagla_app/android/app/build.gradle
-          
-          # ৫. ডামি কী-স্টোর তৈরি এবং SHA-1 বের করা
-          cd pagla_app/android
-          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          echo "---------- SHA1 KEY START ----------"
-          keytool -list -v -keystore debug.keystore -alias androiddebugkey -storepass android -keypass android
-          echo "---------- SHA1 KEY END ----------"
-          cd ../..
-
-          # ৬. বিল্ড শুরু
-          cd pagla_app
+          # কোনো নতুন প্রজেক্ট তৈরি হবে না
+          # সরাসরি আপনার গিটহাবের ফাইলগুলো ব্যবহার হবে
           flutter pub get
           flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Build-${{ github.run_number }}
-          path: pagla_app/build/app/outputs/flutter-apk/app-release.apk
+          name: PaglaChat-Success-Build
+          path: build/app/outputs/flutter-apk/app-release.apk
