@@ -1,209 +1,238 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await Firebase.initializeApp();
-  } catch (e) {
-    debugPrint("Firebase missing: $e");
-  }
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: PaglaVoiceRoom(),
-  ));
+  try { await Firebase.initializeApp(); } catch (e) { debugPrint(e.toString()); }
+  runApp(const MaterialApp(debugShowCheckedModeBanner: false, home: SplashScreen()));
 }
 
-class PaglaVoiceRoom extends StatefulWidget {
-  const PaglaVoiceRoom({super.key});
+// ১. ৩ সেকেন্ড লোগো স্প্ল্যাশ স্ক্রিন
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
   @override
-  State<PaglaVoiceRoom> createState() => _PaglaVoiceRoomState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
-  RtcEngine? _engine;
-  final _dbRef = FirebaseDatabase.instance.ref().child("rooms/room_1");
-  bool isJoined = false;
-  
-  // প্রোফাইল তথ্য
-  String myName = "পাগলা কিং";
-  String myImg = "https://i.pravatar.cc/150?u=myid";
-
+class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _initAgora();
+    Timer(const Duration(seconds: 3), () {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+    });
   }
-
-  Future<void> _initAgora() async {
-    try {
-      await [Permission.microphone].request();
-      _engine = createAgoraRtcEngine();
-      await _engine!.initialize(const RtcEngineContext(appId: "bd010dec4aa141228c87ec2cb9d4f6e8"));
-      await _engine!.enableAudio();
-      _engine!.registerEventHandler(RtcEngineEventHandler(
-        onJoinChannelSuccess: (c, e) => setState(() => isJoined = true),
-      ));
-    } catch (e) {
-      debugPrint("Agora connection error: $e");
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ১. বোর্ড নামের পাশে ছবি (Header)
-            _buildTopBar(),
-
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    // ২. ভিডিও বোর্ড
-                    _buildVideoSection(),
-
-                    // ৩. গেম, পিকে, মিউজিক বাটন
-                    _buildActionIcons(),
-
-                    const SizedBox(height: 20),
-
-                    // ৪. সিট গ্রিড (ছবি ও নাম সহ)
-                    _buildSeatGrid(),
-                  ],
-                ),
-              ),
-            ),
-            
-            // ৫. বটম কন্ট্রোল বার (মিউট, গিফট)
-            _buildBottomMenu(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return Padding(
-      padding: const EdgeInsets.all(15),
-      child: Row(
-        children: [
-          CircleAvatar(radius: 18, backgroundImage: NetworkImage(myImg)),
-          const SizedBox(width: 10),
-          const Expanded(child: Text("পাগলা আড্ডা ঘর 👑", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
-          const Icon(Icons.settings, color: Colors.white54),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVideoSection() {
-    return Container(
-      margin: const EdgeInsets.all(15),
-      height: 160,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: const Center(
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.video_library, color: Colors.white24, size: 40),
-            Text("মুভি বোর্ড / ভিডিও", style: TextStyle(color: Colors.white24, fontSize: 12)),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(25),
+              child: Image.asset('assets/logo.jpg', width: 150, height: 150, 
+                errorBuilder: (context, error, stackTrace) => const Icon(Icons.rocket_launch, color: Colors.pink, size: 100)),
+            ),
+            const SizedBox(height: 20),
+            const Text("PAGLA CHAT", style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 3)),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildActionIcons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _iconUnit(Icons.flash_on, "PK Battle", Colors.orange),
-        _iconUnit(Icons.videogame_asset, "Ludo Game", Colors.blue),
-        _iconUnit(Icons.music_note, "Music Player", Colors.green),
-        _iconUnit(Icons.emoji_events, "Ranking", Colors.yellow),
-      ],
-    );
-  }
+// ২. মেইন নেভিগেশন (হোম, রুম, ইনবক্স, প্রোফাইল)
+class MainNavigation extends StatefulWidget {
+  const MainNavigation({super.key});
+  @override
+  State<MainNavigation> createState() => _MainNavigationState();
+}
 
-  Widget _iconUnit(IconData icon, String label, Color color) {
-    return Column(
-      children: [
-        CircleAvatar(backgroundColor: color.withOpacity(0.1), radius: 22, child: Icon(icon, color: color, size: 20)),
-        const SizedBox(height: 5),
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
-      ],
-    );
-  }
+class _MainNavigationState extends State<MainNavigation> {
+  int _currentIndex = 1; // সরাসরি রুমে ওপেন হবে
+  final List<Widget> _pages = [const HomePage(), const VoiceRoom(), const InboxPage(), const ProfilePage()];
 
-  Widget _buildSeatGrid() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 15),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 20, childAspectRatio: 0.7),
-      itemCount: 15,
-      itemBuilder: (context, i) {
-        return StreamBuilder(
-          stream: _dbRef.child("seat_details").child("$i").onValue,
-          builder: (context, snapshot) {
-            bool occ = false; String name = "${i + 1}"; String? img;
-            if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
-              var d = snapshot.data!.snapshot.value as Map;
-              name = d['name'] ?? name; img = d['image']; occ = true;
-            }
-            return GestureDetector(
-              onTap: () async {
-                if (!occ) {
-                  if (!isJoined) await _engine?.joinChannel(token: '', channelId: "pagla", uid: 0, options: const ChannelMediaOptions(publishMicrophoneTrack: true, autoSubscribeAudio: true));
-                  _dbRef.child("seat_details").child("$i").set({"name": myName, "image": myImg});
-                } else {
-                  _dbRef.child("seat_details").child("$i").remove();
-                }
-              },
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: occ ? Colors.pink : Colors.white10,
-                    backgroundImage: img != null ? NetworkImage(img) : null,
-                    child: !occ ? const Icon(Icons.add, color: Colors.white10, size: 18) : null,
-                  ),
-                  const SizedBox(height: 5),
-                  Text(name, style: TextStyle(color: occ ? Colors.white : Colors.white24, fontSize: 10), overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildBottomMenu() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      color: const Color(0xFF151525),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          IconButton(icon: Icon(Icons.mic, color: isJoined ? Colors.white : Colors.white10), onPressed: () {}),
-          const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 30),
-          const Icon(Icons.emoji_emotions, color: Colors.yellow, size: 30),
-          const Icon(Icons.message, color: Colors.white54, size: 25),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _pages[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: const Color(0xFF151525),
+        selectedItemColor: Colors.pinkAccent,
+        unselectedItemColor: Colors.white30,
+        onTap: (index) => setState(() => _currentIndex = index),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "হোম"),
+          BottomNavigationBarItem(icon: Icon(Icons.mic), label: "রুম"),
+          BottomNavigationBarItem(icon: Icon(Icons.message), label: "ইনবক্স"),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "প্রোফাইল"),
         ],
       ),
     );
   }
 }
+
+// --- ৩. রুম সেকশন (ইউটিউব, মিউজিক, ফলো, থ্রি-ডট সহ) ---
+class VoiceRoom extends StatefulWidget {
+  const VoiceRoom({super.key});
+  @override
+  State<VoiceRoom> createState() => _VoiceRoomState();
+}
+
+class _VoiceRoomState extends State<VoiceRoom> {
+  final _db = FirebaseDatabase.instance.ref().child("live_room");
+  String currentTheme = "dark";
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: currentTheme == "dark" ? const Color(0xFF0F0F1E) : Colors.deepPurple[900],
+      body: SafeArea(
+        child: StreamBuilder(
+          stream: _db.onValue,
+          builder: (context, snapshot) {
+            var data = (snapshot.hasData && snapshot.data!.snapshot.value != null) ? (snapshot.data!.snapshot.value as Map) : {};
+            String rName = data['name'] ?? "পাগলা আড্ডা ঘর";
+            int followers = data['followers'] ?? 0;
+            String ytUrl = data['yt_url'] ?? "https://youtube.com";
+
+            return Column(
+              children: [
+                // হেডার: লোগো, ফলো বাটন (+), নাম, থ্রি-ডট
+                _buildHeader(rName, followers),
+
+                // ভিডিও বোর্ড (YouTube Search)
+                _buildVideoBoard(ytUrl),
+
+                // পিকে, গেম, মিউজিক বাটন
+                _buildFeatureRow(),
+
+                // ১৫টি সিট গ্রিড
+                Expanded(child: _buildSeatGrid(data['seats'] ?? {})),
+
+                // বটম বার (গিফট ও মেসেজ)
+                _buildBottomBar(),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(String name, int followers) {
+    return Padding(
+      padding: const EdgeInsets.all(10),
+      child: Row(
+        children: [
+          const CircleAvatar(backgroundImage: AssetImage('assets/logo.jpg'), radius: 22),
+          const SizedBox(width: 5),
+          IconButton(icon: const Icon(Icons.add_circle, color: Colors.pinkAccent), onPressed: () => _db.update({'followers': followers + 1})),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            Text("Followers: $followers", style: const TextStyle(color: Colors.white54, fontSize: 10)),
+          ])),
+          IconButton(icon: const Icon(Icons.lock_outline, color: Colors.white54), onPressed: () {}),
+          PopupMenuButton(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(child: Text("রুম লক")),
+              const PopupMenuItem(child: Text("থিম পরিবর্তন")),
+              const PopupMenuItem(child: Text("নাম পরিবর্তন")),
+            ],
+            onSelected: (val) => _showEditDialog("রুমের নাম বদলান", "name"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoBoard(String url) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 15),
+      height: 160, width: double.infinity,
+      decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.pinkAccent.withOpacity(0.2))),
+      child: Stack(
+        children: [
+          const Center(child: Icon(Icons.play_circle_fill, color: Colors.white10, size: 60)),
+          Positioned(bottom: 10, right: 10, child: ElevatedButton.icon(
+            onPressed: () => _showEditDialog("YouTube Video ID দিন", "yt_url"),
+            icon: const Icon(Icons.search, size: 16), label: const Text("Search"),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 15),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _fIcon(Icons.bolt, "PK", Colors.orange),
+          _fIcon(Icons.videogame_asset, "Ludo", Colors.blue),
+          _fIcon(Icons.music_note, "Music", Colors.green, action: () => _showMusicPlayer()),
+          _fIcon(Icons.emoji_events, "Ranking", Colors.yellow),
+        ],
+      ),
+    );
+  }
+
+  Widget _fIcon(IconData i, String l, Color c, {VoidCallback? action}) => 
+    GestureDetector(onTap: action, child: Column(children: [CircleAvatar(backgroundColor: c.withOpacity(0.1), child: Icon(i, color: c, size: 22)), Text(l, style: const TextStyle(color: Colors.white54, fontSize: 10))]));
+
+  Widget _buildSeatGrid(Map seats) {
+    return GridView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 15),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 20, childAspectRatio: 0.75),
+      itemCount: 15,
+      itemBuilder: (ctx, i) {
+        bool occ = seats.containsKey("$i");
+        return Column(children: [
+          GestureDetector(
+            onTap: () => _db.child("seats").child("$i").set(occ ? null : {"name": "User"}),
+            child: CircleAvatar(radius: 25, backgroundColor: occ ? Colors.pink : Colors.white10, child: Icon(occ ? Icons.person : Icons.add, color: Colors.white, size: 20)),
+          ),
+          Text("${i + 1}", style: const TextStyle(color: Colors.white24, fontSize: 10))
+        ]);
+      },
+    );
+  }
+
+  void _showEditDialog(String title, String key) {
+    TextEditingController ctrl = TextEditingController();
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Text(title), content: TextField(controller: ctrl),
+      actions: [TextButton(onPressed: () { _db.update({key: ctrl.text}); Navigator.pop(ctx); }, child: const Text("Save"))],
+    ));
+  }
+
+  void _showMusicPlayer() {
+    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF151525), builder: (ctx) => Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text("MUSIC PLAYER", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        const Divider(color: Colors.white10),
+        ListTile(leading: const Icon(Icons.library_music, color: Colors.green), title: const Text("গান অ্যাড করুন", style: TextStyle(color: Colors.white)), onTap: () {}),
+        const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.skip_previous, color: Colors.white), Icon(Icons.play_circle, color: Colors.pink, size: 60), Icon(Icons.skip_next, color: Colors.white)]),
+      ]),
+    ));
+  }
+
+  Widget _buildBottomBar() => Container(padding: const EdgeInsets.all(15), child: const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Icon(Icons.mic_none, color: Colors.white30), Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 40), Icon(Icons.message, color: Colors.white30)]));
+}
+
+// --- ৪. হোম (স্টোরি বাটন), ইনবক্স ও প্রোফাইল পেজ ---
+class HomePage extends StatelessWidget { const HomePage({super.key}); @override Widget build(BuildContext context) => Scaffold(backgroundColor: const Color(0xFF0F0F1E), appBar: AppBar(title: const Text("PAGLA HOME"), backgroundColor: Colors.transparent), body: Column(children: [Padding(padding: const EdgeInsets.all(10), child: Row(children: [Column(children: [const CircleAvatar(radius: 30, backgroundColor: Colors.white10, child: Icon(Icons.add, color: Colors.white)), const Text("Story", style: TextStyle(color: Colors.white54, fontSize: 10))])]))])); }
+class InboxPage extends StatelessWidget { const InboxPage({super.key}); @override Widget build(BuildContext context) => const Scaffold(backgroundColor: Color(0xFF0F0F1E), body: Center(child: Text("আপনার ইনবক্স খালি", style: TextStyle(color: Colors.white24)))); }
+class ProfilePage extends StatelessWidget { const ProfilePage({super.key}); @override Widget build(BuildContext context) => const Scaffold(backgroundColor: Color(0xFF0F0F1E), body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [CircleAvatar(radius: 60, backgroundImage: AssetImage('assets/logo.jpg')), Text("পাগলা কিং 👑", style: TextStyle(color: Colors.white, fontSize: 24))]))); }
