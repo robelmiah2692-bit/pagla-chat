@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:audioplayers/audioplayers.dart';
 
 void main() => runApp(const MaterialApp(debugShowCheckedModeBanner: false, home: MainNavigation()));
 
@@ -15,8 +13,7 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
-  // ৪টি পাতা: হোম, রুম, ইনবক্স, প্রোফাইল
-  final List<Widget> _pages = [const HomePage(), const VoiceRoom(), const Center(child: Text("ইনবক্স মেসেজ", style: TextStyle(color: Colors.white))), const ProfilePage()];
+  final List<Widget> _pages = [const HomePage(), const VoiceRoom(), const Center(child: Text("ইনবক্স", style: TextStyle(color: Colors.white))), const ProfilePage()];
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +37,7 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- ১. হোম স্ক্রিন (ফিক্সড ছবি) ---
+// --- ১. হোম স্ক্রিন (ফিক্সড ব্যাকগ্রাউন্ড) ---
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
   @override
@@ -48,14 +45,14 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       body: Stack(children: [
         SizedBox.expand(child: Image.network("https://i.ibb.co/5XPJS3x3/94e336499de49a794948d2ddf0aea5a5-1.jpg", fit: BoxFit.cover)),
-        Container(color: Colors.black45),
-        const Center(child: Text("PAGLA CHAT", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 4))),
+        Container(color: Colors.black54),
+        const Center(child: Text("PAGLA CHAT", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 5))),
       ]),
     );
   }
 }
 
-// --- ২. রুম স্ক্রিন (এডিট, ফলো +, চ্যাট, গিফট, মিউজিক এড/ডিলিট) ---
+// --- ২. রাজকীয় ভয়েস রুম (ইউটিউব, ২০ সিট, অ্যাডভান্সড সেটিংস) ---
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -63,55 +60,38 @@ class VoiceRoom extends StatefulWidget {
 }
 
 class _VoiceRoomState extends State<VoiceRoom> {
-  final AudioPlayer _audioPlayer = AudioPlayer();
-  bool isMicMuted = true, isFollowed = false;
-  String roomName = "পাগলা আড্ডা বোর্ড", currentSongName = "গান চলছে না";
-  String? roomImage;
-  List<String> messages = [];
-  List<Map<String, String>> userPlaylist = [];
-  final TextEditingController _chatController = TextEditingController();
+  bool isMicMuted = true;
+  String selectedLang = "বাংলা";
+  String selectedGender = "উভয়";
 
-  // রুম এডিট ফাংশন (ছবি ও নাম)
-  void _editRoom() async {
-    TextEditingController c = TextEditingController(text: roomName);
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      backgroundColor: const Color(0xFF1A1A2E),
-      title: const Text("রুম এডিট", style: TextStyle(color: Colors.white)),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextField(controller: c, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: "রুমের নাম")),
-        TextButton(onPressed: () async {
-          final x = await ImagePicker().pickImage(source: ImageSource.gallery);
-          if (x != null) setState(() => roomImage = x.path);
-        }, child: const Text("ছবি পাল্টান"))
-      ]),
-      actions: [TextButton(onPressed: () { setState(() => roomName = c.text); Navigator.pop(ctx); }, child: const Text("সেভ"))],
-    ));
+  // রুম সেটিংস প্যানেল (ভাষা, জেন্ডার, ব্লক লিস্ট)
+  void _showRoomSettings() {
+    showModalBottomSheet(
+      context: context, backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      builder: (ctx) => StatefulBuilder(builder: (context, setModalState) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text("রুম ফিল্টার ও সেটিংস", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          _settingTile("ভাষা", ["বাংলা", "English", "অন্যান্য"], selectedLang, (val) => setState(() => selectedLang = val!)),
+          _settingTile("জেন্ডার", ["উভয়", "মহিলা ♀", "পুরুষ ♂"], selectedGender, (val) => setState(() => selectedGender = val!)),
+          ListTile(leading: const Icon(Icons.block, color: Colors.redAccent), title: const Text("ব্লক লিস্ট", style: TextStyle(color: Colors.white70)), onTap: () {}),
+          const SizedBox(height: 20),
+        ]),
+      )),
+    );
   }
 
-  // গিফট বক্স (আইটেম ও দামসহ)
-  void _showGifts() {
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), builder: (ctx) => GridView.count(
-      crossAxisCount: 4, padding: const EdgeInsets.all(15),
-      children: [_giftItem("💎", "10"), _giftItem("🌹", "50"), _giftItem("🚗", "500"), _giftItem("👑", "1000")],
-    ));
-  }
-  Widget _giftItem(String icon, String price) => Column(children: [Text(icon, style: const TextStyle(fontSize: 30)), Text("$price 💎", style: const TextStyle(color: Colors.white54, fontSize: 10))]);
-
-  // মিউজিক প্লেয়ার (অ্যাড ও ডিলিট অপশনসহ)
-  void _showMusicPlayer() {
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), builder: (ctx) => StatefulBuilder(builder: (context, setModalState) => Column(
-      children: [
-        ListTile(title: const Text("প্লেয়ার", style: TextStyle(color: Colors.white)), trailing: IconButton(icon: const Icon(Icons.add_circle, color: Colors.cyanAccent), onPressed: () async {
-          FilePickerResult? r = await FilePicker.platform.pickFiles(type: FileType.audio);
-          if (r != null) setModalState(() => userPlaylist.add({"name": r.files.single.name, "path": r.files.single.path!}));
-        })),
-        Expanded(child: ListView.builder(itemCount: userPlaylist.length, itemBuilder: (ctx, i) => ListTile(
-          title: Text(userPlaylist[i]["name"]!, style: const TextStyle(color: Colors.white, fontSize: 12)),
-          trailing: IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => setModalState(() => userPlaylist.removeAt(i))),
-          onTap: () async { await _audioPlayer.play(DeviceFileSource(userPlaylist[i]["path"]!)); setState(() => currentSongName = userPlaylist[i]["name"]!); },
-        ))),
-      ],
-    )));
+  Widget _settingTile(String title, List<String> opts, String current, Function(String?) onType) {
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      Text(title, style: const TextStyle(color: Colors.white70)),
+      DropdownButton<String>(
+        dropdownColor: const Color(0xFF1A1A2E), value: current,
+        items: opts.map((String value) => DropdownMenuItem(value: value, child: Text(value, style: const TextStyle(color: Colors.pinkAccent)))).toList(),
+        onChanged: onType,
+      )
+    ]);
   }
 
   @override
@@ -120,89 +100,81 @@ class _VoiceRoomState extends State<VoiceRoom> {
       backgroundColor: const Color(0xFF0F0F1E),
       appBar: AppBar(
         backgroundColor: Colors.transparent, elevation: 0,
-        leading: GestureDetector(onTap: _editRoom, child: Padding(padding: const EdgeInsets.all(8.0), child: CircleAvatar(backgroundImage: roomImage != null ? FileImage(File(roomImage!)) : null, child: roomImage == null ? const Icon(Icons.camera_alt) : null))),
-        title: Row(children: [
-          GestureDetector(onTap: _editRoom, child: Text(roomName, style: const TextStyle(fontSize: 15))),
-          const SizedBox(width: 5),
-          GestureDetector(onTap: () => setState(() => isFollowed = !isFollowed), child: Icon(isFollowed ? Icons.check_circle : Icons.add_circle, color: Colors.pinkAccent, size: 20)),
+        title: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text("পাগলা আড্ডা জোন", style: TextStyle(fontSize: 14)),
+          Text("ID: 5896321 (নিজস্ব রুম)", style: TextStyle(fontSize: 10, color: Colors.white38)),
         ]),
+        actions: [IconButton(icon: const Icon(Icons.settings), onPressed: _showRoomSettings)],
       ),
       body: Column(children: [
-        Expanded(child: ListView.builder(itemCount: messages.length, itemBuilder: (ctx, i) => ListTile(title: Text(messages[i], style: const TextStyle(color: Colors.white70))))),
-        _bottomBar(),
+        // ইউটিউব প্লেয়ার প্লেসহোল্ডার
+        Container(
+          margin: const EdgeInsets.all(15), height: 160,
+          decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.redAccent.withOpacity(0.5))),
+          child: const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.play_circle_fill, color: Colors.red, size: 50), Text("YouTube Video Playing...", style: TextStyle(color: Colors.white54))])),
+        ),
+        // ২০টি নিওন সিট
+        Expanded(child: GridView.builder(
+          padding: const EdgeInsets.all(10),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, childAspectRatio: 0.8),
+          itemCount: 20,
+          itemBuilder: (ctx, i) => Column(children: [
+            Container(width: 45, height: 45, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)), color: Colors.white10), child: const Icon(Icons.mic_none, size: 20, color: Colors.white24)),
+            Text("${i+1}", style: const TextStyle(color: Colors.white38, fontSize: 10)),
+          ]),
+        )),
+        _bottomMenu(),
       ]),
     );
   }
 
-  Widget _bottomBar() {
-    return Container(padding: const EdgeInsets.all(10), color: const Color(0xFF1A1A2E), child: Row(children: [
-      IconButton(icon: Icon(isMicMuted ? Icons.mic_off : Icons.mic, color: Colors.red), onPressed: () => setState(() => isMicMuted = !isMicMuted)),
-      Expanded(child: TextField(controller: _chatController, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: "মেসেজ...", border: InputBorder.none))),
-      IconButton(icon: const Icon(Icons.send, color: Colors.pinkAccent), onPressed: () { if(_chatController.text.isNotEmpty) { setState(() => messages.add("আমি: ${_chatController.text}")); _chatController.clear(); } }),
-      IconButton(icon: const Icon(Icons.music_note, color: Colors.cyanAccent), onPressed: _showMusicPlayer),
-      IconButton(icon: const Icon(Icons.card_giftcard, color: Colors.amber), onPressed: _showGifts),
+  Widget _bottomMenu() {
+    return Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10), color: const Color(0xFF1A1A2E), child: Row(children: [
+      IconButton(icon: const Icon(Icons.sentiment_satisfied, color: Colors.amber), onPressed: () {}),
+      Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 15), decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20)), child: const TextField(decoration: InputDecoration(hintText: "মেসেজ...", border: InputBorder.none, hintStyle: TextStyle(color: Colors.white24))))),
+      const Icon(Icons.grid_view_rounded, color: Colors.cyanAccent), // গেম ও ইউটিউব মেনু
+      const SizedBox(width: 15),
+      const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 30),
     ]));
   }
 }
 
-// --- ৩. প্রোফাইল (সেটিংস, ডায়মন্ড শপ +, ফলো কাউন্টার, স্টোরি নিচে) ---
-class ProfilePage extends StatefulWidget {
+// --- ৩. প্রোফাইল (ব্যাজ, ফ্রেম, শুধু ডায়মন্ড) ---
+class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
-  @override
-  State<ProfilePage> createState() => _ProfilePageState();
-}
-
-class _ProfilePageState extends State<ProfilePage> {
-  int diamonds = 100, followers = 1200, following = 500;
-  List<String> stories = [];
-
-  void _diamondShop() {
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      backgroundColor: const Color(0xFF1A1A2E),
-      title: const Text("ডায়মন্ড কিনুন", style: TextStyle(color: Colors.white)),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        ListTile(title: const Text("১০০ 💎"), trailing: const Text("৳ ১০০", style: TextStyle(color: Colors.cyanAccent))),
-        ListTile(title: const Text("৫০০ 💎"), trailing: const Text("৳ ৪৫০", style: TextStyle(color: Colors.cyanAccent))),
-      ]),
-    ));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        leading: Row(children: [const SizedBox(width: 10), Text("$diamonds", style: const TextStyle(color: Colors.white)), GestureDetector(onTap: _diamondShop, child: const Icon(Icons.add_circle, color: Colors.amber, size: 18))]),
-        actions: [const Icon(Icons.settings, color: Colors.white70), const SizedBox(width: 15)],
-      ),
+      appBar: AppBar(backgroundColor: Colors.transparent, actions: [const Icon(Icons.settings), const SizedBox(width: 15)]),
       body: Column(children: [
-        const CircleAvatar(radius: 50, child: Icon(Icons.person, size: 50)),
-        const SizedBox(height: 10),
-        const Text("পাগলা ইউজার", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 15),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          _count("ফলোয়ার", followers), const SizedBox(width: 40), _count("ফলোইং", following),
-        ]),
         const SizedBox(height: 20),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          ElevatedButton(onPressed: () {}, child: const Text("Follow")),
-          const SizedBox(width: 10),
-          OutlinedButton(onPressed: () {}, child: const Text("Message", style: TextStyle(color: Colors.white))),
-        ]),
-        const Spacer(),
-        const Divider(color: Colors.white24),
-        const Text("স্টোরি বোর্ড", style: TextStyle(color: Colors.white70)),
-        SizedBox(height: 100, child: ListView(scrollDirection: Axis.horizontal, children: [
-          GestureDetector(onTap: () async {
-            final x = await ImagePicker().pickImage(source: ImageSource.gallery);
-            if (x != null) setState(() => stories.add(x.path));
-          }, child: Container(width: 70, margin: const EdgeInsets.all(5), color: Colors.white10, child: const Icon(Icons.add, color: Colors.white))),
-          ...stories.map((s) => Container(width: 70, margin: const EdgeInsets.all(5), child: Image.file(File(s), fit: BoxFit.cover))),
+        Center(child: Stack(alignment: Alignment.center, children: [
+          Container(width: 100, height: 100, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.amber, width: 3))), // ভিআইপি ফ্রেম
+          const CircleAvatar(radius: 45, child: Icon(Icons.person, size: 40)),
+          Positioned(bottom: 0, child: Container(padding: const EdgeInsets.all(2), color: Colors.amber, child: const Text("LV.38", style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)))),
         ])),
         const SizedBox(height: 10),
+        const Text("পাগলা কিং", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+        // শুধু ডায়মন্ড কার্ড
+        Container(
+          margin: const EdgeInsets.all(20), padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.pinkAccent.withOpacity(0.3))),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const Icon(Icons.diamond, color: Colors.cyanAccent),
+            const SizedBox(width: 10),
+            const Text("2,500 Diamonds", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const Spacer(),
+            const Icon(Icons.add_circle, color: Colors.pinkAccent),
+          ]),
+        ),
+        const Text("অনার ব্যাজ", style: TextStyle(color: Colors.white38, fontSize: 12)),
+        const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text("🏅 👑 🛡️ 💎", style: TextStyle(fontSize: 22))]),
+        const Spacer(),
+        const Divider(color: Colors.white10),
+        const Text("মাই স্টোরি", style: TextStyle(color: Colors.white70)),
+        const SizedBox(height: 80),
       ]),
     );
   }
-  Widget _count(String t, int n) => Column(children: [Text("$n", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), Text(t, style: const TextStyle(color: Colors.white54, fontSize: 12))]);
 }
