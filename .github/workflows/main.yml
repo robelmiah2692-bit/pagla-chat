@@ -12,16 +12,21 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: Reconstruct and Build
+      - name: Repair and Build
         run: |
-          # ড্যাশ এরর এড়াতে নতুন প্রজেক্ট নাম দিয়ে তৈরি করা
+          # সব ক্যাশ পরিষ্কার করা
+          flutter clean
+          
+          # আপনার প্রজেক্টের নাম ঠিক করা (ড্যাশ সমস্যা এড়াতে)
           flutter create --project-name pagla_chat . --platforms android
           
-          # ফাইলগুলোর পারমিশন এবং ডিপেন্ডেন্সি ঠিক করা
+          # প্যাকেজগুলো নামানো
           flutter pub get
+          
+          # বিল্ড পারমিশন দেওয়া
           chmod +x android/gradlew
           
-          # ফাইনাল বিল্ড
+          # ফাইনাল বিল্ড শুরু
           flutter build apk --release
 
       - name: Upload APK
