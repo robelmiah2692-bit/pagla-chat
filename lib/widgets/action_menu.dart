@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import '../core/constants.dart';
+// এখানে আপনার প্রোজেক্টের নাম 'pagla_app' ব্যবহার করে সরাসরি পাথ দেওয়া হয়েছে
+import 'package:pagla_app/core/constants.dart';
 
 class RoomActionMenu extends StatelessWidget {
   const RoomActionMenu({super.key});
 
-  // মেনু অপশনগুলো ক্লিকের ফাংশন (এখানে আপনি পরে আপনার ফিচার লিঙ্ক করবেন)
   void _handleAction(BuildContext context, String action) {
-    Navigator.pop(context); // মেনু বন্ধ হবে
+    Navigator.pop(context); 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text("$action ফিচারটি চালু হচ্ছে..."),
@@ -20,14 +20,13 @@ class RoomActionMenu extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
       decoration: BoxDecoration(
-        color: AppConstants.cardColor.withOpacity(0.98), // প্রিমিয়াম ডার্ক লুক
+        color: AppConstants.cardColor.withOpacity(0.98),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
         border: Border.all(color: Colors.white10, width: 0.5),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // উপরে ছোট হ্যান্ডেল ডিজাইন
           Container(
             width: 45,
             height: 5,
@@ -38,7 +37,6 @@ class RoomActionMenu extends StatelessWidget {
           ),
           const SizedBox(height: 30),
           
-          // অপশনগুলোর গ্রিড (Music, YouTube, Games, PK)
           GridView.count(
             shrinkWrap: true,
             crossAxisCount: 4,
@@ -50,7 +48,7 @@ class RoomActionMenu extends StatelessWidget {
               _buildMenuItem(context, Icons.videogame_asset_rounded, "Games", Colors.orange),
               _buildMenuItem(context, Icons.bolt_rounded, "PK Battle", Colors.purple),
               _buildMenuItem(context, Icons.stars_rounded, "Privilege", Colors.amber),
-              _buildMenuItem(context, Icons.Card_giftcard_rounded, "Lucky Bag", Colors.teal),
+              _buildMenuItem(context, Icons.card_giftcard_rounded, "Lucky Bag", Colors.teal),
               _buildMenuItem(context, Icons.settings_suggest_rounded, "Room Set", Colors.grey),
               _buildMenuItem(context, Icons.cleaning_services_rounded, "Clear", Colors.lightGreen),
             ],
