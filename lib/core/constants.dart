@@ -1,1 +1,17 @@
+import 'package:flutter/material.dart';
 
+class AppConstants {
+  static const Color primaryColor = Color(0xFF0F0F1E);
+  static const Color accentColor = Color(0xFFE91E63);
+  static const Color cardColor = Color(0xFF1A1A2E);
+  static const Color diamondColor = Color(0xFF00E5FF);
+  
+  // ব্যাকগ্রাউন্ড ইমেজ পাথ (আপনার assets ফোল্ডারে এই নামে ছবি থাকতে হবে)
+  static const String backgroundImage = "assets/images/bg.jpg"; 
+
+  static const TextStyle titleStyle = TextStyle(
+    color: Colors.white,
+    fontSize: 22,
+    fontWeight: FontWeight.bold,
+  );
+}
