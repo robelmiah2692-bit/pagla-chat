@@ -11,7 +11,10 @@ void main() async {
   } catch (e) {
     debugPrint("Firebase missing: $e");
   }
-  runApp(const MaterialApp(debugShowCheckedModeBanner: false, home: PaglaVoiceRoom()));
+  runApp(const MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: PaglaVoiceRoom(),
+  ));
 }
 
 class PaglaVoiceRoom extends StatefulWidget {
@@ -24,8 +27,10 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
   RtcEngine? _engine;
   final _dbRef = FirebaseDatabase.instance.ref().child("rooms/room_1");
   bool isJoined = false;
-  String myName = "আপনার নাম"; // এখানে আপনার নাম দিন
-  String myImg = "https://i.pravatar.cc/150?u=9"; 
+  
+  // প্রোফাইল তথ্য
+  String myName = "পাগলা কিং";
+  String myImg = "https://i.pravatar.cc/150?u=myid";
 
   @override
   void initState() {
@@ -33,7 +38,6 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
     _initAgora();
   }
 
-  // ৯টি ফিচার ঠিক রেখে ভয়েস চালু করা
   Future<void> _initAgora() async {
     try {
       await [Permission.microphone].request();
@@ -44,20 +48,7 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
         onJoinChannelSuccess: (c, e) => setState(() => isJoined = true),
       ));
     } catch (e) {
-      debugPrint("Agora error: $e");
-    }
-  }
-
-  // সিটে বসার সাথে সাথে ভয়েস ও ডাটাবেস আপডেট
-  void _handleSeat(int i, bool isOccupied) async {
-    if (!isOccupied) {
-      if (!isJoined) {
-        await _engine?.joinChannel(token: '', channelId: "pagla", uid: 0, options: const ChannelMediaOptions(publishMicrophoneTrack: true, autoSubscribeAudio: true));
-      }
-      _dbRef.child("seat_details").child("$i").set({"name": myName, "image": myImg});
-    } else {
-      _dbRef.child("seat_details").child("$i").remove();
-      // ইচ্ছা করলে এখানে লিভ বাটনও রাখা যায়
+      debugPrint("Agora connection error: $e");
     }
   }
 
@@ -66,87 +57,153 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // ১. নামের পাশে ছবি (Header)
-              Padding(
-                padding: const EdgeInsets.all(15),
-                child: Row(
+        child: Column(
+          children: [
+            // ১. বোর্ড নামের পাশে ছবি (Header)
+            _buildTopBar(),
+
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
                   children: [
-                    CircleAvatar(radius: 20, backgroundImage: NetworkImage(myImg)),
-                    const SizedBox(width: 10),
-                    const Expanded(child: Text("পাগলা আড্ডা ঘর 👑", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
-                    const Icon(Icons.settings, color: Colors.white),
+                    // ২. ভিডিও বোর্ড
+                    _buildVideoSection(),
+
+                    // ৩. গেম, পিকে, মিউজিক বাটন
+                    _buildActionIcons(),
+
+                    const SizedBox(height: 20),
+
+                    // ৪. সিট গ্রিড (ছবি ও নাম সহ)
+                    _buildSeatGrid(),
                   ],
                 ),
               ),
-
-              // ২. ভিডিও দেখা বোর্ড
-              
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 15),
-                height: 160,
-                decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
-                child: const Center(child: Icon(Icons.video_collection, color: Colors.white24, size: 40)),
-              ),
-
-              // ৩. পিকে ব্যাটল, মিউজিক, গেম (Action Buttons)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _fBtn(Icons.flash_on, "PK", Colors.orange),
-                    _fBtn(Icons.games, "Game", Colors.blue),
-                    _fBtn(Icons.music_note, "Music", Colors.green),
-                    _fBtn(Icons.emoji_events, "Ranking", Colors.yellow),
-                  ],
-                ),
-              ),
-
-              // ৪. সিট গ্রিড (ছবি ও নাম সহ)
-              
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 15),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 20, childAspectRatio: 0.7),
-                itemCount: 15,
-                itemBuilder: (ctx, i) => _buildSeat(i),
-              ),
-              const SizedBox(height: 50),
-            ],
-          ),
+            ),
+            
+            // ৫. বটম কন্ট্রোল বার (মিউট, গিফট)
+            _buildBottomMenu(),
+          ],
         ),
       ),
     );
   }
 
-  Widget _fBtn(IconData icon, String txt, Color col) {
-    return Column(children: [CircleAvatar(backgroundColor: col.withOpacity(0.1), child: Icon(icon, color: col, size: 20)), Text(txt, style: const TextStyle(color: Colors.white54, fontSize: 10))]);
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.all(15),
+      child: Row(
+        children: [
+          CircleAvatar(radius: 18, backgroundImage: NetworkImage(myImg)),
+          const SizedBox(width: 10),
+          const Expanded(child: Text("পাগলা আড্ডা ঘর 👑", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
+          const Icon(Icons.settings, color: Colors.white54),
+        ],
+      ),
+    );
   }
 
-  Widget _buildSeat(int i) {
-    return StreamBuilder(
-      stream: _dbRef.child("seat_details").child("$i").onValue,
-      builder: (context, snapshot) {
-        String name = "${i + 1}"; String? img; bool occ = false;
-        if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
-          var d = snapshot.data!.snapshot.value as Map;
-          name = d['name'] ?? name; img = d['image']; occ = true;
-        }
-        return GestureDetector(
-          onTap: () => _handleSeat(i, occ),
-          child: Column(
-            children: [
-              CircleAvatar(radius: 24, backgroundColor: occ ? Colors.pink : Colors.white10, backgroundImage: img != null ? NetworkImage(img) : null, child: !occ ? const Icon(Icons.add, color: Colors.white10) : null),
-              const SizedBox(height: 4),
-              Text(name, style: TextStyle(color: occ ? Colors.white : Colors.white24, fontSize: 10), overflow: TextOverflow.ellipsis),
-            ],
-          ),
+  Widget _buildVideoSection() {
+    return Container(
+      margin: const EdgeInsets.all(15),
+      height: 160,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.video_library, color: Colors.white24, size: 40),
+            Text("মুভি বোর্ড / ভিডিও", style: TextStyle(color: Colors.white24, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionIcons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _iconUnit(Icons.flash_on, "PK Battle", Colors.orange),
+        _iconUnit(Icons.videogame_asset, "Ludo Game", Colors.blue),
+        _iconUnit(Icons.music_note, "Music Player", Colors.green),
+        _iconUnit(Icons.emoji_events, "Ranking", Colors.yellow),
+      ],
+    );
+  }
+
+  Widget _iconUnit(IconData icon, String label, Color color) {
+    return Column(
+      children: [
+        CircleAvatar(backgroundColor: color.withOpacity(0.1), radius: 22, child: Icon(icon, color: color, size: 20)),
+        const SizedBox(height: 5),
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+      ],
+    );
+  }
+
+  Widget _buildSeatGrid() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 15),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 20, childAspectRatio: 0.7),
+      itemCount: 15,
+      itemBuilder: (context, i) {
+        return StreamBuilder(
+          stream: _dbRef.child("seat_details").child("$i").onValue,
+          builder: (context, snapshot) {
+            bool occ = false; String name = "${i + 1}"; String? img;
+            if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
+              var d = snapshot.data!.snapshot.value as Map;
+              name = d['name'] ?? name; img = d['image']; occ = true;
+            }
+            return GestureDetector(
+              onTap: () async {
+                if (!occ) {
+                  if (!isJoined) await _engine?.joinChannel(token: '', channelId: "pagla", uid: 0, options: const ChannelMediaOptions(publishMicrophoneTrack: true, autoSubscribeAudio: true));
+                  _dbRef.child("seat_details").child("$i").set({"name": myName, "image": myImg});
+                } else {
+                  _dbRef.child("seat_details").child("$i").remove();
+                }
+              },
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: occ ? Colors.pink : Colors.white10,
+                    backgroundImage: img != null ? NetworkImage(img) : null,
+                    child: !occ ? const Icon(Icons.add, color: Colors.white10, size: 18) : null,
+                  ),
+                  const SizedBox(height: 5),
+                  Text(name, style: TextStyle(color: occ ? Colors.white : Colors.white24, fontSize: 10), overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            );
+          },
         );
       },
+    );
+  }
+
+  Widget _buildBottomMenu() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      color: const Color(0xFF151525),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          IconButton(icon: Icon(Icons.mic, color: isJoined ? Colors.white : Colors.white10), onPressed: () {}),
+          const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 30),
+          const Icon(Icons.emoji_emotions, color: Colors.yellow, size: 30),
+          const Icon(Icons.message, color: Colors.white54, size: 25),
+        ],
+      ),
     );
   }
 }
