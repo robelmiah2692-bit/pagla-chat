@@ -1,34 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-// --- ১. ডাটা ম্যানেজমেন্ট (ফোনে সেভ রাখার জন্য) ---
-class PaglaApp {
-  static SharedPreferences? prefs;
+// --- ১. আপনার দেওয়া Agora ID দিয়ে সেটিংস ---
+class PaglaAgoraConfig {
+  static const String appId = "348a9f9d55b14667891657dfc53dfbeb"; 
+  static bool isJoined = false;
+  static bool isMuted = false;
   static bool isLocked = false;
-  static double diamonds = 500.0;
-  static String userName = "পাগলা ইউজার";
-  static String gender = "পুরুষ";
-  static int age = 22;
-  static String roomName = "পাগলা আড্ডা ঘর";
-  static List<String> chatMessages = [];
-
-  static Future<void> init() async {
-    prefs = await SharedPreferences.getInstance();
-    diamonds = prefs!.getDouble('diamonds') ?? 500.0;
-    userName = prefs!.getString('user_name') ?? "পাগলা ইউজার";
-  }
-
-  static void saveDiamonds(double val) {
-    diamonds = val;
-    prefs!.setDouble('diamonds', val);
-  }
 }
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await PaglaApp.init();
-  runApp(const MaterialApp(debugShowCheckedModeBanner: false, home: MainNavigation()));
-}
+void main() => runApp(const MaterialApp(
+  debugShowCheckedModeBanner: false, 
+  home: MainNavigation()
+));
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -38,7 +23,12 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _idx = 1;
-  final _screens = [const HomeFeed(), const VoiceRoom(), const Center(child: Text("মেসেজ")), const ProfilePage()];
+  final _screens = [
+    const Center(child: Text("হোম ফিড", style: TextStyle(color: Colors.white))),
+    const PaglaVoiceRoom(),
+    const Center(child: Text("মেসেজ", style: TextStyle(color: Colors.white))),
+    const Center(child: Text("প্রোফাইল", style: TextStyle(color: Colors.white))),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +42,7 @@ class _MainNavigationState extends State<MainNavigation> {
         unselectedItemColor: Colors.white24,
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.style), label: "ফিড"),
+          BottomNavigationBarItem(icon: Icon(Icons.explore), label: "ফিড"),
           BottomNavigationBarItem(icon: Icon(Icons.mic), label: "রুম"),
           BottomNavigationBarItem(icon: Icon(Icons.chat), label: "চ্যাট"),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: "প্রোফাইল"),
@@ -62,138 +52,142 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- ২. হোম ফিড (লেখা ও ছবিসহ স্টোরি) ---
-class HomeFeed extends StatelessWidget {
-  const HomeFeed({super.key});
+// --- ২. রিয়েল ভয়েস রুম ও সব ফিচার ---
+class PaglaVoiceRoom extends StatefulWidget {
+  const PaglaVoiceRoom({super.key});
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0A0A15),
-      appBar: AppBar(backgroundColor: Colors.transparent, title: const Text("ফিড ও স্টোরি")),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.pink,
-        child: const Icon(Icons.add_comment),
-        onPressed: () => _showPostSheet(context),
-      ),
-      body: const Center(child: Text("এখানে সবার ছবি ও লেখা পোস্ট দেখা যাবে", style: TextStyle(color: Colors.white24))),
-    );
-  }
-
-  void _showPostSheet(context) {
-    showModalBottomSheet(context: context, isScrollControlled: true, builder: (ctx) => Container(
-      padding: const EdgeInsets.all(20),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const TextField(decoration: InputDecoration(hintText: "কিছু লিখুন...")),
-        ElevatedButton(onPressed: () {}, child: const Text("ছবি যোগ করুন এবং পোস্ট করুন"))
-      ]),
-    ));
-  }
+  State<PaglaVoiceRoom> createState() => _PaglaVoiceRoomState();
 }
 
-// --- ৩. ভয়েস রুম (চ্যাট, ইউটিউব লিংক, মিউজিক, গিফট) ---
-class VoiceRoom extends StatefulWidget {
-  const VoiceRoom({super.key});
-  @override
-  State<VoiceRoom> createState() => _VoiceRoomState();
-}
-
-class _VoiceRoomState extends State<VoiceRoom> {
-  final TextEditingController _chatCtrl = TextEditingController();
+class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
+  late RtcEngine _engine;
   final List<String?> seats = List.filled(20, null);
-  bool isMuted = false;
 
-  void _sendChat() {
-    if (_chatCtrl.text.isNotEmpty) {
-      setState(() => PaglaApp.chatMessages.add(_chatCtrl.text));
-      _chatCtrl.clear();
+  @override
+  void initState() {
+    super.initState();
+    _initAgora();
+  }
+
+  // অ্যাগোরা ইঞ্জিন সেটআপ
+  Future<void> _initAgora() async {
+    await [Permission.microphone].request();
+    _engine = createAgoraRtcEngine();
+    await _engine.initialize(const RtcEngineContext(appId: PaglaAgoraConfig.appId));
+
+    _engine.registerEventHandler(
+      RtcEngineEventHandler(
+        onJoinChannelSuccess: (connection, elapsed) {
+          setState(() => PaglaAgoraConfig.isJoined = true);
+        },
+        onUserJoined: (connection, remoteUid, elapsed) {},
+        onLeaveChannel: (connection, stats) {
+          setState(() => PaglaAgoraConfig.isJoined = false);
+        },
+      ),
+    );
+
+    await _engine.enableAudio();
+    await _engine.setChannelProfile(ChannelProfileType.channelProfileLiveBroadcasting);
+    await _engine.setClientRole(ClientRoleType.clientRoleBroadcaster);
+  }
+
+  // রুমে জয়েন/লিভ লজিক
+  void _toggleJoin() async {
+    if (!PaglaAgoraConfig.isJoined) {
+      await _engine.joinChannel(token: '', channelId: "pagla_room_1", uid: 0, options: const ChannelMediaOptions());
+    } else {
+      await _engine.leaveChannel();
     }
-  }
-
-  void _showYoutubeDialog() {
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      title: const Text("ইউটিউব লিংক দিন"),
-      content: const TextField(decoration: InputDecoration(hintText: "https://...")),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("প্লে করুন"))],
-    ));
-  }
-
-  void _showGiftBox() {
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), builder: (ctx) => GridView.count(
-      crossAxisCount: 4, padding: const EdgeInsets.all(20), children: List.generate(8, (i) => Column(children: [
-        const Icon(Icons.card_giftcard, color: Colors.pink, size: 40),
-        Text("${(i+1)*10} 💎", style: const TextStyle(color: Colors.white, fontSize: 10))
-      ])),
-    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
-      appBar: AppBar(backgroundColor: Colors.transparent, title: Text(PaglaApp.roomName), actions: [
-        IconButton(icon: Icon(isMuted ? Icons.mic_off : Icons.mic, color: Colors.orange), onPressed: () => setState(() => isMuted = !isMuted)),
-        IconButton(icon: const Icon(Icons.video_collection, color: Colors.red), onPressed: _showYoutubeDialog),
-      ]),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Row(children: [
+          const Text("পাগলা আড্ডা ঘর", style: TextStyle(fontSize: 16)),
+          const SizedBox(width: 5),
+          if(PaglaAgoraConfig.isLocked) const Icon(Icons.lock, color: Colors.red, size: 16),
+        ]),
+        actions: [
+          IconButton(
+            icon: Icon(PaglaAgoraConfig.isLocked ? Icons.lock : Icons.lock_open, color: Colors.white),
+            onPressed: () => setState(() => PaglaAgoraConfig.isLocked = !PaglaAgoraConfig.isLocked),
+          ),
+          IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
+        ],
+      ),
       body: Column(
         children: [
-          // ভিডিও প্লেয়ার এরিয়া
-          Container(height: 140, margin: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(15)),
-            child: const Center(child: Icon(Icons.play_circle_fill, color: Colors.red, size: 50))),
+          // ভিডিও/ইউটিউব স্ক্রিন (সক্রিয় হবে পরের ধাপে)
+          Container(
+            height: 150, width: double.infinity, margin: const EdgeInsets.all(15),
+            decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
+            child: const Center(child: Icon(Icons.video_library, color: Colors.red, size: 50)),
+          ),
           
-          // ২০ সিট
-          Expanded(child: GridView.builder(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5),
-            itemCount: 20, itemBuilder: (ctx, i) => Column(children: [
-              CircleAvatar(backgroundColor: Colors.white10, child: Icon(i < 5 ? Icons.stars : Icons.person, size: 18, color: Colors.white24)),
-              Text("${i+1}", style: const TextStyle(color: Colors.white30, fontSize: 10))
-            ]),
-          )),
+          // ২০ সিট গ্রিড (চাপ দিলে ইউজার বসবে)
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5),
+              itemCount: 20,
+              itemBuilder: (ctx, i) => GestureDetector(
+                onTap: () => setState(() => seats[i] = seats[i] == null ? "U" : null),
+                child: Column(children: [
+                  CircleAvatar(
+                    backgroundColor: seats[i] != null ? Colors.pink : Colors.white10,
+                    child: Icon(i < 5 ? Icons.stars : Icons.person, color: Colors.white24, size: 20),
+                  ),
+                  Text("${i+1}", style: const TextStyle(color: Colors.white30, fontSize: 10)),
+                ]),
+              ),
+            ),
+          ),
 
-          // চ্যাট লিস্ট ও ইনপুট
-          Container(height: 100, color: Colors.black26, child: ListView(children: PaglaApp.chatMessages.map((m) => Text(" 💬 $m", style: const TextStyle(color: Colors.white70))).toList())),
-          _buildChatInput(),
+          // চ্যাট লিস্ট ও কন্ট্রোল বার
+          _buildBottomAction(),
         ],
       ),
     );
   }
 
-  Widget _buildChatInput() {
-    return Container(padding: const EdgeInsets.all(10), color: const Color(0xFF151525), child: Row(children: [
-      Expanded(child: TextField(controller: _chatCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: "এখানে লিখুন...", hintStyle: TextStyle(color: Colors.white24)))),
-      IconButton(icon: const Icon(Icons.send, color: Colors.pinkAccent), onPressed: _sendChat),
-      IconButton(icon: const Icon(Icons.card_giftcard, color: Colors.orange), onPressed: _showGiftBox),
-    ]));
-  }
-}
-
-// --- ৪. প্রোফাইল ও সেটিংস (বয়স, জেন্ডার, নাম পরিবর্তন) ---
-class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
-  @override
-  State<ProfilePage> createState() => _ProfilePageState();
-}
-
-class _ProfilePageState extends State<ProfilePage> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1E),
-      body: SingleChildScrollView(child: Column(children: [
-        const SizedBox(height: 60),
-        const CircleAvatar(radius: 50, backgroundColor: Colors.amber, child: Icon(Icons.person, size: 50)),
-        const SizedBox(height: 10),
-        Text(PaglaApp.userName, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 20),
-        _buildSettingTile("নাম পরিবর্তন", Icons.edit, () {}),
-        _buildSettingTile("লিঙ্গ: ${PaglaApp.gender}", Icons.face, () {
-          setState(() => PaglaApp.gender = PaglaApp.gender == "পুরুষ" ? "মহিলা" : "পুরুষ");
-        }),
-        _buildSettingTile("বয়স: ${PaglaApp.age}", Icons.cake, () {}),
-        const Divider(color: Colors.white10),
-        ListTile(title: const Text("মেসেজ ও ফলো বাটন", style: TextStyle(color: Colors.white70)), trailing: Row(mainAxisSize: MainAxisSize.min, children: const [Icon(Icons.mail, color: Colors.blue), SizedBox(width: 10), Icon(Icons.person_add, color: Colors.green)]))
-      ])),
+  Widget _buildBottomAction() {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: const BoxDecoration(color: Color(0xFF151525), borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              // জয়েন/লিভ কল বাটন
+              IconButton(
+                icon: Icon(PaglaAgoraConfig.isJoined ? Icons.call_end : Icons.add_call, color: PaglaAgoraConfig.isJoined ? Colors.red : Colors.green, size: 30),
+                onPressed: _toggleJoin,
+              ),
+              // মাইক বাটন
+              IconButton(
+                icon: Icon(PaglaAgoraConfig.isMuted ? Icons.mic_off : Icons.mic, color: Colors.white70),
+                onPressed: () {
+                  setState(() => PaglaAgoraConfig.isMuted = !PaglaAgoraConfig.isMuted);
+                  _engine.muteLocalAudioStream(PaglaAgoraConfig.isMuted);
+                },
+              ),
+              const Icon(Icons.card_giftcard, color: Colors.pink),
+              const Icon(Icons.videogame_asset, color: Colors.orange),
+              const Icon(Icons.music_note, color: Colors.blue),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text("💬 চ্যাট করার জন্য এখানে লিখুন...", style: TextStyle(color: Colors.white24, fontSize: 12)),
+        ],
+      ),
     );
   }
-
-  Widget _buildSettingTile(String t, IconData i, VoidCallback tap) => ListTile(leading: Icon(i, color: Colors.white54), title: Text(t, style: const TextStyle(color: Colors.white)), onTap: tap);
 }
