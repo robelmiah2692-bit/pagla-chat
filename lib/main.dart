@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-// এখানে package নাম বাদ দিয়ে সরাসরি পাথ দেওয়া হলো
+// আপনার স্ক্রিনশটের পাথ অনুযায়ী একদম ডাইরেক্ট ইমপোর্ট
 import 'core/constants.dart';
 import 'screens/profile_screen.dart'; 
 import 'screens/room_screen.dart';    
@@ -18,6 +18,7 @@ class PaglaChatApp extends StatelessWidget {
       title: 'পাগলা চ্যাট',
       theme: ThemeData(
         brightness: Brightness.dark,
+        // এখান থেকেই আপনার এররটি আসছিল
         primaryColor: AppConstants.primaryColor,
         scaffoldBackgroundColor: AppConstants.primaryColor,
         colorScheme: ColorScheme.fromSeed(
