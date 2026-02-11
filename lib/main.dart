@@ -6,8 +6,15 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try { await Firebase.initializeApp(); } catch (e) { debugPrint(e.toString()); }
-  runApp(const MaterialApp(debugShowCheckedModeBanner: false, home: SplashScreen()));
+  try { 
+    await Firebase.initializeApp(); 
+  } catch (e) { 
+    debugPrint("Firebase Initialization Error: ${e.toString()}"); 
+  }
+  runApp(const MaterialApp(
+    debugShowCheckedModeBanner: false, 
+    home: SplashScreen()
+  ));
 }
 
 // ১. ৩ সেকেন্ড লোগো স্প্ল্যাশ স্ক্রিন
@@ -22,7 +29,12 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     Timer(const Duration(seconds: 3), () {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+      if (mounted) {
+        Navigator.pushReplacement(
+          context, 
+          MaterialPageRoute(builder: (context) => const MainNavigation())
+        );
+      }
     });
   }
   @override
@@ -35,11 +47,18 @@ class _SplashScreenState extends State<SplashScreen> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(25),
-              child: Image.asset('assets/logo.jpg', width: 150, height: 150, 
-                errorBuilder: (context, error, stackTrace) => const Icon(Icons.rocket_launch, color: Colors.pink, size: 100)),
+              child: Image.asset(
+                'assets/logo.jpg', 
+                width: 150, 
+                height: 150, 
+                errorBuilder: (context, error, stackTrace) => const Icon(Icons.rocket_launch, color: Colors.pink, size: 100)
+              ),
             ),
             const SizedBox(height: 20),
-            const Text("PAGLA CHAT", style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 3)),
+            const Text(
+              "PAGLA CHAT", 
+              style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 3)
+            ),
           ],
         ),
       ),
@@ -55,7 +74,8 @@ class MainNavigation extends StatefulWidget {
 }
 
 class _MainNavigationState extends State<MainNavigation> {
-  int _currentIndex = 1; // সরাসরি রুমে ওপেন হবে
+  // ভাই, এখানে ইনডেক্স ০ করে দিয়েছি, তাই এখন অ্যাপ খুললে আগে হোম পেজ আসবে।
+  int _currentIndex = 0; 
   final List<Widget> _pages = [const HomePage(), const VoiceRoom(), const InboxPage(), const ProfilePage()];
 
   @override
@@ -80,7 +100,7 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- ৩. রুম সেকশন (ইউটিউব, মিউজিক, ফলো, থ্রি-ডট সহ) ---
+// --- ৩. রুম সেকশন ---
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -101,24 +121,15 @@ class _VoiceRoomState extends State<VoiceRoom> {
           builder: (context, snapshot) {
             var data = (snapshot.hasData && snapshot.data!.snapshot.value != null) ? (snapshot.data!.snapshot.value as Map) : {};
             String rName = data['name'] ?? "পাগলা আড্ডা ঘর";
-            int followers = data['followers'] ?? 0;
+            int followers = (data['followers'] is int) ? data['followers'] : 0;
             String ytUrl = data['yt_url'] ?? "https://youtube.com";
 
             return Column(
               children: [
-                // হেডার: লোগো, ফলো বাটন (+), নাম, থ্রি-ডট
                 _buildHeader(rName, followers),
-
-                // ভিডিও বোর্ড (YouTube Search)
                 _buildVideoBoard(ytUrl),
-
-                // পিকে, গেম, মিউজিক বাটন
                 _buildFeatureRow(),
-
-                // ১৫টি সিট গ্রিড
                 Expanded(child: _buildSeatGrid(data['seats'] ?? {})),
-
-                // বটম বার (গিফট ও মেসেজ)
                 _buildBottomBar(),
               ],
             );
@@ -144,11 +155,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
           PopupMenuButton(
             icon: const Icon(Icons.more_vert, color: Colors.white),
             itemBuilder: (ctx) => [
-              const PopupMenuItem(child: Text("রুম লক")),
-              const PopupMenuItem(child: Text("থিম পরিবর্তন")),
-              const PopupMenuItem(child: Text("নাম পরিবর্তন")),
+              const PopupMenuItem(value: 'lock', child: Text("রুম লক")),
+              const PopupMenuItem(value: 'theme', child: Text("থিম পরিবর্তন")),
+              const PopupMenuItem(value: 'name', child: Text("নাম পরিবর্তন")),
             ],
-            onSelected: (val) => _showEditDialog("রুমের নাম বদলান", "name"),
+            onSelected: (val) {
+              if (val == 'name') _showEditDialog("রুমের নাম বদলান", "name");
+            },
           ),
         ],
       ),
@@ -232,7 +245,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   Widget _buildBottomBar() => Container(padding: const EdgeInsets.all(15), child: const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Icon(Icons.mic_none, color: Colors.white30), Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 40), Icon(Icons.message, color: Colors.white30)]));
 }
 
-// --- ৪. হোম (স্টোরি বাটন), ইনবক্স ও প্রোফাইল পেজ ---
+// --- ৪. অন্যান্য পেজ ---
 class HomePage extends StatelessWidget { const HomePage({super.key}); @override Widget build(BuildContext context) => Scaffold(backgroundColor: const Color(0xFF0F0F1E), appBar: AppBar(title: const Text("PAGLA HOME"), backgroundColor: Colors.transparent), body: Column(children: [Padding(padding: const EdgeInsets.all(10), child: Row(children: [Column(children: [const CircleAvatar(radius: 30, backgroundColor: Colors.white10, child: Icon(Icons.add, color: Colors.white)), const Text("Story", style: TextStyle(color: Colors.white54, fontSize: 10))])]))])); }
 class InboxPage extends StatelessWidget { const InboxPage({super.key}); @override Widget build(BuildContext context) => const Scaffold(backgroundColor: Color(0xFF0F0F1E), body: Center(child: Text("আপনার ইনবক্স খালি", style: TextStyle(color: Colors.white24)))); }
 class ProfilePage extends StatelessWidget { const ProfilePage({super.key}); @override Widget build(BuildContext context) => const Scaffold(backgroundColor: Color(0xFF0F0F1E), body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [CircleAvatar(radius: 60, backgroundImage: AssetImage('assets/logo.jpg')), Text("পাগলা কিং 👑", style: TextStyle(color: Colors.white, fontSize: 24))]))); }
