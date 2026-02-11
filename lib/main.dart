@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'core/constants.dart';
-import 'screens/profile_screen.dart'; // আমরা একটু পর এই ফাইলটি তৈরি করবো
-import 'screens/room_screen.dart';    // আমরা একটু পর এই ফাইলটি তৈরি করবো
+// আপনার প্রজেক্টের প্যাকেজ পাথ অনুযায়ী ইমপোর্ট করা হলো
+import 'package:pagla_app/core/constants.dart';
+import 'package:pagla_app/screens/profile_screen.dart'; 
+import 'package:pagla_app/screens/room_screen.dart';    
 
 void main() {
   runApp(const PaglaChatApp());
@@ -19,8 +20,11 @@ class PaglaChatApp extends StatelessWidget {
         brightness: Brightness.dark,
         primaryColor: AppConstants.primaryColor,
         scaffoldBackgroundColor: AppConstants.primaryColor,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppConstants.accentColor,
+          brightness: Brightness.dark,
+        ),
       ),
-      // অ্যাপটি ওপেন হলেই সরাসরি হোম বা রুম পেজে নিয়ে যাবে
       home: const MainNavigation(),
     );
   }
@@ -34,32 +38,39 @@ class MainNavigation extends StatefulWidget {
 }
 
 class _MainNavigationState extends State<MainNavigation> {
-  int _currentIndex = 0;
+  int _currentIndex = 1; // সরাসরি 'রুম' পেজটি ওপেন হবে
 
-  // এখানে আপনার সেই ৪টি মেইন পেজ থাকবে
   final List<Widget> _pages = [
-    const Center(child: Text("হোম পেজ (Coming Soon)")), // আপাতত টেক্সট
-    const VoiceRoomScreen(), // ২০ সিটের রুম
-    const Center(child: Text("ইনবক্স (Coming Soon)")),
-    const RealProfileScreen(), // প্রোফাইল ও ভিআইপি লেভেল
+    const Center(child: Text("হোম ফিড", style: TextStyle(color: Colors.white54))), 
+    const VoiceRoomScreen(), // ২০ সিটের রুম (লিঙ্কড)
+    const Center(child: Text("মেসেজ বক্স", style: TextStyle(color: Colors.white54))),
+    const RealProfileScreen(), // প্রোফাইল সিস্টেম (লিঙ্কড)
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
         backgroundColor: AppConstants.cardColor,
         selectedItemColor: AppConstants.accentColor,
-        unselectedItemColor: Colors.white54,
+        unselectedItemColor: Colors.white38,
+        showUnselectedLabels: true,
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "হোম"),
-          BottomNavigationBarItem(icon: Icon(Icons.mic), label: "রুম"),
-          BottomNavigationBarItem(icon: Icon(Icons.chat), label: "ইনবক্স"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "প্রোফাইল"),
+          BottomNavigationBarItem(icon: Icon(Icons.explore_rounded), label: "হোম"),
+          BottomNavigationBarItem(icon: Icon(Icons.mic_none_rounded), label: "রুম"),
+          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline_rounded), label: "চ্যাট"),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), label: "প্রোফাইল"),
         ],
       ),
     );
