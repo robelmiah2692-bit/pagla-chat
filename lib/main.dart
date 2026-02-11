@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-// আপনার প্রজেক্টের মেইন কনস্ট্যান্ট ফাইলটি ইমপোর্ট করা হলো
-import 'package:pagla_app/core/constants.dart';
-import 'package:pagla_app/screens/profile_screen.dart'; 
-import 'package:pagla_app/screens/room_screen.dart';    
+// এখানে package নাম বাদ দিয়ে সরাসরি পাথ দেওয়া হলো
+import 'core/constants.dart';
+import 'screens/profile_screen.dart'; 
+import 'screens/room_screen.dart';    
 
 void main() {
   runApp(const PaglaChatApp());
@@ -18,7 +18,6 @@ class PaglaChatApp extends StatelessWidget {
       title: 'পাগলা চ্যাট',
       theme: ThemeData(
         brightness: Brightness.dark,
-        // এখানে AppConstants ব্যবহার করা হয়েছে
         primaryColor: AppConstants.primaryColor,
         scaffoldBackgroundColor: AppConstants.primaryColor,
         colorScheme: ColorScheme.fromSeed(
@@ -62,7 +61,6 @@ class _MainNavigationState extends State<MainNavigation> {
             _currentIndex = index;
           });
         },
-        // এখান থেকেই আপনার এররটি আসছিল, এখন এটি ঠিক করা হয়েছে
         backgroundColor: AppConstants.cardColor,
         selectedItemColor: AppConstants.accentColor,
         unselectedItemColor: Colors.white38,
