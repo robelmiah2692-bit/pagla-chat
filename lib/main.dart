@@ -71,25 +71,31 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
 
   // অ্যাগোরা ইঞ্জিন সেটআপ
   Future<void> _initAgora() async {
+    // পারমিশন হ্যান্ডলিং
     await [Permission.microphone].request();
-    _engine = createAgora_rtc_engine(); // ইঞ্জিন তৈরি করা
-    await _engine.initialize(const RtcEngineContext(appId: PaglaAgoraConfig.appId));
+
+    // ইঞ্জিন তৈরি (CamelCase সঠিক করা হয়েছে)
+    _engine = createAgoraRtcEngine(); 
+    
+    await _engine.initialize(const RtcEngineContext(
+      appId: PaglaAgoraConfig.appId,
+      channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
+    ));
 
     _engine.registerEventHandler(
       RtcEngineEventHandler(
-        onJoinChannelSuccess: (connection, elapsed) {
+        onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
           if (mounted) setState(() => PaglaAgoraConfig.isJoined = true);
         },
-        onLeaveChannel: (connection, stats) {
+        onLeaveChannel: (RtcConnection connection, RtcStats stats) {
           if (mounted) setState(() => PaglaAgoraConfig.isJoined = false);
         },
       ),
     );
 
     await _engine.enableAudio();
-    await _engine.setChannelProfile(ChannelProfileType.channelProfileLiveBroadcasting);
     
-    // 🔥 এরর ফিক্স: এখানে লিখার নিয়ম আপডেট করা হয়েছে
+    // ব্রডকাস্টার রোল সেটআপ (নতুন ভার্সনের সঠিক সিনট্যাক্স)
     await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
   }
 
@@ -99,7 +105,11 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
         token: '', 
         channelId: "pagla_room_1", 
         uid: 0, 
-        options: const ChannelMediaOptions()
+        options: const ChannelMediaOptions(
+          publishMicrophoneTrack: true,
+          autoSubscribeAudio: true,
+          clientRoleType: ClientRoleType.clientRoleBroadcaster,
+        )
       );
     } else {
       await _engine.leaveChannel();
@@ -119,71 +129,3 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
       backgroundColor: const Color(0xFF0F0F1E),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Row(children: [
-          const Text("পাগলা আড্ডা ঘর", style: TextStyle(fontSize: 16, color: Colors.white)),
-          const SizedBox(width: 5),
-          if(PaglaAgoraConfig.isLocked) const Icon(Icons.lock, color: Colors.red, size: 16),
-        ]),
-        actions: [
-          IconButton(
-            icon: Icon(PaglaAgoraConfig.isLocked ? Icons.lock : Icons.lock_open, color: Colors.white),
-            onPressed: () => setState(() => PaglaAgoraConfig.isLocked = !PaglaAgoraConfig.isLocked),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Container(
-            height: 150, width: double.infinity, margin: const EdgeInsets.all(15),
-            decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
-            child: const Center(child: Icon(Icons.video_library, color: Colors.red, size: 50)),
-          ),
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5),
-              itemCount: 20,
-              itemBuilder: (ctx, i) => GestureDetector(
-                onTap: () => setState(() => seats[i] = seats[i] == null ? "U" : null),
-                child: Column(children: [
-                  CircleAvatar(
-                    backgroundColor: seats[i] != null ? Colors.pink : Colors.white10,
-                    child: Icon(i < 5 ? Icons.stars : Icons.person, color: Colors.white24, size: 20),
-                  ),
-                  Text("${i+1}", style: const TextStyle(color: Colors.white30, fontSize: 10)),
-                ]),
-              ),
-            ),
-          ),
-          _buildBottomAction(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomAction() {
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: const BoxDecoration(color: Color(0xFF151525), borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          IconButton(
-            icon: Icon(PaglaAgoraConfig.isJoined ? Icons.call_end : Icons.add_call, color: PaglaAgoraConfig.isJoined ? Colors.red : Colors.green, size: 30),
-            onPressed: _toggleJoin,
-          ),
-          IconButton(
-            icon: Icon(PaglaAgoraConfig.isMuted ? Icons.mic_off : Icons.mic, color: Colors.white70),
-            onPressed: () {
-              setState(() => PaglaAgoraConfig.isMuted = !PaglaAgoraConfig.isMuted);
-              _engine.muteLocalAudioStream(PaglaAgoraConfig.isMuted);
-            },
-          ),
-          const Icon(Icons.card_giftcard, color: Colors.pink),
-          const Icon(Icons.videogame_asset, color: Colors.orange),
-        ],
-      ),
-    );
-  }
-}
