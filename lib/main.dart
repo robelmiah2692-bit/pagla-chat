@@ -6,7 +6,11 @@ import 'package:firebase_database/firebase_database.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint("Firebase Error: $e");
+  }
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
     home: MainNavigation(),
@@ -22,10 +26,10 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _idx = 1;
   final _screens = [
-    const Center(child: Text("ফিড", style: TextStyle(color: Colors.white))),
+    const Scaffold(backgroundColor: Color(0xFF0F0F1E), body: Center(child: Text("ফিড", style: TextStyle(color: Colors.white)))),
     const PaglaVoiceRoom(),
-    const Center(child: Text("মেসেজ", style: TextStyle(color: Colors.white))),
-    const Center(child: Text("প্রোফাইল", style: TextStyle(color: Colors.white))),
+    const Scaffold(backgroundColor: Color(0xFF0F0F1E), body: Center(child: Text("মেসেজ", style: TextStyle(color: Colors.white)))),
+    const Scaffold(backgroundColor: Color(0xFF0F0F1E), body: Center(child: Text("প্রোফাইল", style: TextStyle(color: Colors.white)))),
   ];
 
   @override
@@ -76,12 +80,18 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
   void _listenToRoom() {
     _dbRef.onValue.listen((event) {
       if (event.snapshot.value != null) {
-        final data = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
-        if (mounted) {
-          setState(() {
-            if (data['seats'] != null) seats = List<bool>.from(data['seats']);
-            isLocked = data['isLocked'] ?? false;
-          });
+        try {
+          final data = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
+          if (mounted) {
+            setState(() {
+              if (data['seats'] != null) {
+                seats = List<bool>.from(data['seats']);
+              }
+              isLocked = data['isLocked'] ?? false;
+            });
+          }
+        } catch (e) {
+          debugPrint("Data parsing error: $e");
         }
       }
     });
@@ -102,50 +112,57 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
   }
 
   void _handleSeatAction(int index) async {
-    if (!seats[index]) {
-      if (!isJoined) {
-        await _engine.joinChannel(token: '', channelId: "pagla_adda", uid: 0, options: const ChannelMediaOptions(publishMicrophoneTrack: true, autoSubscribeAudio: true, clientRoleType: ClientRoleType.clientRoleBroadcaster));
+    try {
+      if (!seats[index]) {
+        if (!isJoined) {
+          await _engine.joinChannel(token: '', channelId: "pagla_adda", uid: 0, options: const ChannelMediaOptions(publishMicrophoneTrack: true, autoSubscribeAudio: true, clientRoleType: ClientRoleType.clientRoleBroadcaster));
+        }
+        Map<String, dynamic> userData = {"name": "User ${index + 1}", "image": "https://i.pravatar.cc/150?u=$index", "isOccupied": true};
+        await _dbRef.child("seat_details").child("$index").set(userData);
+        setState(() { seats[index] = true; isJoined = true; });
+      } else {
+        await _engine.leaveChannel();
+        await _dbRef.child("seat_details").child("$index").remove();
+        setState(() { seats[index] = false; isJoined = false; });
       }
-      Map<String, dynamic> userData = {"name": "ইউজার ${index + 1}", "image": "https://i.pravatar.cc/150?u=$index", "isOccupied": true};
-      await _dbRef.child("seat_details").child("$index").set(userData);
-      setState(() { seats[index] = true; isJoined = true; });
-    } else {
-      await _engine.leaveChannel();
-      await _dbRef.child("seat_details").child("$index").remove();
-      setState(() { seats[index] = false; isJoined = false; });
+      _dbRef.update({"seats": seats});
+    } catch (e) {
+      debugPrint("Seat action error: $e");
     }
-    _dbRef.update({"seats": seats});
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const SizedBox(height: 50),
-        // হেডার
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15),
-          child: Row(
-            children: [
-              const CircleAvatar(radius: 20, backgroundImage: NetworkImage("https://via.placeholder.com/150")),
-              const SizedBox(width: 10),
-              const Expanded(child: Text("পাগলা আড্ডা ঘর", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-              IconButton(icon: Icon(isLocked ? Icons.lock : Icons.lock_open, color: Colors.white), onPressed: () => _dbRef.update({"isLocked": !isLocked})),
-            ],
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F1E),
+      body: Column(
+        children: [
+          const SizedBox(height: 50),
+          // রুম হেডার
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 15),
+            child: Row(
+              children: [
+                const CircleAvatar(radius: 20, backgroundColor: Colors.pinkAccent, child: Icon(Icons.mic, color: Colors.white)),
+                const SizedBox(width: 10),
+                const Expanded(child: Text("পাগলা আড্ডা ঘর", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                IconButton(icon: Icon(isLocked ? Icons.lock : Icons.lock_open, color: Colors.white), onPressed: () => _dbRef.update({"isLocked": !isLocked})),
+              ],
+            ),
           ),
-        ),
-        // সিট গ্রিড
-        Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.all(20),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 25),
-            itemCount: 15,
-            itemBuilder: (ctx, i) => _buildSeat(i),
+          // সিট গ্রিড
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.all(20),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 25),
+              itemCount: 15,
+              itemBuilder: (ctx, i) => _buildSeat(i),
+            ),
           ),
-        ),
-        // বটম বার
-        _buildBottomBar(),
-      ],
+          // কন্ট্রোল বার
+          _buildBottomBar(),
+        ],
+      ),
     );
   }
 
@@ -156,12 +173,18 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
         String name = "${i + 1}";
         String? imageUrl;
         bool occupied = false;
+
         if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
-          var data = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
-          name = data['name'] ?? "${i + 1}";
-          imageUrl = data['image'];
-          occupied = true;
+          try {
+            var data = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
+            name = data['name']?.toString() ?? "${i + 1}";
+            imageUrl = data['image']?.toString();
+            occupied = true;
+          } catch (e) {
+            occupied = false;
+          }
         }
+
         return GestureDetector(
           onTap: () => _handleSeatAction(i),
           child: Column(
@@ -169,7 +192,7 @@ class _PaglaVoiceRoomState extends State<PaglaVoiceRoom> {
               CircleAvatar(
                 radius: 22,
                 backgroundColor: occupied ? Colors.pinkAccent : Colors.white10,
-                backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+                backgroundImage: (imageUrl != null && imageUrl.isNotEmpty) ? NetworkImage(imageUrl) : null,
                 child: !occupied ? const Icon(Icons.person_add, color: Colors.white24, size: 20) : null,
               ),
               const SizedBox(height: 4),
