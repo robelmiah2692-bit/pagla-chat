@@ -10,16 +10,21 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  agora_rtc_engine: ^6.3.0
-  permission_handler: ^11.0.0
-  package_info_plus: ^5.0.1
-  firebase_core: ^2.24.2
+  # --- ভয়েস চ্যাট ---
+  agora_rtc_engine: ^6.3.2
+  permission_handler: ^11.3.0
+  
+  # --- ফায়ারবেস (এইগুলো মাস্ট লাগবে) ---
+  firebase_core: ^2.27.0
+  firebase_database: ^10.4.9       # এই লাইনটি আমি যোগ করেছি (সিট সিস্টেমের জন্য)
   firebase_remote_config: ^4.3.8
+  
+  # --- অন্যান্য দরকারি প্যাকেজ ---
+  package_info_plus: ^5.0.1
   cached_network_image: ^3.3.0
   file_picker: ^6.1.1
   audioplayers: ^5.2.1
   image_picker: ^1.0.7
-  # --- ডাটা স্থায়ীভাবে সেভ রাখার জন্য এটি অবশ্যই লাগবে ---
   shared_preferences: ^2.2.2 
 
 dev_dependencies:
