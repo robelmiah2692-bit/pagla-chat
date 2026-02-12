@@ -11,15 +11,14 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-    // সরাসরি Firebase.initializeApp() ব্যবহার করা রিলিজ মোডের জন্য নিরাপদ
     await Firebase.initializeApp();
   } catch (e) {
-    print("Firebase Initialization Error: $e");
+    print("Firebase Error: $e");
   }
   runApp(const MaterialApp(debugShowCheckedModeBanner: false, home: SplashScreen()));
 }
 
-// --- ১. স্প্ল্যাশ স্ক্রিন (আপনার লোগো সহ) ---
+// --- ১. স্প্ল্যাশ স্ক্রিন ---
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
   @override
@@ -43,7 +42,6 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A12),
       body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        // আপনার assets/logo.png ফাইলটি এখানে কাজ করবে
         Image.asset('assets/logo.png', width: 120, height: 120, 
           errorBuilder: (context, error, stackTrace) => const CircleAvatar(radius: 60, backgroundColor: Colors.pinkAccent, child: Icon(Icons.stars, size: 60, color: Colors.white))),
         const SizedBox(height: 20),
@@ -53,18 +51,14 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-// --- ২. গুগল লগইন (রিলিজ ফিক্স ও SHA-1 এরর সমাধান) ---
+// --- ২. গুগল লগইন ---
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
   Future<void> _signIn(BuildContext context) async {
     try {
-      // রিলিজ মোডে scopes ই যথেষ্ট, clientId ফায়ারবেস নিজেই খুঁজে নেবে
       final GoogleSignIn googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
-      
-      // সেশন ক্লিয়ার করে ফ্রেশ লগইন নিশ্চিত করা
       await googleSignIn.signOut();
-
       final GoogleSignInAccount? gUser = await googleSignIn.signIn();
       if (gUser == null) return;
 
@@ -75,22 +69,17 @@ class LoginScreen extends StatelessWidget {
       );
 
       UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(cred);
-      User? user = userCredential.user;
-
-      if (user != null) {
-        // নতুন আইডি জেনারেট এবং ৫২০ ডায়মন্ড সেভ
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'name': user.displayName,
-          'photo': user.photoURL,
-          'id': '7788${user.uid.substring(0, 4)}',
+      if (userCredential.user != null) {
+        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+          'name': userCredential.user!.displayName,
+          'photo': userCredential.user!.photoURL,
+          'id': '7788${userCredential.user!.uid.substring(0, 4)}',
           'diamonds': 520, 
         }, SetOptions(merge: true));
-
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
       }
     } catch (e) {
-      // স্ক্রিনে এরর মেসেজ দেখানো যেন সমস্যা বোঝা যায়
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Login Failed: $e"), backgroundColor: Colors.redAccent));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Login Failed: $e")));
     }
   }
 
@@ -98,21 +87,7 @@ class LoginScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E), 
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.stars, size: 80, color: Colors.pinkAccent),
-            const SizedBox(height: 30),
-            ElevatedButton.icon(
-              onPressed: () => _signIn(context), 
-              icon: const Icon(Icons.login),
-              label: const Text("Google Login"),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15)),
-            ),
-          ],
-        ),
-      )
+      body: Center(child: ElevatedButton(onPressed: () => _signIn(context), child: const Text("Google Login")))
     );
   }
 }
@@ -151,7 +126,7 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- ৪. ভয়েস রুম (১৫টি সিট ও ইউটিউব) ---
+// --- ৪. ভয়েস রুম ---
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -211,26 +186,103 @@ class _VoiceRoomState extends State<VoiceRoom> {
       backgroundColor: const Color(0xFF0F0F1E),
       body: SafeArea(
         child: Column(children: [
-          ListTile(title: const Text("পাগলা আড্ডা", style: TextStyle(color: Colors.white)), subtitle: const Text("ID: 550889 | Live", style: TextStyle(color: Colors.white54, fontSize: 10)), trailing: const Icon(Icons.lock, color: Colors.orange)),
-          
+          const ListTile(title: Text("পাগলা আড্ডা", style: TextStyle(color: Colors.white)), subtitle: Text("ID: 550889 | Live", style: TextStyle(color: Colors.white54, fontSize: 10))),
           Container(
             margin: const EdgeInsets.all(10), height: 160,
             decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.pinkAccent, width: 2)),
             child: ClipRRect(borderRadius: BorderRadius.circular(13), child: YoutubePlayer(controller: _ytController, showVideoProgressIndicator: true)),
           ),
-
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.casino, color: Colors.blue), const SizedBox(width: 30),
             GestureDetector(
               onTap: () { setState(() => isMicOn = !isMicOn); _engine.muteLocalAudioStream(!isMicOn); },
               child: CircleAvatar(radius: 28, backgroundColor: isMicOn ? Colors.green : Colors.redAccent, child: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: Colors.white)),
             ),
-            const SizedBox(width: 30), const Icon(Icons.music_note, color: Colors.green),
           ]),
-
           Expanded(child: _seatGrid()),
           _chatDisplay(),
+          Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: Row(children: [
+              Expanded(child: TextField(controller: _chatController, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: "কথা বলুন...", filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(30))))),
+              IconButton(icon: const Icon(Icons.send, color: Colors.pinkAccent), onPressed: _sendMsg)
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
 
-          Container(padding: const EdgeInsets.all(10), child: Row(children: [
-            const Icon(Icons.card_giftcard, color: Colors.pinkAccent), const SizedBox(width: 10),
-            Expanded(child: TextField(controller: _chatController, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: "কথা বলুন...", filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.
+  Widget _seatGrid() {
+    return StreamBuilder(
+      stream: FirebaseFirestore.instance.collection('rooms').doc('room1').collection('seats').snapshots(),
+      builder: (context, snapshot) {
+        return GridView.builder(
+          padding: const EdgeInsets.all(15),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 10),
+          itemCount: 15,
+          itemBuilder: (context, i) {
+            var seatDoc = snapshot.data?.docs.where((d) => d.id == 'seat_$i');
+            var seatData = (seatDoc != null && seatDoc.isNotEmpty) ? seatDoc.first : null;
+            bool isOccupied = seatData != null;
+            return GestureDetector(
+              onTap: () => _occupySeat(i),
+              child: Column(children: [
+                CircleAvatar(radius: 20, backgroundColor: isOccupied ? Colors.pinkAccent : Colors.white10, backgroundImage: isOccupied ? NetworkImage(seatData['photo']) : null, child: isOccupied ? null : const Icon(Icons.person, size: 15, color: Colors.white24)),
+                Text(isOccupied ? seatData['name'].split(' ')[0] : "${i+1}", style: const TextStyle(color: Colors.white38, fontSize: 8), overflow: TextOverflow.ellipsis),
+              ]),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _chatDisplay() {
+    return Container(
+      height: 80, padding: const EdgeInsets.symmetric(horizontal: 15),
+      child: StreamBuilder(
+        stream: FirebaseFirestore.instance.collection('rooms').doc('room1').collection('chats').orderBy('time', descending: true).snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const SizedBox();
+          return ListView.builder(
+            reverse: true, itemCount: snapshot.data!.docs.length,
+            itemBuilder: (context, index) {
+              var chat = snapshot.data!.docs[index];
+              return Text("${chat['name']}: ${chat['text']}", style: const TextStyle(color: Colors.white70, fontSize: 11));
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+// --- ৫. প্রোফাইল পেজ ---
+class ProfilePage extends StatelessWidget {
+  const ProfilePage({super.key});
+  @override
+  Widget build(BuildContext context) {
+    String uid = FirebaseAuth.instance.currentUser!.uid;
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F1E),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          var data = snapshot.data!;
+          return Center(child: Column(children: [
+            const SizedBox(height: 60),
+            CircleAvatar(radius: 50, backgroundImage: NetworkImage(data['photo'] ?? "")),
+            const SizedBox(height: 10),
+            Text(data['name'] ?? "User", style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+            Text("ID: ${data['id'] ?? "7788"}", style: const TextStyle(color: Colors.white54)),
+            const SizedBox(height: 20),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.diamond, color: Colors.blue), Text(" ${data['diamonds'] ?? 0}", style: const TextStyle(color: Colors.white))]),
+            const SizedBox(height: 20),
+            ListTile(leading: const Icon(Icons.logout, color: Colors.redAccent), title: const Text("Log Out", style: TextStyle(color: Colors.white)), onTap: () => FirebaseAuth.instance.signOut()),
+          ]));
+        },
+      ),
+    );
+  }
+}
