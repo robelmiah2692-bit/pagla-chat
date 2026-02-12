@@ -13,13 +13,13 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: 🔥 Fix Gradle Compatibility (মোবাইল ইউজার স্পেশাল)
+      - name: 🔥 Fix Gradle Compatibility (8.2 Version)
         run: |
           cd android
-          # গ্র্যাডল ভার্সন ৮.০ তে ফিক্স করা যেন HasConvention এরর না আসে
-          gradle wrapper --gradle-version 8.0 --distribution-type all
+          # গ্র্যাডল নিজেই ৮.২ চেয়েছে, তাই আমরা ৮.২-অল সেট করছি
+          gradle wrapper --gradle-version 8.2 --distribution-type all
           
-          # settings.gradle ঠিক করা যেন 'app' মডিউল খুঁজে পায়
+          # settings.gradle যেন ঠিক থাকে
           echo "include ':app'" > settings.gradle
           
           # পারমিশন ফিক্স
@@ -51,7 +51,7 @@ jobs:
 
       - name: Build APK
         run: |
-          # রিলিজ বিল্ড শুরু
+          # সব ফিচার (YouTube, Seat, Mic) সহ রিলিজ বিল্ড
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
