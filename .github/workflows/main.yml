@@ -21,10 +21,19 @@ jobs:
           sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
           chmod +x android/gradlew
 
-      - name: 🔑 SHA কোড চেক (এরর ছাড়া)
+      - name: 🔑 SHA কোড তৈরি এবং প্রদর্শন
         run: |
+          # গিটহাবের জন্য একটি ডিফল্ট কী তৈরি করা যাতে এরর না আসে
+          keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias AndroidDebugKey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          
           cd android
-          ./gradlew signingReport || true
+          ./gradlew signingReport > report.txt
+          echo "**************************************************"
+          echo "নিচের SHA-1 এবং SHA-256 কোডগুলো কপি করুন:"
+          echo ""
+          grep -A 10 "Variant: debug" report.txt | grep "SHA1" || echo "SHA1 খুঁজে পাওয়া যায়নি"
+          grep -A 10 "Variant: debug" report.txt | grep "SHA-256" || echo "SHA-256 খুঁজে পাওয়া যায়নি"
+          echo "**************************************************"
 
       - name: Build APK
         run: |
