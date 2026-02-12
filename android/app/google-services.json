@@ -15,19 +15,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "25052070011-abdjjprv92am9ep2bqcold2juegqrt2l.apps.googleusercontent.com",
+          "client_id": "25052070011-pec4iar7307gtlskbje7pq4rqclmqgp3.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.pagla.chat",
-            "certificate_hash": "a8fcf1b30928e3e8a6934e2e11808f51bbc7bb02"
-          }
-        },
-        {
-          "client_id": "25052070011-abdjjprv92am9ep2bqcold2juegqrt2l.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.pagla.chat",
-            "certificate_hash": "0a2b71f820f54e61988edb4645ba0526b7065c01476885c2add22c20000ff92f"
+            "certificate_hash": "1d8183ea536a8a80ed0b54cc31b0f7a88d5727e7"
           }
         },
         {
