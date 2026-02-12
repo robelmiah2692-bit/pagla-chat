@@ -13,13 +13,16 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      # --- মোবাইল ইউজারদের জন্য স্পেশাল ফাইল জেনারেটর ---
-      - name: Generate Missing Android Files
+      - name: Fix Android Structure
         run: |
+          # অ্যান্ড্রয়েড ফোল্ডারের ফাইলগুলো চেক এবং ফিক্স করা
           cd android
-          # যদি গ্র্যাডল ফাইল না থাকে, তবে এটি জেনারেট করবে
+          # যদি settings.gradle না থাকে বা ভুল থাকে তবে নতুন করে তৈরি করবে
+          echo "include ':app'" > settings.gradle
+          # অ্যাপ ফোল্ডারে যেন বিল্ড ফাইল থাকে
+          mkdir -p app
+          # গ্র্যাডল ফাইল না থাকলে জেনারেট করা
           if [ ! -f gradlew ]; then
-            # গিটহাবের ভেতরেই ফাইলটা বানানোর কমান্ড
             gradle wrapper --gradle-version 8.0
           fi
           chmod +x gradlew
@@ -39,20 +42,19 @@ jobs:
             -dname "CN=Pagla, O=Chat, C=BD"
           fi
 
-      - name: 🔑 SHA কোড সরাসরি দেখা
+      - name: 🔑 SHA কোড দেখানো
         run: |
           cd android
           keytool -list -v -keystore app/upload-keystore.jks -alias "pagla_alias" -storepass "pagla123" > sha_report.txt
-          echo "SHA1 কোড নিচে দেওয়া হলো:"
           grep "SHA1:" sha_report.txt
 
       - name: Build APK
         run: |
-          # আপনার ১৫ সিট এবং ইউটিউব ফিচার সহ রিলিজ বিল্ড
+          # Force বিল্ড কমান্ড যেন 'app' প্রজেক্ট খুঁজে পায়
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Fixed-SHA-APK
+          name: PaglaChat-Final-APK
           path: build/app/outputs/flutter-apk/app-release.apk
