@@ -110,7 +110,7 @@ class HomePage extends StatelessWidget {
   );
 }
 
-// --- ৫. ভয়েস রুম (চ্যাট সেন্ড + মাইক অন-অফ ফিক্সড) ---
+// --- ৫. ভয়েস রুম ---
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -223,7 +223,7 @@ class ProfilePage extends StatelessWidget {
             Column(children: [Text("৪৫", style: TextStyle(color: Colors.white)), Text("ফলোয়িং", style: TextStyle(color: Colors.white54))]),
           ]),
           const SizedBox(height: 20),
-          ListTile(leading: const Icon(Icons.diamond, color: Colors.blue), title: const Text("ওয়ালেট", style: TextStyle(color: Colors.white)), trailing: const Text("৫২০", style: TextStyle(color: Colors.white))),
+          ListTile(leading: const Icon(Icons.diamond, color: Colors.blue), title: const Text("ওয়ালেট", style: TextStyle(color: Colors.white)), trailing: const Text("৫২০", style: TextStyle(color: Colors.white))),
           ListTile(leading: const Icon(Icons.settings, color: Colors.white54), title: const Text("সেটিংস", style: TextStyle(color: Colors.white))),
           ListTile(leading: const Icon(Icons.logout, color: Colors.redAccent), title: const Text("লগ আউট"), onTap: () => Navigator.pop(context)),
         ]),
