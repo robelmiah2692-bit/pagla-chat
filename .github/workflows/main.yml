@@ -14,11 +14,13 @@ jobs:
           cache: true
 
       - name: Install Dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get
+          # অতিরিক্ত অংশ: বিল্ড পরিষ্কার রাখা
+          flutter clean
 
       - name: Prepare Android Signing
         run: |
-          # যদি কি-স্টোর না থাকে তবেই কেবল একবার তৈরি করবে (ফিক্সড চাবি)
           mkdir -p android/app
           if [ ! -f android/app/upload-keystore.jks ]; then
             keytool -genkey -v -keystore android/app/upload-keystore.jks \
@@ -27,20 +29,23 @@ jobs:
             -dname "CN=Pagla, O=Chat, C=BD"
           fi
 
-      - name: 🔑 SHA কোড সরাসরি দেখা (এটি ফায়ারবেসে একবারই বসাবেন)
+      - name: 🔑 SHA কোড সরাসরি দেখা
         run: |
           cd android
-          # কি-স্টোর থেকে SHA-1 বের করা
           keytool -list -v -keystore app/upload-keystore.jks -alias "pagla_alias" -storepass "pagla123" > sha_report.txt
           echo "**************************************************"
-          echo "এই SHA-1 টি ফায়ারবেসে চিরস্থায়ীভাবে বসান:"
+          echo "এই SHA-1 টি ফায়ারবেসে চিরস্থায়ীভাবে বসান:"
           grep "SHA1:" sha_report.txt
           echo "**************************************************"
 
+      # --- এই অংশটুকু বাদ পড়েছিল (Gradle Permission) ---
+      - name: Give Gradle Permission
+        run: chmod +x android/gradlew
+
       - name: Build APK
         run: |
-          # সরাসরি রিলিজ বিল্ড (সব ফিচার সহ)
-          flutter build apk --release --target=lib/main.dart
+          # সব ফিচার নিশ্চিত করতে ক্লিন বিল্ড
+          flutter build apk --release --target=lib/main.dart --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
