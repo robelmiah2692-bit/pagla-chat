@@ -6,20 +6,17 @@ if (localPropertiesFile.exists()) {
     }
 }
 
-// গিটহাব অ্যাকশনের জন্য এই অংশটুকু স্মার্টলি হ্যান্ডেল করা হয়েছে
 def flutterRoot = localProperties.getProperty('flutter.sdk')
 if (flutterRoot == null) {
     flutterRoot = System.getenv('FLUTTER_ROOT') ?: System.getenv('FLUTTER_HOME')
 }
 
-// এই চেকটি গিটহাবে বিল্ড করার জন্য জরুরি
 if (flutterRoot == null) {
     throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file or FLUTTER_ROOT environment variable.")
 }
 
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
-// ফ্লাটার এবং গুগল সার্ভিস প্লাগইন
 apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 apply plugin: 'com.google.gms.google-services' 
 
@@ -27,33 +24,33 @@ android {
     namespace "com.pagla.chat" 
     compileSdkVersion 34
 
-    // --- এই পার্টটুকু আপনার রিলিজ SHA-1 নিশ্চিত করবে ---
+    // --- গিটহাবের YAML ফাইলের সাথে মিলিয়ে এই অংশটি আপডেট করা হলো ---
     signingConfigs {
         release {
-            // আপনার প্রোজেক্টে থাকা কি-স্টোর ফাইলের নাম ও পাসওয়ার্ড দিন
             storeFile file("upload-keystore.jks") 
-            storePassword "your_password" 
-            keyAlias "your_alias"         
-            keyPassword "your_password"   
+            storePassword "pagla123"      // YAML ফাইলের পাসওয়ার্ডের সাথে মিল রেখে
+            keyAlias "pagla_alias"         // YAML ফাইলের অ্যালিয়াসের সাথে মিল রেখে
+            keyPassword "pagla123"        // YAML ফাইলের কি-পাসওয়ার্ডের সাথে মিল রেখে
         }
     }
 
     defaultConfig {
         applicationId "com.pagla.chat" 
-        minSdkVersion 23 // আগোরার পারফেক্ট সাপোর্ট থাকবে
+        minSdkVersion 23 
         targetSdkVersion 34    
         versionCode 1
         versionName "1.0"
-        multiDexEnabled true // আপনার সব ফিচার লোড হওয়ার জন্য এটি মাস্ট
+        multiDexEnabled true 
     }
 
     buildTypes {
         release {
-            // এখানে debug সরিয়ে release করা হয়েছে যাতে SHA-1 ম্যাচ করে
+            // রিলিজ চাবি কানেক্ট করা হলো
             signingConfig signingConfigs.release 
             
             minifyEnabled false
             shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
@@ -61,12 +58,11 @@ android {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     
-    // মাল্টিডেক্স এবং ফায়ারবেস (সবগুলো ফিচার অক্ষুণ্ণ আছে)
+    // সব ফিচার অক্ষুণ্ণ রাখা হয়েছে (MultiDex, Analytics, Database, Auth, Firestore)
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation platform('com.google.firebase:firebase-bom:33.1.0')
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.firebase:firebase-database'
     implementation 'com.google.firebase:firebase-auth'
-    // আপনার আগের ডাটাবেজ ফিচারগুলোর জন্য firestore ও এখানে কাজ করবে
     implementation 'com.google.firebase:firebase-firestore'
 }
