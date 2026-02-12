@@ -23,6 +23,14 @@
           }
         },
         {
+          "client_id": "25052070011-abdjjprv92am9ep2bqcold2juegqrt2l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pagla.chat",
+            "certificate_hash": "0a2b71f820f54e61988edb4645ba0526b7065c01476885c2add22c20000ff92f"
+          }
+        },
+        {
           "client_id": "25052070011-ernp28c3e48cqvuupm9gq28q560u5po6.apps.googleusercontent.com",
           "client_type": 3
         }
