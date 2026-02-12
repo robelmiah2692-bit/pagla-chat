@@ -13,16 +13,19 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: 🔥 Fix Gradle Compatibility (8.2 Version)
+      - name: 🔥 Fix Android Config (মোবাইল ইউজারদের জন্য ফিক্স)
         run: |
           cd android
-          # গ্র্যাডল নিজেই ৮.২ চেয়েছে, তাই আমরা ৮.২-অল সেট করছি
+          # গ্র্যাডল ৮.২ সেট করা
           gradle wrapper --gradle-version 8.2 --distribution-type all
           
-          # settings.gradle যেন ঠিক থাকে
+          # সবচেয়ে জরুরি: ফ্লাটার এসডিকে পাথ ম্যানুয়ালি লিখে দেওয়া
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          echo "flutter.sdk=$FLUTTER_HOME" >> local.properties
+          
+          # settings.gradle ঠিক করা
           echo "include ':app'" > settings.gradle
           
-          # পারমিশন ফিক্স
           chmod +x gradlew
 
       - name: Install Dependencies
@@ -51,11 +54,11 @@ jobs:
 
       - name: Build APK
         run: |
-          # সব ফিচার (YouTube, Seat, Mic) সহ রিলিজ বিল্ড
+          # রিলিজ বিল্ড শুরু
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Success-APK
+          name: PaglaChat-Fixed-APK
           path: build/app/outputs/flutter-apk/app-release.apk
