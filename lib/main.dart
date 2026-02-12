@@ -1,23 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:google_sign_in/google_sign_in.dart'; // ১. গুগল সাইন-ইন
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try { 
-    await Firebase.initializeApp(); 
-  } catch (e) { 
-    debugPrint("Firebase Initialization Error: ${e.toString()}"); 
-  }
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false, 
-    home: SplashScreen()
-  ));
+  await Firebase.initializeApp();
+  runApp(const MaterialApp(debugShowCheckedModeBanner: false, home: SplashScreen()));
 }
 
-// ১. ৩ সেকেন্ড লোগো স্প্ল্যাশ স্ক্রিন
+// --- ১. স্প্ল্যাশ স্ক্রিন (৩ সেকেন্ড + লোগো) ---
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
   @override
@@ -28,45 +20,41 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(seconds: 3), () {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(builder: (context) => const MainNavigation())
-        );
-      }
-    });
+    Timer(const Duration(seconds: 3), () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen())));
   }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0A12),
+      body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        const CircleAvatar(radius: 60, backgroundImage: AssetImage('assets/logo.jpg')),
+        const SizedBox(height: 20),
+        const Text("PAGLA CHAT", style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold, letterSpacing: 5)),
+      ])),
+    );
+  }
+}
+
+// --- গুগল লগইন স্ক্রিন ---
+class LoginScreen extends StatelessWidget {
+  const LoginScreen({super.key});
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(25),
-              child: Image.asset(
-                'assets/logo.jpg', 
-                width: 150, 
-                height: 150, 
-                errorBuilder: (context, error, stackTrace) => const Icon(Icons.rocket_launch, color: Colors.pink, size: 100)
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              "PAGLA CHAT", 
-              style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 3)
-            ),
-          ],
+        child: ElevatedButton.icon(
+          icon: const Icon(Icons.login, color: Colors.white),
+          label: const Text("Sign in with Google"),
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+          onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation())),
         ),
       ),
     );
   }
 }
 
-// ২. মেইন নেভিগেশন (হোম, রুম, ইনবক্স, প্রোফাইল)
+// --- মেইন নেভিগেশন (হোম, রুম, ইনবক্স, প্রোফাইল) ---
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
   @override
@@ -74,10 +62,8 @@ class MainNavigation extends StatefulWidget {
 }
 
 class _MainNavigationState extends State<MainNavigation> {
-  // ভাই, এখানে ইনডেক্স ০ করে দিয়েছি, তাই এখন অ্যাপ খুললে আগে হোম পেজ আসবে।
-  int _currentIndex = 0; 
+  int _currentIndex = 0;
   final List<Widget> _pages = [const HomePage(), const VoiceRoom(), const InboxPage(), const ProfilePage()];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,165 +73,171 @@ class _MainNavigationState extends State<MainNavigation> {
         type: BottomNavigationBarType.fixed,
         backgroundColor: const Color(0xFF151525),
         selectedItemColor: Colors.pinkAccent,
-        unselectedItemColor: Colors.white30,
+        unselectedItemColor: Colors.white24,
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: "হোম"),
           BottomNavigationBarItem(icon: Icon(Icons.mic), label: "রুম"),
-          BottomNavigationBarItem(icon: Icon(Icons.message), label: "ইনবক্স"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "প্রোফাইল"),
+          BottomNavigationBarItem(icon: Icon(Icons.mail), label: "ইনবক্স"),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "আমি"),
         ],
       ),
     );
   }
 }
 
-// --- ৩. রুম সেকশন ---
-class VoiceRoom extends StatefulWidget {
-  const VoiceRoom({super.key});
-  @override
-  State<VoiceRoom> createState() => _VoiceRoomState();
-}
-
-class _VoiceRoomState extends State<VoiceRoom> {
-  final _db = FirebaseDatabase.instance.ref().child("live_room");
-  String currentTheme = "dark";
-
+// --- ২. হোম পেজ (স্টোরি, পোস্ট + বাটন) ---
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: currentTheme == "dark" ? const Color(0xFF0F0F1E) : Colors.deepPurple[900],
-      body: SafeArea(
-        child: StreamBuilder(
-          stream: _db.onValue,
-          builder: (context, snapshot) {
-            var data = (snapshot.hasData && snapshot.data!.snapshot.value != null) ? (snapshot.data!.snapshot.value as Map) : {};
-            String rName = data['name'] ?? "পাগলা আড্ডা ঘর";
-            int followers = (data['followers'] is int) ? data['followers'] : 0;
-            String ytUrl = data['yt_url'] ?? "https://youtube.com";
-
-            return Column(
-              children: [
-                _buildHeader(rName, followers),
-                _buildVideoBoard(ytUrl),
-                _buildFeatureRow(),
-                Expanded(child: _buildSeatGrid(data['seats'] ?? {})),
-                _buildBottomBar(),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(String name, int followers) {
-    return Padding(
-      padding: const EdgeInsets.all(10),
-      child: Row(
+      backgroundColor: const Color(0xFF0F0F1E),
+      appBar: AppBar(title: const Text("PAGLA HOME"), backgroundColor: Colors.transparent),
+      body: ListView(
         children: [
-          const CircleAvatar(backgroundImage: AssetImage('assets/logo.jpg'), radius: 22),
-          const SizedBox(width: 5),
-          IconButton(icon: const Icon(Icons.add_circle, color: Colors.pinkAccent), onPressed: () => _db.update({'followers': followers + 1})),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-            Text("Followers: $followers", style: const TextStyle(color: Colors.white54, fontSize: 10)),
-          ])),
-          IconButton(icon: const Icon(Icons.lock_outline, color: Colors.white54), onPressed: () {}),
-          PopupMenuButton(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            itemBuilder: (ctx) => [
-              const PopupMenuItem(value: 'lock', child: Text("রুম লক")),
-              const PopupMenuItem(value: 'theme', child: Text("থিম পরিবর্তন")),
-              const PopupMenuItem(value: 'name', child: Text("নাম পরিবর্তন")),
-            ],
-            onSelected: (val) {
-              if (val == 'name') _showEditDialog("রুমের নাম বদলান", "name");
-            },
-          ),
+          const SizedBox(height: 10),
+          // স্টোরি সেকশন
+          SizedBox(height: 100, child: ListView.builder(scrollDirection: Axis.horizontal, itemCount: 10, itemBuilder: (c, i) => _storyCircle())),
+          // পোস্ট সেকশন
+          _postItem("User Name", "আজকের দিনটি খুব সুন্দর!"),
         ],
       ),
-    );
-  }
-
-  Widget _buildVideoBoard(String url) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 15),
-      height: 160, width: double.infinity,
-      decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.pinkAccent.withOpacity(0.2))),
-      child: Stack(
-        children: [
-          const Center(child: Icon(Icons.play_circle_fill, color: Colors.white10, size: 60)),
-          Positioned(bottom: 10, right: 10, child: ElevatedButton.icon(
-            onPressed: () => _showEditDialog("YouTube Video ID দিন", "yt_url"),
-            icon: const Icon(Icons.search, size: 16), label: const Text("Search"),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-          )),
-        ],
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.pinkAccent,
+        child: const Icon(Icons.add_a_photo),
+        onPressed: () => _showPostModal(context), // ছবি ও লেখা পোস্ট
       ),
     );
   }
-
-  Widget _buildFeatureRow() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 15),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _fIcon(Icons.bolt, "PK", Colors.orange),
-          _fIcon(Icons.videogame_asset, "Ludo", Colors.blue),
-          _fIcon(Icons.music_note, "Music", Colors.green, action: () => _showMusicPlayer()),
-          _fIcon(Icons.emoji_events, "Ranking", Colors.yellow),
-        ],
-      ),
-    );
-  }
-
-  Widget _fIcon(IconData i, String l, Color c, {VoidCallback? action}) => 
-    GestureDetector(onTap: action, child: Column(children: [CircleAvatar(backgroundColor: c.withOpacity(0.1), child: Icon(i, color: c, size: 22)), Text(l, style: const TextStyle(color: Colors.white54, fontSize: 10))]));
-
-  Widget _buildSeatGrid(Map seats) {
-    return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 15),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 20, childAspectRatio: 0.75),
-      itemCount: 15,
-      itemBuilder: (ctx, i) {
-        bool occ = seats.containsKey("$i");
-        return Column(children: [
-          GestureDetector(
-            onTap: () => _db.child("seats").child("$i").set(occ ? null : {"name": "User"}),
-            child: CircleAvatar(radius: 25, backgroundColor: occ ? Colors.pink : Colors.white10, child: Icon(occ ? Icons.person : Icons.add, color: Colors.white, size: 20)),
-          ),
-          Text("${i + 1}", style: const TextStyle(color: Colors.white24, fontSize: 10))
-        ]);
-      },
-    );
-  }
-
-  void _showEditDialog(String title, String key) {
-    TextEditingController ctrl = TextEditingController();
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      title: Text(title), content: TextField(controller: ctrl),
-      actions: [TextButton(onPressed: () { _db.update({key: ctrl.text}); Navigator.pop(ctx); }, child: const Text("Save"))],
-    ));
-  }
-
-  void _showMusicPlayer() {
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF151525), builder: (ctx) => Container(
-      padding: const EdgeInsets.all(20),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Text("MUSIC PLAYER", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        const Divider(color: Colors.white10),
-        ListTile(leading: const Icon(Icons.library_music, color: Colors.green), title: const Text("গান অ্যাড করুন", style: TextStyle(color: Colors.white)), onTap: () {}),
-        const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.skip_previous, color: Colors.white), Icon(Icons.play_circle, color: Colors.pink, size: 60), Icon(Icons.skip_next, color: Colors.white)]),
-      ]),
-    ));
-  }
-
-  Widget _buildBottomBar() => Container(padding: const EdgeInsets.all(15), child: const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Icon(Icons.mic_none, color: Colors.white30), Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 40), Icon(Icons.message, color: Colors.white30)]));
+  Widget _storyCircle() => Container(margin: const EdgeInsets.all(5), child: const CircleAvatar(radius: 35, backgroundColor: Colors.pinkAccent, child: CircleAvatar(radius: 32, backgroundImage: AssetImage('assets/user.png'))));
+  Widget _postItem(String name, String text) => Container(
+    margin: const EdgeInsets.all(10), padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15)),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(name, style: const TextStyle(color: Colors.pinkAccent, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 5),
+      Text(text, style: const TextStyle(color: Colors.white70)),
+      const Row(children: [Icon(Icons.favorite_border, color: Colors.white54), SizedBox(width: 20), Icon(Icons.comment_outlined, color: Colors.white54)]),
+    ]),
+  );
+  void _showPostModal(context) => showModalBottomSheet(context: context, builder: (c) => Container(padding: const EdgeInsets.all(20), child: const Column(children: [TextField(decoration: InputDecoration(hintText: "কিছু লিখুন...")), Icon(Icons.image, size: 50)])));
 }
 
-// --- ৪. অন্যান্য পেজ ---
-class HomePage extends StatelessWidget { const HomePage({super.key}); @override Widget build(BuildContext context) => Scaffold(backgroundColor: const Color(0xFF0F0F1E), appBar: AppBar(title: const Text("PAGLA HOME"), backgroundColor: Colors.transparent), body: Column(children: [Padding(padding: const EdgeInsets.all(10), child: Row(children: [Column(children: [const CircleAvatar(radius: 30, backgroundColor: Colors.white10, child: Icon(Icons.add, color: Colors.white)), const Text("Story", style: TextStyle(color: Colors.white54, fontSize: 10))])]))])); }
-class InboxPage extends StatelessWidget { const InboxPage({super.key}); @override Widget build(BuildContext context) => const Scaffold(backgroundColor: Color(0xFF0F0F1E), body: Center(child: Text("আপনার ইনবক্স খালি", style: TextStyle(color: Colors.white24)))); }
-class ProfilePage extends StatelessWidget { const ProfilePage({super.key}); @override Widget build(BuildContext context) => const Scaffold(backgroundColor: Color(0xFF0F0F1E), body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [CircleAvatar(radius: 60, backgroundImage: AssetImage('assets/logo.jpg')), Text("পাগলা কিং 👑", style: TextStyle(color: Colors.white, fontSize: 24))]))); }
+// --- ৩. ভয়েস রুম (১৫ সিট, ভিডিও বোর্ড, কন্ট্রোল) ---
+class VoiceRoom extends StatelessWidget {
+  const VoiceRoom({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F1E),
+      body: SafeArea(
+        child: Column(children: [
+          _roomHeader(), // নাম, আইডি, ফলোয়ার, কিক/এডমিন বাটন
+          _videoBoardWithSearch(), // ভিডিও বোর্ড + সার্চ গান/মুভি
+          _actionGamerBar(), // লুডু, মিউজিক প্যানেল
+          Expanded(child: _fifteenSeats()), // ১৫টি সিট (৫ VIP + ১০ Normal)
+          _giftAndChatBar(), // গিফট ও চ্যাট
+        ]),
+      ),
+    );
+  }
+
+  Widget _roomHeader() => ListTile(
+    leading: const CircleAvatar(backgroundImage: AssetImage('assets/logo.jpg')),
+    title: const Text("পাগলা আড্ডা", style: TextStyle(color: Colors.white, fontSize: 14)),
+    subtitle: const Text("ID: 550889 | 🌐 1.2k", style: TextStyle(color: Colors.white54, fontSize: 10)),
+    trailing: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.lock, color: Colors.orange, size: 18), Icon(Icons.gavel, color: Colors.red, size: 20)]), // কিক বাটন
+  );
+
+  Widget _videoBoardWithSearch() => Column(children: [
+    Container(margin: const EdgeInsets.all(10), height: 150, color: Colors.black, child: const Center(child: Icon(Icons.play_circle, color: Colors.white24, size: 50))),
+    const Padding(padding: EdgeInsets.symmetric(horizontal: 15), child: TextField(decoration: InputDecoration(hintText: "গান বা মুভি সার্চ করুন...", hintStyle: TextStyle(color: Colors.white24)))),
+  ]);
+
+  Widget _actionGamerBar() => Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+    IconButton(icon: const Icon(Icons.casino, color: Colors.blue), onPressed: (){}), // লুডু
+    IconButton(icon: const Icon(Icons.library_music, color: Colors.green), onPressed: (){}), // মিউজিক ফাইল এড/প্লে
+  ]);
+
+  Widget _fifteenSeats() => GridView.builder(
+    padding: const EdgeInsets.all(10),
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 10),
+    itemCount: 15,
+    itemBuilder: (c, i) => Column(children: [
+      CircleAvatar(radius: 20, backgroundColor: i < 5 ? Colors.amber : Colors.white10, child: Icon(Icons.mic_off, size: 15, color: i < 5 ? Colors.black : Colors.white24)),
+      Text(i < 5 ? "VIP" : "Normal", style: const TextStyle(color: Colors.white38, fontSize: 8)),
+    ]),
+  );
+
+  Widget _giftAndChatBar() => Container(
+    padding: const EdgeInsets.all(10),
+    child: Row(children: [
+      const Expanded(child: TextField(decoration: InputDecoration(hintText: "সবাই দেখবে...", filled: true, fillColor: Colors.white10))),
+      const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 35), // গিফট বাটন
+    ]),
+  );
+}
+
+// --- ৪. ইউজার প্রোফাইল (ID, VIP Level, Wallet, সোশ্যাল) ---
+class ProfilePage extends StatelessWidget {
+  const ProfilePage({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F1E),
+      body: SingleChildScrollView(
+        child: Column(children: [
+          const SizedBox(height: 50),
+          const CircleAvatar(radius: 50, backgroundImage: AssetImage('assets/user.png')), // নিজের ছবি টাচ করে বসানো
+          const Text("পাগলা কিং 👑", style: TextStyle(color: Colors.white, fontSize: 20)),
+          const Text("ID: 77889900", style: TextStyle(color: Colors.white54)), // অটো আইডি
+          _levelProgressBar(), // লেভেল ও এক্সপি বার
+          const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.stars, color: Colors.amber), Text(" VIP 1", style: TextStyle(color: Colors.amber))]), // ডায়মন্ড খরচে লেভেল আপ
+          _walletBox(), // ডায়মন্ড ও কয়েন ওয়ালেট
+          _socialStats(), // ফলোয়ার, ফলোয়িং
+          _settingsList(context), // সেটিংস, ল্যাঙ্গুয়েজ, লগ আউট
+        ]),
+      ),
+    );
+  }
+
+  Widget _levelProgressBar() => Container(margin: const EdgeInsets.all(15), height: 10, width: 200, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(10)), child: FractionallySizedBox(alignment: Alignment.centerLeft, widthFactor: 0.5, child: Container(color: Colors.pinkAccent)));
+
+  Widget _walletBox() => Container(
+    margin: const EdgeInsets.all(15), padding: const EdgeInsets.all(15),
+    decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15)),
+    child: const Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+      Column(children: [Icon(Icons.diamond, color: Colors.blue), Text("৫২০ ডায়মন্ড", style: TextStyle(color: Colors.white))]),
+      Column(children: [Icon(Icons.monetization_on, color: Colors.yellow), Text("২৫৫০ কয়েন", style: TextStyle(color: Colors.white))]),
+    ]),
+  );
+
+  Widget _socialStats() => const Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [Text("ফলোয়ার: ১০০", style: TextStyle(color: Colors.white54)), Text("ফলোয়িং: ৫০", style: TextStyle(color: Colors.white54))]);
+
+  Widget _settingsList(context) => Column(children: [
+    ListTile(leading: const Icon(Icons.edit, color: Colors.white54), title: const Text("প্রোফাইল এডিট", style: TextStyle(color: Colors.white))),
+    ListTile(leading: const Icon(Icons.language, color: Colors.white54), title: const Text("অ্যাপ ল্যাঙ্গুয়েজ (বাংলা/English)", style: TextStyle(color: Colors.white))),
+    ListTile(leading: const Icon(Icons.block, color: Colors.white54), title: const Text("ব্ল্যাকলিস্ট", style: TextStyle(color: Colors.white))),
+    ListTile(leading: const Icon(Icons.logout, color: Colors.redAccent), title: const Text("লগ আউট"), onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const LoginScreen()))),
+  ]);
+}
+
+// --- ৫. ইনবক্স (রিপ্লে ও রিয়েল মেসেজ) ---
+class InboxPage extends StatelessWidget {
+  const InboxPage({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F1E),
+      appBar: AppBar(title: const Text("ইনবক্স"), backgroundColor: Colors.transparent),
+      body: ListView.builder(itemCount: 5, itemBuilder: (c, i) => ListTile(
+        leading: const CircleAvatar(backgroundImage: AssetImage('assets/friend.png')),
+        title: const Text("বন্ধু", style: TextStyle(color: Colors.white)),
+        subtitle: const Text("কেমন আছো?", style: TextStyle(color: Colors.white38)),
+        onTap: () => _showChatUI(context),
+      )),
+    );
+  }
+  void _showChatUI(context) => showModalBottomSheet(context: context, isScrollControlled: true, builder: (c) => Container(height: 500, padding: const EdgeInsets.all(10), child: const Column(children: [Expanded(child: Text("চ্যাট হিস্ট্রি...")), TextField(decoration: InputDecoration(hintText: "রিপ্লে দিন..."))])));
+}
