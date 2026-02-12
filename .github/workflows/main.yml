@@ -14,29 +14,17 @@ jobs:
 
       - name: Reconstruct and Build
         run: |
-          # ১. প্রজেক্টের নাম ফিক্স করা
           sed -i 's/name: .*/name: pagla_chat/g' pubspec.yaml
-          
-          # ২. অ্যান্ড্রয়েড ফোল্ডার নতুন করে তৈরি করা
           rm -rf android
           flutter create . --project-name pagla_chat --platforms android
-          
-          # ৩. প্যাকেজ গেট করা
           flutter pub get
-          
-          # ৪. সেটিংস ফিক্স (minSdkVersion 21)
           sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
-          
-          # ৫. পারমিশন দেওয়া
           chmod +x android/gradlew
 
-      - name: 🔑 🕵️‍♂️ আসল SHA-1 এবং SHA-256 খুঁজে বের করো
+      - name: 🔑 SHA কোড চেক (এরর ছাড়া)
         run: |
-          echo "===================================================="
-          echo "নিচে আপনার আসল SHA কী-গুলো দেওয়া হলো:"
-          echo "===================================================="
-          cd android && ./gradlew signingReport | grep -A 10 "Variant: debug" | grep -E "SHA1|SHA-256"
-          echo "===================================================="
+          cd android
+          ./gradlew signingReport || true
 
       - name: Build APK
         run: |
