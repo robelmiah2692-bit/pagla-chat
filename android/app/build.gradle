@@ -6,7 +6,7 @@ if (localPropertiesFile.exists()) {
     }
 }
 
-// গিটহাব অ্যাকশনের জন্য এই অংশটুকু স্মার্টলি হ্যান্ডেল করা হয়েছে
+// গিটহাব অ্যাকশনের জন্য এই অংশটুকু স্মার্টলি হ্যান্ডেল করা হয়েছে
 def flutterRoot = localProperties.getProperty('flutter.sdk')
 if (flutterRoot == null) {
     flutterRoot = System.getenv('FLUTTER_ROOT') ?: System.getenv('FLUTTER_HOME')
@@ -27,18 +27,31 @@ android {
     namespace "com.pagla.chat" 
     compileSdkVersion 34
 
+    // --- এই পার্টটুকু আপনার রিলিজ SHA-1 নিশ্চিত করবে ---
+    signingConfigs {
+        release {
+            // আপনার প্রোজেক্টে থাকা কি-স্টোর ফাইলের নাম ও পাসওয়ার্ড দিন
+            storeFile file("upload-keystore.jks") 
+            storePassword "your_password" 
+            keyAlias "your_alias"         
+            keyPassword "your_password"   
+        }
+    }
+
     defaultConfig {
         applicationId "com.pagla.chat" 
-        minSdkVersion 23 // আগোরার জন্য ২১ এর বেশি প্রয়োজন, তাই এটি ঠিক আছে
+        minSdkVersion 23 // আগোরার পারফেক্ট সাপোর্ট থাকবে
         targetSdkVersion 34    
         versionCode 1
         versionName "1.0"
-        multiDexEnabled true // আপনার ৯টি ফিচারের বড় অ্যাপের জন্য এটি মাস্ট
+        multiDexEnabled true // আপনার সব ফিচার লোড হওয়ার জন্য এটি মাস্ট
     }
 
     buildTypes {
         release {
-            signingConfig signingConfigs.debug // বর্তমানে ডিবাগ সাইনিং দিয়ে টেস্ট করা যাবে
+            // এখানে debug সরিয়ে release করা হয়েছে যাতে SHA-1 ম্যাচ করে
+            signingConfig signingConfigs.release 
+            
             minifyEnabled false
             shrinkResources false
         }
@@ -48,10 +61,12 @@ android {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     
-    // মাল্টিডেক্স এবং ফায়ারবেস
+    // মাল্টিডেক্স এবং ফায়ারবেস (সবগুলো ফিচার অক্ষুণ্ণ আছে)
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation platform('com.google.firebase:firebase-bom:33.1.0')
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.firebase:firebase-database'
     implementation 'com.google.firebase:firebase-auth'
+    // আপনার আগের ডাটাবেজ ফিচারগুলোর জন্য firestore ও এখানে কাজ করবে
+    implementation 'com.google.firebase:firebase-firestore'
 }
