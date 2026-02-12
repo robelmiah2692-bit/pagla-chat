@@ -19,26 +19,25 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: 🛠️ Fix Android Project Structure
+      - name: 🛠️ Fix Path & Environment
         run: |
-          # ১. local.properties সরাসরি তৈরি করা
+          # ১. local.properties তৈরি করা (সঠিক জায়গায়)
           echo "sdk.dir=$ANDROID_HOME" > android/local.properties
           echo "flutter.sdk=/opt/hostedtoolcache/flutter/stable-3.19.0-x64" >> android/local.properties
           
-          # ২. গ্র্যাডল পারমিশন এবং ক্লিনআপ
-          cd android
-          chmod +x gradlew
-          ./gradlew clean || true
+          # ২. gradlew ফাইলকে খুঁজে বের করে পারমিশন দেওয়া
+          if [ -f "android/gradlew" ]; then
+            chmod +x android/gradlew
+          fi
 
       - name: Install Dependencies
         run: |
           flutter pub get
-          # ফ্লাটারকে বাধ্য করা প্লাগইন লিস্ট আপডেট করতে
           flutter precache --android
 
-      - name: 🔑 Build Release APK
+      - name: 🔑 Build APK (Final Attempt)
         run: |
-          # রিলিজ কি-স্টোর যদি না থাকে তবেই বানাবে
+          # কি-স্টোর ফোল্ডার তৈরি
           mkdir -p android/app
           if [ ! -f android/app/upload-keystore.jks ]; then
             keytool -genkey -v -keystore android/app/upload-keystore.jks \
@@ -46,11 +45,11 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Pagla, O=Chat, C=BD"
           fi
-          # সব ফিচারসহ বিল্ড শুরু
+          # বিল্ড শুরু (সব ফিচার নিয়ে)
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Final-Build
+          name: PaglaChat-Success-v201
           path: build/app/outputs/flutter-apk/app-release.apk
