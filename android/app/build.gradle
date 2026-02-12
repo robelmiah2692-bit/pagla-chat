@@ -11,12 +11,14 @@ if (flutterRoot == null) {
     flutterRoot = System.getenv('FLUTTER_ROOT') ?: System.getenv('FLUTTER_HOME')
 }
 
+// মোবাইল ইউজার এবং গিটহাব অ্যাকশনের জন্য হার্ডকোডেড পাথ ফিক্স
 if (flutterRoot == null) {
-    throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file or FLUTTER_ROOT environment variable.")
+    flutterRoot = '/opt/hostedtoolcache/flutter/stable-3.19.0-x64'
 }
 
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
+// এই লাইনটিই ছিল ১৯ নম্বর লাইনের ভিলেন, এখন এটি ফিক্সড
 apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 apply plugin: 'com.google.gms.google-services' 
 
@@ -24,19 +26,19 @@ android {
     namespace "com.pagla.chat" 
     compileSdkVersion 34
 
-    // --- গিটহাবের YAML ফাইলের সাথে মিলিয়ে এই অংশটি আপডেট করা হলো ---
     signingConfigs {
         release {
+            // আপনার সেই চিরস্থায়ী SHA-1 চাবি কানেক্ট করা হলো
             storeFile file("upload-keystore.jks") 
-            storePassword "pagla123"      // YAML ফাইলের পাসওয়ার্ডের সাথে মিল রেখে
-            keyAlias "pagla_alias"         // YAML ফাইলের অ্যালিয়াসের সাথে মিল রেখে
-            keyPassword "pagla123"        // YAML ফাইলের কি-পাসওয়ার্ডের সাথে মিল রেখে
+            storePassword "pagla123" 
+            keyAlias "pagla_alias" 
+            keyPassword "pagla123" 
         }
     }
 
     defaultConfig {
         applicationId "com.pagla.chat" 
-        minSdkVersion 23 
+        minSdkVersion 21 // ২১ করলে আপনার অডিও এবং বড় লাইব্রেরিগুলো স্মুথ চলবে
         targetSdkVersion 34    
         versionCode 1
         versionName "1.0"
@@ -45,7 +47,6 @@ android {
 
     buildTypes {
         release {
-            // রিলিজ চাবি কানেক্ট করা হলো
             signingConfig signingConfigs.release 
             
             minifyEnabled false
@@ -58,7 +59,7 @@ android {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     
-    // সব ফিচার অক্ষুণ্ণ রাখা হয়েছে (MultiDex, Analytics, Database, Auth, Firestore)
+    // সকল ফিচারের জন্য প্রয়োজনীয় লাইব্রেরি
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation platform('com.google.firebase:firebase-bom:33.1.0')
     implementation 'com.google.firebase:firebase-analytics'
