@@ -7,10 +7,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: 'zulu'
           java-version: '17'
 
       - name: Setup Flutter
@@ -19,24 +19,32 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: 🛠️ Force Gradle 8.2.1 (The Fix)
+      - name: 🛠️ Create Gradle Wrapper & Environment
         run: |
           cd android
-          # গ্র্যাডল ৯ থেকে ৮-এ নামিয়ে আনা
-          gradle wrapper --gradle-version 8.2.1 --distribution-type all
+          # ১. গ্রেডল র‍্যাপার ফোল্ডার তৈরি
+          mkdir -p gradle/wrapper
           
-          # পাথ ফিক্স
+          # ২. সঠিক গ্রেডল ভার্সন (৮.২.১) সরাসরি ফাইলে লিখে দেওয়া
+          echo "distributionBase=GRADLE_USER_HOME" > gradle/wrapper/gradle-wrapper.properties
+          echo "distributionPath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
+          echo "zipStoreBase=GRADLE_USER_HOME" >> gradle/wrapper/gradle-wrapper.properties
+          echo "zipStorePath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
+          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.2.1-all.zip" >> gradle/wrapper/gradle-wrapper.properties
+          
+          # ৩. settings.gradle এবং local.properties ঠিক করা
+          echo "include ':app'" > settings.gradle
           echo "sdk.dir=$ANDROID_HOME" > local.properties
           echo "flutter.sdk=/opt/hostedtoolcache/flutter/stable-3.19.0-x64" >> local.properties
           
-          chmod +x gradlew
+          chmod +x gradlew || true
 
       - name: Install Dependencies
         run: |
           flutter pub get
           flutter clean
 
-      - name: 🔑 Key Store Prep
+      - name: 🔑 Key Store & Build APK
         run: |
           mkdir -p android/app
           if [ ! -f android/app/upload-keystore.jks ]; then
@@ -45,14 +53,11 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Pagla, O=Chat, C=BD"
           fi
-
-      - name: Build APK
-        run: |
-          # রিলিজ বিল্ড শুরু
+          # ফিচারগুলো ঠিক রেখে বিল্ড শুরু
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Final-v197
+          name: PaglaChat-Final-APK
           path: build/app/outputs/flutter-apk/app-release.apk
