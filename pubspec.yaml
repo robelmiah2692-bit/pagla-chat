@@ -11,14 +11,22 @@ dependencies:
   flutter:
     sdk: flutter
     
-  # --- ভয়েস চ্যাট ---
+  # --- ভয়েস চ্যাট (Agora) ---
   agora_rtc_engine: ^6.3.2
   permission_handler: ^11.3.0
   
-  # --- ফায়ারবেস ---
+  # --- ফায়ারবেস (Firebase) ---
   firebase_core: ^2.27.0
+  firebase_auth: ^4.17.8        # নতুন: গুগল লগইন এর জন্য
+  cloud_firestore: ^4.15.8      # নতুন: ডাটা সেভ করার জন্য
   firebase_database: ^10.4.9
   firebase_remote_config: ^4.3.8
+  
+  # --- গুগল লগইন ---
+  google_sign_in: ^6.2.1        # নতুন: রিয়েল গুগল লগইন
+  
+  # --- ইউটিউব সচল করার জন্য ---
+  youtube_player_flutter: ^8.1.2 # নতুন: রিয়েল ভিডিও বোর্ড
   
   # --- অন্যান্য দরকারি প্যাকেজ ---
   package_info_plus: ^5.0.1
