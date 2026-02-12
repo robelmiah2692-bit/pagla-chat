@@ -10,7 +10,6 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // আপনার দেওয়া অরিজিনাল ফায়ারবেস অপশন
   await Firebase.initializeApp(
     options: const FirebaseOptions(
       apiKey: "AIzaSyAkEB8dB2vSncv3BpNZng7W_0e6N7dqNmI",
@@ -55,29 +54,55 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-// --- ২. গুগল লগইন (রিয়েল কানেকশন) ---
+// --- ২. গুগল লগইন (CLIENT ID সহ আপডেট করা হয়েছে) ---
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
-  Future<void> _signIn(context) async {
-    final GoogleSignInAccount? gUser = await GoogleSignIn().signIn();
-    final GoogleSignInAuthentication? gAuth = await gUser?.authentication;
-    final cred = GoogleAuthProvider.credential(accessToken: gAuth?.accessToken, idToken: gAuth?.idToken);
-    UserCredential user = await FirebaseAuth.instance.signInWithCredential(cred);
-    await FirebaseFirestore.instance.collection('users').doc(user.user!.uid).set({
-      'name': user.user!.displayName,
-      'photo': user.user!.photoURL,
-      'id': '7788${user.user!.uid.substring(0, 4)}',
-      'diamonds': 520,
-    }, SetOptions(merge: true));
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+
+  Future<void> _signIn(BuildContext context) async {
+    try {
+      // আপনার google-services.json থেকে পাওয়া Client ID এখানে বসানো হয়েছে
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        clientId: '25052070011-ernp28c3e48cqvuupm9gq28q560u5po6.apps.googleusercontent.com',
+      );
+
+      final GoogleSignInAccount? gUser = await googleSignIn.signIn();
+      if (gUser == null) return;
+
+      final GoogleSignInAuthentication gAuth = await gUser.authentication;
+      final cred = GoogleAuthProvider.credential(
+        accessToken: gAuth.accessToken,
+        idToken: gAuth.idToken,
+      );
+
+      UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(cred);
+      User? user = userCredential.user;
+
+      if (user != null) {
+        // নতুন আইডি জেনারেট এবং ইউজার ডাটা সেভ
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'name': user.displayName,
+          'photo': user.photoURL,
+          'id': '7788${user.uid.substring(0, 4)}',
+          'diamonds': 520, // আপনার আগের রিকোয়ারমেন্ট অনুযায়ী ৫২০ ডায়মন্ড
+        }, SetOptions(merge: true));
+
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Login Failed: $e")));
+    }
   }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(backgroundColor: const Color(0xFF0F0F1E), body: Center(child: ElevatedButton(onPressed: () => _signIn(context), child: const Text("Google Login"))));
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F1E), 
+      body: Center(child: ElevatedButton(onPressed: () => _signIn(context), child: const Text("Google Login")))
+    );
   }
 }
 
-// --- ৩. মেইন নেভিগেশন (অক্ষুণ্ণ) ---
+// --- ৩. মেইন নেভিগেশন (হোম, রুম, ইনবক্স, প্রোফাইল) ---
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
   @override
@@ -86,21 +111,32 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _idx = 1; // সরাসরি ভয়েস রুমে নিয়ে যাবে
-  final _pages = [const Center(child: Text("Home", style: TextStyle(color: Colors.white))), const VoiceRoom(), const Center(child: Text("Inbox", style: TextStyle(color: Colors.white))), const ProfilePage()];
+  final _pages = [
+    const Center(child: Text("Home", style: TextStyle(color: Colors.white))), 
+    const VoiceRoom(), 
+    const Center(child: Text("Inbox", style: TextStyle(color: Colors.white))), 
+    const ProfilePage()
+  ];
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: _pages[_idx],
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _idx, type: BottomNavigationBarType.fixed, backgroundColor: const Color(0xFF151525), selectedItemColor: Colors.pinkAccent, unselectedItemColor: Colors.white24,
+        currentIndex: _idx, type: BottomNavigationBarType.fixed, backgroundColor: const Color(0xFF151525), 
+        selectedItemColor: Colors.pinkAccent, unselectedItemColor: Colors.white24,
         onTap: (i) => setState(() => _idx = i),
-        items: const [BottomNavigationBarItem(icon: Icon(Icons.home), label: "হোম"), BottomNavigationBarItem(icon: Icon(Icons.mic), label: "রুম"), BottomNavigationBarItem(icon: Icon(Icons.mail), label: "ইনবক্স"), BottomNavigationBarItem(icon: Icon(Icons.person), label: "আমি")],
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "হোম"), 
+          BottomNavigationBarItem(icon: Icon(Icons.mic), label: "রুম"), 
+          BottomNavigationBarItem(icon: Icon(Icons.mail), label: "ইনবক্স"), 
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "আমি")
+        ],
       ),
     );
   }
 }
 
-// --- ৪. ভয়েস রুম (সব ফিচার + বসা + চ্যাট + ইউটিউব + মাইক) ---
+// --- ৪. ভয়েস রুম (ইউটিউব + মাইক + সিট + চ্যাট) ---
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -118,7 +154,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     super.initState();
     _initAgora();
     _ytController = YoutubePlayerController(
-      initialVideoId: 'iLnmTe5Q2Qw', 
+      initialVideoId: 'iLnmTe5Q2Qw', // আপনার দেওয়া ইউটিউব ভিডিও
       flags: const YoutubePlayerFlags(autoPlay: false, mute: false),
     );
   }
@@ -160,35 +196,40 @@ class _VoiceRoomState extends State<VoiceRoom> {
       backgroundColor: const Color(0xFF0F0F1E),
       body: SafeArea(
         child: Column(children: [
-          _header(),
-          // ইউটিউব বোর্ড (অক্ষুণ্ণ)
+          ListTile(title: const Text("পাগলা আড্ডা", style: TextStyle(color: Colors.white)), subtitle: const Text("ID: 550889 | Live", style: TextStyle(color: Colors.white54, fontSize: 10)), trailing: const Icon(Icons.lock, color: Colors.orange)),
+          
+          // ইউটিউব বোর্ড
           Container(
             margin: const EdgeInsets.all(10), height: 160,
             decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.pinkAccent, width: 2)),
             child: ClipRRect(borderRadius: BorderRadius.circular(13), child: YoutubePlayer(controller: _ytController, showVideoProgressIndicator: true)),
           ),
-          _controls(),
-          // সিট গ্রিড (অক্ষুণ্ণ ও জ্যান্ত)
+
+          // মাইক কন্ট্রোল
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const Icon(Icons.casino, color: Colors.blue), const SizedBox(width: 30),
+            GestureDetector(
+              onTap: () { setState(() => isMicOn = !isMicOn); _engine.muteLocalAudioStream(!isMicOn); },
+              child: CircleAvatar(radius: 28, backgroundColor: isMicOn ? Colors.green : Colors.redAccent, child: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: Colors.white)),
+            ),
+            const SizedBox(width: 30), const Icon(Icons.music_note, color: Colors.green),
+          ]),
+
+          // সিট গ্রিড (১৫টি সিট)
           Expanded(child: _seatGrid()),
-          // রিয়েল চ্যাট ডিসপ্লে
+
+          // চ্যাট ডিসপ্লে
           _chatDisplay(),
-          // চ্যাট ইনপুট (অক্ষুণ্ণ)
-          _chatBar(),
+
+          // চ্যাট ইনপুট
+          Container(padding: const EdgeInsets.all(10), child: Row(children: [
+            const Icon(Icons.card_giftcard, color: Colors.pinkAccent), const SizedBox(width: 10),
+            Expanded(child: TextField(controller: _chatController, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: "কথা বলুন...", filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none), suffixIcon: IconButton(icon: const Icon(Icons.send, color: Colors.pinkAccent), onPressed: _sendMsg)))),
+          ])),
         ]),
       ),
     );
   }
-
-  Widget _header() => ListTile(title: const Text("পাগলা আড্ডা", style: TextStyle(color: Colors.white)), subtitle: const Text("ID: 550889 | Live", style: TextStyle(color: Colors.white54, fontSize: 10)), trailing: const Icon(Icons.lock, color: Colors.orange));
-
-  Widget _controls() => Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-    const Icon(Icons.casino, color: Colors.blue), const SizedBox(width: 30),
-    GestureDetector(
-      onTap: () { setState(() => isMicOn = !isMicOn); _engine.muteLocalAudioStream(!isMicOn); },
-      child: CircleAvatar(radius: 28, backgroundColor: isMicOn ? Colors.green : Colors.redAccent, child: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: Colors.white)),
-    ),
-    const SizedBox(width: 30), const Icon(Icons.music_note, color: Colors.green),
-  ]);
 
   Widget _seatGrid() {
     return StreamBuilder(
@@ -222,15 +263,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   Widget _chatDisplay() {
     return Container(
-      height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 15),
+      height: 80, padding: const EdgeInsets.symmetric(horizontal: 15),
       child: StreamBuilder(
         stream: FirebaseFirestore.instance.collection('rooms').doc('room1').collection('chats').orderBy('time', descending: true).snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const SizedBox();
           return ListView.builder(
-            reverse: true,
-            itemCount: snapshot.data!.docs.length,
+            reverse: true, itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
               var chat = snapshot.data!.docs[index];
               return Text("${chat['name']}: ${chat['text']}", style: const TextStyle(color: Colors.white70, fontSize: 11));
@@ -240,14 +279,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
       ),
     );
   }
-
-  Widget _chatBar() => Container(padding: const EdgeInsets.all(10), child: Row(children: [
-    const Icon(Icons.card_giftcard, color: Colors.pinkAccent), const SizedBox(width: 10),
-    Expanded(child: TextField(controller: _chatController, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: "কথা বলুন...", filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none), suffixIcon: IconButton(icon: const Icon(Icons.send, color: Colors.pinkAccent), onPressed: _sendMsg)))),
-  ]));
 }
 
-// --- ৫. প্রোফাইল (অক্ষুণ্ণ) ---
+// --- ৫. প্রোফাইল পেজ (ডায়মন্ড ও আইডি অক্ষুণ্ণ) ---
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
   @override
@@ -268,7 +302,8 @@ class ProfilePage extends StatelessWidget {
             Text("ID: ${data['id']}", style: const TextStyle(color: Colors.white54)),
             const SizedBox(height: 20),
             Container(margin: const EdgeInsets.symmetric(horizontal: 50), padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [Row(children: [const Icon(Icons.diamond, color: Colors.blue), Text(" ${data['diamonds']}", style: const TextStyle(color: Colors.white))]), const Text("Lvl 1", style: TextStyle(color: Colors.amber))])),
-            ListTile(leading: const Icon(Icons.logout, color: Colors.redAccent), title: const Text("Log Out"), onTap: () => FirebaseAuth.instance.signOut()),
+            const SizedBox(height: 20),
+            ListTile(leading: const Icon(Icons.logout, color: Colors.redAccent), title: const Text("Log Out", style: TextStyle(color: Colors.white)), onTap: () => FirebaseAuth.instance.signOut()),
           ]));
         },
       ),
