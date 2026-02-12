@@ -1,14 +1,16 @@
 buildscript {
-    ext.kotlin_version = '1.9.0'
+    ext.kotlin_version = '1.9.10' // এটি ১.৯.১০ করলে আপনার নতুন প্যাকেজগুলো ভালো কাজ করবে
     repositories {
         google()
         mavenCentral()
     }
 
     dependencies {
+        // ফ্লাটার ৩.১৯.০ এবং গ্র্যাডল ৮.২.১ এর জন্য এটি পারফেক্ট
         classpath 'com.android.tools.build:gradle:8.2.1'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath 'com.google.gms:google-services:4.4.1' // এটিই ফায়ারবেস কানেক্ট করবে
+        // গুগল সার্ভিস ৪.৪.০ ব্যবহার করা ভালো (বেশি স্টাবল)
+        classpath 'com.google.gms:google-services:4.4.0' 
     }
 }
 
