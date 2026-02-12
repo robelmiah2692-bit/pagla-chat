@@ -1,5 +1,6 @@
 name: Build APK
 on: [push]
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -12,36 +13,37 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: Reconstruct and Build
-        run: |
-          sed -i 's/name: .*/name: pagla_chat/g' pubspec.yaml
-          rm -rf android
-          flutter create . --project-name pagla_chat --platforms android
-          flutter pub get
-          sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
-          chmod +x android/gradlew
+      - name: Install Dependencies
+        run: flutter pub get
 
-      - name: 🔑 SHA কোড সরাসরি দেখা
+      - name: Prepare Android Signing
         run: |
-          # ফোল্ডার তৈরি এবং কী-জেনারেট করা (ফিক্সড)
-          mkdir -p ~/.android
-          keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias AndroidDebugKey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          
+          # যদি কি-স্টোর না থাকে তবেই কেবল একবার তৈরি করবে (ফিক্সড চাবি)
+          mkdir -p android/app
+          if [ ! -f android/app/upload-keystore.jks ]; then
+            keytool -genkey -v -keystore android/app/upload-keystore.jks \
+            -storepass "pagla123" -alias "pagla_alias" -keypass "pagla123" \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Pagla, O=Chat, C=BD"
+          fi
+
+      - name: 🔑 SHA কোড সরাসরি দেখা (এটি ফায়ারবেসে একবারই বসাবেন)
+        run: |
           cd android
-          ./gradlew signingReport > report.txt
+          # কি-স্টোর থেকে SHA-1 বের করা
+          keytool -list -v -keystore app/upload-keystore.jks -alias "pagla_alias" -storepass "pagla123" > sha_report.txt
           echo "**************************************************"
-          echo "নিচের কোডগুলো কপি করে ফায়ারবেসে বসান:"
-          echo ""
-          grep "SHA1" report.txt | head -n 1
-          grep "SHA-256" report.txt | head -n 1
+          echo "এই SHA-1 টি ফায়ারবেসে চিরস্থায়ীভাবে বসান:"
+          grep "SHA1:" sha_report.txt
           echo "**************************************************"
 
       - name: Build APK
         run: |
+          # সরাসরি রিলিজ বিল্ড (সব ফিচার সহ)
           flutter build apk --release --target=lib/main.dart
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Success-APK
+          name: PaglaChat-Fixed-SHA-APK
           path: build/app/outputs/flutter-apk/app-release.apk
