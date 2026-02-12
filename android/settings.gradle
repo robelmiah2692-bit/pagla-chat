@@ -12,4 +12,5 @@ if (flutterSdkPath == null) {
     flutterSdkPath = System.getenv("FLUTTER_ROOT") ?: "/opt/hostedtoolcache/flutter/stable-3.19.0-x64"
 }
 
+// এই লাইনটিই আপনার সব প্লাগইন (Firebase, Agora) কানেক্ট করবে
 apply from: "$flutterSdkPath/packages/flutter_tools/gradle/app_plugin_loader.gradle"
