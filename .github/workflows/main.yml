@@ -13,23 +13,17 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: 🔥 Fix Android Path & MultiDex (The Final Fix)
+      - name: 🔥 Android Environment Fix
         run: |
           cd android
-          # গ্র্যাডল ৮.২ সেট করা
-          gradle wrapper --gradle-version 8.2 --distribution-type all
+          # গ্র্যাডল ৮.২.১ সেট করা যা আপনার build.gradle এর সাথে মিলবে
+          gradle wrapper --gradle-version 8.2.1 --distribution-type all
           
-          # পাথগুলো সরাসরি লিখে দিচ্ছি যেন কোনো ভুল না হয়
+          # local.properties ফিক্স (সরাসরি পাথ দেওয়া হলো)
           echo "sdk.dir=$ANDROID_HOME" > local.properties
           echo "flutter.sdk=/opt/hostedtoolcache/flutter/stable-3.19.0-x64" >> local.properties
           
-          # settings.gradle ঠিক করা যেন 'app' মডিউল পায়
-          echo "include ':app'" > settings.gradle
-          
-          # বড় প্যাকেজগুলোর জন্য মাল্টিডেক্স এবং ভার্সন ফিক্স
-          sed -i 's/minSdkVersion .*/minSdkVersion 21/' app/build.gradle || true
-          sed -i 's/multiDexEnabled .*/multiDexEnabled true/' app/build.gradle || true
-          
+          # পারমিশন ফিক্স
           chmod +x gradlew
 
       - name: Install Dependencies
@@ -40,6 +34,7 @@ jobs:
       - name: Prepare Android Signing
         run: |
           mkdir -p android/app
+          # কী-স্টোর ফাইলটি একবারই তৈরি হবে, তাই SHA-1 বদলাবে না
           if [ ! -f android/app/upload-keystore.jks ]; then
             keytool -genkey -v -keystore android/app/upload-keystore.jks \
             -storepass "pagla123" -alias "pagla_alias" -keypass "pagla123" \
@@ -47,19 +42,21 @@ jobs:
             -dname "CN=Pagla, O=Chat, C=BD"
           fi
 
-      - name: 🔑 SHA কোড দেখা
+      - name: 🔑 SHA-1 Fingerprint (For Firebase)
         run: |
           cd android
           keytool -list -v -keystore app/upload-keystore.jks -alias "pagla_alias" -storepass "pagla123" > sha_report.txt
+          echo "**************************************************"
           grep "SHA1:" sha_report.txt
+          echo "**************************************************"
 
       - name: Build APK
         run: |
-          # রিলিজ বিল্ড শুরু
+          # রিলিজ বিল্ড শুরু (YouTube, Agora সব ফিচারসহ)
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Fixed-APK
+          name: PaglaChat-Success-v190
           path: build/app/outputs/flutter-apk/app-release.apk
