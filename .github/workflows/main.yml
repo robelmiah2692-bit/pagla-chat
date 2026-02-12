@@ -13,22 +13,22 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: 🔥 Fix Android & MultiDex (বড় প্যাকেজ ফিক্স)
+      - name: 🔥 Fix Android Path & MultiDex (The Final Fix)
         run: |
           cd android
-          # গ্র্যাডল ভার্সন ঠিক করা
+          # গ্র্যাডল ৮.২ সেট করা
           gradle wrapper --gradle-version 8.2 --distribution-type all
           
-          # এসডিকে পাথ এবং মাল্টিডেক্স এনাবল করা (ম্যাজিক লাইন)
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
-          echo "flutter.sdk=$FLUTTER_HOME" >> local.properties
+          # পাথগুলো সরাসরি লিখে দিচ্ছি যেন কোনো ভুল না হয়
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          echo "flutter.sdk=/opt/hostedtoolcache/flutter/stable-3.19.0-x64" >> local.properties
           
-          # settings.gradle ঠিক করা
+          # settings.gradle ঠিক করা যেন 'app' মডিউল পায়
           echo "include ':app'" > settings.gradle
           
-          # অ্যাপের ভেতর মাল্টিডেক্স অন করা যেন বিল্ড ফেইল না হয়
-          sed -i 's/minSdkVersion .*/minSdkVersion 21/' app/build.gradle
-          sed -i 's/multiDexEnabled .*/multiDexEnabled true/' app/build.gradle
+          # বড় প্যাকেজগুলোর জন্য মাল্টিডেক্স এবং ভার্সন ফিক্স
+          sed -i 's/minSdkVersion .*/minSdkVersion 21/' app/build.gradle || true
+          sed -i 's/multiDexEnabled .*/multiDexEnabled true/' app/build.gradle || true
           
           chmod +x gradlew
 
@@ -55,11 +55,11 @@ jobs:
 
       - name: Build APK
         run: |
-          # রিলিজ বিল্ড শুরু (সব বড় ফিচার সহ)
+          # রিলিজ বিল্ড শুরু
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Success-APK
+          name: PaglaChat-Fixed-APK
           path: build/app/outputs/flutter-apk/app-release.apk
