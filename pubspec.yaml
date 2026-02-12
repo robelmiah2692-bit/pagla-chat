@@ -17,16 +17,16 @@ dependencies:
   
   # --- ফায়ারবেস (Firebase) ---
   firebase_core: ^2.27.0
-  firebase_auth: ^4.17.8        # নতুন: গুগল লগইন এর জন্য
-  cloud_firestore: ^4.15.8      # নতুন: ডাটা সেভ করার জন্য
+  firebase_auth: ^4.17.8
+  cloud_firestore: ^4.15.8
   firebase_database: ^10.4.9
   firebase_remote_config: ^4.3.8
   
   # --- গুগল লগইন ---
-  google_sign_in: ^6.2.1        # নতুন: রিয়েল গুগল লগইন
+  google_sign_in: ^6.2.1
   
   # --- ইউটিউব সচল করার জন্য ---
-  youtube_player_flutter: ^8.1.2 # নতুন: রিয়েল ভিডিও বোর্ড
+  youtube_player_flutter: ^8.1.2
   
   # --- অন্যান্য দরকারি প্যাকেজ ---
   package_info_plus: ^5.0.1
@@ -40,6 +40,10 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: "^0.13.1"
+
+# প্যাকেজ ভার্সন কনফ্লিক্ট মেটানোর জন্য এই অংশটি যোগ করা হলো
+dependency_overrides:
+  firebase_core_platform_interface: 5.0.0
 
 flutter_launcher_icons:
   android: "launcher_icon"
