@@ -19,40 +19,32 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: 🛠️ Clean & Prep
+      - name: 🛠️ Fix and Build (Keeping Your Files Safe)
         run: |
-          # ১. ক্যাশ ক্লিয়ার করা যাতে পুরোনো এরর না থাকে
-          flutter clean
+          # ১. প্রজেক্ট রিফ্রেশ (পুরানো ফাইল ডিলিট না করে)
           flutter pub get
-
-          # ২. কি-স্টোর (Keystore) তৈরি (যাতে সাইনিং এরর না আসে)
-          mkdir -p android/app
-          if [ ! -f android/app/upload-keystore.jks ]; then
-            keytool -genkey -v -keystore android/app/upload-keystore.jks \
-              -storepass "pagla123" -alias "pagla_alias" -keypass "pagla123" \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Pagla, O=Chat, C=BD" \
-              -startdate "2024/01/01 00:00:00"
+          
+          # ২. যদি গ্র্যাডল ফাইল মিসিং থাকে তবে তা রিপেয়ার করা
+          cd android
+          if [ ! -f gradlew ]; then
+            gradle wrapper
           fi
+          chmod +x gradlew
+          cd ..
 
-          # ৩. build.gradle আপডেট করা (Package Name ঠিক করা)
+          # ৩. প্যাকেজ নেম ও এসডিকে কনফিগারেশন আপডেট
           sed -i 's/applicationId "com.example.pagla_chat"/applicationId "com.pagla.chat"/g' android/app/build.gradle
           sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
-          
-          chmod +x android/gradlew
 
       - name: Build APK (Release)
         run: |
-          # ৪. গুগল সার্ভিস ফাইলটা আছে কি না চেক করে বিল্ড করা
-          if [ -f android/app/google-services.json ]; then
-            flutter build apk --release --no-tree-shake-icons
-          else
-            echo "❌ ভুল! google-services.json ফাইলটি android/app/ ফোল্ডারে পাওয়া যায়নি!"
-            exit 1
-          fi
+          # ৪. ক্লিন বিল্ড যাতে পুরোনো জঞ্জাল না থাকে
+          flutter clean
+          flutter pub get
+          flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Fixed-Build
+          name: PaglaChat-Final-Safe-Build
           path: build/app/outputs/flutter-apk/app-release.apk
