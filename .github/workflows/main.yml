@@ -19,38 +19,48 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: 🛠️ Force Update Gradle to 8.2.1
+      - name: 🛠️ Reconstruct & Fix Project (170 Logic)
         run: |
-          # ১. local.properties ফিক্স
+          # নাম ঠিক করা
+          sed -i 's/name: .*/name: pagla_chat/g' pubspec.yaml
+          
+          # আপনার আগের সেই 'flutter create' ট্রিক
+          # এটি করলে গ্র্যাডল এরর (HasConvention) চিরতরে চলে যাবে
+          flutter create . --project-name pagla_chat --platforms android
+          
+          # ডিপেনডেন্সি ইন্সটল
+          flutter pub get
+          
+          # ফিচারের জন্য প্রয়োজনীয় সেটিংস (MinSDK 21 এবং MultiDex)
+          sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
+          echo "android.useAndroidX=true" > android/gradle.properties
+          echo "android.enableJetifier=true" >> android/gradle.properties
+          
+          # লোকাল পাথ ফিক্স
           echo "sdk.dir=$ANDROID_HOME" > android/local.properties
           echo "flutter.sdk=/opt/hostedtoolcache/flutter/stable-3.19.0-x64" >> android/local.properties
           
-          # ২. গ্র্যাডল ৮.২.১ র‍্যাপার তৈরি (এটিই আপনার মেইন সমাধান)
-          cd android
-          gradle wrapper --gradle-version 8.2.1 --distribution-type all
-          
-          # ৩. পারমিশন নিশ্চিত করা
-          chmod +x gradlew
+          chmod +x android/gradlew
 
-      - name: Install Dependencies
-        run: |
-          flutter pub get
-          flutter precache --android
-
-      - name: 🔑 Key Store & Final Build
+      - name: 🔑 SHA Fingerprint & KeyStore
         run: |
           mkdir -p android/app
-          if [ ! -f android/app/upload-keystore.jks ]; then
-            keytool -genkey -v -keystore android/app/upload-keystore.jks \
+          # আপনার দেওয়া ফিক্সড পাসওয়ার্ড দিয়ে চাবি তৈরি
+          keytool -genkey -v -keystore android/app/upload-keystore.jks \
             -storepass "pagla123" -alias "pagla_alias" -keypass "pagla123" \
             -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Pagla, O=Chat, C=BD"
-          fi
+            -dname "CN=Pagla, O=Chat, C=BD" || true
+            
+          cd android
+          ./gradlew signingReport | grep -E "SHA1|SHA-256" || true
+
+      - name: Build APK (Release)
+        run: |
           # সব ফিচার (YouTube, Agora) সহ বিল্ড শুরু
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-v202-Success
+          name: PaglaChat-Final-v204
           path: build/app/outputs/flutter-apk/app-release.apk
