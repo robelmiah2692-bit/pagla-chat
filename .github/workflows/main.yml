@@ -33,24 +33,25 @@ jobs:
       - name: 🔑 Key Store & SHA (Firebase Ready)
         run: |
           mkdir -p android/app
+          # আপনার দেওয়া পাসওয়ার্ড দিয়ে কি-স্টোর তৈরি
           keytool -genkey -v -keystore android/app/upload-keystore.jks \
             -storepass "pagla123" -alias "pagla_alias" -keypass "pagla123" \
             -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Pagla, O=Chat, C=BD" || true
             
-          cd android
-          # গ্র্যাডল রিপোর্ট তৈরি করে সরাসরি পুরোটা দেখা যেন SHA মিস না হয়
-          ./gradlew signingReport > report.txt
           echo "------------------- SHA 1 শুরু -------------------"
-          grep -A 5 "Variant: release" report.txt || cat report.txt
+          # সরাসরি কি-স্টোর ফাইল থেকে SHA-1 বের করা (এটি ১০০% কাজ করবে)
+          keytool -list -v -keystore android/app/upload-keystore.jks \
+            -alias "pagla_alias" -storepass "pagla123" | grep "SHA1:" || echo "SHA-1 খুঁজে পাওয়া যায়নি"
           echo "------------------- SHA 1 শেষ -------------------"
 
       - name: Build APK (Release)
         run: |
+          # আপনার সব ফিচার সহ বিল্ড
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Success-v206
+          name: PaglaChat-Success-v207
           path: build/app/outputs/flutter-apk/app-release.apk
