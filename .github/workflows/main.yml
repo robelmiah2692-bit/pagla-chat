@@ -19,23 +19,24 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: 🛠️ Reconstruct (Old Working Style)
+      - name: 🛠️ Reconstruct (Old Working Style Fixed)
         run: |
           # ১. আপনার JSON ব্যাকআপ রাখা
           cp android/app/google-services.json ./google-services.json.backup || true
           
-          # ২. আপনার পুরাতন ক্লিনআপ স্টাইল (সরাসরি আপনার দেওয়া কোড)
+          # ২. আপনার সেই পরিচিত পুরাতন ক্লিনআপ স্টাইল
           sed -i 's/name: .*/name: pagla_chat/g' pubspec.yaml
           rm -rf android
           flutter create . --project-name pagla_chat --platforms android
           
-          # ৩. গ্র্যাডল ভার্সন ফিক্স (যাতে HasConvention এরর না আসে)
-          # এটি করলে আপনার পুরাতন স্টাইলও বজায় থাকবে, বিল্ডও পাস হবে
+          # ৩. গ্র্যাডল ভার্সন ফিক্স (যাতে ৯.৩.১ এসে ঝামেলা না করে)
+          # আমরা সরাসরি ডিস্ট্রিবিউশন ইউআরএল বদলে দিচ্ছি
           cd android
-          gradle wrapper --gradle-version 7.6.3
+          sed -i 's/gradle-.*-all.zip/gradle-7.5-all.zip/g' gradle/wrapper/gradle-wrapper.properties
+          chmod +x gradlew
           cd ..
 
-          # ৪. JSON এবং Keystore ফিরিয়ে আনা
+          # ৪. JSON এবং Keystore ফিরিয়ে আনা
           mkdir -p android/app
           mv ./google-services.json.backup android/app/google-services.json || echo "No JSON found"
 
@@ -44,7 +45,7 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Pagla, O=Chat, C=BD" -startdate "2024/01/01 00:00:00"
 
-          # ৫. আপনার সেই চিরচেনা কনফিগারেশন
+          # ৫. আপনার সেই অরিজিনাল সেটিংস
           sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
           echo "sdk.dir=$ANDROID_HOME" > android/local.properties
           chmod +x android/gradlew
@@ -57,5 +58,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Final-Working
+          name: PaglaChat-Success-Build
           path: build/app/outputs/flutter-apk/app-release.apk
