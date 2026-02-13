@@ -26,7 +26,7 @@ void main() async {
   ));
 }
 
-// --- ১. স্প্ল্যাশ স্ক্রিন ---
+// --- ১. স্প্ল্যাশ স্ক্রিন (ফিক্সড ভার্সন) ---
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
   @override
@@ -37,14 +37,26 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    // ৩ সেকেন্ডের টাইমার - যা আটকে থাকার সমস্যা সমাধান করবে
     Timer(const Duration(seconds: 3), () {
+      _checkUserStatus();
+    });
+  }
+
+  void _checkUserStatus() {
+    // try-catch ব্যবহার করা হয়েছে যাতে ফায়ারবেস এরর দিলেও অ্যাপ পরের স্ক্রিনে যায়
+    try {
       if (FirebaseAuth.instance.currentUser != null) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
       } else {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
       }
-    });
+    } catch (e) {
+      debugPrint("Auth Error: $e");
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+    }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -53,12 +65,14 @@ class _SplashScreenState extends State<SplashScreen> {
         const CircleAvatar(radius: 60, backgroundColor: Colors.pinkAccent, child: Icon(Icons.stars, size: 60, color: Colors.white)),
         const SizedBox(height: 20),
         const Text("PAGLA CHAT", style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold, letterSpacing: 5)),
+        const SizedBox(height: 20),
+        const CircularProgressIndicator(color: Colors.pinkAccent), // লোডিং ইন্ডিকেটর যোগ করা হয়েছে
       ])),
     );
   }
 }
 
-// --- ২. গুগল লগইন ---
+// --- ২. গুগল লগইন (ফিচার অক্ষুণ্ণ) ---
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
   
@@ -76,7 +90,6 @@ class LoginScreen extends StatelessWidget {
       
       UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(cred);
       if (userCredential.user != null) {
-        // নতুন আইডি জেনারেট করার লজিক একটু উন্নত করা হয়েছে
         await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
           'name': userCredential.user!.displayName ?? "Anonymous",
           'photo': userCredential.user!.photoURL ?? "",
@@ -100,7 +113,7 @@ class LoginScreen extends StatelessWidget {
       backgroundColor: const Color(0xFF0F0F1E),
       body: Center(
         child: ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
           onPressed: () => _signIn(context), 
           icon: const Icon(Icons.login), 
           label: const Text("Sign in with Google")
@@ -110,7 +123,7 @@ class LoginScreen extends StatelessWidget {
   }
 }
 
-// --- ৩. মেইন নেভিগেশন ---
+// --- ৩. মেইন নেভিগেশন (ফিচার অক্ষুণ্ণ) ---
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
   @override
@@ -174,7 +187,7 @@ class HomePage extends StatelessWidget {
   );
 }
 
-// --- ৫. ভয়েস রুম (১৫ সিট + ইউটিউব + চ্যাট) ---
+// --- ৫. ভয়েস রুম (আগোরা + ইউটিউব + ১৫ সিট - ফিচার অক্ষুণ্ণ) ---
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -286,7 +299,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 10, childAspectRatio: 0.8),
           itemCount: 15,
           itemBuilder: (context, i) {
-            // মেমোরি সেভ করার জন্য null check
             var seatDocs = snapshot.data?.docs;
             var seat = seatDocs != null && seatDocs.any((d) => d.id == 'seat_$i') 
                 ? seatDocs.firstWhere((d) => d.id == 'seat_$i') 
@@ -345,7 +357,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   );
 }
 
-// --- ৬. প্রোফাইল পেজ ---
+// --- ৬. প্রোফাইল পেজ (ফিচার অক্ষুণ্ণ) ---
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
   @override
