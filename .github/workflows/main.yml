@@ -19,36 +19,36 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: 🛠️ Reconstruct (Old Working Style Fixed)
+      - name: 🛠️ Firebase & Login Fix (Version Locked)
         run: |
-          # ১. আপনার JSON ব্যাকআপ রাখা
+          # ১. আপনার দেওয়া সেই পুরাতন স্টাইল - ব্যাকআপ ও ক্লিনআপ
           cp android/app/google-services.json ./google-services.json.backup || true
-          
-          # ২. আপনার সেই পরিচিত পুরাতন ক্লিনআপ স্টাইল
           sed -i 's/name: .*/name: pagla_chat/g' pubspec.yaml
           rm -rf android
-          flutter create . --project-name pagla_chat --platforms android
           
-          # ৩. গ্র্যাডল ভার্সন ফিক্স (যাতে ৯.৩.১ এসে ঝামেলা না করে)
-          # আমরা সরাসরি ডিস্ট্রিবিউশন ইউআরএল বদলে দিচ্ছি
+          # ২. নতুন প্রজেক্ট তৈরি (সঠিক প্যাকেজ নেম দিয়ে যাতে লগইন কাজ করে)
+          flutter create . --project-name pagla_chat --org com.pagla --platforms android
+          
+          # ৩. গ্র্যাডল ৯.৩.১ ভিলেনকে আটকে দিয়ে ৭.৫ লক করা
           cd android
-          sed -i 's/gradle-.*-all.zip/gradle-7.5-all.zip/g' gradle/wrapper/gradle-wrapper.properties
-          chmod +x gradlew
-          cd ..
-
-          # ৪. JSON এবং Keystore ফিরিয়ে আনা
-          mkdir -p android/app
-          mv ./google-services.json.backup android/app/google-services.json || echo "No JSON found"
-
-          keytool -genkey -v -keystore android/app/upload-keystore.jks \
+          echo "distributionBase=GRADLE_USER_HOME" > gradle/wrapper/gradle-wrapper.properties
+          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-7.5-all.zip" >> gradle/wrapper/gradle-wrapper.properties
+          
+          # ৪. কি-স্টোর ও জেএসওএন ফাইল আগের মতো ফিরিয়ে আনা
+          mkdir -p app
+          mv ../google-services.json.backup app/google-services.json || echo "JSON missing!"
+          
+          keytool -genkey -v -keystore app/upload-keystore.jks \
             -storepass "pagla123" -alias "pagla_alias" -keypass "pagla123" \
             -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Pagla, O=Chat, C=BD" -startdate "2024/01/01 00:00:00"
 
-          # ৫. আপনার সেই অরিজিনাল সেটিংস
-          sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
-          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
-          chmod +x android/gradlew
+          # ৫. এসডিকে সেটিংস ও প্যাকেজ আইডি নিশ্চিত করা
+          sed -i 's/applicationId ".*"/applicationId "com.pagla.chat"/g' app/build.gradle
+          sed -i 's/minSdkVersion .*/minSdkVersion 21/g' app/build.gradle
+          echo "sdk.dir=$ANDROID_HOME" > ../local.properties
+          chmod +x gradlew
+          cd ..
 
       - name: Build APK (Release)
         run: |
@@ -58,5 +58,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Success-Build
+          name: PaglaChat-Login-Fixed
           path: build/app/outputs/flutter-apk/app-release.apk
