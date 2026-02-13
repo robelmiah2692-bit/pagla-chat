@@ -19,26 +19,43 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: 🛠️ Final Prep
+      - name: 🛠️ Reconstruct (Old Working Style)
         run: |
-          # ১. অ্যান্ড্রয়েড বিল্ড সেটিংস ফিক্স (com.pagla.chat নিশ্চিত করা)
-          sed -i 's/applicationId "com.example.pagla_chat"/applicationId "com.pagla.chat"/g' android/app/build.gradle
+          # ১. আপনার JSON ব্যাকআপ রাখা
+          cp android/app/google-services.json ./google-services.json.backup || true
+          
+          # ২. আপনার পুরাতন ক্লিনআপ স্টাইল (সরাসরি আপনার দেওয়া কোড)
+          sed -i 's/name: .*/name: pagla_chat/g' pubspec.yaml
+          rm -rf android
+          flutter create . --project-name pagla_chat --platforms android
+          
+          # ৩. গ্র্যাডল ভার্সন ফিক্স (যাতে HasConvention এরর না আসে)
+          # এটি করলে আপনার পুরাতন স্টাইলও বজায় থাকবে, বিল্ডও পাস হবে
+          cd android
+          gradle wrapper --gradle-version 7.6.3
+          cd ..
+
+          # ৪. JSON এবং Keystore ফিরিয়ে আনা
+          mkdir -p android/app
+          mv ./google-services.json.backup android/app/google-services.json || echo "No JSON found"
+
+          keytool -genkey -v -keystore android/app/upload-keystore.jks \
+            -storepass "pagla123" -alias "pagla_alias" -keypass "pagla123" \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Pagla, O=Chat, C=BD" -startdate "2024/01/01 00:00:00"
+
+          # ৫. আপনার সেই চিরচেনা কনফিগারেশন
           sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
-          
-          # ২. গ্র্যাডল পারমিশন
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
           chmod +x android/gradlew
-          
-          # ৩. ক্লিনআপ
-          flutter clean
-          flutter pub get
 
       - name: Build APK (Release)
         run: |
-          # আপনার দেওয়া নতুন বড় JSON ফাইলটি এখানে ব্যবহৃত হবে
+          flutter pub get
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Perfect-Build
+          name: PaglaChat-Final-Working
           path: build/app/outputs/flutter-apk/app-release.apk
