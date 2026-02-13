@@ -23,6 +23,22 @@
           }
         },
         {
+          "client_id": "25052070011-bbn35gkua151tvgkjbjib1ojgqt4koqb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pagla.chat",
+            "certificate_hash": "9b2c8b329761477a9adcc1cb71972b6de8fba2b5"
+          }
+        },
+        {
+          "client_id": "25052070011-hbm73elp892l7tjkf32da5d286fg9kdg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pagla.chat",
+            "certificate_hash": "267d24d09449bc56d827170c7944c5eda3733180"
+          }
+        },
+        {
           "client_id": "25052070011-ernp28c3e48cqvuupm9gq28q560u5po6.apps.googleusercontent.com",
           "client_type": 3
         }
