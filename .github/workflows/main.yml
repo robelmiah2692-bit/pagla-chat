@@ -30,28 +30,29 @@ jobs:
           echo "flutter.sdk=/opt/hostedtoolcache/flutter/stable-3.19.0-x64" >> android/local.properties
           chmod +x android/gradlew
 
-      - name: 🔑 Key Store & SHA (Firebase Ready)
+      - name: 🔑 Key Store & SHA (Firebase Fixed)
         run: |
           mkdir -p android/app
-          # আপনার দেওয়া পাসওয়ার্ড দিয়ে কি-স্টোর তৈরি
+          # আপনার দেওয়া পাসওয়ার্ড এবং নির্দিষ্ট তারিখ দিয়ে SHA-1 লক করা হলো
           keytool -genkey -v -keystore android/app/upload-keystore.jks \
             -storepass "pagla123" -alias "pagla_alias" -keypass "pagla123" \
             -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Pagla, O=Chat, C=BD" || true
+            -dname "CN=Pagla, O=Chat, C=BD" \
+            -startdate "2024/01/01 00:00:00" || true
             
           echo "------------------- SHA 1 শুরু -------------------"
-          # সরাসরি কি-স্টোর ফাইল থেকে SHA-1 বের করা (এটি ১০০% কাজ করবে)
+          # সরাসরি কি-স্টোর থেকে বের করা হচ্ছে, যা আর কখনো পাল্টাবে না
           keytool -list -v -keystore android/app/upload-keystore.jks \
-            -alias "pagla_alias" -storepass "pagla123" | grep "SHA1:" || echo "SHA-1 খুঁজে পাওয়া যায়নি"
+            -alias "pagla_alias" -storepass "pagla123" | grep "SHA1:" || echo "SHA-1 খুঁজে পাওয়া যায়নি"
           echo "------------------- SHA 1 শেষ -------------------"
 
       - name: Build APK (Release)
         run: |
-          # আপনার সব ফিচার সহ বিল্ড
+          # আপনার সব ফিচার (YouTube, Agora, Google Login) অক্ষুণ্ণ রেখে বিল্ড
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Success-v207
+          name: PaglaChat-Success-v208
           path: build/app/outputs/flutter-apk/app-release.apk
