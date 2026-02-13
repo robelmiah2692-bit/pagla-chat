@@ -19,32 +19,38 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: 🛠️ Fix and Build (Keeping Your Files Safe)
+      - name: 🛠️ Reconstruct & Keep JSON
         run: |
-          # ১. প্রজেক্ট রিফ্রেশ (পুরানো ফাইল ডিলিট না করে)
-          flutter pub get
+          # ১. ব্যাকআপ নেওয়া (যাতে মুছে না যায়)
+          cp android/app/google-services.json ./google-services.json.backup || true
           
-          # ২. যদি গ্র্যাডল ফাইল মিসিং থাকে তবে তা রিপেয়ার করা
-          cd android
-          if [ ! -f gradlew ]; then
-            gradle wrapper
-          fi
-          chmod +x gradlew
-          cd ..
+          # ২. আপনার সেই পরিচিত পুরাতন ক্লিনআপ স্টাইল
+          sed -i 's/name: .*/name: pagla_chat/g' pubspec.yaml
+          rm -rf android
+          flutter create . --project-name pagla_chat --platforms android
+          
+          # ৩. JSON ফাইলটি ফিরিয়ে আনা
+          mkdir -p android/app
+          mv ./google-services.json.backup android/app/google-services.json || echo "No JSON found"
 
-          # ৩. প্যাকেজ নেম ও এসডিকে কনফিগারেশন আপডেট
-          sed -i 's/applicationId "com.example.pagla_chat"/applicationId "com.pagla.chat"/g' android/app/build.gradle
+          # ৪. কি-স্টোর সেটআপ
+          keytool -genkey -v -keystore android/app/upload-keystore.jks \
+            -storepass "pagla123" -alias "pagla_alias" -keypass "pagla123" \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Pagla, O=Chat, C=BD" -startdate "2024/01/01 00:00:00"
+
+          # ৫. এসডিকে ও গ্র্যাডল ফিক্স (যেটা আগে কাজ করতো)
           sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+          chmod +x android/gradlew
 
       - name: Build APK (Release)
         run: |
-          # ৪. ক্লিন বিল্ড যাতে পুরোনো জঞ্জাল না থাকে
-          flutter clean
           flutter pub get
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Final-Safe-Build
+          name: PaglaChat-Final-Working
           path: build/app/outputs/flutter-apk/app-release.apk
