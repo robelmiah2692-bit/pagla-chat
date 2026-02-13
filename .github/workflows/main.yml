@@ -19,47 +19,61 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: 🛠️ Reconstruct (Based on Successful Run #170)
+      - name: 🛠️ Reconstruction & Firebase Link (Logic 170)
         run: |
           # ১. প্রজেক্টের নাম ফিক্স করা
           sed -i 's/name: .*/name: pagla_chat/g' pubspec.yaml
           
           # ২. অ্যান্ড্রয়েড ফোল্ডার নতুন করে তৈরি (সফল ১৭০ এর লজিক)
-          # এটি করলে সব গ্র্যাডল জট এক নিমেষে খুলে যাবে
           rm -rf android
           flutter create . --project-name pagla_chat --platforms android
           
-          # ৩. সব প্লাগইন ইন্সটল (Agora, YouTube, Firebase)
+          # ৩. সব প্লাগইন ইন্সটল
           flutter pub get
           
-          # ৪. অ্যান্ড্রয়েড লেভেলে ফিচারের জন্য সেটিংস আপডেট
-          # minSdkVersion ২১ না করলে ইউটিউব বা আগোরা চলবে না
-          sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
+          # ৪. ফায়ারবেস অটো-কানেক্ট (প্লাগইন ইনজেকশন)
+          sed -i '/dependencies {/a \        classpath "com.google.gms:google-services:4.3.15"' android/build.gradle
+          echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
           
-          # ৫. লোকাল পাথ এবং পারমিশন ঠিক করা
+          # ৫. অন্যান্য সেটিংস (minSdkVersion 21)
+          sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
+          echo "android.useAndroidX=true" > android/gradle.properties
+          echo "android.enableJetifier=true" >> android/gradle.properties
+          
+          # ৬. লোকাল পাথ এবং পারমিশন
           echo "sdk.dir=$ANDROID_HOME" > android/local.properties
           echo "flutter.sdk=/opt/hostedtoolcache/flutter/stable-3.19.0-x64" >> android/local.properties
           chmod +x android/gradlew
 
-      - name: 🔑 Key Store & SHA (Firebase Ready)
+      - name: 🔑 Key Store & SHA Output (Firebase Ready)
         run: |
-          # আপনার দেওয়া পাসওয়ার্ড দিয়ে কি-স্টোর তৈরি
           mkdir -p android/app
+          # ফিক্সড কি-স্টোর তৈরি
           keytool -genkey -v -keystore android/app/upload-keystore.jks \
             -storepass "pagla123" -alias "pagla_alias" -keypass "pagla123" \
             -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Pagla, O=Chat, C=BD" || true
             
           cd android
-          ./gradlew signingReport | grep -E "SHA1|SHA-256" || true
+          # SHA রিপোর্ট জেনারেট করা এবং সামারি পেজে দেখানো
+          ./gradlew signingReport > sha_report.txt
+          echo "### 🔑 আপনার SHA-1 কোড নিচে দেখুন:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -A 5 "Variant: release" sha_report.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          
+          # লগেও প্রিন্ট করা
+          echo "**************************************************"
+          grep -A 5 "Variant: release" sha_report.txt
+          echo "**************************************************"
 
       - name: Build APK (Release)
         run: |
-          # আপনার সব ফিচার অক্ষুণ্ণ রেখে বিল্ড শুরু
+          # ইউটিউব, আগোরা সব ফিচারসহ বিল্ড
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-v204-Success
+          name: PaglaChat-Final-Build
           path: build/app/outputs/flutter-apk/app-release.apk
