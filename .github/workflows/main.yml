@@ -19,34 +19,46 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: 🛠️ Firebase & Login Fix (Version Locked)
+      - name: 🛠️ Final Firebase Fix
         run: |
-          # ১. আপনার দেওয়া সেই পুরাতন স্টাইল - ব্যাকআপ ও ক্লিনআপ
+          # ১. আপনার JSON ব্যাকআপ রাখা
           cp android/app/google-services.json ./google-services.json.backup || true
+          
+          # ২. আপনার পুরাতন ক্লিনআপ স্টাইল (যা আগে সাকসেস হয়েছে)
           sed -i 's/name: .*/name: pagla_chat/g' pubspec.yaml
           rm -rf android
-          
-          # ২. নতুন প্রজেক্ট তৈরি (সঠিক প্যাকেজ নেম দিয়ে যাতে লগইন কাজ করে)
           flutter create . --project-name pagla_chat --org com.pagla --platforms android
           
-          # ৩. গ্র্যাডল ৯.৩.১ ভিলেনকে আটকে দিয়ে ৭.৫ লক করা
+          # ৩. রুট লেভেলের build.gradle ফাইলে ফায়ারবেস ক্লাসপাথ বসানো (লগইন এরর ফিক্স)
+          cat <<EOF > android/build.gradle
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:7.3.0'
+                  classpath 'com.google.gms:google-services:4.3.15'
+              }
+          }
+          allprojects { repositories { google(); mavenCentral() } }
+          EOF
+
+          # ৪. গ্র্যাডল ভার্সন লক করা
           cd android
-          echo "distributionBase=GRADLE_USER_HOME" > gradle/wrapper/gradle-wrapper.properties
-          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-7.5-all.zip" >> gradle/wrapper/gradle-wrapper.properties
+          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-7.5-all.zip" > gradle/wrapper/gradle-wrapper.properties
           
-          # ৪. কি-স্টোর ও জেএসওএন ফাইল আগের মতো ফিরিয়ে আনা
+          # ৫. আপনার সেই চিরচেনা কি-স্টোর ও জেএসওএন ফিরিয়ে আনা
           mkdir -p app
-          mv ../google-services.json.backup app/google-services.json || echo "JSON missing!"
+          mv ../google-services.json.backup app/google-services.json || echo "No JSON"
           
           keytool -genkey -v -keystore app/upload-keystore.jks \
             -storepass "pagla123" -alias "pagla_alias" -keypass "pagla123" \
             -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Pagla, O=Chat, C=BD" -startdate "2024/01/01 00:00:00"
 
-          # ৫. এসডিকে সেটিংস ও প্যাকেজ আইডি নিশ্চিত করা
+          # ৬. অ্যাপ লেভেল সেটিংস (প্যাকেজ আইডি com.pagla.chat নিশ্চিত করা)
           sed -i 's/applicationId ".*"/applicationId "com.pagla.chat"/g' app/build.gradle
           sed -i 's/minSdkVersion .*/minSdkVersion 21/g' app/build.gradle
-          echo "sdk.dir=$ANDROID_HOME" > ../local.properties
+          echo "apply plugin: 'com.google.gms.google-services'" >> app/build.gradle
+          
           chmod +x gradlew
           cd ..
 
@@ -58,5 +70,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Login-Fixed
+          name: PaglaChat-Final-Working
           path: build/app/outputs/flutter-apk/app-release.apk
