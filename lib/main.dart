@@ -9,7 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:http/http.dart' as http;
 
-// --- ইউটিউব এপিআই কী ---
+// --- আপনার ইউটিউব এপিআই কী ---
 const String youtubeApiKey = "AIzaSyB..."; 
 
 void main() async {
@@ -25,7 +25,7 @@ void main() async {
   ));
 }
 
-// --- ১. স্প্ল্যাশ স্ক্রিন ---
+// --- ১. স্প্ল্যাশ স্ক্রিন (ফিক্সড) ---
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
   @override
@@ -36,13 +36,18 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    // ৩ সেকেন্ডের টাইমার - যা আটকে থাকার সমস্যা সমাধান করবে
     Timer(const Duration(seconds: 3), () => _checkUserStatus());
   }
 
   void _checkUserStatus() {
-    if (FirebaseAuth.instance.currentUser != null) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
-    } else {
+    try {
+      if (FirebaseAuth.instance.currentUser != null) {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+      } else {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+      }
+    } catch (e) {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
     }
   }
@@ -62,7 +67,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-// --- ২. ইমেইল-পাসওয়ার্ড লগইন (গুগল লগইন রিমুভড) ---
+// --- ২. ইমেইল-পাসওয়ার্ড লগইন (গুগল লগইন রিপ্লেসড) ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
   @override
@@ -75,33 +80,33 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   Future<void> _handleAuth() async {
+    if (_emailCtrl.text.isEmpty || _passCtrl.text.isEmpty) return;
     setState(() => _isLoading = true);
     try {
-      // ইমেইল দিয়ে লগইন বা একাউন্ট খোলা (একসাথে)
-      UserCredential userCredential;
+      UserCredential user;
       try {
-        userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: _emailCtrl.text.trim(), password: _passCtrl.text.trim()
-        );
+        user = await FirebaseAuth.instance.signInWithEmailAndPassword(
+            email: _emailCtrl.text.trim(), password: _passCtrl.text.trim());
       } catch (e) {
-        userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailCtrl.text.trim(), password: _passCtrl.text.trim()
-        );
+        user = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+            email: _emailCtrl.text.trim(), password: _passCtrl.text.trim());
       }
 
-      if (userCredential.user != null) {
-        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+      if (user.user != null) {
+        await FirebaseFirestore.instance.collection('users').doc(user.user!.uid).set({
           'name': _emailCtrl.text.split('@')[0],
           'photo': "https://ui-avatars.com/api/?name=${_emailCtrl.text}",
-          'id': '7788${userCredential.user!.uid.substring(0, 4)}',
+          'id': '7788${user.user!.uid.substring(0, 4)}',
           'diamonds': 520,
           'level': 1,
+          'xp': 0,
+          'isVIP': false,
         }, SetOptions(merge: true));
 
         if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
     setState(() => _isLoading = false);
   }
@@ -115,24 +120,17 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           const Text("PAGLA LOGIN", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 30),
-          TextField(controller: _emailCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: "ইমেইল", hintStyle: TextStyle(color: Colors.white24))),
-          const SizedBox(height: 15),
-          TextField(controller: _passCtrl, obscureText: true, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: "পাসওয়ার্ড", hintStyle: TextStyle(color: Colors.white24))),
+          TextField(controller: _emailCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: "Email", hintStyle: TextStyle(color: Colors.white24))),
+          TextField(controller: _passCtrl, obscureText: true, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: "Password", hintStyle: TextStyle(color: Colors.white24))),
           const SizedBox(height: 30),
-          _isLoading 
-            ? const CircularProgressIndicator() 
-            : ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(double.infinity, 50)),
-                onPressed: _handleAuth, 
-                child: const Text("প্রবেশ করুন / একাউন্ট খুলুন", style: TextStyle(color: Colors.white))
-              ),
+          _isLoading ? const CircularProgressIndicator() : ElevatedButton(onPressed: _handleAuth, child: const Text("Login / Sign Up")),
         ]),
       ),
     );
   }
 }
 
-// --- ৩. মেইন নেভিগেশন (ফিচার ঠিক আছে) ---
+// --- ৩. মেইন নেভিগেশন (হোম, রুম, ইনবক্স, প্রোফাইল) ---
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
   @override
@@ -147,14 +145,14 @@ class _MainNavigationState extends State<MainNavigation> {
     return Scaffold(
       body: _pages[_idx],
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _idx, type: BottomNavigationBarType.fixed, 
-        backgroundColor: const Color(0xFF151525), selectedItemColor: Colors.pinkAccent, unselectedItemColor: Colors.white24,
+        currentIndex: _idx, type: BottomNavigationBarType.fixed, backgroundColor: const Color(0xFF151525),
+        selectedItemColor: Colors.pinkAccent, unselectedItemColor: Colors.white24,
         onTap: (i) => setState(() => _idx = i),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: "হোম"),
           BottomNavigationBarItem(icon: Icon(Icons.mic), label: "রুম"),
           BottomNavigationBarItem(icon: Icon(Icons.mail), label: "ইনবক্স"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "আমি")
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "প্রোফাইল")
         ],
       ),
     );
@@ -168,7 +166,7 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
-      appBar: AppBar(title: const Text("PAGLA HOME"), backgroundColor: Colors.transparent),
+      appBar: AppBar(title: const Text("PAGLA HOME"), backgroundColor: Colors.transparent, elevation: 0),
       body: ListView.builder(itemCount: 3, itemBuilder: (context, index) => _postCard()),
     );
   }
@@ -185,7 +183,7 @@ class HomePage extends StatelessWidget {
   );
 }
 
-// --- ৫. ভয়েস রুম (Agora + YouTube + 15 Seats) ---
+// --- ৫. ভয়েস রুম (আগোরা + ইউটিউব + ১৫ সিট) ---
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -196,8 +194,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
   bool isMicOn = false;
   RtcEngine? _engine;
   YoutubePlayerController? _ytController;
-  final TextEditingController _chatCtrl = TextEditingController();
-  final TextEditingController _searchCtrl = TextEditingController();
+  final TextEditingController _chatController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -215,21 +213,24 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   Future<void> _searchVideo(String query) async {
+    if (query.isEmpty) return;
     final url = "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=$query&type=video&key=$youtubeApiKey";
-    final res = await http.get(Uri.parse(url));
-    if (res.statusCode == 200) {
-      final id = json.decode(res.body)['items'][0]['id']['videoId'];
-      _ytController?.load(id);
-    }
+    try {
+      final res = await http.get(Uri.parse(url));
+      if (res.statusCode == 200) {
+        final id = json.decode(res.body)['items'][0]['id']['videoId'];
+        _ytController?.load(id);
+      }
+    } catch (e) { debugPrint("YouTube Search Error: $e"); }
   }
 
   void _sendMsg() async {
     var user = FirebaseAuth.instance.currentUser;
-    if (_chatCtrl.text.isNotEmpty && user != null) {
+    if (_chatController.text.isNotEmpty && user != null) {
       await FirebaseFirestore.instance.collection('rooms').doc('room1').collection('chats').add({
-        'name': user.email!.split('@')[0], 'text': _chatCtrl.text, 'time': FieldValue.serverTimestamp(),
+        'name': user.email!.split('@')[0], 'text': _chatController.text, 'time': FieldValue.serverTimestamp(),
       });
-      _chatCtrl.clear();
+      _chatController.clear();
     }
   }
 
@@ -240,45 +241,39 @@ class _VoiceRoomState extends State<VoiceRoom> {
       body: SafeArea(
         child: Column(children: [
           const ListTile(title: Text("পাগলা কিং আড্ডা", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), subtitle: Text("ID: 550889 | Live", style: TextStyle(color: Colors.pinkAccent, fontSize: 10))),
-          if (_ytController != null) ClipRRect(borderRadius: BorderRadius.circular(15), child: Container(margin: const EdgeInsets.all(10), height: 180, child: YoutubePlayer(controller: _ytController!))),
+          if (_ytController != null) Container(margin: const EdgeInsets.symmetric(horizontal: 10), height: 160, child: ClipRRect(borderRadius: BorderRadius.circular(15), child: YoutubePlayer(controller: _ytController!))),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            padding: const EdgeInsets.all(8),
             child: Row(children: [
-              Expanded(child: TextField(controller: _searchCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: "গান খুঁজুন..."))),
-              IconButton(icon: const Icon(Icons.search, color: Colors.blue), onPressed: () => _searchVideo(_searchCtrl.text))
+              Expanded(child: TextField(controller: _searchController, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: "গান সার্চ..."))),
+              IconButton(icon: const Icon(Icons.search, color: Colors.blueAccent), onPressed: () => _searchVideo(_searchController.text)),
             ]),
           ),
           GestureDetector(onTap: () { setState(() => isMicOn = !isMicOn); _engine?.muteLocalAudioStream(!isMicOn); }, child: CircleAvatar(backgroundColor: isMicOn ? Colors.green : Colors.red, child: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: Colors.white))),
           Expanded(child: _seatGrid()),
-          _chatDisplay(), _chatInput()
+          _chatDisplay(), _chatInput(),
         ]),
       ),
     );
   }
 
   Widget _seatGrid() => GridView.builder(
-    padding: const EdgeInsets.all(10), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5), itemCount: 15,
-    itemBuilder: (context, i) => Column(children: [const CircleAvatar(radius: 20, backgroundColor: Colors.white10, child: Icon(Icons.person, color: Colors.white24)), Text("${i+1}", style: const TextStyle(color: Colors.white54, fontSize: 10))])
+    padding: const EdgeInsets.all(10), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, childAspectRatio: 0.8),
+    itemCount: 15, itemBuilder: (context, i) => Column(children: [const CircleAvatar(radius: 20, backgroundColor: Colors.white10, child: Icon(Icons.person, color: Colors.white24)), Text("${i+1}", style: const TextStyle(color: Colors.white54, fontSize: 9))])
   );
 
-  Widget _chatDisplay() => Container(height: 80, child: StreamBuilder<QuerySnapshot>(
+  Widget _chatDisplay() => Container(height: 70, child: StreamBuilder<QuerySnapshot>(
     stream: FirebaseFirestore.instance.collection('rooms').doc('room1').collection('chats').orderBy('time', descending: true).snapshots(),
     builder: (context, snapshot) {
       if (!snapshot.hasData) return const SizedBox();
-      return ListView.builder(reverse: true, itemCount: snapshot.data!.docs.length, itemBuilder: (context, i) {
-        var chat = snapshot.data!.docs[i];
-        return Text(" ${chat['name']}: ${chat['text']}", style: const TextStyle(color: Colors.white70, fontSize: 12));
-      });
+      return ListView.builder(reverse: true, itemCount: snapshot.data!.docs.length, itemBuilder: (context, i) => Text(" ${snapshot.data!.docs[i]['name']}: ${snapshot.data!.docs[i]['text']}", style: const TextStyle(color: Colors.white, fontSize: 11)));
     },
   ));
 
-  Widget _chatInput() => Row(children: [
-    Expanded(child: TextField(controller: _chatCtrl, style: const TextStyle(color: Colors.white))),
-    IconButton(icon: const Icon(Icons.send, color: Colors.pinkAccent), onPressed: _sendMsg)
-  ]);
+  Widget _chatInput() => Row(children: [Expanded(child: TextField(controller: _chatController, style: const TextStyle(color: Colors.white))), IconButton(icon: const Icon(Icons.send, color: Colors.pinkAccent), onPressed: _sendMsg)]);
 }
 
-// --- ৬. প্রোফাইল পেজ ---
+// --- ৬. প্রোফাইল পেজ (VIP, XP, Diamonds সব আছে) ---
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
   @override
@@ -292,14 +287,16 @@ class ProfilePage extends StatelessWidget {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           var data = snapshot.data!.data() as Map<String, dynamic>?;
           return Center(child: Column(children: [
-            const SizedBox(height: 100),
+            const SizedBox(height: 80),
             CircleAvatar(radius: 50, backgroundImage: NetworkImage(data?['photo'] ?? "")),
-            const SizedBox(height: 20),
-            Text(data?['name'] ?? "ইউজার", style: const TextStyle(color: Colors.white, fontSize: 22)),
             const SizedBox(height: 10),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.diamond, color: Colors.blue), Text(" ${data?['diamonds'] ?? 0}", style: const TextStyle(color: Colors.white))]),
+            Text(data?['name'] ?? "ইউজার", style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            Text("Level: ${data?['level'] ?? 1} | XP: ${data?['xp'] ?? 0}", style: const TextStyle(color: Colors.amber, fontSize: 12)),
+            if (data?['isVIP'] == true) const Text("💎 VIP MEMBER 💎", style: TextStyle(color: Colors.pinkAccent, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.diamond, color: Colors.blue), Text(" ${data?['diamonds'] ?? 0}", style: const TextStyle(color: Colors.white, fontSize: 18))]),
             const Spacer(),
-            ElevatedButton(onPressed: () => FirebaseAuth.instance.signOut(), child: const Text("লগ আউট")),
+            ListTile(leading: const Icon(Icons.logout, color: Colors.red), title: const Text("লগ আউট", style: TextStyle(color: Colors.white)), onTap: () => FirebaseAuth.instance.signOut()),
             const SizedBox(height: 50),
           ]));
         }
