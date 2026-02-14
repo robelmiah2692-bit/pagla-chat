@@ -10,12 +10,13 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:http/http.dart' as http;
 
 // --- আপনার ইউটিউব এপিআই কী ---
-const String youtubeApiKey = "AIzaSyB..."; 
+const String youtubeApiKey = "AIzaSyAkEB8dB2vSncv3BpNZng7W_0e6N7dqNmI"; 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   try {
+    // আপনার অরিজিনাল ফায়ারবেস কনফিগারেশন এখানে যোগ করা হয়েছে
     await Firebase.initializeApp(
       options: const FirebaseOptions(
         apiKey: "AIzaSyAkEB8dB2vSncv3BpNZng7W_0e6N7dqNmI", 
@@ -36,7 +37,7 @@ void main() async {
   ));
 }
 
-// --- ১. স্প্ল্যাশ স্ক্রিন ---
+// --- ১. স্প্ল্যাশ স্ক্রিন (আপনার ডিজাইন অনুযায়ী) ---
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
   @override
@@ -193,7 +194,7 @@ class HomePage extends StatelessWidget {
   );
 }
 
-// --- ৫. ভয়েস রুম ---
+// --- ৫. ভয়েস রুম (ফিচার আপডেট করা) ---
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -202,7 +203,8 @@ class VoiceRoom extends StatefulWidget {
 
 class _VoiceRoomState extends State<VoiceRoom> {
   bool isMicOn = false;
-  bool isJoined = false; // ইউজার সিটে আছে কি না তা চেক করতে
+  bool isJoined = false; 
+  int? currentSeat; // কোন সিটে বসেছেন তা ট্র্যাক করার জন্য
   RtcEngine? _engine;
   YoutubePlayerController? _ytController;
   final TextEditingController _chatController = TextEditingController();
@@ -211,24 +213,22 @@ class _VoiceRoomState extends State<VoiceRoom> {
   @override
   void initState() {
     super.initState();
-    // এখানে কোনো অগোরা বা পারমিশন কল করা নেই, তাই অ্যাপ ক্র্যাশ করবে না।
     _ytController = YoutubePlayerController(initialVideoId: 'iLnmTe5Q2Qw', flags: const YoutubePlayerFlags(autoPlay: false, mute: false));
   }
 
-  // ইউজার যখন সিটে টাচ করবে তখন এটি কল হবে
+  // ইউজার যখন সিটে টাচ করবে তখন কল শুরু হবে
   Future<void> _joinVoice(int seatIndex) async {
-    if (isJoined) return;
+    if (isJoined) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("আপনি অলরেডি একটি সিটে আছেন!")));
+       return;
+    }
 
     try {
-      // ১. মাইক পারমিশন চাওয়া
       var status = await Permission.microphone.request();
       
       if (status.isGranted) {
         _engine = createAgoraRtcEngine();
-        
-        await _engine!.initialize(const RtcEngineContext(
-          appId: "bd010dec4aa141228c87ec2cb9d4f6e8", 
-        ));
+        await _engine!.initialize(const RtcEngineContext(appId: "bd010dec4aa141228c87ec2cb9d4f6e8"));
 
         await _engine!.enableAudio();
         await _engine!.setChannelProfile(ChannelProfileType.channelProfileLiveBroadcasting);
@@ -238,20 +238,30 @@ class _VoiceRoomState extends State<VoiceRoom> {
           token: '', 
           channelId: 'pagla_room', 
           uid: 0, 
-          options: const ChannelMediaOptions(
-            publishMicrophoneTrack: true,
-          ),
+          options: const ChannelMediaOptions(publishMicrophoneTrack: true),
         );
 
         setState(() {
           isJoined = true;
           isMicOn = true;
+          currentSeat = seatIndex;
         });
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("আপনি সিটে বসেছেন!")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("${seatIndex + 1} নম্বর সিটে আপনি বসেছেন!")));
       }
     } catch (e) {
       debugPrint("Agora Error: $e");
     }
+  }
+
+  // সিট ছাড়ার ফাংশন
+  Future<void> _leaveSeat() async {
+    await _engine?.leaveChannel();
+    await _engine?.release();
+    setState(() {
+      isJoined = false;
+      isMicOn = false;
+      currentSeat = null;
+    });
   }
 
   Future<void> _searchVideo(String query) async {
@@ -291,7 +301,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
       body: SafeArea(
         child: Column(children: [
           const ListTile(title: Text("পাগলা কিং আড্ডা", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), subtitle: Text("ID: 550889 | Live", style: TextStyle(color: Colors.pinkAccent, fontSize: 10))),
+          
           if (_ytController != null) Container(margin: const EdgeInsets.symmetric(horizontal: 10), height: 160, child: ClipRRect(borderRadius: BorderRadius.circular(15), child: YoutubePlayer(controller: _ytController!))),
+          
           Padding(
             padding: const EdgeInsets.all(8),
             child: Row(children: [
@@ -300,21 +312,25 @@ class _VoiceRoomState extends State<VoiceRoom> {
             ]),
           ),
           
-          // মিউট/আনমিউট বাটন (সিটে বসলে কাজ করবে)
-          GestureDetector(
-            onTap: () { 
-              if (isJoined) {
-                setState(() => isMicOn = !isMicOn); 
-                _engine?.muteLocalAudioStream(!isMicOn); 
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("কথা বলতে আগে সিটে বসুন")));
-              }
-            }, 
-            child: CircleAvatar(backgroundColor: isMicOn ? Colors.green : Colors.red, child: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: Colors.white))
+          // মাইক এবং সিট ছাড়ার বাটন (যখন ইউজার জয়েন থাকবে)
+          if (isJoined) Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              GestureDetector(
+                onTap: () { 
+                  setState(() => isMicOn = !isMicOn); 
+                  _engine?.muteLocalAudioStream(!isMicOn); 
+                }, 
+                child: CircleAvatar(backgroundColor: isMicOn ? Colors.green : Colors.red, child: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: Colors.white))
+              ),
+              const SizedBox(width: 20),
+              ElevatedButton(onPressed: _leaveSeat, style: ElevatedButton.styleFrom(backgroundColor: Colors.white12), child: const Text("সিট ছাড়ুন", style: TextStyle(color: Colors.white))),
+            ]),
           ),
           
           Expanded(child: _seatGrid()),
-          _chatDisplay(), _chatInput(),
+          _chatDisplay(), 
+          _chatInput(),
         ]),
       ),
     );
@@ -323,9 +339,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
   Widget _seatGrid() => GridView.builder(
     padding: const EdgeInsets.all(10), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, childAspectRatio: 0.8),
     itemCount: 15, itemBuilder: (context, i) => GestureDetector(
-      onTap: () => _joinVoice(i), // সিটে টাচ করলে ভয়েস চালু হবে
+      onTap: () => _joinVoice(i), 
       child: Column(children: [
-        const CircleAvatar(radius: 20, backgroundColor: Colors.white10, child: Icon(Icons.person, color: Colors.white24)), 
+        CircleAvatar(
+          radius: 20, 
+          backgroundColor: currentSeat == i ? Colors.pinkAccent : Colors.white10, 
+          child: Icon(currentSeat == i ? Icons.mic : Icons.person, color: currentSeat == i ? Colors.white : Colors.white24, size: 20)
+        ), 
         Text("${i+1}", style: const TextStyle(color: Colors.white54, fontSize: 9))
       ]),
     )
@@ -342,7 +362,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   Widget _chatInput() => Row(children: [Expanded(child: TextField(controller: _chatController, style: const TextStyle(color: Colors.white))), IconButton(icon: const Icon(Icons.send, color: Colors.pinkAccent), onPressed: _sendMsg)]);
 }
 
-// --- ৬. প্রোফাইল পেজ ---
+// --- ৬. প্রোফাইল পেজ (আপনার অরিজিনাল ডাটা লজিকসহ) ---
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
   @override
