@@ -23,7 +23,7 @@ apply plugin: 'com.google.gms.google-services'
 
 android {
     namespace "com.pagla.chat" 
-    compileSdkVersion 34 // অ্যান্ড্রয়েড ১৫ এর জন্য এটি ৩৪ বা ৩৫ থাকা জরুরি
+    compileSdkVersion 34 
 
     signingConfigs {
         release {
@@ -36,12 +36,20 @@ android {
 
     defaultConfig {
         applicationId "com.pagla.chat" 
-        // Agora এবং Firebase-এর লেটেস্ট ভার্সনের জন্য ২৩ করা নিরাপদ
         minSdkVersion 23 
         targetSdkVersion 34    
         versionCode 1
         versionName "1.0"
         multiDexEnabled true 
+    }
+
+    // --- এই অংশটুকু বাদ ছিল (অ্যাগোরা এবং লাইব্রেরি কনফ্লিক্ট ফিক্স) ---
+    packagingOptions {
+        pickFirst 'lib/x86/libc++_shared.so'
+        pickFirst 'lib/x86_64/libc++_shared.so'
+        pickFirst 'lib/armeabi-v7a/libc++_shared.so'
+        pickFirst 'lib/arm64-v8a/libc++_shared.so'
+        exclude 'META-INF/proguard/androidx-annotations.pro'
     }
 
     buildTypes {
@@ -53,7 +61,6 @@ android {
         }
     }
 
-    // এটি যোগ করলাম যাতে নেটিভ এররগুলো হ্যান্ডেল হয়
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -66,18 +73,18 @@ android {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    
-    // অ্যান্ড্রয়েড ১৫ এবং ফায়ারবেস ক্র্যাশ প্রতিরোধের জন্য জরুরি
     implementation 'androidx.multidex:multidex:2.0.1'
     
-    // Firebase BOM (এটি ভার্সন কন্ট্রোল করে)
+    // Firebase
     implementation platform('com.google.firebase:firebase-bom:33.1.0')
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.firebase:firebase-auth'
     implementation 'com.google.firebase:firebase-firestore'
     implementation 'com.google.firebase:firebase-database'
     
-    // অ্যান্ড্রয়েড ১৫ এর জন্য এই অতিরিক্ত লাইব্রেরিটি প্রয়োজন হয় মাঝেমধ্যে
+    // Android 15 & UI Stability (এগুলো বাদ ছিল)
     implementation 'androidx.window:window:1.2.0'
     implementation 'androidx.window:window-java:1.2.0'
+    implementation 'androidx.activity:activity-ktx:1.8.2'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
 }
