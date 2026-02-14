@@ -49,11 +49,46 @@ jobs:
           tasks.register("clean", Delete) { delete rootProject.buildDir }
           EOF
 
-          # ৪. গ্র্যাডল ভার্সন ৮.২ এ আপডেট করা
+          # ৪. অডিও এবং ইন্টারনেট পারমিশন ফিক্স (AndroidManifest Fix)
+          cat <<EOF > android/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET"/>
+              <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+              <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+              <uses-permission android:name="android.permission.BLUETOOTH"/>
+              <application
+                  android:label="Pagla Chat"
+                  android:name="\${applicationName}"
+                  android:icon="@mipmap/ic_launcher">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/LaunchTheme"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                      android:hardwareAccelerated="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <meta-data
+                        android:name="io.flutter.embedding.android.NormalTheme"
+                        android:resource="@style/NormalTheme" />
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+                  <meta-data
+                      android:name="flutterEmbedding"
+                      android:value="2" />
+              </application>
+          </manifest>
+          EOF
+
+          # ৫. গ্র্যাডল ভার্সন ৮.২ এ আপডেট করা
           cd android
           echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-all.zip" > gradle/wrapper/gradle-wrapper.properties
           
-          # ৫. ফাইল ফিরিয়ে আনা এবং চাবি বানানো (Keystore)
+          # ৬. ফাইল ফিরিয়ে আনা এবং চাবি বানানো (Keystore)
           mkdir -p app
           mv ../google-services.json.backup app/google-services.json || echo "No JSON"
           
@@ -62,7 +97,7 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Pagla, O=Chat, C=BD" -startdate "2024/01/01 00:00:00"
 
-          # ৬. প্যাকেজ নেম ও প্লাগইন কনফার্ম করা
+          # ৭. প্যাকেজ নেম ও প্লাগইন কনফার্ম করা
           sed -i 's/applicationId ".*"/applicationId "com.pagla.chat"/g' app/build.gradle
           sed -i 's/minSdkVersion .*/minSdkVersion 21/g' app/build.gradle
           echo "apply plugin: 'com.google.gms.google-services'" >> app/build.gradle
@@ -70,7 +105,7 @@ jobs:
           chmod +x gradlew
           cd ..
 
-      # চাবি দেখানোর জন্য আলাদা স্টেপ (যেন সহজেই চোখে পড়ে)
+      # চাবি দেখানোর জন্য আলাদা স্টেপ
       - name: 🔑 View SHA-1 & SHA-256 for Firebase
         run: |
           cd android
