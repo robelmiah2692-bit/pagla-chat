@@ -13,19 +13,23 @@ import 'package:http/http.dart' as http;
 const String youtubeApiKey = "AIzaSyB..."; 
 
 void main() async {
+  // ১. এটি ফ্লাটার ইঞ্জিনকে নিশ্চিত করে যে সব প্লাগইন রেডি
   WidgetsFlutterBinding.ensureInitialized();
-  try { 
-    await Firebase.initializeApp(); 
-  } catch (e) { 
-    debugPrint("Firebase Error: $e"); 
+  
+  // ২. ফায়ারবেস অপশন সহ ইনিশিয়ালাইজ (লগইন এরর ফিক্সের জন্য)
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint("Firebase initialization failed: $e");
   }
+
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false, 
     home: SplashScreen()
   ));
 }
 
-// --- ১. স্প্ল্যাশ স্ক্রিন (ফিক্সড) ---
+// --- ১. স্প্ল্যাশ স্ক্রিন ---
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
   @override
@@ -36,7 +40,6 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // ৩ সেকেন্ডের টাইমার - যা আটকে থাকার সমস্যা সমাধান করবে
     Timer(const Duration(seconds: 3), () => _checkUserStatus());
   }
 
@@ -67,7 +70,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-// --- ২. ইমেইল-পাসওয়ার্ড লগইন (গুগল লগইন রিপ্লেসড) ---
+// --- ২. ইমেইল-পাসওয়ার্ড লগইন ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
   @override
@@ -130,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// --- ৩. মেইন নেভিগেশন (হোম, রুম, ইনবক্স, প্রোফাইল) ---
+// --- ৩. মেইন নেভিগেশন ---
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
   @override
@@ -183,7 +186,7 @@ class HomePage extends StatelessWidget {
   );
 }
 
-// --- ৫. ভয়েস রুম (আগোরা + ইউটিউব + ১৫ সিট) ---
+// --- ৫. ভয়েস রুম ---
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
