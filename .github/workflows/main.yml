@@ -29,7 +29,7 @@ jobs:
           rm -rf android
           flutter create . --project-name pagla_chat --org com.pagla --platforms android
           
-          # ৩. আপনার দেওয়া সেই লেটেস্ট build.gradle (Root) বসানো
+          # ৩. আপনার দেওয়া সেই লেটেস্ট build.gradle (Root) বসানো
           cat <<EOF > android/build.gradle
           buildscript {
               ext.kotlin_version = '1.9.10'
@@ -49,11 +49,11 @@ jobs:
           tasks.register("clean", Delete) { delete rootProject.buildDir }
           EOF
 
-          # ৪. 🛑 গুরুত্বপূর্ণ: গ্র্যাডল ভার্সন ৮.২ এ আপডেট করা (আপনার কোডের সাথে মিল রেখে)
+          # ৪. গ্র্যাডল ভার্সন ৮.২ এ আপডেট করা
           cd android
           echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-all.zip" > gradle/wrapper/gradle-wrapper.properties
           
-          # ৫. ফাইল ফিরিয়ে আনা
+          # ৫. ফাইল ফিরিয়ে আনা এবং চাবি বানানো (Keystore)
           mkdir -p app
           mv ../google-services.json.backup app/google-services.json || echo "No JSON"
           
@@ -69,6 +69,14 @@ jobs:
           
           chmod +x gradlew
           cd ..
+
+      # চাবি দেখানোর জন্য আলাদা স্টেপ (যেন সহজেই চোখে পড়ে)
+      - name: 🔑 View SHA-1 & SHA-256 for Firebase
+        run: |
+          cd android
+          echo "------ নিচের কোডগুলো কপি করে ফায়ারবেস কনসোলে বসান ------"
+          keytool -list -v -keystore app/upload-keystore.jks -alias pagla_alias -storepass pagla123 -keypass pagla123 | grep -E "SHA1|SHA256"
+          echo "--------------------------------------------------------"
 
       - name: Build APK (Release)
         run: |
