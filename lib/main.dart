@@ -15,7 +15,7 @@ const String youtubeApiKey = "AIzaSyB...";
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // ফায়ারবেস ম্যানুয়াল ইনিশিয়ালাইজেশন (লগইন এবং কানেকশন এরর ফিক্সের জন্য)
+  // ফায়ারবেস ম্যানুয়াল ইনিশিয়ালাইজেশন
   try {
     await Firebase.initializeApp(
       options: const FirebaseOptions(
@@ -215,7 +215,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
     _ytController = YoutubePlayerController(initialVideoId: 'iLnmTe5Q2Qw', flags: const YoutubePlayerFlags(autoPlay: false, mute: false));
   }
 
-  // ক্র্যাশ প্রতিরোধে ট্রাই-ক্যাচ সহ অ্যাগোরা সেটআপ
   _initAgora() async {
     try {
       await [Permission.microphone].request();
@@ -263,6 +262,14 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   @override
+  void dispose() {
+    _engine?.leaveChannel();
+    _engine?.release();
+    _ytController?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
@@ -307,7 +314,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   Widget _chatInput() => Row(children: [Expanded(child: TextField(controller: _chatController, style: const TextStyle(color: Colors.white))), IconButton(icon: const Icon(Icons.send, color: Colors.pinkAccent), onPressed: _sendMsg)]);
 }
 
-// --- ৬. প্রোফাইল পেজ (VIP, XP, Diamonds সব আছে) ---
+// --- ৬. প্রোফাইল পেজ ---
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
   @override
@@ -320,7 +327,7 @@ class ProfilePage extends StatelessWidget {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
           if (!snapshot.hasData || snapshot.data?.data() == null) {
-            return const Center(child: Text("ইউজার ডাটা পাওয়া যায়নি", style: TextStyle(color: Colors.white)));
+            return const Center(child: Text("ইউজার ডাটা পাওয়া যায়নি", style: TextStyle(color: Colors.white)));
           }
           var data = snapshot.data!.data() as Map<String, dynamic>;
           return Center(child: Column(children: [
