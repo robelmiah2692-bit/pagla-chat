@@ -15,7 +15,6 @@ const String youtubeApiKey = "AIzaSyB...";
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // ফায়ারবেস ম্যানুয়াল ইনিশিয়ালাইজেশন
   try {
     await Firebase.initializeApp(
       options: const FirebaseOptions(
@@ -203,6 +202,7 @@ class VoiceRoom extends StatefulWidget {
 
 class _VoiceRoomState extends State<VoiceRoom> {
   bool isMicOn = false;
+  bool isJoined = false; // ইউজার সিটে আছে কি না তা চেক করতে
   RtcEngine? _engine;
   YoutubePlayerController? _ytController;
   final TextEditingController _chatController = TextEditingController();
@@ -211,31 +211,46 @@ class _VoiceRoomState extends State<VoiceRoom> {
   @override
   void initState() {
     super.initState();
-    _initAgora();
+    // এখানে কোনো অগোরা বা পারমিশন কল করা নেই, তাই অ্যাপ ক্র্যাশ করবে না।
     _ytController = YoutubePlayerController(initialVideoId: 'iLnmTe5Q2Qw', flags: const YoutubePlayerFlags(autoPlay: false, mute: false));
   }
 
-  _initAgora() async {
-    try {
-      await [Permission.microphone].request();
-      _engine = createAgoraRtcEngine();
-      
-      await _engine!.initialize(const RtcEngineContext(
-        appId: "bd010dec4aa141228c87ec2cb9d4f6e8", 
-      ));
+  // ইউজার যখন সিটে টাচ করবে তখন এটি কল হবে
+  Future<void> _joinVoice(int seatIndex) async {
+    if (isJoined) return;
 
-      await _engine!.enableAudio();
-      await _engine!.joinChannel(
-        token: '', 
-        channelId: 'pagla_room', 
-        uid: 0, 
-        options: const ChannelMediaOptions(
-          clientRoleType: ClientRoleType.clientRoleBroadcaster,
-          publishMicrophoneTrack: true,
-        ),
-      );
+    try {
+      // ১. মাইক পারমিশন চাওয়া
+      var status = await Permission.microphone.request();
+      
+      if (status.isGranted) {
+        _engine = createAgoraRtcEngine();
+        
+        await _engine!.initialize(const RtcEngineContext(
+          appId: "bd010dec4aa141228c87ec2cb9d4f6e8", 
+        ));
+
+        await _engine!.enableAudio();
+        await _engine!.setChannelProfile(ChannelProfileType.channelProfileLiveBroadcasting);
+        await _engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+
+        await _engine!.joinChannel(
+          token: '', 
+          channelId: 'pagla_room', 
+          uid: 0, 
+          options: const ChannelMediaOptions(
+            publishMicrophoneTrack: true,
+          ),
+        );
+
+        setState(() {
+          isJoined = true;
+          isMicOn = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("আপনি সিটে বসেছেন!")));
+      }
     } catch (e) {
-      debugPrint("Agora Safe Initialization Bypass: $e");
+      debugPrint("Agora Error: $e");
     }
   }
 
@@ -284,13 +299,20 @@ class _VoiceRoomState extends State<VoiceRoom> {
               IconButton(icon: const Icon(Icons.search, color: Colors.blueAccent), onPressed: () => _searchVideo(_searchController.text)),
             ]),
           ),
+          
+          // মিউট/আনমিউট বাটন (সিটে বসলে কাজ করবে)
           GestureDetector(
             onTap: () { 
-              setState(() => isMicOn = !isMicOn); 
-              _engine?.muteLocalAudioStream(!isMicOn); 
+              if (isJoined) {
+                setState(() => isMicOn = !isMicOn); 
+                _engine?.muteLocalAudioStream(!isMicOn); 
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("কথা বলতে আগে সিটে বসুন")));
+              }
             }, 
             child: CircleAvatar(backgroundColor: isMicOn ? Colors.green : Colors.red, child: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: Colors.white))
           ),
+          
           Expanded(child: _seatGrid()),
           _chatDisplay(), _chatInput(),
         ]),
@@ -300,7 +322,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   Widget _seatGrid() => GridView.builder(
     padding: const EdgeInsets.all(10), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, childAspectRatio: 0.8),
-    itemCount: 15, itemBuilder: (context, i) => Column(children: [const CircleAvatar(radius: 20, backgroundColor: Colors.white10, child: Icon(Icons.person, color: Colors.white24)), Text("${i+1}", style: const TextStyle(color: Colors.white54, fontSize: 9))])
+    itemCount: 15, itemBuilder: (context, i) => GestureDetector(
+      onTap: () => _joinVoice(i), // সিটে টাচ করলে ভয়েস চালু হবে
+      child: Column(children: [
+        const CircleAvatar(radius: 20, backgroundColor: Colors.white10, child: Icon(Icons.person, color: Colors.white24)), 
+        Text("${i+1}", style: const TextStyle(color: Colors.white54, fontSize: 9))
+      ]),
+    )
   );
 
   Widget _chatDisplay() => Container(height: 70, child: StreamBuilder<QuerySnapshot>(
