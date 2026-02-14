@@ -13,14 +13,22 @@ import 'package:http/http.dart' as http;
 const String youtubeApiKey = "AIzaSyB..."; 
 
 void main() async {
-  // ১. এটি ফ্লাটার ইঞ্জিনকে নিশ্চিত করে যে সব প্লাগইন রেডি
   WidgetsFlutterBinding.ensureInitialized();
   
-  // ২. ফায়ারবেস অপশন সহ ইনিশিয়ালাইজ (লগইন এরর ফিক্সের জন্য)
+  // ফায়ারবেস ম্যানুয়াল ইনিশিয়ালাইজেশন (লগইন এরর চিরতরে ফিক্স করার জন্য)
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: "AIzaSyAkEB8dB2vSncv3BpNZng7W_0e6N7dqNmI", 
+        appId: "1:25052070011:android:5d89f85753b5c881d662de", 
+        messagingSenderId: "25052070011", 
+        projectId: "paglachat",
+        storageBucket: "paglachat.firebasestorage.app",
+        databaseURL: "https://paglachat-default-rtdb.asia-southeast1.firebasedatabase.app",
+      ),
+    );
   } catch (e) {
-    debugPrint("Firebase initialization failed: $e");
+    debugPrint("Firebase connection error: $e");
   }
 
   runApp(const MaterialApp(
