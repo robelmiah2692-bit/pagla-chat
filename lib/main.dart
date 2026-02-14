@@ -15,7 +15,7 @@ const String youtubeApiKey = "AIzaSyB...";
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // ফায়ারবেস ম্যানুয়াল ইনিশিয়ালাইজেশন (লগইন এরর চিরতরে ফিক্স করার জন্য)
+  // ফায়ারবেস ম্যানুয়াল ইনিশিয়ালাইজেশন (লগইন এবং কানেকশন এরর ফিক্সের জন্য)
   try {
     await Firebase.initializeApp(
       options: const FirebaseOptions(
@@ -215,12 +215,29 @@ class _VoiceRoomState extends State<VoiceRoom> {
     _ytController = YoutubePlayerController(initialVideoId: 'iLnmTe5Q2Qw', flags: const YoutubePlayerFlags(autoPlay: false, mute: false));
   }
 
+  // ক্র্যাশ প্রতিরোধে ট্রাই-ক্যাচ সহ অ্যাগোরা সেটআপ
   _initAgora() async {
-    await [Permission.microphone].request();
-    _engine = createAgoraRtcEngine();
-    await _engine!.initialize(const RtcEngineContext(appId: "bd010dec4aa141228c87ec2cb9d4f6e8"));
-    await _engine!.enableAudio();
-    await _engine!.joinChannel(token: '', channelId: 'pagla_room', uid: 0, options: const ChannelMediaOptions());
+    try {
+      await [Permission.microphone].request();
+      _engine = createAgoraRtcEngine();
+      
+      await _engine!.initialize(const RtcEngineContext(
+        appId: "bd010dec4aa141228c87ec2cb9d4f6e8", 
+      ));
+
+      await _engine!.enableAudio();
+      await _engine!.joinChannel(
+        token: '', 
+        channelId: 'pagla_room', 
+        uid: 0, 
+        options: const ChannelMediaOptions(
+          clientRoleType: ClientRoleType.clientRoleBroadcaster,
+          publishMicrophoneTrack: true,
+        ),
+      );
+    } catch (e) {
+      debugPrint("Agora Safe Initialization Bypass: $e");
+    }
   }
 
   Future<void> _searchVideo(String query) async {
@@ -260,7 +277,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
               IconButton(icon: const Icon(Icons.search, color: Colors.blueAccent), onPressed: () => _searchVideo(_searchController.text)),
             ]),
           ),
-          GestureDetector(onTap: () { setState(() => isMicOn = !isMicOn); _engine?.muteLocalAudioStream(!isMicOn); }, child: CircleAvatar(backgroundColor: isMicOn ? Colors.green : Colors.red, child: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: Colors.white))),
+          GestureDetector(
+            onTap: () { 
+              setState(() => isMicOn = !isMicOn); 
+              _engine?.muteLocalAudioStream(!isMicOn); 
+            }, 
+            child: CircleAvatar(backgroundColor: isMicOn ? Colors.green : Colors.red, child: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: Colors.white))
+          ),
           Expanded(child: _seatGrid()),
           _chatDisplay(), _chatInput(),
         ]),
@@ -295,17 +318,20 @@ class ProfilePage extends StatelessWidget {
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance.collection('users').doc(user?.uid).snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          var data = snapshot.data!.data() as Map<String, dynamic>?;
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData || snapshot.data?.data() == null) {
+            return const Center(child: Text("ইউজার ডাটা পাওয়া যায়নি", style: TextStyle(color: Colors.white)));
+          }
+          var data = snapshot.data!.data() as Map<String, dynamic>;
           return Center(child: Column(children: [
             const SizedBox(height: 80),
-            CircleAvatar(radius: 50, backgroundImage: NetworkImage(data?['photo'] ?? "")),
+            CircleAvatar(radius: 50, backgroundImage: NetworkImage(data['photo'] ?? "")),
             const SizedBox(height: 10),
-            Text(data?['name'] ?? "ইউজার", style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-            Text("Level: ${data?['level'] ?? 1} | XP: ${data?['xp'] ?? 0}", style: const TextStyle(color: Colors.amber, fontSize: 12)),
-            if (data?['isVIP'] == true) const Text("💎 VIP MEMBER 💎", style: TextStyle(color: Colors.pinkAccent, fontWeight: FontWeight.bold)),
+            Text(data['name'] ?? "ইউজার", style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            Text("Level: ${data['level'] ?? 1} | XP: ${data['xp'] ?? 0}", style: const TextStyle(color: Colors.amber, fontSize: 12)),
+            if (data['isVIP'] == true) const Text("💎 VIP MEMBER 💎", style: TextStyle(color: Colors.pinkAccent, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.diamond, color: Colors.blue), Text(" ${data?['diamonds'] ?? 0}", style: const TextStyle(color: Colors.white, fontSize: 18))]),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.diamond, color: Colors.blue), Text(" ${data['diamonds'] ?? 0}", style: const TextStyle(color: Colors.white, fontSize: 18))]),
             const Spacer(),
             ListTile(leading: const Icon(Icons.logout, color: Colors.red), title: const Text("লগ আউট", style: TextStyle(color: Colors.white)), onTap: () => FirebaseAuth.instance.signOut()),
             const SizedBox(height: 50),
