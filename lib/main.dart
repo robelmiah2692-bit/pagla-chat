@@ -253,30 +253,27 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   void _searchVideo(String q) async {
-    // সার্চ করার সময় ইউজারকে বোঝানোর জন্য একটি প্রিন্ট দিলাম
+    if (q.trim().isEmpty) return; 
     debugPrint("Searching for: $q"); 
-    
     final url = "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${Uri.encodeComponent(q)}&type=video&key=$youtubeApiKey";
-    
     try {
       final res = await http.get(Uri.parse(url));
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
-        if (data['items'] != null && data['items'].length > 0) {
+        if (data['items'] != null && data['items'].isNotEmpty) {
           final id = data['items'][0]['id']['videoId'];
           setState(() { 
-            // load মেথডটি সরাসরি ভিডিও আইডি নিয়ে কাজ করে
-            _ytController?.load(id); 
+            _ytController?.load(id);
+            _ytController?.play(); 
           });
         }
       } else {
-        debugPrint("YouTube API Error: ${res.statusCode}");
+        debugPrint("API Error: ${res.statusCode}");
       }
     } catch (e) {
-      debugPrint("Connection Error: $e");
+      debugPrint("Network Error: $e");
     }
   }
-
   void _sendMessage() {
     if (_msgCtrl.text.isNotEmpty) {
       setState(() { _messages.insert(0, "আপনি: ${_msgCtrl.text}"); _msgCtrl.clear(); });
@@ -304,7 +301,17 @@ class _VoiceRoomState extends State<VoiceRoom> {
           // ভিডিও বোর্ড ও সার্চ (জ্যান্ত YouTube)
           Container(height: 160, margin: const EdgeInsets.all(10), child: ClipRRect(borderRadius: BorderRadius.circular(15), child: YoutubePlayer(controller: _ytController!))),
           Padding(padding: const EdgeInsets.symmetric(horizontal: 15), child: Row(children: [
-            Expanded(child: TextField(controller: _searchCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: "গান সার্চ করুন...", hintStyle: TextStyle(color: Colors.white24)))),
+            Expanded(
+              child: TextField(
+                controller: _searchCtrl, 
+                onSubmitted: (value) => _searchVideo(value), // কিবোর্ড দিয়েও সার্চ হবে
+                style: const TextStyle(color: Colors.white), 
+                decoration: const InputDecoration(
+                  hintText: "গান সার্চ করুন...", 
+                  hintStyle: TextStyle(color: Colors.white24)
+                )
+              )
+            ),
             IconButton(icon: const Icon(Icons.search, color: Colors.pinkAccent), onPressed: () => _searchVideo(_searchCtrl.text)),
           ])),
 
