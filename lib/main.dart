@@ -254,8 +254,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   void _searchVideo(String q) async {
     if (q.trim().isEmpty) return; 
-    debugPrint("Searching for: $q"); 
+    
+    // কিবোর্ড বা বিত্ত—যেখান থেকেই ক্লিক হোক, ডাটা আসবে
     final url = "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${Uri.encodeComponent(q)}&type=video&key=$youtubeApiKey";
+    
     try {
       final res = await http.get(Uri.parse(url));
       if (res.statusCode == 200) {
@@ -263,16 +265,35 @@ class _VoiceRoomState extends State<VoiceRoom> {
         if (data['items'] != null && data['items'].isNotEmpty) {
           final id = data['items'][0]['id']['videoId'];
           setState(() { 
-            _ytController?.load(id);
-            _ytController?.play(); 
+            _ytController?.load(id); // ভিডিও লোড হবে
+            _ytController?.play(); // সাথে সাথে প্লে হবে
           });
         }
-      } else {
-        debugPrint("API Error: ${res.statusCode}");
       }
     } catch (e) {
-      debugPrint("Network Error: $e");
+      debugPrint("YouTube Error: $e");
     }
+  }
+
+  // এটি আপনার ২০৯ নম্বর লাইনের UI অংশ
+  Widget _searchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 15), 
+      child: Row(children: [
+        Expanded(
+          child: TextField(
+            controller: _searchCtrl, 
+            onSubmitted: (v) => _searchVideo(v),
+            style: const TextStyle(color: Colors.white), 
+            decoration: const InputDecoration(hintText: "গান সার্চ করুন...", hintStyle: TextStyle(color: Colors.white24))
+          )
+        ),
+        IconButton(
+          icon: const Icon(Icons.search, color: Colors.pinkAccent), 
+          onPressed: () => _searchVideo(_searchCtrl.text)
+        ),
+      ])
+    );
   }
   void _sendMessage() {
     if (_msgCtrl.text.isNotEmpty) {
