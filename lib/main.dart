@@ -75,9 +75,39 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _email = TextEditingController();
   final TextEditingController _pass = TextEditingController();
 
+  Future<void> _saveUserToFirestore(User user) async {
+  // ডাটাবেজে আগে চেক করবে ইউজার আছে কি না, যাতে পুরনো এক্সপি ডিলিট না হয়
+  final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
+  final snapshot = await userDoc.get();
+
+  if (!snapshot.exists) {
+    // শুধুমাত্র নতুন ইউজার হলে এই ডাটাগুলো সেট হবে
+    await userDoc.set({
+      'uid': user.uid,
+      'email': user.email,
+      'name': 'পাগলা ইউজার',
+      'id': (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString(),
+      'diamonds': 0, 
+      'coins': 0,
+      'xp': 0,             // শুরুতে এক্সপি ০
+      'level': 0,          // আপনি বলেছেন লেভেল ০ থেকে শুরু হবে
+      'isVIP': false,      // শুরুতে ভিআইপি থাকবে না
+      'vipLevel': 0,       // ভিআইপি লেভেল ০
+      'gender': 'Not Set',
+      'createdAt': FieldValue.serverTimestamp(),
+      'lastActive': FieldValue.serverTimestamp(), // অ্যাক্টিভ টাইম ট্র্যাকিংয়ের জন্য
+    });
+  } else {
+    // যদি ইউজার আগে থেকেই থাকে, তবে শুধু লাস্ট অ্যাক্টিভ টাইম আপডেট হবে
+    await userDoc.update({
+      'lastActive': FieldValue.serverTimestamp(),
+    });
+  }
+}
   Future<void> _handleAuth() async {
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(email: _email.text.trim(), password: _pass.text.trim());
+      await _saveUserToFirestore(userCredential.user!);
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
     } catch (e) {
       await FirebaseAuth.instance.createUserWithEmailAndPassword(email: _email.text.trim(), password: _pass.text.trim());
