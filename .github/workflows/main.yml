@@ -19,48 +19,26 @@ jobs:
           flutter-version: '3.19.0'
           cache: true
 
-      - name: 🛠️ Master Firebase & Build Fix
+      - name: 🛠️ Final Master Fix
         run: |
-          # ১. JSON ব্যাকআপ
-          cp android/app/google-services.json ./google-services.json.backup || true
-          
-          # ২. প্রজেক্ট রিকনস্ট্রাকশন
+          # ১. আপনার pubspec এর নাম ঠিক করা
           sed -i 's/name: .*/name: pagla_chat/g' pubspec.yaml
-          rm -rf android
-          flutter create . --project-name pagla_chat --org com.pagla --platforms android
           
-          # ৩. আপনার দেওয়া সেই লেটেস্ট build.gradle (Root) বসানো
-          cat <<EOF > android/build.gradle
-          buildscript {
-              ext.kotlin_version = '1.9.10'
-              repositories { google(); mavenCentral() }
-              dependencies {
-                  classpath 'com.android.tools.build:gradle:8.2.1'
-                  classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:\$kotlin_version"
-                  classpath 'com.google.gms:google-services:4.4.0'
-              }
-          }
-          allprojects { repositories { google(); mavenCentral() } }
-          rootProject.buildDir = '../build'
-          subprojects {
-              project.buildDir = "\${rootProject.buildDir}/\${project.name}"
-              project.evaluationDependsOn(':app')
-          }
-          tasks.register("clean", Delete) { delete rootProject.buildDir }
-          EOF
+          # ২. ডিলিট না করে শুধু ফাইলগুলো আপডেট করা (আগে এখানেই ভুল হচ্ছিল)
+          flutter pub get
 
-          # ৪. অডিও এবং ইন্টারনেট পারমিশন ফিক্স (AndroidManifest Fix)
+          # ৩. আপনার দেওয়া সেই সঠিক AndroidManifest সরাসরি রাইট করা
           cat <<EOF > android/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.pagla.chat">
               <uses-permission android:name="android.permission.INTERNET"/>
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
               <uses-permission android:name="android.permission.RECORD_AUDIO"/>
               <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-              <uses-permission android:name="android.permission.BLUETOOTH"/>
               <application
                   android:label="Pagla Chat"
                   android:name="\${applicationName}"
-                  android:icon="@mipmap/ic_launcher">
+                  android:icon="@mipmap/ic_launcher"
+                  android:usesCleartextTraffic="true">
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
@@ -70,8 +48,8 @@ jobs:
                       android:hardwareAccelerated="true"
                       android:windowSoftInputMode="adjustResize">
                       <meta-data
-                        android:name="io.flutter.embedding.android.NormalTheme"
-                        android:resource="@style/NormalTheme" />
+                          android:name="io.flutter.embedding.android.NormalTheme"
+                          android:resource="@style/NormalTheme" />
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN"/>
                           <category android:name="android.intent.category.LAUNCHER"/>
@@ -84,42 +62,31 @@ jobs:
           </manifest>
           EOF
 
-          # ৫. গ্র্যাডল ভার্সন ৮.২ এ আপডেট করা
+          # ৪. কি-স্টোর তৈরি (যদি না থাকে)
           cd android
-          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-all.zip" > gradle/wrapper/gradle-wrapper.properties
-          
-          # ৬. ফাইল ফিরিয়ে আনা এবং চাবি বানানো (Keystore)
-          mkdir -p app
-          mv ../google-services.json.backup app/google-services.json || echo "No JSON"
-          
           keytool -genkey -v -keystore app/upload-keystore.jks \
             -storepass "pagla123" -alias "pagla_alias" -keypass "pagla123" \
             -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Pagla, O=Chat, C=BD" -startdate "2024/01/01 00:00:00"
+            -dname "CN=Pagla, O=Chat, C=BD" -startdate "2024/01/01 00:00:00" || true
 
-          # ৭. প্যাকেজ নেম ও প্লাগইন কনফার্ম করা
+          # ৫. প্যাকেজ নেম ও ফায়ারবেস প্লাগইন কনফার্ম করা
           sed -i 's/applicationId ".*"/applicationId "com.pagla.chat"/g' app/build.gradle
-          sed -i 's/minSdkVersion .*/minSdkVersion 21/g' app/build.gradle
-          echo "apply plugin: 'com.google.gms.google-services'" >> app/build.gradle
           
+          # ৬. গ্রেডল পারমিশন
           chmod +x gradlew
           cd ..
 
-      # চাবি দেখানোর জন্য আলাদা স্টেপ
-      - name: 🔑 View SHA-1 & SHA-256 for Firebase
+      - name: 🔑 View SHA-1 (এটি কপি করে ফায়ারবেসে দিন)
         run: |
           cd android
-          echo "------ নিচের কোডগুলো কপি করে ফায়ারবেস কনসোলে বসান ------"
-          keytool -list -v -keystore app/upload-keystore.jks -alias pagla_alias -storepass pagla123 -keypass pagla123 | grep -E "SHA1|SHA256"
-          echo "--------------------------------------------------------"
+          keytool -list -v -keystore app/upload-keystore.jks -alias pagla_alias -storepass pagla123 -keypass pagla123 | grep "SHA1"
 
       - name: Build APK (Release)
         run: |
-          flutter pub get
           flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PaglaChat-Latest-Fixed-Build
+          name: PaglaChat-Fixed-Build
           path: build/app/outputs/flutter-apk/app-release.apk
