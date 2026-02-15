@@ -17,7 +17,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     
-    );
+    await Firebase.initializeApp();
   } catch (e) {
     debugPrint("Firebase connection error: $e");
   }
