@@ -16,8 +16,16 @@ const String youtubeApiKey = "AIzaSyAkEB8dB2vSncv3BpNZng7W_0e6N7dqNmI";
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-    
-    await Firebase.initializeApp();
+    // সরাসরি এই অপশনগুলো দিন যাতে JSON ফাইল কাজ না করলেও অ্যাপ খুলে যায়
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: "AIzaSyAkEB8dB2vSncv3BpNZng7W_0e6N7dqNmI",
+        appId: "1:25052070011:android:5d89f85753b5c881d662de",
+        messagingSenderId: "25052070011",
+        projectId: "paglachat",
+      ),
+    );
+    debugPrint("Firebase connected successfully!");
   } catch (e) {
     debugPrint("Firebase connection error: $e");
   }
