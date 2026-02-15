@@ -76,8 +76,7 @@ class LoginScreen extends StatefulWidget {
   final TextEditingController _email = TextEditingController();
   final TextEditingController _pass = TextEditingController();
 
-  // ইউজারের ডাটা সেভ করার ফাংশন
-  Future<void> _saveUserToFirestore(User user) async {
+  // ইউজারের ডাটা সেভ করার ফাংশন (ডিবাগ সহ)
   Future<void> _saveUserToFirestore(User user) async {
     print("DEBUG: ডাটা সেভ ফাংশন শুরু হয়েছে। UID: ${user.uid}");
     try {
@@ -161,7 +160,7 @@ class LoginScreen extends StatefulWidget {
       ]))),
     );
   }
-}
+} // <--- এই ব্র্যাকেটটা খুব ইম্পর্ট্যান্ট, এটা যেন ঠিক থাকে।
 
 // --- ৩. মেইন নেভিগেশন ---
 class MainNavigation extends StatefulWidget {
