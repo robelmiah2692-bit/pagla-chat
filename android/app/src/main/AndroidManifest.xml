@@ -4,10 +4,8 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
-
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
-    
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -16,8 +14,10 @@
         android:label="Pagla Chat"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true"> <activity
-            android:name="io.flutter.embedding.android.FlutterActivity"
+        android:usesCleartextTraffic="true">
+        
+        <activity
+            android:name=".MainActivity" 
             android:exported="true"
             android:launchMode="singleTop"
             android:theme="@style/LaunchTheme"
@@ -26,8 +26,8 @@
             android:windowSoftInputMode="adjustResize">
             
             <meta-data
-                android:name="flutterEmbedding"
-                android:value="2" />
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme" />
             
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -36,8 +36,8 @@
         </activity>
 
         <meta-data
-            android:name="flutter_deeplinking_enabled"
-            android:value="true" />
+            android:name="flutterEmbedding"
+            android:value="2" />
             
     </application>
 </manifest>
