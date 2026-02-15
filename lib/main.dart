@@ -71,55 +71,53 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+
+  class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _email = TextEditingController();
   final TextEditingController _pass = TextEditingController();
 
+  // ইউজারের ডাটা সেভ করার ফাংশন
   Future<void> _saveUserToFirestore(User user) async {
-  // ডাটাবেজে আগে চেক করবে ইউজার আছে কি না, যাতে পুরনো এক্সপি ডিলিট না হয়
-  final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
-  final snapshot = await userDoc.get();
+    final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final snapshot = await userDoc.get();
 
-  if (!snapshot.exists) {
-    // শুধুমাত্র নতুন ইউজার হলে এই ডাটাগুলো সেট হবে
-    await userDoc.set({
-      'uid': user.uid,
-      'email': user.email,
-      'name': 'পাগলা ইউজার',
-      'id': (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString(),
-      'diamonds': 0, 
-      'coins': 0,
-      'xp': 0,             // শুরুতে এক্সপি ০
-      'level': 0,          // আপনি বলেছেন লেভেল ০ থেকে শুরু হবে
-      'isVIP': false,      // শুরুতে ভিআইপি থাকবে না
-      'vipLevel': 0,       // ভিআইপি লেভেল ০
-      'gender': 'Not Set',
-      'createdAt': FieldValue.serverTimestamp(),
-      'lastActive': FieldValue.serverTimestamp(), // অ্যাক্টিভ টাইম ট্র্যাকিংয়ের জন্য
-    });
-  } else {
-    // যদি ইউজার আগে থেকেই থাকে, তবে শুধু লাস্ট অ্যাক্টিভ টাইম আপডেট হবে
-    await userDoc.update({
-      'lastActive': FieldValue.serverTimestamp(),
-    });
-  }
-}
+    if (!snapshot.exists) {
+      await userDoc.set({
+        'uid': user.uid,
+        'email': user.email,
+        'name': 'পাগলা ইউজার',
+        'id': (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString(),
+        'diamonds': 0, 
+        'coins': 0,
+        'xp': 0,             
+        'level': 0,          
+        'isVIP': false,      
+        'vipLevel': 0,       
+        'gender': 'Not Set',
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastActive': FieldValue.serverTimestamp(), 
+      });
+    } else {
+      await userDoc.update({
+        'lastActive': FieldValue.serverTimestamp(),
+      });
+    }
+  } // এই ব্র্যাকেটটা আগে মিসিং ছিল
+
+  // লগইন হ্যান্ডেল করার ফাংশন
   Future<void> _handleAuth() async {
     try {
-      // এখানে UserCredential ভেরিয়েবলটা ডিক্লেয়ার করা হয়েছে
       UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _email.text.trim(), 
         password: _pass.text.trim()
       );
       
-      // এখন userCredential.user! কাজ করবে
       await _saveUserToFirestore(userCredential.user!);
       
       if (!mounted) return;
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
     } catch (e) {
       try {
-        // নতুন ইউজার তৈরির সময়ও ভেরিয়েবলটা ধরা হয়েছে
         UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _email.text.trim(), 
           password: _pass.text.trim()
@@ -134,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
