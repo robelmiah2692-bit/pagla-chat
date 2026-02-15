@@ -16,15 +16,7 @@ const String youtubeApiKey = "AIzaSyAkEB8dB2vSncv3BpNZng7W_0e6N7dqNmI";
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-    await Firebase.initializeApp(
-      options: const FirebaseOptions(
-        apiKey: "AIzaSyAkEB8dB2vSncv3BpNZng7W_0e6N7dqNmI", 
-        appId: "1:25052070011:android:5d89f85753b5c881d662de", 
-        messagingSenderId: "25052070011", 
-        projectId: "paglachat",
-        storageBucket: "paglachat.firebasestorage.app",
-        databaseURL: "https://paglachat-default-rtdb.asia-southeast1.firebasedatabase.app",
-      ),
+    
     );
   } catch (e) {
     debugPrint("Firebase connection error: $e");
