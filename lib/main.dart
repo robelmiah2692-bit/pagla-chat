@@ -106,15 +106,35 @@ class _LoginScreenState extends State<LoginScreen> {
 }
   Future<void> _handleAuth() async {
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(email: _email.text.trim(), password: _pass.text.trim());
+      // এখানে UserCredential ভেরিয়েবলটা ডিক্লেয়ার করা হয়েছে
+      UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _email.text.trim(), 
+        password: _pass.text.trim()
+      );
+      
+      // এখন userCredential.user! কাজ করবে
       await _saveUserToFirestore(userCredential.user!);
+      
+      if (!mounted) return;
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
     } catch (e) {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(email: _email.text.trim(), password: _pass.text.trim());
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+      try {
+        // নতুন ইউজার তৈরির সময়ও ভেরিয়েবলটা ধরা হয়েছে
+        UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: _email.text.trim(), 
+          password: _pass.text.trim()
+        );
+        
+        await _saveUserToFirestore(userCredential.user!);
+        
+        if (!mounted) return;
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+      } catch (err) {
+        debugPrint("Auth Error: $err");
+      }
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
