@@ -78,31 +78,40 @@ class LoginScreen extends StatefulWidget {
 
   // ইউজারের ডাটা সেভ করার ফাংশন
   Future<void> _saveUserToFirestore(User user) async {
-    final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
-    final snapshot = await userDoc.get();
+  Future<void> _saveUserToFirestore(User user) async {
+    print("DEBUG: ডাটা সেভ ফাংশন শুরু হয়েছে। UID: ${user.uid}");
+    try {
+      final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      final snapshot = await userDoc.get();
 
-    if (!snapshot.exists) {
-      await userDoc.set({
-        'uid': user.uid,
-        'email': user.email,
-        'name': 'পাগলা ইউজার',
-        'id': (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString(),
-        'diamonds': 0, 
-        'coins': 0,
-        'xp': 0,             
-        'level': 0,          
-        'isVIP': false,      
-        'vipLevel': 0,       
-        'gender': 'Not Set',
-        'createdAt': FieldValue.serverTimestamp(),
-        'lastActive': FieldValue.serverTimestamp(), 
-      });
-    } else {
-      await userDoc.update({
-        'lastActive': FieldValue.serverTimestamp(),
-      });
+      if (!snapshot.exists) {
+        print("DEBUG: নতুন ইউজার পাওয়া গেছে, ডাটা রাইট হচ্ছে...");
+        await userDoc.set({
+          'uid': user.uid,
+          'email': user.email,
+          'name': 'পাগলা ইউজার',
+          'id': (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString(),
+          'diamonds': 0, 
+          'coins': 0,
+          'xp': 0,             
+          'level': 0,          
+          'isVIP': false,      
+          'vipLevel': 0,       
+          'gender': 'Not Set',
+          'createdAt': FieldValue.serverTimestamp(),
+          'lastActive': FieldValue.serverTimestamp(), 
+        });
+        print("DEBUG: ডাটা সেভ সফল হয়েছে!");
+      } else {
+        await userDoc.update({
+          'lastActive': FieldValue.serverTimestamp(),
+        });
+        print("DEBUG: পুরনো ইউজার, শুধু টাইম আপডেট হয়েছে।");
+      }
+    } catch (e) {
+      print("DEBUG ERROR: ডাটা সেভ করতে সমস্যা হয়েছে: $e");
     }
-  } // এই ব্র্যাকেটটা আগে মিসিং ছিল
+  }
 
   // লগইন হ্যান্ডেল করার ফাংশন
   Future<void> _handleAuth() async {
