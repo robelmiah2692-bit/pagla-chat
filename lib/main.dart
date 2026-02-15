@@ -253,11 +253,27 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   void _searchVideo(String q) async {
-    final url = "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=$q&type=video&key=$youtubeApiKey";
-    final res = await http.get(Uri.parse(url));
-    if (res.statusCode == 200) {
-      final id = json.decode(res.body)['items'][0]['id']['videoId'];
-      setState(() { _ytController?.load(id); });
+    // সার্চ করার সময় ইউজারকে বোঝানোর জন্য একটি প্রিন্ট দিলাম
+    debugPrint("Searching for: $q"); 
+    
+    final url = "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${Uri.encodeComponent(q)}&type=video&key=$youtubeApiKey";
+    
+    try {
+      final res = await http.get(Uri.parse(url));
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        if (data['items'] != null && data['items'].length > 0) {
+          final id = data['items'][0]['id']['videoId'];
+          setState(() { 
+            // load মেথডটি সরাসরি ভিডিও আইডি নিয়ে কাজ করে
+            _ytController?.load(id); 
+          });
+        }
+      } else {
+        debugPrint("YouTube API Error: ${res.statusCode}");
+      }
+    } catch (e) {
+      debugPrint("Connection Error: $e");
     }
   }
 
