@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:webview_flutter/webview_flutter.dart'; // নতুন ইঞ্জিন
 import 'package:http/http.dart' as http;
 
 // গ্লোবাল ইউটিউব এপিআই কী
@@ -75,7 +75,6 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
       final snapshot = await userDoc.get();
-
       if (!snapshot.exists) {
         await userDoc.set({
           'uid': user.uid,
@@ -93,9 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
           'lastActive': FieldValue.serverTimestamp(),
         });
       } else {
-        await userDoc.update({
-          'lastActive': FieldValue.serverTimestamp(),
-        });
+        await userDoc.update({'lastActive': FieldValue.serverTimestamp()});
       }
     } catch (e) {
       debugPrint("Firestore Save Error: $e");
@@ -225,24 +222,24 @@ class _VoiceRoomState extends State<VoiceRoom> {
   int? currentSeat;
   bool isMicOn = false;
   bool isLocked = false;
-  YoutubePlayerController? _ytController;
+  late final WebViewController _webController;
   final TextEditingController _searchCtrl = TextEditingController();
   final TextEditingController _msgCtrl = TextEditingController();
   final List<String> _messages = [];
+  String currentVideoId = "iLnmTe5Q2Qw";
 
   @override
   void initState() {
     super.initState();
-    _ytController = YoutubePlayerController(
-      initialVideoId: 'iLnmTe5Q2Qw', 
-      flags: const YoutubePlayerFlags(autoPlay: false)
-    );
+    _webController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0xFF000000))
+      ..loadRequest(Uri.parse("https://www.youtube.com/embed/$currentVideoId?autoplay=1&mute=0&controls=1"));
   }
 
   void _searchVideo(String q) async {
     if (q.trim().isEmpty) return;
     final url = "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=${Uri.encodeComponent(q)}&key=$youtubeApiKey";
-    
     try {
       final res = await http.get(Uri.parse(url));
       if (res.statusCode == 200) {
@@ -250,19 +247,14 @@ class _VoiceRoomState extends State<VoiceRoom> {
         if (data['items'] != null && data['items'].isNotEmpty) {
           final videoId = data['items'][0]['id']['videoId'];
           setState(() {
-            _ytController?.load(videoId);
+            currentVideoId = videoId;
+            _webController.loadRequest(Uri.parse("https://www.youtube.com/embed/$currentVideoId?autoplay=1&mute=0&controls=1"));
           });
         }
       }
     } catch (e) {
       debugPrint("YouTube Error: $e");
     }
-  }
-
-  @override
-  void dispose() {
-    _ytController?.dispose();
-    super.dispose();
   }
 
   @override
@@ -278,13 +270,14 @@ class _VoiceRoomState extends State<VoiceRoom> {
             trailing: IconButton(icon: Icon(isLocked ? Icons.lock : Icons.lock_open, color: Colors.orange), onPressed: () => setState(() => isLocked = !isLocked)),
           ),
 
-          // ভিডিও বোর্ড
+          // ভিডিও বোর্ড (WebView)
           Container(
-            height: 160,
+            height: 180,
             margin: const EdgeInsets.all(10),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(15),
-              child: YoutubePlayer(controller: _ytController!, showVideoProgressIndicator: true),
+              child: WebViewWidget(controller: _webController),
             ),
           ),
 
@@ -292,7 +285,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 15),
             child: Row(children: [
-              Expanded(child: TextField(controller: _searchCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: "গান সার্চ করুন...", hintStyle: TextStyle(color: Colors.white24)))),
+              Expanded(child: TextField(controller: _searchCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: "গান সার্চ করুন...", hintStyle: TextStyle(color: Colors.white24)), onSubmitted: (v) => _searchVideo(v))),
               IconButton(icon: const Icon(Icons.search, color: Colors.pinkAccent), onPressed: () => _searchVideo(_searchCtrl.text)),
             ]),
           ),
@@ -333,7 +326,6 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final TextEditingController _nameCtrl = TextEditingController(text: "পাগলা কিং 👑");
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
