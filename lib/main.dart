@@ -231,12 +231,6 @@ class HomePage extends StatelessWidget {
 }
 
 // --- ৫. ভয়েস রুম (সব মৃত ফিচার জ্যান্ত করা হয়েছে) ---
-class VoiceRoom extends StatefulWidget {
-  const VoiceRoom({super.key});
-  @override
-  State<VoiceRoom> createState() => _VoiceRoomState();
-}
-
 class _VoiceRoomState extends State<VoiceRoom> {
   int? currentSeat;
   bool isMicOn = false;
