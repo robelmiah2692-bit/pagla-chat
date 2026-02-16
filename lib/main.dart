@@ -315,78 +315,270 @@ class _VoiceRoomState extends State<VoiceRoom> {
           icon: const Icon(Icons.search, color: Colors.pinkAccent), 
           onPressed: () => _searchVideo(_searchCtrl.text) // আপনার সেই বিত্ত বাটন
         ),
-      ])
+
+class VoiceRoom extends StatefulWidget {
+  const VoiceRoom({super.key});
+  @override
+  State<VoiceRoom> createState() => _VoiceRoomState();
+}
+
+class _VoiceRoomState extends State<VoiceRoom> {
+  int? currentSeat;
+  bool isMicOn = false;
+  bool isLocked = false;
+
+  // Youtube Controller
+  YoutubePlayerController? _ytController;
+
+  final TextEditingController _searchCtrl = TextEditingController();
+  final TextEditingController _msgCtrl = TextEditingController();
+  final List<String> _messages = [];
+
+  @override
+  void initState() {
+    super.initState();
+
+    // ✅ Controller শুধুমাত্র একবার বানানো
+    _ytController = YoutubePlayerController(
+      initialVideoId: 'iLnmTe5Q2Qw', // ডিফল্ট ভিডিও
+      flags: const YoutubePlayerFlags(autoPlay: false),
     );
   }
-  void _sendMessage() {
-    if (_msgCtrl.text.isNotEmpty) {
-      setState(() { _messages.insert(0, "আপনি: ${_msgCtrl.text}"); _msgCtrl.clear(); });
+
+  @override
+  void dispose() {
+    _ytController?.dispose(); // ✅ Dispose করে দাও
+    super.dispose();
+  }
+
+  // --- ২. ভিডিও সার্চ ফাংশন ---
+  void _searchVideo(String q) async {
+    if (q.trim().isEmpty) return;
+
+    final url =
+        "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${Uri.encodeComponent(q)}&key=$youtubeApiKey";
+
+    try {
+      final res = await http.get(Uri.parse(url));
+
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+
+        if (data['items'] != null && data['items'].isNotEmpty) {
+          final videoId = data['items'][0]['id']['videoId'];
+          print("VIDEO ID: $videoId");
+
+          // ❌ পুরানো controller dispose করা বন্ধ
+          // ✅ শুধু load এবং play
+          _ytController?.load(videoId);
+          _ytController?.play();
+
+          setState(() {});
+        } else {
+          print("No videos found.");
+        }
+      } else {
+        print("API ERROR: ${res.body}");
+      }
+    } catch (e) {
+      debugPrint("YouTube Error: $e");
     }
   }
 
+  // --- ৩. সার্চ বাটন + TextField UI ---
+  Widget _buildSearchRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 15),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchCtrl,
+              onSubmitted: (v) => _searchVideo(v),
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: "গান সার্চ করুন...",
+                hintStyle: TextStyle(color: Colors.white24),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.search, color: Colors.pinkAccent),
+            onPressed: () => _searchVideo(_searchCtrl.text),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- ৪. মেসেজ সেন্ড ফাংশন ---
+  void _sendMessage() {
+    if (_msgCtrl.text.isNotEmpty) {
+      setState(() {
+        _messages.insert(0, "আপনি: ${_msgCtrl.text}");
+        _msgCtrl.clear();
+      });
+    }
+  }
+
+  void _showGifts() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF151525),
+      builder: (context) => GridView.count(
+        crossAxisCount: 4,
+        children: List.generate(
+          8,
+          (i) => Column(
+            children: [
+              const Icon(Icons.stars, color: Colors.amber, size: 40),
+              Text("Gift ${i + 1}",
+                  style: const TextStyle(color: Colors.white, fontSize: 10)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- ৫. UI Build ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
       body: SafeArea(
-        child: Column(children: [
-          // রুম টপ বার
-          ListTile(
-            leading: const CircleAvatar(backgroundColor: Colors.pinkAccent, child: Icon(Icons.mic, color: Colors.white)),
-            title: const Text("পাগলা কিং আড্ডা", style: TextStyle(color: Colors.white)),
-            subtitle: const Text("ID: 550889 | 🌐 অনলাইন: ২৫", style: TextStyle(color: Colors.white54, fontSize: 10)),
-            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-              IconButton(icon: Icon(isLocked ? Icons.lock : Icons.lock_open, color: Colors.orange), onPressed: () => setState(() => isLocked = !isLocked)),
-              const SizedBox(width: 10), 
-              const Icon(Icons.gavel, color: Colors.red)
-            ]),
-          ),
-          
-          // ভিডিও বোর্ড ও সার্চ (YouTube Player)
-          Container(
-            height: 160, 
-            margin: const EdgeInsets.all(10), 
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(15), 
-              child: YoutubePlayer(controller: _ytController!)
-            )
-          ),
-          
-          // এখানে সরাসরি আপনার তৈরি করা সেই শক্তিশালী ফাংশনটি কল করা হলো
-          _buildSearchRow(), 
+        child: Column(
+          children: [
+            // টপ বার
+            ListTile(
+              leading: const CircleAvatar(
+                  backgroundColor: Colors.pinkAccent,
+                  child: Icon(Icons.mic, color: Colors.white)),
+              title: const Text("পাগলা কিং আড্ডা",
+                  style: TextStyle(color: Colors.white)),
+              subtitle: const Text("ID: 550889 | 🌐 অনলাইন: ২৫",
+                  style: TextStyle(color: Colors.white54, fontSize: 10)),
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                IconButton(
+                    icon: Icon(isLocked ? Icons.lock : Icons.lock_open,
+                        color: Colors.orange),
+                    onPressed: () => setState(() => isLocked = !isLocked)),
+                const SizedBox(width: 10),
+                const Icon(Icons.gavel, color: Colors.red)
+              ]),
+            ),
 
-          const SizedBox(height: 10),
-          // মাইক, লুডু ও মিউজিক (মাঝখানে জ্যান্ত মাইক বাটন)
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            ElevatedButton.icon(onPressed: (){}, icon: const Icon(Icons.casino), label: const Text("লুডু")),
-            const SizedBox(width: 10),
-            CircleAvatar(backgroundColor: isMicOn ? Colors.pinkAccent : Colors.white10, child: IconButton(icon: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: Colors.white), onPressed: () => setState(() => isMicOn = !isMicOn))),
-            const SizedBox(width: 10),
-            ElevatedButton.icon(onPressed: (){}, icon: const Icon(Icons.music_note), label: const Text("মিউজিক")),
-          ]),
+            // YouTube Player
+            Container(
+              height: 160,
+              margin: const EdgeInsets.all(10),
+              child: ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: YoutubePlayer(controller: _ytController!)),
+            ),
 
-          // ১৫ সিট
-          Expanded(child: GridView.builder(
-            padding: const EdgeInsets.all(15), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 15),
-            itemCount: 15, itemBuilder: (context, i) => GestureDetector(onTap: () => setState(() => currentSeat = i), child: Column(children: [
-              CircleAvatar(radius: 22, backgroundColor: currentSeat == i ? Colors.pinkAccent : (i < 5 ? Colors.amber.withOpacity(0.2) : Colors.white10), child: Icon(currentSeat == i ? Icons.mic : Icons.mic_off, size: 18, color: i < 5 ? Colors.amber : Colors.white24)),
-              Text(i < 5 ? "VIP" : "${i+1}", style: TextStyle(color: i < 5 ? Colors.amber : Colors.white38, fontSize: 8)),
-            ])),
-          )),
+            // সার্চ বার
+            _buildSearchRow(),
 
-          // চ্যাট ডিসপ্লে ও জ্যান্ত সেন্ড বাটন
-          Container(height: 60, padding: const EdgeInsets.symmetric(horizontal: 10), child: ListView.builder(reverse: true, itemCount: _messages.length, itemBuilder: (context, i) => Text(_messages[i], style: const TextStyle(color: Colors.pinkAccent, fontSize: 12)))),
-          Container(padding: const EdgeInsets.all(10), child: Row(children: [
-            Expanded(child: TextField(controller: _msgCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: "মেসেজ লিখুন...", filled: true, fillColor: Colors.white10))),
-            IconButton(icon: const Icon(Icons.send, color: Colors.pinkAccent), onPressed: _sendMessage),
-            IconButton(icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 30), onPressed: _showGifts),
-          ])),
-        ]),
+            const SizedBox(height: 10),
+
+            // মাইক + লুডু + মিউজিক
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.casino),
+                    label: const Text("লুডু")),
+                const SizedBox(width: 10),
+                CircleAvatar(
+                    backgroundColor:
+                        isMicOn ? Colors.pinkAccent : Colors.white10,
+                    child: IconButton(
+                        icon: Icon(isMicOn ? Icons.mic : Icons.mic_off,
+                            color: Colors.white),
+                        onPressed: () => setState(() => isMicOn = !isMicOn))),
+                const SizedBox(width: 10),
+                ElevatedButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.music_note),
+                    label: const Text("মিউজিক")),
+              ],
+            ),
+
+            // সিট গ্রিড
+            Expanded(
+              child: GridView.builder(
+                padding: const EdgeInsets.all(15),
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 5, mainAxisSpacing: 15),
+                itemCount: 15,
+                itemBuilder: (context, i) => GestureDetector(
+                  onTap: () => setState(() => currentSeat = i),
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                          radius: 22,
+                          backgroundColor: currentSeat == i
+                              ? Colors.pinkAccent
+                              : (i < 5
+                                  ? Colors.amber.withOpacity(0.2)
+                                  : Colors.white10),
+                          child: Icon(currentSeat == i ? Icons.mic : Icons.mic_off,
+                              size: 18,
+                              color: i < 5 ? Colors.amber : Colors.white24)),
+                      Text(i < 5 ? "VIP" : "${i + 1}",
+                          style: TextStyle(
+                              color: i < 5 ? Colors.amber : Colors.white38,
+                              fontSize: 8)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // চ্যাট ডিসপ্লে
+            Container(
+              height: 60,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: ListView.builder(
+                  reverse: true,
+                  itemCount: _messages.length,
+                  itemBuilder: (context, i) => Text(_messages[i],
+                      style: const TextStyle(
+                          color: Colors.pinkAccent, fontSize: 12))),
+            ),
+
+            // মেসেজ লিখার বক্স
+            Container(
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _msgCtrl,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                          hintText: "মেসেজ লিখুন...",
+                          filled: true,
+                          fillColor: Colors.white10),
+                    ),
+                  ),
+                  IconButton(
+                      icon: const Icon(Icons.send, color: Colors.pinkAccent),
+                      onPressed: _sendMessage),
+                  IconButton(
+                      icon: const Icon(Icons.card_giftcard,
+                          color: Colors.pinkAccent, size: 30),
+                      onPressed: _showGifts),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
-  }
-  void _showGifts() {
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF151525), builder: (context) => GridView.count(crossAxisCount: 4, children: List.generate(8, (i) => Column(children: [const Icon(Icons.stars, color: Colors.amber, size: 40), Text("Gift ${i+1}", style: const TextStyle(color: Colors.white, fontSize: 10))]))));
   }
 }
 
