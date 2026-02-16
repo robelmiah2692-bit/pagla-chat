@@ -217,9 +217,14 @@ class _MainNavigationState extends State<MainNavigation> {
 }
 
 // --- ৪. হোম পেজ ---
-class HomePage extends StatelessWidget {
+// StatefulWidget করে context ও setState ঠিকভাবে ব্যবহার করা হলো
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
 
+class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -286,7 +291,7 @@ class HomePage extends StatelessWidget {
         ]),
       );
 
-// --- ৫. ভয়েস রুম ---
+// --- ৫. ভয়েস রুম (YouTube ফিক্স সহ) ---
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
   @override
@@ -306,7 +311,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
   @override
   void initState() {
     super.initState();
-    _ytController = YoutubePlayerController(initialVideoId: 'iLnmTe5Q2Qw', flags: const YoutubePlayerFlags(autoPlay: false));
+    _ytController = YoutubePlayerController(
+      initialVideoId: 'iLnmTe5Q2Qw',
+      flags: const YoutubePlayerFlags(autoPlay: false),
+    );
   }
 
   @override
@@ -464,8 +472,4 @@ class _ProfilePageState extends State<ProfilePage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            const SizedBox(height: 60),
-            Center(
-              child: Stack(
-                children: [
-                  const CircleAvatar(radius: 55, backgroundColor: Colors.pinkAccent, child: CircleAvatar(radius:
+            const SizedBox(height: 60
