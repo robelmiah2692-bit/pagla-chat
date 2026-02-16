@@ -327,23 +327,20 @@ class _VoiceRoomState extends State<VoiceRoom> {
             ]),
           ),
           
-          // ভিডিও বোর্ড ও সার্চ (জ্যান্ত YouTube)
-          Container(height: 160, margin: const EdgeInsets.all(10), child: ClipRRect(borderRadius: BorderRadius.circular(15), child: YoutubePlayer(controller: _ytController!))),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 15), child: Row(children: [
-            Expanded(
-              child: TextField(
-                controller: _searchCtrl, 
-                onSubmitted: (value) => _searchVideo(value), // কিবোর্ড দিয়েও সার্চ হবে
-                style: const TextStyle(color: Colors.white), 
-                decoration: const InputDecoration(
-                  hintText: "গান সার্চ করুন...", 
-                  hintStyle: TextStyle(color: Colors.white24)
-                )
-              )
-            ),
-            IconButton(icon: const Icon(Icons.search, color: Colors.pinkAccent), onPressed: () => _searchVideo(_searchCtrl.text)),
-          ])),
+          // ভিডিও বোর্ড ও সার্চ (YouTube Player)
+          Container(
+            height: 160, 
+            margin: const EdgeInsets.all(10), 
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(15), 
+              child: YoutubePlayer(controller: _ytController!)
+            )
+          ),
+          
+          // এখানে সরাসরি আপনার তৈরি করা সেই শক্তিশালী ফাংশনটি কল করা হলো
+          _buildSearchRow(), 
 
+          const SizedBox(height: 10),
           // মাইক, লুডু ও মিউজিক (মাঝখানে জ্যান্ত মাইক বাটন)
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             ElevatedButton.icon(onPressed: (){}, icon: const Icon(Icons.casino), label: const Text("লুডু")),
