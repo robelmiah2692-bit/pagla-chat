@@ -253,30 +253,47 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   void _searchVideo(String q) async {
-    if (q.trim().isEmpty) return;
-    
-    final url = "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${Uri.encodeComponent(q)}&type=video&key=$youtubeApiKey";
-    
-    try {
-      final res = await http.get(Uri.parse(url));
-      if (res.statusCode == 200) {
-        final data = json.decode(res.body);
-        
-        if (data['items'] != null && data['items'].isNotEmpty) {
-          final videoId = data['items'][0]['id']['videoId'];
-          
-          setState(() { 
-            // কন্ট্রোলারকে রিসেট করে নতুন ভিডিও লোড করা হচ্ছে
-            _ytController?.load(videoId);
-            _ytController?.play();
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint("YouTube Error: $e");
-    }
-  }
+  if (q.trim().isEmpty) return;
 
+  final url =
+      "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${Uri.encodeComponent(q)}&key=$youtubeApiKey";
+
+  try {
+    final res = await http.get(Uri.parse(url));
+
+    print("STATUS: ${res.statusCode}");
+    print("BODY: ${res.body}");
+
+    if (res.statusCode == 200) {
+      final data = json.decode(res.body);
+
+      if (data['items'] != null && data['items'].isNotEmpty) {
+        final videoId = data['items'][0]['id']['videoId'];
+
+        print("VIDEO ID: $videoId");
+
+        // 🔥 পুরানো controller dispose করে নতুন বানাও
+        _ytController?.dispose();
+
+        _ytController = YoutubePlayerController(
+          initialVideoId: videoId,
+          flags: const YoutubePlayerFlags(
+            autoPlay: true,
+            mute: false,
+          ),
+        );
+
+        setState(() {});
+      } else {
+        print("No videos found.");
+      }
+    } else {
+      print("API ERROR: ${res.body}");
+    }
+  } catch (e) {
+    debugPrint("YouTube Error: $e");
+  }
+}
   // এটি আপনার ২০৯ নম্বর লাইনের সার্চ বার সেকশন
   // আমি এখানে TextField এবং IconButton দুটোকেই ঠিক করে দিয়েছি
   Widget _buildSearchRow() {
