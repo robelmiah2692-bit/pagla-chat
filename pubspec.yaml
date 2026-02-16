@@ -10,36 +10,36 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-    
+
   # --- ভয়েস চ্যাট (Agora) ---
   agora_rtc_engine: ^6.3.2
   permission_handler: ^11.3.0
-  
+
   # --- ফায়ারবেস (Firebase) ---
   firebase_core: ^2.27.0
   firebase_auth: ^4.17.8
   cloud_firestore: ^4.15.8
   firebase_database: ^10.4.9
   firebase_remote_config: ^4.3.8
-  
+
   # --- গুগল লগইন ---
   google_sign_in: ^6.2.1
-  
- # --- ইউটিউব সচল করার জন্য (ভার্সন আপডেট করা হলো) ---
-  youtube_player_flutter: 9.0.0
-  
+
+  # --- ইউটিউব ভিডিও প্লেয়ার ---
+  youtube_player_flutter: ^9.0.0
+
   # --- অন্যান্য দরকারি প্যাকেজ ---
   package_info_plus: ^5.0.1
   cached_network_image: ^3.3.0
   file_picker: ^6.1.1
   audioplayers: ^5.2.1
   image_picker: ^1.0.7
-  shared_preferences: ^2.2.2 
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_launcher_icons: "^0.13.1"
+  flutter_launcher_icons: ^0.13.1
 
 flutter_launcher_icons:
   android: "launcher_icon"
