@@ -11,7 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 // গ্লোবাল ইউটিউব এপিআই কী
-const String youtubeApiKey = "AIzaSyAkEB8dB2vSncv3BpNZng7W_0e6N7dqNmI"; 
+const String youtubeApiKey = "AIzaSyAqM0k4SqvAm1n7DosJVy6ld29nztdP2xI";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
