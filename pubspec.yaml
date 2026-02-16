@@ -24,8 +24,8 @@ dependencies:
   # --- গুগল লগইন ---
   google_sign_in: ^6.2.1
 
-  # --- ইউটিউব সচল করার জন্য ---
-  youtube_player_flutter: ^9.0.0
+  # --- ইউটিউব সচল করার জন্য (WebView পদ্ধতি) ---
+  webview_flutter: ^4.4.2
   http: ^1.2.0
 
   # --- অন্যান্য দরকারি প্যাকেজ ---
