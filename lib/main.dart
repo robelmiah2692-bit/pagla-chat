@@ -288,7 +288,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   void _showGiftSheet() {
     showModalBottomSheet(context: context, builder: (context) => Container(
-      height: 250, color: Colors.black90,
+      height: 250, color: Colors.black87,
       child: GridView.count(crossAxisCount: 4, children: [_giftItem("🌹", "10"), _giftItem("💍", "500"), _giftItem("🚗", "2000"), _giftItem("👑", "5000")]),
     ));
   }
@@ -297,7 +297,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   void _showEmojiSheet() {
     showModalBottomSheet(context: context, builder: (context) => Container(
-      height: 150, color: Colors.black90,
+      height: 150, color: Colors.black87,
       child: Wrap(children: ["😊", "😭", "😡", "🤔", "👏", "😘"].map((e) => IconButton(onPressed: () { _showEmoji(e); Navigator.pop(context); }, icon: Text(e, style: const TextStyle(fontSize: 30)))).toList()),
     ));
   }
