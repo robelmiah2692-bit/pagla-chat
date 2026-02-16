@@ -253,9 +253,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   void _searchVideo(String q) async {
-    if (q.trim().isEmpty) return; 
+    if (q.trim().isEmpty) return; // খালি ঘরে সার্চ দিলে যেন এরর না হয়
     
-    // কিবোর্ড বা বিত্ত—যেখান থেকেই ক্লিক হোক, ডাটা আসবে
+    debugPrint("Searching for: $q"); 
+    
     final url = "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${Uri.encodeComponent(q)}&type=video&key=$youtubeApiKey";
     
     try {
@@ -265,32 +266,39 @@ class _VoiceRoomState extends State<VoiceRoom> {
         if (data['items'] != null && data['items'].isNotEmpty) {
           final id = data['items'][0]['id']['videoId'];
           setState(() { 
-            _ytController?.load(id); // ভিডিও লোড হবে
-            _ytController?.play(); // সাথে সাথে প্লে হবে
+            // এই নিচের ২টা লাইনই হলো ভিডিও পাল্টানোর আসল চাবিকাঠি
+            _ytController?.load(id); // ভিডিও পাল্টে যাবে
+            _ytController?.play(); // সাথে সাথে গান বাজবে
           });
         }
+      } else {
+        debugPrint("API Error: ${res.statusCode}");
       }
     } catch (e) {
-      debugPrint("YouTube Error: $e");
+      debugPrint("Network Error: $e");
     }
   }
 
-  // এটি আপনার ২০৯ নম্বর লাইনের UI অংশ
-  Widget _searchBar() {
+  // এটি আপনার ২০৯ নম্বর লাইনের সার্চ বার সেকশন
+  // আমি এখানে TextField এবং IconButton দুটোকেই ঠিক করে দিয়েছি
+  Widget _buildSearchRow() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15), 
       child: Row(children: [
         Expanded(
           child: TextField(
             controller: _searchCtrl, 
-            onSubmitted: (v) => _searchVideo(v),
+            onSubmitted: (v) => _searchVideo(v), // কিবোর্ডের এন্টার কাজ করবে
             style: const TextStyle(color: Colors.white), 
-            decoration: const InputDecoration(hintText: "গান সার্চ করুন...", hintStyle: TextStyle(color: Colors.white24))
+            decoration: const InputDecoration(
+              hintText: "গান সার্চ করুন...", 
+              hintStyle: TextStyle(color: Colors.white24)
+            )
           )
         ),
         IconButton(
           icon: const Icon(Icons.search, color: Colors.pinkAccent), 
-          onPressed: () => _searchVideo(_searchCtrl.text)
+          onPressed: () => _searchVideo(_searchCtrl.text) // আপনার সেই বিত্ত বাটন
         ),
       ])
     );
