@@ -253,9 +253,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   void _searchVideo(String q) async {
-    if (q.trim().isEmpty) return; // খালি ঘরে সার্চ দিলে যেন এরর না হয়
-    
-    debugPrint("Searching for: $q"); 
+    if (q.trim().isEmpty) return;
     
     final url = "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${Uri.encodeComponent(q)}&type=video&key=$youtubeApiKey";
     
@@ -263,19 +261,19 @@ class _VoiceRoomState extends State<VoiceRoom> {
       final res = await http.get(Uri.parse(url));
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
+        
         if (data['items'] != null && data['items'].isNotEmpty) {
-          final id = data['items'][0]['id']['videoId'];
+          final videoId = data['items'][0]['id']['videoId'];
+          
           setState(() { 
-            // এই নিচের ২টা লাইনই হলো ভিডিও পাল্টানোর আসল চাবিকাঠি
-            _ytController?.load(id); // ভিডিও পাল্টে যাবে
-            _ytController?.play(); // সাথে সাথে গান বাজবে
+            // কন্ট্রোলারকে রিসেট করে নতুন ভিডিও লোড করা হচ্ছে
+            _ytController?.load(videoId);
+            _ytController?.play();
           });
         }
-      } else {
-        debugPrint("API Error: ${res.statusCode}");
       }
     } catch (e) {
-      debugPrint("Network Error: $e");
+      debugPrint("YouTube Error: $e");
     }
   }
 
