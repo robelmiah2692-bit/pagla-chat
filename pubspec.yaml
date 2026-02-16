@@ -26,7 +26,7 @@ dependencies:
   google_sign_in: ^6.2.1
   
  # --- ইউটিউব সচল করার জন্য (ভার্সন আপডেট করা হলো) ---
-  youtube_player_flutter: ^9.0.1
+  youtube_player_flutter: 9.0.1
   
   # --- অন্যান্য দরকারি প্যাকেজ ---
   package_info_plus: ^5.0.1
