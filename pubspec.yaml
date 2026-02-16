@@ -1,7 +1,6 @@
 name: pagla_chat
 description: "A new Flutter project for Pagla Chat."
 publish_to: 'none'
-
 version: 1.0.0+2
 
 environment:
@@ -25,8 +24,9 @@ dependencies:
   # --- গুগল লগইন ---
   google_sign_in: ^6.2.1
 
-  # --- ইউটিউব ভিডিও প্লেয়ার ---
-  youtube_player_flutter: 9.0.0
+  # --- ইউটিউব সচল করার জন্য ---
+  youtube_player_flutter: ^9.0.0
+  http: ^1.2.0
 
   # --- অন্যান্য দরকারি প্যাকেজ ---
   package_info_plus: ^5.0.1
@@ -39,7 +39,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_launcher_icons: ^0.13.1
+  flutter_launcher_icons: "^0.13.1"
 
 flutter_launcher_icons:
   android: "launcher_icon"
