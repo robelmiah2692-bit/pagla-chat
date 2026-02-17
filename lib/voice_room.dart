@@ -357,7 +357,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
           IconButton(onPressed: () => _showEmojiPicker(), icon: const Icon(Icons.emoji_emotions, color: Colors.amber)),
           const Expanded(child: TextField(decoration: InputDecoration(hintText: "মেসেজ লিখুন...", border: InputBorder.none, hintStyle: TextStyle(color: Colors.white24)))),
           IconButton(onPressed: () {}, icon: const Icon(Icons.videogame_asset, color: Colors.blueAccent)), 
-          IconButton(onPressed: () {}, icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent)), 
+          IconButton(onPressed: _showGiftBox, icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent)), 
         ],
       ),
     );
