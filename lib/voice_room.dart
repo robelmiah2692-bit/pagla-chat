@@ -10,6 +10,149 @@ class VoiceRoom extends StatefulWidget {
 }
 
 class _VoiceRoomState extends State<VoiceRoom> {
+  // --- গিফট বক্সের জন্য প্রয়োজনীয় ডাটা ও লজিক ---
+
+  // ১. গিফট এনিমেশন কন্ট্রোল করার ভেরিয়েবল
+  bool isGiftAnimating = false;
+  String currentGiftImage = "";
+  bool isFullScreenBinding = false; // দামি গিফটের জন্য
+
+  // ২. গিফট লিস্ট (৩০টি আইটেম - আপনি পরে ছবি পাল্টাতে পারবেন)
+  final List<Map<String, dynamic>> gifts = List.generate(30, (index) => {
+    "id": index + 1,
+    "name": "Gift ${index + 1}",
+    "price": (index + 1) * 50, // বিভিন্ন দাম (৫০, ১০০, ১৫০...)
+    "icon": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png", // বক্সের ছোট ছবি
+    "isVipGift": (index + 1) * 50 >= 500 ? true : false, // ৫০০ ডাইমন্ডের বেশি হলে ফুল স্ক্রিন
+  });
+
+  // ৩. গিফট সেন্ড করার মেইন ফাংশন
+  void _sendGift(Map<String, dynamic> gift) {
+    if (diamondBalance < gift["price"]) {
+      Navigator.pop(context);
+      _showMessage("পর্যাপ্ত ডাইমন্ড নেই! 💎");
+      return;
+    }
+
+    Navigator.pop(context); // গিফট বক্স বন্ধ হবে
+    setState(() {
+      diamondBalance -= gift["price"] as int; // ডাইমন্ড কেটে নেওয়া হলো
+      currentGiftImage = gift["icon"]; // এখানে আপনার বড় এনিমেশন ছবির লিঙ্ক হবে
+      isFullScreenBinding = gift["isVipGift"]; // বড় না ছোট গিফট তা চেক
+      isGiftAnimating = true;
+    });
+
+    // ৫ সেকেন্ড পর স্ক্রিন থেকে গিফট চলে যাবে
+    Timer(const Duration(seconds: 5), () {
+      setState(() {
+        isGiftAnimating = false;
+      });
+    });
+  }
+
+  // ৪. গিফট বক্স ডিজাইন (৩০টি আইটেম সহ)
+  void _showGiftBox() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      builder: (context) {
+        return Container(
+          height: 450,
+          padding: const EdgeInsets.all(15),
+          child: Column(
+            children: [
+              // ডাইমন্ড ব্যালেন্স ও টাইটেল
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20)),
+                    child: Text("💎 ব্যালেন্স: $diamondBalance", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+                  ),
+                  const Text("গিফট বক্স", style: TextStyle(color: Colors.white, fontSize: 16)),
+                  const Icon(Icons.history, color: Colors.white38),
+                ],
+              ),
+              const Divider(color: Colors.white10, height: 20),
+              
+              // ৩০টি গিফটের গ্রিড
+              Expanded(
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4, 
+                    mainAxisSpacing: 10, 
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 0.8
+                  ),
+                  itemCount: gifts.length,
+                  itemBuilder: (context, index) {
+                    var gift = gifts[index];
+                    return GestureDetector(
+                      onTap: () => _sendGift(gift),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Image.network(gift["icon"], height: 45), // গিফটের বড় আইকন
+                            const SizedBox(height: 5),
+                            Text("💎 ${gift["price"]}", style: const TextStyle(color: Colors.amber, fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ৫. স্ক্রিনের ওপর গিফট এনিমেশন লেয়ার
+  Widget _buildGiftOverlay() {
+    if (!isGiftAnimating) return const SizedBox();
+
+    return Center(
+      child: TweenAnimationBuilder(
+        duration: const Duration(milliseconds: 800),
+        tween: Tween<double>(begin: 0, end: 1),
+        builder: (context, double value, child) {
+          return Opacity(
+            opacity: value,
+            child: Transform.scale(
+              scale: value,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // আপনার চাহিদা মতো দামী গিফট বড়, কম দামী ছোট
+                  Image.network(
+                    currentGiftImage, 
+                    height: isFullScreenBinding ? 380 : 180, 
+                  ),
+                  const SizedBox(height: 10),
+                  // গিফট দাতা ও গ্রহীতার নাম (অটোমেটিক)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+                    decoration: BoxDecoration(color: Colors.pinkAccent, borderRadius: BorderRadius.circular(20)),
+                    child: const Text("ইউজার 🎁 সিট ১", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
   // --- ১. ভেরিয়েবলসমূহ ---
   bool isLocked = false; 
   int diamondBalance = 1000; 
