@@ -301,32 +301,90 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
+  // ৩. ১৫টি সিটের গ্রিড (পুরাতন লজিক + নতুন ডিজাইন)
   Widget _buildSeatGrid() {
     return Expanded(
       child: GridView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 15, crossAxisSpacing: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 5, 
+          mainAxisSpacing: 22, // নামের জন্য গ্যাপ বাড়ানো হয়েছে
+          crossAxisSpacing: 10,
+          childAspectRatio: 0.7, // ইউজার নেম ও ছবি সুন্দর দেখানোর জন্য
+        ),
         itemCount: 15,
         itemBuilder: (context, index) {
           var seat = seats[index];
           return GestureDetector(
             onTap: () => sitOnSeat(index),
             onLongPress: () {
-              // রুম ওনার বা এডমিন হলে কিক/মিউট অপশন আসবে
-              _showAdminMenu(index);
+              // পুরাতন ফিচারের লজিক ঠিক রাখা হয়েছে: রুম ওনার বা এডমিন অপশন
+              if (seat["isOccupied"]) {
+                _showAdminMenu(index);
+              }
             },
-            child: Stack(
-              alignment: Alignment.center,
+            child: Column(
               children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: seat["isVip"] ? Colors.amber.withOpacity(0.2) : Colors.white10,
-                  child: seat["isOccupied"] 
-                    ? const Icon(Icons.face, color: Colors.white) 
-                    : Icon(Icons.chair, color: seat["isVip"] ? Colors.amber : Colors.white24),
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // গোল ফ্রেম ও প্রোফাইল ছবি
+                    Container(
+                      width: 55,
+                      height: 55,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: seat["isVip"] ? Colors.amber : Colors.white12,
+                          width: 2,
+                        ),
+                        image: seat["isOccupied"] && seat["userImage"] != ""
+                            ? DecorationImage(
+                                image: NetworkImage(seat["userImage"]),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                        color: seat["isVip"] 
+                            ? Colors.amber.withOpacity(0.1) 
+                            : Colors.white10,
+                      ),
+                      child: !seat["isOccupied"]
+                          ? Icon(
+                              Icons.chair_rounded, 
+                              color: seat["isVip"] ? Colors.amber : Colors.white24, 
+                              size: 24,
+                            )
+                          : null,
+                    ),
+                    
+                    // ভিআইপি স্টার
+                    if (seat["isVip"])
+                      const Positioned(
+                        top: 0,
+                        right: 0,
+                        child: Icon(Icons.stars, size: 14, color: Colors.amber),
+                      ),
+
+                    // ইমোজি পপ-আপ
+                    if (seat["emoji"].isNotEmpty)
+                      Positioned(
+                        top: -15,
+                        child: Text(seat["emoji"], style: const TextStyle(fontSize: 25)),
+                      ),
+                  ],
                 ),
-                if (seat["isVip"]) const Positioned(top: 0, child: Icon(Icons.stars, size: 14, color: Colors.amber)),
-                if (seat["emoji"].isNotEmpty) Positioned(top: -15, child: Text(seat["emoji"], style: const TextStyle(fontSize: 25))),
+                const SizedBox(height: 6),
+                // নামের জায়গা: খালি থাকলে সংখ্যা/VIP, কেউ বসলে তার নাম
+                Text(
+                  seat["isOccupied"] ? seat["userName"] : (seat["isVip"] ? "VIP" : "${index + 1}"),
+                  style: TextStyle(
+                    color: seat["isOccupied"] ? Colors.white : Colors.white38,
+                    fontSize: 10,
+                    fontWeight: seat["isOccupied"] ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           );
