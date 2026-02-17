@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 
 // গ্লোবাল ইউটিউব এপিআই কী
 const String youtubeApiKey = "AIzaSyAqM0k4SqvAm1n7DosJVy6ld29nztdP2xI";
@@ -174,8 +175,92 @@ class _MainNavigationState extends State<MainNavigation> {
 // --- ৪. হোম পেজ ---
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
+
   @override
-  Widget build(BuildContext context) => Scaffold(backgroundColor: const Color(0xFF0F0F1E), appBar: AppBar(title: const Text("PAGLA HOME")), body: const Center(child: Text("সব পোস্ট এখানে দেখা যাবে")));
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F1E),
+      appBar: AppBar(
+        title: const Text("PAGLA HOME", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(icon: const Icon(Icons.notifications_none), onPressed: () {}),
+        ],
+      ),
+      body: ListView.builder(
+        itemCount: 5, // টেস্ট করার জন্য ৫টি পোস্ট দেওয়া হলো
+        itemBuilder: (context, index) => _buildPostCard(),
+      ),
+      // আপনার স্ক্রিনশটের মতো প্লাস বাটন
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.pinkAccent,
+        onPressed: () {},
+        child: const Icon(Icons.add, color: Colors.white, size: 30),
+      ),
+    );
+  }
+
+  // স্ক্রিনশটের মতো পোস্ট ডিজাইন
+  Widget _buildPostCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E2F), // কার্ডের ব্যাকগ্রাউন্ড
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ইউজার ইনফো (ছবি ও নাম)
+          Row(children: [
+            const CircleAvatar(
+              radius: 20, 
+              backgroundColor: Colors.pinkAccent, 
+              child: Icon(Icons.person, color: Colors.white)
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text("পাগলা ইউজার", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                Text("২ মিনিট আগে", style: TextStyle(color: Colors.white38, fontSize: 10)),
+              ],
+            ),
+          ]),
+          const SizedBox(height: 12),
+          // পোস্টের লেখা
+          const Text("আজকের আড্ডাটা দারুণ হবে! সবাই চলে আসুন। 👑", style: TextStyle(color: Colors.white70, fontSize: 14)),
+          const SizedBox(height: 12),
+          // পোস্টের ইমেজ বক্স (স্ক্রিনশটের মতো)
+          Container(
+            height: 200,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white10,
+              borderRadius: BorderRadius.circular(15),
+              image: const DecorationImage(
+                image: NetworkImage('https://via.placeholder.com/400'), // এখানে ইউজারের পোস্ট করা ছবি আসবে
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          const SizedBox(height: 15),
+          // লাইক ও কমেন্ট সেকশন
+          Row(children: [
+            const Icon(Icons.favorite_border, color: Colors.white54, size: 22),
+            const SizedBox(width: 5),
+            const Text("১২", style: TextStyle(color: Colors.white54)),
+            const SizedBox(width: 25),
+            const Icon(Icons.chat_bubble_outline, color: Colors.white54, size: 22),
+            const SizedBox(width: 5),
+            const Text("৫", style: TextStyle(color: Colors.white54)),
+          ]),
+        ],
+      ),
+    );
+  }
 }
 
 // --- ৫. ভয়েস রুম (সব ফিচার সহ) ---
@@ -186,6 +271,25 @@ class VoiceRoom extends StatefulWidget {
 }
 
 class _VoiceRoomState extends State<VoiceRoom> {
+  // এগোরা আইডি ও ইঞ্জিন
+  final String agoraAppId = "bd010dec4aa141228c87ec2cb9d4f6e8";
+  late RtcEngine _engine;
+
+  @override
+  void initState() {
+    super.initState();
+    _initWebController();
+    _initAgora(); // এই লাইনটি যোগ করুন
+  }
+
+  // আগোরা সেটআপ ফাংশন
+  Future<void> _initAgora() async {
+    _engine = createAgoraRtcEngine();
+    await _engine.initialize(RtcEngineContext(appId: agoraAppId));
+    await _engine.enableAudio();
+    await _engine.joinChannel(token: '', channelId: 'PaglaRoom', uid: 0, options: const ChannelMediaOptions());
+    await _engine.muteLocalAudioStream(true); // শুরুতে মিউট
+  }
   int? currentSeat;
   bool isMicOn = false;
   bool isLocked = false;
@@ -259,10 +363,26 @@ class _VoiceRoomState extends State<VoiceRoom> {
           Expanded(child: GridView.builder(
             padding: const EdgeInsets.all(10), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5),
             itemCount: 15, itemBuilder: (context, i) => GestureDetector(
-              onTap: () => setState(() => currentSeat = i),
-              child: Column(children: [
-                Stack(alignment: Alignment.center, children: [
-                  CircleAvatar(radius: 22, backgroundColor: currentSeat == i ? Colors.pinkAccent : Colors.white10, child: Icon(Icons.mic_off, size: 15, color: i < 5 ? Colors.amber : Colors.white38)),
+              void _toggleMic() async {
+  if (currentSeat == null) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("আগে সিটে বসুন!")));
+    return;
+  }
+  setState(() => isMicOn = !isMicOn);
+  await _engine.muteLocalAudioStream(!isMicOn); // রিয়েল মিউট/আনমিউট
+}  
+             child: Column(children: [
+               Stack(alignment: Alignment.center, children: [
+                    if (currentSeat == i && isMicOn)
+                      Container(
+                         width: 44, height: 44,
+                         decoration: BoxDecoration(
+                           shape: BoxShape.circle,
+                           border: Border.all(color: Colors.green, width: 2),
+                         ),
+                       ),
+                
+                 CircleAvatar(radius: 22, backgroundColor: currentSeat == i ? Colors.pinkAccent : Colors.white10, child: Icon(Icons.mic_off, size: 15, color: i < 5 ? Colors.amber : Colors.white38)),
                   if (currentSeat == i && seatEmoji != null) Text(seatEmoji!, style: const TextStyle(fontSize: 25)),
                 ]),
                 Text(i < 5 ? "VIP" : "${i+1}", style: TextStyle(fontSize: 8, color: i < 5 ? Colors.amber : Colors.white38))
@@ -292,7 +412,14 @@ class _VoiceRoomState extends State<VoiceRoom> {
       child: GridView.count(crossAxisCount: 4, children: [_giftItem("🌹", "10"), _giftItem("💍", "500"), _giftItem("🚗", "2000"), _giftItem("👑", "5000")]),
     ));
   }
-
+      @override
+  void dispose() {
+    _engine.leaveChannel(); // চ্যানেল থেকে বের হওয়া
+    _engine.release();      // এগোরা ইঞ্জিন রিলিজ করা
+    _webController;         // ওয়েব ভিউ ডিসপোজ (যদি প্রয়োজন হয়)
+    super.dispose();
+  }
+} // এইটা হলো ক্লাসের শেষ ব্র্যাকেট
   Widget _giftItem(String i, String p) => Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(i, style: const TextStyle(fontSize: 30)), Text("$p 💎", style: const TextStyle(fontSize: 10))]);
 
   void _showEmojiSheet() {
