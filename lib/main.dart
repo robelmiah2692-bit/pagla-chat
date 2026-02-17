@@ -10,7 +10,23 @@ import 'profile_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(); // ফায়ারবেস চালু করা
+  try {
+    // শুধু Firebase.initializeApp(); দিলে হবে না, 
+    // নিচের এই ডাটাগুলো মেনুয়ালি বসাতে হবে:
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: "AIzaSyAkEB8dB2vSncv3BpNZng7W_0e6N7dqNmI",
+        appId: "1:25052070011:android:5d89f85753b5c881d662de",
+        messagingSenderId: "25052070011",
+        projectId: "paglachat",
+        storageBucket: "paglachat.firebasestorage.app",
+        databaseURL: "https://paglachat-default-rtdb.asia-southeast1.firebasedatabase.app",
+      ),
+    );
+    print("ফায়ারবেস সফলভাবে কানেক্ট হয়েছে!");
+  } catch (e) {
+    print("ফায়ারবেস কানেক্ট হয়নি: $e");
+  }
   runApp(const PaglaChatApp());
 }
 
