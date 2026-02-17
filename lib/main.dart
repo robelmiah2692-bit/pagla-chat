@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-// পরবর্তী ধাপে আমরা এই ৪টি ফাইল তৈরি করবো
-// import 'home_page.dart';
-// import 'voice_room.dart';
-// import 'inbox_page.dart';
-// import 'profile_page.dart';
+import 'dart:async';
+import 'package:firebase_core/firebase_core.dart'; // ফায়ারবেস ইমপোর্ট
+import 'package:firebase_auth/firebase_auth.dart'; // লগইন ইমপোর্ট
+// আপনার তৈরি করা অন্যান্য পেজগুলো ইমপোর্ট করুন
+// import 'home_page.dart'; 
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(); // ফায়ারবেস চালু করা
   runApp(const PaglaChatApp());
 }
 
@@ -15,58 +17,102 @@ class PaglaChatApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false, // লাল ব্যানার সরানোর জন্য
-      title: 'Pagla Chat',
-      theme: ThemeData(
-        brightness: Brightness.dark, // লাক্সারি ডার্ক থিম
-        primaryColor: Colors.pinkAccent,
-      ),
-      home: const MainNavigation(),
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(brightness: Brightness.dark, primaryColor: Colors.pinkAccent),
+      home: const SplashScreen(), // শুরু হবে লোগো দিয়ে
     );
   }
 }
 
-class MainNavigation extends StatefulWidget {
-  const MainNavigation({super.key});
+// ১. স্প্ল্যাশ স্ক্রিন (৩ সেকেন্ড)
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
 
   @override
-  State<MainNavigation> createState() => _MainNavigationState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _MainNavigationState extends State<MainNavigation> {
-  int _currentIndex = 0; // বর্তমানে কোন পেজে আছেন তা ট্র্যাক করার জন্য
-
-  // আপনার চাহিদা মতো ৪টি পেজের জায়গা এখানে করে দিলাম
-  final List<Widget> _pages = [
-    const Center(child: Text("হোম পেজ", style: TextStyle(fontSize: 24))),    // ০ নম্বর
-    const Center(child: Text("ভয়েস রুম", style: TextStyle(fontSize: 24))),   // ১ নম্বর
-    const Center(child: Text("ইনবক্স", style: TextStyle(fontSize: 24))),     // ২ নম্বর
-    const Center(child: Text("প্রোফাইল", style: TextStyle(fontSize: 24))),   // ৩ নম্বর
-  ];
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Timer(const Duration(seconds: 3), () {
+      // ৩ সেকেন্ড পর চেক করবে ইউজার কি আগে থেকে লগইন করা?
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+      } else {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_currentIndex], // বাটন অনুযায়ী পেজ বদলাবে
+      backgroundColor: const Color(0xFF0F0F1E),
+      body: Center(
+        child: Image.asset('assets/logo.png', width: 180), // আপনার লোগো
+      ),
+    );
+  }
+}
+
+// ২. লগইন স্ক্রিন (ফায়ারবেস অথেন্টিকেশন)
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  Future<void> _signIn() async {
+    try {
+      // ফায়ারবেস দিয়ে লগইন
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
       
-      // নিচের নেভিগেশন বার (৪টি বাটন)
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index; // বাটন ক্লিক করলে এখানে পেজ নাম্বার আপডেট হবে
-          });
-        },
-        type: BottomNavigationBarType.fixed, // ৪টি বাটন যেন সুন্দরভাবে ফিট হয়
-        selectedItemColor: Colors.pinkAccent, // সিলেক্ট করা আইকনের রঙ
-        unselectedItemColor: Colors.grey,     // বাকি আইকনের রঙ
-        backgroundColor: const Color(0xFF151525), // প্রিমিয়াম ডার্ক ব্যাকগ্রাউন্ড
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "হোম"),
-          BottomNavigationBarItem(icon: Icon(Icons.mic), label: "রুম"),
-          BottomNavigationBarItem(icon: Icon(Icons.mail), label: "ইনবক্স"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "প্রোফাইল"),
-        ],
+      // লগইন সফল হলে হোম পেজে যাবে
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("ভুল ইমেইল বা পাসওয়ার্ড: $e")));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Padding(
+        padding: const EdgeInsets.all(25.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text("PAGLA CHAT LOGIN", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.pinkAccent)),
+            const SizedBox(height: 30),
+            TextField(
+              controller: _emailController,
+              decoration: const InputDecoration(labelText: "আপনার ইমেইল", border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 15),
+            TextField(
+              controller: _passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: "পাসওয়ার্ড", border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 25),
+            ElevatedButton(
+              onPressed: _signIn,
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(double.infinity, 50)),
+              child: const Text("লগইন করে প্রবেশ করুন"),
+            ),
+          ],
+        ),
       ),
     );
   }
