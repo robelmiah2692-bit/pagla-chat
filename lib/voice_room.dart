@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+// গ্যালারি থেকে ছবি নিতে এই প্যাকেজটি পরে লাগবে: image_picker
 
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
@@ -9,25 +10,27 @@ class VoiceRoom extends StatefulWidget {
 }
 
 class _VoiceRoomState extends State<VoiceRoom> {
-  // --- ভেরিয়েবলসমূহ ---
+  // --- ১. ভেরিয়েবলসমূহ ---
   bool isLocked = false; 
-  int diamondBalance = 1000; // ইউজারের ডাইমন্ড ব্যালেন্স
-  String roomWallpaper = ""; // গ্যালারি থেকে সেট করা পেপার
-  String roomName = "আপনার রুমের নাম";
+  int diamondBalance = 1000; 
+  String roomWallpaper = ""; 
+  String roomName = "পাগলা রুম";
   int followerCount = 150;
+  bool isFollowing = false;
   
-  // ১৫টি সিটের ডাটা (০-৪ ভিআইপি, ৫-১৪ নরমাল)
+  // ১৫টি সিটের ডাটা
   List<Map<String, dynamic>> seats = List.generate(15, (index) => {
     "isOccupied": false,
     "userName": "",
     "userImage": "",
-    "isVip": index < 5 ? true : false, // প্রথম ৫টি ভিআইপি
+    "isVip": index < 5 ? true : false, 
     "isMuted": false,
-    "isSpeaking": false,
     "emoji": "",
   });
 
-  // --- লক ফাংশন (৩০০ ডাইমন্ড কাটবে) ---
+  // --- ২. ফাংশনসমূহ (অ্যাকশন রেডি) ---
+
+  // রুম লক সিস্টেম (৩০০ ডাইমন্ড চেক সহ)
   void toggleLock() {
     if (!isLocked) {
       if (diamondBalance >= 300) {
@@ -35,37 +38,46 @@ class _VoiceRoomState extends State<VoiceRoom> {
           isLocked = true;
           diamondBalance -= 300;
         });
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("রুম ২৪ ঘন্টার জন্য লক করা হলো (৩০০💎)")));
+        _showMessage("রুম ২৪ ঘন্টার জন্য লক করা হলো! (-৩০০💎)");
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("পর্যাপ্ত ডাইমন্ড নেই!")));
+        _showMessage("লক করতে ৩০০ ডাইমন্ড লাগবে!");
       }
     } else {
       setState(() => isLocked = false);
     }
   }
 
-  // --- সিটে বসার লজিক ---
+  // ওয়ালপেপার সেট করা (ডাইমন্ড লজিক সহ)
+  void setWallpaper(int price, String duration) {
+    if (diamondBalance >= price) {
+      setState(() {
+        diamondBalance -= price;
+        // এখানে গ্যালারি ওপেন করার কোড আসবে
+        roomWallpaper = "https://images.unsplash.com/photo-1519681393784-d120267933ba"; 
+      });
+      _showMessage("$duration ওয়ালপেপার সেট হয়েছে!");
+    } else {
+      _showMessage("পর্যাপ্ত ডাইমন্ড নেই!");
+    }
+  }
+
+  // সিটে বসার লজিক (VIP চেক)
   void sitOnSeat(int index) {
     if (seats[index]["isVip"]) {
-      // এখানে ইউজারের ভিআইপি স্ট্যাটাস চেক করতে হবে
-      bool userIsVip = false; // ডামি চেক
-      if (!userIsVip) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("এটি শুধু ভিআইপিদের জন্য!")));
+      bool userHasVipBadge = false; // এটি পরে ইউজার প্রোফাইল থেকে আসবে
+      if (!userHasVipBadge) {
+        _showMessage("এটি VIP সিট! আপনি বসতে পারবেন না।");
         return;
       }
     }
     setState(() {
       seats[index]["isOccupied"] = true;
-      seats[index]["userName"] = "ইউজার"; // আপনার প্রোফাইল থেকে আসবে
+      seats[index]["userName"] = "ইউজার ${index+1}";
     });
   }
 
-  // --- ইমোজি পপ-আপ লজিক (৩ সেকেন্ড থাকবে) ---
-  void showEmojiOnSeat(int seatIndex, String emoji) {
-    setState(() => seats[seatIndex]["emoji"] = emoji);
-    Timer(const Duration(seconds: 3), () {
-      setState(() => seats[seatIndex]["emoji"] = "");
-    });
+  void _showMessage(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -73,31 +85,32 @@ class _VoiceRoomState extends State<VoiceRoom> {
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          image: roomWallpaper.isEmpty 
-            ? null 
-            : DecorationImage(image: NetworkImage(roomWallpaper), fit: BoxFit.cover),
+          image: roomWallpaper.isNotEmpty 
+            ? DecorationImage(image: NetworkImage(roomWallpaper), fit: BoxFit.cover)
+            : null,
           color: const Color(0xFF0F0F1E),
         ),
         child: Column(
           children: [
             const SizedBox(height: 40),
-            _buildHeader(), // ১. রুম আইডি, নাম, লক ও ওয়ালপেপার বাটন
-            _buildYoutubePlayer(), // ২. ইউটিউব সেকশন
-            _buildSeatGrid(), // ৩. ১৫টি সিট (ভিআইপি ও নরমাল)
-            _buildChatAndControls(), // ৪. চ্যাট, ইমোজি, গিফট, মাইক
+            _buildHeader(), 
+            _buildYoutubePlayer(), 
+            _buildSeatGrid(), 
+            _buildChatAndControls(), 
           ],
         ),
       ),
     );
   }
 
-  // ১. হেডার ডিজাইন
+  // --- ৩. উইজেটসমূহ (ডিজাইন) ---
+
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Row(
         children: [
-          CircleAvatar(radius: 25, backgroundColor: Colors.white10, child: Icon(Icons.add_a_photo, size: 20)), // রুম পিক
+          const CircleAvatar(radius: 25, backgroundColor: Colors.white10, child: Icon(Icons.person, color: Colors.pinkAccent)), 
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -108,53 +121,69 @@ class _VoiceRoomState extends State<VoiceRoom> {
               ],
             ),
           ),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.add_circle, color: Colors.pinkAccent)), // ফলো বাটন
-          IconButton(onPressed: toggleLock, icon: Icon(isLocked ? Icons.lock : Icons.lock_open, color: Colors.amber)), // লক বাটন
-          IconButton(onPressed: () {}, icon: const Icon(Icons.wallpaper, color: Colors.cyanAccent)), // ওয়ালপেপার
+          // ফলো বাটন
+          IconButton(
+            onPressed: () => setState(() => isFollowing = !isFollowing),
+            icon: Icon(isFollowing ? Icons.check_circle : Icons.add_circle, color: Colors.pinkAccent)
+          ),
+          // লক বাটন
+          IconButton(onPressed: toggleLock, icon: Icon(isLocked ? Icons.lock : Icons.lock_open, color: Colors.amber)), 
+          // ওয়ালপেপার মেনু
+          PopupMenuButton<int>(
+            icon: const Icon(Icons.wallpaper, color: Colors.cyanAccent),
+            onSelected: (val) => val == 20 ? setWallpaper(20, "২৪ ঘন্টা") : setWallpaper(600, "১ মাস"),
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 20, child: Text("২৪ ঘন্টা (২০💎)")),
+              const PopupMenuItem(value: 600, child: Text("১ মাস (৬০০💎)")),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  // ২. ইউটিউব প্লেয়ার (সিমাবদ্ধ স্ক্রিন)
   Widget _buildYoutubePlayer() {
     return Container(
-      height: 120,
+      height: 180, // আপনার চাহিদা মতো নির্দিষ্ট সাইজ
       margin: const EdgeInsets.all(10),
-      width: double.infinity,
       decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
-      child: const Center(child: Text("YouTube Player (Locked Scale)", style: TextStyle(color: Colors.white38))),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // এখানে ইউটিউব এর Webview বা Player বসবে
+          const Icon(Icons.play_circle_fill, color: Colors.red, size: 50),
+          Positioned(bottom: 5, right: 5, child: Text("ইউটিউব প্লেয়ার", style: TextStyle(color: Colors.white24, fontSize: 10))),
+        ],
+      ),
     );
   }
 
-  // ৩. ১৫টি সিটের গ্রিড
   Widget _buildSeatGrid() {
     return Expanded(
       child: GridView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 10, crossAxisSpacing: 10),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 15, crossAxisSpacing: 10),
         itemCount: 15,
         itemBuilder: (context, index) {
           var seat = seats[index];
           return GestureDetector(
             onTap: () => sitOnSeat(index),
+            onLongPress: () {
+              // রুম ওনার বা এডমিন হলে কিক/মিউট অপশন আসবে
+              _showAdminMenu(index);
+            },
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // সিট ডিজাইন
                 CircleAvatar(
                   radius: 28,
                   backgroundColor: seat["isVip"] ? Colors.amber.withOpacity(0.2) : Colors.white10,
                   child: seat["isOccupied"] 
-                    ? const Icon(Icons.person, color: Colors.white) 
+                    ? const Icon(Icons.face, color: Colors.white) 
                     : Icon(Icons.chair, color: seat["isVip"] ? Colors.amber : Colors.white24),
                 ),
-                // ভিআইপি ট্যাগ
-                if (seat["isVip"]) Positioned(top: 0, child: Icon(Icons.star, size: 12, color: Colors.amber)),
-                // ইমোজি পপ-আপ
-                if (seat["emoji"].isNotEmpty) Positioned(top: -10, child: Text(seat["emoji"], style: const TextStyle(fontSize: 24))),
-                // মিউট সিগনাল
-                if (seat["isOccupied"]) Positioned(bottom: 0, right: 0, child: Icon(Icons.mic_off, size: 14, color: Colors.red)),
+                if (seat["isVip"]) const Positioned(top: 0, child: Icon(Icons.stars, size: 14, color: Colors.amber)),
+                if (seat["emoji"].isNotEmpty) Positioned(top: -15, child: Text(seat["emoji"], style: const TextStyle(fontSize: 25))),
               ],
             ),
           );
@@ -163,19 +192,53 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  // ৪. নিচের চ্যাট ও বাটন
-  Widget _buildChatAndControls() {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      color: Colors.black26,
-      child: Row(
+  void _showAdminMenu(int index) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Wrap(
         children: [
-          IconButton(onPressed: () => showEmojiOnSeat(0, "🤔"), icon: const Icon(Icons.emoji_emotions_outlined, color: Colors.amber)),
-          const Expanded(child: TextField(decoration: InputDecoration(hintText: "বলুন...", border: InputBorder.none))),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.videogame_asset, color: Colors.blueAccent)), // লুডু
-          IconButton(onPressed: () {}, icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent)), // গিফট
+          ListTile(leading: const Icon(Icons.mic_off), title: const Text("মিউট করুন"), onTap: () => Navigator.pop(context)),
+          ListTile(leading: const Icon(Icons.exit_to_app, color: Colors.red), title: const Text("কিক দিন"), onTap: () => Navigator.pop(context)),
+          ListTile(leading: const Icon(Icons.verified_user), title: const Text("এডমিন দিন"), onTap: () => Navigator.pop(context)),
         ],
       ),
     );
+  }
+
+  Widget _buildChatAndControls() {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      color: Colors.black45,
+      child: Row(
+        children: [
+          IconButton(onPressed: () => _showEmojiPicker(), icon: const Icon(Icons.emoji_emotions, color: Colors.amber)),
+          const Expanded(child: TextField(decoration: InputDecoration(hintText: "মেসেজ লিখুন...", border: InputBorder.none, hintStyle: TextStyle(color: Colors.white24)))),
+          IconButton(onPressed: () {}, icon: const Icon(Icons.videogame_asset, color: Colors.blueAccent)), 
+          IconButton(onPressed: () {}, icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent)), 
+        ],
+      ),
+    );
+  }
+
+  void _showEmojiPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.black87,
+      builder: (context) => GridView.count(
+        crossAxisCount: 6,
+        children: ["🤔","🤫","🫣","🤭","😭","😏","👏","🥱","😡"].map((e) => IconButton(
+          onPressed: () {
+            showEmojiOnSeat(0, e); // ধরে নিচ্ছি ইউজার ১ নম্বর সিটে আছে
+            Navigator.pop(context);
+          },
+          icon: Text(e, style: const TextStyle(fontSize: 24)),
+        )).toList(),
+      ),
+    );
+  }
+
+  void showEmojiOnSeat(int seatIndex, String emoji) {
+    setState(() => seats[seatIndex]["emoji"] = emoji);
+    Timer(const Duration(seconds: 3), () => setState(() => seats[seatIndex]["emoji"] = ""));
   }
 }
