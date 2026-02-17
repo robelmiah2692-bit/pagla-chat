@@ -373,7 +373,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   CircleAvatar(radius: 22, backgroundColor: currentSeat == i ? Colors.pinkAccent : Colors.white10, child: Icon(Icons.mic_off, size: 15, color: i < 5 ? Colors.amber : Colors.white38)),
                   if (currentSeat == i && seatEmoji != null) Text(seatEmoji!, style: const TextStyle(fontSize: 25)),
                 ]),
-                Text(i < 5 ? "VIP" : "${i+1}", style: const TextStyle(fontSize: 8, color: i < 5 ? Colors.amber : Colors.white38))
+                Text(i < 5 ? "VIP" : "${i+1}", style: TextStyle(fontSize: 8, color: i < 5 ? Colors.amber : Colors.white38))
               ]),
             ),
           )),
@@ -381,7 +381,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
             padding: const EdgeInsets.all(10),
             child: Row(children: [
               IconButton(icon: const Icon(Icons.face, color: Colors.yellow), onPressed: _showEmojiSheet),
-              const Expanded(child: TextField(decoration: InputDecoration(hintText: "মেসেজ লিখুন...", filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none)))),
+              Expanded(child: TextField(decoration: InputDecoration(hintText: "মেসেজ লিখুন...", filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none)))),
               IconButton(icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent), onPressed: _showGiftSheet),
             ]),
           ),
