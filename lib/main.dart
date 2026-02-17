@@ -263,8 +263,6 @@ class HomePage extends StatelessWidget {
   }
 }
 
-// --- ৫. ভয়েস রুম (সব ফিচার সহ) ---
-class VoiceRoom extends StatefulWidget {
 // --- ৫. ভয়েস রুম (সম্পূর্ণ এরর মুক্ত ও এগোরা আইডি সহ) ---
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
@@ -483,4 +481,5 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _stat(String v, String l) => Column(children: [Text(v, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)), Text(l, style: const TextStyle(color: Colors.white54, fontSize: 12))]);
 }
 
-class InboxPage extends StatelessWidget { const InboxPage({super.key}); @override Widget build(BuildContext context) => const Scaffold(body: Center(child: Text("ইনবক্স"))); }
+class InboxPage extends StatelessWidget { const InboxPage({super.key}); @override Widget build(BuildContext context) => const Scaffold(body: Center(child: Text("ইনবক্স")));
+}
