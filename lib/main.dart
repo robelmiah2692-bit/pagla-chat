@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart'; // ফায়ারবেস ইমপোর্ট
 import 'package:firebase_auth/firebase_auth.dart'; // লগইন ইমপোর্ট
 // আপনার তৈরি করা অন্যান্য পেজগুলো ইমপোর্ট করুন
-// import 'home_page.dart'; 
+import 'home_page.dart';
+import 'voice_room.dart';
+import 'inbox_page.dart';
+import 'profile_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -113,6 +116,45 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+class MainNavigation extends StatefulWidget {
+  const MainNavigation({super.key});
+
+  @override
+  State<MainNavigation> createState() => _MainNavigationState();
+}
+
+class _MainNavigationState extends State<MainNavigation> {
+  int _currentIndex = 0;
+
+  // ফাইল ভাগ করার পর লিস্টটা হবে এইরকম:
+  final List<Widget> _pages = [
+    const HomePage(),    // home_page.dart থেকে আসবে
+    const VoiceRoom(),   // voice_room.dart থেকে আসবে
+    const InboxPage(),   // inbox_page.dart থেকে আসবে
+    const ProfilePage(), // profile_page.dart থেকে আসবে
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _pages[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: Colors.pinkAccent,
+        unselectedItemColor: Colors.grey,
+        backgroundColor: const Color(0xFF151525),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "হোম"),
+          BottomNavigationBarItem(icon: Icon(Icons.mic), label: "রুম"),
+          BottomNavigationBarItem(icon: Icon(Icons.mail), label: "ইনবক্স"),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "প্রোফাইল"),
+        ],
       ),
     );
   }
