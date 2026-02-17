@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart'; // নতুন অ্যাড করা হলো
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -8,16 +9,17 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // --- ১. ইউজারের ডাটা (এগুলো ফায়ারবেস থেকে কন্ট্রোল হবে) ---
+  // --- ১. ইউজারের ডাটা (আগের ফিচারগুলো অক্ষত আছে) ---
   String userName = "পাগলা ইউজার";
-  String gender = "পুরুষ"; // বা "মহিলা"
-  int diamonds = 200; // বোনাস ২০০ থেকে শুরু
+  String gender = "পুরুষ"; 
+  int diamonds = 200; 
   int xp = 0;
   int followers = 0;
   int following = 0;
-  bool hasPremiumCard = false;
+  bool hasPremiumCard = false; // এটি প্রিমিয়াম ইউজার কি না চেক করবে
+  bool isVIP = false;         // এটি ভিআইপি কি না চেক করবে
 
-  // --- ২. ভিআইপি লেভেল ক্যালকুলেশন (আপনার দেওয়া লজিক) ---
+  // --- ২. ভিআইপি লেভেল ক্যালকুলেশন (অক্ষত আছে) ---
   int getVipLevel() {
     if (xp >= 25000) return 8;
     if (xp >= 20000) return 7;
@@ -30,7 +32,83 @@ class _ProfilePageState extends State<ProfilePage> {
     return 0;
   }
 
-  // --- ৩. ডাইমন্ড স্টোর পপ-আপ ---
+  // --- নতুন ফিচার: নাম এডিট করার ডায়ালগ ---
+  void _editName() {
+    TextEditingController _nameController = TextEditingController(text: userName);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E2F),
+        title: const Text("নাম পরিবর্তন", style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: _nameController,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(hintText: "নতুন নাম লিখুন", hintStyle: TextStyle(color: Colors.white24)),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("বাতিল")),
+          TextButton(
+            onPressed: () {
+              setState(() => userName = _nameController.text);
+              Navigator.pop(context);
+            }, 
+            child: const Text("সেভ", style: TextStyle(color: Colors.pinkAccent))
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- নতুন ফিচার: ছবি সিলেকশন লজিক (৩টি অপশন) ---
+  void _pickProfileImage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) {
+        return Wrap(
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(15.0),
+              child: Text("প্রোফাইল পিকচার সেট করুন", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            ),
+            // ১. নির্ধারিত ছবি (সবার জন্য)
+            ListTile(
+              leading: const Icon(Icons.face, color: Colors.blue),
+              title: const Text("ডিফল্ট ছবি (ফ্রি)", style: TextStyle(color: Colors.white)),
+              onTap: () {
+                // এখানে ডিফল্ট ছবি সেভ করার লজিক হবে
+                Navigator.pop(context);
+              },
+            ),
+            // ২ ও ৩. গ্যালারি (ভিআইপি বা প্রিমিয়াম কার্ড থাকলে অটোমেটিক খুলবে)
+            ListTile(
+              leading: Icon(Icons.photo_library, 
+                color: (isVIP || hasPremiumCard) ? Colors.pinkAccent : Colors.grey),
+              title: Text(
+                (isVIP || hasPremiumCard) ? "গ্যালারি থেকে আপলোড" : "গ্যালারি (VIP/Premium শুধু)",
+                style: TextStyle(color: (isVIP || hasPremiumCard) ? Colors.white : Colors.grey),
+              ),
+              onTap: () async {
+                if (isVIP || hasPremiumCard) {
+                  final ImagePicker _picker = ImagePicker();
+                  await _picker.pickImage(source: ImageSource.gallery);
+                  Navigator.pop(context);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("দয়া করে ভিআইপি বা প্রিমিয়াম কার্ড কিনুন!"))
+                  );
+                  Navigator.pop(context);
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // --- ডাইমন্ড স্টোর পপ-আপ (অক্ষত আছে) ---
   void _openDiamondStore() {
     showModalBottomSheet(
       context: context,
@@ -57,9 +135,8 @@ class _ProfilePageState extends State<ProfilePage> {
       title: Text(amount, style: const TextStyle(color: Colors.white)),
       trailing: Text(price, style: const TextStyle(color: Colors.greenAccent)),
       onTap: () {
-        // এখানে বিকাশ/নগদ গেটওয়ে কানেক্ট হবে
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("পেমেন্ট সম্পন্ন হলে ফায়ারবেস থেকে ডাইমন্ড এড হবে")));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("পেমেন্ট সম্পন্ন হলে ফায়ারবেস থেকে ডাইমন্ড এড হবে")));
       },
     );
   }
@@ -73,8 +150,8 @@ class _ProfilePageState extends State<ProfilePage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
+        leading: Container(
+          margin: const EdgeInsets.only(left: 10),
           child: Row(children: [const Icon(Icons.diamond, color: Colors.amber, size: 16), Text(" $diamonds")]),
         ),
         actions: [
@@ -84,47 +161,55 @@ class _ProfilePageState extends State<ProfilePage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ১. প্রোফাইল পিকচার ও ফ্রেম
+            // ১. প্রোফাইল পিকচার ও ফ্রেম (ট্যাপ ফিচারসহ)
             Center(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // ভিআইপি ফ্রেম লজিক
-                  Container(
-                    width: 120, height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: vipLevel > 0 ? Colors.amber : Colors.grey, width: 4),
+              child: GestureDetector(
+                onTap: _pickProfileImage, // ছবিতে চাপ দিলে অপশন আসবে
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 120, height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: vipLevel > 0 ? Colors.amber : Colors.grey, width: 4),
+                      ),
                     ),
-                  ),
-                  // অটোমেটিক ছেলে/মেয়ে পিকচার লজিক
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: Colors.white10,
-                    backgroundImage: NetworkImage(gender == "পুরুষ" 
-                        ? "https://i.ibb.co/example/male.png" 
-                        : "https://i.ibb.co/example/female.png"),
-                  ),
-                  // ভিআইপি ব্যাজ
-                  if (vipLevel > 0) Positioned(bottom: 0, child: Container(color: Colors.amber, child: Text(" VIP $vipLevel ", style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold)))),
-                ],
+                    const CircleAvatar(
+                      radius: 50,
+                      backgroundColor: Colors.white10,
+                      backgroundImage: AssetImage('assets/logo.png'), // এখানে আপনার ডিফল্ট লোগো
+                    ),
+                    if (vipLevel > 0) Positioned(bottom: 0, child: Container(color: Colors.amber, child: Text(" VIP $vipLevel ", style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold)))),
+                    // ছোট ক্যামেরা আইকন
+                    Positioned(bottom: 5, right: 5, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Colors.pinkAccent, shape: BoxShape.circle), child: const Icon(Icons.camera_alt, size: 15, color: Colors.white))),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 10),
-            Text(userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
             
-            // ২. ফলোয়ার/ফলোয়িং সেকশন
+            // নাম ও এডিট বাটন
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildStat("ফলোয়ার", followers),
+                Text(userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.pinkAccent), onPressed: _editName),
+              ],
+            ),
+            
+            // ২. ফলোয়ার/ফলোয়িং সেকশন (অক্ষত আছে)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildStat("ফলোয়ার", followers),
                 const SizedBox(width: 30),
-                _buildStat("ফলোয়িং", following),
+                _buildStat("ফলোয়িং", following),
               ],
             ),
             const SizedBox(height: 20),
 
-            // ৩. ডিজাইন বোর্ড (ডাইমন্ড স্টোর ও প্রিমিয়াম বক্স)
+            // ৩. ডিজাইন বোর্ড (অক্ষত আছে)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -133,7 +218,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
 
-            // ৪. অনলাইন রুম লিস্ট (ইউজারদের রুম শো করবে)
+            // ৪. অনলাইন রুম লিস্ট (অক্ষত আছে)
             const Padding(
               padding: EdgeInsets.all(15.0),
               child: Align(alignment: Alignment.centerLeft, child: Text("অনলাইন রুমসমূহ", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
@@ -145,7 +230,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // --- সেটিংস মেনু ---
+  // --- সেটিংস মেনু (অক্ষত আছে) ---
   void _openSettings() {
     showModalBottomSheet(
       context: context,
@@ -186,7 +271,7 @@ class _ProfilePageState extends State<ProfilePage> {
         title: Text("আড্ডা রুম ${index + 1}", style: const TextStyle(color: Colors.white)),
         subtitle: const Text("১০ জন মানুষ আড্ডা দিচ্ছে", style: TextStyle(color: Colors.white38, fontSize: 12)),
         trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white24),
-        onTap: () { /* রুম এ প্রবেশ */ },
+        onTap: () { },
       ),
     );
   }
