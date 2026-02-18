@@ -36,6 +36,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
     Navigator.pop(context); // গিফট বক্স বন্ধ হবে
     setState(() {
+      final TextEditingController _messageController = TextEditingController(); 
+      List<String> chatMessages = []; // মেসেজ জমা রাখার জন্য
       diamondBalance -= gift["price"] as int; // ডাইমন্ড কেটে নেওয়া হলো
       currentGiftImage = gift["icon"]; // এখানে আপনার বড় এনিমেশন ছবির লিঙ্ক হবে
       isFullScreenBinding = gift["isVipGift"]; // বড় না ছোট গিফট তা চেক
@@ -224,29 +226,52 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          image: roomWallpaper.isNotEmpty 
-            ? DecorationImage(image: NetworkImage(roomWallpaper), fit: BoxFit.cover)
-            : null,
-          color: const Color(0xFF0F0F1E),
-        ),
-        child: Column(
-          children: [
-            const SizedBox(height: 40),
-            _buildHeader(),  
-            _buildSeatGrid(), 
-            _buildChatAndControls(), 
-          ],
-        ),
+Widget build(BuildContext context) {
+  return Scaffold(
+    body: Container(
+      decoration: BoxDecoration(
+        image: roomWallpaper.isNotEmpty 
+          ? DecorationImage(image: NetworkImage(roomWallpaper), fit: BoxFit.cover)
+          : null,
+        color: const Color(0xFF0F0F1E),
       ),
-    );
-  }
+      child: Column(
+        children: [
+          const SizedBox(height: 40),
+          _buildHeader(), 
+          
+          // তোমার সিট গ্রিড
+          _buildSeatGrid(), 
 
+          // --- এইখানে নতুন কোডটুকু বসবে ---
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              reverse: true, // নতুন মেসেজ নিচে দেখাবে
+              itemCount: chatMessages.length,
+              itemBuilder: (context, index) {
+                // উল্টো করে দেখাচ্ছি যেন লেটেস্ট মেসেজ নিচে থাকে
+                final msg = chatMessages[chatMessages.length - 1 - index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 5),
+                  child: Text(
+                    "ইউজার: $msg",
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                );
+              },
+            ),
+          ),
+          // ---------------------------------
+
+          _buildChatAndControls(), 
+        ],
+      ),
+    ),
+  );
+}
+  
   // --- ৩. উইজেটসমূহ (ডিজাইন) ---
-
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -390,19 +415,41 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   Widget _buildChatAndControls() {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      color: Colors.black45,
-      child: Row(
-        children: [
-          IconButton(onPressed: () => _showEmojiPicker(), icon: const Icon(Icons.emoji_emotions, color: Colors.amber)),
-          const Expanded(child: TextField(decoration: InputDecoration(hintText: "মেসেজ লিখুন...", border: InputBorder.none, hintStyle: TextStyle(color: Colors.white24)))),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.videogame_asset, color: Colors.blueAccent)), 
-          IconButton(onPressed: _showGiftBox, icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent)), 
-        ],
-      ),
-    );
-  }
+  return Container(
+    padding: const EdgeInsets.all(10),
+    color: Colors.black45,
+    child: Row(
+      children: [
+        IconButton(onPressed: () => _showEmojiPicker(), icon: const Icon(Icons.emoji_emotions, color: Colors.amber)),
+        Expanded(
+          child: TextField(
+            controller: _messageController, // কন্ট্রোলারটি এখানে বসলো
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              hintText: "মেসেজ লিখুন...", 
+              border: InputBorder.none, 
+              hintStyle: TextStyle(color: Colors.white24)
+            ),
+          )
+        ),
+        // সেন্ড বাটন - এখানে ক্লিক করলে মেসেজ স্ক্রিনে যাবে
+        IconButton(
+          onPressed: () {
+            if (_messageController.text.isNotEmpty) {
+              setState(() {
+                chatMessages.add(_messageController.text); // লিস্টে মেসেজ যোগ হবে
+                _messageController.clear(); // বক্স খালি হয়ে যাবে
+              });
+            }
+          }, 
+          icon: const Icon(Icons.send, color: Colors.blueAccent)
+        ),
+        IconButton(onPressed: () {}, icon: const Icon(Icons.videogame_asset, color: Colors.blueAccent)), 
+        IconButton(onPressed: _showGiftBox, icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent)), 
+      ],
+    ),
+  );
+}
 
   void _showEmojiPicker() {
     showModalBottomSheet(
