@@ -10,6 +10,11 @@ class VoiceRoom extends StatefulWidget {
 }
 
 class _VoiceRoomState extends State<VoiceRoom> {
+  // ১. মেসেজ ইনপুট করার জন্য কন্ট্রোলার
+final TextEditingController _messageController = TextEditingController();
+
+// ২. চ্যাট মেসেজগুলো জমা রাখার জন্য লিস্ট
+List<String> chatMessages = [];
   // --- গিফট বক্সের জন্য প্রয়োজনীয় ডাটা ও লজিক ---
 
   // ১. গিফট এনিমেশন কন্ট্রোল করার ভেরিয়েবল
