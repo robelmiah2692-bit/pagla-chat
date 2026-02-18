@@ -1,3 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:io'; // এটি আপনার প্রোফাইল পিকের জন্য দরকার
 import 'package:flutter/material.dart';
 import 'dart:async';
 // গ্যালারি থেকে ছবি নিতে এই প্যাকেজটি পরে লাগবে: image_picker
@@ -20,10 +23,12 @@ void checkOwnership() async {
     var doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
     if (doc.exists) {
       setState(() {
-        displayUserID = doc['uID'];
-        displayRoomID = doc['roomID'];
-        // যদি ডাটাবেসের রুম আইডি আর এই রুমের আইডি মিলে যায়
-        isOwner = (displayRoomID == widget.roomId); 
+        displayUserID = doc['uID'] ?? "";
+        displayRoomID = doc['roomID'] ?? "";
+        
+        // এখানে widget.roomId এর বদলে নিচের মতো চেক করুন
+        // আপনার widget এ আইডি যে নামে আছে সেটা দিন (সাধারণত roomId বা roomID)
+        isOwner = (displayRoomID == (widget as dynamic).roomId); 
       });
     }
   }
