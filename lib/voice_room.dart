@@ -236,8 +236,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
         child: Column(
           children: [
             const SizedBox(height: 40),
-            _buildHeader(), 
-            _buildYoutubePlayer(), 
+            _buildHeader(),  
             _buildSeatGrid(), 
             _buildChatAndControls(), 
           ],
@@ -280,22 +279,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
               const PopupMenuItem(value: 600, child: Text("১ মাস (৬০০💎)")),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildYoutubePlayer() {
-    return Container(
-      height: 180, // আপনার চাহিদা মতো নির্দিষ্ট সাইজ
-      margin: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // এখানে ইউটিউব এর Webview বা Player বসবে
-          const Icon(Icons.play_circle_fill, color: Colors.red, size: 50),
-          Positioned(bottom: 5, right: 5, child: Text("ইউটিউব প্লেয়ার", style: TextStyle(color: Colors.white24, fontSize: 10))),
         ],
       ),
     );
