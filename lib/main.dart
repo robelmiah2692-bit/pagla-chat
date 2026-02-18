@@ -1,3 +1,6 @@
+import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:firebase_core/firebase_core.dart'; // ফায়ারবেস ইমপোর্ট
@@ -175,7 +178,6 @@ class _MainNavigationState extends State<MainNavigation> {
     );
   }
 }
-import 'dart:math'; // ফাইলের একদম উপরে এই ইম্পোর্টটি দিও
 
 // এই ফাংশনটি ইউজার প্রোফাইল এবং ফিক্সড আইডি তৈরি করবে
 Future<void> initializeUserInFirestore(User user, String name) async {
