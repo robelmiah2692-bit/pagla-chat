@@ -162,7 +162,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   bool isFollowing = false;
   
   // ১৫টি সিটের ডাটা
-  List<Map<String, dynamic>> seats = List.generate(15, (index) => {
+  List<Map<String, dynamic>> seats = List.generate(20, (index) => {
     "isOccupied": false,
     "userName": "",
     "userImage": "",
@@ -295,7 +295,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
           crossAxisSpacing: 10,
           childAspectRatio: 0.7, // ইউজার নেম ও ছবি সুন্দর দেখানোর জন্য
         ),
-        itemCount: 15,
+        itemCount: 20,
         itemBuilder: (context, index) {
           var seat = seats[index];
           return GestureDetector(
