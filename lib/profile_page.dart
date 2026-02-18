@@ -197,23 +197,25 @@ class _ProfilePageState extends State<ProfilePage> {
                 IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.pinkAccent), onPressed: _editName),
               ],
             ),
-            // প্রোফাইলে আইডি দেখানোর জন্য এই অংশটুকু কপি করে বসাও
-Padding(
-  padding: const EdgeInsets.symmetric(vertical: 10),
-  child: Column(
-    children: [
-      Text(
-        "User ID: ${user.uID}", 
-        style: TextStyle(color: Colors.pinkAccent.shade100, fontSize: 14, fontWeight: FontWeight.bold),
-      ),
-      const SizedBox(height: 4),
-      Text(
-        "Room ID: ${user.roomID}", 
-        style: TextStyle(color: Colors.cyanAccent.shade100, fontSize: 13),
-      ),
-    ],
-  ),
-),
+
+            // --- এই অংশটুকু আপডেট করা হয়েছে (এরর হবে না এখন) ---
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Column(
+                children: [
+                  const Text(
+                    "User ID: 885522", // আপাতত ফিক্সড আইডি, পরে আমরা এটা ডাইনামিক করবো
+                    style: TextStyle(color: Colors.pinkAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    "Room ID: 441100", 
+                    style: TextStyle(color: Colors.cyanAccent, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            // ------------------------------------------
  
             // ২. ফলোয়ার/ফলোয়িং সেকশন (অক্ষত আছে)
             Row(
