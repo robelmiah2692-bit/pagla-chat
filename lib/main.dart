@@ -175,3 +175,29 @@ class _MainNavigationState extends State<MainNavigation> {
     );
   }
 }
+import 'dart:math'; // ফাইলের একদম উপরে এই ইম্পোর্টটি দিও
+
+// এই ফাংশনটি ইউজার প্রোফাইল এবং ফিক্সড আইডি তৈরি করবে
+Future<void> initializeUserInFirestore(User user, String name) async {
+  final FirebaseFirestore db = FirebaseFirestore.instance;
+  
+  // চেক করছি এই ইউজারের ডাটা আগে থেকে আছে কিনা
+  DocumentSnapshot userDoc = await db.collection('users').doc(user.uid).get();
+
+  if (!userDoc.exists) {
+    // যদি না থাকে, তবেই নতুন ৬ ডিজিটের ফিক্সড আইডি তৈরি হবে
+    String uID = (100000 + Random().nextInt(900000)).toString();
+    String rID = (100000 + Random().nextInt(900000)).toString();
+
+    await db.collection('users').doc(user.uid).set({
+      'uID': uID,          // এটি তার চিরস্থায়ী ইউজার আইডি
+      'roomID': rID,       // এটি তার চিরস্থায়ী রুম আইডি
+      'name': name,
+      'profilePic': '',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    print("নতুন ইউজার প্রোফাইল ও আইডি তৈরি হয়েছে!");
+  } else {
+    print("ইউজার আইডি আগে থেকেই আছে।");
+  }
+}
