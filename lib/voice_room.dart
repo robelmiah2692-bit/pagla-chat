@@ -10,6 +10,24 @@ class VoiceRoom extends StatefulWidget {
 }
 
 class _VoiceRoomState extends State<VoiceRoom> {
+ bool isOwner = false;
+String displayUserID = "";
+String displayRoomID = "";
+
+void checkOwnership() async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    var doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    if (doc.exists) {
+      setState(() {
+        displayUserID = doc['uID'];
+        displayRoomID = doc['roomID'];
+        // যদি ডাটাবেসের রুম আইডি আর এই রুমের আইডি মিলে যায়
+        isOwner = (displayRoomID == widget.roomId); 
+      });
+    }
+  }
+}
   // ১. মেসেজ ইনপুট করার জন্য কন্ট্রোলার
 final TextEditingController _messageController = TextEditingController();
 
