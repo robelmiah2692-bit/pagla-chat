@@ -257,7 +257,7 @@ void _showFreeAvatars() {
                         border: Border.all(color: vipLevel > 0 ? Colors.amber : Colors.grey, width: 4),
                       ),
                     ),
-                    const CircleAvatar(
+                    CircleAvatar(
                       radius: 50,
                       backgroundColor: Colors.white10,
                       backgroundImage: NetworkImage(
@@ -265,8 +265,8 @@ void _showFreeAvatars() {
                         ? userImageURL
                         : "https://api.dicebear.com/7.x/avataaars/png?seed=Felix"
                       ),
-                    )   
-                      if (vipLevel > 0) Positioned(bottom: 0, child: Container(color: Colors.amber, child: Text(" VIP $vipLevel ", style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold)))),
+                    ),   
+                    if (vipLevel > 0) Positioned(bottom: 0, child: Container(color: Colors.amber, child: Text(" VIP $vipLevel ", style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold)))),
                     // ছোট ক্যামেরা আইকন
                     Positioned(bottom: 5, right: 5, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Colors.pinkAccent, shape: BoxShape.circle), child: const Icon(Icons.camera_alt, size: 15, color: Colors.white))),
                   ],
