@@ -14,6 +14,8 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   // --- ১. ইউজারের ডাটা (আগের ফিচারগুলো অক্ষত আছে) ---
   String userName = "পাগলা ইউজার";
+  String uIDValue = "885522"; // ডিফল্ট আইডি
+  String roomIDValue = "441100"; // ডিফল্ট রুম আইডি
   String gender = "পুরুষ"; 
   int diamonds = 200; 
   int xp = 0;
@@ -58,10 +60,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // এই দুইটা ভেরিয়েবল ক্লাসের উপরে ডিক্লেয়ার করে দাও
-  String uIDValue = "লোড হচ্ছে...";
-  String roomIDValue = "লোড হচ্ছে...";
-
+  
   @override
   void initState() {
     super.initState();
