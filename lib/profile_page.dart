@@ -45,6 +45,8 @@ class _ProfilePageState extends State<ProfilePage> {
           roomIDValue = userDoc.data()?['roomID'] ?? "441100";
         });
       } else {
+        userImageURL = userDoc.data()?['profileImage'] ?? ""; 
+     });
         // নতুন ইউজার হলে ডাটাবেসে প্রথমবার সেভ করো
         String newUID = (100000 + Random().nextInt(900000)).toString();
         String newRID = (100000 + Random().nextInt(900000)).toString();
@@ -175,9 +177,21 @@ void _showFreeAvatars() {
               onTap: () async {
                 if (isVIP || hasPremiumCard) {
                   final ImagePicker _picker = ImagePicker();
-                  await _picker.pickImage(source: ImageSource.gallery);
-                  Navigator.pop(context);
-                } else {
+                  final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+                  
+                  if (image != null) {
+                    setState(() {
+                    userImageURL = image.path;
+                  });
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user != null) { 
+                     await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+                       'profileImage': image.path,
+                     });
+                   }
+                 }
+                 Navigator.pop(context);
+               } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("দয়া করে ভিআইপি বা প্রিমিয়াম কার্ড কিনুন!"))
                   );
