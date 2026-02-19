@@ -45,8 +45,7 @@ class _ProfilePageState extends State<ProfilePage> {
           roomIDValue = userDoc.data()?['roomID'] ?? "441100";
         });
       } else {
-        userImageURL = userDoc.data()?['profileImage'] ?? ""; 
-     });
+        userImageURL = userDoc.data()?['profileImage'] ?? "";
         // নতুন ইউজার হলে ডাটাবেসে প্রথমবার সেভ করো
         String newUID = (100000 + Random().nextInt(900000)).toString();
         String newRID = (100000 + Random().nextInt(900000)).toString();
