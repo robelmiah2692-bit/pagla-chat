@@ -160,7 +160,7 @@ void _showFreeAvatars() {
               title: const Text("ডিফল্ট ছবি (ফ্রি)", style: TextStyle(color: Colors.white)),
               onTap: () {
                 // এখানে ডিফল্ট ছবি সেভ করার লজিক হবে
-                Navigator.pop(context);
+                _showFreeAvatars();
               },
             ),
             // ২ ও ৩. গ্যালারি (ভিআইপি বা প্রিমিয়াম কার্ড থাকলে অটোমেটিক খুলবে)
