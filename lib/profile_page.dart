@@ -280,16 +280,25 @@ void _showFreeAvatars() {
                             ? NetworkImage(userImageURL) as ImageProvider
                             : (File(userImageURL).existsSync()
                                 ? FileImage(File(userImageURL)) as ImageProvider
-                                : const NetworkImage("https://api.dicebear.com/7.x/avataaars/png?seed=Felix")),
-                  
-                    ),   
-                    if (vipLevel > 0) Positioned(bottom: 0, child: Container(color: Colors.amber, child: Text(" VIP $vipLevel ", style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold)))),
-                    // ছোট ক্যামেরা আইকন
-                    Positioned(bottom: 5, right: 5, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Colors.pinkAccent, shape: BoxShape.circle), child: const Icon(Icons.camera_alt, size: 15, color: Colors.white))),
-                  ],
-                ),
-              ),
-            ),
+                                : const NetworkImage("https://api.dicebear.com/7.x/avataaars/png?seed=Felix"))),
+                    ), // এখানে সার্কেল অবতার শেষ (মাঝখানে কোনো বাড়তি ব্র্যাকেট নেই)
+                    if (vipLevel > 0) 
+                      Positioned(
+                        bottom: 0, 
+                        child: Container(
+                          color: Colors.amber, 
+                          child: Text(" VIP $vipLevel ", style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold))
+                        ),
+                      ),
+                    Positioned(
+                      bottom: 5, 
+                      right: 5, 
+                      child: Container(
+                        padding: const EdgeInsets.all(4), 
+                        decoration: const BoxDecoration(color: Colors.pinkAccent, shape: BoxShape.circle), 
+                        child: const Icon(Icons.camera_alt, size: 15, color: Colors.white)
+                      )
+                    ),
             const SizedBox(height: 10),
             
             // --- ১. নাম ও এডিট বাটন ---
