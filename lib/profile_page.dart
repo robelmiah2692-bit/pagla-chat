@@ -238,7 +238,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 10),
             
-            // নাম ও এডিট বাটন
+            // ১. নাম ও এডিট বাটন
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -247,25 +247,25 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
 
-            // --- এই অংশটুকু আপডেট করা হয়েছে (এরর হবে না এখন) ---
+            // ২. আইডি দেখানোর সুন্দর ও গোছানো ঘর (এটি এখন ডাইনামিক হবে)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: Column(
+                mainAxisSize: MainAxisSize.min, // এটি যেন বাড়তি জায়গা না নেয়
                 children: [
-                  const Text(
-                    "User ID: 885522", // আপাতত ফিক্সড আইডি, পরে আমরা এটা ডাইনামিক করবো
-                    style: TextStyle(color: Colors.pinkAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                  Text(
+                    "User ID: $uIDValue", // ডাটাবেস থেকে আসা আইডি এখানে দেখাবে
+                    style: const TextStyle(color: Colors.pinkAccent, fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 2),
-                  const Text(
-                    "Room ID: 441100", 
-                    style: TextStyle(color: Colors.cyanAccent, fontSize: 12),
+                  Text(
+                    "Room ID: $roomIDValue", // রুম আইডি এখানে দেখাবে
+                    style: const TextStyle(color: Colors.cyanAccent, fontSize: 12),
                   ),
                 ],
               ),
             ),
-            // ------------------------------------------
- 
+            
             // ২. ফলোয়ার/ফলোয়িং সেকশন (অক্ষত আছে)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
