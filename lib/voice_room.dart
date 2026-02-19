@@ -403,12 +403,12 @@ Widget build(BuildContext context) {
 
                     // ইমোজি পপ-আপ
                     if (seat["emoji"].isNotEmpty)
-                      Positioned(
-                        top: -15,
-                        child: Text(seat["emoji"], style: const TextStyle(fontSize: 25)),
-                      ),
-                  ],
-                ),
+                       Text(
+                         seat["emoji"], 
+                         style: const TextStyle(fontSize: 32),
+                       ),
+                     ],
+                  ),
                 const SizedBox(height: 6),
                 // নামের জায়গা: খালি থাকলে সংখ্যা/VIP, কেউ বসলে তার নাম
                 Text(
