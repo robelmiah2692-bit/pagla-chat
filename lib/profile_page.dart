@@ -1,3 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:math'; // র্যান্ডম আইডির জন্য
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart'; // নতুন অ্যাড করা হলো
 
@@ -18,7 +21,53 @@ class _ProfilePageState extends State<ProfilePage> {
   int following = 0;
   bool hasPremiumCard = false; // এটি প্রিমিয়াম ইউজার কি না চেক করবে
   bool isVIP = false;         // এটি ভিআইপি কি না চেক করবে
+// --- ডাটাবেস থেকে ডাটা আনা ও সেভ রাখা ---
+  void _syncUserData() async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      var userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
+      if (userDoc.exists) {
+        // যদি ডাটাবেসে ডাটা থাকে, তবে সেগুলো লোড করো
+        setState(() {
+          userName = userDoc.data()?['name'] ?? userName;
+          diamonds = userDoc.data()?['diamonds'] ?? diamonds;
+          xp = userDoc.data()?['xp'] ?? xp;
+          // তোমার UserModel এর uID এবং roomID এখানে সেট হবে
+          uIDValue = userDoc.data()?['uID'] ?? "885522"; 
+          roomIDValue = userDoc.data()?['roomID'] ?? "441100";
+        });
+      } else {
+        // নতুন ইউজার হলে ডাটাবেসে প্রথমবার সেভ করো
+        String newUID = (100000 + Random().nextInt(900000)).toString();
+        String newRID = (100000 + Random().nextInt(900000)).toString();
+        
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'uID': newUID,
+          'roomID': newRID,
+          'name': userName,
+          'diamonds': diamonds,
+          'xp': xp,
+          'status': 'active',
+        });
+        setState(() {
+          uIDValue = newUID;
+          roomIDValue = newRID;
+        });
+      }
+    }
+  }
+
+  // এই দুইটা ভেরিয়েবল ক্লাসের উপরে ডিক্লেয়ার করে দাও
+  String uIDValue = "লোড হচ্ছে...";
+  String roomIDValue = "লোড হচ্ছে...";
+
+  @override
+  void initState() {
+    super.initState();
+    _syncUserData(); // পেজ ওপেন হলেই ডাটা সিঙ্ক হবে
+  }
+  
   // --- ২. ভিআইপি লেভেল ক্যালকুলেশন (অক্ষত আছে) ---
   int getVipLevel() {
     if (xp >= 25000) return 8;
