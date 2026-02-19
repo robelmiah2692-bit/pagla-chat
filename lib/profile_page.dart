@@ -14,8 +14,9 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   // --- ১. ইউজারের ডাটা (আগের ফিচারগুলো অক্ষত আছে) ---
   // ১০টি ছেলেদের এবং ১০টি মেয়েদের ছবির লিংক (আপনি আপনার পছন্দমতো পরিবর্তন করতে পারবেন)
-List<String> maleAvatars = List.generate(10, (i) => "https://api.dicebear.com/7.x/avataaars/png?seed=male$i");
-List<String> femaleAvatars = List.generate(10, (i) => "https://api.dicebear.com/7.x/avataaars/png?seed=female$i");
+  String userImageURL = ""; // এই লাইনটি যোগ করুন
+  List<String> maleAvatars = List.generate(10, (i) => "https://api.dicebear.com/7.x/avataaars/png?seed=male$i");
+  List<String> femaleAvatars = List.generate(10, (i) => "https://api.dicebear.com/7.x/avataaars/png?seed=female$i");
   String userName = "পাগলা ইউজার";
   String uIDValue = "885522"; // ডিফল্ট আইডি
   String roomIDValue = "441100"; // ডিফল্ট রুম আইডি
