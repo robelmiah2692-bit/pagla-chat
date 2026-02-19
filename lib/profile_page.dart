@@ -14,8 +14,6 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   // --- ১. ইউজারের ডাটা (আগের ফিচারগুলো অক্ষত আছে) ---
   String userName = "পাগলা ইউজার";
-  String uIDValue = "885522"; 
-  String roomIDValue = "441100";
   String gender = "পুরুষ"; 
   int diamonds = 200; 
   int xp = 0;
