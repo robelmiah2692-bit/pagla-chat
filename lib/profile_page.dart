@@ -260,9 +260,13 @@ void _showFreeAvatars() {
                     const CircleAvatar(
                       radius: 50,
                       backgroundColor: Colors.white10,
-                      backgroundImage: AssetImage('assets/logo.png'), // এখানে আপনার ডিফল্ট লোগো
-                    ),
-                    if (vipLevel > 0) Positioned(bottom: 0, child: Container(color: Colors.amber, child: Text(" VIP $vipLevel ", style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold)))),
+                      backgroundImage: NetworkImage(
+                        userImageURL.isNotEmpty
+                        ? userImageURL
+                        : "https://api.dicebear.com/7.x/avataaars/png?seed=Felix"
+                      ),
+                    )   
+                      if (vipLevel > 0) Positioned(bottom: 0, child: Container(color: Colors.amber, child: Text(" VIP $vipLevel ", style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold)))),
                     // ছোট ক্যামেরা আইকন
                     Positioned(bottom: 5, right: 5, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Colors.pinkAccent, shape: BoxShape.circle), child: const Icon(Icons.camera_alt, size: 15, color: Colors.white))),
                   ],
