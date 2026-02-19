@@ -14,6 +14,8 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   // --- ১. ইউজারের ডাটা (আগের ফিচারগুলো অক্ষত আছে) ---
   String userName = "পাগলা ইউজার";
+  String uIDValue = "885522"; 
+  String roomIDValue = "441100";
   String gender = "পুরুষ"; 
   int diamonds = 200; 
   int xp = 0;
@@ -238,7 +240,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 10),
             
-            // ১. নাম ও এডিট বাটন
+            // --- ১. নাম ও এডিট বাটন ---
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -247,19 +249,50 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
 
-            // ২. আইডি দেখানোর সুন্দর ও গোছানো ঘর (এটি এখন ডাইনামিক হবে)
+            const SizedBox(height: 10),
+
+            // --- ২. ভিআইপি লেভেল এবং এক্সপি প্রগ্রেস বার (যা ০ থেকে বাড়বে) ---
+            Column(
+              children: [
+                Text(
+                  "VIP Level $vipLevel (XP: $xp / 1000)", 
+                  style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: 180, 
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: Colors.white10,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white24, width: 0.5),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: LinearProgressIndicator(
+                      value: (xp % 1000) / 1000, 
+                      backgroundColor: Colors.transparent,
+                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 15), 
+
+            // --- ৩. আইডি দেখানোর ডাইনামিক ঘর ---
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: Column(
-                mainAxisSize: MainAxisSize.min, // এটি যেন বাড়তি জায়গা না নেয়
                 children: [
                   Text(
-                    "User ID: $uIDValue", // ডাটাবেস থেকে আসা আইডি এখানে দেখাবে
+                    "User ID: $uIDValue", 
                     style: const TextStyle(color: Colors.pinkAccent, fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    "Room ID: $roomIDValue", // রুম আইডি এখানে দেখাবে
+                    "Room ID: $roomIDValue", 
                     style: const TextStyle(color: Colors.cyanAccent, fontSize: 12),
                   ),
                 ],
