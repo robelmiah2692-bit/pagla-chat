@@ -279,8 +279,8 @@ void _showFreeAvatars() {
                         : (userImageURL.startsWith('http')
                             ? NetworkImage(userImageURL) as ImageProvider
                             : (File(userImageURL).existsSync()
-                                ? FileImage(File(userImageURL)) as ImageProvider),
-                                : const NetworkImage("https://api.dicebear.com/7.x/avataaars/png?seed=Felix"))),
+                                ? FileImage(File(userImageURL)) as ImageProvider
+                                : const NetworkImage("https://api.dicebear.com/7.x/avataaars/png?seed=Felix")),
                   
                     ),   
                     if (vipLevel > 0) Positioned(bottom: 0, child: Container(color: Colors.amber, child: Text(" VIP $vipLevel ", style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold)))),
