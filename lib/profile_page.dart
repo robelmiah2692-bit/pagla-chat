@@ -261,11 +261,12 @@ void _showFreeAvatars() {
                     CircleAvatar(
                       radius: 50,
                       backgroundColor: Colors.white10,
-                      backgroundImage: NetworkImage(
-                        userImageURL.isNotEmpty
-                        ? userImageURL
-                        : "https://api.dicebear.com/7.x/avataaars/png?seed=Felix"
-                      ),
+                      backgroundImage: userImageURL.isEmpty
+                        ? const NetworkImage("https://api.dicebear.com/7.x/avataaars/png?seed=Felix")
+                        : (userImageURL.startsWith('http')
+                            ? NetworkImage(userImageURL) as ImageProvider
+                            : FileImage(File(userImageURL)) as ImageProvider),
+                       ),
                     ),   
                     if (vipLevel > 0) Positioned(bottom: 0, child: Container(color: Colors.amber, child: Text(" VIP $vipLevel ", style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold)))),
                     // ছোট ক্যামেরা আইকন
