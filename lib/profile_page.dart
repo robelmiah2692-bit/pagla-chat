@@ -13,6 +13,9 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   // --- ১. ইউজারের ডাটা (আগের ফিচারগুলো অক্ষত আছে) ---
+  // ১০টি ছেলেদের এবং ১০টি মেয়েদের ছবির লিংক (আপনি আপনার পছন্দমতো পরিবর্তন করতে পারবেন)
+List<String> maleAvatars = List.generate(10, (i) => "https://api.dicebear.com/7.x/avataaars/png?seed=male$i");
+List<String> femaleAvatars = List.generate(10, (i) => "https://api.dicebear.com/7.x/avataaars/png?seed=female$i");
   String userName = "পাগলা ইউজার";
   String uIDValue = "885522"; // ডিফল্ট আইডি
   String roomIDValue = "441100"; // ডিফল্ট রুম আইডি
@@ -108,6 +111,36 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   // --- নতুন ফিচার: ছবি সিলেকশন লজিক (৩টি অপশন) ---
+  // এই ফাংশনটি আপনার প্রোফাইল পিকচার সিলেকশনে যোগ করুন
+void _showFreeAvatars() {
+  List<String> avatars = (gender == "পুরুষ") ? maleAvatars : femaleAvatars;
+
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: const Color(0xFF1A1A2E),
+    builder: (context) => GridView.builder(
+      padding: const EdgeInsets.all(15),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4, // এক লাইনে ৪টি ছবি
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+      ),
+      itemCount: avatars.length,
+      itemBuilder: (context, index) {
+        return GestureDetector(
+          onTap: () {
+            setState(() => userImageURL = avatars[index]); // ছবি সেট হলো
+            Navigator.pop(context); // অবতার লিস্ট বন্ধ
+            Navigator.pop(context); // মেইন শিট বন্ধ
+          },
+          child: CircleAvatar(
+            backgroundImage: NetworkImage(avatars[index]),
+          ),
+        );
+      },
+    ),
+  );
+}
   void _pickProfileImage() {
     showModalBottomSheet(
       context: context,
