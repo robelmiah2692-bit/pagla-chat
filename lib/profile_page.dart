@@ -286,20 +286,22 @@ class _ProfilePageState extends State<ProfilePage> {
                                 try {
                                   final file = File(userImageURL);
                                   if (file.existsSync()) {
-                                  return Image.file(
-                                     file,
-                                     fit: BoxFit.cover,
+                                    return Image.file(
+                                      file,
+                                      fit: BoxFit.cover,
                                       width: 100,
                                       height: 100,
                                       errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white, size: 50),
-                                   );
-                                 }
-                               } catch (e) {
-                               }
-                               return const Icon(Icons.person, color: Colors.white, size: 50);
-                             },  
-                           ),
-                    if (vipLevel > 0) Positioned(bottom: 0, child: Container(padding: const EdgeInsets.symmetric(horizontal: 4), color: Colors.amber, child: Text(" VIP $vipLevel ", style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold)))),
+                                    );
+                                  }
+                                } catch (e) { }
+                                return const Icon(Icons.person, color: Colors.white, size: 50);
+                              },
+                            ),
+                    ),
+                  ), // CircleAvatar এখানে শেষ
+                  if (vipLevel > 0) 
+                    Positioned(bottom: 0, child: Container(padding: const EdgeInsets.symmetric(horizontal: 4), color: Colors.amber, child: Text(" VIP $vipLevel ", style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold)))),
                   Positioned(bottom: 5, right: 5, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Colors.pinkAccent, shape: BoxShape.circle), child: const Icon(Icons.camera_alt, size: 15, color: Colors.white))),
                 ]),
               ),   
