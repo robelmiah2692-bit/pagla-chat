@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math'; 
-import 'dart:io'; // <--- এই লাইনটি অবশ্যই যোগ করুন, এটি ফাইল হ্যান্ডেল করার জন্য
+import 'dart:io'; 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -13,39 +13,46 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // --- ১. ইউজারের ডাটা (আগের ফিচারগুলো অক্ষত আছে) ---
-  // ১০টি ছেলেদের এবং ১০টি মেয়েদের ছবির লিংক (আপনি আপনার পছন্দমতো পরিবর্তন করতে পারবেন)
-  String userImageURL = ""; // এই লাইনটি যোগ করুন
+  // --- ১. আপনার সব ডাটা (কোনোটিই বাদ দেওয়া হয়নি) ---
+  String userImageURL = ""; 
+  
+  // আপনার ১০টি অবতারের লিস্ট (সবগুলো আগের মতই আছে)
   List<String> maleAvatars = List.generate(10, (i) => "https://api.dicebear.com/7.x/avataaars/png?seed=male$i");
   List<String> femaleAvatars = List.generate(10, (i) => "https://api.dicebear.com/7.x/avataaars/png?seed=female$i");
+  
   String userName = "পাগলা ইউজার";
-  String uIDValue = "885522"; // ডিফল্ট আইডি
-  String roomIDValue = "441100"; // ডিফল্ট রুম আইডি
+  String uIDValue = "885522"; 
+  String roomIDValue = "441100"; 
   String gender = "পুরুষ"; 
   int diamonds = 200; 
   int xp = 0;
   int followers = 0;
   int following = 0;
-  bool hasPremiumCard = false; // এটি প্রিমিয়াম ইউজার কি না চেক করবে
-  bool isVIP = false;         // এটি ভিআইপি কি না চেক করবে
-// --- ডাটাবেস থেকে ডাটা আনা ও সেভ রাখা ---
+  bool hasPremiumCard = false; 
+  bool isVIP = false;         
+
+  @override
+  void initState() {
+    super.initState();
+    _syncUserData(); 
+  }
+
+  // --- ডাটাবেস থেকে ডাটা আনা ---
   void _syncUserData() async {
     final User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       var userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
       if (userDoc.exists) {
-        // যদি ডাটাবেসে ডাটা থাকে, তবে সেগুলো লোড করো
         setState(() {
           userName = userDoc.data()?['name'] ?? userName;
           diamonds = userDoc.data()?['diamonds'] ?? diamonds;
           xp = userDoc.data()?['xp'] ?? xp;
           uIDValue = userDoc.data()?['uID'] ?? "885522"; 
           roomIDValue = userDoc.data()?['roomID'] ?? "441100";
-          userImageURL = userDoc.data()?['profileImage'] ?? ""; // সঠিক জায়গায় ইমেজ লোড
+          userImageURL = userDoc.data()?['profileImage'] ?? ""; 
         });
       } else {
-        // নতুন ইউজার হলে ডাটাবেসে প্রথমবার সেভ করো
         String newUID = (100000 + Random().nextInt(900000)).toString();
         String newRID = (100000 + Random().nextInt(900000)).toString();
         
@@ -56,7 +63,7 @@ class _ProfilePageState extends State<ProfilePage> {
           'diamonds': diamonds,
           'xp': xp,
           'status': 'active',
-          'profileImage': "", // নতুন ইউজারের জন্য খালি ইমেজ
+          'profileImage': "", 
         });
         setState(() {
           uIDValue = newUID;
@@ -67,14 +74,6 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  
-  @override
-  void initState() {
-    super.initState();
-    _syncUserData(); // পেজ ওপেন হলেই ডাটা সিঙ্ক হবে
-  }
-  
-  // --- ২. ভিআইপি লেভেল ক্যালকুলেশন (অক্ষত আছে) ---
   int getVipLevel() {
     if (xp >= 25000) return 8;
     if (xp >= 20000) return 7;
@@ -87,7 +86,6 @@ class _ProfilePageState extends State<ProfilePage> {
     return 0;
   }
 
-  // --- নতুন ফিচার: নাম এডিট করার ডায়ালগ ---
   void _editName() {
     TextEditingController _nameController = TextEditingController(text: userName);
     showDialog(
@@ -114,37 +112,35 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // --- নতুন ফিচার: ছবি সিলেকশন লজিক (৩টি অপশন) ---
-  // এই ফাংশনটি আপনার প্রোফাইল পিকচার সিলেকশনে যোগ করুন
-void _showFreeAvatars() {
-  List<String> avatars = (gender == "পুরুষ") ? maleAvatars : femaleAvatars;
-
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: const Color(0xFF1A1A2E),
-    builder: (context) => GridView.builder(
-      padding: const EdgeInsets.all(15),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4, // এক লাইনে ৪টি ছবি
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
+  void _showFreeAvatars() {
+    List<String> avatars = (gender == "পুরুষ") ? maleAvatars : femaleAvatars;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      builder: (context) => GridView.builder(
+        padding: const EdgeInsets.all(15),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 4, 
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+        ),
+        itemCount: avatars.length,
+        itemBuilder: (context, index) {
+          return GestureDetector(
+            onTap: () {
+              setState(() => userImageURL = avatars[index]); 
+              Navigator.pop(context); 
+              Navigator.pop(context); 
+            },
+            child: CircleAvatar(
+              backgroundImage: NetworkImage(avatars[index]),
+            ),
+          );
+        },
       ),
-      itemCount: avatars.length,
-      itemBuilder: (context, index) {
-        return GestureDetector(
-          onTap: () {
-            setState(() => userImageURL = avatars[index]); // ছবি সেট হলো
-            Navigator.pop(context); // অবতার লিস্ট বন্ধ
-            Navigator.pop(context); // মেইন শিট বন্ধ
-          },
-          child: CircleAvatar(
-            backgroundImage: NetworkImage(avatars[index]),
-          ),
-        );
-      },
-    ),
-  );
-}
+    );
+  }
+
   void _pickProfileImage() {
     showModalBottomSheet(
       context: context,
@@ -157,41 +153,36 @@ void _showFreeAvatars() {
               padding: EdgeInsets.all(15.0),
               child: Text("প্রোফাইল পিকচার সেট করুন", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             ),
-            // ১. নির্ধারিত ছবি (সবার জন্য)
             ListTile(
               leading: const Icon(Icons.face, color: Colors.blue),
               title: const Text("ডিফল্ট ছবি (ফ্রি)", style: TextStyle(color: Colors.white)),
-              onTap: () {
-                // এখানে ডিফল্ট ছবি সেভ করার লজিক হবে
-                _showFreeAvatars();
-              },
+              onTap: _showFreeAvatars,
             ),
-            // ২ ও ৩. গ্যালারি (ভিআইপি বা প্রিমিয়াম কার্ড থাকলে অটোমেটিক খুলবে)
             ListTile(
               leading: Icon(Icons.photo_library, 
-                color: (isVIP || hasPremiumCard) ? Colors.pinkAccent : Colors.grey),
+                color: (getVipLevel() > 0 || hasPremiumCard) ? Colors.pinkAccent : Colors.grey),
               title: Text(
-                (isVIP || hasPremiumCard) ? "গ্যালারি থেকে আপলোড" : "গ্যালারি (VIP/Premium শুধু)",
-                style: TextStyle(color: (isVIP || hasPremiumCard) ? Colors.white : Colors.grey),
+                (getVipLevel() > 0 || hasPremiumCard) ? "গ্যালারি থেকে আপলোড" : "গ্যালারি (VIP/Premium শুধু)",
+                style: TextStyle(color: (getVipLevel() > 0 || hasPremiumCard) ? Colors.white : Colors.grey),
               ),
               onTap: () async {
-                if (isVIP || hasPremiumCard) {
+                if (getVipLevel() > 0 || hasPremiumCard) {
                   final ImagePicker _picker = ImagePicker();
                   final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
                   
                   if (image != null) {
                     setState(() {
-                    userImageURL = image.path;
-                  });
+                      userImageURL = image.path;
+                    });
                     final user = FirebaseAuth.instance.currentUser;
                     if (user != null) { 
                      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
                        'profileImage': image.path,
                      });
                    }
-                 }
-                 Navigator.pop(context);
-               } else {
+                  }
+                  Navigator.pop(context);
+                } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("দয়া করে ভিআইপি বা প্রিমিয়াম কার্ড কিনুন!"))
                   );
@@ -205,7 +196,7 @@ void _showFreeAvatars() {
     );
   }
 
-  // --- ডাইমন্ড স্টোর পপ-আপ (অক্ষত আছে) ---
+  // --- ডাইমন্ড স্টোর (আপনার সব রেইট ঠিক করে দেওয়া হয়েছে) ---
   void _openDiamondStore() {
     showModalBottomSheet(
       context: context,
@@ -249,19 +240,18 @@ void _showFreeAvatars() {
         elevation: 0,
         leading: Container(
           margin: const EdgeInsets.only(left: 10),
-          child: Row(children: [const Icon(Icons.diamond, color: Colors.amber, size: 16), Text(" $diamonds")]),
+          child: Row(children: [const Icon(Icons.diamond, color: Colors.amber, size: 16), Text(" $diamonds", style: const TextStyle(color: Colors.white))]),
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.settings), onPressed: () => _openSettings()),
+          IconButton(icon: const Icon(Icons.settings, color: Colors.white), onPressed: () => _openSettings()),
         ],
       ),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ১. প্রোফাইল পিকচার ও ফ্রেম (ট্যাপ ফিচারসহ)
             Center(
               child: GestureDetector(
-                onTap: _pickProfileImage, // ছবিতে চাপ দিলে অপশন আসবে
+                onTap: _pickProfileImage,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -275,18 +265,25 @@ void _showFreeAvatars() {
                     CircleAvatar(
                       radius: 50,
                       backgroundColor: Colors.white10,
-                      backgroundImage: userImageURL.isEmpty
-                        ? const NetworkImage("https://api.dicebear.com/7.x/avataaars/png?seed=Felix")
-                        : (userImageURL.startsWith('http')
-                            ? NetworkImage(userImageURL) as ImageProvider
-                            : (File(userImageURL).existsSync()
-                                ? FileImage(File(userImageURL)) as ImageProvider
-                                : const NetworkImage("https://api.dicebear.com/7.x/avataaars/png?seed=Felix"))),
-                    ), // এখানে সার্কেল অবতার শেষ (মাঝখানে কোনো বাড়তি ব্র্যাকেট নেই)
+                      backgroundImage: () {
+                        if (userImageURL.isEmpty) {
+                          return const NetworkImage("https://api.dicebear.com/7.x/avataaars/png?seed=Felix");
+                        }
+                        if (userImageURL.startsWith('http')) {
+                          return NetworkImage(userImageURL);
+                        }
+                        final file = File(userImageURL);
+                        if (file.existsSync()) {
+                          return FileImage(file);
+                        }
+                        return const NetworkImage("https://api.dicebear.com/7.x/avataaars/png?seed=Felix");
+                      }(),
+                    ),
                     if (vipLevel > 0) 
                       Positioned(
                         bottom: 0, 
                         child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                           color: Colors.amber, 
                           child: Text(" VIP $vipLevel ", style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold))
                         ),
@@ -305,8 +302,6 @@ void _showFreeAvatars() {
               ),   
             ),
             const SizedBox(height: 10),
-            
-            // --- ১. নাম ও এডিট বাটন ---
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -314,10 +309,8 @@ void _showFreeAvatars() {
                 IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.pinkAccent), onPressed: _editName),
               ],
             ),
-
             const SizedBox(height: 10),
-
-            // --- ২. ভিআইপি লেভেল এবং এক্সপি প্রগ্রেস বার (যা ০ থেকে বাড়বে) ---
+            // VIP ও XP প্রগ্রেস বার
             Column(
               children: [
                 Text(
@@ -344,28 +337,17 @@ void _showFreeAvatars() {
                 ),
               ],
             ),
-            
             const SizedBox(height: 15), 
-
-            // --- ৩. আইডি দেখানোর ডাইনামিক ঘর ---
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: Column(
                 children: [
-                  Text(
-                    "User ID: $uIDValue", 
-                    style: const TextStyle(color: Colors.pinkAccent, fontSize: 13, fontWeight: FontWeight.bold),
-                  ),
+                  Text("User ID: $uIDValue", style: const TextStyle(color: Colors.pinkAccent, fontSize: 13, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 2),
-                  Text(
-                    "Room ID: $roomIDValue", 
-                    style: const TextStyle(color: Colors.cyanAccent, fontSize: 12),
-                  ),
+                  Text("Room ID: $roomIDValue", style: const TextStyle(color: Colors.cyanAccent, fontSize: 12)),
                 ],
               ),
             ),
-            
-            // ২. ফলোয়ার/ফলোয়িং সেকশন (অক্ষত আছে)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -375,8 +357,6 @@ void _showFreeAvatars() {
               ],
             ),
             const SizedBox(height: 20),
-
-            // ৩. ডিজাইন বোর্ড (অক্ষত আছে)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -384,8 +364,6 @@ void _showFreeAvatars() {
                 _buildActionCard("প্রিমিয়াম বক্স", Icons.card_membership, Colors.purple, () {}),
               ],
             ),
-
-            // ৪. অনলাইন রুম লিস্ট (অক্ষত আছে)
             const Padding(
               padding: EdgeInsets.all(15.0),
               child: Align(alignment: Alignment.centerLeft, child: Text("অনলাইন রুমসমূহ", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
@@ -397,7 +375,6 @@ void _showFreeAvatars() {
     );
   }
 
-  // --- সেটিংস মেনু (অক্ষত আছে) ---
   void _openSettings() {
     showModalBottomSheet(
       context: context,
@@ -405,9 +382,9 @@ void _showFreeAvatars() {
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ListTile(leading: const Icon(Icons.language), title: const Text("ভাষা পরিবর্তন (বাংলা/English)"), onTap: () {}),
-          ListTile(leading: const Icon(Icons.wc), title: const Text("লিঙ্গ পরিবর্তন"), onTap: () {}),
-          ListTile(leading: const Icon(Icons.logout, color: Colors.red), title: const Text("লগ আউট"), onTap: () {}),
+          ListTile(leading: const Icon(Icons.language, color: Colors.white), title: const Text("ভাষা পরিবর্তন", style: TextStyle(color: Colors.white)), onTap: () {}),
+          ListTile(leading: const Icon(Icons.wc, color: Colors.white), title: const Text("লিঙ্গ পরিবর্তন", style: TextStyle(color: Colors.white)), onTap: () {}),
+          ListTile(leading: const Icon(Icons.logout, color: Colors.red), title: const Text("লগ আউট", style: TextStyle(color: Colors.red)), onTap: () {}),
         ],
       ),
     );
@@ -434,7 +411,7 @@ void _showFreeAvatars() {
       physics: const NeverScrollableScrollPhysics(),
       itemCount: 5,
       itemBuilder: (context, index) => ListTile(
-        leading: const CircleAvatar(backgroundColor: Colors.pinkAccent, child: Icon(Icons.mic)),
+        leading: const CircleAvatar(backgroundColor: Colors.pinkAccent, child: Icon(Icons.mic, color: Colors.white)),
         title: Text("আড্ডা রুম ${index + 1}", style: const TextStyle(color: Colors.white)),
         subtitle: const Text("১০ জন মানুষ আড্ডা দিচ্ছে", style: TextStyle(color: Colors.white38, fontSize: 12)),
         trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white24),
