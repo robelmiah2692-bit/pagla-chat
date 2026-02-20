@@ -26,7 +26,9 @@ class _ProfilePageState extends State<ProfilePage> {
   int following = 0;
   bool hasPremiumCard = false; 
   bool isVIP = false;         
-
+  List<String> maleAvatars = List.generate(10, (i) => "https://api.dicebear.com/7.x/avataaars/png?seed=male$i");
+  List<String> femaleAvatars = List.generate(10, (i) => "https://api.dicebear.com/7.x/avataaars/png?seed=female$i");
+  
   @override
   void initState() {
     super.initState();
