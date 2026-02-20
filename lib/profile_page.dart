@@ -281,14 +281,25 @@ class _ProfilePageState extends State<ProfilePage> {
                               fit: BoxFit.cover, width: 100, height: 100,
                               errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white, size: 50),
                             )
-                          : Image.file(
-                              File(userImageURL),
-                              fit: BoxFit.cover, width: 100, height: 100,
-                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white, size: 50),
-                            ),
-                    ),
-                  ),
-                  if (vipLevel > 0) Positioned(bottom: 0, child: Container(padding: const EdgeInsets.symmetric(horizontal: 4), color: Colors.amber, child: Text(" VIP $vipLevel ", style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold)))),
+                          : Builder(
+                              builder: (context) {
+                                try {
+                                  final file = File(userImageURL);
+                                  if (file.existsSync()) {
+                                  return Image.file(
+                                     file,
+                                     fit: BoxFit.cover,
+                                      width: 100,
+                                      height: 100,
+                                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white, size: 50),
+                                   );
+                                 }
+                               } catch (e) {
+                               }
+                               return const Icon(Icons.person, color: Colors.white, size: 50);
+                             },  
+                           ),
+                    if (vipLevel > 0) Positioned(bottom: 0, child: Container(padding: const EdgeInsets.symmetric(horizontal: 4), color: Colors.amber, child: Text(" VIP $vipLevel ", style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold)))),
                   Positioned(bottom: 5, right: 5, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Colors.pinkAccent, shape: BoxShape.circle), child: const Icon(Icons.camera_alt, size: 15, color: Colors.white))),
                 ]),
               ),   
@@ -302,7 +313,7 @@ class _ProfilePageState extends State<ProfilePage> {
             Column(children: [
               Text("VIP Level $vipLevel (XP: $xp / 1000)", style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
               const SizedBox(height: 5),
-              Container(width: 180, height: 10, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(10)), child: ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: (xp % 1000) / 1000, valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber), backgroundColor: Colors.transparent))),
+              Container(width: 180, height: 10, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(10)), child: ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: xp > 0 ? (xp % 1000) / 1000 : 0.0, valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber), backgroundColor: Colors.transparent))),
             ]),
             const SizedBox(height: 15),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [_buildStat("ফলোয়ার", followers), const SizedBox(width: 30), _buildStat("ফলোয়িং", following)]),
