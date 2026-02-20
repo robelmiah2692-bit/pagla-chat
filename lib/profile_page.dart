@@ -299,6 +299,10 @@ void _showFreeAvatars() {
                         child: const Icon(Icons.camera_alt, size: 15, color: Colors.white)
                       )
                     ),
+                  ],
+                ),
+              ),   
+            ),
             const SizedBox(height: 10),
             
             // --- ১. নাম ও এডিট বাটন ---
