@@ -42,16 +42,22 @@ class _ProfilePageState extends State<ProfilePage> {
       var userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
       if (userDoc.exists) {
+        var imagePath = userDoc.data()?['profileImage'] ?? userDoc.data()?['profilePic'] ?? "";
+        
         setState(() {
           userName = userDoc.data()?['name'] ?? userName;
           diamonds = userDoc.data()?['diamonds'] ?? diamonds;
           xp = userDoc.data()?['xp'] ?? xp;
           uIDValue = userDoc.data()?['uID'] ?? "885522"; 
           roomIDValue = userDoc.data()?['roomID'] ?? "441100";
-          userImageURL = userDoc.data()?['profilePic'] ?? "";
           gender = userDoc.data()?['gender'] ?? gender;
           age = userDoc.data()?['age'] ?? age;
+
+          userImageURL = imagePath; 
         });
+      }
+    }
+  }
       } else {
         // আপনার অরিজিনাল আইডি জেনারেশন লজিক
         String newUID = (100000 + Random().nextInt(900000)).toString();
