@@ -40,12 +40,11 @@ class _ProfilePageState extends State<ProfilePage> {
           userName = userDoc.data()?['name'] ?? userName;
           diamonds = userDoc.data()?['diamonds'] ?? diamonds;
           xp = userDoc.data()?['xp'] ?? xp;
-          // তোমার UserModel এর uID এবং roomID এখানে সেট হবে
           uIDValue = userDoc.data()?['uID'] ?? "885522"; 
           roomIDValue = userDoc.data()?['roomID'] ?? "441100";
+          userImageURL = userDoc.data()?['profileImage'] ?? ""; // সঠিক জায়গায় ইমেজ লোড
         });
       } else {
-        userImageURL = userDoc.data()?['profileImage'] ?? "";
         // নতুন ইউজার হলে ডাটাবেসে প্রথমবার সেভ করো
         String newUID = (100000 + Random().nextInt(900000)).toString();
         String newRID = (100000 + Random().nextInt(900000)).toString();
@@ -57,10 +56,12 @@ class _ProfilePageState extends State<ProfilePage> {
           'diamonds': diamonds,
           'xp': xp,
           'status': 'active',
+          'profileImage': "", // নতুন ইউজারের জন্য খালি ইমেজ
         });
         setState(() {
           uIDValue = newUID;
           roomIDValue = newRID;
+          userImageURL = "";
         });
       }
     }
