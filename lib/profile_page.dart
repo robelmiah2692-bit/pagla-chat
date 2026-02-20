@@ -48,7 +48,7 @@ class _ProfilePageState extends State<ProfilePage> {
           xp = userDoc.data()?['xp'] ?? xp;
           uIDValue = userDoc.data()?['uID'] ?? "885522"; 
           roomIDValue = userDoc.data()?['roomID'] ?? "441100";
-          userImageURL = userDoc.data()?['profileImage'] ?? "";
+          userImageURL = userDoc.data()?['profilePic'] ?? "";
           gender = userDoc.data()?['gender'] ?? gender;
           age = userDoc.data()?['age'] ?? age;
         });
