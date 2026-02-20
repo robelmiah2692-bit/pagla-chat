@@ -269,12 +269,21 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Stack(alignment: Alignment.center, children: [
                   Container(width: 120, height: 120, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: vipLevel > 0 ? Colors.amber : Colors.grey, width: 4))),
                   CircleAvatar(
-                    radius: 50, backgroundColor: Colors.white10,
-                    backgroundImage: () {
-                      if (userImageURL.isEmpty) return const NetworkImage("https://api.dicebear.com/7.x/avataaars/png?seed=Felix") as ImageProvider;
-                      if (userImageURL.startsWith('http')) return NetworkImage(userImageURL) as ImageProvider;
-                      return FileImage(File(userImageURL)) as ImageProvider;
-                    }(),
+                    radius: 50,
+                    backgroundColor: Colors.white10,
+                    child: ClipOval(
+                      child: userImageURL.isEmpty || userImageURL.startsWith('https')
+                          ? Image.network(
+                              userImageURL.isEmpty ? "https://api.dicebear.com/7.x/avataaars/png?seed=Felix" : userImageURL,
+                              fit: BoxFit.cover, width: 100, height: 100,
+                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white, size: 50),
+                            )
+                          : Image.file(
+                              File(userImageURL),
+                              fit: BoxFit.cover, width: 100, height: 100,
+                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white, size: 50),
+                            ),
+                    ),
                   ),
                   if (vipLevel > 0) Positioned(bottom: 0, child: Container(padding: const EdgeInsets.symmetric(horizontal: 4), color: Colors.amber, child: Text(" VIP $vipLevel ", style: const TextStyle(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold)))),
                   Positioned(bottom: 5, right: 5, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Colors.pinkAccent, shape: BoxShape.circle), child: const Icon(Icons.camera_alt, size: 15, color: Colors.white))),
