@@ -55,9 +55,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
           userImageURL = imagePath; 
         });
-      }
-    }
-  }
       } else {
         // আপনার অরিজিনাল আইডি জেনারেশন লজিক
         String newUID = (100000 + Random().nextInt(900000)).toString();
