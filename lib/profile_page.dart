@@ -15,8 +15,6 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   // --- ১. আপনার অরিজিনাল ডাটা (একদম অক্ষত) ---
   String userImageURL = ""; 
-  List<String> maleAvatars = List.generate(10, (i) => "https://api.dicebear.com/7.x/avataaars/png?seed=male$i");
-  List<String> femaleAvatars = List.generate(10, (i) => "https://api.dicebear.com/7.x/avataaars/png?seed=female$i");
   String userName = "পাগলা ইউজার";
   String uIDValue = "885522"; 
   String roomIDValue = "441100"; 
