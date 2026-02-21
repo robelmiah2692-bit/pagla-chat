@@ -45,15 +45,18 @@ class _ProfilePageState extends State<ProfilePage> {
         var imagePath = userDoc.data()?['profileImage'] ?? userDoc.data()?['profilePic'] ?? "";
         
         setState(() {
-          userName = userDoc.data()?['name'] ?? userName;
-          diamonds = userDoc.data()?['diamonds'] ?? diamonds;
-          xp = userDoc.data()?['xp'] ?? xp;
-          uIDValue = userDoc.data()?['uID'] ?? "885522"; 
-          roomIDValue = userDoc.data()?['roomID'] ?? "441100";
-          gender = userDoc.data()?['gender'] ?? gender;
-          age = userDoc.data()?['age'] ?? age;
+          var data = userDoc.data();
+          userName    = data?['name']?.toString() ?? userName;
+          uIDValue    = data?['uID']?.toString() ?? "885522";
+          roomIDValue = data?['roomID']?.toString() ?? "441100";
+          gender      = data?['gender']?.toString() ?? gender;
 
-          userImageURL = imagePath; 
+          // সংখ্যাগুলোর জন্য নিরাপদ কনভার্ট
+          diamonds    = int.tryParse(data?['diamonds']?.toString() ?? "0") ?? diamonds;
+          xp          = int.tryParse(data?['xp']?.toString() ?? "0") ?? xp;
+          age         = int.tryParse(data?['age']?.toString() ?? "22") ?? age;
+
+          userImageURL = imagePath.toString();
         });
       } else {
         // আপনার অরিজিনাল আইডি জেনারেশন লজিক
