@@ -95,7 +95,19 @@ class _ProfilePageState extends State<ProfilePage> {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Column(mainAxisSize: MainAxisSize.min, children: [
           const Padding(padding: EdgeInsets.all(15), child: Text("সেটিংস", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
-          ListTile(leading: const Icon(Icons.wc, color: Colors.pinkAccent), title: Text("লিঙ্গ পরিবর্তন (বর্তমান: $gender)", style: const TextStyle(color: Colors.white)), onTap: () { setState(() => gender = (gender == "পুরুষ") ? "নারী" : "পুরুষ"); Navigator.pop(context); }),
+          ListTile(
+          leading: const Icon(Icons.wc, color: Colors.pinkAccent),
+          title: Text("লিঙ্গ পরিবর্তন (বর্তমান: $gender)", style: const TextStyle(color: Colors.white)),
+          trailing: PopupMenuButton<String>(
+            color: const Color(0xFF1E1E2F),
+            icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+            onSelected: (val) => setState(() => gender = val),
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(value: "পুরুষ", child: Text("পুরুষ", style: TextStyle(color: Colors.white))),
+              const PopupMenuItem(value: "নারী", child: Text("নারী", style: TextStyle(color: Colors.white))),
+            ],
+          ),
+        ),
           ListTile(leading: const Icon(Icons.cake, color: Colors.orangeAccent), title: Text("বয়স পরিবর্তন (বর্তমান: $age)", style: const TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _showAgePicker(); }),
           ListTile(leading: const Icon(Icons.block, color: Colors.redAccent), title: const Text("ব্লকলিস্ট", style: TextStyle(color: Colors.white)), onTap: () => Navigator.pop(context)),
           ListTile(leading: const Icon(Icons.logout, color: Colors.redAccent), title: const Text("লগ আউট", style: TextStyle(color: Colors.redAccent)), onTap: () => Navigator.pop(context)),
