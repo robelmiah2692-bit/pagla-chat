@@ -26,6 +26,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool isFollowing = false;
   bool hasPremiumCard = true; 
   bool isVIP = false; 
+  DateTime premiumExpiryDate = DateTime.now();
   
   // আপনার দেওয়া ছবি অনুযায়ী VIP স্টিকারের লিঙ্ক লজিক
   String getVipBadge(int level) {
@@ -378,3 +379,4 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+}
