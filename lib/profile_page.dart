@@ -70,10 +70,15 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // আপনার অরিজিনাল লেভেল ক্যালকুলেশন
   int getVipLevel() {
-    if (xp >= 25000) return 8;
-    if (xp >= 6000) return 3;
-    if (xp >= 2000) return 1;
-    return 0;
+    if (xp >= 35000) return 8; // ভিআইপি ৮ (সর্বোচ্চ)
+    if (xp >= 30000) return 7;
+    if (xp >= 25000) return 6;
+    if (xp >= 20000) return 5;
+    if (xp >= 13000) return 4;
+    if (xp >= 9000)  return 3;
+    if (xp >= 5000)  return 2;
+    if (xp >= 2500)  return 1; // ভিআইপি ১ শুরু
+    return 0; 
   }
 
   // আপনার অরিজিনাল নাম এডিট (অক্ষত)
@@ -166,9 +171,16 @@ class _ProfilePageState extends State<ProfilePage> {
   // ৬ নং দাবি: ডায়মন্ড স্টোর পেমেন্ট লজিক
   void _openDiamondStore() {
     showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1E1E2F), builder: (context) => Column(mainAxisSize: MainAxisSize.min, children: [
-      _buildDiamondOption("৬০০০ ডাইমন্ড", "১৫০ টাকা"),
-      _buildDiamondOption("৫০০০০০ ডাইমন্ড", "৮০০ টাকা"),
-    ]));
+      _buildDiamondOption("৬,০০০ ডায়মন্ড", "১৫০ টাকা"),
+          _buildDiamondOption("১২,০০০ ডায়মন্ড", "৩০০ টাকা"),
+          _buildDiamondOption("২৫,০০০ ডায়মন্ড", "৬০০ টাকা"),
+          _buildDiamondOption("৬০,০০০ ডায়মন্ড", "১,৫০০ টাকা"),
+          _buildDiamondOption("১,২০,০০০ ডায়মন্ড", "৩,০০০ টাকা"),
+          _buildDiamondOption("৫,০০,০০০ ডায়মন্ড", "১২,০০০ টাকা"), // সঠিক রেইট
+          const SizedBox(height: 15),
+        ],
+      ),
+    );
   }
 
   Widget _buildDiamondOption(String amount, String price) => ListTile(
