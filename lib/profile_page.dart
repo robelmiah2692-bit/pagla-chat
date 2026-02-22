@@ -197,7 +197,47 @@ class _ProfilePageState extends State<ProfilePage> {
       ListTile(leading: const Icon(Icons.payment, color: Colors.blue), title: const Text("Google Pay", style: TextStyle(color: Colors.white))),
     ]));
   }
-
+ void _openPremiumStore() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E2F),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Premium Store", style: TextStyle(color: Colors.amber, fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            // আপনার পাঠানো সেই মিডিয়াম সাইজ প্রিমিয়াম কার্ড
+            Image.network("https://i.ibb.co/example/premium_card.png", width: 200), 
+            const SizedBox(height: 15),
+            const Text("মুল্য: ৬,০০০ ডায়মন্ড", style: TextStyle(color: Colors.cyanAccent, fontSize: 16)),
+            const SizedBox(height: 15),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(150, 45)),
+              onPressed: () {
+                // ডায়মন্ড চেক করার লজিক (আপনার ভ্যারিয়েবল diamonds হলে সেটা ব্যবহার করুন)
+                if (diamonds >= 6000) {
+                  setState(() {
+                    diamonds -= 6000;
+                    hasPremiumCard = true;
+                    premiumExpiryDate = DateTime.now().add(const Duration(days: 30));
+                  });
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("অভিনন্দন! আপনি প্রিমিয়াম মেম্বার হলেন।")));
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("পর্যাপ্ত ডায়মন্ড নেই!")));
+                }
+              },
+              child: const Text("BUY NOW"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
   @override
   Widget build(BuildContext context) {
     int vipLevel = getVipLevel();
@@ -317,3 +357,25 @@ class _ProfilePageState extends State<ProfilePage> {
     ),
   );
 }
+// ব্যাকপ্যাকের ভেতর কার্ড দেখানোর উইজেট
+  Widget _buildBackpackItem() {
+    if (!hasPremiumCard) return const Center(child: Text("আপনার ব্যাকপ্যাক খালি", style: TextStyle(color: Colors.white54)));
+
+    int daysLeft = premiumExpiryDate.difference(DateTime.now()).inDays;
+
+    return Card(
+      color: const Color(0xFF2A2A3D),
+      margin: const EdgeInsets.all(10),
+      child: ListTile(
+        leading: Image.network("https://i.ibb.co/example/premium_card_small.png", width: 40),
+        title: const Text("Pagla Chat Premium", style: TextStyle(color: Colors.white)),
+        subtitle: Text("মেয়াদ শেষ: $daysLeft দিন বাকি", style: const TextStyle(color: Colors.orangeAccent)),
+        trailing: ElevatedButton(
+          onPressed: () {
+            // কার্ড ব্যবহার করার লজিক এখানে হবে
+          },
+          child: const Text("Wear"),
+        ),
+      ),
+    );
+  }
