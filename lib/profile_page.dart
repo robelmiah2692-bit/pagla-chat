@@ -121,7 +121,8 @@ class _ProfilePageState extends State<ProfilePage> {
               );
             },
           ),
-
+        }
+ 
   // আপনার অরিজিনাল ইমেজ পিকার + ৩ নং দাবি (২০টি অবতার)
   void _showFreeAvatars() {
     List<String> avatars = (gender == "পুরুষ") ? maleAvatars : femaleAvatars;
