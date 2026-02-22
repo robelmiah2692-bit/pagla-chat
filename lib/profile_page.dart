@@ -254,9 +254,6 @@ class _ProfilePageState extends State<ProfilePage> {
 Widget _buildStoreCardTab() {
   return Column(
     children: [
-      Widget _buildStoreCardTab() {
-  return Column(
-    children: [
       // ✅ আমি এখানে ডাইরেক্ট লিঙ্ক দিয়ে দিয়েছি, এখন ছবি আসবেই
       Image.network(
         "https://i.postimg.cc/85M0L7vM/Picsart-26-02-22-06-13-24-224.jpg", 
