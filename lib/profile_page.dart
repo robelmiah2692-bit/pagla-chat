@@ -110,11 +110,17 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
           ListTile(leading: const Icon(Icons.cake, color: Colors.orangeAccent), title: Text("বয়স পরিবর্তন (বর্তমান: $age)", style: const TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _showAgePicker(); }),
           ListTile(leading: const Icon(Icons.block, color: Colors.redAccent), title: const Text("ব্লকলিস্ট", style: TextStyle(color: Colors.white)), onTap: () => Navigator.pop(context)),
-          ListTile(leading: const Icon(Icons.logout, color: Colors.redAccent), title: const Text("লগ আউট", style: TextStyle(color: Colors.redAccent)), onTap: () => Navigator.pop(context)),
-          const SizedBox(height: 20),
-      ]),
-    );
-  }
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.redAccent),
+            title: const Text("লগ আউট", style: TextStyle(color: Colors.redAccent)),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+                (Route<dynamic> route) => false,
+              );
+            },
+          ),
 
   // আপনার অরিজিনাল ইমেজ পিকার + ৩ নং দাবি (২০টি অবতার)
   void _showFreeAvatars() {
@@ -173,7 +179,6 @@ class _ProfilePageState extends State<ProfilePage> {
           Center(child: Stack(alignment: Alignment.center, children: [
             if (vipLevel > 0) Image.network("https://png.pngtree.com/png-clipart/20230501/original/pngtree-golden-vip-frame-png-image_9128509.png", width: 130, height: 130),
             GestureDetector(onTap: _pickProfileImage, child: CircleAvatar(radius: 50, backgroundImage: userImageURL.isEmpty ? NetworkImage(maleAvatars[0]) : (userImageURL.startsWith('http') ? NetworkImage(userImageURL) : FileImage(File(userImageURL)) as ImageProvider))),
-            if (hasPremiumCard) const Positioned(top: 5, right: 5, child: Icon(Icons.verified, color: Colors.blueAccent, size: 20)),
           ])),
           const SizedBox(height: 10),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text(userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)), IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.pinkAccent), onPressed: _editName)]),
