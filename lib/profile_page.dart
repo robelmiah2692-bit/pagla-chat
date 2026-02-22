@@ -198,54 +198,175 @@ class _ProfilePageState extends State<ProfilePage> {
       ListTile(leading: const Icon(Icons.payment, color: Colors.blue), title: const Text("Google Pay", style: TextStyle(color: Colors.white))),
     ]));
   }
- void _openPremiumStore() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1E1E2F),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
+  void _openPremiumStore() {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true, // পুরো স্ক্রিন জুড়ে দেখানোর জন্য
+    backgroundColor: const Color(0xFF1E1E2F),
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (context) => DefaultTabController(
+      length: 4, // কয়টি ট্যাব হবে (কার্ড, ফ্রেম, এন্ট্রি, অন্যান্য)
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.7, // স্ক্রিনের ৭০% উচ্চতা
+        padding: const EdgeInsets.all(10),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("Premium Store", style: TextStyle(color: Colors.amber, fontSize: 20, fontWeight: FontWeight.bold)),
+            // উপরে ট্যাব বার
+            const TabBar(
+              isScrollable: true,
+              indicatorColor: Colors.amber,
+              labelColor: Colors.amber,
+              unselectedLabelColor: Colors.white54,
+              tabs: [
+                Tab(text: "Cards"),
+                Tab(text: "Frames"),
+                Tab(text: "Entry Effects"),
+                Tab(text: "Special"),
+              ],
+            ),
             const SizedBox(height: 20),
-            // আপনার পাঠানো সেই মিডিয়াম সাইজ প্রিমিয়াম কার্ড
-            Image.network("https://i.ibb.co/example/premium_card.png", width: 200), 
-            const SizedBox(height: 15),
-            const Text("মুল্য: ৬,০০০ ডায়মন্ড", style: TextStyle(color: Colors.cyanAccent, fontSize: 16)),
-            const SizedBox(height: 15),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(150, 45)),
-              onPressed: () {
-                // ডায়মন্ড চেক করার লজিক (আপনার ভ্যারিয়েবল diamonds হলে সেটা ব্যবহার করুন)
-                if (diamonds >= 6000) {
-                  setState(() {
-                    diamonds -= 6000;
-                    hasPremiumCard = true;
-                    premiumExpiryDate = DateTime.now().add(const Duration(days: 30));
-                  });
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("অভিনন্দন! আপনি প্রিমিয়াম মেম্বার হলেন।")));
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("পর্যাপ্ত ডায়মন্ড নেই!")));
-                }
-              },
-              child: const Text("BUY NOW"),
+            // ট্যাবের ভেতরের কন্টেন্ট
+            Expanded(
+              child: TabBarView(
+                children: [
+                  // ১. কার্ড ট্যাব (আপনার বর্তমান কোড এখানে)
+                  _buildStoreCardTab(),
+                  
+                  // ২. ফ্রেম ট্যাব (ভবিষ্যতের জন্য খালি বা মেসেজ)
+                  const Center(child: Text("Frames Coming Soon...", style: TextStyle(color: Colors.white54))),
+                  
+                  // ৩. এন্ট্রি ইফেক্ট
+                  const Center(child: Text("Effects Coming Soon...", style: TextStyle(color: Colors.white54))),
+                  
+                  // ৪. স্পেশাল
+                  const Center(child: Text("More Items...", style: TextStyle(color: Colors.white54))),
+                ],
+              ),
             ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
+// কার্ড ট্যাবের ডিজাইন আলাদা করে নিচে দিয়ে দিলাম
+Widget _buildStoreCardTab() {
+  return Column(
+    children: [
+      Image.network("https://i.ibb.co/L8p61D5/premium-card.png", width: 180), // আসল লিঙ্ক বসাবেন
+      const SizedBox(height: 15),
+      const Text("Pagla Premium Card", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+      const Text("মুল্য: ৬,০০০ ডায়মন্ড", style: TextStyle(color: Colors.cyanAccent, fontSize: 16)),
+      const SizedBox(height: 20),
+      ElevatedButton(
+        style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(180, 45)),
+        onPressed: () {
+          if (diamonds >= 6000) {
+            setState(() {
+              diamonds -= 6000;
+              hasPremiumCard = true;
+              premiumExpiryDate = DateTime.now().add(const Duration(days: 30));
+            });
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("অভিনন্দন! আপনি প্রিমিয়াম মেম্বার হলেন।")));
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("পর্যাপ্ত ডায়মন্ড নেই!")));
+          }
+        },
+        child: const Text("BUY NOW"),
+      ),
+    ],
+  );
+}
+ 
   void _openBackpack() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1E1E2F),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => _buildBackpackItem(), 
-    );
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: const Color(0xFF1E1E2F),
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (context) => DefaultTabController(
+      length: 4, // স্টোরের সাথে মিল রেখে ৪টি ট্যাব
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          children: [
+            // উপরে ব্যাকপ্যাক ট্যাব বার
+            const TabBar(
+              isScrollable: true,
+              indicatorColor: Colors.pinkAccent,
+              labelColor: Colors.pinkAccent,
+              unselectedLabelColor: Colors.white54,
+              tabs: [
+                Tab(text: "My Cards"),
+                Tab(text: "My Frames"),
+                Tab(text: "My Effects"),
+                Tab(text: "Others"),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // ট্যাবের ভেতরের কন্টেন্ট
+            Expanded(
+              child: TabBarView(
+                children: [
+                  // ১. আমার কার্ডসমূহ (এখানে আপনার কেনা কার্ডটি থাকবে)
+                  _buildMyCardsTab(),
+                  
+                  // ২. আমার ফ্রেমসমূহ (ভবিষ্যতের জন্য)
+                  const Center(child: Text("আপনার কোনো ফ্রেম নেই", style: TextStyle(color: Colors.white54))),
+                  
+                  // ৩. আমার ইফেক্টসমূহ
+                  const Center(child: Text("আপনার কোনো ইফেক্ট নেই", style: TextStyle(color: Colors.white54))),
+                  
+                  // ৪. অন্যান্য
+                  const Center(child: Text("ব্যাকপ্যাক খালি", style: TextStyle(color: Colors.white54))),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+// কেনা কার্ড দেখানোর উইজেট
+Widget _buildMyCardsTab() {
+  if (!hasPremiumCard) {
+    return const Center(child: Text("আপনার কাছে কোনো প্রিমিয়াম কার্ড নেই", style: TextStyle(color: Colors.white54)));
   }
+
+  int daysLeft = premiumExpiryDate.difference(DateTime.now()).inDays;
+
+  return ListView(
+    children: [
+      Card(
+        color: const Color(0xFF2A2A3D),
+        margin: const EdgeInsets.all(10),
+        child: ListTile(
+          leading: const Icon(Icons.card_membership, color: Colors.amber, size: 30),
+          title: const Text("Pagla Chat Premium", style: TextStyle(color: Colors.white)),
+          subtitle: Text("মেয়াদ: $daysLeft দিন বাকি", style: const TextStyle(color: Colors.orangeAccent)),
+          trailing: ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            onPressed: () {
+              setState(() {
+                isVIP = true; // কার্ড পরলে ফ্রেম অন হবে
+              });
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("প্রিমিয়াম কার্ডটি পরিধান করা হয়েছে!"))
+              );
+            },
+            child: const Text("Wear"),
+          ),
+        ),
+      ),
+    ],
+  );
+}
   
   @override
   Widget build(BuildContext context) {
