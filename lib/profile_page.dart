@@ -114,14 +114,19 @@ class _ProfilePageState extends State<ProfilePage> {
             leading: const Icon(Icons.logout, color: Colors.redAccent),
             title: const Text("লগ আউট", style: TextStyle(color: Colors.redAccent)),
             onTap: () {
-              Navigator.pop(context);
+              Navigator.pop(context); // সেটিংস বন্ধ হবে
+              // মেইন ফাইলের LoginScreen-এ নিয়ে যাবে
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const LoginPage()),
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
                 (Route<dynamic> route) => false,
               );
             },
           ),
           const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
  
   // আপনার অরিজিনাল ইমেজ পিকার + ৩ নং দাবি (২০টি অবতার)
   void _showFreeAvatars() {
