@@ -254,7 +254,8 @@ class _ProfilePageState extends State<ProfilePage> {
 Widget _buildStoreCardTab() {
   return Column(
     children: [
-      Image.network("https://i.ibb.co/L8p61D5/premium-card.png", width: 180), // আসল লিঙ্ক বসাবেন
+      // ✅ আপনার পাঠানো আসল কার্ডের ছবি এখন এখানে
+      Image.network("https://i.ibb.co/Xf8z0p5k/Picsart-26-02-22-06-13-24-224.jpg", width: 250),
       const SizedBox(height: 15),
       const Text("Pagla Premium Card", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
       const Text("মুল্য: ৬,০০০ ডায়মন্ড", style: TextStyle(color: Colors.cyanAccent, fontSize: 16)),
@@ -346,7 +347,12 @@ Widget _buildMyCardsTab() {
         color: const Color(0xFF2A2A3D),
         margin: const EdgeInsets.all(10),
         child: ListTile(
-          leading: const Icon(Icons.card_membership, color: Colors.amber, size: 30),
+          // ✅ তার বদলে এইটা বসিয়ে দিন
+          leading: Image.network(
+          "https://i.ibb.co/Xf8z0p5k/Picsart-26-02-22-06-13-24-224.jpg", 
+           width: 60, 
+           fit: BoxFit.contain
+         ),
           title: const Text("Pagla Chat Premium", style: TextStyle(color: Colors.white)),
           subtitle: Text("মেয়াদ: $daysLeft দিন বাকি", style: const TextStyle(color: Colors.orangeAccent)),
           trailing: ElevatedButton(
