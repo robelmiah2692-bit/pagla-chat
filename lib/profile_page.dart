@@ -238,6 +238,14 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+  void _openBackpack() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E2F),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => _buildBackpackItem(), 
+    );
+  }
   
   @override
   Widget build(BuildContext context) {
@@ -330,8 +338,9 @@ class _ProfilePageState extends State<ProfilePage> {
           // ৭ ও ৯ নং দাবি: ছোট ৩টি বক্স
           Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
             _buildActionBox("Diamond", Icons.diamond, Colors.cyan, _openDiamondStore),
-            _buildActionBox("Premium", Icons.card_membership, Colors.purple, () {}),
-            _buildActionBox("Backpack", Icons.backpack, Colors.orange, () {}),
+            // এখানে () {} বদলে ফাংশনের নাম বসিয়ে দিলাম
+            _buildActionBox("Premium", Icons.card_membership, Colors.purple, _openPremiumStore),
+            _buildActionBox("Backpack", Icons.backpack, Colors.orange, _openBackpack),
           ]),
 
           const Padding(padding: EdgeInsets.all(15), child: Align(alignment: Alignment.centerLeft, child: Text("অনলাইন রুমসমূহ", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)))),
