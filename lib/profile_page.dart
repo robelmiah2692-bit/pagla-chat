@@ -254,8 +254,21 @@ class _ProfilePageState extends State<ProfilePage> {
 Widget _buildStoreCardTab() {
   return Column(
     children: [
-      // ✅ আপনার পাঠানো আসল কার্ডের ছবি এখন এখানে
-      Image.network("https://i.ibb.co/Xf8z0p5k/Picsart-26-02-22-06-13-24-224.jpg", width: 250),
+      Widget _buildStoreCardTab() {
+  return Column(
+    children: [
+      // ✅ আমি এখানে ডাইরেক্ট লিঙ্ক দিয়ে দিয়েছি, এখন ছবি আসবেই
+      Image.network(
+        "https://i.postimg.cc/85M0L7vM/Picsart-26-02-22-06-13-24-224.jpg", 
+        width: 250,
+        // ছবি লোড হওয়ার সময় একটু সময় নিলে নিচের লোডারটা দেখাবে
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(child: CircularProgressIndicator(color: Colors.amber));
+        },
+        // যদি কোনো কারণে ছবি না আসে তবে এই আইকন দেখাবে
+        errorBuilder: (context, error, stackTrace) => const Icon(Icons.card_membership, size: 100, color: Colors.amber),
+      ),
       const SizedBox(height: 15),
       const Text("Pagla Premium Card", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
       const Text("মুল্য: ৬,০০০ ডায়মন্ড", style: TextStyle(color: Colors.cyanAccent, fontSize: 16)),
@@ -347,12 +360,12 @@ Widget _buildMyCardsTab() {
         color: const Color(0xFF2A2A3D),
         margin: const EdgeInsets.all(10),
         child: ListTile(
-          // ✅ তার বদলে এইটা বসিয়ে দিন
           leading: Image.network(
-          "https://i.ibb.co/Xf8z0p5k/Picsart-26-02-22-06-13-24-224.jpg", 
-           width: 60, 
-           fit: BoxFit.contain
-         ),
+            "https://i.postimg.cc/85M0L7vM/Picsart-26-02-22-06-13-24-224.jpg", 
+            width: 60, 
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) => const Icon(Icons.card_membership, color: Colors.amber, size: 40),
+          ),
           title: const Text("Pagla Chat Premium", style: TextStyle(color: Colors.white)),
           subtitle: Text("মেয়াদ: $daysLeft দিন বাকি", style: const TextStyle(color: Colors.orangeAccent)),
           trailing: ElevatedButton(
