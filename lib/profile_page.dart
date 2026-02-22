@@ -121,7 +121,7 @@ class _ProfilePageState extends State<ProfilePage> {
               );
             },
           ),
-        }
+          const SizedBox(height: 20),
  
   // আপনার অরিজিনাল ইমেজ পিকার + ৩ নং দাবি (২০টি অবতার)
   void _showFreeAvatars() {
