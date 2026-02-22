@@ -27,6 +27,9 @@ class _ProfilePageState extends State<ProfilePage> {
   bool hasPremiumCard = true; 
   bool isVIP = false; 
   DateTime premiumExpiryDate = DateTime.now();
+  bool hasVip1Items = false; // ভিআইপি ১ এর গিফট পেয়েছে কি না
+  DateTime lastLevelUpDate = DateTime.now(); // কবে লেভেল আপ হয়েছিল (XP কমানোর জন্য)
+  bool isGalleryUnlocked = false; // গ্যালারি পারমিশন
   
   // আপনার দেওয়া ছবি অনুযায়ী VIP স্টিকারের লিঙ্ক লজিক
   String getVipBadge(int level) {
@@ -159,15 +162,50 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _pickProfileImage() {
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), builder: (context) => Wrap(children: [
-      ListTile(leading: const Icon(Icons.face, color: Colors.blue), title: const Text("২০টি রিয়েল অবতার", style: TextStyle(color: Colors.white)), onTap: _showFreeAvatars),
-      ListTile(leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), title: const Text("গ্যালারি", style: TextStyle(color: Colors.white)), onTap: () async {
-        final XFile? image = await ImagePicker().pickImage(source: ImageSource.gallery);
-        if (image != null) setState(() => userImageURL = image.path);
-        Navigator.pop(context);
-      }),
-    ]));
-  }
+  showModalBottomSheet(
+    context: context, 
+    backgroundColor: const Color(0xFF1A1A2E), 
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (context) => Wrap(
+      children: [
+        // ১. অবতার বাটন (এটি সবার জন্য সবসময় ফ্রি থাকবে)
+        ListTile(
+          leading: const Icon(Icons.face, color: Colors.blueAccent), 
+          title: const Text("২০টি রিয়েল অবতার (Free)", style: TextStyle(color: Colors.white)), 
+          onTap: () {
+            Navigator.pop(context); // শিট বন্ধ হবে
+            _showFreeAvatars();     // আপনার সেই ২০ অবতারের লিস্ট দেখাবে
+          }
+        ),
+
+        // ২. গ্যালারি বাটন (এটি শর্ত সাপেক্ষে আনলক হবে)
+        ListTile(
+          leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), 
+          title: const Text("গ্যালারি থেকে ছবি", style: TextStyle(color: Colors.white)), 
+          onTap: () async {
+            // ✅ শর্ত: কার্ড থাকতে হবে অথবা VIP 1 লেভেল হতে হবে
+            if (hasPremiumCard || getVipLevel() >= 1) {
+              Navigator.pop(context);
+              final XFile? image = await ImagePicker().pickImage(source: ImageSource.gallery);
+              if (image != null) {
+                setState(() => userImageURL = image.path);
+              }
+            } else {
+              Navigator.pop(context);
+              // সুন্দর একটি ওয়ার্নিং মেসেজ
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  backgroundColor: Colors.redAccent,
+                  content: Text("গ্যালারি ব্যবহার করতে প্রিমিয়াম কার্ড কিনুন অথবা VIP 1 লেভেলে যান!"),
+                ),
+              );
+            }
+          }
+        ),
+      ],
+    ),
+  );
+}
 
   // ৬ নং দাবি: ডায়মন্ড স্টোর পেমেন্ট লজিক
   void _openDiamondStore() {
@@ -387,6 +425,34 @@ Widget _buildMyCardsTab() {
   @override
   Widget build(BuildContext context) {
     int vipLevel = getVipLevel();
+
+    // ১. VIP 1 হলে অটোমেটিক ব্যাকপ্যাকে আইটেম পাঠানো
+    if (vipLevel >= 1 && !hasVip1Items) {
+      Future.delayed(Duration.zero, () {
+        setState(() {
+          hasVip1Items = true; 
+          // এখানে ভবিষ্যতে ব্যাকপ্যাকে আইটেম ঢোকানোর লজিক লিখবো
+        });
+      });
+    }
+
+    // ২. ২ মাস (৬০ দিন) পর XP কমানোর লজিক
+    int daysSinceUpdate = DateTime.now().difference(lastLevelUpDate).inDays;
+    if (daysSinceUpdate >= 60) {
+      Future.delayed(Duration.zero, () {
+        setState(() {
+          xp -= 500; // XP কমিয়ে দেওয়া হলো
+          if (xp < 0) xp = 0; // XP যেন মাইনাস না হয়
+          lastLevelUpDate = DateTime.now(); // টাইমার রিসেট
+        });
+      });
+    }
+
+    // --- এখান থেকে আপনার আসল UI কোড শুরু হবে (Scaffold) ---
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D0D1A),
+      appBar: AppBar(
+        // ... আপনার আগের সব অ্যাপবার কোড ...
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D1A), // প্রিমিয়াম ডার্ক কালার
       appBar: AppBar(
