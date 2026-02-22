@@ -27,6 +27,23 @@ class _ProfilePageState extends State<ProfilePage> {
   bool hasPremiumCard = true; 
   bool isVIP = false; 
 
+  // আপনার দেওয়া ছবি অনুযায়ী VIP স্টিকারের লিঙ্ক লজিক
+  String getVipBadge(int level) {
+    switch (level) {
+      case 1: return "https://i.ibb.co/example/vip1.png"; // আপনার VIP 1 লিঙ্ক
+      case 2: return "https://i.ibb.co/example/vip2.png"; // আপনার VIP 2 লিঙ্ক
+      case 3: return "https://i.ibb.co/example/vip3.png"; 
+      case 4: return "https://i.ibb.co/example/vip4.png";
+      case 5: return "https://i.ibb.co/example/vip5.png";
+      case 6: return "https://i.ibb.co/example/vip6.png";
+      case 7: return "https://i.ibb.co/example/vip7.png";
+      case 8: return "https://i.ibb.co/example/vip8.png";
+      default: return ""; 
+    }
+  }
+
+  // প্রিমিয়াম স্টিকার লিঙ্ক
+  String premiumBadgeUrl = "https://i.ibb.co/example/premium_gold.png";
   // ৩ নং দাবি: ২০টি রিয়েল টাইপ অবতার
   List<String> maleAvatars = List.generate(10, (i) => "https://xsgames.co/randomusers/assets/avatars/male/${i + 1}.jpg");
   List<String> femaleAvatars = List.generate(10, (i) => "https://xsgames.co/randomusers/assets/avatars/female/${i + 1}.jpg");
@@ -193,20 +210,58 @@ class _ProfilePageState extends State<ProfilePage> {
           Text("Room ID: $roomIDValue", style: const TextStyle(color: Colors.cyanAccent, fontSize: 12)),
           const SizedBox(height: 10),
 
-          // ৪ নং দাবি: এক্সপি বারের দুই পাশে স্টিকার
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            vipLevel >= 1 ? const Icon(Icons.workspace_premium, color: Colors.amber, size: 24) : const SizedBox(width: 24),
-            const SizedBox(width: 10),
-            Column(children: [
-              Text("VIP Level $vipLevel (XP: $xp / 25000)", style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 5),
-              Container(width: 180, height: 10, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(10)), child: ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: xp / 25000, valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber), backgroundColor: Colors.transparent))),
-            ]),
-            const SizedBox(width: 10),
-            hasPremiumCard ? const Icon(Icons.stars, color: Colors.amber, size: 24) : const SizedBox(width: 24),
-          ]),
+          // ৪ নং দাবি: এক্সপি বারের দুই পাশে VIP ও Premium স্টিকার
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // বাম পাশে: ডায়নামিক VIP স্টিকার (লেভেল অনুযায়ী পাল্টাবে)
+                if (vipLevel > 0)
+                  Image.network(getVipBadge(vipLevel), width: 45, height: 45)
+                else
+                  const SizedBox(width: 45), // জায়গা ধরে রাখার জন্য
 
-          const SizedBox(height: 15),
+                const SizedBox(width: 12),
+
+                // মাঝখানে: এক্সপি বার ও লেভেল টেক্সট
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text(
+                        "VIP Level $vipLevel (XP: $xp / 25000)",
+                        style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: Colors.white10,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: LinearProgressIndicator(
+                            value: xp / 25000,
+                            valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
+                            backgroundColor: Colors.transparent,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                // ডান পাশে: প্রিমিয়াম স্টিকার (কার্ড কেনা থাকলে শো করবে)
+                if (hasPremiumCard)
+                  Image.network(premiumBadgeUrl, width: 45, height: 45)
+                else
+                  const SizedBox(width: 45),
+              ],
+            ),
+          ),
           // ৫ নং দাবি: ফলো ও মেসেজ লজিক
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             _buildStat("Followers", followers),
