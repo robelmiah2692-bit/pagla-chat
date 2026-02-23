@@ -497,23 +497,24 @@ Widget build(BuildContext context) {
     );
   }
 
+  // --- নতুন ফাংশনগুলো এখানে বসবে (সবগুলো ব্র্যাকেটের ভেতর) ---
+
   void showEmojiOnSeat(int seatIndex, String emoji) {
     setState(() => seats[seatIndex]["emoji"] = emoji);
     Timer(const Duration(seconds: 3), () => setState(() => seats[seatIndex]["emoji"] = ""));
   }
-}
-// রুমের প্রোফাইল পিকচার গ্যালারি থেকে নেওয়া
+
+  // ১. রুমের প্রোফাইল পিকচার গ্যালারি থেকে নেওয়া
   Future<void> _pickRoomImage() async {
-    final XFile? image = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        roomImageURL = image.path;
-      });
-      _showMessage("রুম প্রোফাইল আপডেট হয়েছে!");
-    }
+    // নোট: image_picker প্যাকেজটি ইমপোর্ট করা থাকতে হবে
+    // final XFile? image = await ImagePicker().pickImage(source: ImageSource.gallery);
+    // if (image != null) {
+    //   setState(() => roomImageURL = image.path);
+    //   _showMessage("রুম প্রোফাইল আপডেট হয়েছে!");
+    // }
   }
 
-  // রুমের নাম এডিট করার পপ-আপ
+  // ২. রুমের নাম এডিট করার পপ-আপ
   void _editRoomName() {
     TextEditingController _nameController = TextEditingController(text: roomName);
     showDialog(
@@ -538,43 +539,44 @@ Widget build(BuildContext context) {
         ],
       ),
     );
-  void _showFollowerList() {
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: const Color(0xFF1A1A2E),
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-    builder: (context) => Container(
-      padding: const EdgeInsets.all(15),
-      child: Column(
-        children: [
-          const Text("ফলোয়ার লিস্ট", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-          const Divider(color: Colors.white24),
-          Expanded(
-            child: ListView(
-              children: [
-                // ১. রুম মালিক (সবার আগে)
-                _buildUserTile("রুম মালিক (You)", "Owner", Colors.amber),
-                // ২. এডমিনরা (ডেমো হিসেবে একটি দেওয়া হলো)
-                _buildUserTile("এডমিন ১", "Admin", Colors.pinkAccent),
-                // ৩. বাকি ফলোয়াররা
-                ...List.generate(followerCount > 0 ? followerCount - 0 : 0, (index) => 
-                   _buildUserTile("ফলোয়ার ${index + 1}", "Member", Colors.white54)
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
+  }
 
-// লিস্টের ভেতরের ডিজাইন (Helper)
-Widget _buildUserTile(String name, String role, Color color) {
-  return ListTile(
-    leading: const CircleAvatar(backgroundColor: Colors.white10, child: Icon(Icons.person, color: Colors.white)),
-    title: Text(name, style: const TextStyle(color: Colors.white)),
-    subtitle: Text(role, style: TextStyle(color: color, fontSize: 12)),
-    trailing: const Icon(Icons.info_outline, color: Colors.white24, size: 18),
-  );
-}
+  // ৩. ফলোয়ার লিস্ট (সিরিয়াল অনুযায়ী: মালিক > এডমিন > ফলোয়ার)
+  void _showFollowerList() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(15),
+        child: Column(
+          children: [
+            const Text("ফলোয়ার লিস্ট", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const Divider(color: Colors.white24),
+            Expanded(
+              child: ListView(
+                children: [
+                  _buildUserTile("রুম মালিক (You)", "Owner", Colors.amber),
+                  _buildUserTile("এডমিন ১", "Admin", Colors.pinkAccent),
+                  ...List.generate(followerCount, (index) => 
+                     _buildUserTile("ইউজার আইডি: ${100 + index}", "Follower", Colors.white54)
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ৪. লিস্টের টাইল ডিজাইন (Helper)
+  Widget _buildUserTile(String name, String role, Color color) {
+    return ListTile(
+      leading: const CircleAvatar(backgroundColor: Colors.white10, child: Icon(Icons.person, color: Colors.white)),
+      title: Text(name, style: const TextStyle(color: Colors.white)),
+      subtitle: Text(role, style: TextStyle(color: color, fontSize: 12)),
+      trailing: const Icon(Icons.info_outline, color: Colors.white24, size: 18),
+    );
+  }
+} // <--- এইটা হলো ক্লাসের শেষ ব্র্যাকেট, এটা যেন থাকে।
