@@ -237,35 +237,43 @@ List<String> chatMessages = [];
 
   // সিটে বসার লজিক (VIP চেক)
   void sitOnSeat(int index) {
-    // ১. চেক: সিট যদি আগে থেকে বুক থাকে তবে কিছু হবে না
-    if (seats[index]["isOccupied"]) return;
+  // ১. চেক: সিট যদি আগে থেকে বুক থাকে তবে কিছু হবে না
+  if (seats[index]["isOccupied"]) return;
 
-    // ২. চেক: ভিআইপি সিট হলে ভিআইপি ব্যাজ আছে কি না দেখবে
-    if (seats[index]["isVip"]) {
-      bool userHasVipBadge = true; // আপনার জন্য এটি true করে দিলাম
-      if (!userHasVipBadge) {
-        _showMessage("এটি VIP সিট! আপনি বসতে পারবেন না।");
-        return;
+  // ২. চেক: ভিআইপি সিট হলে ভিআইপি ব্যাজ আছে কি না দেখবে (আপনার অরিজিনাল কোড)
+  if (seats[index]["isVip"]) {
+    bool userHasVipBadge = true; // VIP লেভেল ১ এর জন্য এটি true
+    if (!userHasVipBadge) {
+      _showMessage("এটি VIP সিট! আপনি বসতে পারবেন না।");
+      return;
+    }
+  }
+
+  setState(() {
+    // ৩. নতুন ফিক্স: ইউজার আগে অন্য কোনো সিটে থাকলে তাকে সেখান থেকে নামিয়ে দাও
+    for (int i = 0; i < seats.length; i++) {
+      if (seats[i]["userName"] == (displayUserID.isNotEmpty ? displayUserID : "ইউজার ${i + 1}")) {
+        seats[i]["isOccupied"] = false;
+        seats[i]["userName"] = "";
+        seats[i]["userImage"] = "";
       }
     }
 
-    // ৩. অ্যাকশন: ক্লিক করার সাথে সাথে কলিং শুরু হবে
-    setState(() {
-      seats[index]["userName"] = "Calling..."; 
-      seats[index]["isOccupied"] = true; 
-    });
-    Timer(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() {
-          // displayUserID আপনার ফাইলে আছে, তাই এটা কাজ করবে
-          seats[index]["userName"] = displayUserID.isNotEmpty ? displayUserID : "ইউজার ${index + 1}";
-          
-          // userProfilePic এরর দিচ্ছে কারণ এই নামে ভেরিয়েবল নেই। 
-          // তাই আপাতত খালি রাখছি যাতে এরর না আসে।
-          seats[index]["userImage"] = ""; 
-        });
-      }
-    });
+    // ৪. অ্যাকশন: ক্লিক করার সাথে সাথে বর্তমান সিটে কলিং শুরু হবে
+    seats[index]["userName"] = "Calling..."; 
+    seats[index]["isOccupied"] = true; 
+  });
+
+  // ৫. রেজাল্ট: ৩ সেকেন্ড পর প্রোফাইল ডাটা বসবে
+  Timer(const Duration(seconds: 3), () {
+    if (mounted) {
+      setState(() {
+        seats[index]["userName"] = displayUserID.isNotEmpty ? displayUserID : "ইউজার ${index + 1}";
+        seats[index]["userImage"] = ""; // প্রোফাইল পিকের জন্য খালি রাখলাম
+      });
+    }
+  });
+}
     
     // ৪. ফলাফল: ৩ সেকেন্ড পর অটোমেটিক নাম বসে যাবে
     Timer(const Duration(seconds: 3), () {
@@ -329,42 +337,69 @@ Widget build(BuildContext context) {
   
   // --- ৩. উইজেটসমূহ (ডিজাইন) ---
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: Row(
-        children: [
-          const CircleAvatar(radius: 25, backgroundColor: Colors.white10, child: Icon(Icons.person, color: Colors.pinkAccent)), 
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(roomName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                Text("ID: 556677 | Follower: $followerCount", style: const TextStyle(color: Colors.white54, fontSize: 11)),
-              ],
-            ),
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 10),
+    child: Row(
+      children: [
+        // ১. রুম প্রোফাইল ছবি (আপনার গ্যালারি ফিচারের সাথে)
+        GestureDetector(
+          onTap: _pickRoomImage, 
+          child: CircleAvatar(
+            radius: 25, 
+            backgroundColor: Colors.white10, 
+            backgroundImage: roomImageURL.isNotEmpty ? FileImage(File(roomImageURL)) : null,
+            child: roomImageURL.isEmpty ? const Icon(Icons.person, color: Colors.pinkAccent) : null,
           ),
-          // ফলো বাটন
-          IconButton(
-            onPressed: () => setState(() => isFollowing = !isFollowing),
-            icon: Icon(isFollowing ? Icons.check_circle : Icons.add_circle, color: Colors.pinkAccent)
-          ),
-          // লক বাটন
-          IconButton(onPressed: toggleLock, icon: Icon(isLocked ? Icons.lock : Icons.lock_open, color: Colors.amber)), 
-          // ওয়ালপেপার মেনু
-          PopupMenuButton<int>(
-            icon: const Icon(Icons.wallpaper, color: Colors.cyanAccent),
-            onSelected: (val) => val == 20 ? setWallpaper(20, "২৪ ঘন্টা") : setWallpaper(600, "১ মাস"),
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 20, child: Text("২৪ ঘন্টা (২০💎)")),
-              const PopupMenuItem(value: 600, child: Text("১ মাস (৬০০💎)")),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ২. রুমের নাম (ক্লিক করলে এডিট হবে)
+              GestureDetector(
+                onTap: _editRoomName,
+                child: Text(roomName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+              // ৫. রুম আইডি এবং ফলোয়ার কাউন্ট
+              Text("ID: $displayRoomID | Follower: $followerCount", style: const TextStyle(color: Colors.white54, fontSize: 11)),
             ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+        
+        // ৩. ফলো বাটন (সংখ্যা বাড়ানো/কমানো সহ)
+        IconButton(
+          onPressed: () {
+            setState(() {
+              isFollowing = !isFollowing;
+              isFollowing ? followerCount++ : followerCount--;
+            });
+          },
+          icon: Icon(isFollowing ? Icons.check_circle : Icons.add_circle, color: Colors.pinkAccent)
+        ),
 
+        // ৪. ফলোয়ার লিস্ট বাটন (নতুন যোগ করা)
+        IconButton(
+          onPressed: _showFollowerList, 
+          icon: const Icon(Icons.people, color: Colors.white70)
+        ),
+
+        // লক বাটন (আগের মতোই আছে)
+        IconButton(onPressed: toggleLock, icon: Icon(isLocked ? Icons.lock : Icons.lock_open, color: Colors.amber)), 
+
+        // ৬. ওয়ালপেপার মেনু (আপনার সেই ডায়মন্ডের ডিল - যেটা বাদ পড়েছিল!)
+        PopupMenuButton<int>(
+          icon: const Icon(Icons.wallpaper, color: Colors.cyanAccent),
+          onSelected: (val) => val == 20 ? setWallpaper(20, "২৪ ঘন্টা") : setWallpaper(600, "১ মাস"),
+          itemBuilder: (context) => [
+            const PopupMenuItem(value: 20, child: Text("২৪ ঘন্টা (২০💎)")),
+            const PopupMenuItem(value: 600, child: Text("১ মাস (৬০০💎)")),
+          ],
+        ),
+      ],
+    ),
+  );
+}
   // ৩. ১৫টি সিটের গ্রিড (পুরাতন লজিক + নতুন ডিজাইন)
   Widget _buildSeatGrid() {
     return Expanded(
