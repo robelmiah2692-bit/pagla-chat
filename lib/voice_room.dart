@@ -348,8 +348,7 @@ Widget build(BuildContext context) {
       ),
     ),
   );
-}
-  
+}  
   // --- ৩. উইজেটসমূহ (ডিজাইন) ---
   Widget _buildHeader() {
   return Padding(
