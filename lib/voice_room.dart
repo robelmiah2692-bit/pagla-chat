@@ -254,7 +254,16 @@ List<String> chatMessages = [];
       seats[index]["userName"] = "Calling..."; 
       seats[index]["isOccupied"] = true; 
     });
-
+    Timer(const Duration(seconds: 3), () {
+  if (mounted) {
+    setState(() {
+      // প্রোফাইল পেইজ থেকে আসা নাম এবং ছবি এখানে বসে যাবে
+      seats[index]["userName"] = displayUserID; // প্রোফাইলের ইউজার আইডি বা নাম
+      seats[index]["userImage"] = userProfilePic; // প্রোফাইলের ছবি
+    });
+  }
+});
+    
     // ৪. ফলাফল: ৩ সেকেন্ড পর অটোমেটিক নাম বসে যাবে
     Timer(const Duration(seconds: 3), () {
       if (mounted) {
