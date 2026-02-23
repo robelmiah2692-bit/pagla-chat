@@ -570,37 +570,6 @@ Widget build(BuildContext context) {
     ),
   );
 }
-// Stack এর একদম নিচে এটি দিন যাতে সবার উপরে থাকে
-if (currentPlayingIndex != -1)
-  Positioned(
-  bottom: 20,
-  left: 10,
-  right: 10,
-  child: currentPlayingIndex != -1 ? Container(
-    padding: EdgeInsets.all(10),
-    decoration: BoxDecoration(
-      color: Colors.black.withOpacity(0.8),
-      borderRadius: BorderRadius.circular(15),
-      border: Border.all(color: Colors.greenAccent),
-    ),
-    child: Row(
-      children: [
-        Icon(Icons.music_note, color: Colors.greenAccent),
-        Expanded(
-          child: Text(
-            savedMusicPaths[currentPlayingIndex].split('/').last,
-            style: TextStyle(color: Colors.white, fontSize: 12),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        IconButton(
-          icon: Icon(Icons.pause, color: Colors.white),
-          onPressed: () => _audioPlayer.pause(),
-        ),
-      ],
-    ),
-  ) : SizedBox(),
-)
   
   // ০ এর জায়গায় seatIndex ব্যবহার করুন
 void _showEmojiPicker(int seatIndex) { // এখানে seatIndex যোগ করলাম
