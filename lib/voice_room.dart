@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:io'; // এটি আপনার প্রোফাইল পিকের জন্য দরকার
 import 'package:flutter/material.dart';
 import 'dart:async';
-// গ্যালারি থেকে ছবি নিতে এই প্যাকেজটি পরে লাগবে: image_picker
+import 'package:image_picker/image_picker.dart';
 
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
