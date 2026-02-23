@@ -345,10 +345,54 @@ Widget build(BuildContext context) {
 
           _buildChatAndControls(), 
         ],
-      ),
+      ), // Column শেষ
+    ), // Container শেষ
+
+    // --- আপনার ভাসমান মিউজিক প্লেয়ার (Stack এর ভেতরে) ---
+    Positioned(
+      bottom: 90, // চ্যাট বক্সের ঠিক উপরে থাকবে
+      left: 15,
+      right: 15,
+      child: currentPlayingIndex != -1 ? Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.85),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.greenAccent, width: 1),
+          boxShadow: [const BoxShadow(color: Colors.black26, blurRadius: 5)],
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.music_note, color: Colors.greenAccent, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                savedMusicPaths.isNotEmpty && currentPlayingIndex < savedMusicPaths.length
+                    ? savedMusicPaths[currentPlayingIndex].split('/').last
+                    : "Music Playing...",
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            GestureDetector(
+              onTap: () {
+                _audioPlayer.pause();
+                setState(() => currentPlayingIndex = -1);
+              },
+              child: const Icon(Icons.pause_circle_filled, color: Colors.white, size: 30),
+            ),
+          ],
+        ),
+      ) : const SizedBox(),
     ),
-  );
-}  
+
+    // গিফট এনিমেশন লেয়ার (সবার উপরে)
+    _buildGiftOverlay(),
+
+    ], // Stack children শেষ
+   ), // Stack শেষ
+  ); // Scaffold শেষ
+} // build ফাংশন শেষ  
   // --- ৩. উইজেটসমূহ (ডিজাইন) ---
   Widget _buildHeader() {
   return Padding(
