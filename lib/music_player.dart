@@ -10,15 +10,14 @@ class MusicPlayerPage extends StatefulWidget {
 }
 
 class _MusicPlayerPageState extends State<MusicPlayerPage> {
-  List<File> musicFiles = []; // আপনার সব মিউজিক এখানে জমা হবে
+  List<File> musicFiles = []; 
   int currentIndex = -1;
   bool isPlaying = false;
 
-  // ফোন থেকে গান সিলেক্ট করার ফাংশন
   Future<void> pickMusic() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.audio,
-      allowMultiple: true, // একসাথে অনেক গান নেওয়া যাবে
+      allowMultiple: true, 
     );
 
     if (result != null) {
@@ -31,7 +30,8 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Colors.black,
+      // এখানে const সরিয়ে শুধু Colors.black করে দিয়েছি
+      backgroundColor: Colors.black, 
       appBar: AppBar(
         backgroundColor: Colors.black,
         title: const Text("Music Store", style: TextStyle(color: Colors.greenAccent)),
@@ -44,7 +44,6 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
       ),
       body: Column(
         children: [
-          // গানের লিস্ট
           Expanded(
             child: musicFiles.isEmpty
                 ? const Center(child: Text("কোনো গান নেই, + বাটনে ক্লিক করুন", style: TextStyle(color: Colors.white24)))
@@ -66,14 +65,12 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
                   ),
           ),
           
-          // মিউজিক প্লেয়ার বার (নিচে থাকবে)
           if (currentIndex != -1) _buildBottomPlayerBar(),
         ],
       ),
     );
   }
 
-  // প্রিমিয়াম প্লেয়ার বার
   Widget _buildBottomPlayerBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
