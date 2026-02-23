@@ -1,3 +1,4 @@
+import 'music_player.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:io'; // এটি আপনার প্রোফাইল পিকের জন্য দরকার
@@ -526,6 +527,10 @@ Widget build(BuildContext context) {
           icon: const Icon(Icons.send, color: Colors.blueAccent)
         ),
         IconButton(onPressed: () {}, icon: const Icon(Icons.videogame_asset, color: Colors.blueAccent)), 
+        IconButton(
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => MusicPlayerPage())),
+         icon: const Icon(Icons.music_note, color: Colors.greenAccent, size: 30),
+       ),
         IconButton(onPressed: _showGiftBox, icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent)), 
       ],
     ),
