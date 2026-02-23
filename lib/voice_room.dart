@@ -186,6 +186,7 @@ List<String> chatMessages = [];
   }
   // --- ১. ভেরিয়েবলসমূহ ---
   bool isLocked = false; 
+  bool isMicOn = true; 
   int diamondBalance = 1000; 
   String roomWallpaper = ""; 
   String roomName = "পাগলা রুম";
@@ -528,9 +529,19 @@ Widget build(BuildContext context) {
         ),
         IconButton(onPressed: () {}, icon: const Icon(Icons.videogame_asset, color: Colors.blueAccent)), 
         IconButton(
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => MusicPlayerPage())),
-         icon: const Icon(Icons.music_note, color: Colors.greenAccent, size: 30),
-       ),
+          onPressed: () => setState(() => isMicOn = !isMicOn),
+          icon: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: isMicOn ? Colors.blueAccent : Colors.redAccent),
+        ),
+        IconButton(
+          onPressed: () {
+            Navigator.push(
+              context, 
+              MaterialPageRoute(builder: (context) => MusicPlayerPage())
+            );
+          },
+        // আইকনের সামনে const থাকলে সমস্যা নেই, ওটা থাকতে পারে
+        icon: const Icon(Icons.music_note, color: Colors.greenAccent, size: 28),
+      ),
         IconButton(onPressed: _showGiftBox, icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent)), 
       ],
     ),
