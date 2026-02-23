@@ -237,16 +237,31 @@ List<String> chatMessages = [];
 
   // সিটে বসার লজিক (VIP চেক)
   void sitOnSeat(int index) {
+    // ১. চেক: সিট যদি আগে থেকে বুক থাকে তবে কিছু হবে না
+    if (seats[index]["isOccupied"]) return;
+
+    // ২. চেক: ভিআইপি সিট হলে ভিআইপি ব্যাজ আছে কি না দেখবে
     if (seats[index]["isVip"]) {
-      bool userHasVipBadge = false; // এটি পরে ইউজার প্রোফাইল থেকে আসবে
+      bool userHasVipBadge = true; // আপনার জন্য এটি true করে দিলাম
       if (!userHasVipBadge) {
         _showMessage("এটি VIP সিট! আপনি বসতে পারবেন না।");
         return;
       }
     }
+
+    // ৩. অ্যাকশন: ক্লিক করার সাথে সাথে কলিং শুরু হবে
     setState(() {
-      seats[index]["isOccupied"] = true;
-      seats[index]["userName"] = "ইউজার ${index+1}";
+      seats[index]["userName"] = "Calling..."; 
+      seats[index]["isOccupied"] = true; 
+    });
+
+    // ৪. ফলাফল: ৩ সেকেন্ড পর অটোমেটিক নাম বসে যাবে
+    Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          seats[index]["userName"] = "ইউজার ${index + 1}"; 
+        });
+      }
     });
   }
 
@@ -480,22 +495,23 @@ Widget build(BuildContext context) {
   );
 }
 
-  void _showEmojiPicker() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.black87,
-      builder: (context) => GridView.count(
-        crossAxisCount: 6,
-        children: ["🤔","🤫","🫣","🤭","😭","😏","👏","🥱","😡"].map((e) => IconButton(
-          onPressed: () {
-            showEmojiOnSeat(0, e); // ধরে নিচ্ছি ইউজার ১ নম্বর সিটে আছে
-            Navigator.pop(context);
-          },
-          icon: Text(e, style: const TextStyle(fontSize: 24)),
-        )).toList(),
-      ),
-    );
-  }
+  // ০ এর জায়গায় seatIndex ব্যবহার করুন
+void _showEmojiPicker(int seatIndex) { // এখানে seatIndex যোগ করলাম
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.black87,
+    builder: (context) => GridView.count(
+      crossAxisCount: 6,
+      children: ["🤔","🤫","🫣","🤭","😭","😏","👏","🥱","😡"].map((e) => IconButton(
+        onPressed: () {
+          showEmojiOnSeat(seatIndex, e); // এখন সঠিক সিটে ইমোজি যাবে
+          Navigator.pop(context);
+        },
+        icon: Text(e, style: const TextStyle(fontSize: 24)),
+      )).toList(),
+    ),
+  );
+}
 
   // --- নতুন ফাংশনগুলো এখানে বসবে (সবগুলো ব্র্যাকেটের ভেতর) ---
 
@@ -504,14 +520,15 @@ Widget build(BuildContext context) {
     Timer(const Duration(seconds: 3), () => setState(() => seats[seatIndex]["emoji"] = ""));
   }
 
-  // ১. রুমের প্রোফাইল পিকচার গ্যালারি থেকে নেওয়া
+  // ১. রুমের প্রোফাইল পিকচার গ্যালারি থেকে নেওয়া
   Future<void> _pickRoomImage() async {
-    // নোট: image_picker প্যাকেজটি ইমপোর্ট করা থাকতে হবে
-    // final XFile? image = await ImagePicker().pickImage(source: ImageSource.gallery);
-    // if (image != null) {
-    //   setState(() => roomImageURL = image.path);
-    //   _showMessage("রুম প্রোফাইল আপডেট হয়েছে!");
-    // }
+    final XFile? image = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() {
+        roomImageURL = image.path;
+      });
+      _showMessage("রুম প্রোফাইল আপডেট হয়েছে!");
+    }
   }
 
   // ২. রুমের নাম এডিট করার পপ-আপ
