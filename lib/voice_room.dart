@@ -473,7 +473,7 @@ Widget build(BuildContext context) {
                     
                     // ভিআইপি স্টার
                     if (seat["isVip"])
-                      Positioned(
+                     const Positioned(
                         top: 0,
                         right: 0,
                         child: Icon(Icons.stars, size: 14, color: Colors.amber),
@@ -572,7 +572,7 @@ Widget build(BuildContext context) {
 }
 // Stack এর একদম নিচে এটি দিন যাতে সবার উপরে থাকে
 if (currentPlayingIndex != -1)
- Positioned(
+  Positioned(
   bottom: 20,
   left: 10,
   right: 10,
