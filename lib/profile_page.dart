@@ -305,7 +305,7 @@ Widget _buildStoreCardTab() {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(15),
             child: Image.network(
-              "https://i.postimg.cc/85M0L7vM/Picsart-26-02-22-06-13-24-224.jpg",
+              "https://i.ibb.co/3ykC7mP/premium-card.jpg",
               fit: BoxFit.cover, // পুরো বক্স জুড়ে দেখাবে
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) return child;
