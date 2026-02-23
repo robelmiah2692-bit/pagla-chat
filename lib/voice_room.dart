@@ -307,7 +307,7 @@ Widget build(BuildContext context) {
   return Scaffold(
     body: Stack( // <--- এই লাইনটি যোগ করুন
       children: [
-    body: Container(
+        Container(
       decoration: BoxDecoration(
         image: roomWallpaper.isNotEmpty 
           ? DecorationImage(image: NetworkImage(roomWallpaper), fit: BoxFit.cover)
