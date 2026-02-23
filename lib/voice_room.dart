@@ -305,6 +305,8 @@ Future<void> loadSavedMusic() async {
   @override
 Widget build(BuildContext context) {
   return Scaffold(
+    body: Stack( // <--- এই লাইনটি যোগ করুন
+      children: [
     body: Container(
       decoration: BoxDecoration(
         image: roomWallpaper.isNotEmpty 
@@ -471,7 +473,7 @@ Widget build(BuildContext context) {
                     
                     // ভিআইপি স্টার
                     if (seat["isVip"])
-                      const Positioned(
+                      Positioned(
                         top: 0,
                         right: 0,
                         child: Icon(Icons.stars, size: 14, color: Colors.amber),
@@ -569,7 +571,8 @@ Widget build(BuildContext context) {
   );
 }
 // Stack এর একদম নিচে এটি দিন যাতে সবার উপরে থাকে
-Positioned(
+if (currentPlayingIndex != -1)
+ Positioned(
   bottom: 20,
   left: 10,
   right: 10,
