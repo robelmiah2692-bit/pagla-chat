@@ -255,14 +255,17 @@ List<String> chatMessages = [];
       seats[index]["isOccupied"] = true; 
     });
     Timer(const Duration(seconds: 3), () {
-  if (mounted) {
-    setState(() {
-      // প্রোফাইল পেইজ থেকে আসা নাম এবং ছবি এখানে বসে যাবে
-      seats[index]["userName"] = displayUserID; // প্রোফাইলের ইউজার আইডি বা নাম
-      seats[index]["userImage"] = userProfilePic; // প্রোফাইলের ছবি
+      if (mounted) {
+        setState(() {
+          // displayUserID আপনার ফাইলে আছে, তাই এটা কাজ করবে
+          seats[index]["userName"] = displayUserID.isNotEmpty ? displayUserID : "ইউজার ${index + 1}";
+          
+          // userProfilePic এরর দিচ্ছে কারণ এই নামে ভেরিয়েবল নেই। 
+          // তাই আপাতত খালি রাখছি যাতে এরর না আসে।
+          seats[index]["userImage"] = ""; 
+        });
+      }
     });
-  }
-});
     
     // ৪. ফলাফল: ৩ সেকেন্ড পর অটোমেটিক নাম বসে যাবে
     Timer(const Duration(seconds: 3), () {
@@ -473,7 +476,7 @@ Widget build(BuildContext context) {
     color: Colors.black45,
     child: Row(
       children: [
-        IconButton(onPressed: () => _showEmojiPicker(), icon: const Icon(Icons.emoji_emotions, color: Colors.amber)),
+        IconButton(onPressed: () => _showEmojiPicker(0), icon: const Icon(Icons.emoji_emotions, color: Colors.amber)),
         Expanded(
           child: TextField(
             controller: _messageController, // কন্ট্রোলারটি এখানে বসলো
