@@ -274,16 +274,6 @@ List<String> chatMessages = [];
     }
   });
 }
-    
-    // ৪. ফলাফল: ৩ সেকেন্ড পর অটোমেটিক নাম বসে যাবে
-    Timer(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() {
-          seats[index]["userName"] = "ইউজার ${index + 1}"; 
-        });
-      }
-    });
-  }
 
   void _showMessage(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
