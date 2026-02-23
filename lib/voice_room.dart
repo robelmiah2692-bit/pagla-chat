@@ -193,6 +193,24 @@ List<String> chatMessages = [];
   int followerCount = 0;
   bool isFollowing = false;
   String roomImageURL = ""; // গ্যালারি থেকে নেওয়া রুমের ছবির জন্য
+  // মেইন রুম স্ক্রিনের ভেতরে এই ভেরিয়েবলগুলো নিন
+List<String> savedMusicPaths = [];
+int currentPlayingIndex = -1;
+final AudioPlayer _audioPlayer = AudioPlayer();
+
+// গান সেভ করার ফাংশন
+Future<void> saveMusicToStorage(List<String> paths) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setStringList('my_music', paths);
+}
+
+// অ্যাপ খোলার সময় গান লোড করার ফাংশন
+Future<void> loadSavedMusic() async {
+  final prefs = await SharedPreferences.getInstance();
+  setState(() {
+    savedMusicPaths = prefs.getStringList('my_music') ?? [];
+  });
+}
   
   // ১৫টি সিটের ডাটা
   List<Map<String, dynamic>> seats = List.generate(20, (index) => {
@@ -547,7 +565,37 @@ Widget build(BuildContext context) {
     ),
   );
 }
-
+// Stack এর একদম নিচে এটি দিন যাতে সবার উপরে থাকে
+Positioned(
+  bottom: 20,
+  left: 10,
+  right: 10,
+  child: currentPlayingIndex != -1 ? Container(
+    padding: EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      color: Colors.black.withOpacity(0.8),
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: Colors.greenAccent),
+    ),
+    child: Row(
+      children: [
+        Icon(Icons.music_note, color: Colors.greenAccent),
+        Expanded(
+          child: Text(
+            savedMusicPaths[currentPlayingIndex].split('/').last,
+            style: TextStyle(color: Colors.white, fontSize: 12),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        IconButton(
+          icon: Icon(Icons.pause, color: Colors.white),
+          onPressed: () => _audioPlayer.pause(),
+        ),
+      ],
+    ),
+  ) : SizedBox(),
+)
+  
   // ০ এর জায়গায় seatIndex ব্যবহার করুন
 void _showEmojiPicker(int seatIndex) { // এখানে seatIndex যোগ করলাম
   showModalBottomSheet(
