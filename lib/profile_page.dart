@@ -288,44 +288,79 @@ class _ProfilePageState extends State<ProfilePage> {
   );
 }
 
-// কার্ড ট্যাবের ডিজাইন আলাদা করে নিচে দিয়ে দিলাম
+// এটি আপনার স্টোর এর জন্য ঠিক করা কোড
 Widget _buildStoreCardTab() {
-  return Column(
-    children: [
-      // ✅ আমি এখানে ডাইরেক্ট লিঙ্ক দিয়ে দিয়েছি, এখন ছবি আসবেই
-      Image.network(
-        "https://i.postimg.cc/85M0L7vM/Picsart-26-02-22-06-13-24-224.jpg", 
-        width: 250,
-        // ছবি লোড হওয়ার সময় একটু সময় নিলে নিচের লোডারটা দেখাবে
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return const Center(child: CircularProgressIndicator(color: Colors.amber));
-        },
-        // যদি কোনো কারণে ছবি না আসে তবে এই আইকন দেখাবে
-        errorBuilder: (context, error, stackTrace) => const Icon(Icons.card_membership, size: 100, color: Colors.amber),
-      ),
-      const SizedBox(height: 15),
-      const Text("Pagla Premium Card", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-      const Text("মুল্য: ৬,০০০ ডায়মন্ড", style: TextStyle(color: Colors.cyanAccent, fontSize: 16)),
-      const SizedBox(height: 20),
-      ElevatedButton(
-        style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(180, 45)),
-        onPressed: () {
-          if (diamonds >= 6000) {
-            setState(() {
-              diamonds -= 6000;
-              hasPremiumCard = true;
-              premiumExpiryDate = DateTime.now().add(const Duration(days: 30));
-            });
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("অভিনন্দন! আপনি প্রিমিয়াম মেম্বার হলেন।")));
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("পর্যাপ্ত ডায়মন্ড নেই!")));
-          }
-        },
-        child: const Text("BUY NOW"),
-      ),
-    ],
+  return SingleChildScrollView( // স্ক্রল করার সুবিধা দিলাম যাতে ছোট ফোনেও দেখা যায়
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const SizedBox(height: 20),
+        // ✅ এই ইমেজ উইজেটটি এখন ১০০% কাজ করবে
+        Container(
+          height: 180,
+          width: 250,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(15),
+            child: Image.network(
+              "https://i.postimg.cc/85M0L7vM/Picsart-26-02-22-06-13-24-224.jpg",
+              fit: BoxFit.cover, // পুরো বক্স জুড়ে দেখাবে
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return const Center(child: CircularProgressIndicator(color: Colors.amber));
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.broken_image, size: 50, color: Colors.white24),
+                    Text("ইমেজ লিঙ্ক বা নেটওয়ার্ক এরর", style: TextStyle(color: Colors.white24)),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 15),
+        const Text(
+          "Pagla Premium Card", 
+          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)
+        ),
+        const Text(
+          "মুল্য: ৬,০০০ ডায়মন্ড", 
+          style: TextStyle(color: Colors.cyanAccent, fontSize: 16)
+        ),
+        const SizedBox(height: 20),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.pinkAccent, 
+            minimumSize: const Size(180, 45),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+          ),
+          onPressed: () {
+            if (diamonds >= 6000) {
+              setState(() {
+                diamonds -= 6000;
+                hasPremiumCard = true;
+                premiumExpiryDate = DateTime.now().add(const Duration(days: 30));
+              });
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("অভিনন্দন! আপনি প্রিমিয়াম মেম্বার হলেন।"))
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("পর্যাপ্ত ডায়মন্ড নেই!"))
+              );
+            }
+          },
+          child: const Text("BUY NOW", style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(height: 20),
+      ],
+    ),
   );
 }
  
@@ -448,11 +483,7 @@ Widget _buildMyCardsTab() {
       });
     }
 
-    // --- এখান থেকে আপনার আসল UI কোড শুরু হবে (Scaffold) ---
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D0D1A),
-      appBar: AppBar(
-        // ... আপনার আগের সব অ্যাপবার কোড ...
+    // ... আপনার আগের সব অ্যাপবার কোড ...
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D1A), // প্রিমিয়াম ডার্ক কালার
       appBar: AppBar(
