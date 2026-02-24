@@ -468,7 +468,8 @@ Widget build(BuildContext context) {
                       ),
                     ),
                 ], // এইটা Stack এর children শেষ
-                // নামের জায়গা: খালি থাকলে সংখ্যা/VIP, কেউ বসলে তার নাম
+              ),
+              // নামের জায়গা: খালি থাকলে সংখ্যা/VIP, কেউ বসলে তার নাম
                 Text(
                   seat["isOccupied"] ? seat["userName"] : (seat["isVip"] ? "VIP" : "${index + 1}"),
                   style: TextStyle(
