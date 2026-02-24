@@ -89,7 +89,7 @@ List<String> chatMessages = [];
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      isScrollable: true,
+      isScrollControlled: true, // এখানে ভুল ছিল, এখন ঠিক করা হয়েছে
       builder: (context) => GiftBottomSheet(
         diamondBalance: diamondBalance,
         gifts: gifts,
