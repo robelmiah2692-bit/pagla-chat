@@ -678,29 +678,49 @@ Widget _buildPlayerUI(bool isDragging) {
   return Material(
     color: Colors.transparent,
     child: Container(
-      width: 200,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      // নাম না থাকায় উইডথ কমিয়ে ১২০ করে দিলাম
+      width: 120, 
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E).withOpacity(isDragging ? 0.5 : 0.9),
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: Colors.greenAccent),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.greenAccent, width: 1.5),
+        boxShadow: [const BoxShadow(color: Colors.black54, blurRadius: 8)],
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          const Icon(Icons.drag_indicator, color: Colors.greenAccent, size: 20),
-          const SizedBox(width: 5),
-          Expanded(
-            child: Text(currentSongName, 
-                style: const TextStyle(color: Colors.white, fontSize: 12, decoration: TextDecoration.none),
-                overflow: TextOverflow.ellipsis),
+          // ১. ড্র্যাগ করার আইকন
+          const Icon(Icons.drag_indicator, color: Colors.greenAccent, size: 18),
+          
+          // ২. Play/Pause বাটন
+          GestureDetector(
+            onTap: () async {
+              if (isRoomMusicPlaying) {
+                if (_audioPlayer.state == PlayerState.playing) {
+                  await _audioPlayer.pause();
+                } else {
+                  await _audioPlayer.resume();
+                }
+                setState(() {}); // আইকন রিফ্রেশ করার জন্য
+              }
+            },
+            child: Icon(
+              _audioPlayer.state == PlayerState.playing 
+                  ? Icons.pause_circle_filled 
+                  : Icons.play_circle_filled,
+              color: Colors.greenAccent,
+              size: 32, // বাটনটি একটু বড় রাখলাম যেন চাপ দিতে সুবিধা হয়
+            ),
           ),
+          
+          // ৩. বন্ধ করার বাটন (Cancel)
           GestureDetector(
             onTap: () {
               _audioPlayer.stop();
               setState(() => isRoomMusicPlaying = false);
             },
-            child: const Icon(Icons.cancel, color: Colors.redAccent, size: 20),
+            child: const Icon(Icons.cancel, color: Colors.redAccent, size: 22),
           ),
         ],
       ),
