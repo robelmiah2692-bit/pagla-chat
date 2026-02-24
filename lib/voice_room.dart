@@ -475,17 +475,19 @@ Widget build(BuildContext context) {
                       ),
                     ),
                     
-                    // ইমোজি পপ-আপ
+                // ইমোজি পপ-আপ (নিজের সিটে দেখানোর জন্য Positioned.fill যুক্ত)
                     if (activeEmojiSeatIndex == index && currentLottieEmojiUrl.isNotEmpty)
-                    IgnorePointer(
-                      child: Lottie.network(
-                        currentLottieEmojiUrl,
-                        width: 80,
-                        height: 80,
-                        repeat: false,
-                        errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: Lottie.network(
+                            currentLottieEmojiUrl,
+                            width: 80,
+                            height: 80,
+                            repeat: false,
+                            errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                          ),
+                        ),
                       ),
-                    ),
                 ], // এইটা Stack এর children শেষ
               ),
               // নামের জায়গা: খালি থাকলে সংখ্যা/VIP, কেউ বসলে তার নাম
@@ -552,11 +554,25 @@ Widget build(BuildContext context) {
         ),
         IconButton(onPressed: () {}, icon: const Icon(Icons.videogame_asset, color: Colors.blueAccent)), 
         IconButton(
-          onPressed: () => setState(() => isMicOn = !isMicOn),
-          icon: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: isMicOn ? Colors.blueAccent : Colors.redAccent),
+          onPressed: () {
+            setState(() {
+              // ১. নিজের মাইক বাটন অন/অফ করা
+              isMicOn = !isMicOn;
+              
+              // ২. আপনি যে সিটে বসে আছেন সেই সিটের ইনডেক্স খুঁজে বের করা
+              int mySeatIndex = seats.indexWhere((s) => s["userName"] == displayUserID);
+              
+              // ৩. যদি আপনি সিটে থাকেন, তবে ঐ সিটের মাইক আইকনও আপডেট করা
+              if (mySeatIndex != -1) {
+                seats[mySeatIndex]["isMuted"] = !isMicOn; 
+              }
+            });
+          },
+          icon: Icon(
+            isMicOn ? Icons.mic : Icons.mic_off, 
+            color: isMicOn ? Colors.blueAccent : Colors.redAccent
+          ),
         ),
-        IconButton(
-            onPressed: () async {
               // ১. মিউজিক পেজে যাওয়া এবং সেখান থেকে ডাটা নিয়ে আসা
               final result = await Navigator.push(
                 context,
