@@ -9,6 +9,7 @@ import 'package:audioplayers/audioplayers.dart';      // গান বাজা�
 import 'package:shared_preferences/shared_preferences.dart'; // গান সেভ রাখার জন্য
 import 'package:path_provider/path_provider.dart';   // ফোনের স্টোরেজ লোকেশন পাওয়ার জন্য
 import 'gift_system.dart';
+import 'package:lottie/lottie.dart';
 
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
@@ -574,30 +575,56 @@ Widget build(BuildContext context) {
 }
   
   // ০ এর জায়গায় seatIndex ব্যবহার করুন
-void _showEmojiPicker(int seatIndex) { // এখানে seatIndex যোগ করলাম
+void _showEmojiPicker(int seatIndex) {
+  // ইমোজি এবং তাদের এনিমেটেড লিংকের একটি তালিকা (Map)
+  final Map<String, String> emojiLottieLinks = {
+    "😭": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f62d/lottie.json",
+    "😡": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f621/lottie.json",
+    "👏": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44f/lottie.json",
+    "🥱": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f971/lottie.json",
+    "🤔": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f914/lottie.json",
+    "😏": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f60f/lottie.json",
+    "🤫": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f92b/lottie.json",
+    "🫣": "https://fonts.gstatic.com/s/e/notoemoji/latest/1fae3/lottie.json",
+    "🤭": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f92d/lottie.json",
+  };
+
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.black87,
-    builder: (context) => GridView.count(
-      crossAxisCount: 6,
-      children: ["🤔","🤫","🫣","🤭","😭","😏","👏","🥱","😡"].map((e) => IconButton(
-        onPressed: () {
-          showEmojiOnSeat(seatIndex, e); // এখন সঠিক সিটে ইমোজি যাবে
-          Navigator.pop(context);
-        },
-        icon: Text(e, style: const TextStyle(fontSize: 24)),
-      )).toList(),
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (context) => Container(
+      padding: const EdgeInsets.all(15),
+      height: 250,
+      child: GridView.count(
+        crossAxisCount: 5, // দেখতে সুন্দর লাগবে
+        children: emojiLottieLinks.keys.map((emojiIcon) {
+          return IconButton(
+            onPressed: () {
+              // এখন আমরা টেক্সটের বদলে ওই ইমোজির লটি লিংকটি পাঠাচ্ছি
+              showEmojiOnSeat(seatIndex, emojiLottieLinks[emojiIcon]!); 
+              Navigator.pop(context);
+            },
+            // প্যানেলে দেখানোর জন্য সাধারণ ইমোজিই থাকবে
+            icon: Text(emojiIcon, style: const TextStyle(fontSize: 30)),
+          );
+        }).toList(),
+      ),
     ),
   );
 }
 
   // --- নতুন ফাংশনগুলো এখানে বসবে (সবগুলো ব্র্যাকেটের ভেতর) ---
+  void showEmojiOnSeat(int index, String lottieUrl) {
+  setState(() {
+    activeEmojiSeatIndex = index;
+    currentLottieEmojiUrl = lottieUrl; // এই লিংকেই এনিমেশন চলবে
+  });
 
-  void showEmojiOnSeat(int seatIndex, String emoji) {
-    setState(() => seats[seatIndex]["emoji"] = emoji);
-    Timer(const Duration(seconds: 3), () => setState(() => seats[seatIndex]["emoji"] = ""));
-  }
-
+  Future.delayed(const Duration(seconds: 3), () {
+    if (mounted) setState(() => activeEmojiSeatIndex = -1);
+  });
+}
   // ১. রুমের প্রোফাইল পিকচার গ্যালারি থেকে নেওয়া
   Future<void> _pickRoomImage() async {
     final XFile? image = await ImagePicker().pickImage(source: ImageSource.gallery);
