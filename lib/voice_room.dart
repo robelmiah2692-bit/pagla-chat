@@ -573,8 +573,10 @@ Widget build(BuildContext context) {
             color: isMicOn ? Colors.blueAccent : Colors.redAccent
           ),
         ),
-              // ১. মিউজিক পেজে যাওয়া এবং সেখান থেকে ডাটা নিয়ে আসা
-              final result = await Navigator.push(
+       // ১. মিউজিক পেজে যাওয়া এবং সেখান থেকে ডাটা নিয়ে আসা
+       IconButton(
+          onPressed: () async {   
+            final result = await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const MusicPlayerPage()),
               );
