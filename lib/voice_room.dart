@@ -458,15 +458,16 @@ Widget build(BuildContext context) {
 
                     // ইমোজি পপ-আপ
                     if (activeEmojiSeatIndex == index && currentLottieEmojiUrl.isNotEmpty)
-                      IgnorePointer(
-                        child: Lottie.network(
-                          currentLottieEmojiUrl,
-                          width: 80,
-                          height: 80,
-                          repeat: false,
-                          errorBuilder: (context, error, stackTrace) => const SizedBox(),
-                        ),
+                    IgnorePointer(
+                      child: Lottie.network(
+                        currentLottieEmojiUrl,
+                        width: 80,
+                        height: 80,
+                        repeat: false,
+                        errorBuilder: (context, error, stackTrace) => const SizedBox(),
                       ),
+                    ),
+                ], // এইটা Stack এর children শেষ
                 // নামের জায়গা: খালি থাকলে সংখ্যা/VIP, কেউ বসলে তার নাম
                 Text(
                   seat["isOccupied"] ? seat["userName"] : (seat["isVip"] ? "VIP" : "${index + 1}"),
