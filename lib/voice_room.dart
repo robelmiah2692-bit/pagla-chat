@@ -22,7 +22,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
  bool isOwner = false;
 String displayUserID = "";
 String displayRoomID = "";
-
+int activeEmojiSeatIndex = -1; 
+String currentLottieEmojiUrl = "";
+  
 void checkOwnership() async {
   final user = FirebaseAuth.instance.currentUser;
   if (user != null) {
