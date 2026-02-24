@@ -108,7 +108,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     return GestureDetector(
       onTap: () => setState(() => targetType = label),
       child: Container(
-        margin: const EdgeInsets.right(10),
+        margin: const EdgeInsets.only(right:10),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? Colors.pinkAccent : Colors.white10,
