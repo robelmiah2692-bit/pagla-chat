@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class MusicPlayerPage extends StatefulWidget {
   const MusicPlayerPage({super.key});
@@ -11,17 +12,24 @@ class MusicPlayerPage extends StatefulWidget {
 }
 
 class _MusicPlayerPageState extends State<MusicPlayerPage> {
-  List<String> savedMusicPaths = []; // পথের লিস্ট
+  List<String> savedMusicPaths = []; 
   int currentIndex = -1;
   bool isPlaying = false;
+  final AudioPlayer _audioPlayer = AudioPlayer(); // ঠিক আছে
 
   @override
   void initState() {
     super.initState();
-    loadMusicList(); // পেজ খুললেই সেভ করা গান লোড হবে
+    loadMusicList();
   }
 
-  // ১. মেমোরি থেকে গানের লিস্ট লোড করা
+  // গান বন্ধ করার জন্য এটি যোগ করুন (অপ্রয়োজনীয় মেমোরি খরচ কমাবে)
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
   Future<void> loadMusicList() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -29,7 +37,6 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
     });
   }
 
-  // ২. নতুন গান পিক করা এবং সেভ করা
   Future<void> pickMusic() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.audio,
@@ -41,17 +48,18 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
       setState(() {
         savedMusicPaths.addAll(newPaths);
       });
-      // ডাটাবেজে (SharedPrefs) সেভ করা
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList('my_music', savedMusicPaths);
     }
   }
 
-  // ৩. গান ডিলিট করা এবং লিস্ট আপডেট করা
   Future<void> deleteMusic(int index) async {
     setState(() {
       savedMusicPaths.removeAt(index);
-      if (currentIndex == index) currentIndex = -1;
+      if (currentIndex == index) {
+        currentIndex = -1;
+        _audioPlayer.stop();
+      }
     });
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('my_music', savedMusicPaths);
@@ -87,12 +95,14 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
                         icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                         onPressed: () => deleteMusic(index),
                       ),
-                      onTap: () {
+                      onTap: () async {
+                        // --- এখানে পরিবর্তন করা হয়েছে ---
                         setState(() {
                           currentIndex = index;
                           isPlaying = true;
                         });
-                        // এখানে গান প্লে করার লজিক ভয়েস রুমে পাঠাতে হবে
+                        await _audioPlayer.stop();
+                        await _audioPlayer.play(DeviceFileSource(savedMusicPaths[index]));
                       },
                     ),
                   ),
@@ -123,12 +133,24 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
             ),
           ),
           IconButton(
-            icon: Icon(isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
-                color: Colors.greenAccent, size: 40),
-            onPressed: () => setState(() => isPlaying = !isPlaying),
+            icon: Icon(
+              isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+              color: Colors.greenAccent,
+              size: 40,
+            ),
+            onPressed: () async {
+              if (isPlaying) {
+                await _audioPlayer.pause();
+              } else {
+                await _audioPlayer.resume();
+              }
+              setState(() {
+                isPlaying = !isPlaying;
+              });
+            },
           ),
         ],
       ),
     );
   }
-}
+} // এই ব্র্যাকেটগুলো আপনার কোডে মিসিং ছিল
