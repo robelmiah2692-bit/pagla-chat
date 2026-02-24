@@ -457,14 +457,16 @@ Widget build(BuildContext context) {
                       ),
 
                     // ইমোজি পপ-আপ
-                    if (seat["emoji"].isNotEmpty)
-                       Text(
-                         seat["emoji"], 
-                         style: const TextStyle(fontSize: 32),
-                       ),
-                     ],
-                  ),
-                const SizedBox(height: 6),
+                    if (activeEmojiSeatIndex == index && currentLottieEmojiUrl.isNotEmpty)
+                      IgnorePointer(
+                        child: Lottie.network(
+                          currentLottieEmojiUrl,
+                          width: 80,
+                          height: 80,
+                          repeat: false,
+                          errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                        ),
+                      ),
                 // নামের জায়গা: খালি থাকলে সংখ্যা/VIP, কেউ বসলে তার নাম
                 Text(
                   seat["isOccupied"] ? seat["userName"] : (seat["isVip"] ? "VIP" : "${index + 1}"),
