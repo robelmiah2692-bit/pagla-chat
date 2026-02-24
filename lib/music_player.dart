@@ -12,10 +12,10 @@ class MusicPlayerPage extends StatefulWidget {
 }
 
 class _MusicPlayerPageState extends State<MusicPlayerPage> {
-  List<String> savedMusicPaths = []; 
+  List<String> savedMusicPaths = [];
   int currentIndex = -1;
   bool isPlaying = false;
-  final AudioPlayer _audioPlayer = AudioPlayer(); // ঠিক আছে
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
@@ -23,7 +23,6 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
     loadMusicList();
   }
 
-  // গান বন্ধ করার জন্য এটি যোগ করুন (অপ্রয়োজনীয় মেমোরি খরচ কমাবে)
   @override
   void dispose() {
     _audioPlayer.dispose();
@@ -84,7 +83,9 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
         children: [
           Expanded(
             child: savedMusicPaths.isEmpty
-                ? const Center(child: Text("কোনো গান নেই, + বাটনে ক্লিক করুন", style: TextStyle(color: Colors.white24)))
+                ? const Center(
+                    child: Text("কোনো গান নেই, + বাটনে ক্লিক করুন",
+                        style: TextStyle(color: Colors.white24)))
                 : ListView.builder(
                     itemCount: savedMusicPaths.length,
                     itemBuilder: (context, index) => ListTile(
@@ -96,19 +97,20 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
                         onPressed: () => deleteMusic(index),
                       ),
                       onTap: () {
-                        // গান সিলেক্ট করে মেইন রুমে পাথ এবং নাম পাঠিয়ে দেওয়া
+                        // ভয়েস রুমে ডাটা পাঠানো
                         Navigator.pop(context, {
                           'path': savedMusicPaths[index],
                           'name': savedMusicPaths[index].split('/').last,
                         });
                       },
-                    ), // ListTile শেষ
-                  ), // ListView.builder শেষ
-                ), // Expanded শেষ
+                    ),
+                  ),
+          ),
           if (currentIndex != -1) _buildBottomPlayerBar(),
         ],
       ),
     );
+  }
 
   Widget _buildBottomPlayerBar() {
     return Container(
@@ -119,7 +121,8 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
       ),
       child: Row(
         children: [
-          const CircleAvatar(backgroundColor: Colors.greenAccent, child: Icon(Icons.play_arrow)),
+          const CircleAvatar(
+              backgroundColor: Colors.greenAccent, child: Icon(Icons.play_arrow)),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -150,4 +153,4 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
       ),
     );
   }
-} // এই ব্র্যাকেটগুলো আপনার কোডে মিসিং ছিল
+}
