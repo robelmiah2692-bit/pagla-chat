@@ -599,15 +599,27 @@ Widget build(BuildContext context) {
           icon: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: isMicOn ? Colors.blueAccent : Colors.redAccent),
         ),
         IconButton(
-          onPressed: () {
-            Navigator.push(
-              context, 
-              MaterialPageRoute(builder: (context) => MusicPlayerPage())
-            );
-          },
-        // আইকনের সামনে const থাকলে সমস্যা নেই, ওটা থাকতে পারে
-        icon: const Icon(Icons.music_note, color: Colors.greenAccent, size: 28),
-      ),
+              onPressed: () async {
+                // মিউজিক পেজে যাওয়ার সময় অপেক্ষা করা
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const MusicPlayerPage()),
+                );
+
+                // মিউজিক পেজ থেকে ব্যাক করার পর আবার চেক করা কোনো গান সেভ হয়েছে কি না
+                final prefs = await SharedPreferences.getInstance();
+                List<String> songs = prefs.getStringList('my_music') ?? [];
+
+                setState(() {
+                  savedMusicPaths = songs;
+                  // যদি গান থেকে থাকে এবং বর্তমানে কিছু প্লে হচ্ছে মনে হয়, তবে ইনডেক্স ০ করে দিন
+                  if (savedMusicPaths.isNotEmpty && currentPlayingIndex == -1) {
+                    currentPlayingIndex = 0;
+                  }
+                });
+              },
+              icon: const Icon(Icons.music_note, color: Colors.greenAccent, size: 28),
+            ),
         IconButton(onPressed: _showGiftBox, icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent)), 
       ],
     ),
