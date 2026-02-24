@@ -276,24 +276,6 @@ Widget build(BuildContext context) {
           
           // তোমার সিট গ্রিড
           _buildSeatGrid(), 
-          // মাইক স্ট্যাটাস ইন্ডিকেটর
-                  if (seat["isOccupied"])
-                    Positioned(
-                      bottom: 2,
-                      right: 2,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.black54, // আইকনটি যাতে স্পষ্ট দেখা যায়
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          seat["isMuted"] ? Icons.mic_off : Icons.mic_rounded,
-                          size: 12,
-                          color: seat["isMuted"] ? Colors.redAccent : Colors.greenAccent,
-                        ),
-                      ),
-                    ),
           
           // --- এইখানে নতুন কোডটুকু বসবে ---
           Expanded(
@@ -474,6 +456,25 @@ Widget build(BuildContext context) {
                         child: Icon(Icons.stars, size: 14, color: Colors.amber),
                       ),
 
+                    // মাইক স্ট্যাটাস ইন্ডিকেটর
+                  if (seat["isOccupied"])
+                    Positioned(
+                      bottom: 2,
+                      right: 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.black54, // আইকনটি যাতে স্পষ্ট দেখা যায়
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          seat["isMuted"] ? Icons.mic_off : Icons.mic_rounded,
+                          size: 12,
+                          color: seat["isMuted"] ? Colors.redAccent : Colors.greenAccent,
+                        ),
+                      ),
+                    ),
+                    
                     // ইমোজি পপ-আপ
                     if (activeEmojiSeatIndex == index && currentLottieEmojiUrl.isNotEmpty)
                     IgnorePointer(
