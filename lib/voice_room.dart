@@ -90,17 +90,19 @@ List<String> chatMessages = [];
 
 // ৪. নতুন ক্যাটাগরিযুক্ত গিফট বক্স কল
   void _showGiftBox() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true, // এখানে ভুল ছিল, এখন ঠিক করা হয়েছে
-      builder: (context) => GiftBottomSheet(
-        diamondBalance: diamondBalance,
-        gifts: gifts,
-        onGiftSend: (gift) => _sendGift(gift),
-      ),
-    );
-  }
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (context) => GiftBottomSheet(
+      diamondBalance: diamondBalance,
+      // এখানে gift, count এবং target—এই ৩টি জিনিসই পাঠাতে হবে
+      onGiftSend: (gift, count, target) {
+        _sendGift(gift); // এখানে আপনার গিফট পাঠানোর মেইন লজিক
+      },
+    ),
+  );
+}
 
   // ৫. স্ক্রিনের ওপর গিফট এনিমেশন লেয়ার
   Widget _buildGiftOverlay() {
