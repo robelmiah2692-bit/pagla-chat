@@ -95,23 +95,20 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
                         icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                         onPressed: () => deleteMusic(index),
                       ),
-                      onTap: () async {
-                        // --- এখানে পরিবর্তন করা হয়েছে ---
-                        setState(() {
-                          currentIndex = index;
-                          isPlaying = true;
+                      onTap: () {
+                        // গান সিলেক্ট করে মেইন রুমে পাথ এবং নাম পাঠিয়ে দেওয়া
+                        Navigator.pop(context, {
+                          'path': savedMusicPaths[index],
+                          'name': savedMusicPaths[index].split('/').last,
                         });
-                        await _audioPlayer.stop();
-                        await _audioPlayer.play(DeviceFileSource(savedMusicPaths[index]));
                       },
-                    ),
-                  ),
-          ),
+                    ), // ListTile শেষ
+                  ), // ListView.builder শেষ
+                ), // Expanded শেষ
           if (currentIndex != -1) _buildBottomPlayerBar(),
         ],
       ),
     );
-  }
 
   Widget _buildBottomPlayerBar() {
     return Container(
