@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class GiftBottomSheet extends StatelessWidget {
   final int diamondBalance;
   final List gifts;
-  final Function(Map) onGiftSend;
+  final Function(Map<String, dynamic>) onGiftSend; // এখানে Map থেকে Map<String, dynamic> করলাম
 
   const GiftBottomSheet({
     super.key,
