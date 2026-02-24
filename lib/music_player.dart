@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MusicPlayerPage extends StatefulWidget {
   const MusicPlayerPage({super.key});
@@ -10,30 +11,59 @@ class MusicPlayerPage extends StatefulWidget {
 }
 
 class _MusicPlayerPageState extends State<MusicPlayerPage> {
-  List<File> musicFiles = []; 
+  List<String> savedMusicPaths = []; // পথের লিস্ট
   int currentIndex = -1;
   bool isPlaying = false;
 
+  @override
+  void initState() {
+    super.initState();
+    loadMusicList(); // পেজ খুললেই সেভ করা গান লোড হবে
+  }
+
+  // ১. মেমোরি থেকে গানের লিস্ট লোড করা
+  Future<void> loadMusicList() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      savedMusicPaths = prefs.getStringList('my_music') ?? [];
+    });
+  }
+
+  // ২. নতুন গান পিক করা এবং সেভ করা
   Future<void> pickMusic() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.audio,
-      allowMultiple: true, 
+      allowMultiple: true,
     );
 
     if (result != null) {
+      List<String> newPaths = result.paths.whereType<String>().toList();
       setState(() {
-        musicFiles.addAll(result.paths.map((path) => File(path!)).toList());
+        savedMusicPaths.addAll(newPaths);
       });
+      // ডাটাবেজে (SharedPrefs) সেভ করা
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('my_music', savedMusicPaths);
     }
+  }
+
+  // ৩. গান ডিলিট করা এবং লিস্ট আপডেট করা
+  Future<void> deleteMusic(int index) async {
+    setState(() {
+      savedMusicPaths.removeAt(index);
+      if (currentIndex == index) currentIndex = -1;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('my_music', savedMusicPaths);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // এখানে const সরিয়ে শুধু Colors.black করে দিয়েছি
-      backgroundColor: Colors.black, 
+      backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
         title: const Text("Music Store", style: TextStyle(color: Colors.greenAccent)),
         actions: [
           IconButton(
@@ -45,26 +75,28 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
       body: Column(
         children: [
           Expanded(
-            child: musicFiles.isEmpty
+            child: savedMusicPaths.isEmpty
                 ? const Center(child: Text("কোনো গান নেই, + বাটনে ক্লিক করুন", style: TextStyle(color: Colors.white24)))
                 : ListView.builder(
-                    itemCount: musicFiles.length,
+                    itemCount: savedMusicPaths.length,
                     itemBuilder: (context, index) => ListTile(
                       leading: const Icon(Icons.music_note, color: Colors.white70),
-                      title: Text(musicFiles[index].path.split('/').last, 
+                      title: Text(savedMusicPaths[index].split('/').last,
                           style: const TextStyle(color: Colors.white, fontSize: 14)),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                        onPressed: () => setState(() => musicFiles.removeAt(index)),
+                        onPressed: () => deleteMusic(index),
                       ),
-                      onTap: () => setState(() {
-                        currentIndex = index;
-                        isPlaying = true;
-                      }),
+                      onTap: () {
+                        setState(() {
+                          currentIndex = index;
+                          isPlaying = true;
+                        });
+                        // এখানে গান প্লে করার লজিক ভয়েস রুমে পাঠাতে হবে
+                      },
                     ),
                   ),
           ),
-          
           if (currentIndex != -1) _buildBottomPlayerBar(),
         ],
       ),
@@ -84,28 +116,16 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              musicFiles[currentIndex].path.split('/').last,
+              savedMusicPaths[currentIndex].split('/').last,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Colors.white, fontSize: 13),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.skip_previous, color: Colors.white),
-            onPressed: () {
-              if (currentIndex > 0) setState(() => currentIndex--);
-            },
-          ),
-          IconButton(
-            icon: Icon(isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled, 
+            icon: Icon(isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
                 color: Colors.greenAccent, size: 40),
             onPressed: () => setState(() => isPlaying = !isPlaying),
-          ),
-          IconButton(
-            icon: const Icon(Icons.skip_next, color: Colors.white),
-            onPressed: () {
-              if (currentIndex < musicFiles.length - 1) setState(() => currentIndex++);
-            },
           ),
         ],
       ),
