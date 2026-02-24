@@ -276,7 +276,25 @@ Widget build(BuildContext context) {
           
           // তোমার সিট গ্রিড
           _buildSeatGrid(), 
-
+          // মাইক স্ট্যাটাস ইন্ডিকেটর
+                  if (seat["isOccupied"])
+                    Positioned(
+                      bottom: 2,
+                      right: 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.black54, // আইকনটি যাতে স্পষ্ট দেখা যায়
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          seat["isMuted"] ? Icons.mic_off : Icons.mic_rounded,
+                          size: 12,
+                          color: seat["isMuted"] ? Colors.redAccent : Colors.greenAccent,
+                        ),
+                      ),
+                    ),
+          
           // --- এইখানে নতুন কোডটুকু বসবে ---
           Expanded(
             child: ListView.builder(
@@ -584,6 +602,9 @@ Widget build(BuildContext context) {
 void _showEmojiPicker(int seatIndex) {
   // ইমোজি এবং তাদের এনিমেটেড লিংকের একটি তালিকা (Map)
   final Map<String, String> emojiLottieLinks = {
+    // আপনার ইমোজি ম্যাপে এই ২টা যোগ করুন
+    "😘": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f618/lottie.json", // কিস দেওয়া (উড়ে যাবে)
+    "🥰": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f970/lottie.json", // কিস রিয়েক্ট (ভালোবাসা)
     "😭": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f62d/lottie.json",
     "😡": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f621/lottie.json",
     "👏": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44f/lottie.json",
