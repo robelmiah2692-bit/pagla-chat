@@ -84,70 +84,17 @@ List<String> chatMessages = [];
     });
   }
 
-  // ৪. গিফট বক্স ডিজাইন (৩০টি আইটেম সহ)
+// ৪. নতুন ক্যাটাগরিযুক্ত গিফট বক্স কল
   void _showGiftBox() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
-      builder: (context) {
-        return Container(
-          height: 450,
-          padding: const EdgeInsets.all(15),
-          child: Column(
-            children: [
-              // ডাইমন্ড ব্যালেন্স ও টাইটেল
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20)),
-                    child: Text("💎 ব্যালেন্স: $diamondBalance", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-                  ),
-                  const Text("গিফট বক্স", style: TextStyle(color: Colors.white, fontSize: 16)),
-                  const Icon(Icons.history, color: Colors.white38),
-                ],
-              ),
-              const Divider(color: Colors.white10, height: 20),
-              
-              // ৩০টি গিফটের গ্রিড
-              Expanded(
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4, 
-                    mainAxisSpacing: 10, 
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 0.8
-                  ),
-                  itemCount: gifts.length,
-                  itemBuilder: (context, index) {
-                    var gift = gifts[index];
-                    return GestureDetector(
-                      onTap: () => _sendGift(gift),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(color: Colors.white10),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Image.network(gift["icon"], height: 45), // গিফটের বড় আইকন
-                            const SizedBox(height: 5),
-                            Text("💎 ${gift["price"]}", style: const TextStyle(color: Colors.amber, fontSize: 11)),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      backgroundColor: Colors.transparent,
+      isScrollable: true,
+      builder: (context) => GiftBottomSheet(
+        diamondBalance: diamondBalance,
+        gifts: gifts,
+        onGiftSend: (gift) => _sendGift(gift),
+      ),
     );
   }
 
