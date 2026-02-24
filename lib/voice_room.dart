@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:audioplayers/audioplayers.dart';      // গান বাজানোর জন্য
 import 'package:shared_preferences/shared_preferences.dart'; // গান সেভ রাখার জন্য
 import 'package:path_provider/path_provider.dart';   // ফোনের স্টোরেজ লোকেশন পাওয়ার জন্য
+import 'gift_system.dart';
 
 class VoiceRoom extends StatefulWidget {
   const VoiceRoom({super.key});
