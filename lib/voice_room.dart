@@ -623,60 +623,7 @@ void _showMessage(String msg) {
   );
 }
   
-  // ০ এর জায়গায় seatIndex ব্যবহার করুন
-void _showEmojiPicker(int seatIndex) {
-  // ইমোজি এবং তাদের এনিমেটেড লিংকের একটি তালিকা (Map)
-  final Map<String, String> emojiLottieLinks = {
-    // আপনার ইমোজি ম্যাপে এই ২টা যোগ করুন
-    "😘": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f618/lottie.json", // কিস দেওয়া (উড়ে যাবে)
-    "🥰": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f970/lottie.json", // কিস রিয়েক্ট (ভালোবাসা)
-    "😭": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f62d/lottie.json",
-    "😡": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f621/lottie.json",
-    "👏": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44f/lottie.json",
-    "🥱": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f971/lottie.json",
-    "🤔": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f914/lottie.json",
-    "😏": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f60f/lottie.json",
-    "🤫": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f92b/lottie.json",
-    "🫣": "https://fonts.gstatic.com/s/e/notoemoji/latest/1fae3/lottie.json",
-    "🤭": "https://fonts.gstatic.com/s/e/notoemoji/latest/1f92d/lottie.json",
-  };
 
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.black87,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-    builder: (context) => Container(
-      padding: const EdgeInsets.all(15),
-      height: 250,
-      child: GridView.count(
-        crossAxisCount: 5, // দেখতে সুন্দর লাগবে
-        children: emojiLottieLinks.keys.map((emojiIcon) {
-          return IconButton(
-            onPressed: () {
-              // এখন আমরা টেক্সটের বদলে ওই ইমোজির লটি লিংকটি পাঠাচ্ছি
-              showEmojiOnSeat(seatIndex, emojiLottieLinks[emojiIcon]!); 
-              Navigator.pop(context);
-            },
-            // প্যানেলে দেখানোর জন্য সাধারণ ইমোজিই থাকবে
-            icon: Text(emojiIcon, style: const TextStyle(fontSize: 30)),
-          );
-        }).toList(),
-      ),
-    ),
-  );
-}
-
-  // --- নতুন ফাংশনগুলো এখানে বসবে (সবগুলো ব্র্যাকেটের ভেতর) ---
-  void showEmojiOnSeat(int index, String lottieUrl) {
-  setState(() {
-    activeEmojiSeatIndex = index;
-    currentLottieEmojiUrl = lottieUrl; // এই লিংকেই এনিমেশন চলবে
-  });
-
-  Future.delayed(const Duration(seconds: 3), () {
-    if (mounted) setState(() => activeEmojiSeatIndex = -1);
-  });
-}
   // ১. রুমের প্রোফাইল পিকচার গ্যালারি থেকে নেওয়া
   Future<void> _pickRoomImage() async {
     final XFile? image = await ImagePicker().pickImage(source: ImageSource.gallery);
