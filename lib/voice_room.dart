@@ -262,42 +262,106 @@ Future<void> loadSavedMusic() async {
   @override
 Widget build(BuildContext context) {
   return Scaffold(
-    body: Stack( // <--- এই লাইনটি যোগ করুন
+    body: Stack(
       children: [
+        // ১. ব্যাকগ্রাউন্ড ওয়ালপেপার লজিক
         Container(
-      decoration: BoxDecoration(
-        image: roomWallpaper.isNotEmpty 
-          ? DecorationImage(image: NetworkImage(roomWallpaper), fit: BoxFit.cover)
-          : null,
-        color: const Color(0xFF0F0F1E),
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 40),
-          _buildHeader(), 
-          
-          // তোমার সিট গ্রিড
-          _buildSeatGrid(), 
-          
-          // --- এইখানে নতুন কোডটুকু বসবে ---
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              reverse: true, // নতুন মেসেজ নিচে দেখাবে
-              itemCount: chatMessages.length,
-              itemBuilder: (context, index) {
-                // উল্টো করে দেখাচ্ছি যেন লেটেস্ট মেসেজ নিচে থাকে
-                final msg = chatMessages[chatMessages.length - 1 - index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 5),
-                  child: Text(
-                    "ইউজার: $msg",
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                  ),
-                );
-              },
+          decoration: BoxDecoration(
+            image: roomWallpaper.isNotEmpty 
+                ? DecorationImage(image: NetworkImage(roomWallpaper), fit: BoxFit.cover)
+                : null,
+            color: const Color(0xFF0F0F1E),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 40),
+              _buildHeader(), // রুম হেডার (এখানেই সেটিংস থাকবে)
+              
+              // ২. সিট গ্রিড (এটি উপরে স্থির থাকবে)
+              _buildSeatGrid(), 
+              
+              const SizedBox(height: 10),
+
+              // ৩. চ্যাট এরিয়া: মেসেজ সিটের নিচ দিয়ে স্ক্রল হবে
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  reverse: true, // নতুন মেসেজ নিচে দেখাবে
+                  itemCount: chatMessages.length,
+                  itemBuilder: (context, index) {
+                    // চ্যাট লিস্ট থেকে ডাটা নিয়ে ছবি ও নামসহ দেখানো
+                    final msgData = chatMessages[chatMessages.length - 1 - index];
+                    return _buildMessageRow(msgData); 
+                  },
+                ),
+              ),
+              
+              // ৪. কন্ট্রোল এরিয়া (ইনপুট বক্স ও মাইক বাটন)
+              _buildChatAndControls(), 
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+// ৫. ছবির সাথে মেসেজ দেখানোর আধুনিক ডিজাইন
+Widget _buildMessageRow(dynamic msgData) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ইউজারের গোল প্রোফাইল ছবি
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.pinkAccent.withOpacity(0.4), width: 1.5),
+            image: DecorationImage(
+              // এখানে ডাটাবেস থেকে আসা ছবির লিঙ্ক শো করবে
+              image: NetworkImage(msgData['userImage'] ?? "https://picsum.photos/100"), 
+              fit: BoxFit.cover,
             ),
           ),
+        ),
+        const SizedBox(width: 12),
+
+        // নাম এবং মেসেজ টেক্সট
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                msgData['userName'] ?? "User", 
+                style: const TextStyle(
+                  color: Colors.pinkAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 4),
+              // মেসেজ বক্স ডিজাইন (হালকা ব্যাকগ্রাউন্ড দিলে দেখতে সুন্দর লাগে)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  msgData['text'] ?? "", 
+                  style: const TextStyle(color: Colors.white, fontSize: 13.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
           // ---------------------------------
 
           _buildChatAndControls(), 
@@ -540,8 +604,17 @@ Widget build(BuildContext context) {
         IconButton(
           onPressed: () {
             if (_messageController.text.isNotEmpty) {
+              // ১. বর্তমান ইউজারের তথ্য নেওয়া
+              final user = FirebaseAuth.instance.currentUser;
+
               setState(() {
-                chatMessages.add(_messageController.text); // লিস্টে মেসেজ যোগ হবে
+                // ২. এখানে শুধু টেক্সট না পাঠিয়ে, নাম ও ছবিসহ ম্যাপ পাঠাচ্ছি
+                chatMessages.add({
+                  'userName': user?.displayName ?? "User", // ডাটাবেসের নাম
+                  'userImage': user?.photoURL ?? "https://picsum.photos/100", // প্রোফাইল পিক
+                  'text': _messageController.text, // আপনার লিখা মেসেজ
+                });
+                
                 _messageController.clear(); // বক্স খালি হয়ে যাবে
               });
             }
