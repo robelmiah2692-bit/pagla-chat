@@ -893,28 +893,91 @@ Widget _buildPlayerUI(bool isDragging) {
     );
   }
 
-  // ২. এক্সিট কনফার্মেশন ডায়ালগ (এটিও মিসিং ছিল)
+// --- ১. সেটিংস লেয়ার (যা নিচ থেকে আসবে) ---
+  void _showRoomSettings(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Room Settings", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildSettingItem(isLocked ? Icons.lock : Icons.lock_open, isLocked ? "Unlock" : "Lock", Colors.amber, () {
+                    Navigator.pop(context);
+                    toggleLock();
+                  }),
+                  _buildSettingItem(Icons.wallpaper, "Wallpaper", Colors.cyanAccent, () {
+                    Navigator.pop(context);
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text("ওয়ালপেপার ডিল"),
+                        actions: [
+                          TextButton(onPressed: () => setWallpaper(20, "২৪ ঘন্টা"), child: const Text("২০💎")),
+                          TextButton(onPressed: () => setWallpaper(600, "১ মাস"), child: const Text("৬০০💎")),
+                        ],
+                      ),
+                    );
+                  }),
+                  _buildSettingItem(Icons.open_in_full, "Minimize", Colors.green, () {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  }),
+                  _buildSettingItem(Icons.logout, "Exit", Colors.redAccent, () {
+                    Navigator.pop(context);
+                    _showExitDialog(context);
+                  }),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // --- ২. বাটন ডিজাইন হেল্পার ---
+  Widget _buildSettingItem(IconData icon, String label, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 25,
+            backgroundColor: color.withOpacity(0.1),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  // --- ৩. এক্সিট ডায়ালগ ---
   void _showExitDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
         title: const Text("Exit Room", style: TextStyle(color: Colors.white)),
-        content: const Text("আপনি কি রুম থেকে বের হতে চান?", style: TextStyle(color: Colors.white70)),
+        content: const Text("আপনি কি বের হতে চান?", style: TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("না"),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // ডায়ালগ বন্ধ
-              Navigator.pop(context); // রুম থেকে বের হওয়া
-            },
-            child: const Text("হ্যাঁ", style: TextStyle(color: Colors.red)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("না")),
+          TextButton(onPressed: () { Navigator.pop(context); Navigator.pop(context); }, child: const Text("হ্যাঁ", style: TextStyle(color: Colors.red))),
         ],
       ),
     );
   }
-  } // <--- এইটা হলো ক্লাসের শেষ ব্র্যাকেট, এটা যেন থাকে।
+
+} // <--- এইটা হলো পুরো ক্লাসের শেষ ব্র্যাকেট। এর নিচে যেন আর কিছু না থাকে।
