@@ -874,7 +874,7 @@ Widget _buildPlayerUI(bool isDragging) {
     );
   }
 
-  // বাটন ডিজাইন করার ছোট হেল্পার (এটিও নিচে রাখুন)
+// ১. বাটন ডিজাইন করার ছোট হেল্পার (এটি মিসিং ছিল)
   Widget _buildSettingItem(IconData icon, String label, Color color, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
@@ -888,6 +888,31 @@ Widget _buildPlayerUI(bool isDragging) {
           ),
           const SizedBox(height: 8),
           Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  // ২. এক্সিট কনফার্মেশন ডায়ালগ (এটিও মিসিং ছিল)
+  void _showExitDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text("Exit Room", style: TextStyle(color: Colors.white)),
+        content: const Text("আপনি কি রুম থেকে বের হতে চান?", style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("না"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // ডায়ালগ বন্ধ
+              Navigator.pop(context); // রুম থেকে বের হওয়া
+            },
+            child: const Text("হ্যাঁ", style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );
