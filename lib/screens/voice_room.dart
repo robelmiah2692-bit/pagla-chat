@@ -295,4 +295,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
       audioPlayer: _audioPlayer,
       isDragging: isDragging,
     );
-  } // এই ব্র্যাকেটটা _buildPlayerUI ফাংশন শেষ করলো
+  } // _buildPlayerUI শেষ
+
+} // _VoiceRoomState ক্লাস শেষ (এই ব্র্যাকেটটাই মিসিং ছিল আপনার এরর লগে)
