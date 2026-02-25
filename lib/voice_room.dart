@@ -381,7 +381,12 @@ Widget build(BuildContext context) {
         IconButton(
           icon: const Icon(Icons.settings, color: Colors.white),
           onPressed: () => _showRoomSettings(context),
-        ) 
+        ), 
+
+      ], // <--- এই ব্র্যাকেটটা মিসিং ছিল (Row শেষ)
+    ), // <--- এইটা মিসিং ছিল (Padding শেষ)
+  ); // <--- এইটা মিসিং ছিল (return শেষ)
+} // <--- এইটা সবচাইতে জরুরি ছিল (_buildHeader ফাংশন শেষ)
 
   // ৩. ১৫টি সিটের গ্রিড (পুরাতন লজিক + নতুন ডিজাইন)
   Widget _buildSeatGrid() {
