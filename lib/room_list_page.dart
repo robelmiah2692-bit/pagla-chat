@@ -10,7 +10,8 @@ class RoomListPage extends StatefulWidget {
 
 class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
+  String displayRoomID = "123456";
+  
   @override
   void initState() {
     super.initState();
