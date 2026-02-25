@@ -7,10 +7,16 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lottie/lottie.dart';
 
-// আপনার তৈরি করা আলাদা ফাইলগুলো এখানে ইমপোর্ট হবে
-import '../widgets/music_player_widget.dart'; 
+// ফাইলগুলো widgets ফোল্ডারে থাকায় '../widgets/' ব্যবহার করতে হবে
 import '../widgets/chat_input_bar.dart';
-import '../widgets/gift_system.dart'; // GiftBottomSheet এর জন্য
+import '../widgets/emoji_handler.dart';
+import '../widgets/follower_list_handler.dart';
+import '../widgets/gift_overlay_handler.dart';
+import '../widgets/gift_system.dart';
+import '../widgets/music_player_widget.dart';
+import '../widgets/room_profile_handler.dart';
+import '../widgets/room_settings_handler.dart';
+
 
 class VoiceRoom extends StatefulWidget {
   final String roomId; // রুম আইডিটি কনস্ট্রাক্টরে থাকা জরুরি
