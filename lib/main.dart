@@ -10,6 +10,7 @@ import 'home_page.dart';
 import 'voice_room.dart';
 import 'inbox_page.dart';
 import 'profile_page.dart';
+import 'room_list_page.dart'; // এই লাইনটি আপনার main.dart এর উপরে যোগ করুন
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -151,10 +152,10 @@ class _MainNavigationState extends State<MainNavigation> {
 
   // ফাইল ভাগ করার পর লিস্টটা হবে এইরকম:
   final List<Widget> _pages = [
-    const HomePage(),    // home_page.dart থেকে আসবে
-    const VoiceRoom(),   // voice_room.dart থেকে আসবে
-    const InboxPage(),   // inbox_page.dart থেকে আসবে
-    const ProfilePage(), // profile_page.dart থেকে আসবে
+    const HomePage(),      // ১. হোম পেজ (ইনডেক্স ০)
+    const RoomListPage(),  // ২. আপনার নতুন রুম ফিচার (ইনডেক্স ১)
+    const InboxPage(),     // ৩. ইনবক্স (ইনডেক্স ২)
+    const ProfilePage(),   // ৪. প্রোফাইল (ইনডেক্স ৩)
   ];
 
   @override
