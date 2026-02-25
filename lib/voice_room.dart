@@ -259,109 +259,108 @@ Future<void> loadSavedMusic() async {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    body: Stack(
-      children: [
-        // ১. ব্যাকগ্রাউন্ড ওয়ালপেপার লজিক
-        Container(
-          decoration: BoxDecoration(
-            image: roomWallpaper.isNotEmpty 
-                ? DecorationImage(image: NetworkImage(roomWallpaper), fit: BoxFit.cover)
-                : null,
-            color: const Color(0xFF0F0F1E),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 40),
-              _buildHeader(), // রুম হেডার (এখানেই সেটিংস থাকবে)
-              
-              // ২. সিট গ্রিড (এটি উপরে স্থির থাকবে)
-              _buildSeatGrid(), 
-              
-              const SizedBox(height: 10),
+    @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          // ১. ব্যাকগ্রাউন্ড ওয়ালপেপার এবং মেইন লেআউট
+          Container(
+            decoration: BoxDecoration(
+              image: roomWallpaper.isNotEmpty 
+                  ? DecorationImage(image: NetworkImage(roomWallpaper), fit: BoxFit.cover)
+                  : null,
+              color: const Color(0xFF0F0F1E),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 40),
+                _buildHeader(), // রুম হেডার (এখানেই সেটিংস থাকবে)
+                
+                // ২. সিট গ্রিড (এটি উপরে ফিক্সড থাকবে)
+                _buildSeatGrid(), 
+                
+                const SizedBox(height: 10),
 
-              // ৩. চ্যাট এরিয়া: মেসেজ সিটের নিচ দিয়ে স্ক্রল হবে
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  reverse: true, // নতুন মেসেজ নিচে দেখাবে
-                  itemCount: chatMessages.length,
-                  itemBuilder: (context, index) {
-                    // চ্যাট লিস্ট থেকে ডাটা নিয়ে ছবি ও নামসহ দেখানো
-                    final msgData = chatMessages[chatMessages.length - 1 - index];
-                    return _buildMessageRow(msgData); 
-                  },
+                // ৩. চ্যাট এরিয়া: মেসেজ সিটের নিচ দিয়ে স্ক্রল হবে
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    reverse: true, // নতুন মেসেজ নিচে দেখাবে
+                    itemCount: chatMessages.length,
+                    itemBuilder: (context, index) {
+                      // চ্যাট লিস্ট থেকে ডাটা নিয়ে ছবি ও নামসহ দেখানো
+                      final msgData = chatMessages[chatMessages.length - 1 - index];
+                      return _buildMessageRow(msgData); 
+                    },
+                  ),
                 ),
-              ),
-              
-              // ৪. কন্ট্রোল এরিয়া (ইনপুট বক্স ও মাইক বাটন)
-              _buildChatAndControls(), 
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
+                
+                // ৪. কন্ট্রোল এরিয়া (ইনপুট বক্স ও মাইক বাটন)
+                _buildChatAndControls(), 
+              ],
+            ), // Column শেষ
+          ), // Container শেষ
+        ],
+      ), // Stack শেষ
+    );
+  }
 
-// ৫. ছবির সাথে মেসেজ দেখানোর আধুনিক ডিজাইন
-Widget _buildMessageRow(dynamic msgData) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ইউজারের গোল প্রোফাইল ছবি
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.pinkAccent.withOpacity(0.4), width: 1.5),
-            image: DecorationImage(
-              // এখানে ডাটাবেস থেকে আসা ছবির লিঙ্ক শো করবে
-              image: NetworkImage(msgData['userImage'] ?? "https://picsum.photos/100"), 
-              fit: BoxFit.cover,
+  // ৫. ছবির সাথে মেসেজ দেখানোর আধুনিক ডিজাইন
+  Widget _buildMessageRow(dynamic msgData) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ইউজারের গোল প্রোফাইল ছবি
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.pinkAccent.withOpacity(0.4), width: 1.5),
+              image: DecorationImage(
+                image: NetworkImage(msgData['userImage'] ?? "https://picsum.photos/100"), 
+                fit: BoxFit.cover,
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 12),
+          const SizedBox(width: 12),
 
-        // নাম এবং মেসেজ টেক্সট
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                msgData['userName'] ?? "User", 
-                style: const TextStyle(
-                  color: Colors.pinkAccent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
+          // নাম এবং মেসেজ টেক্সট
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  msgData['userName'] ?? "User", 
+                  style: const TextStyle(
+                    color: Colors.pinkAccent,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              // মেসেজ বক্স ডিজাইন (হালকা ব্যাকগ্রাউন্ড দিলে দেখতে সুন্দর লাগে)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(10),
+                const SizedBox(height: 4),
+                // মেসেজ বক্স ডিজাইন
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    msgData['text'] ?? "", 
+                    style: const TextStyle(color: Colors.white, fontSize: 13.5),
+                  ),
                 ),
-                child: Text(
-                  msgData['text'] ?? "", 
-                  style: const TextStyle(color: Colors.white, fontSize: 13.5),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
     // --- আপনার ভাসমান মিউজিক প্লেয়ার (Stack এর ভেতরে) ---
     if (isRoomMusicPlaying)
