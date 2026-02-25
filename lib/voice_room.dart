@@ -543,48 +543,18 @@ void _showMessage(String msg) {
             color: isMicOn ? Colors.blueAccent : Colors.redAccent
           ),
         ),
-       // ১. মিউজিক পেজে যাওয়া এবং সেখান থেকে ডাটা নিয়ে আসা
        IconButton(
-          onPressed: () async {   
-            final result = await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const MusicPlayerPage()),
-              );
-
-              // ২. যদি ইউজার কোনো গান সিলেক্ট করে ব্যাক আসে
-              if (result != null && result is Map) {
-                setState(() {
-                  currentSongName = result['name'] ?? "Unknown"; // গানের নাম সেট
-                  isRoomMusicPlaying = true; // ড্র্যাগেবল বার চালু
-                });
-
-                // ৩. গানটি বাজানো শুরু করা
-                try {
-                  await _audioPlayer.stop(); // আগের গান বন্ধ
-                  await _audioPlayer.play(DeviceFileSource(result['path'])); // নতুন গান প্লে
-                } catch (e) {
-                  print("গান বাজাতে সমস্যা হয়েছে: $e");
-                }
-              }
-
-              // ৪. ব্যাক করার পর লিস্ট আপডেট রাখা
-              final prefs = await SharedPreferences.getInstance();
-              final List<String> songs = prefs.getStringList('my_music') ?? [];
-              
-              setState(() {
-                savedMusicPaths = songs;
-              });
-            },
-            icon: const Icon(
-              Icons.music_note, 
-              color: Colors.greenAccent, 
-              size: 28,
-            ),
-          ),
-        IconButton(onPressed: _showGiftBox, icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent)), 
-      ],
-    ),
-  );
-}
-  
-} // <--- এই একটি মাত্র ব্র্যাকেট দিয়ে পুরো ফাইল শেষ হবে
+  icon: const Icon(Icons.music_note, color: Colors.greenAccent, size: 28),
+  onPressed: () => MusicPlayerWidget.openMusicPicker(
+    context: context,
+    audioPlayer: _audioPlayer,
+    musicPage: const MusicPlayerPage(), // আপনার সেই মিউজিক পেজ
+    onMusicSelected: (songName, allPaths) {
+      setState(() {
+        currentSongName = songName;
+        isRoomMusicPlaying = true;
+        savedMusicPaths = allPaths;
+      });
+    },
+  ),
+),
