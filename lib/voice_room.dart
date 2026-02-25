@@ -362,12 +362,6 @@ Widget _buildMessageRow(dynamic msgData) {
     ),
   );
 }
-          // ---------------------------------
-
-          _buildChatAndControls(), 
-        ],
-      ), // Column শেষ
-    ), // Container শেষ
 
     // --- আপনার ভাসমান মিউজিক প্লেয়ার (Stack এর ভেতরে) ---
     if (isRoomMusicPlaying)
