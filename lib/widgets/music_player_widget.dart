@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+// আপনার মিউজিক পেজের ইমপোর্ট এখানে দিন (যেমন: import '../screens/music_player_page.dart';)
 
 class MusicPlayerWidget extends StatelessWidget {
   final AudioPlayer audioPlayer;
@@ -17,6 +19,36 @@ class MusicPlayerWidget extends StatelessWidget {
     required this.onClose,
   });
 
+  // --- মিউজিক পিক করার সেই স্পেশাল ফাংশন যা এখন মেইন ফাইল থেকে এখানে চলে আসলো ---
+  static Future<void> openMusicPicker({
+    required BuildContext context,
+    required AudioPlayer audioPlayer,
+    required Widget musicPage, // এখানে আপনার MusicPlayerPage() পাঠিয়ে দিবেন
+    required Function(String name, List<String> paths) onMusicSelected,
+  }) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => musicPage),
+    );
+
+    if (result != null && result is Map) {
+      String songName = result['name'] ?? "Unknown";
+      String songPath = result['path'];
+
+      try {
+        await audioPlayer.stop(); 
+        await audioPlayer.play(DeviceFileSource(songPath)); 
+        
+        final prefs = await SharedPreferences.getInstance();
+        final List<String> songs = prefs.getStringList('my_music') ?? [];
+        
+        onMusicSelected(songName, songs);
+      } catch (e) {
+        debugPrint("গান বাজাতে সমস্যা হয়েছে: $e");
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -33,10 +65,7 @@ class MusicPlayerWidget extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            // ১. ড্র্যাগ করার আইকন
             const Icon(Icons.drag_indicator, color: Colors.greenAccent, size: 18),
-
-            // ২. Play/Pause বাটন
             GestureDetector(
               onTap: onTogglePlay,
               child: Icon(
@@ -47,8 +76,6 @@ class MusicPlayerWidget extends StatelessWidget {
                 size: 32,
               ),
             ),
-
-            // ৩. বন্ধ করার বাটন (Cancel)
             GestureDetector(
               onTap: onClose,
               child: const Icon(Icons.cancel, color: Colors.redAccent, size: 22),
