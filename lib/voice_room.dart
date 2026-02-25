@@ -377,23 +377,12 @@ Widget build(BuildContext context) {
           onPressed: _showFollowerList, 
           icon: const Icon(Icons.people, color: Colors.white70)
         ),
+       
+        IconButton(
+          icon: const Icon(Icons.settings, color: Colors.white),
+          onPressed: () => _showRoomSettings(context),
+        ) 
 
-        // লক বাটন (আগের মতোই আছে)
-        IconButton(onPressed: toggleLock, icon: Icon(isLocked ? Icons.lock : Icons.lock_open, color: Colors.amber)), 
-
-        // ৬. ওয়ালপেপার মেনু (আপনার সেই ডায়মন্ডের ডিল - যেটা বাদ পড়েছিল!)
-        PopupMenuButton<int>(
-          icon: const Icon(Icons.wallpaper, color: Colors.cyanAccent),
-          onSelected: (val) => val == 20 ? setWallpaper(20, "২৪ ঘন্টা") : setWallpaper(600, "১ মাস"),
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: 20, child: Text("২৪ ঘন্টা (২০💎)")),
-            const PopupMenuItem(value: 600, child: Text("১ মাস (৬০০💎)")),
-          ],
-        ),
-      ],
-    ),
-  );
-}
   // ৩. ১৫টি সিটের গ্রিড (পুরাতন লজিক + নতুন ডিজাইন)
   Widget _buildSeatGrid() {
     return Expanded(
@@ -802,4 +791,105 @@ Widget _buildPlayerUI(bool isDragging) {
     ),
   );
 }
-} // <--- এইটা হলো ক্লাসের শেষ ব্র্যাকেট, এটা যেন থাকে।
+// --- রুমের সব সেটিংস এক লেয়ারে (কোডের একদম নিচে বসান) ---
+  void _showRoomSettings(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E), // ডার্ক থিম
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Room Settings", 
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // ১. লক বাটন (আপনার toggleLock ফাংশন কল হবে)
+                  _buildSettingItem(
+                    isLocked ? Icons.lock : Icons.lock_open, 
+                    isLocked ? "Unlock" : "Lock Room", 
+                    Colors.amber, 
+                    () {
+                      Navigator.pop(context);
+                      toggleLock(); 
+                    }
+                  ),
+                  
+                  // ২. ওয়ালপেপার বাটন (আপনার setWallpaper ফাংশন কল হবে)
+                  _buildSettingItem(
+                    Icons.wallpaper, 
+                    "Wallpaper", 
+                    Colors.cyanAccent, 
+                    () {
+                      Navigator.pop(context);
+                      // ডিল অপশন দেখানো
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text("ওয়ালপেপার ডিল"),
+                          actions: [
+                            TextButton(onPressed: () => setWallpaper(20, "২৪ ঘন্টা"), child: const Text("২০💎")),
+                            TextButton(onPressed: () => setWallpaper(600, "১ মাস"), child: const Text("৬০০💎")),
+                          ],
+                        ),
+                      );
+                    }
+                  ),
+
+                  // ৩. মিনিমাইজ বাটন (হোমে যাবে কিন্তু কথা চলবে)
+                  _buildSettingItem(
+                    Icons.open_in_full, 
+                    "Minimize", 
+                    Colors.green, 
+                    () {
+                      Navigator.of(context).popUntil((route) => route.isFirst);
+                    }
+                  ),
+
+                  // ৪. এক্সিট বাটন (রুম থেকে বের হওয়া)
+                  _buildSettingItem(
+                    Icons.power_settings_new, 
+                    "Exit Room", 
+                    Colors.redAccent, 
+                    () {
+                      Navigator.pop(context);
+                      _showExitDialog(context);
+                    }
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // বাটন ডিজাইন করার ছোট হেল্পার (এটিও নিচে রাখুন)
+  Widget _buildSettingItem(IconData icon, String label, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 25,
+            backgroundColor: color.withOpacity(0.1),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+  } // <--- এইটা হলো ক্লাসের শেষ ব্র্যাকেট, এটা যেন থাকে।
