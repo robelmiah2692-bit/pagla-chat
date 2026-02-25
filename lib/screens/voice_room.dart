@@ -291,12 +291,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   Widget _buildPlayerUI(bool isDragging) {
-     return MusicPlayerWidget(
-        audioPlayer: _audioPlayer,
-        isRoomMusicPlaying: isRoomMusicPlaying,
-        isDragging: isDragging,
-        onTogglePlay: () => _audioPlayer.state == PlayerState.playing ? _audioPlayer.pause() : _audioPlayer.resume(),
-        onClose: () => setState(() => isRoomMusicPlaying = false),
-     );
-  }
-}
+    return MusicPlayerPage(
+      audioPlayer: _audioPlayer,
+      isDragging: isDragging,
+    );
+  } // এই ব্র্যাকেটটা _buildPlayerUI ফাংশন শেষ করলো
