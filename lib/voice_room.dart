@@ -625,34 +625,5 @@ void _showMessage(String msg) {
       ),
     );
   }
-
-  // ৩. ফলোয়ার লিস্ট (সিরিয়াল অনুযায়ী: মালিক > এডমিন > ফলোয়ার)
-  void _showFollowerList() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(15),
-        child: Column(
-          children: [
-            const Text("ফলোয়ার লিস্ট", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const Divider(color: Colors.white24),
-            Expanded(
-              child: ListView(
-                children: [
-                  _buildUserTile("রুম মালিক (You)", "Owner", Colors.amber),
-                  _buildUserTile("এডমিন ১", "Admin", Colors.pinkAccent),
-                  ...List.generate(followerCount, (index) => 
-                     _buildUserTile("ইউজার আইডি: ${100 + index}", "Follower", Colors.white54)
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
   
 } // <--- এই একটি মাত্র ব্র্যাকেট দিয়ে পুরো ফাইল শেষ হবে
