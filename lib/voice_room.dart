@@ -484,42 +484,7 @@ void _showMessage(String msg) {
   }
 
   Widget _buildChatAndControls() {
-  return Container(
-    padding: const EdgeInsets.all(10),
-    color: Colors.black45,
-    child: Row(
-      children: [
-        IconButton(onPressed: () => _showEmojiPicker(0), icon: const Icon(Icons.emoji_emotions, color: Colors.amber)),
-        Expanded(
-          child: TextField(
-            controller: _messageController, // কন্ট্রোলারটি এখানে বসলো
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              hintText: "মেসেজ লিখুন...", 
-              border: InputBorder.none, 
-              hintStyle: TextStyle(color: Colors.white24)
-            ),
-          )
-        ),
-        // সেন্ড বাটন - এখানে ক্লিক করলে মেসেজ স্ক্রিনে যাবে
-        IconButton(
-          onPressed: () {
-            if (_messageController.text.isNotEmpty) {
-              // ১. বর্তমান ইউজারের তথ্য নেওয়া
-              final user = FirebaseAuth.instance.currentUser;
-
-              setState(() {
-                // ২. এখানে শুধু টেক্সট না পাঠিয়ে, নাম ও ছবিসহ ম্যাপ পাঠাচ্ছি
-                chatMessages.add({
-                  'userName': user?.displayName ?? "User", // ডাটাবেসের নাম
-                  'userImage': user?.photoURL ?? "https://picsum.photos/100", // প্রোফাইল পিক
-                  'text': _messageController.text, // আপনার লিখা মেসেজ
-                });
-                
-                _messageController.clear(); // বক্স খালি হয়ে যাবে
-              });
-            }
-          }, 
+  
           icon: const Icon(Icons.send, color: Colors.blueAccent)
         ),
         IconButton(onPressed: () {}, icon: const Icon(Icons.videogame_asset, color: Colors.blueAccent)), 
