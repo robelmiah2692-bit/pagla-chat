@@ -104,42 +104,6 @@ List<String> chatMessages = [];
   );
 }
 
-  // ৫. স্ক্রিনের ওপর গিফট এনিমেশন লেয়ার
-  Widget _buildGiftOverlay() {
-    if (!isGiftAnimating) return const SizedBox();
-
-    return Center(
-      child: TweenAnimationBuilder(
-        duration: const Duration(milliseconds: 800),
-        tween: Tween<double>(begin: 0, end: 1),
-        builder: (context, double value, child) {
-          return Opacity(
-            opacity: value,
-            child: Transform.scale(
-              scale: value,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // আপনার চাহিদা মতো দামী গিফট বড়, কম দামী ছোট
-                  Image.network(
-                    currentGiftImage, 
-                    height: isFullScreenBinding ? 380 : 180, 
-                  ),
-                  const SizedBox(height: 10),
-                  // গিফট দাতা ও গ্রহীতার নাম (অটোমেটিক)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-                    decoration: BoxDecoration(color: Colors.pinkAccent, borderRadius: BorderRadius.circular(20)),
-                    child: const Text("ইউজার 🎁 সিট ১", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
   // --- ১. ভেরিয়েবলসমূহ ---
   bool isLocked = false; 
   bool isMicOn = true; 
