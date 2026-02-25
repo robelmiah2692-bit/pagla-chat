@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'voice_room.dart'; // আপনার বর্তমান ভয়েস রুমের ফাইল
+import 'screens/voice_room.dart'; // এইটা লিখে দিন
 
 class RoomListPage extends StatefulWidget {
   const RoomListPage({super.key});
@@ -158,9 +158,9 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     );
   }
 
-  // ৩. রুম গ্রিড লজিক (যেখানে মাই রুম ঠিক করা হয়েছে)
+  // ৩. রুম গ্রিড লজিক (যেখানে মাই রুম ঠিক করা হয়েছে)
   Widget _buildRoomGrid(String type) {
-    // যদি টাইপ "my_room" হয়, তবে আপনার আসল রুমটি সবার আগে দেখাবে
+    // যদি টাইপ "my_room" হয়, তবে আপনার আসল রুমটি সবার আগে দেখাবে
     int itemCount = (type == "my_room") ? 1 : 10; 
 
     return GridView.builder(
@@ -175,10 +175,15 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
       itemBuilder: (context, index) {
         return GestureDetector(
           onTap: () {
-            // রুমে ক্লিক করলে voice_room.dart এ নিয়ে যাবে
+            // রুমে ক্লিক করলে voice_room.dart এ নিয়ে যাবে
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const VoiceRoom()),
+              MaterialPageRoute(
+                builder: (context) => VoiceRoom(
+                  // ওস্তাদ, এখানে roomId পাস করা বাধ্যতামূলক
+                  roomId: (type == "my_room") ? displayRoomID : "room_$index",
+                ),
+              ),
             );
           },
           child: _buildRoomCard(index, type),
