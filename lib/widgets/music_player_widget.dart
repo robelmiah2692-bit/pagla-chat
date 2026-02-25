@@ -5,7 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 class MusicPlayerPage extends StatefulWidget {
-  const MusicPlayerPage({super.key});
+  // ১. এই দুইটা লাইন যোগ করবেন
+  final AudioPlayer? audioPlayer;
+  final bool? isDragging;
+  
+  // ২. কনস্ট্রাক্টরটা এভাবে আপডেট করবেন (আগেরটা ডিলিট করে)
+  const MusicPlayerPage({super.key, this.audioPlayer, this.isDragging});
 
   @override
   State<MusicPlayerPage> createState() => _MusicPlayerPageState();
