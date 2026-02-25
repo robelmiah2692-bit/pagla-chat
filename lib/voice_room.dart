@@ -893,7 +893,7 @@ Widget _buildPlayerUI(bool isDragging) {
     );
   }
 
-// --- ১. সেটিংস লেয়ার (যা নিচ থেকে আসবে) ---
+// --- ১. সেটিংস লেয়ার ---
   void _showRoomSettings(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -974,10 +974,13 @@ Widget _buildPlayerUI(bool isDragging) {
         content: const Text("আপনি কি বের হতে চান?", style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("না")),
-          TextButton(onPressed: () { Navigator.pop(context); Navigator.pop(context); }, child: const Text("হ্যাঁ", style: TextStyle(color: Colors.red))),
+          TextButton(onPressed: () { 
+            Navigator.pop(context); 
+            Navigator.pop(context); 
+          }, child: const Text("হ্যাঁ", style: TextStyle(color: Colors.red))),
         ],
       ),
     );
   }
 
-} // <--- এইটা হলো পুরো ক্লাসের শেষ ব্র্যাকেট। এর নিচে যেন আর কিছু না থাকে।
+} // <--- এইটা হলো আপনার ফাইলের একদম শেষ ব্র্যাকেট। এরপর আর কোনো কিছু থাকবে না।
