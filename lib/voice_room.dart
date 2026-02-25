@@ -587,43 +587,4 @@ void _showMessage(String msg) {
   );
 }
   
-
-  // ১. রুমের প্রোফাইল পিকচার গ্যালারি থেকে নেওয়া
-  Future<void> _pickRoomImage() async {
-    final XFile? image = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        roomImageURL = image.path;
-      });
-      _showMessage("রুম প্রোফাইল আপডেট হয়েছে!");
-    }
-  }
-
-  // ২. রুমের নাম এডিট করার পপ-আপ
-  void _editRoomName() {
-    TextEditingController _nameController = TextEditingController(text: roomName);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E2F),
-        title: const Text("রুমের নাম পরিবর্তন", style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: _nameController, 
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(hintText: "নতুন নাম লিখুন", hintStyle: TextStyle(color: Colors.white24)),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("বাতিল")),
-          TextButton(
-            onPressed: () {
-              setState(() => roomName = _nameController.text);
-              Navigator.pop(context);
-            }, 
-            child: const Text("সেভ", style: TextStyle(color: Colors.pinkAccent))
-          ),
-        ],
-      ),
-    );
-  }
-  
 } // <--- এই একটি মাত্র ব্র্যাকেট দিয়ে পুরো ফাইল শেষ হবে
