@@ -255,9 +255,10 @@ Future<void> loadSavedMusic() async {
   });
 }
 
-  void _showMessage(String msg) {
+void _showMessage(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
+}
 
     @override
   Widget build(BuildContext context) {
