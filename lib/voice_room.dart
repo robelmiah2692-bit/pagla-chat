@@ -796,116 +796,12 @@ Widget _buildPlayerUI(bool isDragging) {
     ),
   );
 }
-// --- রুমের সব সেটিংস এক লেয়ারে (কোডের একদম নিচে বসান) ---
-  void _showRoomSettings(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1A1A2E), // ডার্ক থিম
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text("Room Settings", 
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
-              
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // ১. লক বাটন (আপনার toggleLock ফাংশন কল হবে)
-                  _buildSettingItem(
-                    isLocked ? Icons.lock : Icons.lock_open, 
-                    isLocked ? "Unlock" : "Lock Room", 
-                    Colors.amber, 
-                    () {
-                      Navigator.pop(context);
-                      toggleLock(); 
-                    }
-                  ),
-                  
-                  // ২. ওয়ালপেপার বাটন (আপনার setWallpaper ফাংশন কল হবে)
-                  _buildSettingItem(
-                    Icons.wallpaper, 
-                    "Wallpaper", 
-                    Colors.cyanAccent, 
-                    () {
-                      Navigator.pop(context);
-                      // ডিল অপশন দেখানো
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text("ওয়ালপেপার ডিল"),
-                          actions: [
-                            TextButton(onPressed: () => setWallpaper(20, "২৪ ঘন্টা"), child: const Text("২০💎")),
-                            TextButton(onPressed: () => setWallpaper(600, "১ মাস"), child: const Text("৬০০💎")),
-                          ],
-                        ),
-                      );
-                    }
-                  ),
-
-                  // ৩. মিনিমাইজ বাটন (হোমে যাবে কিন্তু কথা চলবে)
-                  _buildSettingItem(
-                    Icons.open_in_full, 
-                    "Minimize", 
-                    Colors.green, 
-                    () {
-                      Navigator.of(context).popUntil((route) => route.isFirst);
-                    }
-                  ),
-
-                  // ৪. এক্সিট বাটন (রুম থেকে বের হওয়া)
-                  _buildSettingItem(
-                    Icons.power_settings_new, 
-                    "Exit Room", 
-                    Colors.redAccent, 
-                    () {
-                      Navigator.pop(context);
-                      _showExitDialog(context);
-                    }
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-// ১. বাটন ডিজাইন করার ছোট হেল্পার (এটি মিসিং ছিল)
-  Widget _buildSettingItem(IconData icon, String label, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundColor: color.withOpacity(0.1),
-            child: Icon(icon, color: color, size: 28),
-          ),
-          const SizedBox(height: 8),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
-        ],
-      ),
-    );
-  }
-
-// --- ১. সেটিংস লেয়ার ---
+// ১. মেইন সেটিংস ফাংশন (পুরনো ডুপ্লিকেটগুলো মুছে শুধু এইটা রাখুন)
   void _showRoomSettings(BuildContext context) {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
@@ -950,42 +846,34 @@ Widget _buildPlayerUI(bool isDragging) {
     );
   }
 
-  // --- ২. বাটন ডিজাইন হেল্পার ---
+  // ২. হেল্পার বাটন ডিজাইন (এইটাও মাত্র একবার থাকবে)
   Widget _buildSettingItem(IconData icon, String label, Color color, VoidCallback onTap) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundColor: color.withOpacity(0.1),
-            child: Icon(icon, color: color, size: 28),
-          ),
-          const SizedBox(height: 8),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+          CircleAvatar(backgroundColor: color.withOpacity(0.2), child: Icon(icon, color: color)),
+          const SizedBox(height: 5),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
         ],
       ),
     );
   }
 
-  // --- ৩. এক্সিট ডায়ালগ ---
+  // ৩. এক্সিট ডায়ালগ
   void _showExitDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text("Exit Room", style: TextStyle(color: Colors.white)),
-        content: const Text("আপনি কি বের হতে চান?", style: TextStyle(color: Colors.white70)),
+        title: const Text("Exit Room?"),
+        content: const Text("আপনি কি রুম থেকে বের হতে চান?"),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("না")),
-          TextButton(onPressed: () { 
-            Navigator.pop(context); 
-            Navigator.pop(context); 
-          }, child: const Text("হ্যাঁ", style: TextStyle(color: Colors.red))),
+          TextButton(onPressed: () { Navigator.pop(context); Navigator.pop(context); }, child: const Text("হ্যাঁ")),
         ],
       ),
     );
   }
 
-} // <--- এইটা হলো আপনার ফাইলের একদম শেষ ব্র্যাকেট। এরপর আর কোনো কিছু থাকবে না।
+} // <--- এই একটি মাত্র ব্র্যাকেট দিয়ে পুরো ফাইল শেষ হবে।
+  
