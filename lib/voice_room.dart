@@ -53,42 +53,6 @@ List<String> chatMessages = [];
   String currentGiftImage = "";
   bool isFullScreenBinding = false; // দামি গিফটের জন্য
 
-  // ২. গিফট লিস্ট (৩০টি আইটেম - আপনি পরে ছবি পাল্টাতে পারবেন)
-  final List<Map<String, dynamic>> gifts = List.generate(30, (index) => {
-    "id": index + 1,
-    "name": "Gift ${index + 1}",
-    "price": (index + 1) * 50, // বিভিন্ন দাম (৫০, ১০০, ১৫০...)
-    "icon": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png", // বক্সের ছোট ছবি
-    "isVipGift": (index + 1) * 50 >= 500 ? true : false, // ৫০০ ডাইমন্ডের বেশি হলে ফুল স্ক্রিন
-  });
-
-  // ৩. গিফট সেন্ড করার মেইন ফাংশন
-  void _sendGift(Map<String, dynamic> gift) {
-    if (diamondBalance < gift["price"]) {
-      Navigator.pop(context);
-      _showMessage("পর্যাপ্ত ডাইমন্ড নেই! 💎");
-      return;
-    }
-
-    Navigator.pop(context); // গিফট বক্স বন্ধ হবে
-    setState(() {
-      final TextEditingController _messageController = TextEditingController(); 
-      List<String> chatMessages = []; // মেসেজ জমা রাখার জন্য
-      diamondBalance -= gift["price"] as int; // ডাইমন্ড কেটে নেওয়া হলো
-      currentGiftImage = gift["icon"]; // এখানে আপনার বড় এনিমেশন ছবির লিঙ্ক হবে
-      isFullScreenBinding = gift["isVipGift"]; // বড় না ছোট গিফট তা চেক
-      isGiftAnimating = true;
-    });
-
-    // ৫ সেকেন্ড পর স্ক্রিন থেকে গিফট চলে যাবে
-    Timer(const Duration(seconds: 5), () {
-      setState(() {
-        isGiftAnimating = false;
-      });
-    });
-  }
-
-// ৪. নতুন ক্যাটাগরিযুক্ত গিফট বক্স কল
   void _showGiftBox() {
   showModalBottomSheet(
     context: context,
