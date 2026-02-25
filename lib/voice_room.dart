@@ -306,62 +306,6 @@ void _showMessage(String msg) {
     );
   }
 
-  // ৫. ছবির সাথে মেসেজ দেখানোর আধুনিক ডিজাইন
-  Widget _buildMessageRow(dynamic msgData) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ইউজারের গোল প্রোফাইল ছবি
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.pinkAccent.withOpacity(0.4), width: 1.5),
-              image: DecorationImage(
-                image: NetworkImage(msgData['userImage'] ?? "https://picsum.photos/100"), 
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // নাম এবং মেসেজ টেক্সট
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  msgData['userName'] ?? "User", 
-                  style: const TextStyle(
-                    color: Colors.pinkAccent,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                // মেসেজ বক্স ডিজাইন
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    msgData['text'] ?? "", 
-                    style: const TextStyle(color: Colors.white, fontSize: 13.5),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
     // --- আপনার ভাসমান মিউজিক প্লেয়ার (Stack এর ভেতরে) ---
     if (isRoomMusicPlaying)
       Positioned(
