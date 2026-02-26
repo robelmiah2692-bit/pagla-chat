@@ -41,7 +41,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   List<Map<String, String>> chatMessages = [];
   bool isGiftAnimating = false;
   String currentGiftImage = "";
-  late List<Map<String, dynamic>> seats;
+  late List<Map<String, dynamic>> seat;
 
   @override
   void initState() {
