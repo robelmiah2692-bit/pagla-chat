@@ -97,23 +97,122 @@ class _VoiceRoomState extends State<VoiceRoom> {
       body: Stack(
         children: [
           Column(
-            children: [
-              const SizedBox(height: 50),
-              _buildHeaderArea(),
-              _buildSeatGrid(),
-              
-              // চ্যাট এরিয়া
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  reverse: true,
-                  itemCount: chatMessages.length,
-                  itemBuilder: (context, index) {
-                    final msg = chatMessages[chatMessages.length - 1 - index];
-                    return _buildMessageRow(msg);
-                  },
+  children: [
+    const SizedBox(height: 45),
+    
+    // --- ১. রুম হেডার ও ইউজার কাউন্ট ---
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 15),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildHeaderArea(), // আপনার আগের হেডার ফাংশন
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.black38,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.person, size: 14, color: Colors.greenAccent),
+                const SizedBox(width: 4),
+                Text("200", style: const TextStyle(color: Colors.white, fontSize: 12)), // ইউজার কাউন্ট
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+
+    // --- ২. প্রথম সারির উপরে অতিরিক্ত জায়গা (Empty Space for Viewers) ---
+    const SizedBox(height: 30), // এখানে ইউজাররা সিট ছাড়াও থাকতে পারবে
+
+    // --- ৩. সিট গ্রিড (VIP এবং জেনারেল সিট) ---
+    Container(
+      height: 360, // সিটগুলো বড় রাখার জন্য পর্যাপ্ত হাইট
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: GridView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 5,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 10,
+          childAspectRatio: 0.75,
+        ),
+        itemCount: seats.length, // ২০টি সিট
+        itemBuilder: (context, index) {
+          var seat = seats[index];
+          bool isVip = index < 5; // প্রথম ৫টি VIP সিট
+          bool isCalling = seat["status"] == "calling";
+
+          return GestureDetector(
+            onTap: () => sitOnSeat(index),
+            child: Column(
+              children: [
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // VIP সিটের জন্য গোল্ডেন বর্ডার বা স্পেশাল কালার
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: isVip 
+                          ? Border.all(color: Colors.amber, width: 2) // VIP সিট বর্ডার
+                          : null,
+                      ),
+                      child: CircleAvatar(
+                        radius: 24,
+                        backgroundColor: seat["isOccupied"] 
+                          ? (isVip ? Colors.amber.shade700 : Colors.blueAccent) 
+                          : Colors.white10,
+                        backgroundImage: (seat["userImage"].toString().isNotEmpty) 
+                          ? NetworkImage(seat["userImage"]) : null,
+                        child: isCalling 
+                          ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : (seat["isOccupied"] ? null : Icon(isVip ? Icons.stars : Icons.chair, size: 20, color: isVip ? Colors.amber : Colors.white24)),
+                      ),
+                    ),
+                    // VIP ব্যাজ
+                    if (isVip)
+                      Positioned(
+                        top: 0, right: 0,
+                        child: Icon(Icons.workspace_premium, size: 14, color: Colors.amber),
+                      ),
+                  ],
                 ),
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  seat["userName"].isEmpty ? "${index + 1}" : seat["userName"],
+                  style: TextStyle(
+                    color: isVip ? Colors.amber : Colors.white, 
+                    fontSize: 10,
+                    fontWeight: isVip ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    ),
+
+    // --- ৪. চ্যাট বক্স (অ্যাডজাস্টেড) ---
+    Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 10),
+        child: ListView.builder(
+          reverse: true,
+          itemCount: chatMessages.length,
+          itemBuilder: (context, index) {
+            final msg = chatMessages[chatMessages.length - 1 - index];
+            return _buildMessageRow(msg);
+          },
+        ),
+      ),
+    ),
 
               // ইনপুট বার ও ইমোজি ফিচার
               ChatInputBar(
