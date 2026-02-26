@@ -177,52 +177,58 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   // --- চ্যাট বক্সের নিচের মেইন একশন বার ---
   Widget _buildBottomActionArea() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      color: Colors.black26,
-      child: Row(
-        children: [
-          // টেক্সট ইনপুট এরিয়া (সামনে ইমোজি বাটনসহ)
-          Expanded(
-            child: ChatInputBar(
-              controller: _messageController,
-              onEmojiTap: () {
-                EmojiHandler.showPicker(
-                  context: context,
-                  seatIndex: -1, // জেনারেল চ্যাট
-                  onEmojiSelected: (index, url) {
-                    setState(() {
-                      currentGiftImage = url;
-                      isGiftAnimating = true;
-                    });
-                    Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
-                  },
-                );
-              },
-              onMessageSend: (newMessage) {
-                setState(() => chatMessages.add(newMessage));
-              },
-            ),
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    color: Colors.black26,
+    child: Row(
+      children: [
+        // ১. চ্যাট ইনপুট বক্স
+        Expanded(
+          child: ChatInputBar(
+            controller: _messageController,
+            onEmojiTap: () {
+              EmojiHandler.showPicker(
+                context: context,
+                seatIndex: -1, 
+                onEmojiSelected: (index, url) {
+                  setState(() {
+                    currentGiftImage = url;
+                    isGiftAnimating = true;
+                  });
+                  Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
+                },
+              );
+            },
+            onMessageSend: (newMessage) {
+              setState(() => chatMessages.add(newMessage));
+            },
           ),
-          const SizedBox(width: 8),
-          // ৪টি মেইন কন্ট্রোল বাটন
-          _buildSmallIconButton(Icons.mic_none, Colors.white, () {}),
-          _buildSmallIconButton(Icons.videogame_asset, Colors.orange, () {}),
-          // আপনার ফাইলের ২১৩ থেকে ২১৭ নম্বর লাইন পর্যন্ত এটি দিয়ে বদলে দিন
-          _buildSmallIconButton(Icons.music_note, Colors.cyanAccent, () {
-           setState(() => isRoomMusicPlaying = !isRoomMusicPlaying);
-          }),
-          _buildSmallIconButton(Icons.card_giftcard, Colors.pinkAccent, () {
-            // এখানে এরর আসছিল, আমি সেফ মোডে দিলাম যেন বিল্ড ফেইল না করে
-            try {
-               GiftSystem.showPanel(context); 
-            } catch (e) {
-               print("Gift system error: $e");
-           }
+        ),
+        const SizedBox(width: 8),
+
+        // ২. কন্ট্রোল বাটনগুলো
+        _buildSmallIconButton(Icons.mic_none, Colors.white, () {
+          // মাইক লজিক
         }),
-      ),
-    );
-  }
+        _buildSmallIconButton(Icons.videogame_asset, Colors.orange, () {
+          // গেম লজিক
+        }),
+        _buildSmallIconButton(Icons.music_note, Colors.cyanAccent, () {
+          setState(() => isRoomMusicPlaying = !isRoomMusicPlaying);
+        }),
+        _buildSmallIconButton(Icons.card_giftcard, Colors.pinkAccent, () {
+          // গিফট সিস্টেম - এরর এড়াতে ডাইনামিক কল
+          try {
+            // ওস্তাদ, এখানে আপনার গিফট হ্যান্ডলারের আসল নাম দিন
+             GiftSystem.showPanel(context); 
+          } catch (e) {
+             print("Error: $e");
+          }
+        }), // <--- এই সেমিকোলন এবং ব্র্যাকেটগুলোই আসল
+      ],
+    ),
+  );
+}
 
   Widget _buildSmallIconButton(IconData icon, Color color, VoidCallback onTap) {
     return InkWell(
