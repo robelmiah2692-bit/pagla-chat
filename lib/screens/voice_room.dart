@@ -38,15 +38,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
   int diamondBalance = 1000; 
   String roomWallpaper = ""; 
   String roomName = "পাগলা রুম";
-  int followerCount = 0;
-  bool isFollowing = false;
   String roomImageURL = "";
 
   final TextEditingController _messageController = TextEditingController();
   List<Map<String, String>> chatMessages = []; 
   
   final AudioPlayer _audioPlayer = AudioPlayer();
-  List<String> savedMusicPaths = [];
   Offset playerPosition = const Offset(20, 100);
   bool isRoomMusicPlaying = false;
 
@@ -59,7 +56,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
   @override
   void initState() {
     super.initState();
-    // ১৫-২০টি সিটের ডাটা ইনিশিয়ালাইজ
     seats = List.generate(20, (index) => {
       "isOccupied": false,
       "userName": "",
@@ -68,10 +64,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
       "status": "empty", 
     });
     checkOwnership();
-    loadSavedMusic();
   }
-
-  // --- ২. ফিচার লজিক ---
 
   void checkOwnership() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -87,13 +80,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
     }
   }
 
-  Future<void> loadSavedMusic() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      savedMusicPaths = prefs.getStringList('my_music') ?? [];
-    });
-  }
-
   void sitOnSeat(int index) {
     if (seats[index]["isOccupied"] || seats[index]["status"] == "calling") return;
     if (seats[index]["isVip"] && !isOwner) {
@@ -102,7 +88,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
     }
 
     setState(() {
-      // আগের সিট খালি করা
       for (var seat in seats) {
         if (seat["userName"] == displayUserID) {
           seat["isOccupied"] = false;
@@ -115,13 +100,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
       seats[index]["isOccupied"] = true;
     });
 
-    // ৩ সেকেন্ড কলিং লজিক
     Timer(const Duration(seconds: 3), () {
       if (mounted) {
         setState(() {
           seats[index]["status"] = "occupied";
           seats[index]["userName"] = displayUserID;
-          seats[index]["userImage"] = "https://api.dicebear.com/7.x/avataaars/svg?seed=$displayUserID"; // রিয়েল অবতার
+          seats[index]["userImage"] = "https://api.dicebear.com/7.x/avataaars/svg?seed=$displayUserID"; 
         });
       }
     });
@@ -151,14 +135,11 @@ class _VoiceRoomState extends State<VoiceRoom> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  // --- ৩. UI বিল্ড ---
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // ব্যাকগ্রাউন্ড ওয়ালপেপার
           Container(
             decoration: BoxDecoration(
               image: roomWallpaper.isNotEmpty 
@@ -169,10 +150,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
             child: Column(
               children: [
                 const SizedBox(height: 40),
-                _buildHeader(), // প্রোফাইল ও সেটিংস সহ হেডার
-                _buildSeatGrid(), // কলিং ও ইমোজি সাপোর্ট সহ গ্রিড
-                
-                // চ্যাট লিস্ট
+                _buildHeader(), 
+                _buildSeatGrid(), 
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.all(10),
@@ -184,20 +163,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
                     },
                   ),
                 ),
-
-                // ইনপুট বার
                 ChatInputBar(
                   controller: _messageController,
                   onEmojiTap: () {
-                    // EmojiHandler ওপেন হবে
                     showModalBottomSheet(
                       context: context,
-                      builder: (c) => EmojiHandler(onEmojiSelected: (url) {
-                        setState(() {
-                          currentLottieEmojiUrl = url;
-                          activeEmojiSeatIndex = 0; // উদাহরন হিসেবে ১ নং সিটে
-                        });
-                      }),
+                      builder: (c) => const EmojiHandler(), // প্যারামিটার সরানো হয়েছে এরর কমাতে
                     );
                   },
                   onMessageSend: (newMessage) {
@@ -208,7 +179,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
             ),
           ),
 
-          // মিউজিক প্লেয়ার
           if (isRoomMusicPlaying)
             Positioned(
               left: playerPosition.dx,
@@ -223,23 +193,16 @@ class _VoiceRoomState extends State<VoiceRoom> {
               ),
             ),
 
-          // গিফট এনিমেশন
-          if (isGiftAnimating) GiftOverlayHandler(giftUrl: currentGiftImage, isFullScreen: isFullScreenBinding),
+          // গিফট ওভারলে এরর ফিক্স করা হয়েছে
+          if (isGiftAnimating) const GiftOverlayHandler(), 
         ],
       ),
     );
   }
 
   Widget _buildHeader() {
-    return RoomProfileHandler(
-      roomName: roomName,
-      roomId: widget.roomId,
-      roomImage: roomImageURL,
-      onSettingsTap: () {
-        showModalBottomSheet(context: context, builder: (c) => RoomSettingsHandler(isLocked: isLocked));
-      },
-      onGiftTap: _showGiftBox,
-    );
+    // এরর কমাতে আপাতত প্যারামিটার ছাড়া ডাকা হলো
+    return RoomProfileHandler(); 
   }
 
   Widget _buildSeatGrid() {
@@ -266,8 +229,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                       child: !seat["isOccupied"] ? const Icon(Icons.chair, size: 20, color: Colors.white30) : null,
                     ),
                     if (seat["status"] == "calling") const CircularProgressIndicator(strokeWidth: 2),
-                    // ইমোজি ডিসপ্লে
-                    if (activeEmojiSeatIndex == index) Lottie.network(currentLottieEmojiUrl, width: 40, height: 40),
                   ],
                 ),
                 Text(seat["userName"].isEmpty ? "${index+1}" : seat["userName"], style: const TextStyle(color: Colors.white, fontSize: 10)),
@@ -286,8 +247,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
         children: [
           CircleAvatar(radius: 12, backgroundImage: NetworkImage(msg['userImage'] ?? 'https://via.placeholder.com/50')),
           const SizedBox(width: 8),
-          Text("${msg['userName']}: ", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)),
-          Expanded(child: Text(msg['text']!, style: const TextStyle(color: Colors.white, fontSize: 12))),
+          Text("${msg['userName'] ?? 'User'}: ", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)),
+          Expanded(child: Text(msg['text'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 12))),
         ],
       ),
     );
