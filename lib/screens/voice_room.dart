@@ -92,7 +92,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
               
               // চ্যাট মেসেজ এরিয়া
               SizedBox(
-                height: 150,
+                height: 120,
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(15)),
