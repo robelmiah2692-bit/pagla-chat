@@ -207,15 +207,107 @@ class _VoiceRoomState extends State<VoiceRoom> {
         const SizedBox(width: 8),
 
         // ২. কন্ট্রোল বাটনগুলো
-        _buildSmallIconButton(Icons.mic_none, Colors.white, () {
-          // মাইক লজিক
-        }),
+        _buildSmallIconButton(
+  isMicOn ? Icons.mic : Icons.mic_off, // অন থাকলে মাইক, অফ থাকলে কাটা মাইক
+  isMicOn ? Colors.greenAccent : Colors.white, // অন থাকলে সবুজ হবে
+  () {
+    // ১. চেক করা ইউজার সিটে আছে কি না
+    if (currentSeatIndex == -1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("কথা বলতে আগে সিটে বসুন!")),
+      );
+      return;
+    }
+
+    // ২. মাইক স্টেট পরিবর্তন (রিয়েল-টাইম)
+    setState(() {
+      isMicOn = !isMicOn;
+      
+      // ৩. আপনার সিটের ডাটা আপডেট করা (যদি ফায়ারবেস থাকে তবে সেখানে পাঠাতে হবে)
+      // আপাতত লোকাল স্টেটে আপনার সিটের মাইক আইকন বদলে যাবে
+      seatUsers[currentSeatIndex]['isMicOn'] = isMicOn;
+    });
+
+    // এখানে আপনার অডিও পারমিশন বা ভয়েস এসডিকে (যেমন: Agora/Zego) কল হবে
+    if (isMicOn) {
+      print("মাইক চালু হয়েছে - এখন কথা শোনা যাবে");
+    } else {
+      print("মাইক বন্ধ হয়েছে");
+    }
+  },
+),
         _buildSmallIconButton(Icons.videogame_asset, Colors.orange, () {
           // গেম লজিক
         }),
-        _buildSmallIconButton(Icons.music_note, Colors.cyanAccent, () {
-          setState(() => isRoomMusicPlaying = !isRoomMusicPlaying);
-        }),
+
+  Widget _buildFloatingPlayer({required bool isDragging}) {
+   return Material(
+    color: Colors.transparent,
+    child: Container(
+      width: 220,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.85),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.greenAccent.withOpacity(0.5), width: 1),
+        boxShadow: [
+          BoxShadow(color: Colors.black54, blurRadius: 10, spreadRadius: 2)
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ১. মিউজিক আইকন
+          const Icon(Icons.music_note, color: Colors.greenAccent, size: 20),
+          const SizedBox(width: 8),
+          
+          // ২. প্লে-পজ বাটন
+          GestureDetector(
+            onTap: () async {
+              if (_audioPlayer.state == PlayerState.playing) {
+                await _audioPlayer.pause();
+              } else {
+                await _audioPlayer.resume();
+              }
+              setState(() {}); // বাটন আইকন বদলানোর জন্য
+            },
+            child: Icon(
+              _audioPlayer.state == PlayerState.playing 
+                  ? Icons.pause_circle_filled 
+                  : Icons.play_circle_filled,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 8),
+          
+          // ৩. গানের নাম
+          const Expanded(
+            child: Text(
+              "Playing Music...", 
+              style: TextStyle(color: Colors.white, fontSize: 11, overflow: TextOverflow.ellipsis, decoration: TextDecoration.none),
+            ),
+          ),
+
+          // ৪. প্লেয়ার বন্ধ করার × বাটন
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                isRoomMusicPlaying = false;
+                _audioPlayer.stop(); // একবারে গান বন্ধ করে দেওয়া
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+              child: const Icon(Icons.close, color: Colors.white, size: 14),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
         _buildSmallIconButton(Icons.card_giftcard, Colors.pinkAccent, () {
           // আপনার gift_system.dart এর সঠিক ক্লাস কল করা হলো
           showModalBottomSheet(
