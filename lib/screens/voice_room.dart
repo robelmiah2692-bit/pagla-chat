@@ -91,7 +91,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
               _buildSeatGridArea(),
               
               // চ্যাট মেসেজ এরিয়া
-              Expanded(
+              SizedBox(
+                height: 150,
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(15)),
@@ -106,14 +107,38 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   ),
                 ),
               ),
-
+              // চ্যাট ইনপুটের ঠিক উপরে কন্ট্রোল বাটনগুলো
+             Padding(
+               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+               child: Row(
+                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                 children: [
+                   // ১. মাইক অন/অফ
+                   _buildControlButton(Icons.mic_none, Colors.white, () {
+                   // মাইক লজিক
+                   }),
+                   // ২. গেম বাটন
+                   _buildControlButton(Icons.videogame_asset, Colors.orange, () {
+                   // গেম লজিক
+                   }),
+                   // ৩. মিউজিক বাটন
+                   _buildControlButton(Icons.music_note, Colors.cyanAccent, () {
+                      setState(() => isRoomMusicPlaying = !isRoomMusicPlaying);
+                   }),
+                   // ৪. গিফট বক্স
+                   _buildControlButton(Icons.card_giftcard, Colors.pinkAccent, () {
+                   // আপনার গিফট সিস্টেম ফাইল কল করুন
+                   }),
+                 ],
+               ),
+             ),
               // চ্যাট ইনপুট বার (EmojiHandler কানেক্টেড)
               ChatInputBar(
                 controller: _messageController,
                 onEmojiTap: () {
                   EmojiHandler.showPicker(
                     context: context,
-                    seatIndex: -1,
+                    seatIndex: index,
                     onEmojiSelected: (index, url) {
                       setState(() {
                         currentGiftImage = url;
@@ -204,7 +229,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   Widget _buildSeatGridArea() {
     return SizedBox(
-      height: 280,
+      height: 320,
       child: GridView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 15),
         physics: const NeverScrollableScrollPhysics(),
@@ -264,5 +289,15 @@ void _showSettings() {
   void _showFollowers() {
     FollowerListHandler.show(context, followerCount);
   }
-
+Widget _buildControlButton(IconData icon, Color color, VoidCallback onTap) {
+  return GestureDetector(
+    onTap: onTap,
+    child: CircleAvatar(
+      radius: 22,
+      backgroundColor: Colors.white10,
+      child: Icon(icon, color: color, size: 24),
+    ),
+  );
+}
+  
 } // <--- এই মাস্টার ব্র্যাকেটটি দিন। এটি পুরো ক্লাসকে বন্ধ করবে।
