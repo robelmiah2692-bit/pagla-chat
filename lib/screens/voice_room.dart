@@ -41,7 +41,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   @override
   void initState() {
     super.initState();
-    // আপনার রিকোয়ারমেন্ট অনুযায়ী ১৫টি সিট (৫টি VIP + ১০টি সাধারণ)
+    // ১৫টি সিট (৫টি VIP + ১০টি সাধারণ)
     seats = List.generate(15, (index) => {
       "isOccupied": false,
       "userName": "",
@@ -90,16 +90,16 @@ class _VoiceRoomState extends State<VoiceRoom> {
             children: [
               const SizedBox(height: 40),
               
-              // ১. রুম প্রোফাইল ও বাটন এরিয়া (সব বাটন ক্লিয়ার করা হলো)
+              // ১. রুম প্রোফাইল ও বাটন এরিয়া
               _buildTopNavBar(),
 
-              // ৫. ভিউয়ার এরিয়া (সিট না নিয়ে যারা উপরে বসে থাকবে)
+              // ৫. ভিউয়ার এরিয়া
               _buildViewerArea(),
 
-              // ৬. ১৫টি বড় সিট (৫টি VIP)
+              // ৬. ১৫টি বড় সিট
               _buildSeatGridArea(),
 
-              // ৭. চ্যাট স্টোরেজ (সিটের নিচেই থাকবে, উপরে উঠবে না)
+              // ৭. চ্যাট স্টোরেজ
               Expanded(
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -119,19 +119,19 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 ),
               ),
 
-              // ৮, ৯. নিচের বার (ইমোজি, সেন্ড, মাইক, গেইম, গিফট)
+              // ৮, ৯. নিচের বার
               ChatInputBar(
                 controller: _messageController,
-                onEmojiTap: () { /* ইমোজি হ্যান্ডলার কল করুন */ },
+                onEmojiTap: () {
+                  showModalBottomSheet(context: context, builder: (context) => EmojiHandler());
+                },
                 onMessageSend: (newMessage) {
                   setState(() => chatMessages.add(newMessage));
                 },
-                // এখানে আপনার অন্যান্য বাটনগুলো (মাইক, গেইম) যুক্ত আছে
               ),
             ],
           ),
 
-          // মিউজিক প্লেয়ার (ভাসমান)
           if (isRoomMusicPlaying)
             Positioned(
               left: playerPosition.dx, top: playerPosition.dy,
@@ -149,15 +149,15 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  // --- উপরের বাটন ও প্রোফাইল সেকশন ---
   Widget _buildTopNavBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RoomProfileHandler())),
-            child: CircleAvatar(radius: 20, backgroundColor: Colors.amber, child: const Icon(Icons.camera_alt, size: 18)),
+            // এখানে const মুছে দেওয়া হয়েছে (Fix 1)
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => RoomProfileHandler())),
+            child: const CircleAvatar(radius: 20, backgroundColor: Colors.amber, child: Icon(Icons.camera_alt, size: 18, color: Colors.white)),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -165,11 +165,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(roomName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                Text("ID: ${widget.roomId} | $followerCount ফলোয়ার", style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                Text("ID: ${widget.roomId} | $followerCount ফলোয়ার", style: const TextStyle(color: Colors.white54, fontSize: 10)),
               ],
             ),
           ),
-          // বাটনগুলো
           IconButton(icon: const Icon(Icons.add_circle, color: Colors.greenAccent), onPressed: () => setState(() => followerCount++)),
           IconButton(icon: const Icon(Icons.group, color: Colors.blueAccent), onPressed: () => _showFollowers()),
           IconButton(icon: const Icon(Icons.settings, color: Colors.white70), onPressed: () => _showSettings()),
@@ -178,7 +177,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  // --- ভিউয়ার এরিয়া (সিট ছাড়া ইউজার) ---
   Widget _buildViewerArea() {
     return Container(
       height: 50,
@@ -203,10 +201,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  // --- ১৫টি সিটের গ্রিড ---
   Widget _buildSeatGridArea() {
     return Container(
-      height: 280, // ১৫ সিটের জন্য অ্যাডজাস্ট করা হাইট
+      height: 280,
       padding: const EdgeInsets.symmetric(horizontal: 15),
       child: GridView.builder(
         physics: const NeverScrollableScrollPhysics(),
@@ -225,7 +222,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
             child: Column(
               children: [
                 CircleAvatar(
-                  radius: 26, // সিট সাইজ বড় করা হয়েছে
+                  radius: 26,
                   backgroundColor: seat["isOccupied"] ? Colors.blueAccent : Colors.white10,
                   backgroundImage: seat["userImage"].isNotEmpty ? NetworkImage(seat["userImage"]) : null,
                   child: Container(
@@ -262,10 +259,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   void _showSettings() {
-    showModalBottomSheet(context: context, isScrollControlled: true, builder: (context) => const RoomSettingsHandler());
+    // এখানে const মুছে দেওয়া হয়েছে (Fix 2)
+    showModalBottomSheet(context: context, isScrollControlled: true, builder: (context) => RoomSettingsHandler());
   }
 
   void _showFollowers() {
-    showModalBottomSheet(context: context, builder: (context) => const FollowerListHandler());
+    // এখানে const মুছে দেওয়া হয়েছে (Fix 3)
+    showModalBottomSheet(context: context, builder: (context) => FollowerListHandler());
   }
 }
