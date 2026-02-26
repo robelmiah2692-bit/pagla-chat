@@ -232,7 +232,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
       
       // ৩. আপনার সিটের ডাটা আপডেট করা (যদি ফায়ারবেস থাকে তবে সেখানে পাঠাতে হবে)
       // আপাতত লোকাল স্টেটে আপনার সিটের মাইক আইকন বদলে যাবে
-      seatsUsers[currentSeatIndex]['isMicOn'] = isMicOn;
+      seats[currentSeatIndex]['isMicOn'] = isMicOn;
     });
 
     // এখানে আপনার অডিও পারমিশন বা ভয়েস এসডিকে (যেমন: Agora/Zego) কল হবে
