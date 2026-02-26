@@ -184,150 +184,157 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   // --- চ্যাট বক্সের নিচের মেইন একশন বার ---
   Widget _buildBottomActionArea() {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-    color: Colors.black26,
-    child: Row(
-      children: [
-        // ১. চ্যাট ইনপুট বক্স
-        Expanded(
-          child: ChatInputBar(
-            controller: _messageController,
-            onEmojiTap: () {
-              EmojiHandler.showPicker(
-                context: context,
-                seatIndex: -1, 
-                onEmojiSelected: (index, url) {
-                  setState(() {
-                    currentGiftImage = url;
-                    isGiftAnimating = true;
-                  });
-                  Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
-                },
-              );
-            },
-            onMessageSend: (newMessage) {
-              setState(() => chatMessages.add(newMessage));
-            },
-          ),
-        ),
-        const SizedBox(width: 8),
-
-        // ২. কন্ট্রোল বাটনগুলো
-  _buildSmallIconButton(
-   isMicOn ? Icons.mic : Icons.mic_off, // অন থাকলে মাইক, অফ থাকলে কাটা মাইক
-   isMicOn ? Colors.greenAccent : Colors.white, // অন থাকলে সবুজ হবে
-  () {
-    // ১. চেক করা ইউজার সিটে আছে কি না
-    if (currentSeatIndex == -1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("কথা বলতে আগে সিটে বসুন!")),
-      );
-      return;
-    }
-
-    // ২. মাইক স্টেট পরিবর্তন (রিয়েল-টাইম)
-    setState(() {
-      isMicOn = !isMicOn;
-      
-      // ৩. আপনার সিটের ডাটা আপডেট করা (যদি ফায়ারবেস থাকে তবে সেখানে পাঠাতে হবে)
-      // আপাতত লোকাল স্টেটে আপনার সিটের মাইক আইকন বদলে যাবে
-      seats[currentSeatIndex]['isMicOn'] = isMicOn;
-    });
-
-    // এখানে আপনার অডিও পারমিশন বা ভয়েস এসডিকে (যেমন: Agora/Zego) কল হবে
-    if (isMicOn) {
-      print("মাইক চালু হয়েছে - এখন কথা শোনা যাবে");
-    } else {
-      print("মাইক বন্ধ হয়েছে");
-    }
-  },
-),
-        
-   _buildSmallIconButton(Icons.videogame_asset, Colors.orange, () {
-          // গেম লজিক
-  }),
-
-  Widget _buildFloatingPlayer({required bool isDragging}) {
-  return Material(
-    color: Colors.transparent,
-    child: Container(
-      // নাম না থাকায় চওড়া (Width) কমিয়ে দিলাম
-      width: 140, 
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.greenAccent.withOpacity(0.5), width: 1.5),
-        boxShadow: const [
-          BoxShadow(color: Colors.black54, blurRadius: 8, spreadRadius: 1)
-        ],
-      ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      color: Colors.black26,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // ১. মিউজিক আইকন
-          const Icon(Icons.music_note, color: Colors.greenAccent, size: 22),
-          
-          // ২. প্লে-পজ বাটন
-          GestureDetector(
-            onTap: () async {
-              if (_audioPlayer.state == PlayerState.playing) {
-                await _audioPlayer.pause();
-              } else {
-                await _audioPlayer.resume();
-              }
-              setState(() {}); 
-            },
-            child: Icon(
-              _audioPlayer.state == PlayerState.playing 
-                  ? Icons.pause_circle_filled 
-                  : Icons.play_circle_filled,
-              color: Colors.white,
-              size: 32,
-            ),
-          ),
-
-          // ৩. প্লেয়ার বন্ধ করার × বাটন
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                isRoomMusicPlaying = false;
-                _audioPlayer.stop(); 
-              });
-            },
-            child: Container(
-              padding: const EdgeInsets.all(3),
-              decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
-              child: const Icon(Icons.close, color: Colors.white, size: 16),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-        
-  _buildSmallIconButton(Icons.card_giftcard, Colors.pinkAccent, () {
-     // আপনার gift_system.dart এর সঠিক ক্লাস কল করা হলো
-       showModalBottomSheet(
-          context: context,
-           isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (context) => GiftBottomSheet(
-              diamondBalance: 500, // আপনার ডায়মন্ড ব্যালেন্স ভেরিয়েবল
-              onGiftSend: (gift, count, target) {
-                // গিফট পাঠানোর পর যা হবে
-                print("Sent ${gift['id']} x$count to $target");
-                // এখানে এনিমেশন লজিক দিতে পারেন
+          // ১. চ্যাট ইনপুট বক্স ও ইমোজি হ্যান্ডলার
+          Expanded(
+            child: ChatInputBar(
+              controller: _messageController,
+              onEmojiTap: () {
+                EmojiHandler.showPicker(
+                  context: context,
+                  seatIndex: -1,
+                  onEmojiSelected: (index, url) {
+                    setState(() {
+                      currentGiftImage = url;
+                      isGiftAnimating = true;
+                    });
+                    Timer(const Duration(seconds: 3),
+                        () => setState(() => isGiftAnimating = false));
+                  },
+                );
+              },
+              onMessageSend: (newMessage) {
+                setState(() => chatMessages.add({'user': 'Hridoy', 'message': newMessage}));
               },
             ),
-          );
-        }), 
-      ],
-    ),
-  );
-}
+          ),
+          const SizedBox(width: 8),
+
+          // ২. মাইক কন্ট্রোল বাটন
+          _buildSmallIconButton(
+            isMicOn ? Icons.mic : Icons.mic_off,
+            isMicOn ? Colors.greenAccent : Colors.white,
+            () {
+              if (currentSeatIndex == -1) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("কথা বলতে আগে সিটে বসুন!")),
+                );
+                return;
+              }
+              setState(() {
+                isMicOn = !isMicOn;
+                seats[currentSeatIndex]['isMicOn'] = isMicOn;
+              });
+            },
+          ),
+
+          // ৩. গেম বাটন
+          _buildSmallIconButton(Icons.videogame_asset, Colors.orange, () {
+            // গেম লজিক এখানে
+          }),
+
+          // ৪. মিউজিক স্টোর বাটন (নতুন যোগ করা মিউজিক লজিক)
+          _buildSmallIconButton(Icons.music_note, Colors.cyanAccent, () async {
+            final result = await showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) => SizedBox(
+                height: MediaQuery.of(context).size.height * 0.75,
+                child: const MusicPlayerPage(),
+              ),
+            );
+
+            if (result != null && result is Map) {
+              try {
+                await _audioPlayer.stop();
+                await _audioPlayer.play(DeviceFileSource(result['path']));
+                setState(() {
+                  isRoomMusicPlaying = true;
+                });
+              } catch (e) {
+                print("Error playing music: $e");
+              }
+            }
+          }),
+
+          // ৫. গিফট বাটন
+          _buildSmallIconButton(Icons.card_giftcard, Colors.pinkAccent, () {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) => GiftBottomSheet(
+                diamondBalance: 500,
+                onGiftSend: (gift, count, target) => print("Gift Sent"),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ফ্লোটিং প্লেয়ার ফাংশন (এটি নিচের আলাদা ফাংশন হিসেবে থাকবে)
+  Widget _buildFloatingPlayer({required bool isDragging}) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 140,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.85),
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(
+              color: Colors.greenAccent.withOpacity(0.5), width: 1.5),
+          boxShadow: const [
+            BoxShadow(color: Colors.black54, blurRadius: 8, spreadRadius: 1)
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Icon(Icons.music_note, color: Colors.greenAccent, size: 22),
+            GestureDetector(
+              onTap: () async {
+                if (_audioPlayer.state == PlayerState.playing) {
+                  await _audioPlayer.pause();
+                } else {
+                  await _audioPlayer.resume();
+                }
+                setState(() {});
+              },
+              child: Icon(
+                _audioPlayer.state == PlayerState.playing
+                    ? Icons.pause_circle_filled
+                    : Icons.play_circle_filled,
+                color: Colors.white,
+                size: 32,
+              ),
+            ),
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  isRoomMusicPlaying = false;
+                  _audioPlayer.stop();
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: const BoxDecoration(
+                    color: Colors.redAccent, shape: BoxShape.circle),
+                child: const Icon(Icons.close, color: Colors.white, size: 16),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildSmallIconButton(IconData icon, Color color, VoidCallback onTap) {
     return InkWell(
