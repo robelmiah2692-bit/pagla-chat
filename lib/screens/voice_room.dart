@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:lottie/lottie.dart';
 
+// আপনার সেই ৮টি আলাদা ফাইল
 import '../widgets/chat_input_bar.dart';
 import '../widgets/emoji_handler.dart';
 import '../widgets/follower_list_handler.dart';
@@ -21,9 +22,8 @@ class VoiceRoom extends StatefulWidget {
 }
 
 class _VoiceRoomState extends State<VoiceRoom> {
-  // --- স্টেট ভেরিয়েবল ---
   bool isOwner = true; 
-  String displayUserID = "Hridoy Owner"; 
+  String displayUserID = "Hridoy Owner"; // মালিক শনাক্তকরণ কোড
   String roomName = "পাগলা চ্যাট রুম";
   int followerCount = 1200;
   
@@ -35,7 +35,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
   List<Map<String, String>> chatMessages = [];
   bool isGiftAnimating = false;
   String currentGiftImage = "";
-  
   late List<Map<String, dynamic>> seats;
 
   @override
@@ -51,10 +50,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
     });
   }
 
-  // --- সিটে বসার ৩ সেকেন্ডের কলিং লজিক ---
   void sitOnSeat(int index) {
     if (seats[index]["isOccupied"] || seats[index]["status"] == "calling") return;
-    
     setState(() {
       for (var seat in seats) {
         if (seat["userName"] == displayUserID) {
@@ -89,24 +86,15 @@ class _VoiceRoomState extends State<VoiceRoom> {
           Column(
             children: [
               const SizedBox(height: 40),
-              
-              // ১. রুম প্রোফাইল ও বাটন এরিয়া
               _buildTopNavBar(),
-
-              // ৫. ভিউয়ার এরিয়া
               _buildViewerArea(),
-
-              // ৬. ১৫টি বড় সিট
               _buildSeatGridArea(),
-
-              // ৭. চ্যাট স্টোরেজ
+              
+              // চ্যাট মেসেজ এরিয়া
               Expanded(
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Colors.black12,
-                    borderRadius: BorderRadius.circular(15),
-                  ),
+                  decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(15)),
                   child: ListView.builder(
                     padding: const EdgeInsets.all(8),
                     reverse: true,
@@ -119,7 +107,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 ),
               ),
 
-              // ৮, ৯. নিচের বার
+              // চ্যাট ইনপুট বার (EmojiHandler কানেক্টেড)
               ChatInputBar(
                 controller: _messageController,
                 onEmojiTap: () {
@@ -139,6 +127,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   setState(() => chatMessages.add(newMessage));
                 },
               ),
+            ],
+          ),
 
           if (isRoomMusicPlaying)
             Positioned(
@@ -163,8 +153,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
       child: Row(
         children: [
           GestureDetector(
-            // এখানে const মুছে দেওয়া হয়েছে (Fix 1)
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => RoomProfileHandler())),
+            onTap: () => RoomProfileHandler.show(context), // static ফাংশন হিসেবে কল
             child: const CircleAvatar(radius: 20, backgroundColor: Colors.amber, child: Icon(Icons.camera_alt, size: 18, color: Colors.white)),
           ),
           const SizedBox(width: 8),
@@ -177,7 +166,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
               ],
             ),
           ),
-          IconButton(icon: const Icon(Icons.add_circle, color: Colors.greenAccent), onPressed: () => setState(() => followerCount++)),
           IconButton(icon: const Icon(Icons.group, color: Colors.blueAccent), onPressed: () => _showFollowers()),
           IconButton(icon: const Icon(Icons.settings, color: Colors.white70), onPressed: () => _showSettings()),
         ],
@@ -210,16 +198,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   Widget _buildSeatGridArea() {
-    return Container(
+    return SizedBox(
       height: 280,
-      padding: const EdgeInsets.symmetric(horizontal: 15),
       child: GridView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 15),
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 5,
-          mainAxisSpacing: 15,
-          crossAxisSpacing: 10,
-          childAspectRatio: 0.7,
+          crossAxisCount: 5, mainAxisSpacing: 15, crossAxisSpacing: 10, childAspectRatio: 0.7,
         ),
         itemCount: 15,
         itemBuilder: (context, index) {
@@ -232,12 +217,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 CircleAvatar(
                   radius: 26,
                   backgroundColor: seat["isOccupied"] ? Colors.blueAccent : Colors.white10,
-                  backgroundImage: seat["userImage"].isNotEmpty ? NetworkImage(seat["userImage"]) : null,
                   child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: isVip ? Border.all(color: Colors.amber, width: 2) : null,
-                    ),
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: isVip ? Border.all(color: Colors.amber, width: 2) : null),
                     child: Center(
                       child: seat["status"] == "calling" 
                         ? const CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
@@ -266,13 +247,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  void _showSettings() {
-    // এখানে const মুছে দেওয়া হয়েছে (Fix 2)
-    showModalBottomSheet(context: context, isScrollControlled: true, builder: (context) => RoomSettingsHandler());
-  }
-
-  void _showFollowers() {
-    // এখানে const মুছে দেওয়া হয়েছে (Fix 3)
-    showModalBottomSheet(context: context, builder: (context) => FollowerListHandler());
-  }
+  void _showSettings() => RoomSettingsHandler.show(context);
+  void _showFollowers() => FollowerListHandler.show(context);
 }
