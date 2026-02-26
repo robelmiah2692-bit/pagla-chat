@@ -217,14 +217,21 @@ class _VoiceRoomState extends State<VoiceRoom> {
           setState(() => isRoomMusicPlaying = !isRoomMusicPlaying);
         }),
         _buildSmallIconButton(Icons.card_giftcard, Colors.pinkAccent, () {
-          // গিফট সিস্টেম - এরর এড়াতে ডাইনামিক কল
-          try {
-            // ওস্তাদ, এখানে আপনার গিফট হ্যান্ডলারের আসল নাম দিন
-             GiftSystem.showPanel(context); 
-          } catch (e) {
-             print("Error: $e");
-          }
-        }), // <--- এই সেমিকোলন এবং ব্র্যাকেটগুলোই আসল
+          // আপনার gift_system.dart এর সঠিক ক্লাস কল করা হলো
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => GiftBottomSheet(
+              diamondBalance: 500, // আপনার ডায়মন্ড ব্যালেন্স ভেরিয়েবল
+              onGiftSend: (gift, count, target) {
+                // গিফট পাঠানোর পর যা হবে
+                print("Sent ${gift['id']} x$count to $target");
+                // এখানে এনিমেশন লজিক দিতে পারেন
+              },
+            ),
+          );
+        }), 
       ],
     ),
   );
