@@ -153,7 +153,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => RoomProfileHandler.showPicker(context), // 'show' এর বদলে 'showPicker' দিয়ে দেখুন
+            onTap: () {
+              RoomProfileHandler.pickRoomImage(
+                onImagePicked: (path) => setState(() {}),
+                showMessage: (msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg))),
+              );
+            },
             child: const CircleAvatar(radius: 20, backgroundColor: Colors.amber, child: Icon(Icons.camera_alt, size: 18, color: Colors.white)),
           ),
           const SizedBox(width: 8),
@@ -247,6 +252,15 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  void _showSettings() => RoomSettingsHandler.showSettings(context); // 'show' এর বদলে 'showSettings' দিয়ে দেখুন
-  void _showFollowers() => FollowerListHandler.show(context, followerCount);
+void _showSettings() {
+  RoomSettingsHandler.showSettings(
+    context: context, 
+    isLocked: false, 
+    onToggleLock: () {}, 
+    onSetWallpaper: (p, d) {}, 
+    onExit: () {}
+  );
+}
+  void _showFollowers() {
+  FollowerListHandler.show(context, followerCount);
 }
