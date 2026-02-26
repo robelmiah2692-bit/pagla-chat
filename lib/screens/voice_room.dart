@@ -262,5 +262,7 @@ void _showSettings() {
   );
 }
   void _showFollowers() {
-  FollowerListHandler.show(context, followerCount);
-}
+    FollowerListHandler.show(context, followerCount);
+  }
+
+} // <--- এই মাস্টার ব্র্যাকেটটি দিন। এটি পুরো ক্লাসকে বন্ধ করবে।
