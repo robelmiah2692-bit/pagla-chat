@@ -41,7 +41,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
   List<Map<String, String>> chatMessages = [];
   bool isGiftAnimating = false;
   String currentGiftImage = "";
-  late List<Map<String, dynamic>> seat;
+ 
+  late List<Map<String, dynamic>> seats;
 
   @override
   void initState() {
@@ -231,7 +232,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
       
       // ৩. আপনার সিটের ডাটা আপডেট করা (যদি ফায়ারবেস থাকে তবে সেখানে পাঠাতে হবে)
       // আপাতত লোকাল স্টেটে আপনার সিটের মাইক আইকন বদলে যাবে
-      seatUsers[currentSeatIndex]['isMicOn'] = isMicOn;
+      seatsUsers[currentSeatIndex]['isMicOn'] = isMicOn;
     });
 
     // এখানে আপনার অডিও পারমিশন বা ভয়েস এসডিকে (যেমন: Agora/Zego) কল হবে
