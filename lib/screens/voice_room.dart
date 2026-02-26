@@ -123,14 +123,22 @@ class _VoiceRoomState extends State<VoiceRoom> {
               ChatInputBar(
                 controller: _messageController,
                 onEmojiTap: () {
-                  showModalBottomSheet(context: context, builder: (context) => EmojiHandler());
+                  EmojiHandler.showPicker(
+                    context: context,
+                    seatIndex: -1,
+                    onEmojiSelected: (index, url) {
+                      setState(() {
+                        currentGiftImage = url;
+                        isGiftAnimating = true;
+                      });
+                      Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
+                    },
+                  );
                 },
                 onMessageSend: (newMessage) {
                   setState(() => chatMessages.add(newMessage));
                 },
               ),
-            ],
-          ),
 
           if (isRoomMusicPlaying)
             Positioned(
