@@ -213,9 +213,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
         const SizedBox(width: 8),
 
         // ২. কন্ট্রোল বাটনগুলো
-        _buildSmallIconButton(
-  isMicOn ? Icons.mic : Icons.mic_off, // অন থাকলে মাইক, অফ থাকলে কাটা মাইক
-  isMicOn ? Colors.greenAccent : Colors.white, // অন থাকলে সবুজ হবে
+  _buildSmallIconButton(
+   isMicOn ? Icons.mic : Icons.mic_off, // অন থাকলে মাইক, অফ থাকলে কাটা মাইক
+   isMicOn ? Colors.greenAccent : Colors.white, // অন থাকলে সবুজ হবে
   () {
     // ১. চেক করা ইউজার সিটে আছে কি না
     if (currentSeatIndex == -1) {
@@ -242,30 +242,31 @@ class _VoiceRoomState extends State<VoiceRoom> {
     }
   },
 ),
-        _buildSmallIconButton(Icons.videogame_asset, Colors.orange, () {
+        
+   _buildSmallIconButton(Icons.videogame_asset, Colors.orange, () {
           // গেম লজিক
-        }),
+  }),
 
   Widget _buildFloatingPlayer({required bool isDragging}) {
-   return Material(
+  return Material(
     color: Colors.transparent,
     child: Container(
-      width: 220,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      // নাম না থাকায় চওড়া (Width) কমিয়ে দিলাম
+      width: 140, 
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.85),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.greenAccent.withOpacity(0.5), width: 1),
-        boxShadow: [
-          BoxShadow(color: Colors.black54, blurRadius: 10, spreadRadius: 2)
+        border: Border.all(color: Colors.greenAccent.withOpacity(0.5), width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Colors.black54, blurRadius: 8, spreadRadius: 1)
         ],
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // ১. মিউজিক আইকন
-          const Icon(Icons.music_note, color: Colors.greenAccent, size: 20),
-          const SizedBox(width: 8),
+          const Icon(Icons.music_note, color: Colors.greenAccent, size: 22),
           
           // ২. প্লে-পজ বাটন
           GestureDetector(
@@ -275,38 +276,29 @@ class _VoiceRoomState extends State<VoiceRoom> {
               } else {
                 await _audioPlayer.resume();
               }
-              setState(() {}); // বাটন আইকন বদলানোর জন্য
+              setState(() {}); 
             },
             child: Icon(
               _audioPlayer.state == PlayerState.playing 
                   ? Icons.pause_circle_filled 
                   : Icons.play_circle_filled,
               color: Colors.white,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 8),
-          
-          // ৩. গানের নাম
-          const Expanded(
-            child: Text(
-              "Playing Music...", 
-              style: TextStyle(color: Colors.white, fontSize: 11, overflow: TextOverflow.ellipsis, decoration: TextDecoration.none),
+              size: 32,
             ),
           ),
 
-          // ৪. প্লেয়ার বন্ধ করার × বাটন
+          // ৩. প্লেয়ার বন্ধ করার × বাটন
           GestureDetector(
             onTap: () {
               setState(() {
                 isRoomMusicPlaying = false;
-                _audioPlayer.stop(); // একবারে গান বন্ধ করে দেওয়া
+                _audioPlayer.stop(); 
               });
             },
             child: Container(
-              padding: const EdgeInsets.all(2),
+              padding: const EdgeInsets.all(3),
               decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
-              child: const Icon(Icons.close, color: Colors.white, size: 14),
+              child: const Icon(Icons.close, color: Colors.white, size: 16),
             ),
           ),
         ],
@@ -314,11 +306,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
     ),
   );
 }
-        _buildSmallIconButton(Icons.card_giftcard, Colors.pinkAccent, () {
-          // আপনার gift_system.dart এর সঠিক ক্লাস কল করা হলো
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
+        
+  _buildSmallIconButton(Icons.card_giftcard, Colors.pinkAccent, () {
+     // আপনার gift_system.dart এর সঠিক ক্লাস কল করা হলো
+       showModalBottomSheet(
+          context: context,
+           isScrollControlled: true,
             backgroundColor: Colors.transparent,
             builder: (context) => GiftBottomSheet(
               diamondBalance: 500, // আপনার ডায়মন্ড ব্যালেন্স ভেরিয়েবল
