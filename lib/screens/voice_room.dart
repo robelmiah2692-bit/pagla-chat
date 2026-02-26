@@ -7,7 +7,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lottie/lottie.dart';
 
-// ফাইলগুলো widgets ফোল্ডারে থাকায় '../widgets/' ব্যবহার করতে হবে
+// সব হ্যান্ডলার ফাইল ইম্পোর্ট করা হলো
 import '../widgets/chat_input_bar.dart';
 import '../widgets/emoji_handler.dart';
 import '../widgets/follower_list_handler.dart';
@@ -17,9 +17,8 @@ import '../widgets/music_player_widget.dart';
 import '../widgets/room_profile_handler.dart';
 import '../widgets/room_settings_handler.dart';
 
-
 class VoiceRoom extends StatefulWidget {
-  final String roomId; // রুম আইডিটি কনস্ট্রাক্টরে থাকা জরুরি
+  final String roomId; 
   const VoiceRoom({super.key, required this.roomId});
 
   @override
@@ -43,49 +42,44 @@ class _VoiceRoomState extends State<VoiceRoom> {
   bool isFollowing = false;
   String roomImageURL = "";
 
-  // চ্যাট ও মিউজিক স্টেট
   final TextEditingController _messageController = TextEditingController();
-  List<Map<String, String>> chatMessages = []; // নাম ও ছবিসহ মেসেজ রাখার জন্য ম্যাপ লিস্ট
+  List<Map<String, String>> chatMessages = []; 
   
   final AudioPlayer _audioPlayer = AudioPlayer();
   List<String> savedMusicPaths = [];
   Offset playerPosition = const Offset(20, 100);
   bool isRoomMusicPlaying = false;
-  String currentSongName = "";
 
-  // গিফট এনিমেশন স্টেট
   bool isGiftAnimating = false;
   String currentGiftImage = "";
   bool isFullScreenBinding = false;
 
-  // ১৫-২০টি সিটের ডাটা
   late List<Map<String, dynamic>> seats;
 
   @override
   void initState() {
     super.initState();
-    checkOwnership();
-    loadSavedMusic();
-    // সিট ইনিশিয়ালাইজেশন
+    // ১৫-২০টি সিটের ডাটা ইনিশিয়ালাইজ
     seats = List.generate(20, (index) => {
       "isOccupied": false,
       "userName": "",
       "userImage": "",
       "isVip": index < 5, 
-      "isMuted": false,
+      "status": "empty", 
     });
+    checkOwnership();
+    loadSavedMusic();
   }
 
-  // --- ২. ফাংশনসমূহ (লজিক) ---
+  // --- ২. ফিচার লজিক ---
 
   void checkOwnership() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      // ওনার আইডেন্টিফিকেশন কোড (আপনার রিকোয়ারমেন্ট অনুযায়ী)
       var doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       if (doc.exists) {
         setState(() {
-          displayUserID = doc['uID'] ?? "";
+          displayUserID = doc['uID'] ?? "Hridoy";
           displayRoomID = doc['roomID'] ?? "";
           isOwner = (displayRoomID == widget.roomId); 
         });
@@ -101,10 +95,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   void sitOnSeat(int index) {
-    if (seats[index]["isOccupied"]) return;
-
-    // VIP চেক
-    if (seats[index]["isVip"] && !isOwner) { // উদাহরণস্বরূপ ওনার বা ভিআইপি চেক
+    if (seats[index]["isOccupied"] || seats[index]["status"] == "calling") return;
+    if (seats[index]["isVip"] && !isOwner) {
        _showMessage("এটি VIP সিট!");
        return;
     }
@@ -115,16 +107,21 @@ class _VoiceRoomState extends State<VoiceRoom> {
         if (seat["userName"] == displayUserID) {
           seat["isOccupied"] = false;
           seat["userName"] = "";
+          seat["status"] = "empty";
         }
       }
-      seats[index]["userName"] = "Calling..."; 
-      seats[index]["isOccupied"] = true; 
+      seats[index]["status"] = "calling";
+      seats[index]["userName"] = "Calling...";
+      seats[index]["isOccupied"] = true;
     });
 
+    // ৩ সেকেন্ড কলিং লজিক
     Timer(const Duration(seconds: 3), () {
       if (mounted) {
         setState(() {
-          seats[index]["userName"] = displayUserID.isNotEmpty ? displayUserID : "User ${index + 1}";
+          seats[index]["status"] = "occupied";
+          seats[index]["userName"] = displayUserID;
+          seats[index]["userImage"] = "https://api.dicebear.com/7.x/avataaars/svg?seed=$displayUserID"; // রিয়েল অবতার
         });
       }
     });
@@ -139,14 +136,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
         diamondBalance: diamondBalance,
         onGiftSend: (gift, count, target) {
           setState(() {
-            diamondBalance -= (gift["price"] as int) * count;
+            diamondBalance -= ((gift["price"] as num).toInt() * count);
             currentGiftImage = gift["icon"];
             isFullScreenBinding = gift["isVipGift"] ?? false;
             isGiftAnimating = true;
           });
-          Timer(const Duration(seconds: 5), () {
-            if (mounted) setState(() => isGiftAnimating = false);
-          });
+          Timer(const Duration(seconds: 5), () => setState(() => isGiftAnimating = false));
         },
       ),
     );
@@ -163,7 +158,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     return Scaffold(
       body: Stack(
         children: [
-          // ব্যাকগ্রাউন্ড
+          // ব্যাকগ্রাউন্ড ওয়ালপেপার
           Container(
             decoration: BoxDecoration(
               image: roomWallpaper.isNotEmpty 
@@ -174,10 +169,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
             child: Column(
               children: [
                 const SizedBox(height: 40),
-                _buildHeader(),
-                _buildSeatGrid(),
+                _buildHeader(), // প্রোফাইল ও সেটিংস সহ হেডার
+                _buildSeatGrid(), // কলিং ও ইমোজি সাপোর্ট সহ গ্রিড
                 
-                // চ্যাট লিস্ট এরিয়া
+                // চ্যাট লিস্ট
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.all(10),
@@ -190,21 +185,30 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   ),
                 ),
 
-                // আলাদা করা চ্যাট কন্ট্রোল বার
+                // ইনপুট বার
                 ChatInputBar(
                   controller: _messageController,
-                  onEmojiTap: () => {}, // ইমোজি পিকার কল
+                  onEmojiTap: () {
+                    // EmojiHandler ওপেন হবে
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (c) => EmojiHandler(onEmojiSelected: (url) {
+                        setState(() {
+                          currentLottieEmojiUrl = url;
+                          activeEmojiSeatIndex = 0; // উদাহরন হিসেবে ১ নং সিটে
+                        });
+                      }),
+                    );
+                  },
                   onMessageSend: (newMessage) {
-                    setState(() {
-                      chatMessages.add(newMessage);
-                    });
+                    setState(() => chatMessages.add(newMessage));
                   },
                 ),
               ],
             ),
           ),
 
-          // ভাসমান মিউজিক প্লেয়ার
+          // মিউজিক প্লেয়ার
           if (isRoomMusicPlaying)
             Positioned(
               left: playerPosition.dx,
@@ -213,42 +217,37 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 feedback: _buildPlayerUI(true),
                 childWhenDragging: Container(),
                 onDragEnd: (details) {
-                  setState(() {
-                    playerPosition = Offset(details.offset.dx, details.offset.dy - 50);
-                  });
+                  setState(() => playerPosition = Offset(details.offset.dx, details.offset.dy - 50));
                 },
                 child: _buildPlayerUI(false),
               ),
             ),
 
-          // গিফট এনিমেশন লেয়ার
-          if (isGiftAnimating) _buildGiftOverlay(),
+          // গিফট এনিমেশন
+          if (isGiftAnimating) GiftOverlayHandler(giftUrl: currentGiftImage, isFullScreen: isFullScreenBinding),
         ],
       ),
     );
   }
 
-  // সাব-উইজেটসমূহ (সংক্ষিপ্ত)
   Widget _buildHeader() {
-    return ListTile(
-      leading: CircleAvatar(backgroundImage: roomImageURL.isNotEmpty ? FileImage(File(roomImageURL)) : null),
-      title: Text(roomName, style: const TextStyle(color: Colors.white)),
-      subtitle: Text("ID: $displayRoomID", style: const TextStyle(color: Colors.white54)),
-      trailing: Wrap(
-        children: [
-          IconButton(onPressed: _showGiftBox, icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent)),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.settings, color: Colors.white)),
-        ],
-      ),
+    return RoomProfileHandler(
+      roomName: roomName,
+      roomId: widget.roomId,
+      roomImage: roomImageURL,
+      onSettingsTap: () {
+        showModalBottomSheet(context: context, builder: (c) => RoomSettingsHandler(isLocked: isLocked));
+      },
+      onGiftTap: _showGiftBox,
     );
   }
 
   Widget _buildSeatGrid() {
     return Container(
-      height: 250, // গ্রিডের জন্য নির্দিষ্ট উচ্চতা
+      height: 280,
       padding: const EdgeInsets.all(10),
       child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, childAspectRatio: 0.8),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, childAspectRatio: 0.7),
         itemCount: seats.length,
         itemBuilder: (context, index) {
           var seat = seats[index];
@@ -256,12 +255,22 @@ class _VoiceRoomState extends State<VoiceRoom> {
             onTap: () => sitOnSeat(index),
             child: Column(
               children: [
-                CircleAvatar(
-                  backgroundColor: seat["isOccupied"] ? Colors.green : Colors.white10,
-                  child: seat["isOccupied"] ? const Icon(Icons.person) : const Icon(Icons.chair),
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: seat["isOccupied"] ? Colors.blue : Colors.white10,
+                      backgroundImage: (seat["userImage"] != null && seat["userImage"] != "") 
+                          ? NetworkImage(seat["userImage"]) : null,
+                      child: !seat["isOccupied"] ? const Icon(Icons.chair, size: 20, color: Colors.white30) : null,
+                    ),
+                    if (seat["status"] == "calling") const CircularProgressIndicator(strokeWidth: 2),
+                    // ইমোজি ডিসপ্লে
+                    if (activeEmojiSeatIndex == index) Lottie.network(currentLottieEmojiUrl, width: 40, height: 40),
+                  ],
                 ),
-                Text(seat["isOccupied"] ? seat["userName"] : "${index + 1}", 
-                     style: const TextStyle(color: Colors.white, fontSize: 10)),
+                Text(seat["userName"].isEmpty ? "${index+1}" : seat["userName"], style: const TextStyle(color: Colors.white, fontSize: 10)),
               ],
             ),
           );
@@ -275,26 +284,16 @@ class _VoiceRoomState extends State<VoiceRoom> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          CircleAvatar(radius: 12, backgroundImage: NetworkImage(msg['userImage']!)),
+          CircleAvatar(radius: 12, backgroundImage: NetworkImage(msg['userImage'] ?? 'https://via.placeholder.com/50')),
           const SizedBox(width: 8),
-          Text("${msg['userName']}: ", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-          Expanded(child: Text(msg['text']!, style: const TextStyle(color: Colors.white))),
+          Text("${msg['userName']}: ", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)),
+          Expanded(child: Text(msg['text']!, style: const TextStyle(color: Colors.white, fontSize: 12))),
         ],
       ),
     );
   }
 
-  Widget _buildGiftOverlay() {
-    return Center(
-      child: Lottie.network(currentGiftImage, width: isFullScreenBinding ? 400 : 200),
-    );
-  }
-
   Widget _buildPlayerUI(bool isDragging) {
-    return MusicPlayerPage(
-      audioPlayer: _audioPlayer,
-      isDragging: isDragging,
-    );
-  } // _buildPlayerUI শেষ
-
-} // _VoiceRoomState ক্লাস শেষ (এই ব্র্যাকেটটাই মিসিং ছিল আপনার এরর লগে)
+    return MusicPlayerPage(audioPlayer: _audioPlayer, isDragging: isDragging);
+  }
+}
