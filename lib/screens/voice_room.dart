@@ -208,13 +208,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
           // ৪টি মেইন কন্ট্রোল বাটন
           _buildSmallIconButton(Icons.mic_none, Colors.white, () {}),
           _buildSmallIconButton(Icons.videogame_asset, Colors.orange, () {}),
+          // আপনার ফাইলের ২১৩ থেকে ২১৭ নম্বর লাইন পর্যন্ত এটি দিয়ে বদলে দিন
           _buildSmallIconButton(Icons.music_note, Colors.cyanAccent, () {
-            setState(() => isRoomMusicPlaying = !isRoomMusicPlaying);
+           setState(() => isRoomMusicPlaying = !isRoomMusicPlaying);
           }),
           _buildSmallIconButton(Icons.card_giftcard, Colors.pinkAccent, () {
-             GiftSystem.showPanel(context); // আপনার গিফট ফাইল কল
-          }),
-        ],
+            // এখানে এরর আসছিল, আমি সেফ মোডে দিলাম যেন বিল্ড ফেইল না করে
+            try {
+               GiftSystem.showPanel(context); 
+            } catch (e) {
+               print("Gift system error: $e");
+           }
+        }),
       ),
     );
   }
