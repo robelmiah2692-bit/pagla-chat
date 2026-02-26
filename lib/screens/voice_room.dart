@@ -27,10 +27,16 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String roomName = "পাগলা চ্যাট রুম";
   int followerCount = 1200;
   
-  bool isRoomMusicPlaying = false;
+// মিউজিক ও কন্ট্রোল ভেরিয়েবল
+  bool isRoomMusicPlaying = false; // এখানে অলরেডি আপনার কোডে ছিল, তাও চেক করে নিন
   Offset playerPosition = const Offset(20, 100);
   final AudioPlayer _audioPlayer = AudioPlayer();
   final TextEditingController _messageController = TextEditingController();
+  
+  // সিট ও মাইক কন্ট্রোল (যেগুলো আগের এরর দূর করবে)
+  int currentSeatIndex = -1; 
+  bool isMicOn = false;
+  String currentPlayingMusicName = "No music playing";
   
   List<Map<String, String>> chatMessages = [];
   bool isGiftAnimating = false;
