@@ -138,7 +138,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 onEmojiTap: () {
                   EmojiHandler.showPicker(
                     context: context,
-                    seatIndex: index,
+                    seatIndex: -1,
                     onEmojiSelected: (index, url) {
                       setState(() {
                         currentGiftImage = url;
