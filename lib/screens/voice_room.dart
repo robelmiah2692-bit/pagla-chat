@@ -208,7 +208,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 );
               },
               onMessageSend: (newMessage) {
-                setState(() => chatMessages.add({'user': 'Hridoy', 'message': newMessage}));
+                setState(() => chatMessages.add(newMessage));
               },
             ),
           ),
