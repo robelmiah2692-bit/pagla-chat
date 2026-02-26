@@ -23,7 +23,7 @@ class VoiceRoom extends StatefulWidget {
 
 class _VoiceRoomState extends State<VoiceRoom> {
   bool isOwner = true; 
-  String displayUserID = "Hridoy Owner"; // মালিক শনাক্তকরণ কোড
+  String displayUserID = "Hridoy Owner"; // মালিক শনাক্তকরণ
   String roomName = "পাগলা চ্যাট রুম";
   int followerCount = 1200;
   
@@ -86,13 +86,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
           Column(
             children: [
               const SizedBox(height: 40),
-              _buildTopNavBar(),
+              _buildTopNavBar(), // এখানে ফলো বাটন যুক্ত করা হয়েছে
               _buildViewerArea(),
               _buildSeatGridArea(),
               
-              // চ্যাট মেসেজ এরিয়া
-              SizedBox(
-                height: 140,
+              // চ্যাট মেসেজ এরিয়া (এখন Expanded যাতে কিবোর্ড আসলে মানিয়ে নেয়)
+              Expanded(
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(15)),
@@ -107,51 +106,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   ),
                 ),
               ),
-              // চ্যাট ইনপুটের ঠিক উপরে কন্ট্রোল বাটনগুলো
-             Padding(
-               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-               child: Row(
-                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                 children: [
-                   // ১. মাইক অন/অফ
-                   _buildControlButton(Icons.mic_none, Colors.white, () {
-                   // মাইক লজিক
-                   }),
-                   // ২. গেম বাটন
-                   _buildControlButton(Icons.videogame_asset, Colors.orange, () {
-                   // গেম লজিক
-                   }),
-                   // ৩. মিউজিক বাটন
-                   _buildControlButton(Icons.music_note, Colors.cyanAccent, () {
-                      setState(() => isRoomMusicPlaying = !isRoomMusicPlaying);
-                   }),
-                   // ৪. গিফট বক্স
-                   _buildControlButton(Icons.card_giftcard, Colors.pinkAccent, () {
-                   // আপনার গিফট সিস্টেম ফাইল কল করুন
-                   }),
-                 ],
-               ),
-             ),
-              // চ্যাট ইনপুট বার (EmojiHandler কানেক্টেড)
-              ChatInputBar(
-                controller: _messageController,
-                onEmojiTap: () {
-                  EmojiHandler.showPicker(
-                    context: context,
-                    seatIndex: -1,
-                    onEmojiSelected: (index, url) {
-                      setState(() {
-                        currentGiftImage = url;
-                        isGiftAnimating = true;
-                      });
-                      Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
-                    },
-                  );
-                },
-                onMessageSend: (newMessage) {
-                  setState(() => chatMessages.add(newMessage));
-                },
-              ),
+
+              // নিচের কন্ট্রোল বার (মেসেজ বক্স + ৪টি বাটন)
+              _buildBottomActionArea(),
             ],
           ),
 
@@ -172,6 +129,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
+  // --- নতুন টপ নেভিগেশন বার (ফলো বাটনসহ) ---
   Widget _buildTopNavBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -191,7 +149,21 @@ class _VoiceRoomState extends State<VoiceRoom> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(roomName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                Row(
+                  children: [
+                    Text(roomName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(width: 5),
+                    // ফলো (+) বাটন
+                    GestureDetector(
+                      onTap: () => setState(() => followerCount++),
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
+                        child: const Icon(Icons.add, color: Colors.white, size: 12),
+                      ),
+                    ),
+                  ],
+                ),
                 Text("ID: ${widget.roomId} | $followerCount ফলোয়ার", style: const TextStyle(color: Colors.white54, fontSize: 10)),
               ],
             ),
@@ -203,14 +175,68 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
+  // --- চ্যাট বক্সের নিচের মেইন একশন বার ---
+  Widget _buildBottomActionArea() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      color: Colors.black26,
+      child: Row(
+        children: [
+          // টেক্সট ইনপুট এরিয়া (সামনে ইমোজি বাটনসহ)
+          Expanded(
+            child: ChatInputBar(
+              controller: _messageController,
+              onEmojiTap: () {
+                EmojiHandler.showPicker(
+                  context: context,
+                  seatIndex: -1, // জেনারেল চ্যাট
+                  onEmojiSelected: (index, url) {
+                    setState(() {
+                      currentGiftImage = url;
+                      isGiftAnimating = true;
+                    });
+                    Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
+                  },
+                );
+              },
+              onMessageSend: (newMessage) {
+                setState(() => chatMessages.add(newMessage));
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          // ৪টি মেইন কন্ট্রোল বাটন
+          _buildSmallIconButton(Icons.mic_none, Colors.white, () {}),
+          _buildSmallIconButton(Icons.videogame_asset, Colors.orange, () {}),
+          _buildSmallIconButton(Icons.music_note, Colors.cyanAccent, () {
+            setState(() => isRoomMusicPlaying = !isRoomMusicPlaying);
+          }),
+          _buildSmallIconButton(Icons.card_giftcard, Colors.pinkAccent, () {
+             GiftSystem.showPanel(context); // আপনার গিফট ফাইল কল
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSmallIconButton(IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Icon(icon, color: color, size: 24),
+      ),
+    );
+  }
+
   Widget _buildViewerArea() {
     return Container(
-      height: 50,
-      margin: const EdgeInsets.symmetric(vertical: 10),
+      height: 40,
+      margin: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
           const SizedBox(width: 15),
-          const Text("👀 200", style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+          const Text("👀 200", style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 12)),
           const SizedBox(width: 10),
           Expanded(
             child: ListView.builder(
@@ -218,7 +244,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
               itemCount: 10,
               itemBuilder: (context, index) => Padding(
                 padding: const EdgeInsets.only(right: 8),
-                child: CircleAvatar(radius: 15, backgroundImage: NetworkImage("https://api.dicebear.com/7.x/avataaars/svg?seed=$index")),
+                child: CircleAvatar(radius: 12, backgroundImage: NetworkImage("https://api.dicebear.com/7.x/avataaars/svg?seed=$index")),
               ),
             ),
           ),
@@ -229,30 +255,41 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   Widget _buildSeatGridArea() {
     return SizedBox(
-      height: 320,
+      height: 300,
       child: GridView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 15),
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 5, mainAxisSpacing: 15, crossAxisSpacing: 10, childAspectRatio: 0.7,
+          crossAxisCount: 5, mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 0.7,
         ),
         itemCount: 15,
         itemBuilder: (context, index) {
           var seat = seats[index];
           bool isVip = seat["isVip"];
           return GestureDetector(
+            onLongPress: () {
+              // সিটে দীর্ঘক্ষণ চেপে ধরলে ইমোজি ওই সিটে যাবে (index পাওয়া যাচ্ছে)
+              EmojiHandler.showPicker(
+                context: context,
+                seatIndex: index,
+                onEmojiSelected: (i, url) {
+                  setState(() { currentGiftImage = url; isGiftAnimating = true; });
+                  Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
+                },
+              );
+            },
             onTap: () => sitOnSeat(index),
             child: Column(
               children: [
                 CircleAvatar(
-                  radius: 26,
+                  radius: 24,
                   backgroundColor: seat["isOccupied"] ? Colors.blueAccent : Colors.white10,
                   child: Container(
                     decoration: BoxDecoration(shape: BoxShape.circle, border: isVip ? Border.all(color: Colors.amber, width: 2) : null),
                     child: Center(
                       child: seat["status"] == "calling" 
                         ? const CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
-                        : (seat["isOccupied"] ? null : Icon(isVip ? Icons.stars : Icons.chair, color: isVip ? Colors.amber : Colors.white24)),
+                        : (seat["isOccupied"] ? null : Icon(isVip ? Icons.stars : Icons.chair, color: isVip ? Colors.amber : Colors.white24, size: 20)),
                     ),
                   ),
                 ),
@@ -270,34 +307,35 @@ class _VoiceRoomState extends State<VoiceRoom> {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Wrap(
         children: [
-          Text("${msg['userName']}: ", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)),
-          Text(msg['text'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 12)),
+          Text("${msg['userName']}: ", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 11)),
+          Text(msg['text'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 11)),
         ],
       ),
     );
   }
 
-void _showSettings() {
-  RoomSettingsHandler.showSettings(
-    context: context, 
-    isLocked: false, 
-    onToggleLock: () {}, 
-    onSetWallpaper: (p, d) {}, 
-    onExit: () {}
-  );
-}
+  void _showSettings() {
+    RoomSettingsHandler.showSettings(
+      context: context, 
+      isLocked: false, 
+      onToggleLock: () {}, 
+      onSetWallpaper: (p, d) {}, 
+      onExit: () {}
+    );
+  }
+
   void _showFollowers() {
     FollowerListHandler.show(context, followerCount);
   }
-Widget _buildControlButton(IconData icon, Color color, VoidCallback onTap) {
-  return GestureDetector(
-    onTap: onTap,
-    child: CircleAvatar(
-      radius: 22,
-      backgroundColor: Colors.white10,
-      child: Icon(icon, color: color, size: 24),
-    ),
-  );
+
+  Widget _buildControlButton(IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: CircleAvatar(
+        radius: 22,
+        backgroundColor: Colors.white10,
+        child: Icon(icon, color: color, size: 24),
+      ),
+    );
+  }
 }
-  
-} // <--- এই মাস্টার ব্র্যাকেটটি দিন। এটি পুরো ক্লাসকে বন্ধ করবে।
