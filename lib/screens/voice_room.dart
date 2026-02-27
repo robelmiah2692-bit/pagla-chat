@@ -28,7 +28,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String roomName = "পাগলা চ্যাট রুম";
   int followerCount = 0;
   String roomProfileImage = '';
-  bool isFollowed = false; // শুরুতে কেউ ফলো করেনি
+  bool isFollowed = false; // ফলো বাটন চেক করার জন্য
+  List<Map<String, dynamic>> viewersList = []; // ভিউয়ার লিস্টের জন্য
   // মিউজিক ও কন্ট্রোল ভেরিয়েবল
   bool isRoomMusicPlaying = false; // এখানে অলরেডি আপনার কোডে ছিল, তাও চেক করে নিন
   Offset playerPosition = const Offset(20, 100);
