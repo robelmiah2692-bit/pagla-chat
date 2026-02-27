@@ -228,7 +228,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
                     ),
                   ),
                 ),
-                // ফলোয়ার সংখ্যা এখানে লাইভ আপডেট হবে
+              ],
+            ),
+            // ফলোয়ার সংখ্যা এখানে লাইভ আপডেট হবে
                 Text("ID: ${widget.roomId} | $followerCount ফলোয়ার", 
                   style: const TextStyle(color: Colors.white54, fontSize: 10)),
               ],
