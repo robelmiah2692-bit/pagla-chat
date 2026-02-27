@@ -263,22 +263,47 @@ class _VoiceRoomState extends State<VoiceRoom> {
           const SizedBox(width: 8),
 
           // ২. মাইক কন্ট্রোল বাটন
-          _buildSmallIconButton(
-            isMicOn ? Icons.mic : Icons.mic_off,
-            isMicOn ? Colors.greenAccent : Colors.white,
-            () {
-              if (currentSeatIndex == -1) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("কথা বলতে আগে সিটে বসুন!")),
-                );
-                return;
-              }
+          IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+          // সিটে না থাকলে কালো, অন থাকলে সবুজ গ্লো, অফ থাকলে লালচে আভা
+                color: currentSeatIndex == -1 
+                    ? Colors.black54 
+                     : (isMicOn ? Colors.greenAccent.withOpacity(0.2) : Colors.redAccent.withOpacity(0.1)),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: currentSeatIndex == -1 
+                      ? Colors.grey 
+                      : (isMicOn ? Colors.greenAccent : Colors.redAccent),
+                 width: 2,
+               ),
+             ),
+             child: Icon(
+            // আইকন পরিবর্তন
+               currentSeatIndex == -1 
+                   ? Icons.mic_off_rounded 
+                   : (isMicOn ? Icons.mic : Icons.mic_off),
+               color: currentSeatIndex == -1 
+                   ? Colors.grey 
+                   : (isMicOn ? Colors.greenAccent : Colors.redAccent),
+               size: 24,
+             ),
+           ),
+           onPressed: () {
+             if (currentSeatIndex == -1) {
+               ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("আগে সিটে বসুন, তারপর মাইক খুলুন!")),
+              );
+            } else {
               setState(() {
-                isMicOn = !isMicOn;
-                seats[currentSeatIndex]['isMicOn'] = isMicOn;
+                isMicOn = !isMicOn; // অন থাকলে অফ হবে, অফ থাকলে অন
+                // আপনার সিটের ডাটাতেও মাইক স্ট্যাটাস আপডেট করে দিন
+                seats[currentSeatIndex]["isMicOn"] = isMicOn;
               });
-            },
-          ),
+            }
+          },
+        )
 
           // ৩. গেম বাটন
           _buildSmallIconButton(Icons.videogame_asset, Colors.orange, () {
