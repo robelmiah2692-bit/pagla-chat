@@ -121,11 +121,19 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
           if (isRoomMusicPlaying)
             Positioned(
-              left: playerPosition.dx, top: playerPosition.dy,
+              left: playerPosition.dx,
+              top: playerPosition.dy,
               child: Draggable(
-                feedback: MusicPlayerPage(audioPlayer: _audioPlayer, isDragging: true),
-                onDragEnd: (details) => setState(() => playerPosition = details.offset),
-                child: MusicPlayerPage(audioPlayer: _audioPlayer, isDragging: false),
+                // ১. টানার সময় প্লেয়ারটি যেমন দেখাবে
+                feedback: _buildFloatingPlayer(isDragging: true),
+                // ২. টানা শেষ হলে নতুন জায়গায় সেট হবে
+                onDragEnd: (details) {
+                  setState(() {
+                    playerPosition = details.offset;
+                  });
+                },
+                // ৩. সাধারণ অবস্থায় প্লেয়ারটি যেমন দেখাবে
+                child: _buildFloatingPlayer(isDragging: false),
               ),
             ),
 
