@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:lottie/lottie.dart';
+import 'dart:io';
 
 // আপনার সেই ৮টি আলাদা ফাইল
 import '../widgets/chat_input_bar.dart';
@@ -25,7 +26,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   bool isOwner = true; 
   String displayUserID = "Hridoy Owner"; // মালিক শনাক্তকরণ
   String roomName = "পাগলা চ্যাট রুম";
-  int followerCount = 1200;
+  int followerCount = 0;
   
 // মিউজিক ও কন্ট্রোল ভেরিয়েবল
   bool isRoomMusicPlaying = false; // এখানে অলরেডি আপনার কোডে ছিল, তাও চেক করে নিন
@@ -150,14 +151,29 @@ class _VoiceRoomState extends State<VoiceRoom> {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
+          // ১. প্রোফাইল পিকচার সেকশন (গ্যালারি থেকে ছবি সেভ হবে)
           GestureDetector(
             onTap: () {
               RoomProfileHandler.pickRoomImage(
-                onImagePicked: (path) => setState(() {}),
+                onImagePicked: (path) {
+                  setState(() {
+                    roomProfileImage = path; // গ্যালারির ছবির পাথ এখানে সেভ হচ্ছে
+                  });
+                },
                 showMessage: (msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg))),
               );
             },
-            child: const CircleAvatar(radius: 20, backgroundColor: Colors.amber, child: Icon(Icons.camera_alt, size: 18, color: Colors.white)),
+            child: CircleAvatar(
+              radius: 20,
+              backgroundColor: Colors.amber,
+              // যদি ছবি থাকে তবে সেটা দেখাবে, না থাকলে ক্যামেরা আইকন
+              backgroundImage: roomProfileImage.isNotEmpty 
+                  ? FileImage(File(roomProfileImage)) 
+                  : null,
+              child: roomProfileImage.isEmpty 
+                  ? const Icon(Icons.camera_alt, size: 18, color: Colors.white) 
+                  : null,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -166,11 +182,32 @@ class _VoiceRoomState extends State<VoiceRoom> {
               children: [
                 Row(
                   children: [
-                    Text(roomName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                    const SizedBox(width: 5),
-                    // ফলো (+) বাটন
+                    // ২. নাম পরিবর্তন সেকশন (নামের ওপর ক্লিক করলে পপ-আপ আসবে)
                     GestureDetector(
-                      onTap: () => setState(() => followerCount++),
+                      onTap: () {
+                        RoomProfileHandler.editRoomName(
+                          context: context,
+                          currentName: roomName,
+                          onNameSaved: (newName) {
+                            setState(() {
+                              roomName = newName; // নতুন নাম সেভ হচ্ছে
+                            });
+                          },
+                        );
+                      },
+                      child: Text(
+                        roomName, 
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    // ৩. ফলো (+) বাটন (ফলোয়ার কাউন্টিং হবে)
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          followerCount++; // ক্লিক করলে ফলোয়ার ১ বাড়বে
+                        });
+                      },
                       child: Container(
                         padding: const EdgeInsets.all(2),
                         decoration: const BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
@@ -179,10 +216,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
                     ),
                   ],
                 ),
-                Text("ID: ${widget.roomId} | $followerCount ফলোয়ার", style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                // ফলোয়ার সংখ্যা এখানে লাইভ আপডেট হবে
+                Text("ID: ${widget.roomId} | $followerCount ফলোয়ার", 
+                  style: const TextStyle(color: Colors.white54, fontSize: 10)),
               ],
             ),
           ),
+          // আপনার বাকি বাটনগুলো এখানে থাকবে...
           IconButton(icon: const Icon(Icons.group, color: Colors.blueAccent), onPressed: () => _showFollowers()),
           IconButton(icon: const Icon(Icons.settings, color: Colors.white70), onPressed: () => _showSettings()),
         ],
