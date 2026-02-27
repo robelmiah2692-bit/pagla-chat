@@ -30,6 +30,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String roomProfileImage = '';
   bool isFollowed = false; // ফলো বাটন চেক করার জন্য
   List<Map<String, dynamic>> viewersList = []; // ভিউয়ার লিস্টের জন্য
+  int activeEmojiSeatIndex = -1; // কোন সিটে ইমোজি উড়বে তা মনে রাখার জন্য
+  bool isRoomLocked = false; // রুম কি লক নাকি আনলক তা এখানে সেভ থাকবে
+  String roomWallpaperPath = ''; // ওয়ালপেপার ছবির পাথ রাখার জন্য
   // মিউজিক ও কন্ট্রোল ভেরিয়েবল
   bool isRoomMusicPlaying = false; // এখানে অলরেডি আপনার কোডে ছিল, তাও চেক করে নিন
   Offset playerPosition = const Offset(20, 100);
@@ -62,25 +65,36 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   void sitOnSeat(int index) {
     if (seats[index]["isOccupied"] || seats[index]["status"] == "calling") return;
+    
     setState(() {
+      // ১. আগের কোন সিটে বসে থাকলে সেটা খালি করে দেওয়া
       for (var seat in seats) {
         if (seat["userName"] == displayUserID) {
           seat["isOccupied"] = false;
           seat["userName"] = "";
           seat["status"] = "empty";
+          seat["isMicOn"] = false; // আগের সিট থেকে নামলে মাইক অফ
         }
       }
+      
+      // ২. নতুন সিটে কলিং শুরু করা
       seats[index]["status"] = "calling";
       seats[index]["userName"] = "Calling...";
       seats[index]["isOccupied"] = true;
     });
 
+    // ৩. ৩ সেকেন্ড পর সিটে কনফার্ম হওয়া
     Timer(const Duration(seconds: 3), () {
       if (mounted) {
         setState(() {
           seats[index]["status"] = "occupied";
           seats[index]["userName"] = displayUserID;
-          seats[index]["userImage"] = "https://api.dicebear.com/7.x/avataaars/svg?seed=$displayUserID"; 
+          seats[index]["userImage"] = "https://api.dicebear.com/7.x/avataaars/svg?seed=$displayUserID";
+          
+          // --- মেইন ম্যাজিক এখানে ---
+          seats[index]["isMicOn"] = true; // সিটের মাইক আইকন অন হবে
+          isMicOn = true;               // নিচের মেইন মাইক বাটন অন হবে
+          currentSeatIndex = index;     // অ্যাপ এখন জানবে আপনি এই সিটে আছেন
         });
       }
     });
@@ -278,46 +292,56 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
           // ২. মাইক কন্ট্রোল বাটন
           IconButton(
-            icon: Container(
+            padding: EdgeInsets.zero,
+            icon: AnimatedContainer(
+              duration: const Duration(milliseconds: 300), // কালার চেঞ্জ হবে স্মুথলি
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-          // সিটে না থাকলে কালো, অন থাকলে সবুজ গ্লো, অফ থাকলে লালচে আভা
+                // সিটে না থাকলে কালো, অন থাকলে উজ্জ্বল সবুজ, অফ থাকলে হালকা লাল
                 color: currentSeatIndex == -1 
                     ? Colors.black54 
-                     : (isMicOn ? Colors.greenAccent.withOpacity(0.2) : Colors.redAccent.withOpacity(0.1)),
+                    : (isMicOn ? Colors.greenAccent.withOpacity(0.25) : Colors.redAccent.withOpacity(0.15)),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  if (currentSeatIndex != -1 && isMicOn)
+                    BoxShadow(color: Colors.greenAccent.withOpacity(0.3), blurRadius: 10, spreadRadius: 1)
+                ],
                 border: Border.all(
                   color: currentSeatIndex == -1 
-                      ? Colors.grey 
+                      ? Colors.grey.withOpacity(0.5) 
                       : (isMicOn ? Colors.greenAccent : Colors.redAccent),
-                 width: 2,
-               ),
-             ),
-             child: Icon(
-            // আইকন পরিবর্তন
-               currentSeatIndex == -1 
-                   ? Icons.mic_off_rounded 
-                   : (isMicOn ? Icons.mic : Icons.mic_off),
-               color: currentSeatIndex == -1 
-                   ? Colors.grey 
-                   : (isMicOn ? Colors.greenAccent : Colors.redAccent),
-               size: 24,
-             ),
-           ),
-           onPressed: () {
-             if (currentSeatIndex == -1) {
-               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("আগে সিটে বসুন, তারপর মাইক খুলুন!")),
-              );
-            } else {
-              setState(() {
-                isMicOn = !isMicOn; // অন থাকলে অফ হবে, অফ থাকলে অন
-                // আপনার সিটের ডাটাতেও মাইক স্ট্যাটাস আপডেট করে দিন
-                seats[currentSeatIndex]["isMicOn"] = isMicOn;
-              });
-            }
-          },
-        ),
+                  width: 2,
+                ),
+              ),
+              child: Icon(
+                currentSeatIndex == -1 
+                    ? Icons.mic_off_rounded 
+                    : (isMicOn ? Icons.mic : Icons.mic_off),
+                color: currentSeatIndex == -1 
+                    ? Colors.grey 
+                    : (isMicOn ? Colors.greenAccent : Colors.redAccent),
+                size: 24,
+              ),
+            ),
+            onPressed: () {
+              if (currentSeatIndex == -1) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("আগে সিটে বসুন, তারপর মাইক খুলুন!"),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              } else {
+                setState(() {
+                  // ১. মেইন মাইক স্টেট পরিবর্তন
+                  isMicOn = !isMicOn; 
+                  
+                  // ২. আপনার বসা সিটের ভেতরের ডাটা আপডেট (যাতে সিটের কোণার আইকন বদলায়)
+                  seats[currentSeatIndex]["isMicOn"] = isMicOn; 
+                });
+              }
+            },
+          ),
 
           // ৩. গেম বাটন
           _buildSmallIconButton(Icons.videogame_asset, Colors.orange, () {
@@ -492,32 +516,66 @@ class _VoiceRoomState extends State<VoiceRoom> {
         itemBuilder: (context, index) {
           var seat = seats[index];
           bool isVip = seat["isVip"];
+          
           return GestureDetector(
             onLongPress: () {
-              // সিটে দীর্ঘক্ষণ চেপে ধরলে ইমোজি ওই সিটে যাবে (index পাওয়া যাচ্ছে)
+              // সিটে দীর্ঘক্ষণ চেপে ধরলে ইমোজি সিলেক্ট করার অপশন
               EmojiHandler.showPicker(
                 context: context,
                 seatIndex: index,
                 onEmojiSelected: (i, url) {
-                  setState(() { currentGiftImage = url; isGiftAnimating = true; });
+                  setState(() { 
+                    currentGiftImage = url; 
+                    isGiftAnimating = true; 
+                    // ইমোজিটা আপনার (ইউজারের) নিজের সিটে দেখানোর জন্য
+                    activeEmojiSeatIndex = currentSeatIndex; 
+                  });
                   Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
                 },
               );
             },
-            onTap: () => sitOnSeat(index),
+            onTap: () {
+              sitOnSeat(index);
+              // আপনি যখন সিটে বসবেন, তখন আপনার ইনডেক্স সেভ হবে
+              setState(() {
+                currentSeatIndex = index;
+              });
+            },
             child: Column(
               children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: seat["isOccupied"] ? Colors.blueAccent : Colors.white10,
-                  child: Container(
-                    decoration: BoxDecoration(shape: BoxShape.circle, border: isVip ? Border.all(color: Colors.amber, width: 2) : null),
-                    child: Center(
-                      child: seat["status"] == "calling" 
-                        ? const CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
-                        : (seat["isOccupied"] ? null : Icon(isVip ? Icons.stars : Icons.chair, color: isVip ? Colors.amber : Colors.white24, size: 20)),
+                // স্ট্যাক ব্যবহার করা হয়েছে যাতে ইমোজি সিটের ওপর ভাসে
+                Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: seat["isOccupied"] ? Colors.blueAccent : Colors.white10,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle, 
+                          border: isVip ? Border.all(color: Colors.amber, width: 2) : null
+                        ),
+                        child: Center(
+                          child: seat["status"] == "calling" 
+                            ? const CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
+                            : (seat["isOccupied"] ? null : Icon(isVip ? Icons.stars : Icons.chair, color: isVip ? Colors.amber : Colors.white24, size: 20)),
+                        ),
+                      ),
                     ),
-                  ),
+
+                    // --- এই অংশটি ইমোজিকে আপনার সিটের ওপরে চালাবে ---
+                    if (isGiftAnimating && currentSeatIndex == index)
+                      Positioned(
+                        top: -40, // সিটের ঠিক ওপরে
+                        child: Lottie.network(
+                          currentGiftImage,
+                          width: 80,
+                          height: 80,
+                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
+                        ),
+                      ),
+                  ],
                 ),
                 Text("${index + 1}", style: TextStyle(color: isVip ? Colors.amber : Colors.white54, fontSize: 10)),
               ],
