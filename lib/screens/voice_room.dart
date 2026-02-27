@@ -28,7 +28,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String roomName = "পাগলা চ্যাট রুম";
   int followerCount = 0;
   String roomProfileImage = '';
-// মিউজিক ও কন্ট্রোল ভেরিয়েবল
+  bool isFollowed = false; // শুরুতে কেউ ফলো করেনি
+  // মিউজিক ও কন্ট্রোল ভেরিয়েবল
   bool isRoomMusicPlaying = false; // এখানে অলরেডি আপনার কোডে ছিল, তাও চেক করে নিন
   Offset playerPosition = const Offset(20, 100);
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -201,20 +202,30 @@ class _VoiceRoomState extends State<VoiceRoom> {
                       ),
                     ),
                     const SizedBox(width: 5),
-                    // ৩. ফলো (+) বাটন (ফলোয়ার কাউন্টিং হবে)
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          followerCount++; // ক্লিক করলে ফলোয়ার ১ বাড়বে
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
-                        child: const Icon(Icons.add, color: Colors.white, size: 12),
-                      ),
+               // ৩. ফলো (+) বাটন - টিক মার্ক এবং কালার চেঞ্জ হবে
+                GestureDetector(
+                  onTap: () {
+                    if (!isFollowed) {
+                      setState(() {
+                        followerCount++;
+                        isFollowed = true;
+                      });
+                    }
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: isFollowed ? Colors.green : Colors.blueAccent,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
                     ),
-                  ],
+                    child: Icon(
+                      isFollowed ? Icons.check : Icons.add,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                  ),
                 ),
                 // ফলোয়ার সংখ্যা এখানে লাইভ আপডেট হবে
                 Text("ID: ${widget.roomId} | $followerCount ফলোয়ার", 
@@ -420,29 +431,51 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   Widget _buildViewerArea() {
-    return Container(
-      height: 40,
-      margin: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          const SizedBox(width: 15),
-          const Text("👀 200", style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 12)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: 10,
-              itemBuilder: (context, index) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: CircleAvatar(radius: 12, backgroundImage: NetworkImage("https://api.dicebear.com/7.x/avataaars/svg?seed=$index")),
-              ),
-            ),
+  return Container(
+    height: 40,
+    margin: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(
+      children: [
+        const SizedBox(width: 15),
+        // ১. লাইভ ভিউয়ার কাউন্টার (viewersList এর সাইজ অনুযায়ী)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.black26,
+            borderRadius: BorderRadius.circular(12),
           ),
-        ],
-      ),
-    );
-  }
-
+          child: Text(
+            "👀 ${viewersList.length}", 
+            style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+        ),
+        const SizedBox(width: 10),
+        
+        // ২. ভিউয়ার অবতার লিস্ট
+        Expanded(
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: viewersList.length,
+            itemBuilder: (context, index) {
+              // ভিউয়ারের ডাটা থেকে ছবি নেওয়া
+              String avatarUrl = viewersList[index]['avatar'] ?? "https://api.dicebear.com/7.x/avataaars/svg?seed=$index";
+              
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: CircleAvatar(
+                  radius: 14,
+                  backgroundColor: Colors.white10,
+                  // রিয়েল টাইপ অবতার লোড হবে
+                  backgroundImage: NetworkImage(avatarUrl),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    ),
+  );
+}
   Widget _buildSeatGridArea() {
     return SizedBox(
       height: 300,
