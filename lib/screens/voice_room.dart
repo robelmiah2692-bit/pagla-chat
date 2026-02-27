@@ -303,7 +303,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
               });
             }
           },
-        )
+        ),
 
           // ৩. গেম বাটন
           _buildSmallIconButton(Icons.videogame_asset, Colors.orange, () {
