@@ -24,10 +24,10 @@ class VoiceRoom extends StatefulWidget {
 
 class _VoiceRoomState extends State<VoiceRoom> {
   bool isOwner = true; 
-  String displayUserID = "Hridoy Owner"; // মালিক শনাক্তকরণ
+  String displayUserID = "Owner"; // মালিক শনাক্তকরণ
   String roomName = "পাগলা চ্যাট রুম";
   int followerCount = 0;
-  
+  String roomProfileImage = '';
 // মিউজিক ও কন্ট্রোল ভেরিয়েবল
   bool isRoomMusicPlaying = false; // এখানে অলরেডি আপনার কোডে ছিল, তাও চেক করে নিন
   Offset playerPosition = const Offset(20, 100);
