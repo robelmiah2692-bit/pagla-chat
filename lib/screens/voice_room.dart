@@ -53,6 +53,15 @@ class _VoiceRoomState extends State<VoiceRoom> {
     onFinished: () => _endPKBattle(), // সময় শেষ হলে অটোমেটিক উইনার দেখাবে
   );
 }
+
+  void _openGamePanel() {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent, // পেছনের অংশ স্বচ্ছ থাকবে
+    isScrollControlled: true, // হাফ স্ক্রিন কন্ট্রোল করার জন্য
+    builder: (context) => const GamePanelView(),
+  );
+}
   // মিউজিক ও কন্ট্রোল ভেরিয়েবল
   bool isRoomMusicPlaying = false; // এখানে অলরেডি আপনার কোডে ছিল, তাও চেক করে নিন
   Offset playerPosition = const Offset(20, 100);
@@ -541,9 +550,10 @@ late List<Map<String, dynamic>> seats;
           ),
 
           // ৩. গেম বাটন
-          _buildSmallIconButton(Icons.videogame_asset, Colors.orange, () {
-            // গেম লজিক এখানে
-          }),
+      _buildSmallIconButton(Icons.videogame_asset, Colors.orange, () {
+      // গেম প্যানেল ওপেন করার ফাংশনটি এখানে কল করা হলো
+      _openGamePanel(); 
+    }),
 
           // ৪. মিউজিক স্টোর বাটন (নতুন যোগ করা মিউজিক লজিক)
           _buildSmallIconButton(Icons.music_note, Colors.cyanAccent, () async {
