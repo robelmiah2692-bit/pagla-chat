@@ -78,45 +78,36 @@ class _VoiceRoomState extends State<VoiceRoom> {
   bool isGiftAnimating = false;
   String currentGiftImage = "";
 
-  bool isCountingGifts = false;
-  int remainingSeconds = 900; // ১৫ মিনিট = ৯০০ সেকেন্ড
-  Timer? giftTimer;
-
+  // --- ১. গিফট কাউন্টডাউন ফিচার (১৫ মিনিট) ---
   void _startGiftCounting() {
-    if (isCountingGifts) return; // অলরেডি চালু থাকলে আর হবে না
+    if (isCountingGifts) return;
 
     setState(() {
       isCountingGifts = true;
-      remainingSeconds = 900; 
+      remainingSeconds = 900; // ১৫ মিনিট
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("💎 ১৫ মিনিটের গিফট কাউন্টডাউন শুরু হয়েছে!"))
+      const SnackBar(content: Text("💎 ১৫ মিনিটের গিফট কাউন্টডাউন শুরু হয়েছে!"))
     );
 
     giftTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (remainingSeconds > 0) {
-        setState(() {
-          remainingSeconds--;
-        });
+        if (mounted) setState(() => remainingSeconds--);
       } else {
         timer.cancel();
-        setState(() => isCountingGifts = false);
-        _showWinnerPopup(); // ১৫ মিনিট শেষ হলে উইনার দেখাবে
+        if (mounted) setState(() => isCountingGifts = false);
+        _showWinnerPopup(); // সময় শেষ হলে উইনার দেখাবে
       }
     });
   }
-  void _showWinnerPopup() {
-    // এখানে আপনার সেই আলাদা ফাইলের (gift_rank_dialog.dart) কোড কল হবে
-    print("Time Up! Show Top Winners");
-  }
 
+  // --- ২. উইনার পপ-আপ (টপ ২ সিট মেম্বার) ---
   void _showWinnerPopup() {
-    // ১. সিট থেকে সব ইউজারদের গিফট অনুযায়ী সাজানো (Sorting)
+    // সিট থেকে ডাটা নিয়ে গিফট অনুযায়ী সাজানো
     List<Map<String, dynamic>> seatData = List.from(seats);
     seatData.sort((a, b) => b['giftCount'].compareTo(a['giftCount']));
 
-    // ২. শুধুমাত্র যারা গিফট পেয়েছে এবং সিটে আছে তাদের ফিল্টার করা
     List<Map<String, dynamic>> topWinners = [];
     for (var s in seatData) {
       if (s['giftCount'] > 0 && s['isOccupied']) {
@@ -126,10 +117,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
           "gifts": s['giftCount']
         });
       }
-      if (topWinners.length == 2) break; // শুধু টপ ২ জনকে নিবে
+      if (topWinners.length == 2) break; // টপ ২ জন
     }
 
-    // ৩. পপ-আপ দেখানো
     if (topWinners.isNotEmpty) {
       showDialog(
         context: context,
@@ -137,11 +127,31 @@ class _VoiceRoomState extends State<VoiceRoom> {
         builder: (context) => GiftRankDialog(winners: topWinners),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("কেউ গিফট পায়নি, তাই উইনার নেই!"))
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("কেউ গিফট পায়নি, তাই উইনার নেই!"))
+        );
+      }
     }
   }
+
+  // --- ৩. পিকে (PK) আপডেট লজিক ---
+  void _updateGiftsAndPK(int seatIndex, int amount) {
+    setState(() {
+      // সিটের গিফট কাউন্ট বাড়ানো
+      seats[seatIndex]['giftCount'] += amount;
+
+      // পিকে চালু থাকলে পয়েন্ট ভাগ করা (১-৪ নীল, ৫-৮ লাল)
+      if (isPKActive) {
+        if (seatIndex < 4) {
+          blueTeamPoints += amount;
+        } else {
+          redTeamPoints += amount;
+        }
+      }
+    });
+  }
+
   void _endPKBattle() {
     String winner = blueTeamPoints > redTeamPoints ? "BLUE" : "RED";
 
@@ -155,39 +165,22 @@ class _VoiceRoomState extends State<VoiceRoom> {
       ),
     );
 
-    setState(() {
-      isPKActive = false; // পিকে বন্ধ হয়ে যাবে
-      // চাইলে পয়েন্ট রিসেট করতে পারেন
-      // blueTeamPoints = 0;
-      // redTeamPoints = 0;
-    });
+    setState(() => isPKActive = false);
   }
 
-  void _updateGiftsAndPK(int seatIndex, int amount) {
+  void _startPKProcess() {
     setState(() {
-      // ১. সিটের গিফট কাউন্ট বাড়ানো (আগের ফিচার)
-      seats[seatIndex]['giftCount'] += amount;
-
-      // ২. যদি পিকে (PK) চালু থাকে, তবে পয়েন্ট যোগ করা
-      if (isPKActive) {
-        // এখানে লজিক: ১ থেকে ৪ নম্বর সিট নীল টিম, ৫ থেকে ৮ নম্বর লাল টিম
-        if (seatIndex < 4) {
-          blueTeamPoints += amount;
-        } else {
-          redTeamPoints += amount;
-        }
-      }
+      isPKActive = true;
+      blueTeamPoints = 0;
+      redTeamPoints = 0;
     });
+    pkManager.startPK(5); // ৫ মিনিটের পিকে
   }
 
- void _startPKProcess() {
-  setState(() {
-    isPKActive = true;
-    blueTeamPoints = 0;
-    redTeamPoints = 0;
-  });
-  pkManager.startPK(5); // ৫ মিনিটের জন্য পিকে শুরু
-}
+  // ফলোয়ার লিস্ট দেখানোর ফিক্সড ফাংশন
+  void _showFollowers() {
+    FollowerListHandler.show(context, followerCount);
+  }
     
 late List<Map<String, dynamic>> seats;
 
