@@ -14,6 +14,7 @@ import '../widgets/music_player_widget.dart';
 import '../widgets/room_profile_handler.dart';
 import '../widgets/room_settings_handler.dart';
 import 'floating_room_tools.dart'; // আপনার তৈরি করা নতুন ফাইলটি চেনানো
+import 'gift_rank_dialog.dart';
 
 class VoiceRoom extends StatefulWidget {
   final String roomId; 
@@ -80,6 +81,38 @@ class _VoiceRoomState extends State<VoiceRoom> {
   void _showWinnerPopup() {
     // এখানে আপনার সেই আলাদা ফাইলের (gift_rank_dialog.dart) কোড কল হবে
     print("Time Up! Show Top Winners");
+  }
+
+  void _showWinnerPopup() {
+    // ১. সিট থেকে সব ইউজারদের গিফট অনুযায়ী সাজানো (Sorting)
+    List<Map<String, dynamic>> seatData = List.from(seats);
+    seatData.sort((a, b) => b['giftCount'].compareTo(a['giftCount']));
+
+    // ২. শুধুমাত্র যারা গিফট পেয়েছে এবং সিটে আছে তাদের ফিল্টার করা
+    List<Map<String, dynamic>> topWinners = [];
+    for (var s in seatData) {
+      if (s['giftCount'] > 0 && s['isOccupied']) {
+        topWinners.add({
+          "name": s['userName'],
+          "avatar": s['userImage'],
+          "gifts": s['giftCount']
+        });
+      }
+      if (topWinners.length == 2) break; // শুধু টপ ২ জনকে নিবে
+    }
+
+    // ৩. পপ-আপ দেখানো
+    if (topWinners.isNotEmpty) {
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (context) => GiftRankDialog(winners: topWinners),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("কেউ গিফট পায়নি, তাই উইনার নেই!"))
+      );
+    }
   }
   
   late List<Map<String, dynamic>> seats;
