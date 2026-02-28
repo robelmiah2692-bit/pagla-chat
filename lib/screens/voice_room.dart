@@ -800,13 +800,14 @@ late List<Map<String, dynamic>> seats;
     );
   }
 
+  // --- সেটিংস প্যানেল (আপনার সব ফিচারসহ) ---
   void _showSettings() {
     RoomSettingsHandler.showSettings(
       context: context,
-      isOwner: isOwner,
+      // isOwner: isOwner, // যদি হ্যান্ডলার ফাইলে এরর দেয়, তবে এটি কমেন্ট করে রাখুন
       isLocked: isRoomLocked,
       
-      // ১. লক-আনলক লজিক
+      // ১. লক-আনলক লজিক (আপনার ফিচার)
       onToggleLock: () {
         setState(() {
           isRoomLocked = !isRoomLocked;
@@ -816,7 +817,7 @@ late List<Map<String, dynamic>> seats;
         );
       }, 
       
-      // ২. ওয়ালপেপার সেট লজিক
+      // ২. ওয়ালপেপার সেট লজিক (আপনার ফিচার)
       onSetWallpaper: (String path) {
         setState(() {
           roomWallpaperPath = path; 
@@ -826,7 +827,7 @@ late List<Map<String, dynamic>> seats;
         );
       }, 
       
-      // ৩. মিনিমাইজ লজিক
+      // ৩. মিনিমাইজ লজিক (আপনার ফিচার)
       onMinimize: () async {
         Navigator.pop(context); 
         try {
@@ -843,7 +844,7 @@ late List<Map<String, dynamic>> seats;
         }
       },
 
-      // ৪. এক্সিট লজিক
+      // ৪. এক্সিট লজিক (আপনার ফিচার)
       onLeave: () {
         try {
           FlutterBackgroundService().invoke("stopService"); 
@@ -851,15 +852,17 @@ late List<Map<String, dynamic>> seats;
         
         _audioPlayer.stop(); 
         Navigator.pop(context); // সেটিংস প্যানেল বন্ধ
-        Navigator.pop(context); // রুম থেকে বের হওয়া
+        Navigator.pop(context); // রুম থেকে বের হওয়া
       }
     );
   }
 
+  // ফলোয়ার লিস্ট (আপনার ফিচার)
   void _showFollowers() {
     FollowerListHandler.show(context, followerCount);
   }
 
+  // কন্ট্রোল বাটন উইজেট (আপনার ফিচার)
   Widget _buildControlButton(IconData icon, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
@@ -871,4 +874,4 @@ late List<Map<String, dynamic>> seats;
     );
   }
 
-} // <--- এটি _VoiceRoomState ক্লাসের শেষ ব্র্যাকেট
+} // <--- এই মেইন ক্লাসের ব্র্যাকেটটি যেন মিস না হয়
