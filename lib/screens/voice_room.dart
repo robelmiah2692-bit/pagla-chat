@@ -64,42 +64,94 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   void sitOnSeat(int index) {
-    if (seats[index]["isOccupied"] || seats[index]["status"] == "calling") return;
-    
+    // ১. নিজের সিটে ক্লিক করলে লিভ (Leave) নেওয়ার অপশন আসবে
+    if (currentSeatIndex == index) {
+      _showLeaveConfirmation(index);
+      return;
+    }
+
+    // ২. রুম লক থাকলে বা সিট খালি না থাকলে বসতে পারবে না
+    if (isRoomLocked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("রুম এখন লক আছে!"))
+      );
+      return;
+    }
+
+    if (seats[index]["isOccupied"] || seats[index]["status"] == "calling") {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("এই সিটটি খালি নেই!"))
+      );
+      return;
+    }
+
+    // ৩. সিটে বসার প্রক্রিয়া শুরু (Calling phase)
     setState(() {
-      // ১. আগের কোন সিটে বসে থাকলে সেটা খালি করে দেওয়া
+      // আগের কোনো সিটে বসে থাকলে সেটি আগে খালি করে দেওয়া
       for (var seat in seats) {
         if (seat["userName"] == displayUserID) {
           seat["isOccupied"] = false;
           seat["userName"] = "";
           seat["status"] = "empty";
-          seat["isMicOn"] = false; // আগের সিট থেকে নামলে মাইক অফ
+          seat["isMicOn"] = false;
         }
       }
       
-      // ২. নতুন সিটে কলিং শুরু করা
+      // নতুন সিটে কলিং স্টেট সেট করা
       seats[index]["status"] = "calling";
       seats[index]["userName"] = "Calling...";
       seats[index]["isOccupied"] = true;
     });
 
-    // ৩. ৩ সেকেন্ড পর সিটে কনফার্ম হওয়া
+    // ৪. ৩ সেকেন্ড পর সিটে কনফার্ম হওয়া (Final Step)
     Timer(const Duration(seconds: 3), () {
       if (mounted) {
         setState(() {
           seats[index]["status"] = "occupied";
           seats[index]["userName"] = displayUserID;
+          // আপনার রিয়েল অবতারের ইমেজ বসানো
           seats[index]["userImage"] = "https://api.dicebear.com/7.x/avataaars/svg?seed=$displayUserID";
           
-          // --- মেইন ম্যাজিক এখানে ---
-          seats[index]["isMicOn"] = true; // সিটের মাইক আইকন অন হবে
-          isMicOn = true;               // নিচের মেইন মাইক বাটন অন হবে
+          // --- আগের মেইন ফিচারগুলো সচল রাখা ---
+          seats[index]["isMicOn"] = true; // সিটের ওপর মাইক সবুজ দেখাবে
+          isMicOn = true;               // নিচের মেইন বাটন সবুজ হবে
           currentSeatIndex = index;     // অ্যাপ এখন জানবে আপনি এই সিটে আছেন
         });
       }
     });
   }
 
+  void _showLeaveConfirmation(int index) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: const Text("সিট ছেড়ে দিন", style: TextStyle(color: Colors.white)),
+        content: const Text("আপনি কি সিট থেকে নামতে চান?", style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("না")),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                // সিট খালি করা কিন্তু ইউজার রুমেই থাকবে (ভিউয়ার লিস্টে)
+                seats[index]["isOccupied"] = false;
+                seats[index]["userName"] = "";
+                seats[index]["status"] = "empty";
+                seats[index]["isMicOn"] = false;
+                
+                currentSeatIndex = -1; // এখন আপনি ভিউয়ার
+                isMicOn = false;      // মাইক অফ
+              });
+              Navigator.pop(context);
+            },
+            child: const Text("হ্যাঁ", style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
