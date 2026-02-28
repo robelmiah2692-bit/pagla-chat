@@ -1,3 +1,4 @@
+import 'pk_winner_dialog.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -117,6 +118,26 @@ class _VoiceRoomState extends State<VoiceRoom> {
         const SnackBar(content: Text("কেউ গিফট পায়নি, তাই উইনার নেই!"))
       );
     }
+  }
+  void _endPKBattle() {
+    String winner = blueTeamPoints > redTeamPoints ? "BLUE" : "RED";
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => PKWinnerDialog(
+        winnerTeam: winner,
+        bluePoints: blueTeamPoints,
+        redPoints: redTeamPoints,
+      ),
+    );
+
+    setState(() {
+      isPKActive = false; // পিকে বন্ধ হয়ে যাবে
+      // চাইলে পয়েন্ট রিসেট করতে পারেন
+      // blueTeamPoints = 0;
+      // redTeamPoints = 0;
+    });
   }
   
   late List<Map<String, dynamic>> seats;
