@@ -11,7 +11,7 @@ class GamePanelView extends StatefulWidget {
 
 class _GamePanelViewState extends State<GamePanelView> {
   int diamondBet = 50; 
-  bool isGameStarted = false; // গেম শুরু হয়েছে কি না
+  bool isGameStarted = false; // গেম শুরু হয়েছে কি না
   String selectedGame = "";   // কোন গেমটি খেলছে
   
   // গেমের লজিক ভেরিয়েবল
@@ -161,7 +161,7 @@ class _GamePanelViewState extends State<GamePanelView> {
         ),
         const SizedBox(height: 30),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+          style: ElevatedButton.styleFrom(backgroundColor: isActionInProgress ? Colors.grey : Colors.green),
           onPressed: isActionInProgress ? null : _startLuckySpin,
           child: Text(isActionInProgress ? "Spinning..." : "SPIN NOW"),
         ),
@@ -169,35 +169,65 @@ class _GamePanelViewState extends State<GamePanelView> {
     );
   }
 
-  // --- মেথড সমূহ ---
+  // --- মেথড সমূহ (আপডেটেড উইনিং লজিক সহ) ---
+
   void _rollDice() {
     setState(() => isActionInProgress = true);
     Future.delayed(const Duration(milliseconds: 500), () {
       setState(() {
-        diceNumber = Random().nextInt(6) + 1;
+        // ১০% সম্ভাবনা ৬ পড়ার, বাকি সময় ১-৫ পড়বে
+        int rollChance = Random().nextInt(100);
+        if (rollChance < 10) { 
+          diceNumber = 6;
+        } else {
+          diceNumber = Random().nextInt(5) + 1;
+        }
         isActionInProgress = false;
       });
-      if (diceNumber == 6) _showResultDialog("LUDO MASTER!", "আপনি ৬ পেয়েছেন এবং বোনাস জিতেছেন!");
+
+      if (diceNumber == 6) {
+        _showResultDialog("LUDO MASTER!", "৬ পড়েছে! আপনি বোনাস ডায়মন্ড জিতেছেন!");
+      }
     });
   }
 
   void _startLuckySpin() {
     setState(() => isActionInProgress = true);
+
     Future.delayed(const Duration(seconds: 3), () {
-      setState(() => isActionInProgress = false);
-      bool isWin = Random().nextBool();
-      _showResultDialog(isWin ? "WINNER!" : "LOST", isWin ? "অভিনন্দন! আপনি ডাবল ডায়মন্ড জিতেছেন।" : "দুঃখিত! আপনি $diamondBet ডায়মন্ড হেরেছেন।");
+      setState(() {
+        isActionInProgress = false;
+        
+        // ৩০% জেতার সম্ভাবনা, ৭০% আপনার লাভ
+        int winChance = 30;  
+        int randomNumber = Random().nextInt(100); 
+        bool isWin = randomNumber < winChance; 
+
+        if (isWin) {
+          int winningAmount = diamondBet * 2; 
+          _showResultDialog("WINNER! 🎉", "অভিনন্দন! আপনি $winningAmount ডায়মন্ড জিতেছেন।");
+        } else {
+          _showResultDialog("LOST", "দুঃখিত! আপনি $diamondBet ডায়মন্ড হেরেছেন। আবার চেষ্টা করুন।");
+        }
+      });
     });
   }
 
   void _showResultDialog(String title, String msg) {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
-        title: Text(title, style: const TextStyle(color: Colors.cyanAccent)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(title, style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
         content: Text(msg, style: const TextStyle(color: Colors.white70)),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context), 
+            child: const Text("OK", style: TextStyle(color: Colors.cyanAccent))
+          )
+        ],
       ),
     );
   }
