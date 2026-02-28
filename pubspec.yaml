@@ -29,8 +29,10 @@ dependencies:
   http: ^1.2.0
 
   # --- ব্যাকগ্রাউন্ড সার্ভিস ও আইডি ---
+  # --- ব্যাকগ্রাউন্ড সার্ভিস ও আইডি ---
   flutter_background_service: ^5.0.10
-  device_info_plus: ^10.1.0
+  device_info_plus: ^9.1.2
+  package_info_plus: ^8.0.2
   uuid: ^4.3.3
 
   # --- অন্যান্য দরকারি প্যাকেজ ---
