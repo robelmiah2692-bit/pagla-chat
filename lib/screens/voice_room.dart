@@ -1,3 +1,4 @@
+import 'game_panel_view.dart'; // এই লাইনটি সবার উপরে যোগ করুন
 import 'vs_pk_manager.dart';
 import 'pk_winner_dialog.dart';
 import 'dart:async';
