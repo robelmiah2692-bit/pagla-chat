@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'top_room_leaderboard.dart'; // এই লাইনটি অবশ্যই যোগ করবেন
+import 'top_room_leaderboard.dart'; // লিডারবোর্ড ফাইল
+// এখানে ভবিষ্যতে PK ভিউ ইমপোর্ট করবেন
 
 class FloatingRoomTools extends StatefulWidget {
   final Function onGiftCountStart;
@@ -23,7 +24,6 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools> {
         childWhenDragging: Container(),
         onDragEnd: (details) {
           setState(() {
-            // স্ক্রিনের লিমিট অনুযায়ী পজিশন সেট করা
             position = details.offset;
           });
         },
@@ -38,20 +38,21 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools> {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1), 
+          color: Colors.white.withOpacity(0.1), // গ্লাস ইফেক্ট
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
           boxShadow: [
-            BoxShadow(color: Colors.black26, blurRadius: 10, spreadRadius: 2)
+            const BoxShadow(color: Colors.black26, blurRadius: 10, spreadRadius: 2)
           ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // ১. গিফট কাউন্ট
             _toolIcon(Icons.timer_outlined, "Gift Count", Colors.orangeAccent, () => widget.onGiftCountStart()),
             const SizedBox(height: 12),
             
-            // --- এইখানে আমরা লিডারবোর্ড কানেক্ট করলাম ---
+            // ২. টপ রুম (লিডারবোর্ড)
             _toolIcon(Icons.emoji_events_outlined, "Top Room", Colors.yellowAccent, () {
               Navigator.push(
                 context,
@@ -60,9 +61,22 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools> {
             }),
             
             const SizedBox(height: 12),
-            _toolIcon(Icons.bolt, "Personal PK", Colors.blueAccent, () {}),
+            
+            // ৩. পার্সোনাল পিকে (বর্ডার ও আইকনসহ আপডেট)
+            _toolIcon(Icons.bolt, "Personal PK", Colors.blueAccent, () {
+               ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Personal PK মোড চালু হচ্ছে..."))
+              );
+            }),
+            
             const SizedBox(height: 12),
-            _toolIcon(Icons.whatshot, "VS PK", Colors.redAccent, () {}),
+            
+            // ৪. ভিএস পিকে (VS PK)
+            _toolIcon(Icons.whatshot, "VS PK", Colors.redAccent, () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("VS PK মোড চালু হচ্ছে..."))
+              );
+            }),
           ],
         ),
       ),
