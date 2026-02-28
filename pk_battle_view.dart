@@ -50,7 +50,7 @@ class PKBattleView extends StatelessWidget {
           ),
           
           // নিচে ছোট টাইম কাউন্টার (পিকে কতক্ষণ চলবে)
-          const Text("04:59", style: TextStyle(color: Colors.white70, fontSize: 12)),
+          Text(pkManager.formatTime(pkSeconds), style: const TextStyle(color: Colors.white70, fontSize: 12)),
         ],
       ),
     );
