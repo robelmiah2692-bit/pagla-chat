@@ -139,6 +139,23 @@ class _VoiceRoomState extends State<VoiceRoom> {
       // redTeamPoints = 0;
     });
   }
+
+  void _updateGiftsAndPK(int seatIndex, int amount) {
+    setState(() {
+      // ১. সিটের গিফট কাউন্ট বাড়ানো (আগের ফিচার)
+      seats[seatIndex]['giftCount'] += amount;
+
+      // ২. যদি পিকে (PK) চালু থাকে, তবে পয়েন্ট যোগ করা
+      if (isPKActive) {
+        // এখানে লজিক: ১ থেকে ৪ নম্বর সিট নীল টিম, ৫ থেকে ৮ নম্বর লাল টিম
+        if (seatIndex < 4) {
+          blueTeamPoints += amount;
+        } else {
+          redTeamPoints += amount;
+        }
+      }
+    });
+  }
   
   late List<Map<String, dynamic>> seats;
 
