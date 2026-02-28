@@ -13,6 +13,7 @@ import '../widgets/gift_system.dart';
 import '../widgets/music_player_widget.dart';
 import '../widgets/room_profile_handler.dart';
 import '../widgets/room_settings_handler.dart';
+import 'floating_room_tools.dart'; // আপনার তৈরি করা নতুন ফাইলটি চেনানো
 
 class VoiceRoom extends StatefulWidget {
   final String roomId; 
@@ -47,7 +48,40 @@ class _VoiceRoomState extends State<VoiceRoom> {
   List<Map<String, String>> chatMessages = [];
   bool isGiftAnimating = false;
   String currentGiftImage = "";
- 
+
+  bool isCountingGifts = false;
+  int remainingSeconds = 900; // ১৫ মিনিট = ৯০০ সেকেন্ড
+  Timer? giftTimer;
+
+  void _startGiftCounting() {
+    if (isCountingGifts) return; // অলরেডি চালু থাকলে আর হবে না
+
+    setState(() {
+      isCountingGifts = true;
+      remainingSeconds = 900; 
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("💎 ১৫ মিনিটের গিফট কাউন্টডাউন শুরু হয়েছে!"))
+    );
+
+    giftTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (remainingSeconds > 0) {
+        setState(() {
+          remainingSeconds--;
+        });
+      } else {
+        timer.cancel();
+        setState(() => isCountingGifts = false);
+        _showWinnerPopup(); // ১৫ মিনিট শেষ হলে উইনার দেখাবে
+      }
+    });
+  }
+  void _showWinnerPopup() {
+    // এখানে আপনার সেই আলাদা ফাইলের (gift_rank_dialog.dart) কোড কল হবে
+    print("Time Up! Show Top Winners");
+  }
+  
   late List<Map<String, dynamic>> seats;
 
   @override
@@ -188,7 +222,19 @@ class _VoiceRoomState extends State<VoiceRoom> {
             ],
           ),
 
-          if (isRoomMusicPlaying)
+          // ২. এইখানে ভাসমান বাটনগুলো যোগ করুন (Column-এর নিচে থাকায় এটি সবার ওপরে ভাসবে)
+          FloatingRoomTools(
+            onGiftCountStart: () {
+              // এখানে ১৫ মিনিটের টাইমার শুরু করার ফাংশনটি কল হবে
+              _startGiftCounting(); 
+            },
+          ),
+        ],
+      ),
+    );
+  } 
+         
+        if (isRoomMusicPlaying)
             Positioned(
               left: playerPosition.dx,
               top: playerPosition.dy,
