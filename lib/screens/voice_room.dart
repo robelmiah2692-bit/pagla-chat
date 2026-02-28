@@ -1,3 +1,4 @@
+import 'vs_pk_manager.dart';
 import 'pk_winner_dialog.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -40,6 +41,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
   int blueTeamPoints = 0;
   int redTeamPoints = 0;
   bool isPKActive = false; // পিকে চালু আছে কি না
+  late VSPKManager pkManager;
+  int pkSeconds = 300; // ডিফল্ট ৫ মিনিট (৩০০ সেকেন্ড)
+
+   @override
+   void initState() {
+  super.initState();
+  // ম্যানেজার সেটআপ করা
+  pkManager = VSPKManager(
+    onTick: (seconds) => setState(() => pkSeconds = seconds),
+    onFinished: () => _endPKBattle(), // সময় শেষ হলে অটোমেটিক উইনার দেখাবে
+  );
+}
   // মিউজিক ও কন্ট্রোল ভেরিয়েবল
   bool isRoomMusicPlaying = false; // এখানে অলরেডি আপনার কোডে ছিল, তাও চেক করে নিন
   Offset playerPosition = const Offset(20, 100);
@@ -156,8 +169,17 @@ class _VoiceRoomState extends State<VoiceRoom> {
       }
     });
   }
-  
-  late List<Map<String, dynamic>> seats;
+
+ void _startPKProcess() {
+  setState(() {
+    isPKActive = true;
+    blueTeamPoints = 0;
+    redTeamPoints = 0;
+  });
+  pkManager.startPK(5); // ৫ মিনিটের জন্য পিকে শুরু
+}
+    
+late List<Map<String, dynamic>> seats;
 
   @override
   void initState() {
