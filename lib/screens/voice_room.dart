@@ -1,3 +1,4 @@
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'game_panel_view.dart'; // এই লাইনটি সবার উপরে যোগ করুন
 import 'vs_pk_manager.dart';
 import 'pk_winner_dialog.dart';
@@ -801,8 +802,9 @@ late List<Map<String, dynamic>> seats;
 
   void _showSettings() {
     RoomSettingsHandler.showSettings(
-      context: context, 
-      isLocked: isRoomLocked, 
+      context: context,
+      isOwner: isOwner,
+      isLocked: isRoomLocked,
       
       // ১. লক-আনলক লজিক
       onToggleLock: () {
@@ -810,45 +812,46 @@ late List<Map<String, dynamic>> seats;
           isRoomLocked = !isRoomLocked;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(isRoomLocked ? "রুম লক করা হয়েছে 🔒" : "রুম আনলক করা হয়েছে 🔓"))
+          SnackBar(content: Text(isRoomLocked ? "রুম লক করা হয়েছে 🔒" : "রুম আনলক করা হয়েছে 🔓"))
         );
       }, 
       
-      // ২. ওয়ালপেপার সেট লজিক
-      onSetWallpaper: (path, display) {
+      // ২. ওয়ালপেপার সেট লজিক
+      onSetWallpaper: (String path) {
         setState(() {
-          roomWallpaperPath = path; // গ্যালারির ছবির পাথ সেভ হবে
+          roomWallpaperPath = path; 
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("ওয়ালপেপার পরিবর্তন সফল! ✨"))
+          const SnackBar(content: Text("ওয়ালপেপার পরিবর্তন সফল! ✨"))
         );
       }, 
       
-      // ৩. মিনিমাইজ লজিক (লাইভ সার্ভিসসহ)
+      // ৩. মিনিমাইজ লজিক
       onMinimize: () async {
-        Navigator.pop(context); // সেটিংস প্যানেল বন্ধ হবে
-        
-        final service = FlutterBackgroundService();
-        bool isRunning = await service.isRunning();
-        if (!isRunning) {
-          await service.startService(); // সার্ভিস চালু হবে
+        Navigator.pop(context); 
+        try {
+          final service = FlutterBackgroundService();
+          bool isRunning = await service.isRunning();
+          if (!isRunning) {
+            await service.startService();
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("রুম মিনিমাইজ করা হয়েছে। নোটিফিকেশন চেক করুন। 📥"))
+          );
+        } catch (e) {
+          debugPrint("Background Service Error: $e");
         }
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("রুম মিনিমাইজ করা হয়েছে। নোটিফিকেশন চেক করুন। 📥"))
-        );
       },
 
-      // ৪. এক্সিট লজিক (পুরো রুম বন্ধ করবে)
-      onExit: () {
-        // লাইভ সার্ভিস বন্ধ করা
-        FlutterBackgroundService().invoke("stopService"); 
-        _audioPlayer.stop(); // মিউজিক বন্ধ
-
-        Navigator.pop(context); // ১. সেটিংস প্যানেল বন্ধ করবে
-        Navigator.pop(context); // ২. ভয়েস রুম থেকে বের হয়ে হোমে যাবে
+      // ৪. এক্সিট লজিক
+      onLeave: () {
+        try {
+          FlutterBackgroundService().invoke("stopService"); 
+        } catch (e) {}
         
-        print("Room Exited Successfully");
+        _audioPlayer.stop(); 
+        Navigator.pop(context); // সেটিংস প্যানেল বন্ধ
+        Navigator.pop(context); // রুম থেকে বের হওয়া
       }
     );
   }
@@ -867,4 +870,5 @@ late List<Map<String, dynamic>> seats;
       ),
     );
   }
-}
+
+} // <--- এটি _VoiceRoomState ক্লাসের শেষ ব্র্যাকেট
