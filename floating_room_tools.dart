@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'top_room_leaderboard.dart'; // এই লাইনটি অবশ্যই যোগ করবেন
 
 class FloatingRoomTools extends StatefulWidget {
   final Function onGiftCountStart;
@@ -10,7 +11,7 @@ class FloatingRoomTools extends StatefulWidget {
 }
 
 class _FloatingRoomToolsState extends State<FloatingRoomTools> {
-  Offset position = const Offset(10, 200); // শুরুর পজিশন
+  Offset position = const Offset(10, 200); 
 
   @override
   Widget build(BuildContext context) {
@@ -22,6 +23,7 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools> {
         childWhenDragging: Container(),
         onDragEnd: (details) {
           setState(() {
+            // স্ক্রিনের লিমিট অনুযায়ী পজিশন সেট করা
             position = details.offset;
           });
         },
@@ -36,7 +38,7 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools> {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1), // গ্লাস ইফেক্ট
+          color: Colors.white.withOpacity(0.1), 
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
           boxShadow: [
@@ -46,15 +48,21 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _toolIcon(Icons.timer_outlined, "Gift Count", Colors.orangeAccent, widget.onGiftCountStart),
+            _toolIcon(Icons.timer_outlined, "Gift Count", Colors.orangeAccent, () => widget.onGiftCountStart()),
             const SizedBox(height: 12),
+            
+            // --- এইখানে আমরা লিডারবোর্ড কানেক্ট করলাম ---
             _toolIcon(Icons.emoji_events_outlined, "Top Room", Colors.yellowAccent, () {
-              // Top Room List Open লজিক
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const TopRoomLeaderboard()),
+              );
             }),
+            
             const SizedBox(height: 12),
             _toolIcon(Icons.bolt, "Personal PK", Colors.blueAccent, () {}),
             const SizedBox(height: 12),
-            _toolIcon(Icons.Whatshot, "VS PK", Colors.redAccent, () {}),
+            _toolIcon(Icons.whatshot, "VS PK", Colors.redAccent, () {}),
           ],
         ),
       ),
