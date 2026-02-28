@@ -601,10 +601,54 @@ class _VoiceRoomState extends State<VoiceRoom> {
   void _showSettings() {
     RoomSettingsHandler.showSettings(
       context: context, 
-      isLocked: false, 
-      onToggleLock: () {}, 
-      onSetWallpaper: (p, d) {}, 
-      onExit: () {}
+      isLocked: isRoomLocked, 
+      
+      // ১. লক-আনলক লজিক
+      onToggleLock: () {
+        setState(() {
+          isRoomLocked = !isRoomLocked;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isRoomLocked ? "রুম লক করা হয়েছে 🔒" : "রুম আনলক করা হয়েছে 🔓"))
+        );
+      }, 
+      
+      // ২. ওয়ালপেপার সেট লজিক
+      onSetWallpaper: (path, display) {
+        setState(() {
+          roomWallpaperPath = path; // গ্যালারির ছবির পাথ সেভ হবে
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("ওয়ালপেপার পরিবর্তন সফল! ✨"))
+        );
+      }, 
+      
+      // ৩. মিনিমাইজ লজিক (লাইভ সার্ভিসসহ)
+      onMinimize: () async {
+        Navigator.pop(context); // সেটিংস প্যানেল বন্ধ হবে
+        
+        final service = FlutterBackgroundService();
+        bool isRunning = await service.isRunning();
+        if (!isRunning) {
+          await service.startService(); // সার্ভিস চালু হবে
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("রুম মিনিমাইজ করা হয়েছে। নোটিফিকেশন চেক করুন। 📥"))
+        );
+      },
+
+      // ৪. এক্সিট লজিক (পুরো রুম বন্ধ করবে)
+      onExit: () {
+        // লাইভ সার্ভিস বন্ধ করা
+        FlutterBackgroundService().invoke("stopService"); 
+        _audioPlayer.stop(); // মিউজিক বন্ধ
+
+        Navigator.pop(context); // ১. সেটিংস প্যানেল বন্ধ করবে
+        Navigator.pop(context); // ২. ভয়েস রুম থেকে বের হয়ে হোমে যাবে
+        
+        print("Room Exited Successfully");
+      }
     );
   }
 
