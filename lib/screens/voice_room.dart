@@ -36,6 +36,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
   int activeEmojiSeatIndex = -1; // কোন সিটে ইমোজি উড়বে তা মনে রাখার জন্য
   bool isRoomLocked = false; // রুম কি লক নাকি আনলক তা এখানে সেভ থাকবে
   String roomWallpaperPath = ''; // ওয়ালপেপার ছবির পাথ রাখার জন্য
+  int blueTeamPoints = 0;
+  int redTeamPoints = 0;
+  bool isPKActive = false; // পিকে চালু আছে কি না
   // মিউজিক ও কন্ট্রোল ভেরিয়েবল
   bool isRoomMusicPlaying = false; // এখানে অলরেডি আপনার কোডে ছিল, তাও চেক করে নিন
   Offset playerPosition = const Offset(20, 100);
@@ -231,6 +234,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
             children: [
               const SizedBox(height: 40),
               _buildTopNavBar(), // এখানে ফলো বাটন যুক্ত করা হয়েছে
+              if (isPKActive)
+              PKBattleView(bluePoints: blueTeamPoints, redPoints: redTeamPoints),
               _buildViewerArea(),
               _buildSeatGridArea(),
               
