@@ -10,10 +10,11 @@ dependencies:
   flutter:
     sdk: flutter
 
+  flutter_local_notifications: ^17.0.0
   # --- ভয়েস চ্যাট (Agora) ---
   agora_rtc_engine: ^6.3.2
   permission_handler: ^11.3.0
-
+  
   # --- ফায়ারবেস (Firebase) ---
   firebase_core: ^2.27.0
   firebase_auth: ^4.17.8
@@ -46,7 +47,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: "^0.13.1"
-
+  
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
