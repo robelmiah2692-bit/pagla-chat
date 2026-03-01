@@ -1,4 +1,4 @@
-// স্ক্রিনশটে থাকা ফাইলগুলোর জন্য ইমপোর্ট (VoiceRoom থেকে এক ধাপ বাইরে)
+// ১. মেইন lib ফোল্ডারে থাকা ফাইলগুলোর সঠিক ইমপোর্ট
 import '../pk_battle_view.dart';
 import '../pk_winner_dialog.dart';
 import '../game_panel_view.dart';
@@ -10,14 +10,7 @@ import '../personal_pk_view.dart';
 import '../vs_pk_view.dart';
 import '../live_notification_service.dart';
 
-import 'package:flutter_background_service/flutter_background_service.dart'; 
-import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
-import 'package:lottie/lottie.dart';
-import 'dart:io';
-
-// আপনার সেই ৮টি আলাদা ফাইল ও উইজেট
+// ২. উইজেট ফোল্ডারের ইমপোর্ট
 import '../widgets/chat_input_bar.dart';
 import '../widgets/emoji_handler.dart';
 import '../widgets/follower_list_handler.dart';
@@ -26,8 +19,13 @@ import '../widgets/gift_system.dart';
 import '../widgets/music_player_widget.dart';
 import '../widgets/room_profile_handler.dart';
 import '../widgets/room_settings_handler.dart';
-import 'gift_rank_dialog.dart';
-import 'top_room_leaderboard.dart';
+
+// ৩. প্রয়োজনীয় প্যাকেজ
+import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:io';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:lottie/lottie.dart';
 
 class VoiceRoom extends StatefulWidget {
   final String roomId; 
