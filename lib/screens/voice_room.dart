@@ -9,7 +9,7 @@ import '../pk_battle_view.dart'; // যেহেতু এটি এক ধা�
 // এই ইমপোর্টগুলো আপনার voice_room.dart এর উপরে বসান
 import '../game_panel_view.dart';
 import '../pk_winner_dialog.dart';
-import 'floating_room_tools.dart';
+import '../floating_room_tools.dart';
 
 // আপনার সেই ৮টি আলাদা ফাইল ও উইজেট
 import '../widgets/chat_input_bar.dart';
@@ -370,15 +370,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   void _showSettings() {
-    RoomSettingsHandler.showSettings(
-      context: context,
-      isLocked: isRoomLocked,
-      onToggleLock: () => setState(() => isRoomLocked = !isRoomLocked),
-      onSetWallpaper: (p) => setState(() => roomWallpaperPath = p),
-      onMinimize: () => Navigator.pop(context),
-      onLeave: () { _audioPlayer.stop(); Navigator.pop(context); Navigator.pop(context); }
-    );
-  }
+  RoomSettingsHandler.showSettings(
+    context: context,
+    isLocked: isRoomLocked,
+    onToggleLock: () => setState(() => isRoomLocked = !isRoomLocked),
+    onSetWallpaper: (p) => setState(() => roomWallpaperPath = p),
+    onMinimize: () => Navigator.pop(context), // এবার এটি কাজ করবে
+    onLeave: () { 
+      _audioPlayer.stop(); 
+      Navigator.pop(context); 
+    }
+  );
+}
 
   Widget _buildFloatingPlayer({required bool isDragging}) {
     return Container(
