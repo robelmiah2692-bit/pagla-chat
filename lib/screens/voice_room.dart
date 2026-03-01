@@ -1,4 +1,10 @@
-// ১. মেইন lib ফোল্ডারে থাকা ফাইলগুলোর সঠিক ইমপোর্ট
+import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:io';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:lottie/lottie.dart';
+
+// ১. মেইন lib ফোল্ডারের ইমপোর্ট
 import '../pk_battle_view.dart';
 import '../pk_winner_dialog.dart';
 import '../game_panel_view.dart';
@@ -10,7 +16,7 @@ import '../personal_pk_view.dart';
 import '../vs_pk_view.dart';
 import '../live_notification_service.dart';
 
-// ২. উইজেট ফোল্ডারের ইমপোর্ট
+// ২. উইজেট ফোল্ডারের সেই ৮টি ওজেট ফাইল (যা আগে বাদ পড়েছিল)
 import '../widgets/chat_input_bar.dart';
 import '../widgets/emoji_handler.dart';
 import '../widgets/follower_list_handler.dart';
@@ -19,13 +25,6 @@ import '../widgets/gift_system.dart';
 import '../widgets/music_player_widget.dart';
 import '../widgets/room_profile_handler.dart';
 import '../widgets/room_settings_handler.dart';
-
-// ৩. প্রয়োজনীয় প্যাকেজ
-import 'package:flutter/material.dart';
-import 'dart:async';
-import 'dart:io';
-import 'package:audioplayers/audioplayers.dart';
-import 'package:lottie/lottie.dart';
 
 class VoiceRoom extends StatefulWidget {
   final String roomId; 
@@ -38,12 +37,11 @@ class VoiceRoom extends StatefulWidget {
 class _VoiceRoomState extends State<VoiceRoom> {
   // --- আপনার সব ভেরিয়েবল ---
   bool isOwner = true; 
-  String displayUserID = "Owner"; 
+  String displayUserID = "Hridoy"; 
   String roomName = "পাগলা চ্যাট রুম";
   int followerCount = 0;
   String roomProfileImage = '';
   bool isFollowed = false; 
-  List<Map<String, dynamic>> viewersList = []; 
   int activeEmojiSeatIndex = -1; 
   bool isRoomLocked = false; 
   String roomWallpaperPath = ''; 
@@ -65,7 +63,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String currentGiftImage = "";
   late List<Map<String, dynamic>> seats;
 
-  // গিফট টাইমার ভেরিয়েবল
   bool isCountingGifts = false;
   int remainingSeconds = 900;
   Timer? giftTimer;
@@ -73,7 +70,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
   @override
   void initState() {
     super.initState();
-    // ১৫টি সিট (৫টি VIP + ১০টি সাধারণ)
     seats = List.generate(15, (index) => {
       "isOccupied": false,
       "userName": "",
@@ -90,13 +86,20 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  // --- ফিচার: গিফট কাউন্টডাউন (১৫ মিনিট) ---
+  // 🔥 টাইমারগুলো বন্ধ করার জন্য ডিসপোজ (যাতে ক্র্যাশ না করে)
+  @override
+  void dispose() {
+    giftTimer?.cancel();
+    pkManager.stopPK();
+    _audioPlayer.dispose();
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  // --- সব ফিচার মেথড (গিফট, পিকে, সিট লজিক সব আপনার আগের কোড থেকে) ---
   void _startGiftCounting() {
     if (isCountingGifts) return;
-    setState(() {
-      isCountingGifts = true;
-      remainingSeconds = 900;
-    });
+    setState(() { isCountingGifts = true; remainingSeconds = 900; });
     giftTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (remainingSeconds > 0) {
         if (mounted) setState(() => remainingSeconds--);
@@ -123,7 +126,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
     }
   }
 
-  // --- ফিচার: PK Battle লজিক ---
   void _endPKBattle() {
     String winner = blueTeamPoints > redTeamPoints ? "BLUE" : "RED";
     showDialog(
@@ -133,21 +135,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
     setState(() => isPKActive = false);
   }
 
-  // --- ফিচার: ৩ সেকেন্ড কলিং ও রিয়েল অবতার সিট সিস্টেম ---
   void sitOnSeat(int index) {
-    if (currentSeatIndex == index) {
-      _showLeaveConfirmation(index);
-      return;
-    }
-    if (isRoomLocked) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("রুম এখন লক আছে!")));
-      return;
-    }
+    if (currentSeatIndex == index) { _showLeaveConfirmation(index); return; }
+    if (isRoomLocked) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("রুম এখন লক আছে!"))); return; }
     if (seats[index]["isOccupied"] || seats[index]["status"] == "calling") return;
 
     setState(() {
       seats[index]["status"] = "calling";
-      seats[index]["userName"] = "Calling...";
       seats[index]["isOccupied"] = true;
     });
 
@@ -156,7 +150,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
         setState(() {
           seats[index]["status"] = "occupied";
           seats[index]["userName"] = displayUserID;
-          seats[index]["userImage"] = "https://api.dicebear.com/7.x/avataaars/svg?seed=$displayUserID";
+          seats[index]["userImage"] = "https://api.dicebear.com/7.x/avataaars/svg?seed=$displayUserID$index";
           seats[index]["isMicOn"] = true;
           isMicOn = true;
           currentSeatIndex = index;
@@ -173,19 +167,16 @@ class _VoiceRoomState extends State<VoiceRoom> {
         title: const Text("সিট ছেড়ে দিন", style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("না")),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                seats[index]["isOccupied"] = false;
-                seats[index]["status"] = "empty";
-                seats[index]["isMicOn"] = false;
-                currentSeatIndex = -1;
-                isMicOn = false;
-              });
-              Navigator.pop(context);
-            },
-            child: const Text("হ্যাঁ", style: TextStyle(color: Colors.redAccent)),
-          ),
+          TextButton(onPressed: () {
+            setState(() {
+              seats[index]["isOccupied"] = false;
+              seats[index]["status"] = "empty";
+              seats[index]["isMicOn"] = false;
+              currentSeatIndex = -1;
+              isMicOn = false;
+            });
+            Navigator.pop(context);
+          }, child: const Text("হ্যাঁ", style: TextStyle(color: Colors.redAccent))),
         ],
       ),
     );
@@ -198,7 +189,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
-          // ওয়ালপেপার ফিচার
           if (roomWallpaperPath.isNotEmpty)
             Positioned.fill(child: Image.file(File(roomWallpaperPath), fit: BoxFit.cover)),
           
@@ -206,18 +196,15 @@ class _VoiceRoomState extends State<VoiceRoom> {
             children: [
               const SizedBox(height: 40),
               _buildTopNavBar(),
-              
-              // আপনার ভয়েস রুম ফাইলের ২০৫ নম্বর লাইনে এটি আপডেট করুন
               if (isPKActive)
                 PKBattleView(
-                bluePoints: blueTeamPoints, 
-                redPoints: redTeamPoints,
-                pkSeconds: pkSeconds,      // মেইন ফাইল থেকে সেকেন্ড পাস হচ্ছে
-                pkManager: pkManager,      // টাইমার ফরম্যাটের জন্য ম্যানেজার পাস হচ্ছে
-              ),
+                  bluePoints: blueTeamPoints, 
+                  redPoints: redTeamPoints,
+                  pkSeconds: pkSeconds,
+                  pkManager: pkManager,
+                ),
               _buildViewerArea(),
               _buildSeatGridArea(),
-              
               Expanded(
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -233,10 +220,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
             ],
           ),
 
-          // ভাসমান বাটনগুলো
           FloatingRoomTools(onGiftCountStart: _startGiftCounting),
 
-          // মিউজিক প্লেয়ার ড্র্যাগেবল ফিচার
           if (isRoomMusicPlaying)
             Positioned(
               left: playerPosition.dx, top: playerPosition.dy,
@@ -254,7 +239,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  // --- আপনার সব কাস্টম উইজেট ফাংশন ---
+  // --- সব ওজেট ফাংশন (আপনার আগের কোড অনুযায়ী) ---
   Widget _buildTopNavBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -305,7 +290,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
             ),
           ),
           const SizedBox(width: 8),
-          // মাইক বাটন আপনার আগের লজিকসহ
           IconButton(
             icon: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: isMicOn ? Colors.greenAccent : Colors.redAccent),
             onPressed: () {
@@ -316,16 +300,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
               }
             },
           ),
-          _buildSmallIconButton(Icons.videogame_asset, Colors.orange, () => showModalBottomSheet(context: context, builder: (c) => const GamePanelView())),
-          _buildSmallIconButton(Icons.music_note, Colors.cyanAccent, () {}),
-          _buildSmallIconButton(Icons.card_giftcard, Colors.pinkAccent, () {}),
+          IconButton(icon: const Icon(Icons.videogame_asset, color: Colors.orange), onPressed: () => showModalBottomSheet(context: context, builder: (c) => const GamePanelView())),
+          IconButton(icon: const Icon(Icons.music_note, color: Colors.cyanAccent), onPressed: () {}),
+          IconButton(icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent), onPressed: () {}),
         ],
       ),
     );
-  }
-
-  Widget _buildSmallIconButton(IconData icon, Color color, VoidCallback onTap) {
-    return InkWell(onTap: onTap, child: Padding(padding: const EdgeInsets.all(8.0), child: Icon(icon, color: color, size: 24)));
   }
 
   Widget _buildSeatGridArea() {
@@ -350,7 +330,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                       backgroundImage: seat["userImage"].isNotEmpty ? NetworkImage(seat["userImage"]) : null,
                       child: seat["status"] == "calling" ? const CircularProgressIndicator(strokeWidth: 2, color: Colors.white) : (seat["isOccupied"] ? null : Icon(seat["isVip"] ? Icons.stars : Icons.chair, color: Colors.white24)),
                     ),
-                    if (seat["isMicOn"]) Positioned(bottom: 0, right: 0, child: Icon(Icons.mic, size: 12, color: Colors.greenAccent)),
+                    if (seat["isMicOn"]) Positioned(bottom: 0, right: 0, child: const Icon(Icons.mic, size: 12, color: Colors.greenAccent)),
                   ],
                 ),
                 Text("${index + 1}", style: const TextStyle(color: Colors.white54, fontSize: 10)),
@@ -362,30 +342,19 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  Widget _buildViewerArea() {
-    return Container(height: 40, child: const Center(child: Text("Live Viewers", style: TextStyle(color: Colors.white24))));
-  }
-
-  Widget _buildMessageRow(Map<String, String> msg) {
-    return Padding(
-      padding: const EdgeInsets.all(4.0),
-      child: Text("${msg['userName']}: ${msg['text']}", style: const TextStyle(color: Colors.white, fontSize: 12)),
-    );
-  }
+  Widget _buildViewerArea() { return Container(height: 40, child: const Center(child: Text("Live Viewers", style: TextStyle(color: Colors.white24)))); }
+  Widget _buildMessageRow(Map<String, String> msg) { return Padding(padding: const EdgeInsets.all(4.0), child: Text("${msg['userName']}: ${msg['text']}", style: const TextStyle(color: Colors.white, fontSize: 12))); }
 
   void _showSettings() {
-  RoomSettingsHandler.showSettings(
-    context: context,
-    isLocked: isRoomLocked,
-    onToggleLock: () => setState(() => isRoomLocked = !isRoomLocked),
-    onSetWallpaper: (p) => setState(() => roomWallpaperPath = p),
-    onMinimize: () => Navigator.pop(context), // এবার এটি কাজ করবে
-    onLeave: () { 
-      _audioPlayer.stop(); 
-      Navigator.pop(context); 
-    }
-  );
-}
+    RoomSettingsHandler.showSettings(
+      context: context,
+      isLocked: isRoomLocked,
+      onToggleLock: () => setState(() => isRoomLocked = !isRoomLocked),
+      onSetWallpaper: (p) => setState(() => roomWallpaperPath = p),
+      onMinimize: () => Navigator.pop(context),
+      onLeave: () { _audioPlayer.stop(); Navigator.pop(context); }
+    );
+  }
 
   Widget _buildFloatingPlayer({required bool isDragging}) {
     return Container(
