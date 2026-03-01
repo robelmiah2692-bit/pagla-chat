@@ -11,7 +11,6 @@ import 'screens/voice_room.dart';
 import 'inbox_page.dart';
 import 'profile_page.dart';
 import 'room_list_page.dart'; // এই লাইনটি আপনার main.dart এর উপরে যোগ করুন
-import 'live_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
