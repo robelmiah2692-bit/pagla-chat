@@ -4,9 +4,10 @@ class RoomSettingsHandler {
   static void showSettings({
     required BuildContext context,
     required bool isLocked,
-    required Function onToggleLock,
-    required Function(int price, String duration) onSetWallpaper,
-    required VoidCallback onExit,
+    required VoidCallback onToggleLock, // Function এর বদলে VoidCallback ব্যবহার করা ভালো
+    required Function(String) onSetWallpaper, // VoiceRoom এ এটি একটি String পাথ নেয়
+    required VoidCallback onLeave, // VoiceRoom এ এটি onLeave নামে আছে
+    required VoidCallback onMinimize, // এই নতুন প্যারামিটারটি যোগ করা হলো
   }) {
     showModalBottomSheet(
       context: context,
@@ -36,14 +37,16 @@ class RoomSettingsHandler {
                   }),
                   _buildItem(Icons.wallpaper, "Wallpaper", Colors.cyanAccent, () {
                     Navigator.pop(context);
-                    _showWallpaperDeals(context, onSetWallpaper);
+                    // এখানে সরাসরি আপনার গ্যালারি থেকে ইমেজ নেওয়ার ফাংশন কল হবে
+                    onSetWallpaper(""); // VoiceRoom এ এটি ইমেজ পিক করে পাথ নেয়
                   }),
                   _buildItem(Icons.open_in_full, "Minimize", Colors.green, () {
-                    Navigator.of(context).popUntil((route) => route.isFirst);
+                    Navigator.pop(context); // বটম শিট বন্ধ করবে
+                    onMinimize(); // VoiceRoom এর মিনিমাইজ ফাংশন কল করবে
                   }),
                   _buildItem(Icons.logout, "Exit", Colors.redAccent, () {
                     Navigator.pop(context);
-                    _showExitDialog(context, onExit);
+                    _showExitDialog(context, onLeave);
                   }),
                 ],
               ),
@@ -71,36 +74,13 @@ class RoomSettingsHandler {
     );
   }
 
-  static void _showWallpaperDeals(
-      BuildContext context, Function(int, String) onSet) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("ওয়ালপেপার ডিল"),
-        actions: [
-          TextButton(
-              onPressed: () {
-                onSet(20, "২৪ ঘন্টা");
-                Navigator.pop(context);
-              },
-              child: const Text("২০💎")),
-          TextButton(
-              onPressed: () {
-                onSet(600, "১ মাস");
-                Navigator.pop(context);
-              },
-              child: const Text("৬০০💎")),
-        ],
-      ),
-    );
-  }
-
   static void _showExitDialog(BuildContext context, VoidCallback onConfirm) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Exit Room?"),
-        content: const Text("আপনি কি রুম থেকে বের হতে চান?"),
+        backgroundColor: Colors.grey[900],
+        title: const Text("Exit Room?", style: TextStyle(color: Colors.white)),
+        content: const Text("আপনি কি রুম থেকে বের হতে চান?", style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context), child: const Text("না")),
@@ -109,7 +89,7 @@ class RoomSettingsHandler {
                 Navigator.pop(context);
                 onConfirm();
               },
-              child: const Text("হ্যাঁ")),
+              child: const Text("হ্যাঁ", style: TextStyle(color: Colors.redAccent))),
         ],
       ),
     );
