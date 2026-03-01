@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:lottie/lottie.dart';
 import 'dart:io';
+import '../pk_battle_view.dart'; // যেহেতু এটি এক ধাপ উপরে 'lib' ফোল্ডারে আছে
 
 // আপনার সেই ৮টি আলাদা ফাইল ও উইজেট
 import '../widgets/chat_input_bar.dart';
@@ -201,9 +202,14 @@ class _VoiceRoomState extends State<VoiceRoom> {
               const SizedBox(height: 40),
               _buildTopNavBar(),
               
+              // আপনার ভয়েস রুম ফাইলের ২০৫ নম্বর লাইনে এটি আপডেট করুন
               if (isPKActive)
-                PKBattleView(bluePoints: blueTeamPoints, redPoints: redTeamPoints),
-
+                PKBattleView(
+                bluePoints: blueTeamPoints, 
+                redPoints: redTeamPoints,
+                pkSeconds: pkSeconds,      // মেইন ফাইল থেকে সেকেন্ড পাস হচ্ছে
+                pkManager: pkManager,      // টাইমার ফরম্যাটের জন্য ম্যানেজার পাস হচ্ছে
+              ),
               _buildViewerArea(),
               _buildSeatGridArea(),
               
