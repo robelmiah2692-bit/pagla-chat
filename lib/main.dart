@@ -11,6 +11,7 @@ import 'screens/voice_room.dart';
 import 'inbox_page.dart';
 import 'profile_page.dart';
 import 'room_list_page.dart'; // এই লাইনটি আপনার main.dart এর উপরে যোগ করুন
+import 'live_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +32,14 @@ void main() async {
   } catch (e) {
     print("ফায়ারবেস কানেক্ট হয়নি: $e");
   }
+
+  try {
+    await LiveNotificationService.initializeService();
+    print("নোটিফিকেশন সার্ভিস সাকসেস!");
+  } catch (e) {
+    print("নোটিফিকেশন সার্ভিস এরর: $e");
+  }
+  
   runApp(const PaglaChatApp());
 }
 
