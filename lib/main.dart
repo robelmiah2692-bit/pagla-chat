@@ -31,13 +31,6 @@ void main() async {
   } catch (e) {
     print("ফায়ারবেস কানেক্ট হয়নি: $e");
   }
-
-  try {
-    await LiveNotificationService.initializeService();
-    print("নোটিফিকেশন সার্ভিস সাকসেস!");
-  } catch (e) {
-    print("নোটিফিকেশন সার্ভিস এরর: $e");
-  }
   
   runApp(const PaglaChatApp());
 }
