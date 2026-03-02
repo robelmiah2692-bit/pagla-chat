@@ -1,5 +1,6 @@
+// ফাইল ৩৬: RoomSettingsHandler.dart (Updated)
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart'; // ইমেজ পিকার যোগ করা হয়েছে
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart'; // kIsWeb চেক করার জন্য
 
 class RoomSettingsHandler {
@@ -38,15 +39,14 @@ class RoomSettingsHandler {
                     onToggleLock();
                   }),
                   
-                  // 🖼️ ওয়ালপেপার সেকশন (Web Friendly)
                   _buildItem(Icons.wallpaper, "Wallpaper", Colors.cyanAccent, () async {
                     Navigator.pop(context);
                     final ImagePicker picker = ImagePicker();
-                    // গ্যালারি থেকে ছবি সিলেক্ট করা
                     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
                     
                     if (image != null) {
-                      // PWA তে আমরা ইমেজের পাথ সরাসরি পাঠাবো যা VoiceRoom এ NetworkImage/Image.network দিয়ে দেখাবে
+                      // 💡 ওয়েব এরর এড়াতে পাথের সঠিক ব্যবহার
+                      // মোবাইলে image.path কাজ করে, ওয়েবে এটি একটি blob url দেয়।
                       onSetWallpaper(image.path);
                     }
                   }),
