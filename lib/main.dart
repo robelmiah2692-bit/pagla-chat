@@ -1,33 +1,32 @@
 import 'dart:math';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:firebase_messaging/firebase_messaging.dart'; // এইটা মিসিং আছে
-import 'services/notification_service.dart'; // এইটাও চেক করুন
-// ফায়ারবেস প্যাকেজ
+
+// ফায়ারবেস ও নোটিফিকেশন প্যাকেজ
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_messaging/firebase_messaging.dart'; // নতুন যোগ করা হয়েছে
+import 'package:firebase_messaging/firebase_messaging.dart';
 
-// আপনার তৈরি করা অন্যান্য পেজগুলো
+// আপনার তৈরি করা অন্যান্য পেজ ও সার্ভিস
 import 'home_page.dart';
 import 'screens/voice_room.dart';
 import 'inbox_page.dart';
 import 'profile_page.dart';
 import 'room_list_page.dart';
-import 'services/notification_service.dart'; // নোটিফিকেশন সার্ভিস ইম্পোর্ট
+import 'services/notification_service.dart';
 
 // ১. ব্যাকগ্রাউন্ড নোটিফিকেশন হ্যান্ডেলার (গ্লোবাল থাকতে হবে)
+@pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  print("Background Message: ${message.notification?.title}");
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   try {
-    // 🔥 আপনার অরিজিনাল ফায়ারবেস কনফিগ (ওয়েব অপশন সহ)
+    // 🔥 আপনার অরিজিনাল ফায়ারবেস কনফিগ (ওয়েব অপশন সহ)
     await Firebase.initializeApp(
       options: const FirebaseOptions(
         apiKey: "AIzaSyA9KMdtIBNVYSASc5C2w5JGVTL-NISXFog",
@@ -71,7 +70,7 @@ class PaglaChatApp extends StatelessWidget {
   }
 }
 
-// --- ১. স্প্ল্যাশ স্ক্রিন (আপনার অরিজিনাল কোড) ---
+// --- ১. স্প্ল্যাশ স্ক্রিন (হৃদয় ভাই স্পেশাল) ---
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
   @override
@@ -85,9 +84,9 @@ class _SplashScreenState extends State<SplashScreen> {
     Timer(const Duration(seconds: 3), () {
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        // ৩. হৃদয় ভাইকে শনাক্ত করার বিশেষ কোড এখানেও কাজ করবে
+        // ৩. মালিক শনাক্তকরণ কোড
         if (user.displayName == "Hridoy" || user.email == "admin@pagla.com") {
-           print("স্বাগতম হৃদয় ভাই!");
+           print("স্বাগতম হৃদয় ভাই!");
         }
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
       } else {
@@ -98,16 +97,17 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const Scaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.調, size: 100, color: Colors.pinkAccent),
-            const SizedBox(height: 20),
-            const Text("PAGLA CHAT", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 3)),
-            const SizedBox(height: 10),
-            const CircularProgressIndicator(color: Colors.pinkAccent),
+            // আইকনের এরর ফিক্স করা হয়েছে (IconData ভুল ছিল)
+            Icon(Icons.bolt, size: 100, color: Colors.pinkAccent),
+            SizedBox(height: 20),
+            Text("PAGLA CHAT", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 3)),
+            SizedBox(height: 10),
+            CircularProgressIndicator(color: Colors.pinkAccent),
           ],
         ),
       ),
@@ -115,7 +115,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-// --- ২. লগইন স্ক্রিন (আপনার অরিজিনাল কোড) ---
+// --- ২. লগইন স্ক্রিন ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
   @override
@@ -176,7 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// --- ৩. মেইন নেভিগেশন (আপনার অরিজিনাল কোড + রিয়েল টাইম নোটিফিকেশন লিসেনার) ---
+// --- ৩. মেইন নেভিগেশন (রিয়েল টাইম নোটিফিকেশন লিসেনার) ---
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
   @override
@@ -196,7 +196,7 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   void initState() {
     super.initState();
-    // ৪. অ্যাপ খোলা থাকা অবস্থায় নোটিফিকেশন দেখানোর জন্য লিসেনার
+    // অ্যাপ খোলা থাকা অবস্থায় নোটিফিকেশন
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       NotificationService.display(message);
     });
@@ -224,7 +224,7 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- ৪. ফায়ারস্টোর ইউজার ডাটা (আপনার র্যান্ডম আইডি ও অবতার লজিক) ---
+// --- ৪. ফায়ারস্টোর ইউজার ডাটা (অবতার পিক লজিক সহ) ---
 Future<void> initializeUserInFirestore(User user, String name) async {
   final FirebaseFirestore db = FirebaseFirestore.instance;
   DocumentSnapshot userDoc = await db.collection('users').doc(user.uid).get();
@@ -237,10 +237,10 @@ Future<void> initializeUserInFirestore(User user, String name) async {
       'uID': uID,
       'roomID': rID,
       'name': name,
-      'diamonds': 0, // নতুন ফিচার সেভ রাখার জন্য যোগ করা হলো
+      'diamonds': 0,
       'profilePic': 'https://api.dicebear.com/7.x/avataaars/svg?seed=$uID',
       'createdAt': FieldValue.serverTimestamp(),
     });
-    print("নতুন প্রোফাইল তৈরি হয়েছে!");
+    print("নতুন প্রোফাইল তৈরি হয়েছে!");
   }
 }
