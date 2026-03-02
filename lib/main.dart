@@ -1,35 +1,39 @@
 import 'dart:math';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:firebase_core/firebase_core.dart'; // ফায়ারবেস ইমপোর্ট
-import 'package:firebase_auth/firebase_auth.dart'; // লগইন ইমপোর্ট
-// আপনার তৈরি করা অন্যান্য পেজগুলো ইমপোর্ট করুন
+import 'package:flutter/material.dart';
+
+// ফায়ারবেস প্যাকেজ
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+// আপনার তৈরি করা অন্যান্য পেজগুলো (পাথ ঠিক আছে কিনা দেখে নিন)
 import 'home_page.dart';
 import 'screens/voice_room.dart';
 import 'inbox_page.dart';
 import 'profile_page.dart';
-import 'room_list_page.dart'; // এই লাইনটি আপনার main.dart এর উপরে যোগ করুন
+import 'room_list_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
   try {
-    // শুধু Firebase.initializeApp(); দিলে হবে না, 
-    // নিচের এই ডাটাগুলো মেনুয়ালি বসাতে হবে:
+    // 🔥 এখানে আপনার নতুন ওয়েব কনফিগ বসানো হয়েছে (SHA-1 ঝামেলা মুক্ত)
     await Firebase.initializeApp(
       options: const FirebaseOptions(
-        apiKey: "AIzaSyAkEB8dB2vSncv3BpNZng7W_0e6N7dqNmI",
-        appId: "1:25052070011:android:5d89f85753b5c881d662de",
-        messagingSenderId: "25052070011",
+        apiKey: "AIzaSyA9KMdtIBNVYSASc5C2w5JGVTL-NISXFog",
+        authDomain: "paglachat.firebaseapp.com",
+        databaseURL: "https://paglachat-default-rtdb.asia-southeast1.firebasedatabase.app",
         projectId: "paglachat",
         storageBucket: "paglachat.firebasestorage.app",
-        databaseURL: "https://paglachat-default-rtdb.asia-southeast1.firebasedatabase.app",
+        messagingSenderId: "25052070011",
+        appId: "1:25052070011:web:7c447f8d011fbdf3d662de",
+        measurementId: "G-946LX0V0Q9",
       ),
     );
-    print("ফায়ারবেস সফলভাবে কানেক্ট হয়েছে!");
+    print("পাগলা চ্যাট ওয়েব কানেক্ট হয়েছে!");
   } catch (e) {
-    print("ফায়ারবেস কানেক্ট হয়নি: $e");
+    print("কানেকশন এরর: $e");
   }
   
   runApp(const PaglaChatApp());
@@ -42,13 +46,18 @@ class PaglaChatApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(brightness: Brightness.dark, primaryColor: Colors.pinkAccent),
-      home: const SplashScreen(), // শুরু হবে লোগো দিয়ে
+      title: 'Pagla Chat',
+      theme: ThemeData(
+        brightness: Brightness.dark, 
+        primaryColor: Colors.pinkAccent,
+        scaffoldBackgroundColor: const Color(0xFF0F0F1E),
+      ),
+      home: const SplashScreen(),
     );
   }
 }
 
-// ১. স্প্ল্যাশ স্ক্রিন (৩ সেকেন্ড)
+// --- ১. স্প্ল্যাশ স্ক্রিন ---
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -61,7 +70,7 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     Timer(const Duration(seconds: 3), () {
-      // ৩ সেকেন্ড পর চেক করবে ইউজার কি আগে থেকে লগইন করা?
+      // অটো লগইন চেক
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
@@ -74,15 +83,24 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1E),
       body: Center(
-        child: Image.asset('assets/logo.png', width: 180), // আপনার লোগো
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // যদি লোগো না থাকে তবে আইকন দেখাবে ক্র্যাশ এড়াতে
+            Icon(Icons.調, size: 100, color: Colors.pinkAccent),
+            const SizedBox(height: 20),
+            const Text("PAGLA CHAT", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 3)),
+            const SizedBox(height: 10),
+            const CircularProgressIndicator(color: Colors.pinkAccent),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ২. লগইন স্ক্রিন (ফায়ারবেস অথেন্টিকেশন)
+// --- ২. লগইন স্ক্রিন ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -93,19 +111,29 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool isLoading = false;
 
   Future<void> _signIn() async {
+    setState(() => isLoading = true);
     try {
-      // ফায়ারবেস দিয়ে লগইন
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
       
-      // লগইন সফল হলে হোম পেজে যাবে
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+      // ইউজার ডাটা চেক/তৈরি করা
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await initializeUserInFirestore(user, user.email?.split('@')[0] ?? "New User");
+      }
+
+      if (mounted) {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("ভুল ইমেইল বা পাসওয়ার্ড: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("এরর: $e")));
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -121,7 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 30),
             TextField(
               controller: _emailController,
-              decoration: const InputDecoration(labelText: "আপনার ইমেইল", border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: "ইমেইল", border: OutlineInputBorder()),
             ),
             const SizedBox(height: 15),
             TextField(
@@ -130,17 +158,21 @@ class _LoginScreenState extends State<LoginScreen> {
               decoration: const InputDecoration(labelText: "পাসওয়ার্ড", border: OutlineInputBorder()),
             ),
             const SizedBox(height: 25),
-            ElevatedButton(
-              onPressed: _signIn,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(double.infinity, 50)),
-              child: const Text("লগইন করে প্রবেশ করুন"),
-            ),
+            isLoading 
+              ? const CircularProgressIndicator()
+              : ElevatedButton(
+                  onPressed: _signIn,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(double.infinity, 50)),
+                  child: const Text("লগইন"),
+                ),
           ],
         ),
       ),
     );
   }
 }
+
+// --- ৩. মেইন নেভিগেশন (বটম বার) ---
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
 
@@ -151,12 +183,11 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
 
-  // ফাইল ভাগ করার পর লিস্টটা হবে এইরকম:
   final List<Widget> _pages = [
-    const HomePage(),      // ১. হোম পেজ (ইনডেক্স ০)
-    const RoomListPage(),  // ২. আপনার নতুন রুম ফিচার (ইনডেক্স ১)
-    const InboxPage(),     // ৩. ইনবক্স (ইনডেক্স ২)
-    const ProfilePage(),   // ৪. প্রোফাইল (ইনডেক্স ৩)
+    const HomePage(),
+    const RoomListPage(),
+    const InboxPage(),
+    const ProfilePage(),
   ];
 
   @override
@@ -181,27 +212,22 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// এই ফাংশনটি ইউজার প্রোফাইল এবং ফিক্সড আইডি তৈরি করবে
+// --- ৪. ফায়ারস্টোর ইউজার আইডি জেনারেশন ---
 Future<void> initializeUserInFirestore(User user, String name) async {
   final FirebaseFirestore db = FirebaseFirestore.instance;
-  
-  // চেক করছি এই ইউজারের ডাটা আগে থেকে আছে কিনা
   DocumentSnapshot userDoc = await db.collection('users').doc(user.uid).get();
 
   if (!userDoc.exists) {
-    // যদি না থাকে, তবেই নতুন ৬ ডিজিটের ফিক্সড আইডি তৈরি হবে
     String uID = (100000 + Random().nextInt(900000)).toString();
     String rID = (100000 + Random().nextInt(900000)).toString();
 
     await db.collection('users').doc(user.uid).set({
-      'uID': uID,          // এটি তার চিরস্থায়ী ইউজার আইডি
-      'roomID': rID,       // এটি তার চিরস্থায়ী রুম আইডি
+      'uID': uID,
+      'roomID': rID,
       'name': name,
-      'profilePic': '',
+      'profilePic': 'https://api.dicebear.com/7.x/avataaars/svg?seed=$uID', // রিয়েল টাইপ অবতার
       'createdAt': FieldValue.serverTimestamp(),
     });
-    print("নতুন ইউজার প্রোফাইল ও আইডি তৈরি হয়েছে!");
-  } else {
-    print("ইউজার আইডি আগে থেকেই আছে।");
+    print("নতুন ওয়েব প্রোফাইল তৈরি হয়েছে!");
   }
 }
