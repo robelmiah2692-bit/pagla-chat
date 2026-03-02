@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart'; // ইমেজ পিকার যোগ করা হয়েছে
+import 'package:flutter/foundation.dart'; // kIsWeb চেক করার জন্য
 
 class RoomSettingsHandler {
   static void showSettings({
     required BuildContext context,
     required bool isLocked,
-    required VoidCallback onToggleLock, // Function এর বদলে VoidCallback ব্যবহার করা ভালো
-    required Function(String) onSetWallpaper, // VoiceRoom এ এটি একটি String পাথ নেয়
-    required VoidCallback onLeave, // VoiceRoom এ এটি onLeave নামে আছে
-    required VoidCallback onMinimize, // এই নতুন প্যারামিটারটি যোগ করা হলো
+    required VoidCallback onToggleLock,
+    required Function(String) onSetWallpaper, 
+    required VoidCallback onLeave, 
+    required VoidCallback onMinimize, 
   }) {
     showModalBottomSheet(
       context: context,
@@ -35,15 +37,25 @@ class RoomSettingsHandler {
                     Navigator.pop(context);
                     onToggleLock();
                   }),
-                  _buildItem(Icons.wallpaper, "Wallpaper", Colors.cyanAccent, () {
+                  
+                  // 🖼️ ওয়ালপেপার সেকশন (Web Friendly)
+                  _buildItem(Icons.wallpaper, "Wallpaper", Colors.cyanAccent, () async {
                     Navigator.pop(context);
-                    // এখানে সরাসরি আপনার গ্যালারি থেকে ইমেজ নেওয়ার ফাংশন কল হবে
-                    onSetWallpaper(""); // VoiceRoom এ এটি ইমেজ পিক করে পাথ নেয়
+                    final ImagePicker picker = ImagePicker();
+                    // গ্যালারি থেকে ছবি সিলেক্ট করা
+                    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+                    
+                    if (image != null) {
+                      // PWA তে আমরা ইমেজের পাথ সরাসরি পাঠাবো যা VoiceRoom এ NetworkImage/Image.network দিয়ে দেখাবে
+                      onSetWallpaper(image.path);
+                    }
                   }),
+
                   _buildItem(Icons.open_in_full, "Minimize", Colors.green, () {
-                    Navigator.pop(context); // বটম শিট বন্ধ করবে
-                    onMinimize(); // VoiceRoom এর মিনিমাইজ ফাংশন কল করবে
+                    Navigator.pop(context); 
+                    onMinimize(); 
                   }),
+                  
                   _buildItem(Icons.logout, "Exit", Colors.redAccent, () {
                     Navigator.pop(context);
                     _showExitDialog(context, onLeave);
