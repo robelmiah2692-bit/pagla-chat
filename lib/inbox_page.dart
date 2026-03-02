@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'chat_service.dart'; // ওপরের ফাইলটি ইম্পোর্ট করুন
+import 'package:cloud_firestore/cloud_firestore.dart'; // 'docs' এরর কাটাতে এটি লাগবে
+import 'services/chat_service.dart'; // 'ChatService' এরর কাটাতে এটি লাগবে
 
 class InboxPage extends StatefulWidget {
   const InboxPage({super.key});
