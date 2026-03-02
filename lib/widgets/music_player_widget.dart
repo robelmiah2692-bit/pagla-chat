@@ -1,15 +1,15 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart'; // kIsWeb এর জন্য
+// dart:io সরাসরি ইম্পোর্ট না করে কন্ডিশনাল ইম্পোর্ট করা ভালো
+// তবে এখানে আমরা kIsWeb চেক দিয়ে এরর হ্যান্ডেল করব।
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 class MusicPlayerPage extends StatefulWidget {
-  // ১. এই দুইটা লাইন যোগ করবেন
   final AudioPlayer? audioPlayer;
   final bool? isDragging;
   
-  // ২. কনস্ট্রাক্টরটা এভাবে আপডেট করবেন (আগেরটা ডিলিট করে)
   const MusicPlayerPage({super.key, this.audioPlayer, this.isDragging});
 
   @override
@@ -42,13 +42,16 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
   }
 
   Future<void> pickMusic() async {
+    // ফাইল পিকার ওয়েবেও কাজ করে, তবে পাথের বদলে বাইটস ব্যবহার হয়
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.audio,
       allowMultiple: true,
     );
 
     if (result != null) {
+      // ওয়েবে পাথ থাকে না, তাই কন্ডিশনাল চেক
       List<String> newPaths = result.paths.whereType<String>().toList();
+      
       setState(() {
         savedMusicPaths.addAll(newPaths);
       });
@@ -93,22 +96,28 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
                         style: TextStyle(color: Colors.white24)))
                 : ListView.builder(
                     itemCount: savedMusicPaths.length,
-                    itemBuilder: (context, index) => ListTile(
-                      leading: const Icon(Icons.music_note, color: Colors.white70),
-                      title: Text(savedMusicPaths[index].split('/').last,
-                          style: const TextStyle(color: Colors.white, fontSize: 14)),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                        onPressed: () => deleteMusic(index),
-                      ),
-                      onTap: () {
-                        // ভয়েস রুমে ডাটা পাঠানো
-                        Navigator.pop(context, {
-                          'path': savedMusicPaths[index],
-                          'name': savedMusicPaths[index].split('/').last,
-                        });
-                      },
-                    ),
+                    itemBuilder: (context, index) {
+                      // পাথের এরর এড়াতে split('/') এর আগে চেক
+                      String fileName = savedMusicPaths[index].contains('/') 
+                          ? savedMusicPaths[index].split('/').last 
+                          : savedMusicPaths[index].split('\\').last;
+                      
+                      return ListTile(
+                        leading: const Icon(Icons.music_note, color: Colors.white70),
+                        title: Text(fileName,
+                            style: const TextStyle(color: Colors.white, fontSize: 14)),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                          onPressed: () => deleteMusic(index),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context, {
+                            'path': savedMusicPaths[index],
+                            'name': fileName,
+                          });
+                        },
+                      );
+                    },
                   ),
           ),
           if (currentIndex != -1) _buildBottomPlayerBar(),
@@ -118,6 +127,10 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
   }
 
   Widget _buildBottomPlayerBar() {
+    String currentFileName = savedMusicPaths[currentIndex].contains('/') 
+        ? savedMusicPaths[currentIndex].split('/').last 
+        : savedMusicPaths[currentIndex].split('\\').last;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
       decoration: BoxDecoration(
@@ -131,7 +144,7 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              savedMusicPaths[currentIndex].split('/').last,
+              currentFileName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Colors.white, fontSize: 13),
