@@ -1,52 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'chat_service.dart'; // ওপরের ফাইলটি ইম্পোর্ট করুন
 
 class InboxPage extends StatefulWidget {
   const InboxPage({super.key});
-
   @override
   State<InboxPage> createState() => _InboxPageState();
 }
 
 class _InboxPageState extends State<InboxPage> {
-  // ১. ডামি ফ্রেন্ড লিস্ট (এগুলো পরে ফায়ারবেস থেকে আসবে)
-  final List<Map<String, dynamic>> friends = [
-    {"name": "পাগলা বন্ধু ১", "id": "101", "isOnline": true, "currentRoom": "আড্ডা ঘর ১", "lastMsg": "কিরে কই তুই?"},
-    {"name": "নানি জান", "id": "102", "isOnline": true, "currentRoom": "গল্পের আসর", "lastMsg": "কেমন আছো?"},
-    {"name": "অচেনা কেউ", "id": "103", "isOnline": false, "currentRoom": "", "lastMsg": "হাই!"},
-  ];
-
-  // ২. আইডি দিয়ে বন্ধু খোঁজার ফাংশন
-  void _showSearchDialog() {
-    TextEditingController idController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E2F),
-        title: const Text("আইডি দিয়ে খুঁজুন", style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: idController,
-          keyboardType: TextInputType.number,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(hintText: "আইডি নাম্বার লিখুন...", hintStyle: TextStyle(color: Colors.white24)),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("বাদ দিন")),
-          ElevatedButton(
-            onPressed: () {
-              // এখানে আইডি দিয়ে প্রোফাইল খোঁজার লজিক
-              Navigator.pop(context);
-              _showMessage("ইউজার আইডি ${idController.text} খোঁজা হচ্ছে...");
-            },
-            child: const Text("সার্চ"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showMessage(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
+  final _auth = FirebaseAuth.instance;
+  final _firestore = FirebaseFirestore.instance;
 
   @override
   Widget build(BuildContext context) {
@@ -54,96 +19,104 @@ class _InboxPageState extends State<InboxPage> {
       backgroundColor: const Color(0xFF0F0F1E),
       appBar: AppBar(
         title: const Text("ইনবক্স", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_search, color: Colors.pinkAccent, size: 30),
-            onPressed: _showSearchDialog, // আইডি সার্চ বাটন
-          ),
-        ],
+        backgroundColor: Colors.transparent, elevation: 0,
+        actions: [IconButton(icon: const Icon(Icons.person_search, color: Colors.pinkAccent), onPressed: () {})],
       ),
-      body: Column(
-        children: [
-          // নতুন/পুরাতন মেসেজ ফিল্টার বাটন (ছোট করে)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-            child: Row(
-              children: [
-                _buildFilterChip("সব", true),
-                const SizedBox(width: 10),
-                _buildFilterChip("অনলাইন", false),
-              ],
-            ),
-          ),
-          
-          // ফ্রেন্ডস ও মেসেজ লিস্ট
-          Expanded(
-            child: ListView.builder(
-              itemCount: friends.length,
-              itemBuilder: (context, index) {
-                var friend = friends[index];
-                return _buildChatTile(friend);
-              },
-            ),
-          ),
-        ],
+      body: StreamBuilder<QuerySnapshot>(
+        stream: _firestore.collection('users').snapshots(), // সব ইউজারদের লিস্ট
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+
+          var users = snapshot.data!.docs;
+          return ListView.builder(
+            itemCount: users.length,
+            itemBuilder: (context, index) {
+              var user = users[index].data() as Map<String, dynamic>;
+              if (users[index].id == _auth.currentUser?.uid) return const SizedBox.shrink();
+
+              return _buildChatTile({
+                "name": user['userName'] ?? "User",
+                "id": users[index].id,
+                "isOnline": user['isOnline'] ?? false,
+                "currentRoom": user['currentRoom'] ?? "",
+                "lastMsg": "মেসেজ করতে ক্লিক করুন...",
+                "image": user['userImageURL'] ?? ""
+              });
+            },
+          );
+        },
       ),
     );
   }
 
-  // ৩. চ্যাট লিস্ট টাইল ডিজাইন
   Widget _buildChatTile(Map<String, dynamic> friend) {
     return ListTile(
-      leading: Stack(
-        children: [
-          const CircleAvatar(backgroundColor: Colors.white10, radius: 25, child: Icon(Icons.person, color: Colors.pinkAccent)),
-          if (friend["isOnline"])
-            const Positioned(right: 0, bottom: 0, child: CircleAvatar(radius: 6, backgroundColor: Colors.green,)),
-        ],
+      leading: CircleAvatar(
+        backgroundImage: friend['image'].isNotEmpty ? NetworkImage(friend['image']) : null,
+        child: friend['image'].isEmpty ? const Icon(Icons.person) : null,
       ),
-      title: Text(friend["name"], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(friend["lastMsg"], style: const TextStyle(color: Colors.white38, fontSize: 12)),
-          if (friend["isOnline"] && friend["currentRoom"].isNotEmpty)
-            Container(
-              margin: const EdgeInsets.only(top: 5),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(color: Colors.pinkAccent.withOpacity(0.2), borderRadius: BorderRadius.circular(10)),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.live_tv, color: Colors.pinkAccent, size: 12),
-                  const SizedBox(width: 5),
-                  Text("লাইভ: ${friend['currentRoom']}", style: const TextStyle(color: Colors.pinkAccent, fontSize: 10, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ),
-        ],
-      ),
-      trailing: friend["isOnline"] 
-        ? ElevatedButton(
-            onPressed: () => _showMessage("${friend['currentRoom']} রুমে নিয়ে যাওয়া হচ্ছে..."),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(60, 30)),
-            child: const Text("প্রবেশ", style: TextStyle(fontSize: 10)),
-          )
-        : const Text("অফলাইন", style: TextStyle(color: Colors.white10, fontSize: 10)),
+      title: Text(friend["name"], style: const TextStyle(color: Colors.white)),
+      subtitle: Text(friend["lastMsg"], style: const TextStyle(color: Colors.white38, fontSize: 12)),
       onTap: () {
-        // চ্যাট বক্স ওপেন করার লজিক
+        // ক্লিক করলে চ্যাট বক্স খুলবে
+        Navigator.push(context, MaterialPageRoute(builder: (context) => 
+          IndividualChatPage(receiverId: friend['id'], receiverName: friend['name'])));
       },
     );
   }
+}
 
-  Widget _buildFilterChip(String label, bool isSelected) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-      decoration: BoxDecoration(
-        color: isSelected ? Colors.pinkAccent : Colors.white10,
-        borderRadius: BorderRadius.circular(20),
+// --- চ্যাট বক্স (মেসেজ আদান-প্রদান করার স্ক্রিন) ---
+class IndividualChatPage extends StatelessWidget {
+  final String receiverId;
+  final String receiverName;
+  IndividualChatPage({required this.receiverId, required this.receiverName});
+
+  final TextEditingController _msgController = TextEditingController();
+  final ChatService _chatService = ChatService();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D0D1A),
+      appBar: AppBar(title: Text(receiverName), backgroundColor: Colors.pinkAccent),
+      body: Column(
+        children: [
+          Expanded(
+            child: StreamBuilder(
+              stream: _chatService.getMessages(FirebaseAuth.instance.currentUser!.uid, receiverId),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const SizedBox();
+                var docs = snapshot.data!.docs;
+                return ListView.builder(
+                  reverse: true,
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) => Align(
+                    alignment: docs[index]['senderId'] == FirebaseAuth.instance.currentUser!.uid ? Alignment.centerRight : Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.all(10), margin: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(color: Colors.pinkAccent.withOpacity(0.8), borderRadius: BorderRadius.circular(10)),
+                      child: Text(docs[index]['message'], style: const TextStyle(color: Colors.white)),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(child: TextField(controller: _msgController, style: const TextStyle(color: Colors.white))),
+                IconButton(icon: const Icon(Icons.send, color: Colors.pinkAccent), onPressed: () {
+                  _chatService.sendMessage(receiverId, _msgController.text);
+                  _msgController.clear();
+                })
+              ],
+            ),
+          )
+        ],
       ),
-      child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
     );
   }
 }
