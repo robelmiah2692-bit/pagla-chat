@@ -1,7 +1,8 @@
+// কোনো dart:io বা dart:html ইম্পোর্ট করবেন না
 import 'package:flutter/foundation.dart'; 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'app_config.dart'; // ওনার আইডি এবং অবতারের জন্য
+import 'app_config.dart'; 
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -11,20 +12,26 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  // ১. সব ফিচার ঠিক রাখার জন্য প্রয়োজনীয় ভেরিয়েবল
   List<bool> isLikedList = List.generate(10, (index) => false);
   final ImagePicker _picker = ImagePicker();
-  XFile? _pickedFile; // File এর বদলে XFile ব্যবহার করলাম (Safe for Web)
+  XFile? _pickedImage; 
 
-  // ১. পোস্ট করার ফাংশন
+  // ২. ইমেজ পিক করার ফাংশন (গ্যালারি ফিচার)
   Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        _pickedFile = image;
-      });
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        setState(() {
+          _pickedImage = image;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error picking image: $e");
     }
   }
 
+  // ৩. নতুন পোস্ট করার পপ-আপ (আপনার ফিচার)
   void _showPostModal() {
     showModalBottomSheet(
       context: context,
@@ -52,18 +59,18 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 10),
               
-              // ইমেজ প্রিভিউ লজিক (XFile ব্যবহার করায় এটি এরর দিবে না)
-              if (_pickedFile != null)
+              // ইমেজ প্রিভিউ (ওয়েব ও মোবাইল ফ্রেন্ডলি)
+              if (_pickedImage != null)
                 Container(
-                  height: 120,
+                  height: 150,
                   width: double.infinity,
                   margin: const EdgeInsets.only(bottom: 10),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(10),
                     child: kIsWeb 
-                      ? Image.network(_pickedFile!.path, fit: BoxFit.cover)
-                      : Image.network(_pickedFile!.path, fit: BoxFit.cover), 
-                      // মোবাইল এবং ওয়েবে XFile এর পাথ network হিসেবে কাজ করে অনেক ক্ষেত্রে
+                      ? Image.network(_pickedImage!.path, fit: BoxFit.cover)
+                      : Image.network(_pickedImage!.path, fit: BoxFit.cover), 
+                      // XFile এর .path সব প্লাটফর্মে NetworkImage এর মতো কাজ করে
                   ),
                 ),
 
@@ -79,7 +86,7 @@ class _HomePageState extends State<HomePage> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(double.infinity, 45)),
                 onPressed: () {
-                  setState(() => _pickedFile = null);
+                  setState(() => _pickedImage = null);
                   Navigator.pop(context);
                 },
                 child: const Text("পোস্ট করুন"),
@@ -92,13 +99,12 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ২. কমেন্ট মোডাল
+  // ৪. কমেন্ট বক্স ফিচার
   void _showCommentModal() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: const Color(0xFF1E1E2F),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(15))),
       builder: (context) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 10, right: 10, top: 10),
         child: Row(
@@ -170,7 +176,7 @@ class _HomePageState extends State<HomePage> {
           ),
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.network('https://picsum.photos/id/${index + 5}/400/250', fit: BoxFit.cover),
+            child: Image.network('https://picsum.photos/id/${index + 10}/400/250', fit: BoxFit.cover),
           ),
           const SizedBox(height: 10),
           Row(
