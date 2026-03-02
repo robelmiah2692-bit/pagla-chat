@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'dart:io';
+// 🔥 dart:io সরানো হয়েছে, kIsWeb ব্যবহারের জন্য foundation যোগ করা হয়েছে
+import 'package:flutter/foundation.dart'; 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:lottie/lottie.dart';
 
-// ১. মেইন lib ফোল্ডারের ইমপোর্ট
+// আপনার সব ফাইল ইমপোর্ট
 import '../pk_battle_view.dart';
 import '../pk_winner_dialog.dart';
 import '../game_panel_view.dart';
@@ -16,7 +17,6 @@ import '../personal_pk_view.dart';
 import '../vs_pk_view.dart';
 import '../live_notification_service.dart';
 
-// ২. উইজেট ফোল্ডারের সেই ৮টি ওজেট ফাইল (যা আগে বাদ পড়েছিল)
 import '../widgets/chat_input_bar.dart';
 import '../widgets/emoji_handler.dart';
 import '../widgets/follower_list_handler.dart';
@@ -35,7 +35,7 @@ class VoiceRoom extends StatefulWidget {
 }
 
 class _VoiceRoomState extends State<VoiceRoom> {
-  // --- আপনার সব ভেরিয়েবল ---
+  // --- সব ভেরিয়েবল ---
   bool isOwner = true; 
   String displayUserID = "Hridoy"; 
   String roomName = "পাগলা চ্যাট রুম";
@@ -86,7 +86,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  // 🔥 টাইমারগুলো বন্ধ করার জন্য ডিসপোজ (যাতে ক্র্যাশ না করে)
   @override
   void dispose() {
     giftTimer?.cancel();
@@ -96,7 +95,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     super.dispose();
   }
 
-  // --- সব ফিচার মেথড (গিফট, পিকে, সিট লজিক সব আপনার আগের কোড থেকে) ---
+  // --- গিফট লজিক ---
   void _startGiftCounting() {
     if (isCountingGifts) return;
     setState(() { isCountingGifts = true; remainingSeconds = 900; });
@@ -126,6 +125,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     }
   }
 
+  // --- PK Battle ---
   void _endPKBattle() {
     String winner = blueTeamPoints > redTeamPoints ? "BLUE" : "RED";
     showDialog(
@@ -135,6 +135,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     setState(() => isPKActive = false);
   }
 
+  // --- ৩ সেকেন্ড কলিং লজিক ---
   void sitOnSeat(int index) {
     if (currentSeatIndex == index) { _showLeaveConfirmation(index); return; }
     if (isRoomLocked) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("রুম এখন লক আছে!"))); return; }
@@ -189,8 +190,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
+          // 🖼️ ওয়ালপেপার সেকশন (Web-Ready)
           if (roomWallpaperPath.isNotEmpty)
-            Positioned.fill(child: Image.file(File(roomWallpaperPath), fit: BoxFit.cover)),
+            Positioned.fill(
+              child: kIsWeb 
+                ? Image.network(roomWallpaperPath, fit: BoxFit.cover) 
+                : Image.network(roomWallpaperPath, fit: BoxFit.cover), // ওয়েবে সব নেটওয়ার্ক ইমেজ হিসেবে ট্রিট হবে
+            ),
           
           Column(
             children: [
@@ -239,7 +245,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  // --- সব ওজেট ফাংশন (আপনার আগের কোড অনুযায়ী) ---
+  // --- উইজেট ফাংশনসমূহ ---
   Widget _buildTopNavBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -249,7 +255,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
             onTap: () => RoomProfileHandler.pickRoomImage(onImagePicked: (p) => setState(() => roomProfileImage = p), showMessage: (m) {}),
             child: CircleAvatar(
               radius: 20,
-              backgroundImage: roomProfileImage.isNotEmpty ? FileImage(File(roomProfileImage)) : null,
+              backgroundImage: roomProfileImage.isNotEmpty ? NetworkImage(roomProfileImage) : null,
               child: roomProfileImage.isEmpty ? const Icon(Icons.camera_alt, size: 18) : null,
             ),
           ),
