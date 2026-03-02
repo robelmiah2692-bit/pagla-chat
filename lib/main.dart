@@ -6,19 +6,27 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'; // নতুন যোগ করা হয়েছে
 
-// আপনার তৈরি করা অন্যান্য পেজগুলো (পাথ ঠিক আছে কিনা দেখে নিন)
+// আপনার তৈরি করা অন্যান্য পেজগুলো
 import 'home_page.dart';
 import 'screens/voice_room.dart';
 import 'inbox_page.dart';
 import 'profile_page.dart';
 import 'room_list_page.dart';
+import 'services/notification_service.dart'; // নোটিফিকেশন সার্ভিস ইম্পোর্ট
+
+// ১. ব্যাকগ্রাউন্ড নোটিফিকেশন হ্যান্ডেলার (গ্লোবাল থাকতে হবে)
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print("Background Message: ${message.notification?.title}");
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   try {
-    // 🔥 এখানে আপনার নতুন ওয়েব কনফিগ বসানো হয়েছে (SHA-1 ঝামেলা মুক্ত)
+    // 🔥 আপনার অরিজিনাল ফায়ারবেস কনফিগ (ওয়েব অপশন সহ)
     await Firebase.initializeApp(
       options: const FirebaseOptions(
         apiKey: "AIzaSyA9KMdtIBNVYSASc5C2w5JGVTL-NISXFog",
@@ -31,7 +39,12 @@ void main() async {
         measurementId: "G-946LX0V0Q9",
       ),
     );
-    print("পাগলা চ্যাট ওয়েব কানেক্ট হয়েছে!");
+
+    // ২. নোটিফিকেশন সার্ভিস শুরু করা
+    NotificationService().initNotification();
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+    print("পাগলা চ্যাট সব ফিচার সহ কানেক্ট হয়েছে!");
   } catch (e) {
     print("কানেকশন এরর: $e");
   }
@@ -57,10 +70,9 @@ class PaglaChatApp extends StatelessWidget {
   }
 }
 
-// --- ১. স্প্ল্যাশ স্ক্রিন ---
+// --- ১. স্প্ল্যাশ স্ক্রিন (আপনার অরিজিনাল কোড) ---
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
-
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
@@ -70,9 +82,12 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     Timer(const Duration(seconds: 3), () {
-      // অটো লগইন চেক
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
+        // ৩. হৃদয় ভাইকে শনাক্ত করার বিশেষ কোড এখানেও কাজ করবে
+        if (user.displayName == "Hridoy" || user.email == "admin@pagla.com") {
+           print("স্বাগতম হৃদয় ভাই!");
+        }
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
       } else {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
@@ -87,7 +102,6 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // যদি লোগো না থাকে তবে আইকন দেখাবে ক্র্যাশ এড়াতে
             Icon(Icons.調, size: 100, color: Colors.pinkAccent),
             const SizedBox(height: 20),
             const Text("PAGLA CHAT", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 3)),
@@ -100,10 +114,9 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-// --- ২. লগইন স্ক্রিন ---
+// --- ২. লগইন স্ক্রিন (আপনার অরিজিনাল কোড) ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
-
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -121,7 +134,6 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text.trim(),
       );
       
-      // ইউজার ডাটা চেক/তৈরি করা
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         await initializeUserInFirestore(user, user.email?.split('@')[0] ?? "New User");
@@ -147,24 +159,15 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             const Text("PAGLA CHAT LOGIN", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.pinkAccent)),
             const SizedBox(height: 30),
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: "ইমেইল", border: OutlineInputBorder()),
-            ),
+            TextField(controller: _emailController, decoration: const InputDecoration(labelText: "ইমেইল", border: OutlineInputBorder())),
             const SizedBox(height: 15),
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: "পাসওয়ার্ড", border: OutlineInputBorder()),
-            ),
+            TextField(controller: _passwordController, obscureText: true, decoration: const InputDecoration(labelText: "পাসওয়ার্ড", border: OutlineInputBorder())),
             const SizedBox(height: 25),
-            isLoading 
-              ? const CircularProgressIndicator()
-              : ElevatedButton(
-                  onPressed: _signIn,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(double.infinity, 50)),
-                  child: const Text("লগইন"),
-                ),
+            isLoading ? const CircularProgressIndicator() : ElevatedButton(
+              onPressed: _signIn,
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(double.infinity, 50)),
+              child: const Text("লগইন"),
+            ),
           ],
         ),
       ),
@@ -172,10 +175,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// --- ৩. মেইন নেভিগেশন (বটম বার) ---
+// --- ৩. মেইন নেভিগেশন (আপনার অরিজিনাল কোড + রিয়েল টাইম নোটিফিকেশন লিসেনার) ---
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
-
   @override
   State<MainNavigation> createState() => _MainNavigationState();
 }
@@ -189,6 +191,15 @@ class _MainNavigationState extends State<MainNavigation> {
     const InboxPage(),
     const ProfilePage(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // ৪. অ্যাপ খোলা থাকা অবস্থায় নোটিফিকেশন দেখানোর জন্য লিসেনার
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      NotificationService.display(message);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -212,7 +223,7 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- ৪. ফায়ারস্টোর ইউজার আইডি জেনারেশন ---
+// --- ৪. ফায়ারস্টোর ইউজার ডাটা (আপনার র্যান্ডম আইডি ও অবতার লজিক) ---
 Future<void> initializeUserInFirestore(User user, String name) async {
   final FirebaseFirestore db = FirebaseFirestore.instance;
   DocumentSnapshot userDoc = await db.collection('users').doc(user.uid).get();
@@ -225,9 +236,10 @@ Future<void> initializeUserInFirestore(User user, String name) async {
       'uID': uID,
       'roomID': rID,
       'name': name,
-      'profilePic': 'https://api.dicebear.com/7.x/avataaars/svg?seed=$uID', // রিয়েল টাইপ অবতার
+      'diamonds': 0, // নতুন ফিচার সেভ রাখার জন্য যোগ করা হলো
+      'profilePic': 'https://api.dicebear.com/7.x/avataaars/svg?seed=$uID',
       'createdAt': FieldValue.serverTimestamp(),
     });
-    print("নতুন ওয়েব প্রোফাইল তৈরি হয়েছে!");
+    print("নতুন প্রোফাইল তৈরি হয়েছে!");
   }
 }
