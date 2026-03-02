@@ -10,7 +10,10 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # --- নোটিফিকেশন (যা মিসিং ছিল) ---
+  firebase_messaging: ^14.7.15 # এটি ছাড়া বিল্ড এরর দিবেই
   flutter_local_notifications: ^17.0.0
+
   # --- ভয়েস চ্যাট (Agora) ---
   agora_rtc_engine: ^6.3.2
   permission_handler: ^11.3.0
