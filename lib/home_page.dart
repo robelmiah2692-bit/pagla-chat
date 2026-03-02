@@ -1,9 +1,7 @@
-// ১. এখানে ডিরেক্ট dart:io এর বদলে কন্ডিশনাল ইম্পোর্ট ব্যবহার করা হয়েছে
-import 'dart:io' if (dart.library.html) 'dart:html' as io; 
 import 'package:flutter/foundation.dart'; 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'app_config.dart'; 
+import 'app_config.dart'; // ওনার আইডি এবং অবতারের জন্য
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,20 +13,14 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   List<bool> isLikedList = List.generate(10, (index) => false);
   final ImagePicker _picker = ImagePicker();
-  
-  // ডিরেক্ট File না লিখে XFile বা dynamic ব্যবহার করা নিরাপদ
-  dynamic _displayImage; 
+  XFile? _pickedFile; // File এর বদলে XFile ব্যবহার করলাম (Safe for Web)
 
-  // ১. পোস্ট করার ফাংশন (গ্যালারি লজিক)
-  Future<void> _pickImageForPost() async {
+  // ১. পোস্ট করার ফাংশন
+  Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
       setState(() {
-        if (kIsWeb) {
-          _displayImage = image.path; // ওয়েবের জন্য পাথ
-        } else {
-          _displayImage = File(image.path); // মোবাইলের জন্য ফাইল অবজেক্ট
-        }
+        _pickedFile = image;
       });
     }
   }
@@ -60,23 +52,26 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 10),
               
-              // ইমেজ প্রিভিউ লজিক (এরর ছাড়াই চলবে)
-              if (_displayImage != null)
+              // ইমেজ প্রিভিউ লজিক (XFile ব্যবহার করায় এটি এরর দিবে না)
+              if (_pickedFile != null)
                 Container(
                   height: 120,
                   width: double.infinity,
                   margin: const EdgeInsets.only(bottom: 10),
-                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
-                  child: kIsWeb 
-                    ? Image.network(_displayImage, fit: BoxFit.cover)
-                    : Image.file(_displayImage as File, fit: BoxFit.cover),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: kIsWeb 
+                      ? Image.network(_pickedFile!.path, fit: BoxFit.cover)
+                      : Image.network(_pickedFile!.path, fit: BoxFit.cover), 
+                      // মোবাইল এবং ওয়েবে XFile এর পাথ network হিসেবে কাজ করে অনেক ক্ষেত্রে
+                  ),
                 ),
 
               ListTile(
                 leading: const Icon(Icons.photo_library, color: Colors.greenAccent),
                 title: const Text("গ্যালারি থেকে ছবি নিন", style: TextStyle(color: Colors.white)),
                 onTap: () async {
-                  await _pickImageForPost();
+                  await _pickImage();
                   setModalState(() {}); 
                 },
               ),
@@ -84,7 +79,7 @@ class _HomePageState extends State<HomePage> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(double.infinity, 45)),
                 onPressed: () {
-                  _displayImage = null;
+                  setState(() => _pickedFile = null);
                   Navigator.pop(context);
                 },
                 child: const Text("পোস্ট করুন"),
@@ -97,6 +92,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // ২. কমেন্ট মোডাল
   void _showCommentModal() {
     showModalBottomSheet(
       context: context,
@@ -130,7 +126,7 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          // আপনার ওনার আইডি চেক
+          // আপনার ওনার আইডি চেক (app_config থেকে)
           if (AppConfig.isHridoy("885522")) 
             const Padding(
               padding: EdgeInsets.only(right: 15),
@@ -174,7 +170,7 @@ class _HomePageState extends State<HomePage> {
           ),
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.network('https://picsum.photos/id/${index + 50}/400/250', fit: BoxFit.cover),
+            child: Image.network('https://picsum.photos/id/${index + 5}/400/250', fit: BoxFit.cover),
           ),
           const SizedBox(height: 10),
           Row(
