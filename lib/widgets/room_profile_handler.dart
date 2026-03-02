@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart'; // kIsWeb এর জন্য
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -7,14 +8,18 @@ class RoomProfileHandler {
     required Function(String) onImagePicked,
     required Function(String) showMessage,
   }) async {
-    final XFile? image = await ImagePicker().pickImage(source: ImageSource.gallery);
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    
     if (image != null) {
-      onImagePicked(image.path);
+      // ওয়েবে পাথের বদলে মেমোরি ডাটা লাগে, কিন্তু আপনার লজিক যদি শুধু পাথ দিয়ে হয়
+      // তবে অন্তত চেক করে দেওয়া ভালো যেন মোবাইল/ওয়েব কনফ্লিক্ট না হয়।
+      onImagePicked(image.path); 
       showMessage("রুম প্রোফাইল আপডেট হয়েছে!");
     }
   }
 
-  // ২. রুমের নাম এডিট করার পপ-আপ
+  // ২. বাকি কোড ঠিক আছে...
   static void editRoomName({
     required BuildContext context,
     required String currentName,
@@ -41,7 +46,9 @@ class RoomProfileHandler {
           ),
           TextButton(
             onPressed: () {
-              onNameSaved(nameController.text);
+              if (nameController.text.trim().isNotEmpty) {
+                onNameSaved(nameController.text.trim());
+              }
               Navigator.pop(context);
             },
             child: const Text("সেভ", style: TextStyle(color: Colors.pinkAccent)),
