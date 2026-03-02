@@ -1,5 +1,6 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart'; // ওয়েবের জন্য জরুরি
+// ফাইল ৩৯: ProfilePage.dart (Full Features + GitHub Fix)
+import 'dart:io' if (dart.library.html) 'dart:html'; 
+import 'package:flutter/foundation.dart'; 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'main.dart'; 
@@ -47,22 +48,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
   String premiumBadgeUrl = "https://i.ibb.co/3ykC7mP/premium-gold.png";
 
-  // ৩ ও ২১ নং দাবি: ২০টি নতুন রিয়েল টাইপ অবতার লিঙ্ক (High Quality)
-  final List<String> maleAvatars = [
-    "https://xsgames.co/randomusers/assets/avatars/male/1.jpg", "https://xsgames.co/randomusers/assets/avatars/male/2.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/3.jpg", "https://xsgames.co/randomusers/assets/avatars/male/4.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/5.jpg", "https://xsgames.co/randomusers/assets/avatars/male/6.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/7.jpg", "https://xsgames.co/randomusers/assets/avatars/male/8.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/9.jpg", "https://xsgames.co/randomusers/assets/avatars/male/10.jpg",
-  ];
-
-  final List<String> femaleAvatars = [
-    "https://xsgames.co/randomusers/assets/avatars/female/1.jpg", "https://xsgames.co/randomusers/assets/avatars/female/2.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/3.jpg", "https://xsgames.co/randomusers/assets/avatars/female/4.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/5.jpg", "https://xsgames.co/randomusers/assets/avatars/female/6.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/7.jpg", "https://xsgames.co/randomusers/assets/avatars/female/8.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/9.jpg", "https://xsgames.co/randomusers/assets/avatars/female/10.jpg",
-  ];
+  // ২০টি নতুন রিয়েল টাইপ অবতার
+  final List<String> maleAvatars = List.generate(10, (i) => "https://xsgames.co/randomusers/assets/avatars/male/${i + 1}.jpg");
+  final List<String> femaleAvatars = List.generate(10, (i) => "https://xsgames.co/randomusers/assets/avatars/female/${i + 1}.jpg");
 
   @override
   void initState() {
@@ -196,7 +184,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 if (image != null) { setState(() => userImageURL = image.path); }
               } else {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(backgroundColor: Colors.redAccent, content: Text("প্রিমিয়াম কার্ড বা VIP 1 লেভেল প্রয়োজন!")));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(backgroundColor: Colors.redAccent, content: Text("প্রিমিয়াম কার্ড বা VIP 1 লেভেল প্রয়োজন!")));
               }
             }
           ),
@@ -330,11 +318,7 @@ class _ProfilePageState extends State<ProfilePage> {
               child: CircleAvatar(
                 radius: 50, 
                 backgroundColor: Colors.grey[900],
-                backgroundImage: userImageURL.isEmpty 
-                  ? NetworkImage(maleAvatars[0]) 
-                  : (userImageURL.startsWith('http') || kIsWeb 
-                      ? NetworkImage(userImageURL) 
-                      : FileImage(File(userImageURL)) as ImageProvider)
+                backgroundImage: _getProfileImage(),
               )
             ),
           ])),
@@ -361,7 +345,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
 
           const SizedBox(height: 20),
-          // ফলোয়ার লজিক
+          // ফলোয়ার লজিক
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             _buildStat("Followers", followers),
             const SizedBox(width: 25),
@@ -373,7 +357,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ]),
 
           const SizedBox(height: 30),
-          // ৩টি বক্স (ডায়মন্ড, প্রিমিয়াম, ব্যাকপ্যাক)
+          // ৩টি বক্স (ডায়মন্ড, প্রিমিয়াম, ব্যাকপ্যাক)
           Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
             _buildActionBox("Diamond", Icons.diamond, Colors.cyan, _openDiamondStore),
             _buildActionBox("Premium", Icons.card_membership, Colors.purple, _openPremiumStore),
@@ -383,6 +367,18 @@ class _ProfilePageState extends State<ProfilePage> {
         ]),
       ),
     );
+  }
+
+  // --- ইমেজ হ্যান্ডলিং ফিক্স ---
+  ImageProvider _getProfileImage() {
+    if (userImageURL.isEmpty) {
+      return NetworkImage(maleAvatars[0]);
+    }
+    if (userImageURL.startsWith('http') || kIsWeb) {
+      return NetworkImage(userImageURL);
+    }
+    // লোকাল ফাইলের জন্য প্ল্যাটফর্ম সেফ চেক
+    return FileImage(File(userImageURL));
   }
 
   Widget _buildStat(String label, int count) => Column(children: [Text("$count", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)), Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12))]);
