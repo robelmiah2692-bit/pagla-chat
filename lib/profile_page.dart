@@ -30,6 +30,34 @@ class _ProfilePageState extends State<ProfilePage> {
   bool hasVip1Items = false; 
   DateTime lastLevelUpDate = DateTime.now(); 
 
+  // ১০টি রিয়েল পুরুষ অবতারের লিঙ্ক
+  final List<String> maleAvatars = [
+    "https://xsgames.co/randomusers/assets/avatars/male/1.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/2.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/3.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/4.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/5.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/6.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/7.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/8.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/9.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/10.jpg",
+  ];
+
+  // ১০টি রিয়েল মহিলা অবতারের লিঙ্ক
+  final List<String> femaleAvatars = [
+    "https://xsgames.co/randomusers/assets/avatars/female/1.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/2.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/3.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/4.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/5.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/6.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/7.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/8.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/9.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/10.jpg",
+  ];
+
   // VIP স্টিকার লিঙ্কসমূহ
   String getVipBadge(int level) {
     switch (level) {
@@ -46,7 +74,6 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   String premiumBadgeUrl = "https://i.ibb.co/3ykC7mP/premium-gold.png";
-
 
   @override
   void initState() {
@@ -74,182 +101,80 @@ class _ProfilePageState extends State<ProfilePage> {
     return 0; 
   }
 
-  // --- সেটিংস ও এডিট ফাংশনসমূহ ---
   void _editName() {
     TextEditingController _nameController = TextEditingController(text: userName);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E2F),
-        title: const Text("নাম পরিবর্তন", style: TextStyle(color: Colors.white)),
-        content: TextField(controller: _nameController, style: const TextStyle(color: Colors.white)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("বাতিল")),
-          TextButton(onPressed: () { setState(() => userName = _nameController.text); Navigator.pop(context); }, child: const Text("সেভ", style: TextStyle(color: Colors.pinkAccent))),
-        ],
-      ),
-    );
+    showDialog(context: context, builder: (context) => AlertDialog(
+      backgroundColor: const Color(0xFF1E1E2F),
+      title: const Text("নাম পরিবর্তন", style: TextStyle(color: Colors.white)),
+      content: TextField(controller: _nameController, style: const TextStyle(color: Colors.white)),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text("বাতিল")),
+        TextButton(onPressed: () { setState(() => userName = _nameController.text); Navigator.pop(context); }, child: const Text("সেভ", style: TextStyle(color: Colors.pinkAccent))),
+      ],
+    ));
   }
 
   void _showAgePicker() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E2F),
-        title: const Text("আপনার বয়স কত?", style: TextStyle(color: Colors.white)),
-        content: SizedBox(height: 200, width: double.maxFinite, child: ListView.builder(itemCount: 40, itemBuilder: (context, index) => ListTile(title: Text("${index + 15} বছর", style: const TextStyle(color: Colors.white)), onTap: () { setState(() => age = index + 15); Navigator.pop(context); }))),
-      ),
-    );
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      backgroundColor: const Color(0xFF1E1E2F),
+      title: const Text("আপনার বয়স কত?", style: TextStyle(color: Colors.white)),
+      content: SizedBox(height: 200, width: double.maxFinite, child: ListView.builder(itemCount: 40, itemBuilder: (context, index) => ListTile(title: Text("${index + 15} বছর", style: const TextStyle(color: Colors.white)), onTap: () { setState(() => age = index + 15); Navigator.pop(context); }))),
+    ));
   }
 
   void _openSettings() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1E1E2F),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1E1E2F), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Column(mainAxisSize: MainAxisSize.min, children: [
-          const Padding(padding: EdgeInsets.all(15), child: Text("সেটিংস", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
-          ListTile(
-            leading: const Icon(Icons.wc, color: Colors.pinkAccent),
-            title: Text("লিঙ্গ পরিবর্তন (বর্তমান: $gender)", style: const TextStyle(color: Colors.white)),
-            trailing: PopupMenuButton<String>(
-              color: const Color(0xFF1E1E2F),
-              onSelected: (val) => setState(() => gender = val),
-              itemBuilder: (ctx) => [
-                const PopupMenuItem(value: "পুরুষ", child: Text("পুরুষ", style: TextStyle(color: Colors.white))),
-                const PopupMenuItem(value: "নারী", child: Text("নারী", style: TextStyle(color: Colors.white))),
-              ],
-            ),
-          ),
-          ListTile(leading: const Icon(Icons.cake, color: Colors.orangeAccent), title: Text("বয়স পরিবর্তন (বর্তমান: $age)", style: const TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _showAgePicker(); }),
-          ListTile(leading: const Icon(Icons.block, color: Colors.redAccent), title: const Text("ব্লকলিস্ট", style: TextStyle(color: Colors.white)), onTap: () => Navigator.pop(context)),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.redAccent),
-            title: const Text("লগ আউট", style: TextStyle(color: Colors.redAccent)),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                (Route<dynamic> route) => false,
-              );
-            },
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
+        const Padding(padding: EdgeInsets.all(15), child: Text("সেটিংস", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
+        ListTile(leading: const Icon(Icons.wc, color: Colors.pinkAccent), title: Text("লিঙ্গ পরিবর্তন (বর্তমান: $gender)", style: const TextStyle(color: Colors.white)),
+          trailing: PopupMenuButton<String>(color: const Color(0xFF1E1E2F), onSelected: (val) => setState(() => gender = val),
+            itemBuilder: (ctx) => [const PopupMenuItem(value: "পুরুষ", child: Text("পুরুষ", style: TextStyle(color: Colors.white))), const PopupMenuItem(value: "নারী", child: Text("নারী", style: TextStyle(color: Colors.white)))]),
+        ),
+        ListTile(leading: const Icon(Icons.cake, color: Colors.orangeAccent), title: Text("বয়স পরিবর্তন (বর্তমান: $age)", style: const TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _showAgePicker(); }),
+        ListTile(leading: const Icon(Icons.block, color: Colors.redAccent), title: const Text("ব্লকলিস্ট", style: TextStyle(color: Colors.white)), onTap: () => Navigator.pop(context)),
+        ListTile(leading: const Icon(Icons.logout, color: Colors.redAccent), title: const Text("লগ আউট", style: TextStyle(color: Colors.redAccent)), onTap: () { Navigator.pop(context); Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (context) => const LoginScreen()), (Route<dynamic> route) => false); }),
+        const SizedBox(height: 20),
+      ]));
   }
-
-  // ১০টি রিয়েল পুরুষ অবতারের লিঙ্ক
-  final List<String> maleAvatars = [
-    "https://xsgames.co/randomusers/assets/avatars/male/1.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/2.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/3.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/4.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/5.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/6.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/7.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/8.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/9.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/10.jpg",
-  ];
-
-  // ১০টি রিয়েল মহিলা অবতারের লিঙ্ক
-  final List<String> femaleAvatars = [
-    "https://xsgames.co/randomusers/assets/avatars/female/1.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/2.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/3.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/4.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/5.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/6.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/7.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/8.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/9.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/10.jpg",
-  ];
 
   void _showFreeAvatars() {
     List<String> avatars = (gender == "পুরুষ") ? maleAvatars : femaleAvatars;
-    showModalBottomSheet(
-      context: context, 
-      backgroundColor: const Color(0xFF1A1A2E), 
-      builder: (context) => GridView.builder(
-        padding: const EdgeInsets.all(15), 
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 5, mainAxisSpacing: 10, crossAxisSpacing: 10
-        ), 
-        itemCount: avatars.length, 
-        itemBuilder: (context, index) => GestureDetector(
-          onTap: () { 
-            setState(() => userImageURL = avatars[index]); 
-            Navigator.pop(context); 
-          }, 
-          child: ClipOval(
-            child: Image.network(
-              avatars[index],
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white),
-            ),
-          ),
-        )
-      )
-    );
+    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), builder: (context) => GridView.builder(
+      padding: const EdgeInsets.all(15), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 10, crossAxisSpacing: 10),
+      itemCount: avatars.length, itemBuilder: (context, index) => GestureDetector(
+        onTap: () { setState(() => userImageURL = avatars[index]); Navigator.pop(context); },
+        child: ClipOval(child: Image.network(avatars[index], fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white))),
+      )));
   }
 
- void _pickProfileImage() {
-    showModalBottomSheet(
-      context: context, 
-      backgroundColor: const Color(0xFF1A1A2E), 
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Wrap(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.face, color: Colors.blueAccent), 
-            title: const Text("২০টি রিয়েল অবতার (Free)", style: TextStyle(color: Colors.white)), 
-            onTap: () { 
-              Navigator.pop(context); 
-              _showFreeAvatars(); 
-            }
-          ),
-          ListTile(
-            leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), 
-            title: const Text("গ্যালারি থেকে ছবি", style: TextStyle(color: Colors.white)), 
-            onTap: () async {
-              // কন্ডিশন চেক
-              if (hasPremiumCard || getVipLevel() >= 1) {
-                final ImagePicker picker = ImagePicker();
-                final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-                
-                if (image != null && mounted) { // mounted চেক করা জরুরি
-                  setState(() => userImageURL = image.path); 
-                }
-                if (mounted) Navigator.pop(context); // ছবি নেওয়ার পর পপ হবে
-              } else {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  backgroundColor: Colors.redAccent, 
-                  content: Text("প্রিমিয়াম কার্ড বা VIP 1 লেভেল প্রয়োজন!")
-                ));
-              }
-            }
-          ),
-        ],
-      ),
-    );
-  } 
+  void _pickProfileImage() {
+    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Wrap(children: [
+        ListTile(leading: const Icon(Icons.face, color: Colors.blueAccent), title: const Text("২০টি রিয়েল অবতার (Free)", style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _showFreeAvatars(); }),
+        ListTile(leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), title: const Text("গ্যালারি থেকে ছবি", style: TextStyle(color: Colors.white)), onTap: () async {
+          if (hasPremiumCard || getVipLevel() >= 1) {
+            final ImagePicker picker = ImagePicker();
+            final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+            if (image != null && mounted) { setState(() => userImageURL = image.path); }
+            if (mounted) Navigator.pop(context);
+          } else {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(backgroundColor: Colors.redAccent, content: Text("প্রিমিয়াম কার্ড বা VIP 1 লেভেল প্রয়োজন!")));
+          }
+        }),
+      ]));
+  }
 
-  // --- স্টোর ও ব্যাকপ্যাক লজিক (হৃদয় ভাই, আপনার অরিজিনাল কোড অপরিবর্তিত) ---
   void _openDiamondStore() {
     showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1E1E2F), builder: (context) => Column(mainAxisSize: MainAxisSize.min, children: [
-        _buildDiamondOption("৬,০০০ ডায়মন্ড", "১৫০ টাকা"),
-        _buildDiamondOption("১২,০০০ ডায়মন্ড", "৩০০ টাকা"),
-        _buildDiamondOption("২৫,০০০ ডায়মন্ড", "৬০০ টাকা"),
-        _buildDiamondOption("৬০,০০০ ডায়মন্ড", "১,৫০০ টাকা"),
-        _buildDiamondOption("১,২০,০০০ ডায়মন্ড", "৩,০০০ টাকা"),
-        _buildDiamondOption("৫,০০,০০০ ডায়মন্ড", "১২,০০০ টাকা"),
-        const SizedBox(height: 15),
-      ]),
-    );
+      _buildDiamondOption("৬,০০০ ডায়মন্ড", "১৫০ টাকা"),
+      _buildDiamondOption("১২,০০০ ডায়মন্ড", "৩০০ টাকা"),
+      _buildDiamondOption("২৫,০০০ ডায়মন্ড", "৬০০ টাকা"),
+      _buildDiamondOption("৬০,০০০ ডায়মন্ড", "১,৫০০ টাকা"),
+      _buildDiamondOption("১,২০,০০০ ডায়মন্ড", "৩,০০০ টাকা"),
+      _buildDiamondOption("৫,০০,০০০ ডায়মন্ড", "১২,০০০ টাকা"),
+      const SizedBox(height: 15),
+    ]));
   }
 
   Widget _buildDiamondOption(String amount, String price) => ListTile(
@@ -268,23 +193,12 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _openPremiumStore() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E1E2F),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => DefaultTabController(
-        length: 4,
-        child: Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          padding: const EdgeInsets.all(10),
-          child: Column(children: [
-              const TabBar(isScrollable: true, indicatorColor: Colors.amber, labelColor: Colors.amber, unselectedLabelColor: Colors.white54, tabs: [Tab(text: "Cards"), Tab(text: "Frames"), Tab(text: "Entry"), Tab(text: "Special")]),
-              Expanded(child: TabBarView(children: [_buildStoreCardTab(), const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54))), const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54))), const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54)))]))
-          ]),
-        ),
-      ),
-    );
+    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E1E2F), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => DefaultTabController(length: 4, child: Container(height: MediaQuery.of(context).size.height * 0.7, padding: const EdgeInsets.all(10),
+        child: Column(children: [
+          const TabBar(isScrollable: true, indicatorColor: Colors.amber, labelColor: Colors.amber, unselectedLabelColor: Colors.white54, tabs: [Tab(text: "Cards"), Tab(text: "Frames"), Tab(text: "Entry"), Tab(text: "Special")]),
+          Expanded(child: TabBarView(children: [_buildStoreCardTab(), const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54))), const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54))), const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54)))]))
+        ]))));
   }
 
   Widget _buildStoreCardTab() {
@@ -307,23 +221,12 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _openBackpack() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E1E2F),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => DefaultTabController(
-        length: 4,
-        child: Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          padding: const EdgeInsets.all(10),
-          child: Column(children: [
-              const TabBar(isScrollable: true, indicatorColor: Colors.pinkAccent, tabs: [Tab(text: "My Cards"), Tab(text: "My Frames"), Tab(text: "Effects"), Tab(text: "Others")]),
-              Expanded(child: TabBarView(children: [_buildMyCardsTab(), const Center(child: Text("খালি")), const Center(child: Text("খালি")), const Center(child: Text("খালি"))]))
-          ]),
-        ),
-      ),
-    );
+    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E1E2F), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => DefaultTabController(length: 4, child: Container(height: MediaQuery.of(context).size.height * 0.7, padding: const EdgeInsets.all(10),
+        child: Column(children: [
+          const TabBar(isScrollable: true, indicatorColor: Colors.pinkAccent, tabs: [Tab(text: "My Cards"), Tab(text: "My Frames"), Tab(text: "Effects"), Tab(text: "Others")]),
+          Expanded(child: TabBarView(children: [_buildMyCardsTab(), const Center(child: Text("খালি", style: TextStyle(color: Colors.white))), const Center(child: Text("খালি", style: TextStyle(color: Colors.white))), const Center(child: Text("খালি", style: TextStyle(color: Colors.white)))]))
+        ]))));
   }
 
   Widget _buildMyCardsTab() {
@@ -340,57 +243,39 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     int vipLevel = getVipLevel();
-    
-    // XP কমানোর লজিক (৬০ দিন পর)
     if (DateTime.now().difference(lastLevelUpDate).inDays >= 60) {
       Future.delayed(Duration.zero, () { setState(() { xp = (xp - 500).clamp(0, 100000); lastLevelUpDate = DateTime.now(); }); });
     }
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D1A),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent, elevation: 0,
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0,
         leading: Row(children: [const SizedBox(width: 10), const Icon(Icons.diamond, color: Colors.cyanAccent, size: 18), Text(" $diamonds", style: const TextStyle(color: Colors.white, fontSize: 12))]),
         actions: [IconButton(icon: const Icon(Icons.settings, color: Colors.white), onPressed: _openSettings)],
       ),
       body: SingleChildScrollView(
         child: Column(children: [
-          // প্রোফাইল ও VIP ফ্রেম
           Center(child: Stack(alignment: Alignment.center, children: [
             if (vipLevel > 0) Image.network("https://png.pngtree.com/png-clipart/20230501/original/pngtree-golden-vip-frame-png-image_9128509.png", width: 130, height: 130),
-            GestureDetector(
-              onTap: _pickProfileImage, 
-              child: CircleAvatar(
-                radius: 50, 
-                backgroundColor: Colors.grey[900],
-                backgroundImage: _getProfileImage(),
-              )
-            ),
+            GestureDetector(onTap: _pickProfileImage, child: CircleAvatar(radius: 50, backgroundColor: Colors.grey[900], backgroundImage: _getProfileImage())),
           ])),
           const SizedBox(height: 10),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text(userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)), IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.pinkAccent), onPressed: _editName)]),
           Text("User ID: $uIDValue", style: const TextStyle(color: Colors.pinkAccent, fontSize: 13, fontWeight: FontWeight.bold)),
           Text("Room ID: $roomIDValue", style: const TextStyle(color: Colors.cyanAccent, fontSize: 12)),
-          
           const SizedBox(height: 15),
-          // XP বার ও স্টিকারসমূহ
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              if (vipLevel > 0) Image.network(getVipBadge(vipLevel), width: 45, height: 45) else const SizedBox(width: 45),
-              const SizedBox(width: 12),
-              Expanded(child: Column(children: [
-                Text("VIP Level $vipLevel (XP: $xp / 25000)", style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                LinearProgressIndicator(value: (xp / 25000).clamp(0, 1), valueColor: const AlwaysStoppedAnimation(Colors.amber), backgroundColor: Colors.white10),
-              ])),
-              const SizedBox(width: 12),
-              if (hasPremiumCard) Image.network(premiumBadgeUrl, width: 45, height: 45, errorBuilder: (c,e,s) => const Icon(Icons.verified, color: Colors.amber)) else const SizedBox(width: 45),
-            ]),
-          ),
-
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            if (vipLevel > 0) Image.network(getVipBadge(vipLevel), width: 45, height: 45) else const SizedBox(width: 45),
+            const SizedBox(width: 12),
+            Expanded(child: Column(children: [
+              Text("VIP Level $vipLevel (XP: $xp / 25000)", style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              LinearProgressIndicator(value: (xp / 25000).clamp(0, 1), valueColor: const AlwaysStoppedAnimation(Colors.amber), backgroundColor: Colors.white10),
+            ])),
+            const SizedBox(width: 12),
+            if (hasPremiumCard) Image.network(premiumBadgeUrl, width: 45, height: 45, errorBuilder: (c,e,s) => const Icon(Icons.verified, color: Colors.amber)) else const SizedBox(width: 45),
+          ])),
           const SizedBox(height: 20),
-          // ফলোয়ার লজিক
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             _buildStat("Followers", followers),
             const SizedBox(width: 25),
@@ -400,9 +285,7 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(width: 25),
             _buildStat("Following", following),
           ]),
-
           const SizedBox(height: 30),
-          // ৩টি বক্স (ডায়মন্ড, প্রিমিয়াম, ব্যাকপ্যাক)
           Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
             _buildActionBox("Diamond", Icons.diamond, Colors.cyan, _openDiamondStore),
             _buildActionBox("Premium", Icons.card_membership, Colors.purple, _openPremiumStore),
@@ -414,16 +297,9 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // --- ইমেজ হ্যান্ডলিং ফিক্স (গিটহাব এরর-ফ্রি) ---
   ImageProvider _getProfileImage() {
-    if (userImageURL.isEmpty) {
-      return NetworkImage(maleAvatars[0]);
-    }
-    // ওয়েব বা লিঙ্কের জন্য NetworkImage
-    if (userImageURL.startsWith('http') || kIsWeb) {
-      return NetworkImage(userImageURL);
-    }
-    // লোকাল ফাইলের জন্য শুধুমাত্র মোবাইলে FileImage
+    if (userImageURL.isEmpty) return NetworkImage(maleAvatars[0]);
+    if (userImageURL.startsWith('http') || kIsWeb) return NetworkImage(userImageURL);
     return FileImage(File(userImageURL));
   }
 
