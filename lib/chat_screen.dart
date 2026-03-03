@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'user_profile_dialog.dart'; // নতুন ডায়ালগ ফাইলটি ইমপোর্ট করলাম
+import 'user_profile_dialog.dart';
 
 class ChatScreen extends StatefulWidget {
   final String receiverId;
@@ -17,7 +17,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
-  // চ্যাট রুম আইডি বানানোর সঠিক লজিক
+  // চ্যাট রুম আইডি বানানোর লজিক
   String getChatRoomId() {
     List<String> ids = [currentUserId, widget.receiverId];
     ids.sort(); 
@@ -49,6 +49,7 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(
         title: Text(widget.receiverName, style: const TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF1E1E2F),
+        elevation: 0,
       ),
       body: Column(
         children: [
@@ -76,13 +77,14 @@ class _ChatScreenState extends State<ChatScreen> {
                         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          // অন্যের মেসেজ হলে বামে ছবি দেখাবে
+                          // অন্যের মেসেজ হলে বামে ছবি
                           if (!isMe)
                             GestureDetector(
                               onTap: () => showUserProfile(context, data['senderId']),
                               child: const CircleAvatar(
                                 radius: 16,
-                                backgroundImage: NetworkImage('https://via.placeholder.com/150'), // পরে আমরা রিয়েল অবতার বসাবো
+                                backgroundColor: Colors.pinkAccent,
+                                backgroundImage: NetworkImage('https://via.placeholder.com/150'),
                               ),
                             ),
                           
@@ -108,12 +110,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
                           const SizedBox(width: 8),
 
-                          // নিজের মেসেজ হলে ডানে ছবি দেখাবে
+                          // নিজের মেসেজ হলে ডানে ছবি
                           if (isMe)
                             GestureDetector(
                               onTap: () => showUserProfile(context, currentUserId),
                               child: const CircleAvatar(
                                 radius: 16,
+                                backgroundColor: Colors.blueAccent,
                                 backgroundImage: NetworkImage('https://via.placeholder.com/150'),
                               ),
                             ),
@@ -125,6 +128,7 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
+          // ইনপুট বক্স
           Padding(
             padding: const EdgeInsets.all(10),
             child: Row(
