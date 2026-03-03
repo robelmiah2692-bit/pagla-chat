@@ -30,32 +30,32 @@ class _ProfilePageState extends State<ProfilePage> {
   bool hasVip1Items = false; 
   DateTime lastLevelUpDate = DateTime.now(); 
 
-  // ১০টি রিয়েল পুরুষ অবতারের লিঙ্ক
+ // ১০টি রিয়েল পুরুষ অবতার (Global Links)
   final List<String> maleAvatars = [
-    "https://xsgames.co/randomusers/assets/avatars/male/1.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/2.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/3.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/4.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/5.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/6.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/7.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/8.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/9.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/male/10.jpg",
+    "https://i.pravatar.cc/150?u=1",
+    "https://i.pravatar.cc/150?u=2",
+    "https://i.pravatar.cc/150?u=11",
+    "https://i.pravatar.cc/150?u=15",
+    "https://i.pravatar.cc/150?u=20",
+    "https://i.pravatar.cc/150?u=25",
+    "https://i.pravatar.cc/150?u=30",
+    "https://i.pravatar.cc/150?u=35",
+    "https://i.pravatar.cc/150?u=40",
+    "https://i.pravatar.cc/150?u=45",
   ];
 
-  // ১০টি রিয়েল মহিলা অবতারের লিঙ্ক
+  // ১০টি রিয়েল মহিলা অবতার (Global Links)
   final List<String> femaleAvatars = [
-    "https://xsgames.co/randomusers/assets/avatars/female/1.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/2.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/3.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/4.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/5.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/6.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/7.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/8.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/9.jpg",
-    "https://xsgames.co/randomusers/assets/avatars/female/10.jpg",
+    "https://i.pravatar.cc/150?u=5",
+    "https://i.pravatar.cc/150?u=6",
+    "https://i.pravatar.cc/150?u=7",
+    "https://i.pravatar.cc/150?u=8",
+    "https://i.pravatar.cc/150?u=9",
+    "https://i.pravatar.cc/150?u=10",
+    "https://i.pravatar.cc/150?u=16",
+    "https://i.pravatar.cc/150?u=17",
+    "https://i.pravatar.cc/150?u=18",
+    "https://i.pravatar.cc/150?u=19",
   ];
 
   // VIP স্টিকার লিঙ্কসমূহ
@@ -139,30 +139,77 @@ class _ProfilePageState extends State<ProfilePage> {
 
   void _showFreeAvatars() {
     List<String> avatars = (gender == "পুরুষ") ? maleAvatars : femaleAvatars;
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), builder: (context) => GridView.builder(
-      padding: const EdgeInsets.all(15), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 10, crossAxisSpacing: 10),
-      itemCount: avatars.length, itemBuilder: (context, index) => GestureDetector(
-        onTap: () { setState(() => userImageURL = avatars[index]); Navigator.pop(context); },
-        child: ClipOval(child: Image.network(avatars[index], fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white))),
-      )));
+    showModalBottomSheet(
+      context: context, 
+      backgroundColor: const Color(0xFF1A1A2E), 
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => GridView.builder(
+        padding: const EdgeInsets.all(15), 
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 5, 
+          mainAxisSpacing: 10, 
+          crossAxisSpacing: 10
+        ),
+        itemCount: avatars.length, 
+        itemBuilder: (context, index) => GestureDetector(
+          onTap: () { 
+            setState(() => userImageURL = avatars[index]); 
+            Navigator.pop(context); 
+          },
+          child: ClipOval(
+            child: Image.network(
+              avatars[index], 
+              fit: BoxFit.cover,
+              // লোডিং এর সময় গোল ঘুরবে, তাহলে বুঝবেন ছবি আসছে
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.pinkAccent));
+              },
+              errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white54),
+            ),
+          ),
+        )
+      )
+    );
   }
 
   void _pickProfileImage() {
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    showModalBottomSheet(
+      context: context, 
+      backgroundColor: const Color(0xFF1A1A2E), 
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Wrap(children: [
-        ListTile(leading: const Icon(Icons.face, color: Colors.blueAccent), title: const Text("২০টি রিয়েল অবতার (Free)", style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _showFreeAvatars(); }),
-        ListTile(leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), title: const Text("গ্যালারি থেকে ছবি", style: TextStyle(color: Colors.white)), onTap: () async {
-          if (hasPremiumCard || getVipLevel() >= 1) {
-            final ImagePicker picker = ImagePicker();
-            final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-            if (image != null && mounted) { setState(() => userImageURL = image.path); }
-            if (mounted) Navigator.pop(context);
-          } else {
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(backgroundColor: Colors.redAccent, content: Text("প্রিমিয়াম কার্ড বা VIP 1 লেভেল প্রয়োজন!")));
+        ListTile(
+          leading: const Icon(Icons.face, color: Colors.blueAccent), 
+          title: const Text("২০টি রিয়েল অবতার (Free)", style: TextStyle(color: Colors.white)), 
+          onTap: () { 
+            Navigator.pop(context); 
+            _showFreeAvatars(); 
           }
-        }),
-      ]));
+        ),
+        ListTile(
+          leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), 
+          title: const Text("গ্যালারি থেকে ছবি", style: TextStyle(color: Colors.white)), 
+          onTap: () async {
+            // আপনার অরিজিনাল কন্ডিশন (VIP/Premium)
+            if (hasPremiumCard || getVipLevel() >= 1) {
+              final ImagePicker picker = ImagePicker();
+              final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+              if (image != null && mounted) { 
+                setState(() => userImageURL = image.path); 
+              }
+              if (mounted) Navigator.pop(context);
+            } else {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                backgroundColor: Colors.redAccent, 
+                content: Text("প্রিমিয়াম কার্ড বা VIP 1 লেভেল প্রয়োজন!")
+              ));
+            }
+          }
+        ),
+      ])
+    );
   }
 
   void _openDiamondStore() {
