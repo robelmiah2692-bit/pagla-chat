@@ -183,6 +183,26 @@ void _editName() {
     );
   }
 
+  void _toggleFollow() async {
+  String myUid = FirebaseAuth.instance.currentUser!.uid;
+  // targetUserUid হলো সেই ইউজারের আইডি যার প্রোফাইল আপনি দেখছেন
+  String targetUid = uIDValue; 
+
+  var followRef = FirebaseFirestore.instance.collection('users');
+
+  if (isFollowing) {
+    await followRef.doc(myUid).update({'following': FieldValue.increment(-1)});
+    await followRef.doc(targetUid).update({'followers': FieldValue.increment(-1)});
+  } else {
+    await followRef.doc(myUid).update({'following': FieldValue.increment(1)});
+    await followRef.doc(targetUid).update({'followers': FieldValue.increment(1)});
+  }
+
+  setState(() {
+    isFollowing = !isFollowing;
+  });
+}
+ 
   void _showAgePicker() {
     showDialog(context: context, builder: (ctx) => AlertDialog(
       backgroundColor: const Color(0xFF1E1E2F),
@@ -361,11 +381,34 @@ void _editName() {
               ])),
               const SizedBox(height: 20),
               // ফলো, মেসেজ বাটন সব ফিরে এসেছে
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                _buildStat("Followers", followers),
-                const SizedBox(width: 25),
-                ElevatedButton(onPressed: () => setState(() { isFollowing = !isFollowing; followers = isFollowing ? 1 : 0; }), style: ElevatedButton.styleFrom(backgroundColor: isFollowing ? Colors.blueGrey : Colors.pinkAccent), child: Text(isFollowing ? "Friend" : "Follow")),
-                const SizedBox(width: 10),
+              // --- স্ট্যাট এবং ফলো বাটন সেকশন শুরু ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center, 
+                  children: [
+                    // ১. ফলোয়ার সংখ্যা দেখাবে
+                    _buildStat("Followers", followers),
+                    
+                    const SizedBox(width: 25),
+                    
+                    // ২. কন্ডিশনাল ফলো বাটন: নিজের প্রোফাইলে এটি দেখা যাবে না
+                    if (FirebaseAuth.instance.currentUser!.uid != uIDValue) 
+                      ElevatedButton(
+                        onPressed: () {
+                          // আমাদের বানানো সেই অরিজিনাল লজিক কল করা হলো
+                          _toggleFollow(); 
+                        }, 
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isFollowing ? Colors.blueGrey : Colors.pinkAccent,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        ), 
+                        child: Text(
+                          isFollowing ? "Friend" : "Follow",
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    
+                    const SizedBox(width: 10),
+                    // --- সেকশন শেষ ---
                 // --- মেসেজ বাটন সেকশন শুরু ---
                 IconButton(
                   icon: const Icon(Icons.mail, color: Colors.white),
