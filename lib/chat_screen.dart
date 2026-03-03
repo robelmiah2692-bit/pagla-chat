@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'user_profile_dialog.dart';
 
 class ChatScreen extends StatefulWidget {
   final String receiverId;
@@ -17,7 +16,6 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
-  // চ্যাট রুম আইডি বানানোর লজিক
   String getChatRoomId() {
     List<String> ids = [currentUserId, widget.receiverId];
     ids.sort(); 
@@ -26,7 +24,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
-
     String message = _messageController.text.trim();
     _messageController.clear();
 
@@ -42,6 +39,34 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  // এই ফাংশনটি এখন সরাসরি এই ফাইলেই আছে, তাই এরর আসবে না
+  void _showLocalUserProfile(BuildContext context, String userId) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Color(0xFF1E1E2F),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircleAvatar(radius: 40, backgroundImage: NetworkImage('https://via.placeholder.com/150')),
+            const SizedBox(height: 10),
+            const Text("ইউজার প্রোফাইল", style: TextStyle(color: Colors.white, fontSize: 18)),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("বন্ধ করুন"),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -49,7 +74,6 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(
         title: Text(widget.receiverName, style: const TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF1E1E2F),
-        elevation: 0,
       ),
       body: Column(
         children: [
@@ -63,63 +87,35 @@ class _ChatScreenState extends State<ChatScreen> {
                   .snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                
                 return ListView.builder(
                   reverse: true,
                   itemCount: snapshot.data!.docs.length,
                   itemBuilder: (context, index) {
                     var data = snapshot.data!.docs[index];
                     bool isMe = data['senderId'] == currentUserId;
-                    
                     return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                      padding: const EdgeInsets.all(8.0),
                       child: Row(
                         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          // অন্যের মেসেজ হলে বামে ছবি
-                          if (!isMe)
-                            GestureDetector(
-                              onTap: () => showUserProfile(context, data['senderId']),
-                              child: const CircleAvatar(
-                                radius: 16,
-                                backgroundColor: Colors.pinkAccent,
-                                backgroundImage: NetworkImage('https://via.placeholder.com/150'),
-                              ),
-                            ),
-                          
-                          const SizedBox(width: 8),
-
+                          if (!isMe) GestureDetector(
+                            onTap: () => _showLocalUserProfile(context, data['senderId']),
+                            child: const CircleAvatar(radius: 15, backgroundColor: Colors.grey),
+                          ),
+                          const SizedBox(width: 5),
                           Container(
-                            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: isMe ? Colors.pinkAccent : Colors.grey[800],
-                              borderRadius: BorderRadius.only(
-                                topLeft: const Radius.circular(15),
-                                topRight: const Radius.circular(15),
-                                bottomLeft: isMe ? const Radius.circular(15) : Radius.zero,
-                                bottomRight: isMe ? Radius.zero : const Radius.circular(15),
-                              ),
+                              borderRadius: BorderRadius.circular(15),
                             ),
-                            child: Text(
-                              data['message'], 
-                              style: const TextStyle(color: Colors.white)
-                            ),
+                            child: Text(data['message'], style: const TextStyle(color: Colors.white)),
                           ),
-
-                          const SizedBox(width: 8),
-
-                          // নিজের মেসেজ হলে ডানে ছবি
-                          if (isMe)
-                            GestureDetector(
-                              onTap: () => showUserProfile(context, currentUserId),
-                              child: const CircleAvatar(
-                                radius: 16,
-                                backgroundColor: Colors.blueAccent,
-                                backgroundImage: NetworkImage('https://via.placeholder.com/150'),
-                              ),
-                            ),
+                          const SizedBox(width: 5),
+                          if (isMe) GestureDetector(
+                            onTap: () => _showLocalUserProfile(context, currentUserId),
+                            child: const CircleAvatar(radius: 15, backgroundColor: Colors.pink),
+                          ),
                         ],
                       ),
                     );
@@ -128,7 +124,6 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          // ইনপুট বক্স
           Padding(
             padding: const EdgeInsets.all(10),
             child: Row(
@@ -138,26 +133,14 @@ class _ChatScreenState extends State<ChatScreen> {
                     controller: _messageController,
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
-                      hintText: "মেসেজ লিখুন...",
-                      hintStyle: const TextStyle(color: Colors.white54),
+                      hintText: "মেসেজ...",
                       filled: true,
                       fillColor: const Color(0xFF1E1E2F),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: BorderSide.none,
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  backgroundColor: Colors.pinkAccent,
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white),
-                    onPressed: _sendMessage,
-                  ),
-                ),
+                IconButton(icon: const Icon(Icons.send, color: Colors.pinkAccent), onPressed: _sendMessage),
               ],
             ),
           ),
