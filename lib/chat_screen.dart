@@ -22,6 +22,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return ids.join("_"); 
   }
 
+  // মেসেজ পাঠানোর সময় সঠিক ছবি ও নাম পাঠানো
   void _sendMessage() async {
     if (_messageController.text.trim().isEmpty || currentUserId.isEmpty) return;
     String message = _messageController.text.trim();
@@ -29,8 +30,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUserId).get();
-      final String myPic = userDoc.data()?['imageURL'] ?? ''; 
-      final String myName = userDoc.data()?['name'] ?? 'User';
+      var userData = userDoc.data();
+      
+      // মাল্টিপল কী চেক করা হচ্ছে যাতে সঠিক ছবি পাওয়া যায়
+      final String myPic = userData?['imageURL'] ?? userData?['profilePic'] ?? userData?['userImageURL'] ?? ''; 
+      final String myName = userData?['name'] ?? 'User';
 
       await FirebaseFirestore.instance
           .collection('chats')
@@ -49,20 +53,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // ফলো/আনফলো লজিক যা বাদ পড়েছিল
-  void _toggleFollow(String targetUid, bool isFollowing) async {
-    var myRef = FirebaseFirestore.instance.collection('users').doc(currentUserId);
-    var targetRef = FirebaseFirestore.instance.collection('users').doc(targetUid);
-
-    if (isFollowing) {
-      await targetRef.update({'followers': FieldValue.increment(-1), 'followerList': FieldValue.arrayRemove([currentUserId])});
-      await myRef.update({'following': FieldValue.increment(-1)});
-    } else {
-      await targetRef.update({'followers': FieldValue.increment(1), 'followerList': FieldValue.arrayUnion([currentUserId])});
-      await myRef.update({'following': FieldValue.increment(1)});
-    }
-  }
-
+  // প্রোফাইল দেখানোর সময় রিয়েল ডাটা লোড করা
   void _showProfile(BuildContext context, String userId) {
     showModalBottomSheet(
       context: context,
@@ -75,7 +66,7 @@ class _ChatScreenState extends State<ChatScreen> {
           
           final userData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
           final String name = userData['name'] ?? 'User';
-          final String pic = userData['imageURL'] ?? '';
+          final String pic = userData['imageURL'] ?? userData['profilePic'] ?? userData['userImageURL'] ?? '';
           final bool isVIP = userData['isVIP'] ?? false;
           final List followerList = userData['followerList'] ?? [];
           final bool isFollowing = followerList.contains(currentUserId);
@@ -85,7 +76,6 @@ class _ChatScreenState extends State<ChatScreen> {
             decoration: const BoxDecoration(
               color: Color(0xFF1E1E2F),
               borderRadius: BorderRadius.vertical(top: Radius.circular(40)),
-              boxShadow: [BoxShadow(color: Colors.black54, blurRadius: 20)],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -95,7 +85,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   backgroundColor: Colors.pinkAccent,
                   child: CircleAvatar(
                     radius: 52,
-                    backgroundImage: NetworkImage(pic.isNotEmpty ? pic : 'https://ui-avatars.com/api/?name=$name'),
+                    backgroundColor: const Color(0xFF0D0D1A),
+                    backgroundImage: pic.isNotEmpty ? NetworkImage(pic) : null,
+                    child: pic.isEmpty ? Text(name[0].toUpperCase(), style: const TextStyle(fontSize: 30, color: Colors.white)) : null,
                   ),
                 ),
                 const SizedBox(height: 15),
@@ -123,7 +115,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                     ),
                     onPressed: () => _toggleFollow(userId, isFollowing),
-                    child: Text(isFollowing ? "Unfollow" : "Follow", style: const TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text(isFollowing ? "Unfollow" : "Follow", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                   ),
                 const SizedBox(height: 10),
               ],
@@ -132,6 +124,18 @@ class _ChatScreenState extends State<ChatScreen> {
         },
       ),
     );
+  }
+
+  void _toggleFollow(String targetUid, bool isFollowing) async {
+    var myRef = FirebaseFirestore.instance.collection('users').doc(currentUserId);
+    var targetRef = FirebaseFirestore.instance.collection('users').doc(targetUid);
+    if (isFollowing) {
+      await targetRef.update({'followers': FieldValue.increment(-1), 'followerList': FieldValue.arrayRemove([currentUserId])});
+      await myRef.update({'following': FieldValue.increment(-1)});
+    } else {
+      await targetRef.update({'followers': FieldValue.increment(1), 'followerList': FieldValue.arrayUnion([currentUserId])});
+      await myRef.update({'following': FieldValue.increment(1)});
+    }
   }
 
   Widget _statWidget(String label, dynamic count) {
@@ -174,6 +178,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     final data = docs[index].data() as Map<String, dynamic>;
                     final bool isMe = data['senderId'] == currentUserId;
                     final String senderPic = data['senderImage'] ?? '';
+                    final String senderName = data['senderName'] ?? 'U';
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 15),
@@ -181,7 +186,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          if (!isMe) _chatAvatar(data['senderId'], senderPic),
+                          if (!isMe) _chatAvatar(data['senderId'], senderPic, senderName),
                           const SizedBox(width: 10),
                           Flexible(
                             child: Container(
@@ -199,7 +204,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          if (isMe) _chatAvatar(currentUserId, senderPic),
+                          if (isMe) _chatAvatar(currentUserId, senderPic, senderName),
                         ],
                       ),
                     );
@@ -214,13 +219,16 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _chatAvatar(String uid, String url) {
+  Widget _chatAvatar(String uid, String url, String name) {
     return GestureDetector(
       onTap: () => _showProfile(context, uid),
       child: CircleAvatar(
         radius: 20,
         backgroundColor: Colors.white10,
-        backgroundImage: NetworkImage(url.isNotEmpty ? url : 'https://ui-avatars.com/api/?name=U'),
+        backgroundImage: url.isNotEmpty ? NetworkImage(url) : null,
+        child: url.isEmpty 
+          ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: const TextStyle(color: Colors.white, fontSize: 12)) 
+          : null,
       ),
     );
   }
@@ -238,7 +246,6 @@ class _ChatScreenState extends State<ChatScreen> {
             child: TextField(
               controller: _messageController,
               style: const TextStyle(color: Colors.white),
-              onSubmitted: (_) => _sendMessage(),
               decoration: InputDecoration(
                 hintText: "মেসেজ লিখুন...",
                 hintStyle: const TextStyle(color: Colors.white24),
