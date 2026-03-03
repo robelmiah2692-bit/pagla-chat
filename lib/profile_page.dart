@@ -144,6 +144,34 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   // --- ইমেজ পিকার লজিক ---
+  // ১০টি রিয়েল পুরুষ অবতারের লিঙ্ক
+  final List<String> maleAvatars = [
+    "https://xsgames.co/randomusers/assets/avatars/male/1.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/2.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/3.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/4.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/5.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/6.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/7.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/8.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/9.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/male/10.jpg",
+  ];
+
+  // ১০টি রিয়েল মহিলা অবতারের লিঙ্ক
+  final List<String> femaleAvatars = [
+    "https://xsgames.co/randomusers/assets/avatars/female/1.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/2.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/3.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/4.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/5.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/6.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/7.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/8.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/9.jpg",
+    "https://xsgames.co/randomusers/assets/avatars/female/10.jpg",
+  ];
+
   void _showFreeAvatars() {
     List<String> avatars = (gender == "পুরুষ") ? maleAvatars : femaleAvatars;
     showModalBottomSheet(
@@ -152,9 +180,7 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (context) => GridView.builder(
         padding: const EdgeInsets.all(15), 
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 5, 
-          mainAxisSpacing: 10, 
-          crossAxisSpacing: 10
+          crossAxisCount: 5, mainAxisSpacing: 10, crossAxisSpacing: 10
         ), 
         itemCount: avatars.length, 
         itemBuilder: (context, index) => GestureDetector(
@@ -166,16 +192,11 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Image.network(
               avatars[index],
               fit: BoxFit.cover,
-              // ওয়েবে ছবি না আসার সমস্যা সমাধান করবে এই অংশটি
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-              },
               errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white),
             ),
           ),
-        ),
-      ),
+        )
+      )
     );
   }
 
@@ -195,17 +216,12 @@ class _ProfilePageState extends State<ProfilePage> {
             leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), 
             title: const Text("গ্যালারি থেকে ছবি", style: TextStyle(color: Colors.white)), 
             onTap: () async {
-              // আপনার গ্যালারির আগের সব কন্ডিশন এখানে অক্ষুণ্ণ রাখা হয়েছে
+              // আপনার সেই অরিজিনাল লজিক: প্রিমিয়াম কার্ড অথবা ভিআইপি লেভেল ১ বা তার বেশি লাগবে
               if (hasPremiumCard || getVipLevel() >= 1) {
                 Navigator.pop(context);
                 final XFile? image = await ImagePicker().pickImage(source: ImageSource.gallery);
                 if (image != null) { 
-                  // ওয়েবে গ্যালারি ছবির জন্য এটি কাজ করবে
-                  final bytes = await image.readAsBytes();
-                  setState(() {
-                    userImageURL = image.path; // প্যাথ সেট রাখলাম
-                    // প্রয়োজনে এখানে বাইট ডাটা ব্যবহার করা যায়
-                  }); 
+                  setState(() => userImageURL = image.path); 
                 }
               } else {
                 Navigator.pop(context);
