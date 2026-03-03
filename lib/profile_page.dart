@@ -1,5 +1,4 @@
-// ফাইল ৩৯: ProfilePage.dart (Full Features + GitHub Fix)
-import 'dart:io' if (dart.library.html) 'dart:html'; 
+import 'dart:io'; 
 import 'package:flutter/foundation.dart'; 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -193,7 +192,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // --- স্টোর ও ব্যাকপ্যাক লজিক ---
+  // --- স্টোর ও ব্যাকপ্যাক লজিক (হৃদয় ভাই, আপনার অরিজিনাল কোড অপরিবর্তিত) ---
   void _openDiamondStore() {
     showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1E1E2F), builder: (context) => Column(mainAxisSize: MainAxisSize.min, children: [
         _buildDiamondOption("৬,০০০ ডায়মন্ড", "১৫০ টাকা"),
@@ -369,15 +368,16 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // --- ইমেজ হ্যান্ডলিং ফিক্স ---
+  // --- ইমেজ হ্যান্ডলিং ফিক্স (গিটহাব এরর-ফ্রি) ---
   ImageProvider _getProfileImage() {
     if (userImageURL.isEmpty) {
       return NetworkImage(maleAvatars[0]);
     }
+    // ওয়েব বা লিঙ্কের জন্য NetworkImage
     if (userImageURL.startsWith('http') || kIsWeb) {
       return NetworkImage(userImageURL);
     }
-    // লোকাল ফাইলের জন্য প্ল্যাটফর্ম সেফ চেক
+    // লোকাল ফাইলের জন্য শুধুমাত্র মোবাইলে FileImage
     return FileImage(File(userImageURL));
   }
 
