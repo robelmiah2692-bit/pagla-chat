@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'main.dart'; 
+import 'chat_screen.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -317,8 +318,24 @@ void _editName() {
                 const SizedBox(width: 25),
                 ElevatedButton(onPressed: () => setState(() { isFollowing = !isFollowing; followers = isFollowing ? 1 : 0; }), style: ElevatedButton.styleFrom(backgroundColor: isFollowing ? Colors.blueGrey : Colors.pinkAccent), child: Text(isFollowing ? "Friend" : "Follow")),
                 const SizedBox(width: 10),
-                IconButton(icon: const Icon(Icons.mail, color: Colors.white), onPressed: () {}),
-                const SizedBox(width: 25),
+                // --- মেসেজ বাটন সেকশন শুরু ---
+                IconButton(
+                  icon: const Icon(Icons.mail, color: Colors.white),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChatScreen(
+                          receiverId: uIDValue,   // যাকে মেসেজ পাঠাবেন তার আইডি
+                          receiverName: userName, // তার নাম
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                
+                const SizedBox(width: 25), 
+                // --- মেসেজ বাটন সেকশন শেষ ---
                 _buildStat("Following", following),
               ]),
               const SizedBox(height: 30),
