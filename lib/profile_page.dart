@@ -15,7 +15,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // --- ডাটা রিস্টোর ---
+  // ১. আপনার দেওয়া সব ভেরিয়েবল (এগুলো আগের মতোই থাকবে)
   String userImageURL = ""; 
   String userName = "পাগলা ইউজার";
   String uIDValue = "885522"; 
@@ -23,7 +23,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String gender = "পুরুষ"; 
   int age = 22; 
   int diamonds = 200; 
-  int xp = 0; // আপনার কথামতো ০ থেকে শুরু হবে
+  int xp = 0; 
   int followers = 0; 
   int following = 0;
   bool isFollowing = false;
@@ -31,6 +31,54 @@ class _ProfilePageState extends State<ProfilePage> {
   bool isVIP = false; 
   DateTime premiumExpiryDate = DateTime.now().add(const Duration(days: 30));
   DateTime lastLevelUpDate = DateTime.now(); 
+
+  // ২. অ্যাপ ওপেন হলেই যেন ডাটা লোড হয় (এইটুকু নতুন যোগ করবেন)
+  @override
+  void initState() {
+    super.initState();
+    setupUserAccount(); // এটি আপনার ভেরিয়েবলগুলোতে ডাটাবেস থেকে মান বসাবে
+  }
+
+  // ৩. ডাটাবেস থেকে ডাটা আনার লজিক (আপনার ফিচারের সাথে মিল রেখে)
+  void setupUserAccount() async {
+    String? uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+    DocumentSnapshot userDoc = await userRef.get();
+
+    if (userDoc.exists) {
+      var data = userDoc.data() as Map<String, dynamic>;
+      setState(() {
+        // আপনার ভেরিয়েবলগুলো এখন ডাটাবেসের মান দিয়ে আপডেট হবে
+        uIDValue = data['uID'] ?? uIDValue;
+        roomIDValue = data['roomID'] ?? roomIDValue;
+        userName = data['name'] ?? userName;
+        gender = data['gender'] ?? gender;
+        diamonds = data['diamonds'] ?? diamonds;
+        xp = data['xp'] ?? xp;
+        // ... অন্যান্য ফিচারও এখানে সেভ থাকবে
+      });
+    } else {
+      // নতুন ইউজারের জন্য ইউনিক আইডি তৈরি এবং ২০০ ডায়মন্ড সেট করা
+      String newUserID = (100000 + (uid.hashCode % 900000)).toString();
+      String newRoomID = (200000 + (uid.hashCode % 800000)).toString();
+
+      await userRef.set({
+        'uID': newUserID,
+        'roomID': newRoomID,
+        'name': userName,
+        'gender': gender,
+        'diamonds': 200, // নতুন ইউজার ২০০ ডায়মন্ড পাবে
+        'xp': 0,
+      }, SetOptions(merge: true));
+
+      setState(() {
+        uIDValue = newUserID;
+        roomIDValue = newRoomID;
+      });
+    }
+  } 
 
   // আপনার ২০টি রিয়েল অবতার লিস্ট
   final List<String> maleAvatars = [
