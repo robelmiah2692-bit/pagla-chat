@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart'; 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:lottie/lottie.dart';
+import 'services/room_service.dart'; // পাথ সঠিক আছে কিনা দেখে নিন
 
 // আপনার সব ফাইল ইমপোর্ট
 import '../pk_battle_view.dart';
@@ -35,6 +36,7 @@ class VoiceRoom extends StatefulWidget {
 }
 
 class _VoiceRoomState extends State<VoiceRoom> {
+ final RoomService _roomService = RoomService();
   // --- সব ভেরিয়েবল ---
   bool isOwner = true; 
   String displayUserID = "Hridoy"; 
