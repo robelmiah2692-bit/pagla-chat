@@ -16,20 +16,22 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
+  // চ্যাট রুম আইডি বানানোর সঠিক লজিক
+  String getChatRoomId() {
+    List<String> ids = [currentUserId, widget.receiverId];
+    ids.sort(); // আগে সর্ট করে নিতে হয়
+    return ids.join("_"); // তারপর জয়েন করতে হয়
+  }
+
   void _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
 
     String message = _messageController.text.trim();
     _messageController.clear();
 
-    // চ্যাট আইডি তৈরি (দুই ইউজারের আইডি মিলিয়ে একটি ইউনিক পাথ)
-    List<String> ids = [currentUserId, widget.receiverId];
-    ids.sort();
-    String chatRoomId = ids.join("_");
-
     await FirebaseFirestore.instance
         .collection('chats')
-        .doc(chatRoomId)
+        .doc(getChatRoomId())
         .collection('messages')
         .add({
       'senderId': currentUserId,
@@ -53,7 +55,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child: StreamBuilder(
               stream: FirebaseFirestore.instance
                   .collection('chats')
-                  .doc([currentUserId, widget.receiverId]..sort().join("_"))
+                  .doc(getChatRoomId()) // এখানে ভুল ছিল, এখন ঠিক করা হয়েছে
                   .collection('messages')
                   .orderBy('timestamp', descending: true)
                   .snapshots(),
@@ -68,13 +70,16 @@ class _ChatScreenState extends State<ChatScreen> {
                     return Align(
                       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                       child: Container(
-                        margin: const EdgeInsets.all(8),
+                        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: isMe ? Colors.pinkAccent : Colors.grey[800],
                           borderRadius: BorderRadius.circular(15),
                         ),
-                        child: Text(data['message'], style: const TextStyle(color: Colors.white)),
+                        child: Text(
+                          data['message'], 
+                          style: const TextStyle(color: Colors.white)
+                        ),
                       ),
                     );
                   },
@@ -83,7 +88,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(10),
             child: Row(
               children: [
                 Expanded(
@@ -95,13 +100,21 @@ class _ChatScreenState extends State<ChatScreen> {
                       hintStyle: const TextStyle(color: Colors.white54),
                       filled: true,
                       fillColor: const Color(0xFF1E1E2F),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send, color: Colors.pinkAccent),
-                  onPressed: _sendMessage,
+                const SizedBox(width: 8),
+                CircleAvatar(
+                  backgroundColor: Colors.pinkAccent,
+                  child: IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white),
+                    onPressed: _sendMessage,
+                  ),
                 ),
               ],
             ),
