@@ -5,7 +5,7 @@ class RoomService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // ✅ ১. রুমের সব ডাটা (নাম, ছবি, লক, ওয়ালপেপার) একসাথে সেভ রাখা
+  // 1️⃣ রুমের সব ডাটা (নাম, ছবি, লক, ওয়ালপেপার, ফলোয়ার) সেভ রাখা
   Future<void> updateRoomFullData({
     required String roomId,
     required String roomName,
@@ -13,7 +13,7 @@ class RoomService {
     required bool isLocked,
     required String wallpaper,
     required int followers,
-    required int totalDiamonds, // টপ রুম র‍্যাঙ্কিংয়ের জন্য
+    required int totalDiamonds,
   }) async {
     String uid = _auth.currentUser?.uid ?? "";
     if (uid.isEmpty) return;
@@ -26,7 +26,7 @@ class RoomService {
         'isLocked': isLocked,
         'wallpaper': wallpaper,
         'followerCount': followers,
-        'totalDiamonds': totalDiamonds, // ডায়মন্ড অনুযায়ী টপ রুম লিস্ট হবে
+        'totalDiamonds': totalDiamonds,
         'adminId': uid,
         'isLive': true,
         'lastUpdated': FieldValue.serverTimestamp(),
@@ -38,7 +38,7 @@ class RoomService {
     }
   }
 
-  // ✅ ২. সিটে বসার সাথে সাথে প্রোফাইল ছবি ও নাম ডাটাবেসে সেভ করা
+  // 2️⃣ সিটে বসার পর প্রোফাইল নাম ও ছবি রিয়েল-টাইম সেভ করা
   Future<void> updateSeatData({
     required String roomId,
     required int seatIndex,
@@ -62,14 +62,57 @@ class RoomService {
     }
   }
 
-  // ✅ ৩. ডায়মন্ড কাউন্ট আপডেট (টপ রুমের জন্য)
-  Future<void> updateDiamondCount(String roomId, int newDiamonds) async {
-    await _firestore.collection('rooms').doc(roomId).update({
-      'totalDiamonds': FieldValue.increment(newDiamonds),
-    });
+  // 3️⃣ ইউজার প্রোফাইল থেকে ডায়মন্ড চেক করার জন্য Stream (অটো আপডেট)
+  Stream<DocumentSnapshot> getUserDiamonds() {
+    String uid = _auth.currentUser?.uid ?? "";
+    return _firestore.collection('users').doc(uid).snapshots();
   }
 
-  // ✅ ৪. রুম থেকে বের হলে ইউজার প্রোফাইল ক্লিন করা
+  // 4️⃣ গিফট লজিক (প্রোফাইল থেকে ডায়মন্ড কাটা ও রুমের ডায়মন্ডে প্লাস করা)
+  Future<bool> sendGift({
+    required String roomId,
+    required int giftValue,
+    required String receiverId,
+  }) async {
+    String senderUid = _auth.currentUser?.uid ?? "";
+    if (senderUid.isEmpty) return false;
+
+    try {
+      // ইউজারের প্রোফাইল থেকে ব্যালেন্স চেক
+      DocumentSnapshot userDoc = await _firestore.collection('users').doc(senderUid).get();
+      int currentBalance = (userDoc.data() as Map<String, dynamic>)['diamonds'] ?? 0;
+
+      if (currentBalance >= giftValue) {
+        // ক) সেন্ডারের প্রোফাইল থেকে ডায়মন্ড মাইনাস (-) করা
+        await _firestore.collection('users').doc(senderUid).update({
+          'diamonds': FieldValue.increment(-giftValue),
+        });
+
+        // খ) রুমের টোটাল ডায়মন্ডে প্লাস (+) করা (টপ রুম র‍্যাঙ্কিংয়ের জন্য)
+        await _firestore.collection('rooms').doc(roomId).update({
+          'totalDiamonds': FieldValue.increment(giftValue),
+        });
+
+        // গ) রিসিভারের ইনকামে যোগ করা (যদি থাকে)
+        if (receiverId.isNotEmpty) {
+          await _firestore.collection('users').doc(receiverId).update({
+            'receivedDiamonds': FieldValue.increment(giftValue),
+          });
+        }
+        
+        print("✅ গিফট সফল! ডায়মন্ড অটো +/- হয়েছে।");
+        return true;
+      } else {
+        print("❌ পর্যাপ্ত ডায়মন্ড নেই!");
+        return false;
+      }
+    } catch (e) {
+      print("❌ গিফট এরর: $e");
+      return false;
+    }
+  }
+
+  // 5️⃣ রুম থেকে বের হলে ডাটা ক্লিন
   Future<void> leaveRoom(String roomId) async {
     String uid = _auth.currentUser?.uid ?? "";
     if (uid.isEmpty) return;
