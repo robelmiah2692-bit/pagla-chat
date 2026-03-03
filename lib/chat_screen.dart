@@ -22,10 +22,14 @@ class _ChatScreenState extends State<ChatScreen> {
     return ids.join("_"); 
   }
 
+  // ১. মেসেজ পাঠানোর সময় ইউজারের আসল ছবি ডাটাবেসে পাঠানো
   void _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
     String message = _messageController.text.trim();
     _messageController.clear();
+
+    var userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUserId).get();
+    String myPic = userDoc.data()?['imageURL'] ?? ''; 
 
     await FirebaseFirestore.instance
         .collection('chats')
@@ -33,37 +37,109 @@ class _ChatScreenState extends State<ChatScreen> {
         .collection('messages')
         .add({
       'senderId': currentUserId,
+      'senderImage': myPic, 
       'receiverId': widget.receiverId,
       'message': message,
       'timestamp': FieldValue.serverTimestamp(),
     });
   }
 
-  // এই ফাংশনটি এখন সরাসরি এই ফাইলেই আছে, তাই এরর আসবে না
+  // ২. ছবিতে ক্লিক করলে প্রোফাইল দেখার সেই "অরিজিনাল" ডায়ালগ
   void _showLocalUserProfile(BuildContext context, String userId) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: Color(0xFF1E1E2F),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircleAvatar(radius: 40, backgroundImage: NetworkImage('https://via.placeholder.com/150')),
-            const SizedBox(height: 10),
-            const Text("ইউজার প্রোফাইল", style: TextStyle(color: Colors.white, fontSize: 18)),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("বন্ধ করুন"),
-            )
-          ],
-        ),
+      isScrollControlled: true,
+      builder: (context) => StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+          
+          var userData = snapshot.data!.data() as Map<String, dynamic>;
+          String name = userData['name'] ?? 'ইউজার';
+          String pic = userData['imageURL'] ?? '';
+          bool isVIP = userData['isVIP'] ?? false;
+          bool hasPremium = userData['hasPremiumCard'] ?? false;
+
+          return Container(
+            padding: const EdgeInsets.all(25),
+            decoration: const BoxDecoration(
+              color: Color(0xFF1E1E2F),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // প্রোফাইল পিকচার ও ফ্রেম
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 50, 
+                      backgroundImage: NetworkImage(pic.isNotEmpty ? pic : 'https://via.placeholder.com/150')
+                    ),
+                    if (isVIP)
+                      Container(
+                        width: 110, height: 110,
+                        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.amber, width: 3)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // নাম, ভিআইপি ও প্রিমিয়াম ব্যাজ
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                    if (isVIP) const Icon(Icons.verified, color: Colors.gold, size: 22),
+                    if (hasPremium) const Icon(Icons.star, color: Colors.blueAccent, size: 20),
+                  ],
+                ),
+                const SizedBox(height: 15),
+                // ফলোয়ার ও ফলোইং
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildStat("Followers", userData['followers'] ?? 0),
+                    _buildStat("Following", userData['following'] ?? 0),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                // ফলো ও মেসেজ বাটন
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (userId != currentUserId)
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, shape: const StadiumBorder()),
+                        onPressed: () {
+                          // এখানে ফলো লজিক দিলে কাউন্ট হবে
+                        },
+                        child: const Text("Follow"),
+                      ),
+                    const SizedBox(width: 15),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey, shape: const StadiumBorder()),
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("Message"),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
       ),
+    );
+  }
+
+  // হেল্পার উইজেট
+  Widget _buildStat(String label, int count) {
+    return Column(
+      children: [
+        Text(count.toString(), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+      ],
     );
   }
 
@@ -74,11 +150,12 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(
         title: Text(widget.receiverName, style: const TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF1E1E2F),
+        elevation: 0,
       ),
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder(
+            child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('chats')
                   .doc(getChatRoomId())
@@ -94,27 +171,35 @@ class _ChatScreenState extends State<ChatScreen> {
                     var data = snapshot.data!.docs[index];
                     bool isMe = data['senderId'] == currentUserId;
                     return Padding(
-                      padding: const EdgeInsets.all(8.0),
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
                       child: Row(
                         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
                         children: [
                           if (!isMe) GestureDetector(
                             onTap: () => _showLocalUserProfile(context, data['senderId']),
-                            child: const CircleAvatar(radius: 15, backgroundColor: Colors.grey),
-                          ),
-                          const SizedBox(width: 5),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: isMe ? Colors.pinkAccent : Colors.grey[800],
-                              borderRadius: BorderRadius.circular(15),
+                            child: CircleAvatar(
+                              radius: 18, 
+                              backgroundImage: NetworkImage(data['senderImage'] ?? 'https://via.placeholder.com/150'),
                             ),
-                            child: Text(data['message'], style: const TextStyle(color: Colors.white)),
                           ),
-                          const SizedBox(width: 5),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isMe ? Colors.pinkAccent : Colors.grey[800],
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              child: Text(data['message'], style: const TextStyle(color: Colors.white)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           if (isMe) GestureDetector(
                             onTap: () => _showLocalUserProfile(context, currentUserId),
-                            child: const CircleAvatar(radius: 15, backgroundColor: Colors.pink),
+                            child: CircleAvatar(
+                              radius: 18, 
+                              backgroundImage: NetworkImage(data['senderImage'] ?? 'https://via.placeholder.com/150'),
+                            ),
                           ),
                         ],
                       ),
@@ -124,6 +209,7 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
+          // ইনপুট বক্স
           Padding(
             padding: const EdgeInsets.all(10),
             child: Row(
@@ -134,9 +220,11 @@ class _ChatScreenState extends State<ChatScreen> {
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       hintText: "মেসেজ...",
+                      hintStyle: const TextStyle(color: Colors.white54),
                       filled: true,
                       fillColor: const Color(0xFF1E1E2F),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
                     ),
                   ),
                 ),
