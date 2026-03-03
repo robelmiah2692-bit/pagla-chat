@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'; // kIsWeb চেক করার জন্য
+import 'auth_service.dart';
 
 // ফায়ারবেস প্যাকেজ
 import 'package:firebase_core/firebase_core.dart';
@@ -181,23 +182,59 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const Text("LOGIN", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               const SizedBox(height: 20),
-              TextField(controller: _emailController, decoration: const InputDecoration(labelText: "Email")),
+              TextField(
+                controller: _emailController, 
+                decoration: const InputDecoration(labelText: "Email"),
+              ),
               const SizedBox(height: 10),
-              TextField(controller: _passwordController, decoration: const InputDecoration(labelText: "Password"), obscureText: true),
+              TextField(
+                controller: _passwordController, 
+                decoration: const InputDecoration(labelText: "Password"), 
+                obscureText: true,
+              ),
               const SizedBox(height: 20),
               ElevatedButton(
-                  onPressed: () {
-                    // লগইন সাকসেস হলে নেভিগেশন
-                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
-                  }, 
-                  child: const Text("Login"))
+                onPressed: () async {
+                  // ১. চেক করা হচ্ছে ইমেইল ও পাসওয়ার্ড লেখা হয়েছে কি না
+                  if (_emailController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
+                    
+                    // ২. লোডিং দেখানোর জন্য একটি ছোট মেসেজ
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("লগইন হচ্ছে, দয়া করে অপেক্ষা করুন...")),
+                    );
+
+                    // ৩. ফায়ারবেস অথেন্টিকেশন কল করা হচ্ছে
+                    var user = await AuthService().loginOrRegister(
+                      _emailController.text.trim(), 
+                      _passwordController.text.trim()
+                    );
+
+                    // ৪. লগইন সফল হলে প্রোফাইলে নিয়ে যাবে
+                    if (user != null && mounted) {
+                      Navigator.pushReplacement(
+                        context, 
+                        MaterialPageRoute(builder: (context) => const MainNavigation())
+                      );
+                    } else {
+                      // ৫. ভুল হলে এরর মেসেজ
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("লগইন ব্যর্থ! ইমেইল বা পাসওয়ার্ড ভুল।")),
+                      );
+                    }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("ইমেইল ও পাসওয়ার্ড লিখে চেষ্টা করুন।")),
+                    );
+                  }
+                }, 
+                child: const Text("Login"),
+              )
             ],
           ),
         ),
       ),
     );
   }
-}
 
 // --- ফায়ারস্টোর ইনিশিয়ালাইজেশন ---
 Future<void> initializeUserInFirestore(User user, String name) async {
