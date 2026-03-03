@@ -30,33 +30,34 @@ class _ProfilePageState extends State<ProfilePage> {
   bool hasVip1Items = false; 
   DateTime lastLevelUpDate = DateTime.now(); 
 
-// ১০টি রিয়েল পুরুষ অবতার (Global & Fast)
+// ১০টি রিয়েলিস্টিক পুরুষ অবতার (Global & Fast)
   final List<String> maleAvatars = [
-    "https://i.pravatar.cc/150?u=a1",
-    "https://i.pravatar.cc/150?u=a2",
-    "https://i.pravatar.cc/150?u=a3",
-    "https://i.pravatar.cc/150?u=a4",
-    "https://i.pravatar.cc/150?u=a5",
-    "https://i.pravatar.cc/150?u=a6",
-    "https://i.pravatar.cc/150?u=a7",
-    "https://i.pravatar.cc/150?u=a8",
-    "https://i.pravatar.cc/150?u=a9",
-    "https://i.pravatar.cc/150?u=a10",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=John",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Max",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Peter",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Steve",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=James",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Robert",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Michael",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=David",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Richard",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Thomas",
   ];
 
-  // ১০টি রিয়েল মহিলা অবতার (Global & Fast)
+  // ১০টি রিয়েলিস্টিক মহিলা অবতার (Global & Fast)
   final List<String> femaleAvatars = [
-    "https://i.pravatar.cc/150?u=b1",
-    "https://i.pravatar.cc/150?u=b2",
-    "https://i.pravatar.cc/150?u=b3",
-    "https://i.pravatar.cc/150?u=b4",
-    "https://i.pravatar.cc/150?u=b5",
-    "https://i.pravatar.cc/150?u=b6",
-    "https://i.pravatar.cc/150?u=b7",
-    "https://i.pravatar.cc/150?u=b8",
-    "https://i.pravatar.cc/150?u=b9",
-    "https://i.pravatar.cc/150?u=b10",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Mary",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Anna",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Linda",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Elizabeth",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Susan",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Jessica",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Sarah",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Karen",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Lisa",
+    "https://api.dicebear.com/7.x/pixel-art/png?seed=Nancy",
   ];
+  
   // VIP স্টিকার লিঙ্কসমূহ
   String getVipBadge(int level) {
     switch (level) {
