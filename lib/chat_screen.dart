@@ -22,12 +22,12 @@ class _ChatScreenState extends State<ChatScreen> {
     return ids.join("_"); 
   }
 
-  // ১. মেসেজ পাঠানোর সময় ইউজারের আসল ছবি ডাটাবেসে পাঠানো
   void _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
     String message = _messageController.text.trim();
     _messageController.clear();
 
+    // ইউজারের রিয়েল প্রোফাইল ডাটা নিয়ে আসা
     var userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUserId).get();
     String myPic = userDoc.data()?['imageURL'] ?? ''; 
 
@@ -44,7 +44,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  // ২. ছবিতে ক্লিক করলে প্রোফাইল দেখার সেই "অরিজিনাল" ডায়ালগ
+  // ছবিতে ক্লিক করলে প্রোফাইল কার্ড দেখার মেইন ফাংশন
   void _showLocalUserProfile(BuildContext context, String userId) {
     showModalBottomSheet(
       context: context,
@@ -70,7 +70,6 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // প্রোফাইল পিকচার ও ফ্রেম
                 Stack(
                   alignment: Alignment.center,
                   children: [
@@ -86,7 +85,6 @@ class _ChatScreenState extends State<ChatScreen> {
                   ],
                 ),
                 const SizedBox(height: 10),
-                // নাম, ভিআইপি ও প্রিমিয়াম ব্যাজ
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -96,16 +94,14 @@ class _ChatScreenState extends State<ChatScreen> {
                   ],
                 ),
                 const SizedBox(height: 15),
-                // ফলোয়ার ও ফলোইং
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildStat("Followers", userData['followers'] ?? 0),
-                    _buildStat("Following", userData['following'] ?? 0),
+                    _buildStatCol("Followers", userData['followers'] ?? 0),
+                    _buildStatCol("Following", userData['following'] ?? 0),
                   ],
                 ),
                 const SizedBox(height: 20),
-                // ফলো ও মেসেজ বাটন
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -113,7 +109,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, shape: const StadiumBorder()),
                         onPressed: () {
-                          // এখানে ফলো লজিক দিলে কাউন্ট হবে
+                          // ফলো লজিক এখানে হবে
                         },
                         child: const Text("Follow"),
                       ),
@@ -133,8 +129,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  // হেল্পার উইজেট
-  Widget _buildStat(String label, int count) {
+  Widget _buildStatCol(String label, int count) {
     return Column(
       children: [
         Text(count.toString(), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
@@ -209,7 +204,6 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          // ইনপুট বক্স
           Padding(
             padding: const EdgeInsets.all(10),
             child: Row(
@@ -219,7 +213,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     controller: _messageController,
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
-                      hintText: "মেসেজ...",
+                      hintText: "মেসেজ লিখুন...",
                       hintStyle: const TextStyle(color: Colors.white54),
                       filled: true,
                       fillColor: const Color(0xFF1E1E2F),
