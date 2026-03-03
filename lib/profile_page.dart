@@ -143,7 +143,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // --- ইমেজ পিকার লজিক ---
   // ১০টি রিয়েল পুরুষ অবতারের লিঙ্ক
   final List<String> maleAvatars = [
     "https://xsgames.co/randomusers/assets/avatars/male/1.jpg",
@@ -200,7 +199,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _pickProfileImage() {
+ void _pickProfileImage() {
     showModalBottomSheet(
       context: context, 
       backgroundColor: const Color(0xFF1A1A2E), 
@@ -210,19 +209,24 @@ class _ProfilePageState extends State<ProfilePage> {
           ListTile(
             leading: const Icon(Icons.face, color: Colors.blueAccent), 
             title: const Text("২০টি রিয়েল অবতার (Free)", style: TextStyle(color: Colors.white)), 
-            onTap: () { Navigator.pop(context); _showFreeAvatars(); }
+            onTap: () { 
+              Navigator.pop(context); 
+              _showFreeAvatars(); 
+            }
           ),
           ListTile(
             leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), 
             title: const Text("গ্যালারি থেকে ছবি", style: TextStyle(color: Colors.white)), 
             onTap: () async {
-              // আপনার সেই অরিজিনাল লজিক: প্রিমিয়াম কার্ড অথবা ভিআইপি লেভেল ১ বা তার বেশি লাগবে
+              // কন্ডিশন চেক
               if (hasPremiumCard || getVipLevel() >= 1) {
-                Navigator.pop(context);
-                final XFile? image = await ImagePicker().pickImage(source: ImageSource.gallery);
-                if (image != null) { 
+                final ImagePicker picker = ImagePicker();
+                final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+                
+                if (image != null && mounted) { // mounted চেক করা জরুরি
                   setState(() => userImageURL = image.path); 
                 }
+                if (mounted) Navigator.pop(context); // ছবি নেওয়ার পর পপ হবে
               } else {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -235,7 +239,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
     );
-  }
+  } 
 
   // --- স্টোর ও ব্যাকপ্যাক লজিক (হৃদয় ভাই, আপনার অরিজিনাল কোড অপরিবর্তিত) ---
   void _openDiamondStore() {
