@@ -17,11 +17,6 @@ import 'inbox_page.dart';
 import 'profile_page.dart';
 import 'room_list_page.dart';
 
-// --- সতর্কতা: নোটিফিকেশন সার্ভিস ---
-// গিটহাবে ফাইল না থাকলে এই ইম্পোর্টটি এরর দিবে। 
-// ফাইলটি থাকলে নিচের লাইনটি আনকমেন্ট করুন, নাহলে এভাবেই রাখুন।
-// import 'services/notification_service.dart'; 
-
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
@@ -31,7 +26,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   try {
-    // ১. ফায়ারবেস ইনিশিয়ালাইজেশন (ওয়েব ও মোবাইল সাপোর্ট)
+    // ১. ফায়ারবেস ইনিশিয়ালাইজেশন (ওয়েব ও মোবাইল সাপোর্ট)
     await Firebase.initializeApp(
       options: const FirebaseOptions(
         apiKey: "AIzaSyA9KMdtIBNVYSASc5C2w5JGVTL-NISXFog",
@@ -45,10 +40,9 @@ void main() async {
       ),
     );
 
-    // ২. শুধু মোবাইলের জন্য নোটিফিকেশন (ওয়েবে এরর রোধ করতে)
+    // ২. শুধু মোবাইলের জন্য নোটিফিকেশন (ওয়েবে এরর রোধ করতে)
     if (!kIsWeb) {
       try {
-        // NotificationService().initNotification(); // ফাইলটি থাকলে আনকমেন্ট করুন
         FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
       } catch (e) {
         debugPrint("Notification init failed: $e");
@@ -160,7 +154,7 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- লগইন স্ক্রিন (হৃদয় ভাই, আপনার রিকোয়েস্ট অনুযায়ী বেসিক লজিক ঠিক আছে) ---
+// --- লগইন স্ক্রিন ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
   @override
@@ -195,35 +189,29 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () async {
-                  // ১. চেক করা হচ্ছে ইমেইল ও পাসওয়ার্ড লেখা হয়েছে কি না
                   if (_emailController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
-                    
-                    // ২. লোডিং দেখানোর জন্য একটি ছোট মেসেজ
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("লগইন হচ্ছে, দয়া করে অপেক্ষা করুন...")),
+                      const SnackBar(content: Text("লগইন হচ্ছে, দয়া করে অপেক্ষা করুন...")),
                     );
 
-                    // ৩. ফায়ারবেস অথেন্টিকেশন কল করা হচ্ছে
                     var user = await AuthService().loginOrRegister(
                       _emailController.text.trim(), 
                       _passwordController.text.trim()
                     );
 
-                    // ৪. লগইন সফল হলে প্রোফাইলে নিয়ে যাবে
                     if (user != null && mounted) {
                       Navigator.pushReplacement(
                         context, 
                         MaterialPageRoute(builder: (context) => const MainNavigation())
                       );
                     } else {
-                      // ৫. ভুল হলে এরর মেসেজ
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("লগইন ব্যর্থ! ইমেইল বা পাসওয়ার্ড ভুল।")),
+                        const SnackBar(content: Text("লগইন ব্যর্থ! ইমেইল বা পাসওয়ার্ড ভুল।")),
                       );
                     }
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("ইমেইল ও পাসওয়ার্ড লিখে চেষ্টা করুন।")),
+                      const SnackBar(content: Text("ইমেইল ও পাসওয়ার্ড লিখে চেষ্টা করুন।")),
                     );
                   }
                 }, 
@@ -235,3 +223,4 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+} // <-- এই ব্র্যাকেটগুলো মিসিং ছিল ক্লাসের জন্য
