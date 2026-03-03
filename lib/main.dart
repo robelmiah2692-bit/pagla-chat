@@ -235,14 +235,3 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-
-// --- ফায়ারস্টোর ইনিশিয়ালাইজেশন ---
-Future<void> initializeUserInFirestore(User user, String name) async {
-  final FirebaseFirestore db = FirebaseFirestore.instance;
-  String uID = (100000 + Random().nextInt(900000)).toString();
-  await db.collection('users').doc(user.uid).set({
-    'uID': uID,
-    'name': name,
-    'profilePic': 'https://api.dicebear.com/7.x/avataaars/svg?seed=$uID',
-  }, SetOptions(merge: true));
-}
