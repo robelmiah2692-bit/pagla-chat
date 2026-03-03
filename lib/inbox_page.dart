@@ -25,7 +25,7 @@ class _InboxPageState extends State<InboxPage> {
       ),
       body: Column(
         children: [
-          // আইডি নাম্বার দিয়ে সার্চ বার
+          // আইডি নাম্বার দিয়ে সার্চ বার
           Padding(
             padding: const EdgeInsets.all(15),
             child: TextField(
@@ -37,7 +37,7 @@ class _InboxPageState extends State<InboxPage> {
               },
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: "ইউজার আইডি দিয়ে সার্চ করুন...",
+                hintText: "ইউজার আইডি বা নাম লিখুন...",
                 hintStyle: const TextStyle(color: Colors.white24),
                 prefixIcon: const Icon(Icons.search, color: Colors.pinkAccent),
                 filled: true,
@@ -49,13 +49,7 @@ class _InboxPageState extends State<InboxPage> {
 
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              // যদি সার্চ বক্সে কিছু থাকে তবে আইডি দিয়ে সার্চ হবে, নাহলে সব ইউজার আসবে
-              stream: (_searchQuery.isEmpty)
-                  ? FirebaseFirestore.instance.collection('users').snapshots()
-                  : FirebaseFirestore.instance
-                      .collection('users')
-                      .where('userId', isEqualTo: _searchQuery) // আপনার ডাটাবেসের আইডি ফিল্ড 'userId' হলে
-                      .snapshots(),
+              stream: FirebaseFirestore.instance.collection('users').snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
@@ -65,7 +59,21 @@ class _InboxPageState extends State<InboxPage> {
                   return const Center(child: Text("ইউজার পাওয়া যায়নি!", style: TextStyle(color: Colors.white54)));
                 }
 
-                var users = snapshot.data!.docs;
+                // ক্লায়েন্ট সাইড ফিল্টারিং (যাতে আইডি বা নাম যাই লিখুন কাজ করে)
+                var users = snapshot.data!.docs.where((doc) {
+                  var data = doc.data() as Map<String, dynamic>;
+                  String name = (data['name'] ?? "").toString().toLowerCase();
+                  String customId = (data['userId'] ?? "").toString().toLowerCase();
+                  String fireId = doc.id.toLowerCase();
+                  
+                  return name.contains(_searchQuery.toLowerCase()) || 
+                         customId.contains(_searchQuery.toLowerCase()) ||
+                         fireId.contains(_searchQuery.toLowerCase());
+                }).toList();
+
+                if (users.isEmpty) {
+                   return const Center(child: Text("ইউজার খুঁজে পাওয়া যায়নি", style: TextStyle(color: Colors.white54)));
+                }
 
                 return ListView.builder(
                   itemCount: users.length,
@@ -75,11 +83,17 @@ class _InboxPageState extends State<InboxPage> {
 
                     if (userId == currentUserId) return const SizedBox.shrink();
 
+                    // ছবির জন্য মাল্টিপল কী চেক করা হচ্ছে যাতে 'U' না আসে
+                    String imageUrl = userData['imageURL'] ?? 
+                                     userData['profilePic'] ?? 
+                                     userData['userImageURL'] ?? 
+                                     userData['photoUrl'] ?? "";
+
                     return _buildPremiumInboxTile(
                       context,
                       id: userId,
                       name: userData['name'] ?? "User",
-                      image: userData['imageURL'] ?? "",
+                      image: imageUrl,
                       isOnline: userData['isOnline'] ?? false,
                     );
                   },
@@ -121,7 +135,11 @@ class _InboxPageState extends State<InboxPage> {
                     backgroundColor: Colors.pinkAccent,
                     child: CircleAvatar(
                       radius: 26,
-                      backgroundImage: NetworkImage(image.isNotEmpty ? image : 'https://ui-avatars.com/api/?name=$name'),
+                      backgroundColor: const Color(0xFF0D0D1A),
+                      backgroundImage: image.isNotEmpty ? NetworkImage(image) : null,
+                      child: image.isEmpty 
+                        ? Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)) 
+                        : null,
                     ),
                   ),
                   if (isOnline)
