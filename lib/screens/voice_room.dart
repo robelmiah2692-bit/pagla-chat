@@ -148,20 +148,40 @@ class _VoiceRoomState extends State<VoiceRoom> {
       seats[index]["isOccupied"] = true;
     });
 
-    Timer(const Duration(seconds: 3), () {
+    // 🔥 এখানে ৩ সেকেন্ডের টাইমার শুরু
+    Timer(const Duration(seconds: 3), () async {
       if (mounted) {
-        setState(() {
-          seats[index]["status"] = "occupied";
-          seats[index]["userName"] = displayUserID;
-          seats[index]["userImage"] = "https://api.dicebear.com/7.x/avataaars/svg?seed=$displayUserID$index";
-          seats[index]["isMicOn"] = true;
-          isMicOn = true;
-          currentSeatIndex = index;
-        });
+        try {
+          // ১. ডাটাবেসে ইউজার ডাটা সেভ করা (RoomService ব্যবহার করে)
+          await _roomService.joinRoom(widget.roomId, displayUserID);
+
+          setState(() {
+            seats[index]["status"] = "occupied";
+            seats[index]["userName"] = displayUserID;
+            // আপনার রিয়েল অবতার লজিক অনুযায়ী ফিউচারে এখানে ছবি বসবে
+            seats[index]["userImage"] = "https://api.dicebear.com/7.x/avataaars/svg?seed=$displayUserID$index";
+            seats[index]["isMicOn"] = true;
+            isMicOn = true;
+            currentSeatIndex = index;
+          });
+          
+          // ২. আইডি আইডেন্টিফিকেশন (হৃদয় ভাই চেক)
+          if (displayUserID == "Hridoy") {
+             print("Owner Identified: Welcome Hridoy!");
+          }
+          
+        } catch (e) {
+          // কোনো কারণে ডাটাবেসে এরর হলে সিট ক্লিয়ার করে দেওয়া
+          setState(() {
+            seats[index]["status"] = "empty";
+            seats[index]["isOccupied"] = false;
+          });
+          print("Error sitting on seat: $e");
+        }
       }
     });
   }
-
+  
   void _showLeaveConfirmation(int index) {
     showDialog(
       context: context,
