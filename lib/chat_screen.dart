@@ -14,7 +14,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
-  final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
+  final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
   String getChatRoomId() {
     List<String> ids = [currentUserId, widget.receiverId];
@@ -22,108 +22,98 @@ class _ChatScreenState extends State<ChatScreen> {
     return ids.join("_"); 
   }
 
+  // ১. ওয়েবে সেফলি মেসেজ পাঠানোর ফাংশন
   void _sendMessage() async {
-    if (_messageController.text.trim().isEmpty) return;
+    if (_messageController.text.trim().isEmpty || currentUserId.isEmpty) return;
     String message = _messageController.text.trim();
     _messageController.clear();
 
-    // ইউজারের রিয়েল প্রোফাইল ডাটাবেস থেকে ছবি নেওয়া
-    var userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUserId).get();
-    String myPic = userDoc.data()?['imageURL'] ?? ''; 
+    try {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUserId).get();
+      final String myPic = userDoc.data()?['imageURL'] ?? ''; 
+      final String myName = userDoc.data()?['name'] ?? 'User';
 
-    await FirebaseFirestore.instance
-        .collection('chats')
-        .doc(getChatRoomId())
-        .collection('messages')
-        .add({
-      'senderId': currentUserId,
-      'senderImage': myPic, 
-      'receiverId': widget.receiverId,
-      'message': message,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(getChatRoomId())
+          .collection('messages')
+          .add({
+        'senderId': currentUserId,
+        'senderName': myName,
+        'senderImage': myPic, 
+        'receiverId': widget.receiverId,
+        'message': message,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print("Web Send Error: $e");
+    }
   }
 
-  // প্রিমিয়াম লুকের প্রোফাইল কার্ড (গ্লাস ইফেক্ট)
+  // ২. প্রিমিয়াম প্রোফাইল ডায়ালগ (Web Compatible)
   void _showProfile(BuildContext context, String userId) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(25),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E1E2F).withOpacity(0.98),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
-          border: Border.all(color: Colors.white10, width: 0.5),
-        ),
-        child: StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()));
-            var userData = snapshot.data!.data() as Map<String, dynamic>;
-            String pic = userData['imageURL'] ?? '';
-            bool isVIP = userData['isVIP'] ?? false;
+      builder: (context) => StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const SizedBox(height: 150);
+          
+          final userData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+          final String name = userData['name'] ?? 'User';
+          final String pic = userData['imageURL'] ?? '';
+          final bool isVIP = userData['isVIP'] ?? false;
 
-            return Column(
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: Color(0xFF1E1E2F),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+            ),
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Stack(
-                  alignment: Alignment.center,
+                CircleAvatar(
+                  radius: 50,
+                  backgroundImage: NetworkImage(pic.isNotEmpty ? pic : 'https://ui-avatars.com/api/?name=$name'),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    CircleAvatar(
-                      radius: 65,
-                      backgroundColor: Colors.pinkAccent,
-                      child: CircleAvatar(
-                        radius: 61,
-                        backgroundImage: NetworkImage(pic.isNotEmpty ? pic : 'https://via.placeholder.com/150'),
-                      ),
-                    ),
-                    if (isVIP) 
-                      const Positioned(bottom: 5, right: 5, child: Icon(Icons.verified, color: Colors.amber, size: 35)),
+                    Text(name, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                    if (isVIP) const Icon(Icons.verified, color: Colors.amber, size: 20),
                   ],
                 ),
                 const SizedBox(height: 15),
-                Text(userData['name'] ?? 'User', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 25),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildStatCol("Followers", userData['followers'] ?? 0),
-                    _buildStatCol("Following", userData['following'] ?? 0),
+                    _statWidget("Followers", userData['followers'] ?? 0),
+                    _statWidget("Following", userData['following'] ?? 0),
                   ],
                 ),
-                const SizedBox(height: 35),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.pinkAccent,
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        ),
-                        onPressed: () {
-                          // এখানে ফলো করার কোড বসবে
-                        }, 
-                        child: const Text("Follow", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, shape: const StadiumBorder()),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Message Now"),
                 ),
               ],
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildStatCol(String label, int count) {
+  Widget _statWidget(String label, dynamic count) {
     return Column(
       children: [
-        Text(count.toString(), style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 14)),
+        Text(count.toString(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
       ],
     );
   }
@@ -133,10 +123,9 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D1A),
       appBar: AppBar(
-        elevation: 0,
+        title: Text(widget.receiverName),
         backgroundColor: const Color(0xFF1E1E2F),
-        title: Text(widget.receiverName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        centerTitle: true,
+        elevation: 0,
       ),
       body: Column(
         children: [
@@ -150,42 +139,47 @@ class _ChatScreenState extends State<ChatScreen> {
                   .snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                
+                final docs = snapshot.data!.docs;
                 return ListView.builder(
                   reverse: true,
-                  padding: const EdgeInsets.all(15),
-                  itemCount: snapshot.data!.docs.length,
+                  padding: const EdgeInsets.all(10),
+                  itemCount: docs.length,
                   itemBuilder: (context, index) {
-                    var data = snapshot.data!.docs[index];
-                    bool isMe = data['senderId'] == currentUserId;
+                    final data = docs[index].data() as Map<String, dynamic>;
+                    final bool isMe = data['senderId'] == currentUserId;
+                    final String senderPic = data['senderImage'] ?? '';
+
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 15),
+                      padding: const EdgeInsets.symmetric(vertical: 5),
                       child: Row(
                         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
                         children: [
                           if (!isMe) GestureDetector(
                             onTap: () => _showProfile(context, data['senderId']),
-                            child: CircleAvatar(radius: 22, backgroundImage: NetworkImage(data['senderImage'] ?? 'https://via.placeholder.com/150')),
-                          ),
-                          const SizedBox(width: 12),
-                          Container(
-                            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.65),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: isMe ? Colors.pinkAccent : const Color(0xFF1E1E2F),
-                              borderRadius: BorderRadius.circular(25).copyWith(
-                                bottomLeft: isMe ? const Radius.circular(25) : const Radius.circular(5),
-                                bottomRight: isMe ? const Radius.circular(5) : const Radius.circular(25),
-                              ),
-                              boxShadow: [
-                                BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 5)),
-                              ],
+                            child: CircleAvatar(
+                              radius: 18,
+                              backgroundImage: NetworkImage(senderPic.isNotEmpty ? senderPic : 'https://ui-avatars.com/api/?name=User'),
                             ),
-                            child: Text(data['message'], style: const TextStyle(color: Colors.white, fontSize: 15.5)),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isMe ? Colors.pinkAccent : const Color(0xFF1E1E2F),
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              child: Text(data['message'] ?? '', style: const TextStyle(color: Colors.white)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           if (isMe) GestureDetector(
                             onTap: () => _showProfile(context, currentUserId),
-                            child: CircleAvatar(radius: 22, backgroundImage: NetworkImage(data['senderImage'] ?? 'https://via.placeholder.com/150')),
+                            child: CircleAvatar(
+                              radius: 18,
+                              backgroundImage: NetworkImage(senderPic.isNotEmpty ? senderPic : 'https://ui-avatars.com/api/?name=Me'),
+                            ),
                           ),
                         ],
                       ),
@@ -195,33 +189,31 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          // মডার্ন ইনপুট ফিল্ড
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 20),
-            decoration: const BoxDecoration(
-              color: Color(0xFF1E1E2F),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(35)),
-            ),
+          // মডার্ন ওয়েব ইনপুট বক্স
+          Padding(
+            padding: const EdgeInsets.all(15),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _messageController,
                     style: const TextStyle(color: Colors.white),
+                    onSubmitted: (_) => _sendMessage(),
                     decoration: InputDecoration(
-                      hintText: "Write a message...",
+                      hintText: "মেসেজ লিখুন...",
                       hintStyle: const TextStyle(color: Colors.white24),
                       filled: true,
-                      fillColor: const Color(0xFF0D0D1A),
+                      fillColor: const Color(0xFF1E1E2F),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Container(
-                  decoration: BoxDecoration(color: Colors.pinkAccent, shape: BoxShape.circle),
-                  child: IconButton(icon: const Icon(Icons.send, color: Colors.white, size: 22), onPressed: _sendMessage),
+                const SizedBox(width: 10),
+                FloatingActionButton.small(
+                  backgroundColor: Colors.pinkAccent,
+                  onPressed: _sendMessage,
+                  child: const Icon(Icons.send, color: Colors.white, size: 18),
                 ),
               ],
             ),
