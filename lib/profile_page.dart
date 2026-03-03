@@ -86,23 +86,52 @@ class _ProfilePageState extends State<ProfilePage> {
     return 0; // শুরুতে ০ লেভেল দেখাবে
   }
 
-  // --- ফিচারের কাজসমূহ ---
-  void _editName() {
+void _editName() {
     TextEditingController _nameController = TextEditingController(text: userName);
-    showDialog(context: context, builder: (context) => AlertDialog(
-      backgroundColor: const Color(0xFF1E1E2F),
-      title: const Text("নাম পরিবর্তন", style: TextStyle(color: Colors.white)),
-      content: TextField(controller: _nameController, style: const TextStyle(color: Colors.white)),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("বাতিল")),
-        TextButton(onPressed: () async {
-          String uid = FirebaseAuth.instance.currentUser!.uid;
-          await FirebaseFirestore.instance.collection('users').doc(uid).update({'name': _nameController.text});
-          setState(() => userName = _nameController.text); // তৎক্ষণাৎ নাম পরিবর্তন হবে
-          Navigator.pop(context);
-        }, child: const Text("সেভ", style: TextStyle(color: Colors.pinkAccent))),
-      ],
-    ));
+    showDialog(
+      context: context, 
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E2F),
+        title: const Text("নাম পরিবর্তন", style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: _nameController, 
+          style: const TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context), 
+            child: const Text("বাতিল")
+          ),
+          TextButton(
+            onPressed: () async {
+              String newName = _nameController.text.trim(); 
+              
+              if (newName.isNotEmpty) {
+                try {
+                  String uid = FirebaseAuth.instance.currentUser!.uid;
+                  
+                  // ১. ফায়ারবেস ডেটাবেসে পার্মানেন্টলি সেভ করা
+                  await FirebaseFirestore.instance.collection('users').doc(uid).set({
+                    'name': newName
+                  }, SetOptions(merge: true)); // merge: true দিলে অন্য ডাটা হারাবে না
+                  
+                  // ২. সাথে সাথে প্রোফাইল স্ক্রিনে আপডেট করা
+                  setState(() {
+                    userName = newName;
+                  });
+                  
+                  Navigator.pop(context);
+                } catch (e) {
+                  // যদি কোনো কারণে সেভ না হয় তবে এরর দেখাবে
+                  print("Error saving name: $e");
+                }
+              }
+            }, 
+            child: const Text("সেভ", style: TextStyle(color: Colors.pinkAccent))
+          ),
+        ],
+      ),
+    );
   }
 
   void _showAgePicker() {
