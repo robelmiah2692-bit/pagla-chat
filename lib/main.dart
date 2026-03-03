@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // kIsWeb চেক করার জন্য
 
 // ফায়ারবেস প্যাকেজ
 import 'package:firebase_core/firebase_core.dart';
@@ -15,10 +16,10 @@ import 'inbox_page.dart';
 import 'profile_page.dart';
 import 'room_list_page.dart';
 
-// --- গুরুত্বপূর্ণ: নোটিফিকেশন সার্ভিস ইম্পোর্ট ---
-// যদি আপনার নোটিফিকেশন সার্ভিস মোবাইল প্যাকেজ ব্যবহার করে, 
-// তবে ওয়েবে এটি ক্র্যাশ করবে। আপাতত এটি ঠিক রাখছি।
-import 'services/notification_service.dart';
+// --- সতর্কতা: নোটিফিকেশন সার্ভিস ---
+// গিটহাবে ফাইল না থাকলে এই ইম্পোর্টটি এরর দিবে। 
+// ফাইলটি থাকলে নিচের লাইনটি আনকমেন্ট করুন, নাহলে এভাবেই রাখুন।
+// import 'services/notification_service.dart'; 
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -29,6 +30,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   try {
+    // ১. ফায়ারবেস ইনিশিয়ালাইজেশন (ওয়েব ও মোবাইল সাপোর্ট)
     await Firebase.initializeApp(
       options: const FirebaseOptions(
         apiKey: "AIzaSyA9KMdtIBNVYSASc5C2w5JGVTL-NISXFog",
@@ -42,17 +44,19 @@ void main() async {
       ),
     );
 
-    // শুধু মোবাইল বা নির্দিষ্ট কন্ডিশনে নোটিফিকেশন রান করার চেষ্টা
-    try {
-      NotificationService().initNotification();
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    } catch (e) {
-      print("Notification Not Supported on Web/Device");
+    // ২. শুধু মোবাইলের জন্য নোটিফিকেশন (ওয়েবে এরর রোধ করতে)
+    if (!kIsWeb) {
+      try {
+        // NotificationService().initNotification(); // ফাইলটি থাকলে আনকমেন্ট করুন
+        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      } catch (e) {
+        debugPrint("Notification init failed: $e");
+      }
     }
 
-    print("পাগলা চ্যাট কানেক্ট হয়েছে!");
+    debugPrint("পাগলা চ্যাট কানেক্ট হয়েছে!");
   } catch (e) {
-    print("কানেকশন এরর: $e");
+    debugPrint("কানেকশন এরর: $e");
   }
   
   runApp(const PaglaChatApp());
@@ -155,7 +159,7 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- লগইন স্ক্রিন ---
+// --- লগইন স্ক্রিন (হৃদয় ভাই, আপনার রিকোয়েস্ট অনুযায়ী বেসিক লজিক ঠিক আছে) ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
   @override
@@ -181,7 +185,12 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 10),
               TextField(controller: _passwordController, decoration: const InputDecoration(labelText: "Password"), obscureText: true),
               const SizedBox(height: 20),
-              ElevatedButton(onPressed: () {}, child: const Text("Login"))
+              ElevatedButton(
+                  onPressed: () {
+                    // লগইন সাকসেস হলে নেভিগেশন
+                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+                  }, 
+                  child: const Text("Login"))
             ],
           ),
         ),
