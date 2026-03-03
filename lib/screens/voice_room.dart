@@ -4,7 +4,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart'; 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:lottie/lottie.dart';
-import 'services/room_service.dart'; // পাথ সঠিক আছে কিনা দেখে নিন
+import '../services/room_service.dart';
 
 // আপনার সব ফাইল ইমপোর্ট
 import '../pk_battle_view.dart';
