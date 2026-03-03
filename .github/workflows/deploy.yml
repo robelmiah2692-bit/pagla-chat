@@ -1,0 +1,28 @@
+name: Build and Deploy Web
+on:
+  push:
+    branches:
+      - main # আপনার মেইন ব্রাঞ্চের নাম অনুযায়ী পরিবর্তন করুন
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      
+      - name: Build Web
+        run: |
+          flutter pub get
+          flutter build web --release --base-href "/pagla-chat/"
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: build/web
+          branch: gh-pages # এটি অটোমেটিক একটি নতুন ব্রাঞ্চ তৈরি করবে
