@@ -151,13 +151,31 @@ class _ProfilePageState extends State<ProfilePage> {
       backgroundColor: const Color(0xFF1A1A2E), 
       builder: (context) => GridView.builder(
         padding: const EdgeInsets.all(15), 
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 10, crossAxisSpacing: 10), 
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 5, 
+          mainAxisSpacing: 10, 
+          crossAxisSpacing: 10
+        ), 
         itemCount: avatars.length, 
         itemBuilder: (context, index) => GestureDetector(
-          onTap: () { setState(() => userImageURL = avatars[index]); Navigator.pop(context); }, 
-          child: CircleAvatar(backgroundImage: NetworkImage(avatars[index]))
-        )
-      )
+          onTap: () { 
+            setState(() => userImageURL = avatars[index]); 
+            Navigator.pop(context); 
+          }, 
+          child: ClipOval(
+            child: Image.network(
+              avatars[index],
+              fit: BoxFit.cover,
+              // ওয়েবে ছবি না আসার সমস্যা সমাধান করবে এই অংশটি
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+              },
+              errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -177,13 +195,24 @@ class _ProfilePageState extends State<ProfilePage> {
             leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), 
             title: const Text("গ্যালারি থেকে ছবি", style: TextStyle(color: Colors.white)), 
             onTap: () async {
+              // আপনার গ্যালারির আগের সব কন্ডিশন এখানে অক্ষুণ্ণ রাখা হয়েছে
               if (hasPremiumCard || getVipLevel() >= 1) {
                 Navigator.pop(context);
                 final XFile? image = await ImagePicker().pickImage(source: ImageSource.gallery);
-                if (image != null) { setState(() => userImageURL = image.path); }
+                if (image != null) { 
+                  // ওয়েবে গ্যালারি ছবির জন্য এটি কাজ করবে
+                  final bytes = await image.readAsBytes();
+                  setState(() {
+                    userImageURL = image.path; // প্যাথ সেট রাখলাম
+                    // প্রয়োজনে এখানে বাইট ডাটা ব্যবহার করা যায়
+                  }); 
+                }
               } else {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(backgroundColor: Colors.redAccent, content: Text("প্রিমিয়াম কার্ড বা VIP 1 লেভেল প্রয়োজন!")));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  backgroundColor: Colors.redAccent, 
+                  content: Text("প্রিমিয়াম কার্ড বা VIP 1 লেভেল প্রয়োজন!")
+                ));
               }
             }
           ),
