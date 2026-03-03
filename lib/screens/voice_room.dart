@@ -88,7 +88,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
       onFinished: () => _endPKBattle(),
     );
   }
-
+// ✅ একদম শেষে এই লাইনটি বসান
+  _roomService.updateRoomFullData(
+    roomId: widget.roomId,
+    roomName: roomName,
+    roomImage: roomProfileImage,
+    isLocked: isRoomLocked,
+    wallpaper: roomWallpaperPath,
+    followers: followerCount,
+    totalDiamonds: 0,
+  );
+}
+  
   @override
   void dispose() {
     giftTimer?.cancel();
@@ -153,9 +164,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
     Timer(const Duration(seconds: 3), () async {
       if (mounted) {
         try {
-          // ১. ডাটাবেসে ইউজার ডাটা সেভ করা (RoomService ব্যবহার করে)
-          await _roomService.joinRoom(widget.roomId, displayUserID);
-
+          await _roomService.updateSeatData(
+          roomId: widget.roomId, seatIndex: index,
+          uName: displayUserID, uImage: roomProfileImage, isOccupied: true,
+        );
           setState(() {
             seats[index]["status"] = "occupied";
             seats[index]["userName"] = displayUserID;
