@@ -47,9 +47,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
   String premiumBadgeUrl = "https://i.ibb.co/3ykC7mP/premium-gold.png";
 
-  // ২০টি নতুন রিয়েল টাইপ অবতার
-  final List<String> maleAvatars = List.generate(10, (i) => "https://xsgames.co/randomusers/assets/avatars/male/${i + 1}.jpg");
-  final List<String> femaleAvatars = List.generate(10, (i) => "https://xsgames.co/randomusers/assets/avatars/female/${i + 1}.jpg");
 
   @override
   void initState() {
