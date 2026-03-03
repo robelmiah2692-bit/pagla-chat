@@ -5,52 +5,68 @@ class RoomService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // ১. নতুন রুম ডাটাবেসে সেইভ করা
-  Future<void> createRoom(String roomName, String roomType) async {
+  // ✅ ১. নির্দিষ্ট Room ID অনুযায়ী ডাটাবেসে সেভ করা
+  Future<void> createRoom(String roomId, String roomName, String roomType) async {
     String uid = _auth.currentUser?.uid ?? "";
     if (uid.isEmpty) return;
 
     try {
-      await _firestore.collection('rooms').doc(uid).set({
+      // এখানে .doc(uid) এর বদলে .doc(roomId) ব্যবহার করা হয়েছে
+      await _firestore.collection('rooms').doc(roomId).set({
+        'roomId': roomId,
         'roomName': roomName,
         'roomType': roomType,
         'adminId': uid,
         'createdAt': FieldValue.serverTimestamp(),
-        'activeUsers': [],
         'isLive': true,
+      }, SetOptions(merge: true)); // merge: true দিলে ডাটা হারাবে না
+      
+      // ইউজারের প্রোফাইলে আপডেট
+      await _firestore.collection('users').doc(uid).update({
+        'currentRoomId': roomId,
+        'currentRoomName': roomName,
       });
       
-      // ইউজারের প্রোফাইলেও আপডেট করে দেওয়া যে সে এখন এই রুমে আছে
-      await _firestore.collection('users').doc(uid).update({
-        'currentRoom': roomName,
-      });
+      print("✅ Room Saved Successfully for ID: $roomId");
     } catch (e) {
-      print("Room Save Error: $e");
+      print("❌ Room Save Error: $e");
     }
   }
 
-  // ২. ইউজার রুমে ঢুকলে বা সিটে বসলে ডাটা আপডেট
+  // ✅ ২. ইউজার সিটে বসলে বা জয়েন করলে আপডেট
   Future<void> joinRoom(String roomId, String userName) async {
     String uid = _auth.currentUser?.uid ?? "";
-    
-    await _firestore.collection('rooms').doc(roomId).update({
-      'activeUsers': FieldValue.arrayUnion([
-        {'uid': uid, 'name': userName, 'joinedAt': DateTime.now().toString()}
-      ])
-    });
+    if (uid.isEmpty) return;
+
+    try {
+      await _firestore.collection('rooms').doc(roomId).update({
+        'activeUsers': FieldValue.arrayUnion([
+          {
+            'uid': uid, 
+            'name': userName, 
+            'joinedAt': DateTime.now().toIso8601String(),
+          }
+        ])
+      });
+    } catch (e) {
+      print("❌ Join Room Error: $e");
+    }
   }
 
-  // ৩. রুম থেকে বের হয়ে গেলে ডাটা ক্লিয়ার করা
+  // ✅ ৩. রুম থেকে বের হয়ে গেলে ডাটা ক্লিয়ার করা
   Future<void> leaveRoom(String roomId) async {
     String uid = _auth.currentUser?.uid ?? "";
-    
-    // ইউজার লিস্ট থেকে রিমুভ করা
-    await _firestore.collection('rooms').doc(roomId).update({
-      'activeUsers': FieldValue.arrayRemove([uid]) // এটি আপনার লজিক অনুযায়ী ম্যাপ রিমুভ করতে হবে
-    });
+    if (uid.isEmpty) return;
 
-    await _firestore.collection('users').doc(uid).update({
-      'currentRoom': "",
-    });
+    try {
+      // ইউজার প্রোফাইল আপডেট
+      await _firestore.collection('users').doc(uid).update({
+        'currentRoomId': "",
+        'currentRoomName': "",
+      });
+      print("✅ Left Room successfully");
+    } catch (e) {
+      print("❌ Leave Room Error: $e");
+    }
   }
 }
