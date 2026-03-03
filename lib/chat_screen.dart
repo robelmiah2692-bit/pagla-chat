@@ -27,9 +27,10 @@ class _ChatScreenState extends State<ChatScreen> {
     String message = _messageController.text.trim();
     _messageController.clear();
 
-    // ইউজারের রিয়েল প্রোফাইল ডাটা নিয়ে আসা
+    // ইউজারের রিয়েল ডাটাবেস থেকে ছবি ও নাম নেওয়া
     var userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUserId).get();
     String myPic = userDoc.data()?['imageURL'] ?? ''; 
+    String myName = userDoc.data()?['name'] ?? 'User';
 
     await FirebaseFirestore.instance
         .collection('chats')
@@ -37,6 +38,7 @@ class _ChatScreenState extends State<ChatScreen> {
         .collection('messages')
         .add({
       'senderId': currentUserId,
+      'senderName': myName,
       'senderImage': myPic, 
       'receiverId': widget.receiverId,
       'message': message,
@@ -44,7 +46,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  // ছবিতে ক্লিক করলে প্রোফাইল কার্ড দেখার মেইন ফাংশন
+  // ছবিতে ক্লিক করলে প্রোফাইল দেখার মেইন ফাংশন
   void _showLocalUserProfile(BuildContext context, String userId) {
     showModalBottomSheet(
       context: context,
@@ -60,6 +62,8 @@ class _ChatScreenState extends State<ChatScreen> {
           String pic = userData['imageURL'] ?? '';
           bool isVIP = userData['isVIP'] ?? false;
           bool hasPremium = userData['hasPremiumCard'] ?? false;
+          List followerList = userData['followerList'] ?? [];
+          bool isFollowing = followerList.contains(currentUserId);
 
           return Container(
             padding: const EdgeInsets.all(25),
@@ -70,6 +74,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // ১. প্রোফাইল পিকচার ও ফ্রেম
                 Stack(
                   alignment: Alignment.center,
                   children: [
@@ -85,6 +90,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ],
                 ),
                 const SizedBox(height: 10),
+                // ২. নাম ও ব্যাজ
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -94,6 +100,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ],
                 ),
                 const SizedBox(height: 15),
+                // ৩. ফলোয়ার সংখ্যা (রিয়েল টাইম কাউন্ট)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -102,16 +109,18 @@ class _ChatScreenState extends State<ChatScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
+                // ৪. বাটন
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     if (userId != currentUserId)
                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, shape: const StadiumBorder()),
-                        onPressed: () {
-                          // ফলো লজিক এখানে হবে
-                        },
-                        child: const Text("Follow"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isFollowing ? Colors.grey : Colors.pinkAccent,
+                          shape: const StadiumBorder()
+                        ),
+                        onPressed: () => _toggleFollow(userId, isFollowing),
+                        child: Text(isFollowing ? "Unfollow" : "Follow"),
                       ),
                     const SizedBox(width: 15),
                     ElevatedButton(
@@ -127,6 +136,20 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       ),
     );
+  }
+
+  // ফলো লজিক যা ডাটাবেসে সেভ হবে
+  void _toggleFollow(String targetUid, bool isFollowing) async {
+    var myRef = FirebaseFirestore.instance.collection('users').doc(currentUserId);
+    var targetRef = FirebaseFirestore.instance.collection('users').doc(targetUid);
+
+    if (isFollowing) {
+      await targetRef.update({'followers': FieldValue.increment(-1), 'followerList': FieldValue.arrayRemove([currentUserId])});
+      await myRef.update({'following': FieldValue.increment(-1)});
+    } else {
+      await targetRef.update({'followers': FieldValue.increment(1), 'followerList': FieldValue.arrayUnion([currentUserId])});
+      await myRef.update({'following': FieldValue.increment(1)});
+    }
   }
 
   Widget _buildStatCol(String label, int count) {
