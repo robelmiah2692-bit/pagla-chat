@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart'; 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // ফায়ারবেস ইমপোর্ট যোগ করা হয়েছে
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'main.dart'; 
 
@@ -14,7 +14,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // --- আপনার অরিজিনাল ডাটা ---
+  // --- ডাটা রিস্টোর ---
   String userImageURL = ""; 
   String userName = "পাগলা ইউজার";
   String uIDValue = "885522"; 
@@ -22,16 +22,16 @@ class _ProfilePageState extends State<ProfilePage> {
   String gender = "পুরুষ"; 
   int age = 22; 
   int diamonds = 200; 
-  int xp = 2500; 
+  int xp = 0; // আপনার কথামতো ০ থেকে শুরু হবে
   int followers = 0; 
   int following = 0;
   bool isFollowing = false;
-  bool hasPremiumCard = true; 
+  bool hasPremiumCard = false; 
   bool isVIP = false; 
   DateTime premiumExpiryDate = DateTime.now().add(const Duration(days: 30));
-  bool hasVip1Items = false; 
   DateTime lastLevelUpDate = DateTime.now(); 
 
+  // আপনার ২০টি রিয়েল অবতার লিস্ট
   final List<String> maleAvatars = [
     "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=200&v=1",
     "https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=200&v=2",
@@ -83,9 +83,10 @@ class _ProfilePageState extends State<ProfilePage> {
     if (xp >= 9000)  return 3;
     if (xp >= 5000)  return 2;
     if (xp >= 2500)  return 1;
-    return 0; 
+    return 0; // শুরুতে ০ লেভেল দেখাবে
   }
 
+  // --- ফিচারের কাজসমূহ ---
   void _editName() {
     TextEditingController _nameController = TextEditingController(text: userName);
     showDialog(context: context, builder: (context) => AlertDialog(
@@ -97,6 +98,7 @@ class _ProfilePageState extends State<ProfilePage> {
         TextButton(onPressed: () async {
           String uid = FirebaseAuth.instance.currentUser!.uid;
           await FirebaseFirestore.instance.collection('users').doc(uid).update({'name': _nameController.text});
+          setState(() => userName = _nameController.text); // তৎক্ষণাৎ নাম পরিবর্তন হবে
           Navigator.pop(context);
         }, child: const Text("সেভ", style: TextStyle(color: Colors.pinkAccent))),
       ],
@@ -107,7 +109,12 @@ class _ProfilePageState extends State<ProfilePage> {
     showDialog(context: context, builder: (ctx) => AlertDialog(
       backgroundColor: const Color(0xFF1E1E2F),
       title: const Text("আপনার বয়স কত?", style: TextStyle(color: Colors.white)),
-      content: SizedBox(height: 200, width: double.maxFinite, child: ListView.builder(itemCount: 40, itemBuilder: (context, index) => ListTile(title: Text("${index + 15} বছর", style: const TextStyle(color: Colors.white)), onTap: () { setState(() => age = index + 15); Navigator.pop(context); }))),
+      content: SizedBox(height: 200, width: double.maxFinite, child: ListView.builder(itemCount: 40, itemBuilder: (context, index) => ListTile(title: Text("${index + 15} বছর", style: const TextStyle(color: Colors.white)), onTap: () async {
+        String uid = FirebaseAuth.instance.currentUser!.uid;
+        await FirebaseFirestore.instance.collection('users').doc(uid).update({'age': index + 15});
+        setState(() => age = index + 15);
+        Navigator.pop(context);
+      }))),
     ));
   }
 
@@ -116,11 +123,14 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (context) => Column(mainAxisSize: MainAxisSize.min, children: [
         const Padding(padding: EdgeInsets.all(15), child: Text("সেটিংস", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
         ListTile(leading: const Icon(Icons.wc, color: Colors.pinkAccent), title: Text("লিঙ্গ পরিবর্তন (বর্তমান: $gender)", style: const TextStyle(color: Colors.white)),
-          trailing: PopupMenuButton<String>(color: const Color(0xFF1E1E2F), onSelected: (val) => setState(() => gender = val),
-            itemBuilder: (ctx) => [const PopupMenuItem(value: "পুরুষ", child: Text("পুরুষ", style: TextStyle(color: Colors.white))), const PopupMenuItem(value: "নারী", child: Text("নারী", style: TextStyle(color: Colors.white)))]),
+          trailing: PopupMenuButton<String>(color: const Color(0xFF1E1E2F), onSelected: (val) async {
+            String uid = FirebaseAuth.instance.currentUser!.uid;
+            await FirebaseFirestore.instance.collection('users').doc(uid).update({'gender': val});
+            setState(() => gender = val);
+          }, itemBuilder: (ctx) => [const PopupMenuItem(value: "পুরুষ", child: Text("পুরুষ", style: TextStyle(color: Colors.white))), const PopupMenuItem(value: "নারী", child: Text("নারী", style: TextStyle(color: Colors.white)))]),
         ),
         ListTile(leading: const Icon(Icons.cake, color: Colors.orangeAccent), title: Text("বয়স পরিবর্তন (বর্তমান: $age)", style: const TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _showAgePicker(); }),
-        ListTile(leading: const Icon(Icons.logout, color: Colors.redAccent), title: const Text("লগ আউট", style: TextStyle(color: Colors.redAccent)), onTap: () { Navigator.pop(context); FirebaseAuth.instance.signOut(); }),
+        ListTile(leading: const Icon(Icons.logout, color: Colors.redAccent), title: const Text("লগ আউট", style: TextStyle(color: Colors.redAccent)), onTap: () { FirebaseAuth.instance.signOut(); Navigator.pop(context); }),
         const SizedBox(height: 20),
       ]));
   }
@@ -140,7 +150,17 @@ class _ProfilePageState extends State<ProfilePage> {
     showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Wrap(children: [
         ListTile(leading: const Icon(Icons.face, color: Colors.blueAccent), title: const Text("২০টি রিয়েল অবতার (Free)", style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _showFreeAvatars(); }),
-        ListTile(leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), title: const Text("গ্যালারি থেকে ছবি", style: TextStyle(color: Colors.white)), onTap: () {}),
+        ListTile(leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), title: const Text("গ্যালারি থেকে ছবি", style: TextStyle(color: Colors.white)), onTap: () async {
+          if (hasPremiumCard || getVipLevel() >= 1) {
+             final ImagePicker picker = ImagePicker();
+             final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+             if (image != null) setState(() => userImageURL = image.path);
+             Navigator.pop(context);
+          } else {
+             Navigator.pop(context);
+             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("প্রিমিয়াম কার্ড বা VIP 1 প্রয়োজন!")));
+          }
+        }),
       ]));
   }
 
@@ -162,6 +182,7 @@ class _ProfilePageState extends State<ProfilePage> {
     showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), builder: (context) => Wrap(children: [
       ListTile(leading: const Icon(Icons.account_balance_wallet, color: Colors.pink), title: const Text("Bkash", style: TextStyle(color: Colors.white))),
       ListTile(leading: const Icon(Icons.money, color: Colors.orange), title: const Text("Nagad", style: TextStyle(color: Colors.white))),
+      ListTile(leading: const Icon(Icons.payment, color: Colors.blue), title: const Text("Google Pay", style: TextStyle(color: Colors.white))),
     ]));
   }
 
@@ -169,19 +190,26 @@ class _ProfilePageState extends State<ProfilePage> {
     showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E1E2F), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => DefaultTabController(length: 4, child: Container(height: MediaQuery.of(context).size.height * 0.7, padding: const EdgeInsets.all(10),
         child: Column(children: [
-          const TabBar(isScrollable: true, indicatorColor: Colors.amber, labelColor: Colors.amber, unselectedLabelColor: Colors.white54, tabs: [Tab(text: "Cards"), Tab(text: "Frames"), Tab(text: "Entry"), Tab(text: "Special")]),
+          const TabBar(isScrollable: true, indicatorColor: Colors.amber, tabs: [Tab(text: "Cards"), Tab(text: "Frames"), Tab(text: "Entry"), Tab(text: "Special")]),
           Expanded(child: TabBarView(children: [_buildStoreCardTab(), const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54))), const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54))), const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54)))]))
         ]))));
   }
 
   Widget _buildStoreCardTab() {
     return Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.network("https://i.ibb.co/3ykC7mP/premium-card.jpg", height: 150, width: 220, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.card_membership, size: 100, color: Colors.amber))),
+      ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.network("https://i.ibb.co/3ykC7mP/premium-card.jpg", height: 150, width: 220, fit: BoxFit.cover)),
       const SizedBox(height: 10),
       const Text("Pagla Premium Card", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
       const Text("মুল্য: ৬,০০০ ডায়মন্ড", style: TextStyle(color: Colors.cyanAccent)),
       const SizedBox(height: 15),
-      ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent), onPressed: () {}, child: const Text("BUY NOW")),
+      ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent), onPressed: () {
+        if (diamonds >= 6000) {
+          setState(() { diamonds -= 6000; hasPremiumCard = true; });
+          Navigator.pop(context);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("পর্যাপ্ত ডায়মন্ড নেই!")));
+        }
+      }, child: const Text("BUY NOW")),
     ]);
   }
 
@@ -190,8 +218,17 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (context) => DefaultTabController(length: 4, child: Container(height: MediaQuery.of(context).size.height * 0.7, padding: const EdgeInsets.all(10),
         child: Column(children: [
           const TabBar(isScrollable: true, indicatorColor: Colors.pinkAccent, tabs: [Tab(text: "My Cards"), Tab(text: "My Frames"), Tab(text: "Effects"), Tab(text: "Others")]),
-          Expanded(child: TabBarView(children: [const Center(child: Text("খালি", style: TextStyle(color: Colors.white))), const Center(child: Text("খালি", style: TextStyle(color: Colors.white))), const Center(child: Text("খালি", style: TextStyle(color: Colors.white))), const Center(child: Text("খালি", style: TextStyle(color: Colors.white)))]))
+          Expanded(child: TabBarView(children: [_buildMyCardsTab(), const Center(child: Text("খালি", style: TextStyle(color: Colors.white))), const Center(child: Text("খালি", style: TextStyle(color: Colors.white))), const Center(child: Text("খালি", style: TextStyle(color: Colors.white)))]))
         ]))));
+  }
+
+  Widget _buildMyCardsTab() {
+    if (!hasPremiumCard) return const Center(child: Text("আপনার কাছে কোনো কার্ড নেই", style: TextStyle(color: Colors.white54)));
+    return ListTile(
+      leading: const Icon(Icons.card_membership, color: Colors.amber, size: 40),
+      title: const Text("Pagla Chat Premium", style: TextStyle(color: Colors.white)),
+      trailing: ElevatedButton(onPressed: () { setState(() => isVIP = true); Navigator.pop(context); }, child: const Text("Wear")),
+    );
   }
 
   @override
@@ -210,6 +247,7 @@ class _ProfilePageState extends State<ProfilePage> {
           xp = userData['xp'] ?? xp;
           userImageURL = userData['profilePic'] ?? userImageURL;
           gender = userData['gender'] ?? gender;
+          hasPremiumCard = userData['hasPremium'] ?? hasPremiumCard;
         }
 
         int vipLevel = getVipLevel();
@@ -244,10 +282,13 @@ class _ProfilePageState extends State<ProfilePage> {
                 if (hasPremiumCard) Image.network(premiumBadgeUrl, width: 45, height: 45) else const SizedBox(width: 45),
               ])),
               const SizedBox(height: 20),
+              // ফলো, মেসেজ বাটন সব ফিরে এসেছে
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 _buildStat("Followers", followers),
                 const SizedBox(width: 25),
-                ElevatedButton(onPressed: () {}, style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent), child: const Text("Follow")),
+                ElevatedButton(onPressed: () => setState(() { isFollowing = !isFollowing; followers = isFollowing ? 1 : 0; }), style: ElevatedButton.styleFrom(backgroundColor: isFollowing ? Colors.blueGrey : Colors.pinkAccent), child: Text(isFollowing ? "Friend" : "Follow")),
+                const SizedBox(width: 10),
+                IconButton(icon: const Icon(Icons.mail, color: Colors.white), onPressed: () {}),
                 const SizedBox(width: 25),
                 _buildStat("Following", following),
               ]),
@@ -265,7 +306,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // --- এরর ফিক্স: এই সাপোর্টিং ফাংশনগুলো ফাইলে ছিল না ---
   Widget _buildStat(String label, int count) => Column(children: [Text("$count", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)), Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12))]);
 
   Widget _buildActionBox(String title, IconData icon, Color color, VoidCallback onTap) => GestureDetector(
