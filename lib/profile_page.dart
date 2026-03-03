@@ -30,34 +30,30 @@ class _ProfilePageState extends State<ProfilePage> {
   bool hasVip1Items = false; 
   DateTime lastLevelUpDate = DateTime.now(); 
 
-// ১০টি রিয়েলিস্টিক পুরুষ অবতার (Global & Fast)
-  final List<String> maleAvatars = [
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=John",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Max",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Peter",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Steve",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=James",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Robert",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Michael",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=David",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Richard",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Thomas",
+final List<String> maleAvatars = [
+    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1488161628813-04466f872be2?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1504257407762-124628d5334c?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop",
   ];
-
-  // ১০টি রিয়েলিস্টিক মহিলা অবতার (Global & Fast)
   final List<String> femaleAvatars = [
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Mary",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Anna",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Linda",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Elizabeth",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Susan",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Jessica",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Sarah",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Karen",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Lisa",
-    "https://api.dicebear.com/7.x/pixel-art/png?seed=Nancy",
+    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1531123897727-8f129e16fd3c?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1524250502761-1ac6f2e30d43?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1521119989659-a83eee488004?w=200&h=200&fit=crop",
+    "https://images.unsplash.com/photo-1489424731084-a5d8b219a5bb?w=200&h=200&fit=crop",
   ];
-  
   // VIP স্টিকার লিঙ্কসমূহ
   String getVipBadge(int level) {
     switch (level) {
