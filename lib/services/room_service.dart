@@ -5,68 +5,76 @@ class RoomService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // ✅ ১. নির্দিষ্ট Room ID অনুযায়ী ডাটাবেসে সেভ করা
-  Future<void> createRoom(String roomId, String roomName, String roomType) async {
+  // ✅ ১. রুমের সব ডাটা (নাম, ছবি, লক, ওয়ালপেপার) একসাথে সেভ রাখা
+  Future<void> updateRoomFullData({
+    required String roomId,
+    required String roomName,
+    required String roomImage,
+    required bool isLocked,
+    required String wallpaper,
+    required int followers,
+    required int totalDiamonds, // টপ রুম র‍্যাঙ্কিংয়ের জন্য
+  }) async {
     String uid = _auth.currentUser?.uid ?? "";
     if (uid.isEmpty) return;
 
     try {
-      // এখানে .doc(uid) এর বদলে .doc(roomId) ব্যবহার করা হয়েছে
       await _firestore.collection('rooms').doc(roomId).set({
         'roomId': roomId,
         'roomName': roomName,
-        'roomType': roomType,
+        'roomImage': roomImage,
+        'isLocked': isLocked,
+        'wallpaper': wallpaper,
+        'followerCount': followers,
+        'totalDiamonds': totalDiamonds, // ডায়মন্ড অনুযায়ী টপ রুম লিস্ট হবে
         'adminId': uid,
-        'createdAt': FieldValue.serverTimestamp(),
         'isLive': true,
-      }, SetOptions(merge: true)); // merge: true দিলে ডাটা হারাবে না
+        'lastUpdated': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
       
-      // ইউজারের প্রোফাইলে আপডেট
-      await _firestore.collection('users').doc(uid).update({
-        'currentRoomId': roomId,
-        'currentRoomName': roomName,
-      });
-      
-      print("✅ Room Saved Successfully for ID: $roomId");
+      print("✅ Room Full Data Synced!");
     } catch (e) {
-      print("❌ Room Save Error: $e");
+      print("❌ Room Update Error: $e");
     }
   }
 
-  // ✅ ২. ইউজার সিটে বসলে বা জয়েন করলে আপডেট
-  Future<void> joinRoom(String roomId, String userName) async {
-    String uid = _auth.currentUser?.uid ?? "";
-    if (uid.isEmpty) return;
-
+  // ✅ ২. সিটে বসার সাথে সাথে প্রোফাইল ছবি ও নাম ডাটাবেসে সেভ করা
+  Future<void> updateSeatData({
+    required String roomId,
+    required int seatIndex,
+    required String uName,
+    required String uImage,
+    required bool isOccupied,
+  }) async {
     try {
       await _firestore.collection('rooms').doc(roomId).update({
-        'activeUsers': FieldValue.arrayUnion([
-          {
-            'uid': uid, 
-            'name': userName, 
-            'joinedAt': DateTime.now().toIso8601String(),
-          }
-        ])
+        'seats.$seatIndex': {
+          'userName': uName,
+          'userImage': uImage,
+          'isOccupied': isOccupied,
+          'uid': _auth.currentUser?.uid,
+          'at': DateTime.now().toIso8601String(),
+        }
       });
+      print("✅ Seat $seatIndex updated with profile!");
     } catch (e) {
-      print("❌ Join Room Error: $e");
+      print("❌ Seat Update Error: $e");
     }
   }
 
-  // ✅ ৩. রুম থেকে বের হয়ে গেলে ডাটা ক্লিয়ার করা
+  // ✅ ৩. ডায়মন্ড কাউন্ট আপডেট (টপ রুমের জন্য)
+  Future<void> updateDiamondCount(String roomId, int newDiamonds) async {
+    await _firestore.collection('rooms').doc(roomId).update({
+      'totalDiamonds': FieldValue.increment(newDiamonds),
+    });
+  }
+
+  // ✅ ৪. রুম থেকে বের হলে ইউজার প্রোফাইল ক্লিন করা
   Future<void> leaveRoom(String roomId) async {
     String uid = _auth.currentUser?.uid ?? "";
     if (uid.isEmpty) return;
-
-    try {
-      // ইউজার প্রোফাইল আপডেট
-      await _firestore.collection('users').doc(uid).update({
-        'currentRoomId': "",
-        'currentRoomName': "",
-      });
-      print("✅ Left Room successfully");
-    } catch (e) {
-      print("❌ Leave Room Error: $e");
-    }
+    await _firestore.collection('users').doc(uid).update({
+      'currentRoomId': "",
+    });
   }
 }
