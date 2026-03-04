@@ -106092,29 +106092,32 @@ case 2:return A.C(o.at(-1),r)}})
 return A.E($async$uw,r)}}
 A.asJ.prototype={
 F9(a,b){return this.aCh(a,b)},
-aCh(a,b){var s=0,r=A.F(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f,e
-var $async$F9=A.G(function(c,d){if(c===1){o.push(d)
-s=p}for(;;)switch(s){case 0:f=n.b.geJ()
-if(f==null){s=1
-break}p=4
-l=n.a
-l=A.dz(l,l.gcm().cL("stories"))
-k=f.a
-j=f.a.c.a.c
-if(j==null)j="User"
-i=f.a.c.a.d
-if(i==null)i=""
-h=$.qC().uR()
+aCh(a,b){var s=0,r=A.F(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f,e,d,c
+var $async$F9=A.G(function(a0,a1){if(a0===1){o.push(a1)
+s=p}for(;;)switch(s){case 0:d=n.b.geJ()
+if(d==null){s=1
+break}j=d.a.c.a.c
+if(j==null){j=d.a.c.a.b
+j=j==null?null:j.split("@")[0]
+i=j}else i=j
+m=i==null?"\u09aa\u09be\u0997\u09b2\u09be \u0987\u0989\u099c\u09be\u09b0":i
+h=d.a.c.a.d
+l=h==null?"":h
+p=4
+j=n.a
+j=A.dz(j,j.gcm().cL("stories"))
+g=d.a
+f=$.qC().uR()
 s=7
-return A.A(l.E(0,A.aj(["userId",k.c.a.a,"userName",j,"userImage",i,"storyImage",a,"caption",b,"timestamp",new A.eO(h,h)],t.N,t.z)),$async$F9)
+return A.A(j.E(0,A.aj(["userId",g.c.a.a,"userName",m,"userImage",l,"storyImage",a,"caption",b,"timestamp",new A.eO(f,f)],t.N,t.z)),$async$F9)
 case 7:A.oj("Story Uploaded Successfully! \u2705")
 p=2
 s=6
 break
 case 4:p=3
-e=o.pop()
-m=A.af(e)
-A.oj("Upload Error: "+A.k(m))
+c=o.pop()
+k=A.af(c)
+A.oj("Upload Error: "+A.k(k))
 s=6
 break
 case 3:s=2
