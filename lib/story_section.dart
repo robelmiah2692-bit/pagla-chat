@@ -10,16 +10,11 @@ class StorySection extends StatelessWidget {
     return Container(
       height: 110,
       padding: const EdgeInsets.symmetric(vertical: 10),
-      // 🔥 StreamBuilder ব্যবহার করায় ডাটা আসার সাথে সাথে পেজ আপডেট হবে
       child: StreamBuilder<QuerySnapshot>(
-        stream: StoriesService().getStories(), // ডাটাবেস থেকে স্টোরি আনছে
+        stream: StoriesService().getStories(), 
         builder: (context, snapshot) {
-          // যদি লোড হতে দেরি হয়
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-          }
-
-          // যদি কোনো স্টোরি না থাকে
+          
+          // লোড হওয়ার সময় বা এরর থাকলে শুধু প্লাস বাটন দেখাবে
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return ListView(
               scrollDirection: Axis.horizontal,
@@ -49,7 +44,6 @@ class StorySection extends StatelessWidget {
     );
   }
 
-  // স্টোরি সার্কেল ডিজাইন
   Widget _buildStoryCircle(String userImg, String name) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -59,7 +53,7 @@ class StorySection extends StatelessWidget {
             padding: const EdgeInsets.all(2),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.pinkAccent, width: 2), // স্টোরি থাকলে বর্ডার দেখাবে
+              border: Border.all(color: Colors.pinkAccent, width: 2),
             ),
             child: CircleAvatar(
               radius: 28,
@@ -81,7 +75,6 @@ class StorySection extends StatelessWidget {
     );
   }
 
-  // নতুন স্টোরি যোগ করার বাটন
   Widget _buildAddStoryButton(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -95,11 +88,11 @@ class StorySection extends StatelessWidget {
                 child: Icon(Icons.person, color: Colors.white54, size: 30),
               ),
               Positioned(
-                bottom: 0,
-                right: 0,
+                bottom: 0, right: 0,
                 child: Container(
+                  padding: const EdgeInsets.all(2),
                   decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
-                  child: const Icon(Icons.add, color: Colors.white, size: 20),
+                  child: const Icon(Icons.add, color: Colors.white, size: 15),
                 ),
               ),
             ],
