@@ -106106,10 +106106,7 @@ l="\u09aa\u09be\u0997\u09b2\u09be \u0987\u0989\u099c\u09be\u09b0"
 k=""
 if(m.gtu()){h=m
 h=A.Yn(h.b.cC(0,"name"),h.a)
-if(h==null)h=a.a.c.a.c
-if(h==null){h=a.a.c.a.b
-h=h==null?null:h.split("@")[0]
-g=h}else g=h
+g=h==null?a.a.c.a.c:h
 l=g==null?"User":g
 h=m
 h=A.Yn(h.b.cC(0,"image"),h.a)
@@ -106127,7 +106124,7 @@ d=k
 c=$.qC().uS()
 s=8
 return A.A(i.E(0,A.aj(["userId",h.c.a.a,"userName",e,"userImage",d,"storyImage",a1,"caption",a2,"timestamp",new A.eO(c,c)],t.N,t.z)),$async$yz)
-case 8:A.ok("Story Uploaded with Real Profile Info! \u2705")
+case 8:A.ok("Story Uploaded Successfully! \u2705")
 p=2
 s=6
 break
