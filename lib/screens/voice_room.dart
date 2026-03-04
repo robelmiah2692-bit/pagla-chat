@@ -160,7 +160,7 @@ void sitOnSeat(int index) {
 
   if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
 
-  // সুইচিং লজিক: আগের কোনো সিটে থাকলে সেটা ক্লিয়ার করা
+  // সুইচিং লজিক: আগের সিট সাথে সাথে ক্লিয়ার করা
   if (currentSeatIndex != -1) {
     int oldIndex = currentSeatIndex;
     _roomService.updateSeatData(roomId: widget.roomId, seatIndex: oldIndex, uName: "", uImage: "", isOccupied: false);
@@ -181,22 +181,26 @@ void sitOnSeat(int index) {
   Timer(const Duration(seconds: 3), () async {
     if (!mounted) return;
     try {
-      // 🔥 এখানে আর 'roomProfileImage' ব্যবহার করা হয়নি। 
-      // সরাসরি 'userProfilePic' (আপনার নিজের ছবি) পাঠানো হচ্ছে।
-      String myPic = userProfilePic; 
+      // 🔥 ফায়ারবেস থেকে কারেন্ট ইউজারের অরিজিনাল ডাটা আনা হচ্ছে
+      final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      
+      // আপনার ডাটাবেস অনুযায়ী 'name' এবং 'profilePic' ফিল্ড থেকে ডাটা আসবে
+      String myActualName = userDoc.data()?['name'] ?? "User"; 
+      String myActualPic = userDoc.data()?['profilePic'] ?? ""; // গ্যালারির ছবি বা অবতার যা প্রোফাইলে আছে
 
       await _roomService.updateSeatData(
         roomId: widget.roomId, 
         seatIndex: index,
-        uName: displayUserID, 
-        uImage: myPic, // ✅ সিটে আপনার নিজের ছবি যাবে
+        uName: myActualName, 
+        uImage: myActualPic, 
         isOccupied: true,
       );
 
       setState(() {
         seats[index]["status"] = "occupied";
-        seats[index]["userName"] = displayUserID;
-        seats[index]["userImage"] = myPic; // ✅ সিটে আপনার নিজের ছবি বসবে
+        seats[index]["userName"] = myActualName;
+        seats[index]["userImage"] = myActualPic; // ✅ সিটে আপনার প্রোফাইল ছবি বসবে
         seats[index]["isMicOn"] = true;
         isMicOn = true;
         currentSeatIndex = index;
