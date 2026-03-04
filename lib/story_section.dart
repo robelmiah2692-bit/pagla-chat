@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'stories_service.dart';
+import 'story_view_page.dart';
 
 class StorySection extends StatelessWidget {
   const StorySection({super.key});
@@ -11,31 +12,14 @@ class StorySection extends StatelessWidget {
       height: 120,
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: StreamBuilder<QuerySnapshot>(
-        // সরাসরি ফায়ারবেস কালেকশন থেকে ডাটা নিচ্ছি
         stream: FirebaseFirestore.instance.collection('stories').snapshots(), 
         builder: (context, snapshot) {
           
-          if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}", style: const TextStyle(color: Colors.red, fontSize: 10)));
-          }
-
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator(strokeWidth: 2));
           }
 
-          // ফায়ারবেস থেকে পাওয়া স্টোরি লিস্ট
           final docs = snapshot.data?.docs ?? [];
-
-          // যদি ডাটাবেসে ডাটা থাকে কিন্তু এখানে না দেখায়, তবে এই টেক্সটটি আসবে
-          if (docs.isEmpty) {
-             return ListView(
-               scrollDirection: Axis.horizontal,
-               children: [
-                 _buildAddStoryButton(context),
-                 const Center(child: Text("নো ডাটা ইন ফায়ারবেস", style: TextStyle(color: Colors.white54, fontSize: 10))),
-               ],
-             );
-          }
 
           return ListView.builder(
             scrollDirection: Axis.horizontal,
@@ -44,13 +28,13 @@ class StorySection extends StatelessWidget {
             itemBuilder: (context, index) {
               if (index == 0) return _buildAddStoryButton(context);
               
-              // ডাটাবেস থেকে তথ্য নেওয়া
               final data = docs[index - 1].data() as Map<String, dynamic>;
               
-              return _buildStoryCircle(
-                data['userImage'] ?? "", 
-                data['userName'] ?? "User",
-              );
+              // ডাটাবেস থেকে ইমেজ এবং নাম নেওয়া
+              final String userImg = data['userImage'] ?? "";
+              final String userName = data['userName'] ?? "User";
+              
+              return _buildStoryCircle(userImg, userName);
             },
           );
         },
@@ -71,10 +55,11 @@ class StorySection extends StatelessWidget {
             ),
             child: CircleAvatar(
               radius: 28,
-              backgroundColor: Colors.grey[900],
-              backgroundImage: userImg.isNotEmpty 
-                  ? NetworkImage(userImg) 
-                  : const NetworkImage("https://www.w3schools.com/howto/img_avatar.png"),
+              backgroundColor: Colors.grey[800],
+              // 🔥 এখানে চেক করা হচ্ছে ছবি আছে কি না
+              backgroundImage: (userImg.isNotEmpty && userImg.startsWith('http'))
+                  ? NetworkImage(userImg)
+                  : const NetworkImage("https://www.w3schools.com/howto/img_avatar.png"), // ছবি না থাকলে এই লিঙ্কের ছবি দেখাবে
             ),
           ),
           const SizedBox(height: 6),
