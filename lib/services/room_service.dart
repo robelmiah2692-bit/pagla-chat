@@ -5,7 +5,7 @@ class RoomService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // 1️⃣ রুম ডাটা সেভ (Web এর জন্য Map কাস্টিং নিরাপদ করা হয়েছে)
+  // 1️⃣ রুমের সব ডাটা সেভ রাখা
   Future<void> updateRoomFullData({
     required String roomId,
     required String roomName,
@@ -37,7 +37,7 @@ class RoomService {
     }
   }
 
-  // 2️⃣ সিট আপডেট (Dot notation 'seats.index' ওয়েবে পারফেক্ট কাজ করে)
+  // 2️⃣ সিটে বসার পর ডাটা আপডেট করা
   Future<void> updateSeatData({
     required String roomId,
     required int seatIndex,
@@ -61,13 +61,13 @@ class RoomService {
     }
   }
 
-  // 3️⃣ ইউজার ডায়মন্ড স্ট্রিম
+  // 3️⃣ ইউজার ডায়মন্ড ব্যালেন্স স্ট্রিম
   Stream<DocumentSnapshot> getUserDiamonds() {
     final String uid = _auth.currentUser?.uid ?? "";
     return _firestore.collection('users').doc(uid).snapshots();
   }
 
-  // 4️⃣ গিফট লজিক (ওয়েবে ডাটা রিড করার সময় টাইপ কাস্টিং ফিক্স করা হয়েছে)
+  // 4️⃣ গিফট লজিক
   Future<bool> sendGift({
     required String roomId,
     required int giftValue,
@@ -78,17 +78,16 @@ class RoomService {
 
     try {
       final DocumentSnapshot userDoc = await _firestore.collection('users').doc(senderUid).get();
-      
-      // ওয়েবে ডাটা রিড করার নিরাপদ উপায়
       final Map<String, dynamic>? userData = userDoc.data() as Map<String, dynamic>?;
       final int currentBalance = userData?['diamonds'] ?? 0;
 
       if (currentBalance >= giftValue) {
-        // ট্রানজ্যাকশন ছাড়াই আপডেট (ওয়েবে এটি দ্রুত কাজ করে)
+        // প্রোফাইল থেকে মাইনাস
         await _firestore.collection('users').doc(senderUid).update({
           'diamonds': FieldValue.increment(-giftValue),
         });
 
+        // রুমে প্লাস
         await _firestore.collection('rooms').doc(roomId).update({
           'totalDiamonds': FieldValue.increment(giftValue),
         });
@@ -107,7 +106,7 @@ class RoomService {
     }
   }
 
-  // 5️⃣ রুম লিভ করা
+  // 5️⃣ রুম থেকে বের হলে ডাটা আপডেট
   Future<void> leaveRoom(String roomId) async {
     final String uid = _auth.currentUser?.uid ?? "";
     if (uid.isEmpty) return;
