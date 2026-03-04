@@ -160,40 +160,43 @@ class _VoiceRoomState extends State<VoiceRoom> {
       seats[index]["isOccupied"] = true;
     });
 
-    // 🔥 এখানে ৩ সেকেন্ডের টাইমার শুরু
+    // 🔥 ৩ সেকেন্ডের টাইমার শুরু
     Timer(const Duration(seconds: 3), () async {
-      if (mounted) {
-        try {
-          await _roomService.updateSeatData(
-          roomId: widget.roomId, seatIndex: index,
-          uName: displayUserID, uImage: roomProfileImage, isOccupied: true,
+      if (!mounted) return;
+      try {
+        // ১. ডাটাবেসে সিট আপডেট
+        await _roomService.updateSeatData(
+          roomId: widget.roomId, 
+          seatIndex: index,
+          uName: displayUserID, 
+          uImage: roomProfileImage, 
+          isOccupied: true,
         );
-          setState(() {
-            seats[index]["status"] = "occupied";
-            seats[index]["userName"] = displayUserID;
-            // আপনার রিয়েল অবতার লজিক অনুযায়ী ফিউচারে এখানে ছবি বসবে
-            seats[index]["userImage"] = "https://api.dicebear.com/7.x/avataaars/svg?seed=$displayUserID$index";
-            seats[index]["isMicOn"] = true;
-            isMicOn = true;
-            currentSeatIndex = index;
-          });
-          
-          // ২. আইডি আইডেন্টিফিকেশন (হৃদয় ভাই চেক)
-          if (displayUserID == "Hridoy") {
-             print("Owner Identified: Welcome Hridoy!");
-          }
-          
-        } catch (e) {
-          // কোনো কারণে ডাটাবেসে এরর হলে সিট ক্লিয়ার করে দেওয়া
+
+        setState(() {
+          seats[index]["status"] = "occupied";
+          seats[index]["userName"] = displayUserID;
+          // প্রোফাইল ইমেজ থাকলে সেটা বসবে, না থাকলে ডামি বসবে
+          seats[index]["userImage"] = roomProfileImage.isNotEmpty ? roomProfileImage : 
+              "https://api.dicebear.com/7.x/avataaars/svg?seed=$displayUserID$index";
+          seats[index]["isMicOn"] = true;
+          isMicOn = true;
+          currentSeatIndex = index;
+        });
+
+        // ২. আইডি আইডেন্টিফিকেশন (হৃদয় ভাই চেক)
+        if (displayUserID == "Hridoy") print("Owner Identified: Welcome Hridoy!");
+
+      } catch (e) {
+        if (mounted) {
           setState(() {
             seats[index]["status"] = "empty";
             seats[index]["isOccupied"] = false;
           });
-          print("Error sitting on seat: $e");
         }
+        print("Error sitting on seat: $e");
       }
-    });
-  }
+    }); // এই ব্র্যাকেটটি ঠিকমতো ক্লোজ হয়েছে কিনা চেক করুন
   
   void _showLeaveConfirmation(int index) {
     showDialog(
