@@ -48,7 +48,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String roomName = "পাগলা চ্যাট রুম";
   int followerCount = 0;
   String roomProfileImage = '';
-  bool isFollowed = false; 
+  bool isFollowing = false;
   int activeEmojiSeatIndex = -1; 
   bool isRoomLocked = false; 
   String roomWallpaperPath = ''; 
@@ -92,7 +92,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
       onFinished: () => _endPKBattle(),
     );
 
-    // ✅ এটি initState এর ভেতরেই থাকবে
+    // 🔥 এখান থেকে ডাটা লোড শুরু
+    FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
+      if (doc.exists && mounted) {
+        setState(() {
+          roomName = doc.data()?['roomName'] ?? roomName;
+          roomProfileImage = doc.data()?['roomImage'] ?? roomProfileImage;
+          followerCount = doc.data()?['followers'] ?? 0;
+        });
+      }
+    });
+
+    // এটি আপনার আগের কোড, যেমন আছে তেমনই থাকবে
     _roomService.updateRoomFullData(
       roomId: widget.roomId,
       roomName: roomName,
@@ -102,7 +113,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
       followers: followerCount,
       totalDiamonds: 0,
     );
-  } // <--- initState এখানে শেষ
+  }
   
   @override
   void dispose() {
@@ -326,7 +337,7 @@ void _showLeaveConfirmation(int index) {
             onTap: () => RoomProfileHandler.pickRoomImage(
               onImagePicked: (p) {
                 setState(() => roomProfileImage = p);
-                // 🔥 ডাটাবেসে ছবি সেভ (merge: true থাকায় অন্য ডাটা হারাবে না)
+                // 🔥 ডাটাবেসে ছবি সেভ
                 _roomService.updateRoomFullData(
                   roomId: widget.roomId,
                   roomName: roomName,
@@ -376,14 +387,24 @@ void _showLeaveConfirmation(int index) {
             ),
           ),
 
-          // ➕ ফলোয়ার বাটন (যা আপনি চেয়েছিলেন - কাউন্ট বাড়িয়ে সেভ করবে)
+          // ➕ ফলোয়ার বাটন (Toggle Logic: একবার ক্লিক করলে ফলো, আবার করলে আনফলো)
           IconButton(
-            icon: const Icon(Icons.person_add_alt_1, color: Colors.blueAccent, size: 20),
+            icon: Icon(
+              isFollowing ? Icons.check_circle : Icons.person_add_alt_1, // ফলো হলে টিক মার্ক
+              color: isFollowing ? Colors.greenAccent : Colors.blueAccent, 
+              size: 20
+            ),
             onPressed: () {
               setState(() {
-                followerCount++; // ১ জন ফলোয়ার বাড়লো
+                if (isFollowing) {
+                  followerCount--; // আনফলো করলে ১ কমবে
+                  isFollowing = false;
+                } else {
+                  followerCount++; // ফলো করলে ১ বাড়বে
+                  isFollowing = true;
+                }
               });
-              // 🔥 ফায়ারবেসে সাথে সাথে ফলোয়ার ডাটা সেভ
+              // 🔥 ফায়ারবেসে আপডেট
               _roomService.updateRoomFullData(
                 roomId: widget.roomId,
                 roomName: roomName,
