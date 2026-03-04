@@ -326,7 +326,7 @@ void _showLeaveConfirmation(int index) {
             onTap: () => RoomProfileHandler.pickRoomImage(
               onImagePicked: (p) {
                 setState(() => roomProfileImage = p);
-                // 🔥 ডাটাবেসে ছবি সেভ
+                // 🔥 ডাটাবেসে ছবি সেভ (merge: true থাকায় অন্য ডাটা হারাবে না)
                 _roomService.updateRoomFullData(
                   roomId: widget.roomId,
                   roomName: roomName,
@@ -375,7 +375,28 @@ void _showLeaveConfirmation(int index) {
               ],
             ),
           ),
-          IconButton(icon: const Icon(Icons.group, color: Colors.blueAccent), onPressed: () => FollowerListHandler.show(context, followerCount)),
+
+          // ➕ ফলোয়ার বাটন (যা আপনি চেয়েছিলেন - কাউন্ট বাড়িয়ে সেভ করবে)
+          IconButton(
+            icon: const Icon(Icons.person_add_alt_1, color: Colors.blueAccent, size: 20),
+            onPressed: () {
+              setState(() {
+                followerCount++; // ১ জন ফলোয়ার বাড়লো
+              });
+              // 🔥 ফায়ারবেসে সাথে সাথে ফলোয়ার ডাটা সেভ
+              _roomService.updateRoomFullData(
+                roomId: widget.roomId,
+                roomName: roomName,
+                roomImage: roomProfileImage,
+                isLocked: isRoomLocked,
+                wallpaper: roomWallpaperPath,
+                followers: followerCount,
+                totalDiamonds: 0,
+              );
+            },
+          ),
+
+          IconButton(icon: const Icon(Icons.group, color: Colors.white70), onPressed: () => FollowerListHandler.show(context, followerCount)),
           IconButton(icon: const Icon(Icons.settings, color: Colors.white70), onPressed: _showSettings),
         ],
       ),
