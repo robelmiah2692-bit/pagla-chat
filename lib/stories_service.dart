@@ -5,23 +5,23 @@ class StoriesService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // 🔥 স্টোরি আপলোড (রিয়েল প্রোফাইল ডাটা নিশ্চিত করা হয়েছে)
+  // 🔥 স্টোরি আপলোড
   Future<void> uploadStory(String imagePath, String text) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    // ইউজার যদি নাম সেট না করে থাকে, তবে তার ইমেইলের প্রথম অংশ নেওয়া হবে
+    // লগিন ইমেইলের নাম নিচ্ছে
     String name = user.displayName ?? user.email?.split('@')[0] ?? "পাগলা ইউজার";
     String profilePic = user.photoURL ?? "";
 
     try {
       await _firestore.collection('stories').add({
         'userId': user.uid,
-        'userName': name, // রিয়েল নাম
-        'userImage': profilePic, // রিয়েল প্রোফাইল পিকচার
-        'storyImage': imagePath, // স্টোরির মেইন বড় ছবি
+        'userName': name, 
+        'userImage': profilePic, 
+        'storyImage': imagePath, 
         'caption': text,
-        'timestamp': FieldValue.serverTimestamp(), // সার্ভার টাইম (ডাটা হারাবে না)
+        'timestamp': FieldValue.serverTimestamp(), 
       });
       print("Story Uploaded Successfully! ✅");
     } catch (e) {
@@ -29,12 +29,13 @@ class StoriesService {
     }
   }
 
-  // 🔥 ডাটা হারাবে না এবং সিরিয়াল ঠিক থাকবে
+  // 🔥 পোস্ট ফিরে পাওয়ার জন্য এই অংশটি খেয়াল করুন
   Stream<QuerySnapshot> getStories() {
-    // এখানে orderBy ব্যবহার করা জরুরি যাতে নতুন পোস্ট সবার উপরে থাকে
+    // আমি আপাতত orderBy অফ করে দিচ্ছি যাতে আপনার স্ক্রিনে পোস্টগুলো আবার চলে আসে
+    // ইনডেক্সিং এর ঝামেলা মিটলে পরে এটা অন করা যাবে
     return _firestore
         .collection('stories')
-        .orderBy('timestamp', descending: true) 
+        // .orderBy('timestamp', descending: true) // এই লাইনটির জন্যই পোস্ট আসছিল না
         .snapshots();
   }
 }
