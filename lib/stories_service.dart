@@ -5,8 +5,8 @@ class StoriesService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // 🔥 স্টোরি আপলোড (টাইমস্ট্যাম্প সহ)
-  Future<void> uploadStory(String imagePath) async {
+  // 🔥 স্টোরি আপলোড (ইমেজ এবং টেক্সট দুটোই গ্রহণ করবে)
+  Future<void> uploadStory(String imagePath, String text) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
@@ -16,7 +16,8 @@ class StoriesService {
         'userName': user.displayName ?? "User",
         'userImage': user.photoURL ?? "",
         'storyImage': imagePath,
-        'timestamp': FieldValue.serverTimestamp(), // এটি দিয়ে সিরিয়াল হবে
+        'caption': text, // 🔥 এখানে টেক্সট/ক্যাপশন সেভ হচ্ছে
+        'timestamp': FieldValue.serverTimestamp(), 
       });
       print("Story Uploaded Successfully! ✅");
     } catch (e) {
@@ -28,7 +29,7 @@ class StoriesService {
   Stream<QuerySnapshot> getStories() {
     return _firestore
         .collection('stories')
-        .orderBy('timestamp', descending: true) // নতুনগুলো টপে আসবে
+        .orderBy('timestamp', descending: true) 
         .snapshots();
   }
 }
