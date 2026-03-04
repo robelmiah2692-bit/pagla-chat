@@ -150,36 +150,28 @@ class _VoiceRoomState extends State<VoiceRoom> {
     setState(() => isPKActive = false);
   }
 
-  // --- ৩ সেকেন্ড কলিং লজিক ---
- void sitOnSeat(int index) {
-  // ১. একই সিটে ক্লিক করলে নামার অপশন
+// ১. সিটে বসার লজিক (নিজের প্রোফাইল ছবিসহ)
+void sitOnSeat(int index) {
   if (currentSeatIndex == index) { 
     _showLeaveConfirmation(index); 
     return; 
   }
 
-  // ২. বেসিক চেক (সিট খালি কি না)
   if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
 
-  // ৩. 🔥 অটো-লিভ: আপনি নতুন সিটে ক্লিক করার সাথে সাথে আগের সব সিট ডাটাবেস থেকে মুছে যাবে
+  // সুইচিং লজিক: আগের কোনো সিটে থাকলে সেটা ক্লিয়ার করা
   if (currentSeatIndex != -1) {
     int oldIndex = currentSeatIndex;
-    _roomService.updateSeatData(
-      roomId: widget.roomId, 
-      seatIndex: oldIndex, 
-      uName: "", 
-      uImage: "", 
-      isOccupied: false,
-    );
+    _roomService.updateSeatData(roomId: widget.roomId, seatIndex: oldIndex, uName: "", uImage: "", isOccupied: false);
     setState(() {
       seats[oldIndex]["isOccupied"] = false;
       seats[oldIndex]["status"] = "empty";
       seats[oldIndex]["userName"] = "";
       seats[oldIndex]["userImage"] = "";
+      seats[oldIndex]["isMicOn"] = false;
     });
   }
 
-  // ৪. নতুন সিটে কলিং শুরু (৩ সেকেন্ডের টাইমার)
   setState(() {
     seats[index]["status"] = "calling";
     seats[index]["isOccupied"] = true;
@@ -188,57 +180,71 @@ class _VoiceRoomState extends State<VoiceRoom> {
   Timer(const Duration(seconds: 3), () async {
     if (!mounted) return;
     try {
-      // ৫. 🔥 এখানে 'roomProfileImage' (রুমের লোগো) নয়, ইউজারের নিজের ছবি যাবে
-      // ইউজার গ্যালারি থেকে ছবি দিলে 'myPersonalAvatar' এ থাকবে, না থাকলে ডিফল্ট থাকবে
-      String finalImage = myPersonalAvatar; 
+      // 🔥 এখানে আর 'roomProfileImage' ব্যবহার করা হয়নি। 
+      // সরাসরি 'userProfilePic' (আপনার নিজের ছবি) পাঠানো হচ্ছে।
+      String myPic = userProfilePic; 
 
       await _roomService.updateSeatData(
         roomId: widget.roomId, 
         seatIndex: index,
         uName: displayUserID, 
-        uImage: finalImage, // ✅ ইউজারের গ্যালারি বা প্রোফাইল ছবি
+        uImage: myPic, // ✅ সিটে আপনার নিজের ছবি যাবে
         isOccupied: true,
       );
 
       setState(() {
         seats[index]["status"] = "occupied";
         seats[index]["userName"] = displayUserID;
-        seats[index]["userImage"] = finalImage;
+        seats[index]["userImage"] = myPic; // ✅ সিটে আপনার নিজের ছবি বসবে
         seats[index]["isMicOn"] = true;
         isMicOn = true;
-        currentSeatIndex = index; // এখন আপনার একটাই সিট থাকবে
+        currentSeatIndex = index;
       });
 
     } catch (e) {
-      if (mounted) {
-        setState(() { seats[index]["status"] = "empty"; seats[index]["isOccupied"] = false; });
-      }
+      if (mounted) setState(() { seats[index]["status"] = "empty"; seats[index]["isOccupied"] = false; });
     }
   });
 }
-  
-  void _showLeaveConfirmation(int index) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: const Text("সিট ছেড়ে দিন", style: TextStyle(color: Colors.white)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("না")),
-          TextButton(onPressed: () {
+
+// ২. সিট ছাড়ার লজিক (সব ডাটা মুছে ফেলা)
+void _showLeaveConfirmation(int index) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: Colors.grey[900],
+      title: const Text("সিট ছেড়ে দিন", style: TextStyle(color: Colors.white)),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text("না")),
+        TextButton(
+          onPressed: () async {
+            // ডাটাবেস থেকে সব ক্লিয়ার
+            await _roomService.updateSeatData(
+              roomId: widget.roomId,
+              seatIndex: index,
+              uName: "",
+              uImage: "",
+              isOccupied: false,
+            );
+
+            // স্ক্রিন থেকে সব ক্লিয়ার (মাইক, ছবি, নাম)
             setState(() {
               seats[index]["isOccupied"] = false;
               seats[index]["status"] = "empty";
-              seats[index]["isMicOn"] = false;
+              seats[index]["userName"] = "";
+              seats[index]["userImage"] = "";
+              seats[index]["isMicOn"] = false; // 🔥 নীল মাইক বন্ধ
               currentSeatIndex = -1;
               isMicOn = false;
             });
             Navigator.pop(context);
-          }, child: const Text("হ্যাঁ", style: TextStyle(color: Colors.redAccent))),
-        ],
-      ),
-    );
-  }
+          }, 
+          child: const Text("হ্যাঁ", style: TextStyle(color: Colors.redAccent))
+        ),
+      ],
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
