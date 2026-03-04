@@ -150,63 +150,61 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   // --- ৩ সেকেন্ড কলিং লজিক ---
-  // ১. ইউজারের নিজের ছবি রাখার জন্য ভেরিয়েবল (এটি ক্লাসের শুরুতে যোগ করুন)
-  String userProfilePic = "https://api.dicebear.com/7.x/avataaars/svg?seed=user"; 
+ void sitOnSeat(int index) {
+  // ১. একই সিটে ক্লিক করলে নামার অপশন
+  if (currentSeatIndex == index) { 
+    _showLeaveConfirmation(index); 
+    return; 
+  }
 
-  void sitOnSeat(int index) {
-    // ২. একই সিটে ক্লিক করলে নামার অপশন
-    if (currentSeatIndex == index) { _showLeaveConfirmation(index); return; }
-    
-    // ৩. সিট বদলানোর লজিক (আগের সিট ক্লিয়ার করা)
-    if (currentSeatIndex != -1) {
-       int oldIndex = currentSeatIndex;
-       _roomService.updateSeatData(
-         roomId: widget.roomId, seatIndex: oldIndex, 
-         uName: "", uImage: "", isOccupied: false,
-       );
-       setState(() {
-         seats[oldIndex]["status"] = "empty";
-         seats[oldIndex]["isOccupied"] = false;
-       });
-    }
+  // ২. সিট খালি না থাকলে বা লক থাকলে রিটার্ন
+  if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
 
-    // ৪. কলিং ফিচার (৩ সেকেন্ডের টাইমার)
+  // ৩. 🔥 আগের সিট অটোমেটিক খালি করা (যাতে একসাথে দুই সিটে না দেখায়)
+  if (currentSeatIndex != -1) {
+    int oldIndex = currentSeatIndex;
+    _roomService.updateSeatData(
+      roomId: widget.roomId, seatIndex: oldIndex, uName: "", uImage: "", isOccupied: false,
+    );
     setState(() {
-      seats[index]["status"] = "calling";
-      seats[index]["isOccupied"] = true;
-    });
-
-    Timer(const Duration(seconds: 3), () async {
-      if (!mounted) return;
-      try {
-        // ৫. ডাটাবেসে ইউজারের নিজের নাম ও নিজের ছবি (userProfilePic) পাঠানো
-        await _roomService.updateSeatData(
-          roomId: widget.roomId, 
-          seatIndex: index,
-          uName: displayUserID, 
-          uImage: userProfilePic, // ✅ এখন আর রুমের ছবি যাবে না
-          isOccupied: true,
-        );
-
-        setState(() {
-          seats[index]["status"] = "occupied";
-          seats[index]["userName"] = displayUserID;
-          seats[index]["userImage"] = userProfilePic; // ✅ সিটে নিজের ছবি বসবে
-          seats[index]["isMicOn"] = true;
-          isMicOn = true;
-          currentSeatIndex = index;
-        });
-
-      } catch (e) {
-        if (mounted) {
-          setState(() {
-            seats[index]["status"] = "empty";
-            seats[index]["isOccupied"] = false;
-          });
-        }
-      }
+      seats[oldIndex]["isOccupied"] = false;
+      seats[oldIndex]["status"] = "empty";
     });
   }
+
+  // ৪. নতুন সিটে কলিং শুরু
+  setState(() {
+    seats[index]["status"] = "calling";
+    seats[index]["isOccupied"] = true;
+  });
+
+  Timer(const Duration(seconds: 3), () async {
+    if (!mounted) return;
+    try {
+      // ✅ এখানে কোনো ডামি লিংক নেই, ইউজারের প্রোফাইলে যা আছে তাই যাবে
+      String myPic = roomProfileImage; 
+
+      await _roomService.updateSeatData(
+        roomId: widget.roomId, 
+        seatIndex: index,
+        uName: displayUserID, 
+        uImage: myPic, 
+        isOccupied: true,
+      );
+
+      setState(() {
+        seats[index]["status"] = "occupied";
+        seats[index]["userName"] = displayUserID;
+        seats[index]["userImage"] = myPic;
+        seats[index]["isMicOn"] = true;
+        isMicOn = true;
+        currentSeatIndex = index;
+      });
+    } catch (e) {
+      print("Error: $e");
+    }
+  });
+}
   
   void _showLeaveConfirmation(int index) {
     showDialog(
