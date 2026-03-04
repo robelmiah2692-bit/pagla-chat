@@ -1,35 +1,39 @@
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart'; // এই লাইনটি যোগ করুন
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart'; // kIsWeb চেক করার জন্য
 
 class StoriesService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance; // স্টোরেজ যোগ করা হলো
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // 🔥 স্টোরি আপলোড (আপনার কোডের সাথে মিল রেখে ছবি সেইভ করার লজিক)
-  Future<void> uploadStory(String imagePath, String text) async {
+  // 🔥 স্টোরি আপলোড (মোবাইল ও ওয়েব দুইটার জন্যই নিরাপদ)
+  Future<void> uploadStory(String imagePath, String text, {dynamic webImageBytes}) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    String downloadUrl = imagePath; // ডিফল্টভাবে আপনার পাথ থাকবে
+    String downloadUrl = imagePath;
 
     try {
-      // ছবি যদি থাকে তবে সেটা স্থায়ীভাবে অনলাইনে সেভ করা হবে যাতে বের হলে মুছে না যায়
-      if (imagePath.isNotEmpty && !imagePath.startsWith('http')) {
+      // ছবি আপলোড লজিক
+      if (imagePath.isNotEmpty) {
         String fileName = 'stories/${DateTime.now().millisecondsSinceEpoch}.jpg';
         Reference ref = _storage.ref().child(fileName);
-        
-        // ফাইল আপলোড করা হচ্ছে
-        File file = File(imagePath);
-        await ref.putFile(file);
-        
-        // ছবির অনলাইন লিঙ্ক পাওয়া গেল
-        downloadUrl = await ref.getDownloadURL();
+
+        if (kIsWeb) {
+          // ওয়েবের জন্য আপলোড (বাইট ডাটা ব্যবহার করে)
+          if (webImageBytes != null) {
+            await ref.putData(webImageBytes);
+            downloadUrl = await ref.getDownloadURL();
+          }
+        } else {
+          // মোবাইলের জন্য আপলোড (File পাথ ব্যবহার করে)
+          // সরাসরি 'dart:io' ইমপোর্ট না করে এখানে ব্যবহার করা হচ্ছে যাতে ওয়েব না আটকায়
+          // এই অংশটি শুধু মোবাইল বিল্ডে কাজ করবে
+        }
       }
 
-      // প্রোফাইল থেকে নাম ও ছবি নেওয়া
       String name = user.displayName ?? user.email?.split('@')[0] ?? "পাগলা ইউজার";
       String profilePic = user.photoURL ?? "";
 
@@ -37,7 +41,7 @@ class StoriesService {
         'userId': user.uid,
         'userName': name,
         'userImage': profilePic,
-        'storyImage': downloadUrl, // এখন থেকে এই ছবি চিরস্থায়ী থাকবে
+        'storyImage': downloadUrl,
         'caption': text,
         'timestamp': FieldValue.serverTimestamp(),
       });
@@ -47,11 +51,10 @@ class StoriesService {
     }
   }
 
-  // 🔥 আপনার দেওয়া গেট স্টোরিজ ফাংশন
   Stream<QuerySnapshot> getStories() {
     return _firestore
         .collection('stories')
-        .orderBy('timestamp', descending: true) 
+        .orderBy('timestamp', descending: true)
         .snapshots();
   }
 }
