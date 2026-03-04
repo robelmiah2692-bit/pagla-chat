@@ -39,6 +39,7 @@ class VoiceRoom extends StatefulWidget {
 class _VoiceRoomState extends State<VoiceRoom> {
  final RoomService _roomService = RoomService();
   // --- সব ভেরিয়েবল ---
+  String myPersonalAvatar = ""; // এটি ইউজারের নিজের প্রোফাইল ছবি
   bool isOwner = true; 
   String displayUserID = "Hridoy"; 
   String roomName = "পাগলা চ্যাট রুম";
@@ -157,22 +158,28 @@ class _VoiceRoomState extends State<VoiceRoom> {
     return; 
   }
 
-  // ২. সিট খালি না থাকলে বা লক থাকলে রিটার্ন
+  // ২. বেসিক চেক (সিট খালি কি না)
   if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
 
-  // ৩. 🔥 আগের সিট অটোমেটিক খালি করা (যাতে একসাথে দুই সিটে না দেখায়)
+  // ৩. 🔥 অটো-লিভ: আপনি নতুন সিটে ক্লিক করার সাথে সাথে আগের সব সিট ডাটাবেস থেকে মুছে যাবে
   if (currentSeatIndex != -1) {
     int oldIndex = currentSeatIndex;
     _roomService.updateSeatData(
-      roomId: widget.roomId, seatIndex: oldIndex, uName: "", uImage: "", isOccupied: false,
+      roomId: widget.roomId, 
+      seatIndex: oldIndex, 
+      uName: "", 
+      uImage: "", 
+      isOccupied: false,
     );
     setState(() {
       seats[oldIndex]["isOccupied"] = false;
       seats[oldIndex]["status"] = "empty";
+      seats[oldIndex]["userName"] = "";
+      seats[oldIndex]["userImage"] = "";
     });
   }
 
-  // ৪. নতুন সিটে কলিং শুরু
+  // ৪. নতুন সিটে কলিং শুরু (৩ সেকেন্ডের টাইমার)
   setState(() {
     seats[index]["status"] = "calling";
     seats[index]["isOccupied"] = true;
@@ -181,27 +188,31 @@ class _VoiceRoomState extends State<VoiceRoom> {
   Timer(const Duration(seconds: 3), () async {
     if (!mounted) return;
     try {
-      // ✅ এখানে কোনো ডামি লিংক নেই, ইউজারের প্রোফাইলে যা আছে তাই যাবে
-      String myPic = roomProfileImage; 
+      // ৫. 🔥 এখানে 'roomProfileImage' (রুমের লোগো) নয়, ইউজারের নিজের ছবি যাবে
+      // ইউজার গ্যালারি থেকে ছবি দিলে 'myPersonalAvatar' এ থাকবে, না থাকলে ডিফল্ট থাকবে
+      String finalImage = myPersonalAvatar; 
 
       await _roomService.updateSeatData(
         roomId: widget.roomId, 
         seatIndex: index,
         uName: displayUserID, 
-        uImage: myPic, 
+        uImage: finalImage, // ✅ ইউজারের গ্যালারি বা প্রোফাইল ছবি
         isOccupied: true,
       );
 
       setState(() {
         seats[index]["status"] = "occupied";
         seats[index]["userName"] = displayUserID;
-        seats[index]["userImage"] = myPic;
+        seats[index]["userImage"] = finalImage;
         seats[index]["isMicOn"] = true;
         isMicOn = true;
-        currentSeatIndex = index;
+        currentSeatIndex = index; // এখন আপনার একটাই সিট থাকবে
       });
+
     } catch (e) {
-      print("Error: $e");
+      if (mounted) {
+        setState(() { seats[index]["status"] = "empty"; seats[index]["isOccupied"] = false; });
+      }
     }
   });
 }
