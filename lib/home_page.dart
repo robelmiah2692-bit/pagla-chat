@@ -16,7 +16,6 @@ class _HomePageState extends State<HomePage> {
   XFile? _pickedImage;
   final TextEditingController _captionController = TextEditingController();
 
-  // গ্যালারি থেকে ছবি সিলেক্ট করা
   Future<void> _pickImage() async {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -30,7 +29,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // পোস্ট করার মডাল (ছবি এবং লেখা দুটোই থাকবে)
   void _showPostModal() {
     showModalBottomSheet(
       context: context,
@@ -55,8 +53,6 @@ class _HomePageState extends State<HomePage> {
                 style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 15),
-
-              // লেখালেখির অপশন (TextField)
               TextField(
                 controller: _captionController,
                 style: const TextStyle(color: Colors.white),
@@ -74,20 +70,25 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 15),
-
-              // ছবি সিলেক্ট করলে প্রিভিউ দেখাবে
+              
+              // ওয়েব বিল্ডে ইমেজের নাল সেফটি নিশ্চিত করা হয়েছে
               if (_pickedImage != null)
                 Container(
-                  height: 180,
+                  height: 150,
                   width: double.infinity,
                   margin: const EdgeInsets.only(bottom: 10),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.network(_pickedImage!.path, fit: BoxFit.cover),
+                    child: Image.network(
+                      _pickedImage!.path, 
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => const Center(
+                        child: Icon(Icons.broken_image, color: Colors.white24),
+                      ),
+                    ),
                   ),
                 ),
-
-              // ছবি সিলেক্ট করার বাটন
+                
               ListTile(
                 leading: const Icon(Icons.photo_library, color: Colors.greenAccent),
                 title: const Text("ছবি যোগ করুন", style: TextStyle(color: Colors.white)),
@@ -97,8 +98,6 @@ class _HomePageState extends State<HomePage> {
                 },
               ),
               const SizedBox(height: 10),
-
-              // আসল পোস্ট বাটন
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.pinkAccent,
@@ -106,11 +105,12 @@ class _HomePageState extends State<HomePage> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: () async {
-                  if (_pickedImage != null || _captionController.text.isNotEmpty) {
-                    // সার্ভিস কল করে ডাটাবেসে পাঠানো
+                  String text = _captionController.text.trim();
+                  if (_pickedImage != null || text.isNotEmpty) {
+                    // সার্ভিস কল
                     await StoriesService().uploadStory(
                       _pickedImage?.path ?? "",
-                      _captionController.text,
+                      text,
                     );
 
                     _captionController.clear();
@@ -126,8 +126,6 @@ class _HomePageState extends State<HomePage> {
                         backgroundColor: Colors.green,
                       ),
                     );
-                  } else {
-                    Navigator.pop(context);
                   }
                 },
                 child: const Text(
@@ -152,7 +150,6 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          // ওনার আইডেন্টিটি চেক (হৃদয় ভাই)
           if (AppConfig.isHridoy("885522"))
             const Padding(
               padding: EdgeInsets.only(right: 15),
@@ -167,9 +164,7 @@ class _HomePageState extends State<HomePage> {
       ),
       body: CustomScrollView(
         slivers: [
-          const SliverToBoxAdapter(
-            child: StorySection(),
-          ),
+          const SliverToBoxAdapter(child: StorySection()),
           SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) => _buildPostCard(index),
