@@ -11,40 +11,38 @@ class StorySection extends StatelessWidget {
       height: 120,
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: StreamBuilder<QuerySnapshot>(
+        // 🔥 নিশ্চিত করুন StoriesService().getStories() এ কোনো .orderBy নেই
         stream: StoriesService().getStories(), 
         builder: (context, snapshot) {
           
-          // ১. যদি কোনো এরর হয় (যেমন ইন্ডেক্স বা পারমিশন), তবে স্ক্রিনে দেখাবে
           if (snapshot.hasError) {
-            return Center(
-              child: Text("Error: ${snapshot.error}", 
-              style: const TextStyle(color: Colors.red, fontSize: 12))
-            );
+            return Center(child: Text("Error: ${snapshot.error}", style: const TextStyle(color: Colors.red, fontSize: 10)));
           }
 
-          // ২. ডাটা লোড হওয়ার সময় ছোট একটা লোডিং দেখাবে
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+            return const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.pinkAccent));
           }
 
-          // ৩. ডাটা আসুক বা না আসুক, লিস্টটা সব সময় তৈরি হবে
+          // স্টোরি ডাটা লিস্ট নেওয়া
           final stories = snapshot.data?.docs ?? [];
 
           return ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            itemCount: stories.length + 1, // বাটন + স্টোরি সংখ্যা
+            // ১টি বাটন সব সময় থাকবে + যতগুলো স্টোরি আছে
+            itemCount: stories.length + 1,
             itemBuilder: (context, index) {
               if (index == 0) return _buildAddStoryButton(context);
               
-              // ৪. ডাটা ম্যাপ করার সময় সতর্কতা
+              // ডাটাবেস থেকে পাওয়া ডকুমেন্ট
               final doc = stories[index - 1];
               final data = doc.data() as Map<String, dynamic>;
               
-              return _buildStoryCircle(
-                data['userImage'] ?? "", 
-                data['userName'] ?? "User",
-              );
+              // ডাটাবেসের ফিল্ডের নামগুলো চেক করে ডাটা নেওয়া
+              final String name = data['userName'] ?? "User";
+              final String userImg = data['userImage'] ?? "";
+              
+              return _buildStoryCircle(userImg, name);
             },
           );
         },
@@ -92,8 +90,7 @@ class StorySection extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            height: 60,
-            width: 60,
+            height: 60, width: 60,
             decoration: BoxDecoration(
               color: Colors.white10,
               shape: BoxShape.circle,
