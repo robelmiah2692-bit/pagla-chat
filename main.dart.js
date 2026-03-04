@@ -105419,7 +105419,7 @@ q=r.lg(0)
 q=q==null?null:q.h(0,"roomImage")
 s.z=q==null?s.z:q
 r=r.lg(0)
-r=r==null?null:r.h(0,"followers")
+r=r==null?null:r.h(0,"followerCount")
 s.y=r==null?0:r},
 $S:0}
 A.aGQ.prototype={
