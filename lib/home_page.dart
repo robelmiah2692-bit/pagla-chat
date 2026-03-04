@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'story_section.dart'; 
 import 'stories_service.dart'; 
 import 'app_config.dart';
+import 'post_card.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
