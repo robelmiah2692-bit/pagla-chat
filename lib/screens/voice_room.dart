@@ -422,7 +422,10 @@ void _showLeaveConfirmation(int index) {
       height: 300,
       child: GridView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 15),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, childAspectRatio: 0.7),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 5, 
+          childAspectRatio: 0.7,
+        ),
         itemCount: 15,
         itemBuilder: (context, index) {
           var seat = seats[index];
@@ -435,14 +438,39 @@ void _showLeaveConfirmation(int index) {
                   children: [
                     CircleAvatar(
                       radius: 24,
+                      // ✅ ফিচার ১: অকুপাইড হলে নীল, না হলে সাদাটে (ঠিক আছে)
                       backgroundColor: seat["isOccupied"] ? Colors.blueAccent : Colors.white10,
-                      backgroundImage: seat["userImage"].isNotEmpty ? NetworkImage(seat["userImage"]) : null,
-                      child: seat["status"] == "calling" ? const CircularProgressIndicator(strokeWidth: 2, color: Colors.white) : (seat["isOccupied"] ? null : Icon(seat["isVip"] ? Icons.stars : Icons.chair, color: Colors.white24)),
+                      
+                      // ✅ ফিচার ২: ইমেজ থাকলে নেটওয়ার্ক ইমেজ (ঠিক আছে)
+                      backgroundImage: (seat["userImage"] != null && seat["userImage"].toString().isNotEmpty) 
+                          ? NetworkImage(seat["userImage"]) 
+                          : null,
+                      
+                      // ✅ ফিচার ৩: কলিং এনিমেশন অথবা ভিআইপি/চেয়ার আইকন (ঠিক আছে)
+                      child: seat["status"] == "calling" 
+                          ? const CircularProgressIndicator(strokeWidth: 2, color: Colors.white) 
+                          : (seat["isOccupied"] 
+                              ? null 
+                              : Icon(seat["isVip"] ? Icons.stars : Icons.chair, color: Colors.white24)),
                     ),
-                    if (seat["isMicOn"]) Positioned(bottom: 0, right: 0, child: const Icon(Icons.mic, size: 12, color: Colors.greenAccent)),
+                    
+                    // ✅ ফিচার ৪: মাইক অন থাকলে আইকন (ঠিক আছে)
+                    if (seat["isMicOn"] == true) 
+                      Positioned(
+                        bottom: 0, 
+                        right: 0, 
+                        child: const Icon(Icons.mic, size: 12, color: Colors.greenAccent),
+                      ),
                   ],
                 ),
-                Text("${index + 1}", style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                
+                // 🔥 ফিচার ৫: নাম এবং সিট নাম্বার (এখানেই পরিবর্তন ছিল)
+                Text(
+                  seat["isOccupied"] ? (seat["userName"] ?? "") : "${index + 1}", 
+                  style: const TextStyle(color: Colors.white54, fontSize: 10),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           );
