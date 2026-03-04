@@ -87,18 +87,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
       onTick: (seconds) => setState(() => pkSeconds = seconds),
       onFinished: () => _endPKBattle(),
     );
-  }
-// ✅ একদম শেষে এই লাইনটি বসান
-  _roomService.updateRoomFullData(
-    roomId: widget.roomId,
-    roomName: roomName,
-    roomImage: roomProfileImage,
-    isLocked: isRoomLocked,
-    wallpaper: roomWallpaperPath,
-    followers: followerCount,
-    totalDiamonds: 0,
-  );
-}
+
+    // ✅ এটি initState এর ভেতরেই থাকবে
+    _roomService.updateRoomFullData(
+      roomId: widget.roomId,
+      roomName: roomName,
+      roomImage: roomProfileImage,
+      isLocked: isRoomLocked,
+      wallpaper: roomWallpaperPath,
+      followers: followerCount,
+      totalDiamonds: 0,
+    );
+  } // <--- initState এখানে শেষ
   
   @override
   void dispose() {
@@ -160,11 +160,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
       seats[index]["isOccupied"] = true;
     });
 
-    // 🔥 ৩ সেকেন্ডের টাইমার শুরু
     Timer(const Duration(seconds: 3), () async {
       if (!mounted) return;
       try {
-        // ১. ডাটাবেসে সিট আপডেট
         await _roomService.updateSeatData(
           roomId: widget.roomId, 
           seatIndex: index,
@@ -176,7 +174,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
         setState(() {
           seats[index]["status"] = "occupied";
           seats[index]["userName"] = displayUserID;
-          // প্রোফাইল ইমেজ থাকলে সেটা বসবে, না থাকলে ডামি বসবে
           seats[index]["userImage"] = roomProfileImage.isNotEmpty ? roomProfileImage : 
               "https://api.dicebear.com/7.x/avataaars/svg?seed=$displayUserID$index";
           seats[index]["isMicOn"] = true;
@@ -184,9 +181,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
           currentSeatIndex = index;
         });
 
-        // ২. আইডি আইডেন্টিফিকেশন (হৃদয় ভাই চেক)
         if (displayUserID == "Hridoy") print("Owner Identified: Welcome Hridoy!");
-
       } catch (e) {
         if (mounted) {
           setState(() {
@@ -196,7 +191,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
         }
         print("Error sitting on seat: $e");
       }
-    }); // এই ব্র্যাকেটটি ঠিকমতো ক্লোজ হয়েছে কিনা চেক করুন
+    }); 
+  } // <--- এই ব্র্যাকেটটি আপনার কোডে মিসিং ছিল
+
   
   void _showLeaveConfirmation(int index) {
     showDialog(
