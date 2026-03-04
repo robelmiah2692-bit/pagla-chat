@@ -150,11 +150,27 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   // --- ৩ সেকেন্ড কলিং লজিক ---
-  void sitOnSeat(int index) {
-    if (currentSeatIndex == index) { _showLeaveConfirmation(index); return; }
-    if (isRoomLocked) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("রুম এখন লক আছে!"))); return; }
-    if (seats[index]["isOccupied"] || seats[index]["status"] == "calling") return;
+  // ১. ইউজারের নিজের ছবি রাখার জন্য ভেরিয়েবল (এটি ক্লাসের শুরুতে যোগ করুন)
+  String userProfilePic = "https://api.dicebear.com/7.x/avataaars/svg?seed=user"; 
 
+  void sitOnSeat(int index) {
+    // ২. একই সিটে ক্লিক করলে নামার অপশন
+    if (currentSeatIndex == index) { _showLeaveConfirmation(index); return; }
+    
+    // ৩. সিট বদলানোর লজিক (আগের সিট ক্লিয়ার করা)
+    if (currentSeatIndex != -1) {
+       int oldIndex = currentSeatIndex;
+       _roomService.updateSeatData(
+         roomId: widget.roomId, seatIndex: oldIndex, 
+         uName: "", uImage: "", isOccupied: false,
+       );
+       setState(() {
+         seats[oldIndex]["status"] = "empty";
+         seats[oldIndex]["isOccupied"] = false;
+       });
+    }
+
+    // ৪. কলিং ফিচার (৩ সেকেন্ডের টাইমার)
     setState(() {
       seats[index]["status"] = "calling";
       seats[index]["isOccupied"] = true;
@@ -163,25 +179,24 @@ class _VoiceRoomState extends State<VoiceRoom> {
     Timer(const Duration(seconds: 3), () async {
       if (!mounted) return;
       try {
+        // ৫. ডাটাবেসে ইউজারের নিজের নাম ও নিজের ছবি (userProfilePic) পাঠানো
         await _roomService.updateSeatData(
           roomId: widget.roomId, 
           seatIndex: index,
           uName: displayUserID, 
-          uImage: roomProfileImage, 
+          uImage: userProfilePic, // ✅ এখন আর রুমের ছবি যাবে না
           isOccupied: true,
         );
 
         setState(() {
           seats[index]["status"] = "occupied";
           seats[index]["userName"] = displayUserID;
-          seats[index]["userImage"] = roomProfileImage.isNotEmpty ? roomProfileImage : 
-              "https://api.dicebear.com/7.x/avataaars/svg?seed=$displayUserID$index";
+          seats[index]["userImage"] = userProfilePic; // ✅ সিটে নিজের ছবি বসবে
           seats[index]["isMicOn"] = true;
           isMicOn = true;
           currentSeatIndex = index;
         });
 
-        if (displayUserID == "Hridoy") print("Owner Identified: Welcome Hridoy!");
       } catch (e) {
         if (mounted) {
           setState(() {
@@ -189,11 +204,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
             seats[index]["isOccupied"] = false;
           });
         }
-        print("Error sitting on seat: $e");
       }
-    }); 
-  } // <--- এই ব্র্যাকেটটি আপনার কোডে মিসিং ছিল
-
+    });
+  }
   
   void _showLeaveConfirmation(int index) {
     showDialog(
@@ -286,8 +299,24 @@ class _VoiceRoomState extends State<VoiceRoom> {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
+          // 🖼️ রুমের প্রোফাইল পিকচার (ক্লিক করলে সেভ হবে)
           GestureDetector(
-            onTap: () => RoomProfileHandler.pickRoomImage(onImagePicked: (p) => setState(() => roomProfileImage = p), showMessage: (m) {}),
+            onTap: () => RoomProfileHandler.pickRoomImage(
+              onImagePicked: (p) {
+                setState(() => roomProfileImage = p);
+                // 🔥 ডাটাবেসে ছবি সেভ
+                _roomService.updateRoomFullData(
+                  roomId: widget.roomId,
+                  roomName: roomName,
+                  roomImage: p,
+                  isLocked: isRoomLocked,
+                  wallpaper: roomWallpaperPath,
+                  followers: followerCount,
+                  totalDiamonds: 0,
+                );
+              }, 
+              showMessage: (m) {}
+            ),
             child: CircleAvatar(
               radius: 20,
               backgroundImage: roomProfileImage.isNotEmpty ? NetworkImage(roomProfileImage) : null,
@@ -299,8 +328,25 @@ class _VoiceRoomState extends State<VoiceRoom> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 📝 রুমের নাম (এডিট করলে সেভ হবে)
                 GestureDetector(
-                  onTap: () => RoomProfileHandler.editRoomName(context: context, currentName: roomName, onNameSaved: (n) => setState(() => roomName = n)),
+                  onTap: () => RoomProfileHandler.editRoomName(
+                    context: context, 
+                    currentName: roomName, 
+                    onNameSaved: (n) {
+                      setState(() => roomName = n);
+                      // 🔥 ডাটাবেসে নাম সেভ
+                      _roomService.updateRoomFullData(
+                        roomId: widget.roomId,
+                        roomName: n,
+                        roomImage: roomProfileImage,
+                        isLocked: isRoomLocked,
+                        wallpaper: roomWallpaperPath,
+                        followers: followerCount,
+                        totalDiamonds: 0,
+                      );
+                    }
+                  ),
                   child: Text(roomName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
                 Text("ID: ${widget.roomId} | $followerCount ফলোয়ার", style: const TextStyle(color: Colors.white54, fontSize: 10)),
