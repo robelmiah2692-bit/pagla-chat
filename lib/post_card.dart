@@ -7,8 +7,8 @@ class PostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 ফায়ারবেসের ফিল্ডের নামগুলো এখানে খুব সাবধানে চেক করুন
-    // আপনার স্ক্রিনশট অনুযায়ী 'userName', 'userImage', 'storyImage' এগুলোই কি আছে?
+    // 🔥 এখানে ডাটাবেসের সঠিক নামগুলো ব্যবহার করা হয়েছে
+    // আপনার StoriesService এ আমরা 'userName' এবং 'userImage' নামেই ডাটা পাঠাচ্ছি
     final String userName = data['userName']?.toString() ?? "User";
     final String userProfileImg = data['userImage']?.toString() ?? ""; 
     final String postMainImg = data['storyImage']?.toString() ?? "";
@@ -16,11 +16,11 @@ class PostCard extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
-      color: Colors.black, // আপনার ব্যাকগ্রাউন্ড ডার্ক থিম
+      color: Colors.black, 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ১. ফেসবুকের মতো হেডার (প্রোফাইল ফটো ও নাম)
+          // ১. ইউজারের রিয়েল প্রোফাইল ও নাম (ফেসবুক স্টাইল)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
@@ -28,8 +28,8 @@ class PostCard extends StatelessWidget {
                 CircleAvatar(
                   radius: 20,
                   backgroundColor: Colors.grey[800],
-                  // প্রোফাইল পিকচার এখানে দেখাবে
-                  backgroundImage: (userProfileImg.isNotEmpty) 
+                  // 🔥 এখানে ডাটাবেস থেকে আসা আপনার প্রোফাইল পিকচার লোড হবে
+                  backgroundImage: (userProfileImg.isNotEmpty && userProfileImg.startsWith('http')) 
                       ? NetworkImage(userProfileImg) 
                       : const NetworkImage("https://www.w3schools.com/howto/img_avatar.png"),
                 ),
@@ -38,7 +38,7 @@ class PostCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      userName, 
+                      userName, // 🔥 ডাটাবেস থেকে আসা আপনার আসল নাম
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)
                     ),
                     const Text("Just now", style: TextStyle(color: Colors.white54, fontSize: 11)),
@@ -50,7 +50,7 @@ class PostCard extends StatelessWidget {
             ),
           ),
 
-          // ২. ক্যাপশন (যদি থাকে)
+          // ২. ক্যাপশন
           if (caption.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
@@ -60,13 +60,13 @@ class PostCard extends StatelessWidget {
           // ৩. বড় পোস্ট ইমেজ (পুরো স্ক্রিন জুড়ে)
           if (postMainImg.isNotEmpty)
             Image.network(
-              postMainImg,
+              postMainImg, // 🔥 ফায়ারবেস থেকে আসা বড় ছবি
               width: double.infinity,
               fit: BoxFit.cover,
-              // যদি ছবি লোড না হয় তবে এরর হ্যান্ডেল করবে
-              errorBuilder: (context, error, stackTrace) => const SizedBox(
-                height: 100, 
-                child: Center(child: Icon(Icons.broken_image, color: Colors.white24))
+              errorBuilder: (context, error, stackTrace) => Container(
+                height: 200,
+                color: Colors.grey[900],
+                child: const Center(child: Icon(Icons.broken_image, color: Colors.white24)),
               ),
             ),
 
@@ -82,13 +82,12 @@ class PostCard extends StatelessWidget {
               ],
             ),
           ),
-          const Divider(color: Colors.white10, thickness: 6), // ফেসবুক ডিভাইডার স্টাইল
+          const Divider(color: Colors.white10, thickness: 6), 
         ],
       ),
     );
   }
 
-  // বাটন তৈরির সহজ উইজেট
   Widget _buildActionButton(IconData icon, String title, Color color) {
     return Row(
       children: [
