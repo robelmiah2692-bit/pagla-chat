@@ -14,27 +14,32 @@ class StorySection extends StatelessWidget {
         stream: StoriesService().getStories(), 
         builder: (context, snapshot) {
           
+          // ১. যদি কোনো এরর হয় (যেমন ইন্ডেক্স বা পারমিশন), তবে স্ক্রিনে দেখাবে
           if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}", style: TextStyle(color: Colors.red, fontSize: 10)));
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return ListView(
-              scrollDirection: Axis.horizontal,
-              children: [_buildAddStoryButton(context)],
+            return Center(
+              child: Text("Error: ${snapshot.error}", 
+              style: const TextStyle(color: Colors.red, fontSize: 12))
             );
           }
 
-          var stories = snapshot.data!.docs;
+          // ২. ডাটা লোড হওয়ার সময় ছোট একটা লোডিং দেখাবে
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+          }
+
+          // ৩. ডাটা আসুক বা না আসুক, লিস্টটা সব সময় তৈরি হবে
+          final stories = snapshot.data?.docs ?? [];
 
           return ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            itemCount: stories.length + 1,
+            itemCount: stories.length + 1, // বাটন + স্টোরি সংখ্যা
             itemBuilder: (context, index) {
               if (index == 0) return _buildAddStoryButton(context);
               
-              var data = stories[index - 1].data() as Map<String, dynamic>;
+              // ৪. ডাটা ম্যাপ করার সময় সতর্কতা
+              final doc = stories[index - 1];
+              final data = doc.data() as Map<String, dynamic>;
               
               return _buildStoryCircle(
                 data['userImage'] ?? "", 
@@ -86,10 +91,15 @@ class StorySection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
         children: [
-          const CircleAvatar(
-            radius: 30,
-            backgroundColor: Colors.white10,
-            child: Icon(Icons.person, color: Colors.white24, size: 30),
+          Container(
+            height: 60,
+            width: 60,
+            decoration: BoxDecoration(
+              color: Colors.white10,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white24)
+            ),
+            child: const Icon(Icons.add, color: Colors.white, size: 30),
           ),
           const SizedBox(height: 6),
           const Text("Your Story", style: TextStyle(color: Colors.white70, fontSize: 11)),
