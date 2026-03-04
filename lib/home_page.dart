@@ -1,153 +1,77 @@
-// আপনার ফাইলের উপরের ইমপোর্টগুলো ঠিক আছে
-import 'story_section.dart';
-import 'package:flutter/foundation.dart'; 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'app_config.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'stories_service.dart';
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
-
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  List<bool> isLikedList = List.generate(10, (index) => false);
-  final ImagePicker _picker = ImagePicker();
-  XFile? _pickedImage; 
-
-  Future<void> _pickImage() async {
-    try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      if (image != null) {
-        setState(() { _pickedImage = image; });
-      }
-    } catch (e) {
-      debugPrint("Error picking image: $e");
-    }
-  }
-
-  void _showPostModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E1E2F),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 20, right: 20, top: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text("নতুন পোস্ট করুন", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 15),
-              TextField(
-                maxLines: 3,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: "আপনার মনে কি আছে লিখুন...",
-                  hintStyle: const TextStyle(color: Colors.white38),
-                  filled: true,
-                  fillColor: Colors.white10,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                ),
-              ),
-              const SizedBox(height: 10),
-              if (_pickedImage != null)
-                Container(
-                  height: 150,
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 10),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.network(_pickedImage!.path, fit: BoxFit.cover),
-                  ),
-                ),
-              ListTile(
-                leading: const Icon(Icons.photo_library, color: Colors.greenAccent),
-                title: const Text("গ্যালারি থেকে ছবি নিন", style: TextStyle(color: Colors.white)),
-                onTap: () async {
-                  await _pickImage();
-                  setModalState(() {}); 
-                },
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(double.infinity, 45)),
-                onPressed: () {
-                  setState(() => _pickedImage = null);
-                  Navigator.pop(context);
-                },
-                child: const Text("পোস্ট করুন"),
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showCommentModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E1E2F),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 10, right: 10, top: 10),
-        child: Row(
-          children: [
-            const Expanded(
-              child: TextField(
-                autofocus: true,
-                style: TextStyle(color: Colors.white),
-                decoration: InputDecoration(hintText: "কমেন্ট লিখুন...", hintStyle: TextStyle(color: Colors.white38), border: InputBorder.none),
-              ),
-            ),
-            IconButton(icon: const Icon(Icons.send, color: Colors.pinkAccent), onPressed: () => Navigator.pop(context)),
-          ],
-        ),
-      ),
-    );
-  }
+class StorySection extends StatelessWidget {
+  const StorySection({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1E),
-      appBar: AppBar(
-        title: const Text("PAGLA CHAT", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          if (AppConfig.isHridoy("885522")) 
-            const Padding(
-              padding: EdgeInsets.only(right: 15),
-              child: Icon(Icons.verified, color: Colors.amber, size: 28),
-            ),
-        ],
-      ),
-      
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showPostModal,
-        backgroundColor: Colors.pinkAccent,
-        child: const Icon(Icons.add, size: 30, color: Colors.white),
-      ),
-
-      // 🔥 এই অংশটি ভালো করে দেখুন, এখানে স্টোরি সেট করা হয়েছে
-      body: CustomScrollView(
-        slivers: [
-          // ১. স্টোরি সেকশন (সবার উপরে থাকবে এবং সবার স্টোরি দেখাবে)
-          const SliverToBoxAdapter(
-            child: StorySection(),
-          ),
+    return Container(
+      height: 120, // একটু বাড়িয়ে দিলাম ডিজাইন সুন্দর করার জন্য
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: StreamBuilder<QuerySnapshot>(
+        // 🔥 সার্ভিস ফাইল থেকে লাইভ ডাটা স্ট্রীম করা
+        stream: StoriesService().getStories(), 
+        builder: (context, snapshot) {
           
-          // ২. নিউজফিড পোস্ট লিস্ট
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) => _buildPostCard(index),
-              childCount: 10,
+          if (!snapshot.hasData) {
+             return ListView(
+               scrollDirection: Axis.horizontal,
+               children: [_buildAddStoryButton(context)],
+             );
+          }
+
+          var stories = snapshot.data!.docs;
+
+          return ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            itemCount: stories.length + 1,
+            itemBuilder: (context, index) {
+              if (index == 0) return _buildAddStoryButton(context);
+              
+              var data = stories[index - 1].data() as Map<String, dynamic>;
+              
+              // 🔥 এখানে ইউজারের নাম ও ছবি ডাটাবেস থেকে আসছে
+              return _buildStoryCircle(
+                data['userImage'] ?? "", 
+                data['userName'] ?? "User",
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildStoryCircle(String userImg, String name) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(2.5),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(colors: [Colors.purple, Colors.pinkAccent, Colors.orange]),
+            ),
+            child: CircleAvatar(
+              radius: 28,
+              backgroundColor: Colors.black,
+              backgroundImage: NetworkImage(
+                userImg.isNotEmpty ? userImg : "https://www.w3schools.com/howto/img_avatar.png"
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            width: 65,
+            child: Text(
+              name, 
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -155,49 +79,30 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildPostCard(int index) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: const Color(0xFF1E1E2F), borderRadius: BorderRadius.circular(15)),
+  Widget _buildAddStoryButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: CircleAvatar(
-              backgroundImage: NetworkImage(AppConfig.maleAvatars[index % 10]), 
-            ),
-            title: const Text("পাগলা ইউজার", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            subtitle: const Text("১০ মিনিট আগে", style: TextStyle(color: Colors.white38, fontSize: 11)),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text("আজকের Pagla Chat আড্ডাটা দারুণ হচ্ছে! 🔥", style: TextStyle(color: Colors.white70)),
-          ),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.network('https://picsum.photos/id/${index + 10}/400/250', fit: BoxFit.cover),
-          ),
-          const SizedBox(height: 10),
-          Row(
+          Stack(
             children: [
-              IconButton(
-                icon: Icon(
-                  isLikedList[index] ? Icons.favorite : Icons.favorite_border,
-                  color: isLikedList[index] ? Colors.red : Colors.white54,
+              const CircleAvatar(
+                radius: 30,
+                backgroundColor: Colors.white10,
+                child: Icon(Icons.person, color: Colors.white24, size: 30),
+              ),
+              Positioned(
+                bottom: 0, right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
+                  child: const Icon(Icons.add, color: Colors.white, size: 18),
                 ),
-                onPressed: () => setState(() => isLikedList[index] = !isLikedList[index]),
               ),
-              const Text("২৫", style: TextStyle(color: Colors.white54)),
-              const SizedBox(width: 20),
-              IconButton(
-                icon: const Icon(Icons.comment_outlined, color: Colors.white54),
-                onPressed: _showCommentModal,
-              ),
-              const Text("১২", style: TextStyle(color: Colors.white54)),
             ],
           ),
+          const SizedBox(height: 6),
+          const Text("Your Story", style: TextStyle(color: Colors.white70, fontSize: 11)),
         ],
       ),
     );
