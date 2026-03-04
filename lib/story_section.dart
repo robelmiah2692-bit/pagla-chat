@@ -7,24 +7,41 @@ class StorySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 100,
+    return Container(
+      height: 110,
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      // 🔥 StreamBuilder ব্যবহার করায় ডাটা আসার সাথে সাথে পেজ আপডেট হবে
       child: StreamBuilder<QuerySnapshot>(
-        stream: StoriesService().getStories(),
+        stream: StoriesService().getStories(), // ডাটাবেস থেকে স্টোরি আনছে
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const SizedBox();
+          // যদি লোড হতে দেরি হয়
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+          }
+
+          // যদি কোনো স্টোরি না থাকে
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return ListView(
+              scrollDirection: Axis.horizontal,
+              children: [_buildAddStoryButton(context)],
+            );
+          }
 
           var stories = snapshot.data!.docs;
 
           return ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: stories.length + 1, // +1 আপনার নিজের স্টোরি দেওয়ার বাটনের জন্য
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            itemCount: stories.length + 1,
             itemBuilder: (context, index) {
-              if (index == 0) {
-                return _buildAddStoryButton(); // স্টোরি যোগ করার বাটন
-              }
+              if (index == 0) return _buildAddStoryButton(context);
+              
               var data = stories[index - 1].data() as Map<String, dynamic>;
-              return _buildStoryCircle(data['userImage'], data['userName']);
+              
+              return _buildStoryCircle(
+                data['userImage'] ?? "", 
+                data['userName'] ?? "User",
+              );
             },
           );
         },
@@ -32,35 +49,60 @@ class StorySection extends StatelessWidget {
     );
   }
 
-  Widget _buildStoryCircle(String? image, String name) {
+  // স্টোরি সার্কেল ডিজাইন
+  Widget _buildStoryCircle(String userImg, String name) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(3),
-            decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.pinkAccent),
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.pinkAccent, width: 2), // স্টোরি থাকলে বর্ডার দেখাবে
+            ),
             child: CircleAvatar(
-              radius: 30,
-              backgroundImage: NetworkImage(image ?? "https://picsum.photos/200"),
+              radius: 28,
+              backgroundColor: Colors.white10,
+              backgroundImage: NetworkImage(userImg.isNotEmpty ? userImg : "https://www.w3schools.com/howto/img_avatar.png"),
             ),
           ),
           const SizedBox(height: 5),
-          Text(name, style: const TextStyle(color: Colors.white, fontSize: 10)),
+          SizedBox(
+            width: 60,
+            child: Text(
+              name, 
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white, fontSize: 10, overflow: TextOverflow.ellipsis),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildAddStoryButton() {
+  // নতুন স্টোরি যোগ করার বাটন
+  Widget _buildAddStoryButton(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
         children: [
-          CircleAvatar(
-            radius: 32,
-            backgroundColor: Colors.white12,
-            child: Icon(Icons.add, color: Colors.pinkAccent),
+          Stack(
+            children: [
+              const CircleAvatar(
+                radius: 30,
+                backgroundColor: Colors.white12,
+                child: Icon(Icons.person, color: Colors.white54, size: 30),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
+                  child: const Icon(Icons.add, color: Colors.white, size: 20),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 5),
           const Text("Your Story", style: TextStyle(color: Colors.white70, fontSize: 10)),
