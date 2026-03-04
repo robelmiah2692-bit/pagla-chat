@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // ফায়ারবেস কানেকশন
 import 'story_section.dart'; 
 import 'stories_service.dart'; 
 import 'app_config.dart';
-import 'post_card.dart';
+import 'post_card.dart'; // বড় পোস্ট ডিজাইনের জন্য
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -30,6 +31,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // --- আপনার পুরাতন মোডাল ফিচার একদম ঠিক রাখা হয়েছে ---
   void _showPostModal() {
     showModalBottomSheet(
       context: context,
@@ -71,8 +73,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 15),
-              
-              // ওয়েব বিল্ডে ইমেজের নাল সেফটি নিশ্চিত করা হয়েছে
               if (_pickedImage != null)
                 Container(
                   height: 150,
@@ -89,7 +89,6 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                 ),
-                
               ListTile(
                 leading: const Icon(Icons.photo_library, color: Colors.greenAccent),
                 title: const Text("ছবি যোগ করুন", style: TextStyle(color: Colors.white)),
@@ -108,7 +107,6 @@ class _HomePageState extends State<HomePage> {
                 onPressed: () async {
                   String text = _captionController.text.trim();
                   if (_pickedImage != null || text.isNotEmpty) {
-                    // সার্ভিস কল
                     await StoriesService().uploadStory(
                       _pickedImage?.path ?? "",
                       text,
@@ -123,7 +121,7 @@ class _HomePageState extends State<HomePage> {
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text("স্টোরি সফলভাবে পোস্ট হয়েছে! 🔥"),
+                        content: Text("স্টোরি সফলভাবে পোস্ট হয়েছে! 🔥"),
                         backgroundColor: Colors.green,
                       ),
                     );
@@ -151,6 +149,7 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          // আপনার ওনার আইডি ভেরিফাইড আইকন ফিচার
           if (AppConfig.isHridoy("885522"))
             const Padding(
               padding: EdgeInsets.only(right: 15),
@@ -165,44 +164,39 @@ class _HomePageState extends State<HomePage> {
       ),
       body: CustomScrollView(
         slivers: [
+          // উপরে স্টোরি সেকশন
           const SliverToBoxAdapter(child: StorySection()),
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) => _buildPostCard(index),
-              childCount: 10,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildPostCard(int index) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2F),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: CircleAvatar(
-              backgroundImage: NetworkImage(AppConfig.maleAvatars[index % 10]),
-            ),
-            title: const Text("পাগলা ইউজার", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            subtitle: const Text("১০ মিনিট আগে", style: TextStyle(color: Colors.white38, fontSize: 11)),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text("আজকের Pagla Chat আড্ডাটা দারুণ হচ্ছে! 🔥", style: TextStyle(color: Colors.white70)),
-          ),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.network('https://picsum.photos/id/${index + 10}/400/250', fit: BoxFit.cover),
+          // 🔥 নিচে এখন ডাটাবেস থেকে রিয়েল টাইম পোস্ট আসবে (আপনার মার্ক করা সেই জায়গা)
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('stories')
+                .orderBy('timestamp', descending: true) // রিসেন্টগুলো উপরে
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
+              }
+
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const SliverToBoxAdapter(
+                  child: Center(child: Text("এখনও কোনো পোস্ট নেই", style: TextStyle(color: Colors.white24))),
+                );
+              }
+
+              final docs = snapshot.data!.docs;
+
+              return SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final data = docs[index].data() as Map<String, dynamic>;
+                    // 🔥 আপনার জন্য বানানো নতুন PostCard উইজেট ব্যবহার করছি
+                    return PostCard(data: data); 
+                  },
+                  childCount: docs.length,
+                ),
+              );
+            },
           ),
         ],
       ),
