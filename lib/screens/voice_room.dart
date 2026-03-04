@@ -94,14 +94,15 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
     // 🔥 এখান থেকে ডাটা লোড শুরু
     FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
-      if (doc.exists && mounted) {
-        setState(() {
-          roomName = doc.data()?['roomName'] ?? roomName;
-          roomProfileImage = doc.data()?['roomImage'] ?? roomProfileImage;
-          followerCount = doc.data()?['followers'] ?? 0;
-        });
-      }
+  if (doc.exists && mounted) {
+    setState(() {
+      // ✅ ডাটাবেসে যে নামে সেভ করেছেন হুবহু সেই নাম (Key) দিতে হবে
+      roomName = doc.data()?['roomName'] ?? roomName;
+      roomProfileImage = doc.data()?['roomImage'] ?? roomProfileImage;
+      followerCount = doc.data()?['followerCount'] ?? 0; // এখানে 'followers' ছিল, ওটা ভুল ছিল
     });
+  }
+});
 
     // এটি আপনার আগের কোড, যেমন আছে তেমনই থাকবে
     _roomService.updateRoomFullData(
