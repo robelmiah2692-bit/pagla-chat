@@ -5,22 +5,30 @@ class StoriesService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // স্টোরি আপলোড
+  // 🔥 স্টোরি আপলোড (টাইমস্ট্যাম্প সহ)
   Future<void> uploadStory(String imagePath) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    await _firestore.collection('stories').add({
-      'userId': user.uid,
-      'userName': user.displayName ?? "অজানা ইউজার",
-      'userImage': user.photoURL ?? "",
-      'storyImage': imagePath,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
+    try {
+      await _firestore.collection('stories').add({
+        'userId': user.uid,
+        'userName': user.displayName ?? "User",
+        'userImage': user.photoURL ?? "",
+        'storyImage': imagePath,
+        'timestamp': FieldValue.serverTimestamp(), // এটি দিয়ে সিরিয়াল হবে
+      });
+      print("Story Uploaded Successfully! ✅");
+    } catch (e) {
+      print("Upload Error: $e");
+    }
   }
 
-  // স্টোরি রিড (orderBy আপাতত অফ করে দিলাম যেন সাথে সাথে দেখা যায়)
+  // 🔥 নতুন স্টোরি সবার আগে দেখানোর জন্য (Descending Order)
   Stream<QuerySnapshot> getStories() {
-    return _firestore.collection('stories').snapshots();
+    return _firestore
+        .collection('stories')
+        .orderBy('timestamp', descending: true) // নতুনগুলো টপে আসবে
+        .snapshots();
   }
 }
