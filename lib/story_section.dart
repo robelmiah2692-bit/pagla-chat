@@ -11,8 +11,8 @@ class StorySection extends StatelessWidget {
       height: 120,
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: StreamBuilder<QuerySnapshot>(
-        // 🔥 নিশ্চিত করুন StoriesService().getStories() এ কোনো .orderBy নেই
-        stream: StoriesService().getStories(), 
+        // সরাসরি ফায়ারবেস কালেকশন থেকে ডাটা নিচ্ছি
+        stream: FirebaseFirestore.instance.collection('stories').snapshots(), 
         builder: (context, snapshot) {
           
           if (snapshot.hasError) {
@@ -20,29 +20,37 @@ class StorySection extends StatelessWidget {
           }
 
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.pinkAccent));
+            return const Center(child: CircularProgressIndicator(strokeWidth: 2));
           }
 
-          // স্টোরি ডাটা লিস্ট নেওয়া
-          final stories = snapshot.data?.docs ?? [];
+          // ফায়ারবেস থেকে পাওয়া স্টোরি লিস্ট
+          final docs = snapshot.data?.docs ?? [];
+
+          // যদি ডাটাবেসে ডাটা থাকে কিন্তু এখানে না দেখায়, তবে এই টেক্সটটি আসবে
+          if (docs.isEmpty) {
+             return ListView(
+               scrollDirection: Axis.horizontal,
+               children: [
+                 _buildAddStoryButton(context),
+                 const Center(child: Text("নো ডাটা ইন ফায়ারবেস", style: TextStyle(color: Colors.white54, fontSize: 10))),
+               ],
+             );
+          }
 
           return ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            // ১টি বাটন সব সময় থাকবে + যতগুলো স্টোরি আছে
-            itemCount: stories.length + 1,
+            itemCount: docs.length + 1,
             itemBuilder: (context, index) {
               if (index == 0) return _buildAddStoryButton(context);
               
-              // ডাটাবেস থেকে পাওয়া ডকুমেন্ট
-              final doc = stories[index - 1];
-              final data = doc.data() as Map<String, dynamic>;
+              // ডাটাবেস থেকে তথ্য নেওয়া
+              final data = docs[index - 1].data() as Map<String, dynamic>;
               
-              // ডাটাবেসের ফিল্ডের নামগুলো চেক করে ডাটা নেওয়া
-              final String name = data['userName'] ?? "User";
-              final String userImg = data['userImage'] ?? "";
-              
-              return _buildStoryCircle(userImg, name);
+              return _buildStoryCircle(
+                data['userImage'] ?? "", 
+                data['userName'] ?? "User",
+              );
             },
           );
         },
@@ -63,10 +71,10 @@ class StorySection extends StatelessWidget {
             ),
             child: CircleAvatar(
               radius: 28,
-              backgroundColor: Colors.black,
-              backgroundImage: NetworkImage(
-                userImg.isNotEmpty ? userImg : "https://www.w3schools.com/howto/img_avatar.png"
-              ),
+              backgroundColor: Colors.grey[900],
+              backgroundImage: userImg.isNotEmpty 
+                  ? NetworkImage(userImg) 
+                  : const NetworkImage("https://www.w3schools.com/howto/img_avatar.png"),
             ),
           ),
           const SizedBox(height: 6),
@@ -76,7 +84,7 @@ class StorySection extends StatelessWidget {
               name, 
               textAlign: TextAlign.center,
               maxLines: 1,
-              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500, overflow: TextOverflow.ellipsis),
+              style: const TextStyle(color: Colors.white, fontSize: 11, overflow: TextOverflow.ellipsis),
             ),
           ),
         ],
@@ -86,7 +94,7 @@ class StorySection extends StatelessWidget {
 
   Widget _buildAddStoryButton(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Column(
         children: [
           Container(
