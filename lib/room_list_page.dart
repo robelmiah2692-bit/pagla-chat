@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'screens/voice_room.dart'; // এইটা লিখে দিন
 import 'package:firebase_auth/firebase_auth.dart'; // 🔥 এটি উপরে যোগ করুন
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'live_room_grid.dart';
+import 'following_room_grid.dart';
 
 class RoomListPage extends StatefulWidget {
   const RoomListPage({super.key});
@@ -26,7 +28,7 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     super.dispose();
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
@@ -55,9 +57,14 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildRoomGrid("live"),
-                _buildRoomGrid("following"),
-                _buildRoomGrid("my_room"), // মাই রুম সেকশন
+                // ১. লাইভ রুম সেকশন (সব লাইভ রুম দেখাবে)
+                const LiveRoomGrid(), 
+
+                // ২. ফলোয়িং সেকশন (শুধুমাত্র আপনার ফলো করা রুমগুলো দেখাবে)
+                const FollowingRoomGrid(), 
+
+                // ৩. মাই রুম সেকশন (আপনার নিজস্ব রুমের আইডি নিয়ে আসবে)
+                _buildRoomGrid("my_room"), 
               ],
             ),
           ),
