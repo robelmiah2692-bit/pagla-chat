@@ -92,28 +92,29 @@ class _VoiceRoomState extends State<VoiceRoom> {
       onFinished: () => _endPKBattle(),
     );
 
-    // 🔥 এখান থেকে ডাটা লোড শুরু
+    // 🔥 ১. আগে ডাটা লোড হবে
     FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
-  if (doc.exists && mounted) {
-    setState(() {
-      // ✅ ডাটাবেসে যে নামে সেভ করেছেন হুবহু সেই নাম (Key) দিতে হবে
-      roomName = doc.data()?['roomName'] ?? roomName;
-      roomProfileImage = doc.data()?['roomImage'] ?? roomProfileImage;
-      followerCount = doc.data()?['followerCount'] ?? 0; // এখানে 'followers' ছিল, ওটা ভুল ছিল
-    });
-  }
-});
+      if (doc.exists && mounted) {
+        setState(() {
+          roomName = doc.data()?['roomName'] ?? roomName;
+          roomProfileImage = doc.data()?['roomImage'] ?? roomProfileImage;
+          followerCount = doc.data()?['followerCount'] ?? 0;
+          isRoomLocked = doc.data()?['isLocked'] ?? false;
+          roomWallpaperPath = doc.data()?['wallpaper'] ?? '';
+        });
+      }
 
-    // এটি আপনার আগের কোড, যেমন আছে তেমনই থাকবে
-    _roomService.updateRoomFullData(
-      roomId: widget.roomId,
-      roomName: roomName,
-      roomImage: roomProfileImage,
-      isLocked: isRoomLocked,
-      wallpaper: roomWallpaperPath,
-      followers: followerCount,
-      totalDiamonds: 0,
-    );
+      // 🔥 ২. ডাটা লোড হওয়া শেষ হলে তারপর সার্ভিস আপডেট হবে
+      _roomService.updateRoomFullData(
+        roomId: widget.roomId,
+        roomName: roomName,
+        roomImage: roomProfileImage,
+        isLocked: isRoomLocked,
+        wallpaper: roomWallpaperPath,
+        followers: followerCount,
+        totalDiamonds: 0,
+      );
+    });
   }
   
   @override
