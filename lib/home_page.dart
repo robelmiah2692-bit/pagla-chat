@@ -1,5 +1,5 @@
+// আপনার ফাইলের উপরের ইমপোর্টগুলো ঠিক আছে
 import 'story_section.dart';
-// কোনো dart:io বা dart:html ইম্পোর্ট করবেন না
 import 'package:flutter/foundation.dart'; 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -13,26 +13,21 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // ১. সব ফিচার ঠিক রাখার জন্য প্রয়োজনীয় ভেরিয়েবল
   List<bool> isLikedList = List.generate(10, (index) => false);
   final ImagePicker _picker = ImagePicker();
   XFile? _pickedImage; 
 
-  // ২. ইমেজ পিক করার ফাংশন (গ্যালারি ফিচার)
   Future<void> _pickImage() async {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image != null) {
-        setState(() {
-          _pickedImage = image;
-        });
+        setState(() { _pickedImage = image; });
       }
     } catch (e) {
       debugPrint("Error picking image: $e");
     }
   }
 
-  // ৩. নতুন পোস্ট করার পপ-আপ (আপনার ফিচার)
   void _showPostModal() {
     showModalBottomSheet(
       context: context,
@@ -59,8 +54,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 10),
-              
-              // ইমেজ প্রিভিউ (ওয়েব ও মোবাইল ফ্রেন্ডলি)
               if (_pickedImage != null)
                 Container(
                   height: 150,
@@ -68,13 +61,9 @@ class _HomePageState extends State<HomePage> {
                   margin: const EdgeInsets.only(bottom: 10),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: kIsWeb 
-                      ? Image.network(_pickedImage!.path, fit: BoxFit.cover)
-                      : Image.network(_pickedImage!.path, fit: BoxFit.cover), 
-                      // XFile এর .path সব প্লাটফর্মে NetworkImage এর মতো কাজ করে
+                    child: Image.network(_pickedImage!.path, fit: BoxFit.cover),
                   ),
                 ),
-
               ListTile(
                 leading: const Icon(Icons.photo_library, color: Colors.greenAccent),
                 title: const Text("গ্যালারি থেকে ছবি নিন", style: TextStyle(color: Colors.white)),
@@ -100,7 +89,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ৪. কমেন্ট বক্স ফিচার
   void _showCommentModal() {
     showModalBottomSheet(
       context: context,
@@ -133,7 +121,6 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          // আপনার ওনার আইডি চেক (app_config থেকে)
           if (AppConfig.isHridoy("885522")) 
             const Padding(
               padding: EdgeInsets.only(right: 15),
@@ -148,9 +135,22 @@ class _HomePageState extends State<HomePage> {
         child: const Icon(Icons.add, size: 30, color: Colors.white),
       ),
 
-      body: ListView.builder(
-        itemCount: 10,
-        itemBuilder: (context, index) => _buildPostCard(index),
+      // 🔥 এই অংশটি ভালো করে দেখুন, এখানে স্টোরি সেট করা হয়েছে
+      body: CustomScrollView(
+        slivers: [
+          // ১. স্টোরি সেকশন (সবার উপরে থাকবে এবং সবার স্টোরি দেখাবে)
+          const SliverToBoxAdapter(
+            child: StorySection(),
+          ),
+          
+          // ২. নিউজফিড পোস্ট লিস্ট
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => _buildPostCard(index),
+              childCount: 10,
+            ),
+          ),
+        ],
       ),
     );
   }
