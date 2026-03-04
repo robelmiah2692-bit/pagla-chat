@@ -7,82 +7,94 @@ class PostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String userName = data['userName'] ?? "User";
-    final String userImg = data['userImage'] ?? "";
-    final String postImg = data['storyImage'] ?? ""; // আপনার ডাটাবেসের ফিল্ড অনুযায়ী
-    final String caption = data['caption'] ?? "";
+    // 🔥 ফায়ারবেসের ফিল্ডের নামগুলো এখানে খুব সাবধানে চেক করুন
+    // আপনার স্ক্রিনশট অনুযায়ী 'userName', 'userImage', 'storyImage' এগুলোই কি আছে?
+    final String userName = data['userName']?.toString() ?? "User";
+    final String userProfileImg = data['userImage']?.toString() ?? ""; 
+    final String postMainImg = data['storyImage']?.toString() ?? "";
+    final String caption = data['caption']?.toString() ?? "";
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
-      color: Colors.black, // আপনার অ্যাপের থিমের সাথে মিল রেখে
+      margin: const EdgeInsets.only(bottom: 15),
+      color: Colors.black, // আপনার ব্যাকগ্রাউন্ড ডার্ক থিম
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ১. ইউজারের প্রোফাইল অংশ (নাম ও ছবি)
+          // ১. ফেসবুকের মতো হেডার (প্রোফাইল ফটো ও নাম)
           Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundImage: (userImg.isNotEmpty) 
-                      ? NetworkImage(userImg) 
-                      : const NetworkImage("https://cdn-icons-png.flaticon.com/512/149/149071.png"),
+                  backgroundColor: Colors.grey[800],
+                  // প্রোফাইল পিকচার এখানে দেখাবে
+                  backgroundImage: (userProfileImg.isNotEmpty) 
+                      ? NetworkImage(userProfileImg) 
+                      : const NetworkImage("https://www.w3schools.com/howto/img_avatar.png"),
                 ),
                 const SizedBox(width: 10),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(userName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                    Text(
+                      userName, 
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)
+                    ),
                     const Text("Just now", style: TextStyle(color: Colors.white54, fontSize: 11)),
                   ],
                 ),
                 const Spacer(),
-                const Icon(Icons.more_horiz, color: Colors.white),
+                const Icon(Icons.more_horiz, color: Colors.white70),
               ],
             ),
           ),
 
-          // ২. পোস্টের ক্যাপশন (লেখা)
+          // ২. ক্যাপশন (যদি থাকে)
           if (caption.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
               child: Text(caption, style: const TextStyle(color: Colors.white, fontSize: 14)),
             ),
 
-          // ৩. পোস্টের মেইন ছবি (বড় করে)
-          if (postImg.isNotEmpty)
+          // ৩. বড় পোস্ট ইমেজ (পুরো স্ক্রিন জুড়ে)
+          if (postMainImg.isNotEmpty)
             Image.network(
-              postImg,
+              postMainImg,
               width: double.infinity,
               fit: BoxFit.cover,
+              // যদি ছবি লোড না হয় তবে এরর হ্যান্ডেল করবে
+              errorBuilder: (context, error, stackTrace) => const SizedBox(
+                height: 100, 
+                child: Center(child: Icon(Icons.broken_image, color: Colors.white24))
+              ),
             ),
 
-          // ৪. লাইক, কমেন্ট ও শেয়ার বাটন
+          // ৪. লাইক, কমেন্ট ও শেয়ার সেকশন
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _postButton(Icons.favorite_border, "Like"),
-                _postButton(Icons.comment_outlined, "Comment"),
-                _postButton(Icons.share_outlined, "Share"),
+                _buildActionButton(Icons.favorite_border, "Like", Colors.white70),
+                _buildActionButton(Icons.mode_comment_outlined, "Comment", Colors.white70),
+                _buildActionButton(Icons.share_outlined, "Share", Colors.white70),
               ],
             ),
           ),
-          const Divider(color: Colors.white10, thickness: 5), // ফেসবুকের মতো ডিভাইডার
+          const Divider(color: Colors.white10, thickness: 6), // ফেসবুক ডিভাইডার স্টাইল
         ],
       ),
     );
   }
 
-  // বাটনগুলোর জন্য ছোট হেল্পার উইজেট
-  Widget _postButton(IconData icon, String label) {
+  // বাটন তৈরির সহজ উইজেট
+  Widget _buildActionButton(IconData icon, String title, Color color) {
     return Row(
       children: [
-        Icon(icon, color: Colors.white70, size: 20),
-        const SizedBox(width: 5),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+        Icon(icon, color: color, size: 22),
+        const SizedBox(width: 6),
+        Text(title, style: TextStyle(color: color, fontSize: 13)),
       ],
     );
   }
