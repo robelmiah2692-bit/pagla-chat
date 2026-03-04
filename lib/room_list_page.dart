@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/voice_room.dart'; // এইটা লিখে দিন
+import 'package:firebase_auth/firebase_auth.dart'; // 🔥 এটি উপরে যোগ করুন
 
 class RoomListPage extends StatefulWidget {
   const RoomListPage({super.key});
@@ -161,37 +162,39 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
 
   // ৩. রুম গ্রিড লজিক (যেখানে মাই রুম ঠিক করা হয়েছে)
   Widget _buildRoomGrid(String type) {
-    // যদি টাইপ "my_room" হয়, তবে আপনার আসল রুমটি সবার আগে দেখাবে
-    int itemCount = (type == "my_room") ? 1 : 10; 
+  // ১. বর্তমান ইউজারের আইডি বের করা
+  final String myUid = FirebaseAuth.instance.currentUser?.uid ?? "guest_user";
+  
+  int itemCount = (type == "my_room") ? 1 : 10; 
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(10),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 0.9,
-      ),
-      itemCount: itemCount,
-      itemBuilder: (context, index) {
-        return GestureDetector(
-          onTap: () {
-            // রুমে ক্লিক করলে voice_room.dart এ নিয়ে যাবে
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => VoiceRoom(
-                  // ওস্তাদ, এখানে roomId পাস করা বাধ্যতামূলক
-                  roomId: (type == "my_room") ? displayRoomID : "room_$index",
-                ),
+  return GridView.builder(
+    padding: const EdgeInsets.all(10),
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 2,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      childAspectRatio: 0.9,
+    ),
+    itemCount: itemCount,
+    itemBuilder: (context, index) {
+      return GestureDetector(
+        onTap: () {
+          // 🔥 এইখানে আমরা আইডি ডাইনামিক করে দিলাম
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VoiceRoom(
+                // যদি "My Room" হয় তবে ইউজারের নিজের UID যাবে, অন্যথায় রুম ইনডেক্স
+                roomId: (type == "my_room") ? myUid : "room_$index",
               ),
-            );
-          },
-          child: _buildRoomCard(index, type),
-        );
-      },
-    );
-  }
+            ),
+          );
+        },
+        child: _buildRoomCard(index, type),
+      );
+    },
+  );
+}
 
   // ৪. রুম কার্ড ডিজাইন
   Widget _buildRoomCard(int index, String type) {
