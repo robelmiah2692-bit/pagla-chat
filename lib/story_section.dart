@@ -8,13 +8,16 @@ class StorySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 110,
+      height: 120,
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: StreamBuilder<QuerySnapshot>(
         stream: StoriesService().getStories(), 
         builder: (context, snapshot) {
           
-          // লোড হওয়ার সময় বা এরর থাকলে শুধু প্লাস বাটন দেখাবে
+          if (snapshot.hasError) {
+            return Center(child: Text("Error: ${snapshot.error}", style: TextStyle(color: Colors.red, fontSize: 10)));
+          }
+
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return ListView(
               scrollDirection: Axis.horizontal,
@@ -50,24 +53,27 @@ class StorySection extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
+            padding: const EdgeInsets.all(2.5),
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.pinkAccent, width: 2),
+              gradient: LinearGradient(colors: [Colors.purple, Colors.pinkAccent, Colors.orange]),
             ),
             child: CircleAvatar(
               radius: 28,
-              backgroundColor: Colors.white10,
-              backgroundImage: NetworkImage(userImg.isNotEmpty ? userImg : "https://www.w3schools.com/howto/img_avatar.png"),
+              backgroundColor: Colors.black,
+              backgroundImage: NetworkImage(
+                userImg.isNotEmpty ? userImg : "https://www.w3schools.com/howto/img_avatar.png"
+              ),
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 6),
           SizedBox(
-            width: 60,
+            width: 65,
             child: Text(
               name, 
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 10, overflow: TextOverflow.ellipsis),
+              maxLines: 1,
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500, overflow: TextOverflow.ellipsis),
             ),
           ),
         ],
@@ -80,25 +86,13 @@ class StorySection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
         children: [
-          Stack(
-            children: [
-              const CircleAvatar(
-                radius: 30,
-                backgroundColor: Colors.white12,
-                child: Icon(Icons.person, color: Colors.white54, size: 30),
-              ),
-              Positioned(
-                bottom: 0, right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
-                  child: const Icon(Icons.add, color: Colors.white, size: 15),
-                ),
-              ),
-            ],
+          const CircleAvatar(
+            radius: 30,
+            backgroundColor: Colors.white10,
+            child: Icon(Icons.person, color: Colors.white24, size: 30),
           ),
-          const SizedBox(height: 5),
-          const Text("Your Story", style: TextStyle(color: Colors.white70, fontSize: 10)),
+          const SizedBox(height: 6),
+          const Text("Your Story", style: TextStyle(color: Colors.white70, fontSize: 11)),
         ],
       ),
     );
