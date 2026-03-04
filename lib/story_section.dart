@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'stories_service.dart';
-import 'story_view_page.dart';
+import 'story_view_page.dart'; // 🔥 ইমপোর্ট দিতে ভুলবেন না
 
 class StorySection extends StatelessWidget {
   const StorySection({super.key});
@@ -28,13 +28,11 @@ class StorySection extends StatelessWidget {
             itemBuilder: (context, index) {
               if (index == 0) return _buildAddStoryButton(context);
               
+              // ডাটাবেস থেকে তথ্য নেওয়া
               final data = docs[index - 1].data() as Map<String, dynamic>;
               
-              // ডাটাবেস থেকে ইমেজ এবং নাম নেওয়া
-              final String userImg = data['userImage'] ?? "";
-              final String userName = data['userName'] ?? "User";
-              
-              return _buildStoryCircle(userImg, userName);
+              // 🔥 এখানে ফাংশনটি কল করা হচ্ছে
+              return _buildStoryCircle(context, data);
             },
           );
         },
@@ -42,37 +40,57 @@ class StorySection extends StatelessWidget {
     );
   }
 
-  Widget _buildStoryCircle(String userImg, String name) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(2.5),
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(colors: [Colors.purple, Colors.pinkAccent, Colors.orange]),
-            ),
-            child: CircleAvatar(
-              radius: 28,
-              backgroundColor: Colors.grey[800],
-              // 🔥 এখানে চেক করা হচ্ছে ছবি আছে কি না
-              backgroundImage: (userImg.isNotEmpty && userImg.startsWith('http'))
-                  ? NetworkImage(userImg)
-                  : const NetworkImage("https://www.w3schools.com/howto/img_avatar.png"), // ছবি না থাকলে এই লিঙ্কের ছবি দেখাবে
-            ),
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: 65,
-            child: Text(
-              name, 
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              style: const TextStyle(color: Colors.white, fontSize: 11, overflow: TextOverflow.ellipsis),
+  // 👇 আপনার কাঙ্ক্ষিত উইজেট এখানে বসানো হয়েছে
+  Widget _buildStoryCircle(BuildContext context, Map<String, dynamic> data) {
+    final String userImg = data['userImage'] ?? "";
+    final String name = data['userName'] ?? "User";
+    final String storyImg = data['storyImage'] ?? "";
+    final String caption = data['caption'] ?? "";
+
+    return GestureDetector(
+      onTap: () {
+        // 🔥 ক্লিক করলে স্টোরি ভিউ পেজে নিয়ে যাবে
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => StoryViewPage(
+              image: storyImg,
+              name: name,
+              caption: caption,
             ),
           ),
-        ],
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(2.5),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(colors: [Colors.purple, Colors.pinkAccent, Colors.orange]),
+              ),
+              child: CircleAvatar(
+                radius: 28,
+                backgroundColor: Colors.grey[900],
+                backgroundImage: (userImg.isNotEmpty && userImg.startsWith('http'))
+                    ? NetworkImage(userImg)
+                    : const NetworkImage("https://www.w3schools.com/howto/img_avatar.png"),
+              ),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: 65,
+              child: Text(
+                name, 
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                style: const TextStyle(color: Colors.white, fontSize: 11, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
