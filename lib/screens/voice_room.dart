@@ -38,6 +38,7 @@ class VoiceRoom extends StatefulWidget {
 
 class _VoiceRoomState extends State<VoiceRoom> {
  final RoomService _roomService = RoomService();
+  String userProfilePic = ""; // এটি আপনার নিজের প্রোফাইল ছবি রাখার জন্য
   // --- সব ভেরিয়েবল ---
   String myPersonalAvatar = ""; // এটি ইউজারের নিজের প্রোফাইল ছবি
   bool isOwner = true; 
