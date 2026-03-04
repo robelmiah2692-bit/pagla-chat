@@ -162,11 +162,6 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
 
   // ৩. রুম গ্রিড লজিক (যেখানে মাই রুম ঠিক করা হয়েছে)
   Widget _buildRoomGrid(String type) {
-  // ১. বর্তমান ইউজারের আইডি বের করা
-  final String myUid = FirebaseAuth.instance.currentUser?.uid ?? "guest_user";
-  
-  int itemCount = (type == "my_room") ? 1 : 10; 
-
   return GridView.builder(
     padding: const EdgeInsets.all(10),
     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -175,18 +170,37 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
       mainAxisSpacing: 10,
       childAspectRatio: 0.9,
     ),
-    itemCount: itemCount,
+    itemCount: (type == "my_room") ? 1 : 10,
     itemBuilder: (context, index) {
       return GestureDetector(
-        onTap: () {
-          // 🔥 এইখানে আমরা আইডি ডাইনামিক করে দিলাম
+        onTap: () async {
+          String finalRoomId;
+
+          if (type == "my_room") {
+            // 🔥 ৫ ডিজিটের ডাইনামিক আইডি জেনারেট বা লোড করা
+            final user = FirebaseAuth.instance.currentUser;
+            final userDoc = await FirebaseFirestore.instance.collection('users').doc(user?.uid).get();
+
+            if (userDoc.exists && userDoc.data()?.containsKey('myRoomId') == true) {
+              finalRoomId = userDoc.data()!['myRoomId'].toString();
+            } else {
+              // নতুন ৫ ডিজিটের আইডি তৈরি (যেমন: ১২৩৪৫)
+              finalRoomId = (10000 + (DateTime.now().millisecondsSinceEpoch % 90000)).toString();
+              // ইউজারের প্রোফাইলে সেভ করে রাখা যেন আর না বদলায়
+              await FirebaseFirestore.instance.collection('users').doc(user?.uid).set({
+                'myRoomId': finalRoomId,
+              }, SetOptions(merge: true));
+            }
+          } else {
+            finalRoomId = "room_$index";
+          }
+
+          if (!context.mounted) return;
+
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => VoiceRoom(
-                // যদি "My Room" হয় তবে ইউজারের নিজের UID যাবে, অন্যথায় রুম ইনডেক্স
-                roomId: (type == "my_room") ? myUid : "room_$index",
-              ),
+              builder: (context) => VoiceRoom(roomId: finalRoomId),
             ),
           );
         },
