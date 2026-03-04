@@ -12,10 +12,11 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  List<bool> isLikedList = List.generate(10, (index) => false);
   final ImagePicker _picker = ImagePicker();
   XFile? _pickedImage; 
+  final TextEditingController _captionController = TextEditingController(); // 🔥 লেখার জন্য কন্ট্রোলার
 
+  // গ্যালারি থেকে ছবি সিলেক্ট করা
   Future<void> _pickImage() async {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -27,7 +28,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // 🔥 এই ফাংশনটির ভেতরেই বাটনটি বসানো হয়েছে
+  // 🔥 পোস্ট করার মডাল (ছবি এবং লেখা দুটোই থাকবে)
   void _showPostModal() {
     showModalBottomSheet(
       context: context,
@@ -36,55 +37,87 @@ class _HomePageState extends State<HomePage> {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 20, right: 20, top: 20),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom, 
+            left: 20, right: 20, top: 20
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text("নতুন স্টোরি দিন", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 15),
+
+              // 🔥 লেখালেখির অপশন (TextField)
+              TextField(
+                controller: _captionController,
+                style: const TextStyle(color: Colors.white),
+                maxLines: 2,
+                decoration: InputDecoration(
+                  hintText: "আপনার মনের কথা লিখুন...",
+                  hintStyle: const TextStyle(color: Colors.white24, fontSize: 14),
+                  filled: true,
+                  fillColor: Colors.white10,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  contentPadding: const EdgeInsets.all(12),
+                ),
+              ),
+              const SizedBox(height: 15),
+
+              // ছবি সিলেক্ট করলে প্রিভিউ দেখাবে
               if (_pickedImage != null)
                 Container(
-                  height: 150, width: double.infinity,
+                  height: 180, width: double.infinity,
                   margin: const EdgeInsets.only(bottom: 10),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     child: Image.network(_pickedImage!.path, fit: BoxFit.cover),
                   ),
                 ),
+
+              // ছবি সিলেক্ট করার বাটন
               ListTile(
                 leading: const Icon(Icons.photo_library, color: Colors.greenAccent),
-                title: const Text("গ্যালারি থেকে ছবি নিন", style: TextStyle(color: Colors.white)),
+                title: const Text("ছবি যোগ করুন", style: TextStyle(color: Colors.white)),
                 onTap: () async {
                   await _pickImage();
-                  setModalState(() {}); 
+                  setModalState(() {}); // মডাল রিফ্রেশ করবে ছবি দেখানোর জন্য
                 },
               ),
               const SizedBox(height: 10),
 
-              // 🔥 এই সেই বাটন যা রিয়েল-টাইম ডাটা পাঠাবে
+              // 🔥 আসল পোস্ট বাটন (এখানেই সার্ভিস কল হবে)
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.pinkAccent, 
-                  minimumSize: const Size(double.infinity, 45)
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: () async {
-                  if (_pickedImage != null) {
-                    // সার্ভিস কল করে ডাটাবেসে পাঠানো হচ্ছে
-                    await StoriesService().uploadStory(_pickedImage!.path);
+                  // ছবি অথবা লেখা—যেকোনো একটি থাকলেই পোস্ট হবে
+                  if (_pickedImage != null || _captionController.text.isNotEmpty) {
                     
+                    // সার্ভিস থেকে ফায়ারবেসে ডাটা পাঠানো হচ্ছে
+                    await StoriesService().uploadStory(
+                      _pickedImage?.path ?? "", 
+                      _captionController.text
+                    );
+                    
+                    // ডাটা ক্লিয়ার করা
+                    _captionController.clear();
                     setState(() { _pickedImage = null; });
+                    
                     if (mounted) Navigator.pop(context);
                     
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("স্টোরি আপলোড সফল! ✅"))
+                      const SnackBar(content: Text("স্টোরি সফলভাবে পোস্ট হয়েছে! 🔥"), backgroundColor: Colors.green),
                     );
                   } else {
                     Navigator.pop(context);
                   }
                 },
-                child: const Text("পোস্ট করুন", style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text("পোস্ট করুন", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 25),
             ],
           ),
         ),
@@ -101,6 +134,7 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          // ওনার আইডেন্টিটি চেক (হৃদয় ভাই)
           if (AppConfig.isHridoy("885522")) 
             const Padding(
               padding: EdgeInsets.only(right: 15),
@@ -117,11 +151,12 @@ class _HomePageState extends State<HomePage> {
 
       body: CustomScrollView(
         slivers: [
-          // স্টোরি সেকশন সবার উপরে
+          // উপরের স্টোরি সেকশন
           const SliverToBoxAdapter(
             child: StorySection(),
           ),
           
+          // নিউজফিড পোস্ট লিস্ট
           SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) => _buildPostCard(index),
@@ -133,7 +168,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // নিউজফিড কার্ড ডিজাইন (আগের মতই আছে)
+  // নিউজফিড কার্ড ডিজাইন (যথাযথ রাখা হয়েছে)
   Widget _buildPostCard(int index) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
