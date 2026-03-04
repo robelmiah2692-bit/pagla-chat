@@ -5,7 +5,7 @@ class StoriesService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // 🔥 স্টোরি আপলোড (ইউজার প্রোফাইল ডাটাবেস থেকে রিয়েল নাম ও ছবি নিশ্চিত করা হয়েছে)
+  // 🔥 স্টোরি আপলোড (রিয়েল প্রোফাইল ডাটা ফিক্স করা হয়েছে)
   Future<void> uploadStory(String imagePath, String text) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -18,37 +18,32 @@ class StoriesService {
       String realProfilePic = "";
 
       if (userDoc.exists) {
-        // এখানে নিশ্চিত করুন আপনার প্রোফাইল পেজে ডাটা সেভ করার সময় কি নাম ব্যবহার করেছেন
-        // যদি 'name' আর 'image' হয় তবে নিচের কোড ঠিক আছে
-        realName = userDoc.get('name') ?? user.displayName ?? user.email?.split('@')[0] ?? "User";
+        // আপনার প্রোফাইল পেজে ডাটা সেভ করার সময় যে নাম ব্যবহার করেছেন (name/image)
+        realName = userDoc.get('name') ?? user.displayName ?? "User";
         realProfilePic = userDoc.get('image') ?? user.photoURL ?? "";
       } else {
-        // যদি ইউজার ডাটাবেসে না থাকে তবে লগইন ইনফো ব্যবহার করবে
         realName = user.displayName ?? user.email?.split('@')[0] ?? "User";
         realProfilePic = user.photoURL ?? "";
       }
 
-      // ২. এখন আসল নাম-ছবি দিয়ে ডাটাবেসে স্টোরি সেভ করা হচ্ছে
+      // ২. এখন আসল তথ্য দিয়ে স্টোরি সেভ করা হচ্ছে
       await _firestore.collection('stories').add({
         'userId': user.uid,
-        'userName': realName, // প্রোফাইলের রিয়েল নাম
-        'userImage': realProfilePic, // প্রোফাইলের রিয়েল ছবি
+        'userName': realName, 
+        'userImage': realProfilePic, 
         'storyImage': imagePath, 
         'caption': text,
         'timestamp': FieldValue.serverTimestamp(), 
       });
-      
-      print("Story Uploaded with Real Profile Info! ✅");
+      print("Story Uploaded Successfully! ✅");
     } catch (e) {
       print("Upload Error: $e");
     }
   }
 
-  // স্টোরি ডাটা লোড করা
+  // 🔥 স্টোরি আসা বন্ধ হওয়ার সমাধান (orderBy সাময়িকভাবে অফ রাখা হয়েছে)
   Stream<QuerySnapshot> getStories() {
-    return _firestore
-        .collection('stories')
-        .orderBy('timestamp', descending: true) 
-        .snapshots();
+    // এখানে আপাতত orderBy সরিয়ে দিলাম যাতে আপনার ইনডেক্স এরর না আসে এবং স্টোরি সাথে সাথে শো করে
+    return _firestore.collection('stories').snapshots();
   }
 }
