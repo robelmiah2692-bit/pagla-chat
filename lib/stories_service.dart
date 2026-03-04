@@ -5,7 +5,7 @@ class StoriesService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // 🔥 স্টোরি আপলোড (ইমেজ এবং টেক্সট দুটোই গ্রহণ করবে)
+  // 🔥 স্টোরি আপলোড
   Future<void> uploadStory(String imagePath, String text) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -16,7 +16,7 @@ class StoriesService {
         'userName': user.displayName ?? "User",
         'userImage': user.photoURL ?? "",
         'storyImage': imagePath,
-        'caption': text, // 🔥 এখানে টেক্সট/ক্যাপশন সেভ হচ্ছে
+        'caption': text,
         'timestamp': FieldValue.serverTimestamp(), 
       });
       print("Story Uploaded Successfully! ✅");
@@ -25,11 +25,11 @@ class StoriesService {
     }
   }
 
-  // 🔥 নতুন স্টোরি সবার আগে দেখানোর জন্য (Descending Order)
+  // 🔥 ইনডেক্সিং ঝামেলা এড়াতে আপাতত orderBy সরিয়ে snapshots নিচ্ছি
   Stream<QuerySnapshot> getStories() {
+    // এখানে orderBy সরিয়ে দেওয়া হয়েছে যাতে কোনো ইনডেক্স না লাগে
     return _firestore
         .collection('stories')
-        .orderBy('timestamp', descending: true) 
         .snapshots();
   }
 }
