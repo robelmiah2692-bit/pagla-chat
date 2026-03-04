@@ -5,34 +5,47 @@ class StoriesService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // 🔥 স্টোরি আপলোড (রিয়েল প্রোফাইল ডাটা নিশ্চিত করা হয়েছে)
+  // 🔥 স্টোরি আপলোড (ইউজার প্রোফাইল ডাটাবেস থেকে রিয়েল নাম ও ছবি নিশ্চিত করা হয়েছে)
   Future<void> uploadStory(String imagePath, String text) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    // ইউজার যদি নাম সেট না করে থাকে, তবে তার ইমেইলের প্রথম অংশ নেওয়া হবে
-    String name = user.displayName ?? user.email?.split('@')[0] ?? "পাগলা ইউজার";
-    String profilePic = user.photoURL ?? "";
-
     try {
+      // ১. প্রোফাইল ডাটাবেস (users collection) থেকে আসল তথ্য টেনে আনা
+      DocumentSnapshot userDoc = await _firestore.collection('users').doc(user.uid).get();
+      
+      String realName = "পাগলা ইউজার";
+      String realProfilePic = "";
+
+      if (userDoc.exists) {
+        // এখানে নিশ্চিত করুন আপনার প্রোফাইল পেজে ডাটা সেভ করার সময় কি নাম ব্যবহার করেছেন
+        // যদি 'name' আর 'image' হয় তবে নিচের কোড ঠিক আছে
+        realName = userDoc.get('name') ?? user.displayName ?? user.email?.split('@')[0] ?? "User";
+        realProfilePic = userDoc.get('image') ?? user.photoURL ?? "";
+      } else {
+        // যদি ইউজার ডাটাবেসে না থাকে তবে লগইন ইনফো ব্যবহার করবে
+        realName = user.displayName ?? user.email?.split('@')[0] ?? "User";
+        realProfilePic = user.photoURL ?? "";
+      }
+
+      // ২. এখন আসল নাম-ছবি দিয়ে ডাটাবেসে স্টোরি সেভ করা হচ্ছে
       await _firestore.collection('stories').add({
         'userId': user.uid,
-        'userName': name, // রিয়েল নাম
-        'userImage': profilePic, // রিয়েল প্রোফাইল পিকচার
-        'storyImage': imagePath, // স্টোরির মেইন বড় ছবি
+        'userName': realName, // প্রোফাইলের রিয়েল নাম
+        'userImage': realProfilePic, // প্রোফাইলের রিয়েল ছবি
+        'storyImage': imagePath, 
         'caption': text,
-        'timestamp': FieldValue.serverTimestamp(), // সার্ভার টাইম (ডাটা হারাবে না)
+        'timestamp': FieldValue.serverTimestamp(), 
       });
-      print("Story Uploaded Successfully! ✅");
+      
+      print("Story Uploaded with Real Profile Info! ✅");
     } catch (e) {
       print("Upload Error: $e");
     }
   }
 
-  // 🔥 ডাটা হারাবে না এবং সিরিয়াল ঠিক থাকবে
+  // স্টোরি ডাটা লোড করা
   Stream<QuerySnapshot> getStories() {
-    // এখানে orderBy ব্যবহার করা জরুরি যাতে নতুন পোস্ট সবার উপরে থাকে
-    // যদি এরর আসে, তবে কনসোলে দেওয়া লিঙ্কে ক্লিক করে একবার 'Index' তৈরি করে নিতে হবে
     return _firestore
         .collection('stories')
         .orderBy('timestamp', descending: true) 
