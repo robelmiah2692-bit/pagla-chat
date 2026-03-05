@@ -47,16 +47,18 @@ dependencies:
   shared_preferences: ^2.2.2
   lottie: ^3.1.0
 
-dev_dependencies:
+  dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: "^0.13.1"
-  
+
+# 🔥 আইকন সেটআপ একদম নির্ভুলভাবে (এখানেই আপনার ভুল ছিল)
 flutter_launcher_icons:
-  android: "launcher_icon"
+  android: true 
   ios: true
   image_path: "assets/logo.png"
   adaptive_icon_background: "#0F0F1E"
+  min_sdk_android: 21 # এটি যুক্ত করলে আইকন রিসাইজ হতে সুবিধা হয়
 
 flutter:
   uses-material-design: true
