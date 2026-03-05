@@ -486,32 +486,19 @@ Widget _buildBottomActionArea() {
         ),
 
         // ✅ মিউজিক বাটন (ফিচার ঠিক রেখে লজিক আপডেট করা হয়েছে)
-        // আপনার সেই মিউজিক বাটন - লজিকসহ
+        // VoiceRoom ফাইলের ভেতর বাটনটি এভাবে থাকবে:
           IconButton(
             icon: const Icon(Icons.music_note, color: Colors.cyanAccent), 
-            
             onPressed: () async {
-              
-              // ১. মিউজিক স্টোর থেকে গানের তথ্য রিসিভ করা (আপনার ফাইল ১৫ এর পপ-আপ থেকে)
               final result = await showModalBottomSheet<Map<String, dynamic>>(
                 context: context,
-                backgroundColor: Colors.transparent,
                 builder: (context) => MusicPlayerPage(audioPlayer: _audioPlayer),
               );
 
-              // ২. যদি ইউজার কোনো গান সিলেক্ট করে ফিরে আসে
-              if (result != null && result.containsKey('path')) {
-                
-                String musicPath = result['path'];
-
-                // ৩. গান বাজানো শুরু
-                await _audioPlayer.play(DeviceFileSource(musicPath));
-                
-                // ৪. সাথে সাথে ভাসমান প্লেয়ার একটিভ করা (আপনার আইডিয়া অনুযায়ী)
-                setState(() {
-                  isRoomMusicPlaying = true;
-                });
-                
+              if (result != null) {
+                // এখান থেকেই গান প্লে হবে এবং ভাসমান প্লেয়ার আসবে
+                await _audioPlayer.play(DeviceFileSource(result['path']));
+                setState(() => isRoomMusicPlaying = true);
               }
             },
           ),
