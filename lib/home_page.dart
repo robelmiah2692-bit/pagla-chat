@@ -169,39 +169,50 @@ class _HomePageState extends State<HomePage> {
 
           // 🔥 নিচে এখন ডাটাবেস থেকে রিয়েল টাইম পোস্ট আসবে (আপনার মার্ক করা সেই জায়গা)
           StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('stories')
-                .orderBy('timestamp', descending: true) // রিসেন্টগুলো উপরে
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
-              }
+  stream: FirebaseFirestore.instance
+      .collection('stories')
+      .orderBy('timestamp', descending: true) // রিসেন্টগুলো উপরে
+      .snapshots(),
+  builder: (context, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const SliverToBoxAdapter(
+        child: Center(child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: CircularProgressIndicator(),
+        )),
+      );
+    }
 
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const SliverToBoxAdapter(
-                  child: Center(child: Text("এখনও কোনো পোস্ট নেই", style: TextStyle(color: Colors.white24))),
-                );
-              }
-
-              final docs = snapshot.data!.docs;
-
-              return SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final data = docs[index].data() as Map<String, dynamic>;
-                    // 🔥 আপনার জন্য বানানো নতুন PostCard উইজেট ব্যবহার করছি
-                    return PostCard(data: data); 
-                  },
-                  childCount: docs.length,
-                ),
-              );
-            },
+    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Text("এখনও কোনো পোস্ট নেই", style: TextStyle(color: Colors.white24)),
           ),
-        ],
+        ),
+      );
+    }
+
+    final docs = snapshot.data!.docs;
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final doc = docs[index]; // পুরো ডকুমেন্টটি নেওয়া হলো
+          final data = doc.data() as Map<String, dynamic>;
+          
+          // 🔥 এখানে postId: doc.id যোগ করা হয়েছে যাতে এরর না আসে
+          return PostCard(
+            data: data, 
+            postId: doc.id,
+          ); 
+        },
+        childCount: docs.length,
       ),
     );
-  }
+  },
+),
 
   @override
   void dispose() {
