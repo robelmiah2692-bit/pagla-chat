@@ -604,37 +604,36 @@ Widget _buildBottomActionArea() {
   }
 
   Widget _buildFloatingPlayer({required bool isDragging}) {
-  return Container(
-    width: 110, // ছোট সাইজ
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    decoration: BoxDecoration(
-      color: Colors.black.withOpacity(0.85),
-      borderRadius: BorderRadius.circular(25),
-      border: Border.all(color: Colors.greenAccent.withOpacity(0.6), width: 1),
-      boxShadow: [BoxShadow(color: Colors.black54, blurRadius: 4)],
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // মিউজিক নোট আইকন যা ঘুরবে বা স্থির থাকবে
-        const Icon(Icons.music_note, color: Colors.greenAccent, size: 18),
-        const SizedBox(width: 4),
-        const Text(
-          "Playing...",
-          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
-        ),
-        const Spacer(),
-        // ছোট ক্লোজ বাটন গান বন্ধ করার জন্য
-        GestureDetector(
-          onTap: () {
-            _audioPlayer.stop();
-            setState(() => isRoomMusicPlaying = false);
-          },
-          child: const Icon(Icons.close, color: Colors.white54, size: 14),
-        ),
-      ],
+  return Material( // এটি যোগ করলে ড্র্যাগ করার সময় প্লেয়ার আর গায়েব হবে না
+    color: Colors.transparent,
+    child: Container(
+      width: 130, // সাইজ একটু বাড়িয়ে দিলাম যাতে চোখে পড়ে
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.greenAccent, width: 2),
+        boxShadow: const [BoxShadow(color: Colors.black87, blurRadius: 10)],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.music_note, color: Colors.greenAccent, size: 20),
+          const SizedBox(width: 6),
+          const Text(
+            "Playing...",
+            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+          const Spacer(),
+          GestureDetector(
+            onTap: () {
+              _audioPlayer.stop();
+              setState(() => isRoomMusicPlaying = false);
+            },
+            child: const Icon(Icons.close, color: Colors.white, size: 16),
+          ),
+        ],
+      ),
     ),
   );
 }
-}
-  
