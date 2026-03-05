@@ -1,12 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 class MusicPlayerPage extends StatefulWidget {
   final AudioPlayer? audioPlayer;
-  
   const MusicPlayerPage({super.key, this.audioPlayer});
 
   @override
@@ -15,8 +13,6 @@ class MusicPlayerPage extends StatefulWidget {
 
 class _MusicPlayerPageState extends State<MusicPlayerPage> {
   List<String> savedMusicPaths = [];
-  int currentIndex = -1;
-  bool isPlaying = false;
 
   @override
   void initState() {
@@ -36,15 +32,18 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
       type: FileType.audio,
       allowMultiple: true,
     );
-
     if (result != null) {
       List<String> newPaths = result.paths.whereType<String>().toList();
-      setState(() {
-        savedMusicPaths.addAll(newPaths);
-      });
+      setState(() => savedMusicPaths.addAll(newPaths));
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList('my_music', savedMusicPaths);
     }
+  }
+
+  Future<void> deleteMusic(int index) async {
+    setState(() => savedMusicPaths.removeAt(index));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('my_music', savedMusicPaths);
   }
 
   @override
@@ -57,24 +56,26 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
         actions: [
           IconButton(
             onPressed: pickMusic,
-            icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent),
+            icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent, size: 30),
           )
         ],
       ),
       body: savedMusicPaths.isEmpty
-          ? const Center(child: Text("গান যোগ করুন", style: TextStyle(color: Colors.white24)))
+          ? const Center(child: Text("কোনো গান নেই, + বাটনে ক্লিক করুন", style: TextStyle(color: Colors.white24)))
           : ListView.builder(
               itemCount: savedMusicPaths.length,
               itemBuilder: (context, index) => ListTile(
                 leading: const Icon(Icons.music_note, color: Colors.cyanAccent),
                 title: Text(savedMusicPaths[index].split('/').last,
-                    style: const TextStyle(color: Colors.white)),
+                    style: const TextStyle(color: Colors.white, fontSize: 14)),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  onPressed: () => deleteMusic(index),
+                ),
                 onTap: () {
-                  // 🔥 আপনার পুরনো ফাইলের সেই নিখুঁত লজিক ফিরিয়ে আনা হলো
-                  // ডাটা নিয়ে সরাসরি ভয়েস রুমে ব্যাক করা
+                  // 🔥 এখান থেকে ডাটা নিয়ে বের হয়ে যাবে
                   Navigator.pop(context, {
                     'path': savedMusicPaths[index],
-                    'name': savedMusicPaths[index].split('/').last,
                   });
                 },
               ),
