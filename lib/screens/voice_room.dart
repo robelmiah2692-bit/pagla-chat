@@ -454,12 +454,43 @@ void _showLeaveConfirmation(int index) {
             },
           ),
           IconButton(icon: const Icon(Icons.videogame_asset, color: Colors.orange), onPressed: () => showModalBottomSheet(context: context, builder: (c) => const GamePanelView())),
-          IconButton(icon: const Icon(Icons.music_note, color: Colors.cyanAccent), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent), onPressed: () {}),
-        ],
+          // --- মিউজিক বাটন (৩৬৪ নম্বর লাইন) ---
+    IconButton(
+      icon: const Icon(Icons.music_note, color: Colors.cyanAccent), 
+       onPressed: () {
+      // এটি ক্লিক করলে আপনার আলাদা ফাইল 'music_player_widget.dart' এর 
+      // সেই ছোট প্লেয়ার উইন্ডোটি ওপেন হবে
+      showDialog(
+        context: context,
+        barrierColor: Colors.transparent, // ব্যাকগ্রাউন্ড স্বচ্ছ থাকবে
+        builder: (context) => Center(
+        child: MusicPlayerWidget(
+          audioPlayer: _audioPlayer,
+          onClose: () => Navigator.pop(context),
+        ),
       ),
     );
-  }
+  },
+),
+
+// --- গিফট বাটন (৩৬৫ নম্বর লাইন) ---
+IconButton(
+  icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent), 
+  onPressed: () {
+    // আপনার 'gift_system.dart' বা গিফট প্যানেলটি ওপেন হবে
+    GiftSystem.showGiftPanel(
+      context: context,
+      roomId: widget.roomId,
+      onGiftSent: (giftImage) {
+        setState(() {
+          currentGiftImage = giftImage;
+          isGiftAnimating = true;
+        });
+        Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
+      },
+    );
+  },
+),
 
   Widget _buildSeatGridArea() {
     return SizedBox(
