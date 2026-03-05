@@ -10,8 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # --- নোটিফিকেশন (যা মিসিং ছিল) ---
-  firebase_messaging: ^14.7.15 # এটি ছাড়া বিল্ড এরর দিবেই
+  # --- নোটিফিকেশন ---
+  firebase_messaging: ^14.7.15 
   flutter_local_notifications: ^17.0.0
 
   # --- ভয়েস চ্যাট (Agora) ---
@@ -24,7 +24,7 @@ dependencies:
   cloud_firestore: ^4.15.8
   firebase_database: ^10.4.9
   firebase_remote_config: ^4.3.8
-  firebase_storage: ^11.6.0  # 🔥 এটি অবশ্যই যোগ করতে হবে
+  firebase_storage: ^11.6.0
   
   # --- গুগল লগইন ---
   google_sign_in: ^6.2.1
@@ -47,18 +47,19 @@ dependencies:
   shared_preferences: ^2.2.2
   lottie: ^3.1.0
 
-  dev_dependencies:
+# 🔥 এখানে স্পেসিং ঠিক করা হলো (মেইন লাইনে আনা হলো)
+dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: "^0.13.1"
 
-# 🔥 আইকন সেটআপ একদম নির্ভুলভাবে (এখানেই আপনার ভুল ছিল)
+# 🔥 আইকন সেটআপ
 flutter_launcher_icons:
   android: true 
   ios: true
   image_path: "assets/logo.png"
   adaptive_icon_background: "#0F0F1E"
-  min_sdk_android: 21 # এটি যুক্ত করলে আইকন রিসাইজ হতে সুবিধা হয়
+  min_sdk_android: 21
 
 flutter:
   uses-material-design: true
