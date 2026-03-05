@@ -1,6 +1,4 @@
-import 'package:flutter/foundation.dart'; // kIsWeb এর জন্য
-// dart:io সরাসরি ইম্পোর্ট না করে কন্ডিশনাল ইম্পোর্ট করা ভালো
-// তবে এখানে আমরা kIsWeb চেক দিয়ে এরর হ্যান্ডেল করব।
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,18 +18,14 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
   List<String> savedMusicPaths = [];
   int currentIndex = -1;
   bool isPlaying = false;
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  late AudioPlayer _localAudioPlayer;
 
   @override
   void initState() {
     super.initState();
+    // যদি মেইন থেকে প্লেয়ার না আসে তবে লোকাল প্লেয়ার ব্যবহার হবে
+    _localAudioPlayer = widget.audioPlayer ?? AudioPlayer();
     loadMusicList();
-  }
-
-  @override
-  void dispose() {
-    _audioPlayer.dispose();
-    super.dispose();
   }
 
   Future<void> loadMusicList() async {
@@ -42,31 +36,42 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
   }
 
   Future<void> pickMusic() async {
-    // ফাইল পিকার ওয়েবেও কাজ করে, তবে পাথের বদলে বাইটস ব্যবহার হয়
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.audio,
       allowMultiple: true,
+      withData: kIsWeb, // ওয়েবের জন্য ডাটা ট্রু রাখা জরুরি
     );
 
     if (result != null) {
-      // ওয়েবে পাথ থাকে না, তাই কন্ডিশনাল চেক
-      List<String> newPaths = result.paths.whereType<String>().toList();
-      
-      setState(() {
-        savedMusicPaths.addAll(newPaths);
-      });
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('my_music', savedMusicPaths);
+      List<String> newItems = [];
+      for (var file in result.files) {
+        if (kIsWeb) {
+          // ওয়েবে পাথের বদলে নাম সেভ করছি
+          if (file.name != null) newItems.add(file.name);
+        } else {
+          // মোবাইলে ফুল পাথ সেভ করছি
+          if (file.path != null) newItems.add(file.path!);
+        }
+      }
+
+      if (newItems.isNotEmpty) {
+        setState(() {
+          savedMusicPaths.addAll(newItems);
+        });
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setStringList('my_music', savedMusicPaths);
+      }
     }
   }
 
   Future<void> deleteMusic(int index) async {
     setState(() {
-      savedMusicPaths.removeAt(index);
       if (currentIndex == index) {
         currentIndex = -1;
-        _audioPlayer.stop();
+        isPlaying = false;
+        _localAudioPlayer.stop();
       }
+      savedMusicPaths.removeAt(index);
     });
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('my_music', savedMusicPaths);
@@ -79,7 +84,7 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text("Music Store", style: TextStyle(color: Colors.greenAccent)),
+        title: const Text("Music Store", style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             onPressed: pickMusic,
@@ -97,24 +102,25 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
                 : ListView.builder(
                     itemCount: savedMusicPaths.length,
                     itemBuilder: (context, index) {
-                      // পাথের এরর এড়াতে split('/') এর আগে চেক
-                      String fileName = savedMusicPaths[index].contains('/') 
-                          ? savedMusicPaths[index].split('/').last 
-                          : savedMusicPaths[index].split('\\').last;
+                      String path = savedMusicPaths[index];
+                      String fileName = path.split('/').last.split('\\').last;
                       
                       return ListTile(
-                        leading: const Icon(Icons.music_note, color: Colors.white70),
+                        leading: const Icon(Icons.music_note, color: Colors.cyanAccent),
                         title: Text(fileName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(color: Colors.white, fontSize: 14)),
                         trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                          icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
                           onPressed: () => deleteMusic(index),
                         ),
                         onTap: () {
-                          Navigator.pop(context, {
-                            'path': savedMusicPaths[index],
-                            'name': fileName,
+                          setState(() {
+                            currentIndex = index;
+                            isPlaying = true;
                           });
+                          // এখানে আপনি আপনার প্লেয়ার লজিক কল করতে পারেন
                         },
                       );
                     },
@@ -127,20 +133,21 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
   }
 
   Widget _buildBottomPlayerBar() {
-    String currentFileName = savedMusicPaths[currentIndex].contains('/') 
-        ? savedMusicPaths[currentIndex].split('/').last 
-        : savedMusicPaths[currentIndex].split('\\').last;
+    String currentPath = savedMusicPaths[currentIndex];
+    String currentFileName = currentPath.split('/').last.split('\\').last;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.grey[900],
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [BoxShadow(color: Colors.greenAccent.withOpacity(0.2), blurRadius: 10)],
       ),
       child: Row(
         children: [
           const CircleAvatar(
-              backgroundColor: Colors.greenAccent, child: Icon(Icons.play_arrow)),
+              backgroundColor: Colors.greenAccent, 
+              child: Icon(Icons.music_video, color: Colors.black)),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -158,15 +165,19 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
             ),
             onPressed: () async {
               if (isPlaying) {
-                await _audioPlayer.pause();
+                await _localAudioPlayer.pause();
               } else {
-                await _audioPlayer.resume();
+                await _localAudioPlayer.resume();
               }
               setState(() {
                 isPlaying = !isPlaying;
               });
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white54),
+            onPressed: () => setState(() => currentIndex = -1),
+          )
         ],
       ),
     );
