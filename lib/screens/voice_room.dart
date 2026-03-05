@@ -426,72 +426,81 @@ void _showLeaveConfirmation(int index) {
     );
   }
 
-  Widget _buildBottomActionArea() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      color: Colors.black26,
-      child: Row(
-        children: [
-          Expanded(
-            child: ChatInputBar(
-              controller: _messageController,
-              onEmojiTap: () => EmojiHandler.showPicker(context: context, seatIndex: -1, onEmojiSelected: (i, url) {
+Widget _buildBottomActionArea() {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    color: Colors.black26,
+    child: Row(
+      children: [
+        Expanded(
+          child: ChatInputBar(
+            controller: _messageController,
+            onEmojiTap: () => EmojiHandler.showPicker(
+              context: context, 
+              seatIndex: -1, 
+              onEmojiSelected: (i, url) {
                 setState(() { currentGiftImage = url; isGiftAnimating = true; });
                 Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
-              }),
-              onMessageSend: (msg) => setState(() => chatMessages.add(msg)),
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: isMicOn ? Colors.greenAccent : Colors.redAccent),
-            onPressed: () {
-              if (currentSeatIndex != -1) {
-                setState(() { isMicOn = !isMicOn; seats[currentSeatIndex]["isMicOn"] = isMicOn; });
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("আগে সিটে বসুন!")));
               }
-            },
+            ),
+            onMessageSend: (msg) => setState(() => chatMessages.add(msg)),
           ),
-          IconButton(icon: const Icon(Icons.videogame_asset, color: Colors.orange), onPressed: () => showModalBottomSheet(context: context, builder: (c) => const GamePanelView())),
-          // --- মিউজিক বাটন (৩৬৪ নম্বর লাইন) ---
-    IconButton(
-      icon: const Icon(Icons.music_note, color: Colors.cyanAccent), 
-       onPressed: () {
-      // এটি ক্লিক করলে আপনার আলাদা ফাইল 'music_player_widget.dart' এর 
-      // সেই ছোট প্লেয়ার উইন্ডোটি ওপেন হবে
-      showDialog(
-        context: context,
-        barrierColor: Colors.transparent, // ব্যাকগ্রাউন্ড স্বচ্ছ থাকবে
-        builder: (context) => Center(
-        child: MusicPlayerWidget(
-          audioPlayer: _audioPlayer,
-          onClose: () => Navigator.pop(context),
         ),
-      ),
-    );
-  },
-),
+        const SizedBox(width: 8),
+        IconButton(
+          icon: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: isMicOn ? Colors.greenAccent : Colors.redAccent),
+          onPressed: () {
+            if (currentSeatIndex != -1) {
+              setState(() { isMicOn = !isMicOn; seats[currentSeatIndex]["isMicOn"] = isMicOn; });
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("আগে সিটে বসুন!")));
+            }
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.videogame_asset, color: Colors.orange), 
+          onPressed: () => showModalBottomSheet(context: context, builder: (c) => const GamePanelView())
+        ),
 
-// --- গিফট বাটন (৩৬৫ নম্বর লাইন) ---
-IconButton(
-  icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent), 
-  onPressed: () {
-    // আপনার 'gift_system.dart' বা গিফট প্যানেলটি ওপেন হবে
-    GiftSystem.showGiftPanel(
-      context: context,
-      roomId: widget.roomId,
-      onGiftSent: (giftImage) {
-        setState(() {
-          currentGiftImage = giftImage;
-          isGiftAnimating = true;
-        });
-        Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
-      },
-    );
-  },
-),
+        // ✅ মিউজিক বাটন ফিক্সড
+        IconButton(
+          icon: const Icon(Icons.music_note, color: Colors.cyanAccent), 
+          onPressed: () {
+            showDialog(
+              context: context,
+              barrierColor: Colors.transparent,
+              builder: (context) => Center(
+                child: MusicPlayerWidget(
+                  audioPlayer: _audioPlayer,
+                  onClose: () => Navigator.pop(context),
+                ),
+              ),
+            );
+          }, // এই ব্র্যাকেটটা আগে মিসিং ছিল
+        ),
 
+        // ✅ গিফট বাটন ফিক্সড
+        IconButton(
+          icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent), 
+          onPressed: () {
+            GiftSystem.showGiftPanel(
+              context: context,
+              roomId: widget.roomId,
+              onGiftSent: (giftImage) {
+                setState(() {
+                  currentGiftImage = giftImage;
+                  isGiftAnimating = true;
+                });
+                Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
+              },
+            );
+          },
+        ),
+      ],
+    ),
+  );
+}
+  
   Widget _buildSeatGridArea() {
     return SizedBox(
       height: 300,
