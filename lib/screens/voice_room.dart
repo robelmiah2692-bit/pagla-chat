@@ -281,14 +281,13 @@ void _showLeaveConfirmation(int index) {
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
-          // 🖼️ ওয়ালপেপার সেকশন (Web-Ready)
+          // ১. ওয়ালপেপার সেকশন
           if (roomWallpaperPath.isNotEmpty)
             Positioned.fill(
-              child: kIsWeb 
-                ? Image.network(roomWallpaperPath, fit: BoxFit.cover) 
-                : Image.network(roomWallpaperPath, fit: BoxFit.cover), // ওয়েবে সব নেটওয়ার্ক ইমেজ হিসেবে ট্রিট হবে
+              child: Image.network(roomWallpaperPath, fit: BoxFit.cover),
             ),
           
+          // ২. মেইন কন্টেন্ট
           Column(
             children: [
               const SizedBox(height: 40),
@@ -317,20 +316,33 @@ void _showLeaveConfirmation(int index) {
             ],
           ),
 
+          // ৩. ফ্লোটিং টুলস
           FloatingRoomTools(onGiftCountStart: _startGiftCounting),
 
+          // ৪. ভাসমান মিউজিক প্লেয়ার (ব্র্যাকেট ঝামেলামুক্ত ফিক্সড কোড)
           if (isRoomMusicPlaying)
             Positioned(
-              left: playerPosition.dx, top: playerPosition.dy,
+              left: playerPosition.dx, 
+              top: playerPosition.dy,
               child: Draggable(
-                feedback: _buildFloatingPlayer(isDragging: true),
-                onDragEnd: (details) => setState(() => playerPosition = details.offset),
+                feedback: Material(
+                  color: Colors.transparent,
+                  child: _buildFloatingPlayer(isDragging: true),
+                ),
+                onDragEnd: (details) {
+                  setState(() {
+                    playerPosition = details.offset;
+                  });
+                },
                 child: _buildFloatingPlayer(isDragging: false),
               ),
             ),
 
+          // ৫. গিফট অ্যানিমেশন
           if (isGiftAnimating)
-            Center(child: Lottie.network(currentGiftImage, width: 300)),
+            IgnorePointer(
+              child: Center(child: Lottie.network(currentGiftImage, width: 300)),
+            ),
         ],
       ),
     );
