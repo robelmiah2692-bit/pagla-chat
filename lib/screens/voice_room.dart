@@ -92,12 +92,17 @@ class _VoiceRoomState extends State<VoiceRoom> {
       onFinished: () => _endPKBattle(),
     );
 
-    _audioPlayer.onPlayerStateChanged.listen((state) {
-      if (mounted) {
-      setState(() {
+    // এটি initState এর ভেতর বসবে
+_audioPlayer.onPlayerStateChanged.listen((state) {
+  if (mounted) {
+    setState(() {
       isRoomMusicPlaying = (state == PlayerState.playing);
     });
   }
+});
+
+_audioPlayer.onPlayerComplete.listen((event) {
+  if (mounted) setState(() => isRoomMusicPlaying = false);
 });
     
     // 🔥 ১. আগে ডাটা লোড হবে
@@ -319,24 +324,29 @@ void _showLeaveConfirmation(int index) {
           // ৩. ফ্লোটিং টুলস
           FloatingRoomTools(onGiftCountStart: _startGiftCounting),
 
-          // ৪. ভাসমান মিউজিক প্লেয়ার (ব্র্যাকেট ঝামেলামুক্ত ফিক্সড কোড)
-          if (isRoomMusicPlaying)
+        // ভাসমান প্লেয়ারের অংশ
+          if ( isRoomMusicPlaying ) 
             Positioned(
               left: playerPosition.dx, 
-              top: playerPosition.dy,
+              top:  playerPosition.dy,
+              
               child: Draggable(
-                feedback: Material(
-                  color: Colors.transparent,
-                  child: _buildFloatingPlayer(isDragging: true),
-                ),
+                
+                feedback: _buildFloatingPlayer(isDragging: true),
+                
+                childWhenDragging: Container(), 
+                
                 onDragEnd: (details) {
                   setState(() {
                     playerPosition = details.offset;
                   });
                 },
+                
                 child: _buildFloatingPlayer(isDragging: false),
-              ),
-            ),
+                
+              ), // Draggable শেষ
+              
+            ), // Positioned শেষ
 
           // ৫. গিফট অ্যানিমেশন
           if (isGiftAnimating)
@@ -485,21 +495,30 @@ Widget _buildBottomActionArea() {
         // ✅ মিউজিক বাটন (ফিচার ঠিক রেখে লজিক আপডেট করা হয়েছে)
         IconButton(
           icon: const Icon(Icons.music_note, color: Colors.cyanAccent), 
+          
           onPressed: () async {
+            
+            // ১. মিউজিক স্টোর ওপেন হবে
             await showModalBottomSheet(
               context: context,
               backgroundColor: Colors.transparent,
               builder: (context) => MusicPlayerPage(audioPlayer: _audioPlayer),
             );
             
-            // পপআপ বন্ধ হওয়ার পর যদি গান বাজে, তবে ভাসমান প্লেয়ার একটিভ হবে
-            if (_audioPlayer.state == PlayerState.playing) {
+   
+            // ২. স্টোর থেকে ফিরে আসার পর চেক
+            if ( _audioPlayer.state == PlayerState.playing ) {
+              
               setState(() {
                 isRoomMusicPlaying = true;
               });
+              
             }
-          },
-        ),
+            
+          }, // onPressed শেষ
+          
+        ), // IconButton শেষ
+        
 
         // ✅ গিফট বাটন
         IconButton(
