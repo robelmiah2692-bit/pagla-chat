@@ -324,15 +324,20 @@ void _showLeaveConfirmation(int index) {
           // ৩. ফ্লোটিং টুলস
           FloatingRoomTools(onGiftCountStart: _startGiftCounting),
           // 🔥 আপনার সেই হারানো ভাসমান প্লেয়ার (১০০% ফিক্সড)
+          // মিউজিক বাজলে এই ভাসমান প্লেয়ারটি দেখা যাবে
           if (isRoomMusicPlaying)
             Positioned(
-              left: playerPosition.dx,
+              left: playerPosition.dx, 
               top: playerPosition.dy,
               child: Draggable(
-                feedback: _buildFloatingCirclePlayer(),
+                feedback: _buildFloatingPlayer(isDragging: true),
                 childWhenDragging: Container(),
-                onDragEnd: (details) => setState(() => playerPosition = details.offset),
-                child: _buildFloatingCirclePlayer(),
+                onDragEnd: (details) {
+                  setState(() {
+                    playerPosition = details.offset;
+                  });
+                },
+                child: _buildFloatingPlayer(isDragging: false),
               ),
             ),
 
@@ -481,27 +486,35 @@ Widget _buildBottomActionArea() {
         ),
 
         // ✅ মিউজিক বাটন (ফিচার ঠিক রেখে লজিক আপডেট করা হয়েছে)
-        IconButton(
-          icon: const Icon(Icons.music_note, color: Colors.cyanAccent), 
-          
-          onPressed: () async {
+        // আপনার সেই মিউজিক বাটন - লজিকসহ
+          IconButton(
+            icon: const Icon(Icons.music_note, color: Colors.cyanAccent), 
             
-            // মিউজিক স্টোর ওপেন
-            await showModalBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              builder: (context) => MusicPlayerPage(audioPlayer: _audioPlayer),
-            );
-            
-            // স্টোর থেকে ফিরে আসার পর যদি গান বাজে, তবে প্লেয়ার দেখাবেই
-            if (_audioPlayer.state == PlayerState.playing) {
-              setState(() {
-                isRoomMusicPlaying = true; 
-              });
-            }
-          },
-          
-        ),
+            onPressed: () async {
+              
+              // ১. মিউজিক স্টোর থেকে গানের তথ্য রিসিভ করা (আপনার ফাইল ১৫ এর পপ-আপ থেকে)
+              final result = await showModalBottomSheet<Map<String, dynamic>>(
+                context: context,
+                backgroundColor: Colors.transparent,
+                builder: (context) => MusicPlayerPage(audioPlayer: _audioPlayer),
+              );
+
+              // ২. যদি ইউজার কোনো গান সিলেক্ট করে ফিরে আসে
+              if (result != null && result.containsKey('path')) {
+                
+                String musicPath = result['path'];
+
+                // ৩. গান বাজানো শুরু
+                await _audioPlayer.play(DeviceFileSource(musicPath));
+                
+                // ৪. সাথে সাথে ভাসমান প্লেয়ার একটিভ করা (আপনার আইডিয়া অনুযায়ী)
+                setState(() {
+                  isRoomMusicPlaying = true;
+                });
+                
+              }
+            },
+          ),
         
         // ✅ গিফট বাটন
         IconButton(
@@ -605,33 +618,44 @@ Widget _buildBottomActionArea() {
     );
   }
 
-  Widget _buildFloatingCirclePlayer() {
+  Widget _buildFloatingPlayer({required bool isDragging}) {
     return Material(
       color: Colors.transparent,
       child: Container(
         width: 60,
         height: 60,
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.8),
-          shape: BoxShape.circle,
+          color: Colors.black.withOpacity(0.85),
+          shape: BoxShape.circle, // গোল ডিজাইন
           border: Border.all(color: Colors.cyanAccent, width: 2),
-          boxShadow: [BoxShadow(color: Colors.cyanAccent.withOpacity(0.4), blurRadius: 15)],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.cyanAccent.withOpacity(0.4),
+              blurRadius: 10,
+              spreadRadius: 1
+            )
+          ],
         ),
         child: Stack(
           alignment: Alignment.center,
           children: [
+            // মিউজিক আইকন
             const Icon(Icons.music_note, color: Colors.cyanAccent, size: 30),
+            
+            // প্লেয়ার বন্ধ করার ছোট লাল বাটন
             Positioned(
               right: 0,
               top: 0,
               child: GestureDetector(
                 onTap: () {
                   _audioPlayer.stop();
-                  setState(() => isRoomMusicPlaying = false);
+                  setState(() {
+                    isRoomMusicPlaying = false;
+                  });
                 },
                 child: const CircleAvatar(
                   radius: 10,
-                  backgroundColor: Colors.red,
+                  backgroundColor: Colors.redAccent,
                   child: Icon(Icons.close, size: 10, color: Colors.white),
                 ),
               ),
@@ -640,5 +664,5 @@ Widget _buildBottomActionArea() {
         ),
       ),
     );
-  }  
+  }
 }
