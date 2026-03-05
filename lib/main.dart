@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'; // kIsWeb চেক করার জন্য
 import 'auth_service.dart';
+import 'package:pagla_chat/notification_service.dart'; // এখানে আপনার প্রোজেক্টের নাম ও ফাইলের নাম দিন
 
 // ফায়ারবেস প্যাকেজ
 import 'package:firebase_core/firebase_core.dart';
@@ -26,7 +27,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   try {
-    // ১. ফায়ারবেস ইনিশিয়ালাইজেশন (ওয়েব ও মোবাইল সাপোর্ট)
+    // ১. ফায়ারবেস ইনিশিয়ালাইজেশন
     await Firebase.initializeApp(
       options: const FirebaseOptions(
         apiKey: "AIzaSyA9KMdtIBNVYSASc5C2w5JGVTL-NISXFog",
@@ -40,10 +41,16 @@ void main() async {
       ),
     );
 
-    // ২. শুধু মোবাইলের জন্য নোটিফিকেশন (ওয়েবে এরর রোধ করতে)
+    // ২. নোটিফিকেশন সার্ভিস চালু করা (শুধু মোবাইলের জন্য)
     if (!kIsWeb) {
       try {
+        // ব্যাকগ্রাউন্ড মেসেজ হ্যান্ডলার সেট করা
         FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+        
+        // 🔥 আমাদের তৈরি করা আলাদা সার্ভিসটি এখানে কল করতে হবে
+        // এটি না করা পর্যন্ত নোটিফিকেশন পারমিশন চাইবে না এবং কাজও করবে না
+        await NotificationService().initNotification(); 
+        
       } catch (e) {
         debugPrint("Notification init failed: $e");
       }
