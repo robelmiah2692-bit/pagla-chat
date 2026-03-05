@@ -323,30 +323,18 @@ void _showLeaveConfirmation(int index) {
 
           // ৩. ফ্লোটিং টুলস
           FloatingRoomTools(onGiftCountStart: _startGiftCounting),
-
-        // ভাসমান প্লেয়ারের অংশ
-          if ( isRoomMusicPlaying ) 
+          // 🔥 আপনার সেই হারানো ভাসমান প্লেয়ার (১০০% ফিক্সড)
+          if (isRoomMusicPlaying)
             Positioned(
-              left: playerPosition.dx, 
-              top:  playerPosition.dy,
-              
+              left: playerPosition.dx,
+              top: playerPosition.dy,
               child: Draggable(
-                
-                feedback: _buildFloatingPlayer(isDragging: true),
-                
-                childWhenDragging: Container(), 
-                
-                onDragEnd: (details) {
-                  setState(() {
-                    playerPosition = details.offset;
-                  });
-                },
-                
-                child: _buildFloatingPlayer(isDragging: false),
-                
-              ), // Draggable শেষ
-              
-            ), // Positioned শেষ
+                feedback: _buildFloatingCirclePlayer(),
+                childWhenDragging: Container(),
+                onDragEnd: (details) => setState(() => playerPosition = details.offset),
+                child: _buildFloatingCirclePlayer(),
+              ),
+            ),
 
           // ৫. গিফট অ্যানিমেশন
           if (isGiftAnimating)
@@ -498,28 +486,23 @@ Widget _buildBottomActionArea() {
           
           onPressed: () async {
             
-            // ১. মিউজিক স্টোর ওপেন হবে
+            // মিউজিক স্টোর ওপেন
             await showModalBottomSheet(
               context: context,
               backgroundColor: Colors.transparent,
               builder: (context) => MusicPlayerPage(audioPlayer: _audioPlayer),
             );
             
-   
-            // ২. স্টোর থেকে ফিরে আসার পর চেক
-            if ( _audioPlayer.state == PlayerState.playing ) {
-              
+            // স্টোর থেকে ফিরে আসার পর যদি গান বাজে, তবে প্লেয়ার দেখাবেই
+            if (_audioPlayer.state == PlayerState.playing) {
               setState(() {
-                isRoomMusicPlaying = true;
+                isRoomMusicPlaying = true; 
               });
-              
             }
-            
-          }, // onPressed শেষ
+          },
           
-        ), // IconButton শেষ
+        ),
         
-
         // ✅ গিফট বাটন
         IconButton(
           icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent), 
@@ -622,38 +605,40 @@ Widget _buildBottomActionArea() {
     );
   }
 
-  Widget _buildFloatingPlayer({required bool isDragging}) {
-  return Material( // এটি যোগ করলে ড্র্যাগ করার সময় প্লেয়ার আর গায়েব হবে না
-    color: Colors.transparent,
-    child: Container(
-      width: 130, // সাইজ একটু বাড়িয়ে দিলাম যাতে চোখে পড়ে
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.greenAccent, width: 2),
-        boxShadow: const [BoxShadow(color: Colors.black87, blurRadius: 10)],
+  Widget _buildFloatingCirclePlayer() {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.8),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.cyanAccent, width: 2),
+          boxShadow: [BoxShadow(color: Colors.cyanAccent.withOpacity(0.4), blurRadius: 15)],
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            const Icon(Icons.music_note, color: Colors.cyanAccent, size: 30),
+            Positioned(
+              right: 0,
+              top: 0,
+              child: GestureDetector(
+                onTap: () {
+                  _audioPlayer.stop();
+                  setState(() => isRoomMusicPlaying = false);
+                },
+                child: const CircleAvatar(
+                  radius: 10,
+                  backgroundColor: Colors.red,
+                  child: Icon(Icons.close, size: 10, color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.music_note, color: Colors.greenAccent, size: 20),
-          const SizedBox(width: 6),
-          const Text(
-            "Playing...",
-            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-          const Spacer(),
-          GestureDetector(
-            onTap: () {
-              _audioPlayer.stop();
-              setState(() => isRoomMusicPlaying = false);
-            },
-            child: const Icon(Icons.close, color: Colors.white, size: 16),
-          ),
-        ],
-      ),
-    ),
-  );
-}
+    );
+  }  
 }
