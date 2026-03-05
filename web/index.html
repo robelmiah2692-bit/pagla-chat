@@ -4,7 +4,7 @@
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project for Pagla Chat.">
+  <meta name="description" content="Live Voice Adda App">
 
   <title>Pagla Chat</title>
   
@@ -32,9 +32,11 @@
   </script>
 
   <style>
-    /* ফ্লাটারের ডিফল্ট লোডার পুরোপুরি বন্ধ করার জন্য */
-    .flutter-loader {
+    /* ফ্লাটারের ডিফল্ট লোডারকে চিরতরে বন্ধ করার জন্য */
+    .flutter-loader,
+    #flutter-loader {
       display: none !important;
+      visibility: hidden !important;
     }
 
     #loading-indicator {
@@ -46,7 +48,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      z-index: 999999; /* সবার উপরে থাকবে */
+      z-index: 999999;
     }
     #loading-indicator img {
       width: 150px;
@@ -59,26 +61,25 @@
 <body style="background-color: #0F0F1E; margin: 0;">
   
   <div id="loading-indicator">
-    <img src="favicon.png?v=101" alt="Logo" id="logo-img" loading="eager">
+    <img src="favicon.png?v=101" alt="Logo" loading="eager">
     <p style="color: white; font-family: sans-serif; margin-top: 20px; font-weight: bold;">Pagla Chat Loading...</p>
   </div>
 
-  <script src="flutter_bootstrap.js" async></script>
   <script src="main.dart.js" type="application/javascript"></script>
 
   <script>
-    // এই স্ক্রিপ্টটি নিশ্চিত করবে আপনার লোগোটি অন্তত ৩ সেকেন্ড থাকবে
+    // এই স্ক্রিপ্টটি আপনার লোগোকে আটকে রাখবে
     window.addEventListener('load', function() {
       var loader = document.getElementById('loading-indicator');
       
-      // ফ্লাটার ইঞ্জিন পুরোপুরি তৈরি হওয়ার পর লোগো সরবে
+      // আমরা ফ্লাটারকে ১ সেকেন্ড বাড়তি সময় দিচ্ছি যাতে ডিফল্ট কিছু আসার সুযোগ না পায়
       setTimeout(function() {
         loader.style.transition = "opacity 1s ease";
         loader.style.opacity = "0";
         setTimeout(function() {
           loader.style.display = 'none';
         }, 1000);
-      }, 3000); // ৩ সেকেন্ডের জন্য লোগোটি আটকে থাকবে
+      }, 4000); // ৪ সেকেন্ড ধরে আপনার লোগোটা থাকবে
     });
   </script>
 </body>
