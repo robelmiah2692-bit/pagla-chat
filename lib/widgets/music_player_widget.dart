@@ -27,21 +27,30 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
     });
   }
 
+  // 🔥 আপনার পুরনো ফাইলের মতো নিখুঁত পিকিং লজিক
   Future<void> pickMusic() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.audio,
       allowMultiple: true,
     );
+
     if (result != null) {
+      // পাথগুলো ফিল্টার করে নেওয়া যাতে এরর না আসে
       List<String> newPaths = result.paths.whereType<String>().toList();
-      setState(() => savedMusicPaths.addAll(newPaths));
+      
+      setState(() {
+        savedMusicPaths.addAll(newPaths);
+      });
+      
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList('my_music', savedMusicPaths);
     }
   }
 
   Future<void> deleteMusic(int index) async {
-    setState(() => savedMusicPaths.removeAt(index));
+    setState(() {
+      savedMusicPaths.removeAt(index);
+    });
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('my_music', savedMusicPaths);
   }
@@ -60,26 +69,33 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
           )
         ],
       ),
-      body: savedMusicPaths.isEmpty
-          ? const Center(child: Text("কোনো গান নেই, + বাটনে ক্লিক করুন", style: TextStyle(color: Colors.white24)))
-          : ListView.builder(
-              itemCount: savedMusicPaths.length,
-              itemBuilder: (context, index) => ListTile(
-                leading: const Icon(Icons.music_note, color: Colors.cyanAccent),
-                title: Text(savedMusicPaths[index].split('/').last,
-                    style: const TextStyle(color: Colors.white, fontSize: 14)),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                  onPressed: () => deleteMusic(index),
-                ),
-                onTap: () {
-                  // 🔥 এখান থেকে ডাটা নিয়ে বের হয়ে যাবে
-                  Navigator.pop(context, {
-                    'path': savedMusicPaths[index],
-                  });
-                },
-              ),
-            ),
+      body: Column(
+        children: [
+          Expanded(
+            child: savedMusicPaths.isEmpty
+                ? const Center(child: Text("কোনো গান নেই, + বাটনে ক্লিক করুন", 
+                    style: TextStyle(color: Colors.white24)))
+                : ListView.builder(
+                    itemCount: savedMusicPaths.length,
+                    itemBuilder: (context, index) => ListTile(
+                      leading: const Icon(Icons.music_note, color: Colors.cyanAccent),
+                      title: Text(savedMusicPaths[index].split('/').last,
+                          style: const TextStyle(color: Colors.white, fontSize: 14)),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                        onPressed: () => deleteMusic(index),
+                      ),
+                      onTap: () {
+                        // ✅ এখান থেকে গান সিলেক্ট করলে ভয়েস রুমে ডাটা যাবে
+                        Navigator.pop(context, {
+                          'path': savedMusicPaths[index],
+                        });
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
