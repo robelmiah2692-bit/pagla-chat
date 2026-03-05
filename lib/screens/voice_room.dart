@@ -92,6 +92,14 @@ class _VoiceRoomState extends State<VoiceRoom> {
       onFinished: () => _endPKBattle(),
     );
 
+    _audioPlayer.onPlayerStateChanged.listen((state) {
+      if (mounted) {
+      setState(() {
+      isRoomMusicPlaying = (state == PlayerState.playing);
+    });
+  }
+});
+    
     // 🔥 ১. আগে ডাটা লোড হবে
     FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
       if (doc.exists && mounted) {
@@ -462,19 +470,26 @@ Widget _buildBottomActionArea() {
           onPressed: () => showModalBottomSheet(context: context, builder: (c) => const GamePanelView())
         ),
 
-        // ✅ মিউজিক বাটন (আপনার MusicPlayerPage ক্লাসের সাথে মিলিয়ে)
+        // ✅ মিউজিক বাটন (ফিচার ঠিক রেখে লজিক আপডেট করা হয়েছে)
         IconButton(
           icon: const Icon(Icons.music_note, color: Colors.cyanAccent), 
-          onPressed: () {
-            showModalBottomSheet(
+          onPressed: () async {
+            await showModalBottomSheet(
               context: context,
               backgroundColor: Colors.transparent,
               builder: (context) => MusicPlayerPage(audioPlayer: _audioPlayer),
             );
+            
+            // পপআপ বন্ধ হওয়ার পর যদি গান বাজে, তবে ভাসমান প্লেয়ার একটিভ হবে
+            if (_audioPlayer.state == PlayerState.playing) {
+              setState(() {
+                isRoomMusicPlaying = true;
+              });
+            }
           },
         ),
 
-        // ✅ গিফট বাটন (আপনার GiftBottomSheet ক্লাসের সাথে মিলিয়ে)
+        // ✅ গিফট বাটন
         IconButton(
           icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent), 
           onPressed: () {
@@ -483,10 +498,10 @@ Widget _buildBottomActionArea() {
               isScrollControlled: true,
               backgroundColor: Colors.transparent,
               builder: (context) => GiftBottomSheet(
-                diamondBalance: 1000, // আপনার ডায়মন্ড ভেরিয়েবলটি এখানে বসাতে পারেন
+                diamondBalance: 1000, 
                 onGiftSend: (gift, count, target) {
                   setState(() {
-                    currentGiftImage = gift['icon']; // গিফট আইকন সেট
+                    currentGiftImage = gift['icon']; 
                     isGiftAnimating = true;
                   });
                   Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
@@ -577,10 +592,35 @@ Widget _buildBottomActionArea() {
   }
 
   Widget _buildFloatingPlayer({required bool isDragging}) {
-    return Container(
-      width: 140, padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(30)),
-      child: const Row(children: [Icon(Icons.music_note, color: Colors.greenAccent), Text(" Playing...", style: TextStyle(color: Colors.white, fontSize: 10))]),
-    );
-  }
+  return Container(
+    width: 110, // ছোট সাইজ
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(
+      color: Colors.black.withOpacity(0.85),
+      borderRadius: BorderRadius.circular(25),
+      border: Border.all(color: Colors.greenAccent.withOpacity(0.6), width: 1),
+      boxShadow: [BoxShadow(color: Colors.black54, blurRadius: 4)],
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // মিউজিক নোট আইকন যা ঘুরবে বা স্থির থাকবে
+        const Icon(Icons.music_note, color: Colors.greenAccent, size: 18),
+        const SizedBox(width: 4),
+        const Text(
+          "Playing...",
+          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
+        ),
+        const Spacer(),
+        // ছোট ক্লোজ বাটন গান বন্ধ করার জন্য
+        GestureDetector(
+          onTap: () {
+            _audioPlayer.stop();
+            setState(() => isRoomMusicPlaying = false);
+          },
+          child: const Icon(Icons.close, color: Colors.white54, size: 14),
+        ),
+      ],
+    ),
+  );
 }
