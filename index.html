@@ -5,7 +5,6 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Live Voice Adda App">
-
   <title>Pagla Chat</title>
   
   <link rel="icon" type="image/png" href="favicon.png?v=101"/>
@@ -32,12 +31,11 @@
   </script>
 
   <style>
-    /* 🔥 ডিফল্ট লোগোর সব রাস্তা বন্ধ */
-    .flutter-loader, #flutter-loader, picture, #splash, [id*="splash"] {
+    /* 🔥 ডিফল্ট লোগোর সব রাস্তা বন্ধ করার জন্য */
+    .flutter-loader, #flutter-loader, picture, #splash, [id*="splash"], flutter-loading {
       display: none !important;
       visibility: hidden !important;
       opacity: 0 !important;
-      pointer-events: none !important;
     }
 
     #loading-indicator {
@@ -49,7 +47,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      z-index: 2147483647 !important; /* ব্রাউজারের সর্বোচ্চ সম্ভব লেয়ার */
+      z-index: 2147483647 !important;
     }
     #loading-indicator img {
       width: 150px;
@@ -57,7 +55,6 @@
       border-radius: 30px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
-    body { background-color: #0F0F1E !important; }
   </style>
 </head>
 <body style="background-color: #0F0F1E; margin: 0;">
@@ -70,16 +67,25 @@
   <script src="main.dart.js" type="application/javascript"></script>
 
   <script>
-    // এই স্ক্রিপ্টটি আপনার লোগোকে ৪ সেকেন্ড ধরে রাখবে যাতে ডিফল্ট কিছু আসার সুযোগ না পায়
+    // এই লজিকটি ডিফল্ট লোগোকে আসতে দেবে না
     window.addEventListener('load', function() {
       var loader = document.getElementById('loading-indicator');
+      
+      // ফ্লাটার ইঞ্জিন পুরোপুরি লোড হওয়ার জন্য ৩ সেকেন্ড সময় নেবে 
+      // এবং আপনার লোগো ততক্ষণ পর্যন্ত পর্দা হয়ে দাঁড়িয়ে থাকবে।
       setTimeout(function() {
-        loader.style.transition = "opacity 1.5s ease";
+        loader.style.transition = "opacity 1s ease";
         loader.style.opacity = "0";
         setTimeout(function() {
           loader.style.display = 'none';
-        }, 1500);
-      }, 4000); 
+        }, 1000);
+      }, 5000); // এখানে ৫ সেকেন্ড দিলাম যাতে ইঞ্জিন পুরোপুরি চালু হওয়ার গ্যাপ না পায়
+    });
+
+    // ফ্লাটার ইঞ্জিন যখন ইন্টারনাল স্প্ল্যাশ রেন্ডার করতে যাবে, এটা সেটা ব্লক করবে
+    Object.defineProperty(window, 'flutter_web_config', {
+      value: { isVisible: false },
+      writable: false
     });
   </script>
 </body>
