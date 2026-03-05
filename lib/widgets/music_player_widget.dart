@@ -82,7 +82,8 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text("Music Store", style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+        title: const Text("Music Store", 
+          style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             onPressed: pickMusic,
@@ -119,10 +120,13 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
                             isPlaying = true;
                           });
 
-                          // ✅ মেইন প্লেয়ারের মাধ্যমে গান প্লে করা (যাতে ভাসমান প্লেয়ার ট্রিগার হয়)
                           try {
+                            // ✅ মেইন প্লেয়ারের মাধ্যমে গান প্লে করা
                             await _localAudioPlayer.play(DeviceFileSource(path));
-                            // গান সিলেক্ট করার পর স্টোর বন্ধ করে রুমে ফিরে যাবে
+                            
+                            // 🔥 ফিক্স: ১০০ মিলিসেকেন্ড ওয়েট করা যাতে VoiceRoom স্টেট আপডেট করতে পারে
+                            await Future.delayed(const Duration(milliseconds: 100));
+
                             if(context.mounted) Navigator.pop(context);
                           } catch (e) {
                             debugPrint("Error playing: $e");
