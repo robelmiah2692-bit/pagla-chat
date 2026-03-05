@@ -1,6 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+// 🔥 ফাইল লোকেশন অনুযায়ী সঠিক ইমপোর্ট:
+import '../services/post_controller.dart'; 
 
 class PostCard extends StatelessWidget {
   final Map<String, dynamic> data;
@@ -8,55 +11,13 @@ class PostCard extends StatelessWidget {
 
   const PostCard({super.key, required this.data, required this.postId});
 
-  // 🔥 ১. লাইক সিস্টেম (ডাটাবেসে সেভ হবে)
-  Future<void> _handleLike() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    DocumentReference postRef = FirebaseFirestore.instance.collection('stories').doc(postId);
-    DocumentSnapshot doc = await postRef.get();
-    
-    // ডাটাবেস থেকে লাইক লিস্ট নেওয়া
-    List likes = (doc.data() as Map<String, dynamic>)['likes'] ?? [];
-
-    if (likes.contains(user.uid)) {
-      await postRef.update({'likes': FieldValue.arrayRemove([user.uid])});
-    } else {
-      await postRef.update({'likes': FieldValue.arrayUnion([user.uid])});
-    }
-  }
-
-  // 🔥 ২. শেয়ার সিস্টেম (শেয়ারকারীর আইডি দিয়ে নতুন পোস্ট)
-  Future<void> _handleShare(BuildContext context) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    try {
-      await FirebaseFirestore.instance.collection('stories').add({
-        'userId': user.uid,
-        'userName': user.displayName ?? "User",
-        'userImage': user.photoURL ?? "",
-        'storyImage': data['storyImage'] ?? "",
-        'caption': "Shared: ${data['caption'] ?? ""}",
-        'timestamp': FieldValue.serverTimestamp(),
-        'isShared': true,
-      });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("শেয়ার হয়েছে! ✅")));
-    } catch (e) {
-      print("Share Error: $e");
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final String userName = data['userName']?.toString() ?? "User";
-    final String userImg = data['userImage']?.toString() ?? "";
-    final String postImg = data['storyImage']?.toString() ?? "";
-    final String caption = data['caption']?.toString() ?? "";
+    final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
     
-    // লাইক চেক
-    List likes = data['likes'] ?? [];
-    bool isLiked = likes.contains(FirebaseAuth.instance.currentUser?.uid);
+    // ডাটাবেস থেকে লাইক লিস্ট রিড করা
+    final List likes = data['likes'] ?? [];
+    final bool isLiked = likes.contains(uid);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
@@ -64,39 +25,58 @@ class PostCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // প্রোফাইল ও নাম
+          // ১. প্রোফাইল ও নাম অংশ
           ListTile(
             leading: CircleAvatar(
-              backgroundImage: NetworkImage(userImg.isNotEmpty ? userImg : "https://www.w3schools.com/howto/img_avatar.png"),
+              backgroundImage: NetworkImage(
+                data['userImage'] != null && data['userImage'].toString().isNotEmpty 
+                ? data['userImage'] 
+                : "https://www.w3schools.com/howto/img_avatar.png"
+              ),
             ),
-            title: Text(userName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            title: Text(data['userName'] ?? "User", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             subtitle: const Text("Just now", style: TextStyle(color: Colors.white54, fontSize: 11)),
           ),
 
-          // ক্যাপশন
-          if (caption.isNotEmpty)
+          // ২. ক্যাপশন
+          if (data['caption'] != null && data['caption'].toString().isNotEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-              child: Text(caption, style: const TextStyle(color: Colors.white)),
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+              child: Text(data['caption'], style: const TextStyle(color: Colors.white)),
             ),
 
-          // বড় ছবি
-          if (postImg.isNotEmpty)
-            Image.network(postImg, width: double.infinity, fit: BoxFit.cover, 
-              errorBuilder: (context, error, stackTrace) => const SizedBox(height: 10)),
+          // ৩. ইমেজ অংশ
+          if (data['storyImage'] != null && data['storyImage'].toString().isNotEmpty)
+            Image.network(
+              data['storyImage'],
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+            ),
 
-          // বাটন সেকশন
+          // ৪. ইন্টারেকশন বাটন (লাইক, কমেন্ট, শেয়ার)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildBtn(isLiked ? Icons.favorite : Icons.favorite_border, isLiked ? "Liked" : "Like", 
-                    isLiked ? Colors.red : Colors.white70, _handleLike),
-                _buildBtn(Icons.mode_comment_outlined, "Comment", Colors.white70, () {
-                  // কমেন্ট ফাংশন এখানে কল হবে
+                // লাইক বাটন
+                _buildAction(
+                  isLiked ? Icons.favorite : Icons.favorite_border, 
+                  isLiked ? Colors.red : Colors.white70, 
+                  () => PostController.toggleLike(postId, likes)
+                ),
+                // কমেন্ট বাটন (এখানে আমরা পরে মেসেজ বার যোগ করব)
+                _buildAction(Icons.mode_comment_outlined, Colors.white70, () {
+                  print("Comment clicked");
                 }),
-                _buildBtn(Icons.share_outlined, "Share", Colors.white70, () => _handleShare(context)),
+                // শেয়ার বাটন
+                _buildAction(Icons.share_outlined, Colors.white70, () {
+                  PostController.sharePost(data);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("আপনার প্রোফাইলে শেয়ার হয়েছে! ✅"))
+                  );
+                }),
               ],
             ),
           ),
@@ -106,16 +86,10 @@ class PostCard extends StatelessWidget {
     );
   }
 
-  Widget _buildBtn(IconData icon, String label, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 5),
-          Text(label, style: TextStyle(color: color, fontSize: 12)),
-        ],
-      ),
+  Widget _buildAction(IconData icon, Color color, VoidCallback onTap) {
+    return IconButton(
+      icon: Icon(icon, color: color, size: 24),
+      onPressed: onTap,
     );
   }
 }
