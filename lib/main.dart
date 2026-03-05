@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'; // kIsWeb চেক করার জন্য
 import 'auth_service.dart';
-import 'package:pagla_chat/notification_service.dart'; // এখানে আপনার প্রোজেক্টের নাম ও ফাইলের নাম দিন
+// আগে যা ছিল তা কেটে এটা লিখুন
+import 'package:pagla_chat/services/notification_service.dart';
 
 // ফায়ারবেস প্যাকেজ
 import 'package:firebase_core/firebase_core.dart';
