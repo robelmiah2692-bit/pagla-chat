@@ -24,7 +24,6 @@ dependencies:
   cloud_firestore: ^4.15.8
   firebase_database: ^10.4.9
   firebase_remote_config: ^4.3.8
-  firebase_remote_config: ^4.3.8
   firebase_storage: ^11.6.0  # 🔥 এটি অবশ্যই যোগ করতে হবে
   
   # --- গুগল লগইন ---
