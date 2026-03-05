@@ -59,7 +59,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   int pkSeconds = 300; 
 
   bool isRoomMusicPlaying = false; 
-  Offset playerPosition = const Offset(20, 100);
+  Offset playerPosition = const Offset(150, 400); // পজিশন একটু নিচে ও মাঝখানে আনা হলো
   final AudioPlayer _audioPlayer = AudioPlayer();
   final TextEditingController _messageController = TextEditingController();
   
