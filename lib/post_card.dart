@@ -4,16 +4,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PostCard extends StatelessWidget {
   final Map<String, dynamic> data;
-  final String postId;
+  final String? postId; // এখানে '?' দিয়ে অপশনাল করা হয়েছে
 
-  const PostCard({super.key, required this.data, required this.postId});
+  // 'required' সরিয়ে দেওয়া হয়েছে যাতে home_page এর ডাটা নিয়ে ঝামেলা না হয়
+  const PostCard({super.key, required this.data, this.postId});
 
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final String uid = user?.uid ?? "";
-    
-    // লাইক লিস্ট এবং চেক
     final List likes = data['likes'] ?? [];
     final bool isLiked = likes.contains(uid);
 
@@ -23,7 +22,7 @@ class PostCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ১. প্রোফাইল ও নাম
+          // প্রোফাইল ও নাম
           ListTile(
             leading: CircleAvatar(
               backgroundImage: NetworkImage(
@@ -33,47 +32,38 @@ class PostCard extends StatelessWidget {
               ),
             ),
             title: Text(data['userName'] ?? "User", 
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             subtitle: const Text("Just now", style: TextStyle(color: Colors.white54, fontSize: 11)),
           ),
 
-          // ২. ক্যাপশন
+          // ক্যাপশন
           if (data['caption'] != null && data['caption'].toString().isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
               child: Text(data['caption'], style: const TextStyle(color: Colors.white)),
             ),
 
-          // ৩. বড় ছবি
+          // ইমেজ
           if (data['storyImage'] != null && data['storyImage'].toString().isNotEmpty)
-            Image.network(
-              data['storyImage'],
-              width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-            ),
+            Image.network(data['storyImage'], width: double.infinity, fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const SizedBox.shrink()),
 
-          // ৪. বাটন সেকশন (লাইক, কমেন্ট, শেয়ার)
+          // বাটন সেকশন
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                // লাইক
                 _buildAction(isLiked ? Icons.favorite : Icons.favorite_border, 
                     isLiked ? Colors.red : Colors.white70, () {
-                  _StaticPostController.toggleLike(postId, likes);
+                  if (postId != null) _StaticPostController.toggleLike(postId!, likes);
                 }),
-                // কমেন্ট (এখানে আমরা পরে মেসেজ বার ফাইলটি কানেক্ট করব)
                 _buildAction(Icons.mode_comment_outlined, Colors.white70, () {
                   print("Comment UI Triggered");
                 }),
-                // শেয়ার (ইউজার আইডি দিয়ে নতুন পোস্ট)
                 _buildAction(Icons.share_outlined, Colors.white70, () {
                   _StaticPostController.sharePost(data);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("শেয়ার হয়েছে! ✅"))
-                  );
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("শেয়ার হয়েছে! ✅")));
                 }),
               ],
             ),
@@ -89,15 +79,15 @@ class PostCard extends StatelessWidget {
   }
 }
 
-// 🔥 বিল্ড এরর এড়াতে কন্ট্রোলারটি এই ফাইলের ভেতরেই রাখা হলো
+// কন্ট্রোলার এই ফাইলেই থাকবে যাতে ইমপোর্ট এরর না হয়
 class _StaticPostController {
   static final _db = FirebaseFirestore.instance;
   static final _auth = FirebaseAuth.instance;
 
-  static Future<void> toggleLike(String postId, List currentLikes) async {
+  static Future<void> toggleLike(String pId, List currentLikes) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
-    DocumentReference ref = _db.collection('stories').doc(postId);
+    DocumentReference ref = _db.collection('stories').doc(pId);
     if (currentLikes.contains(uid)) {
       await ref.update({'likes': FieldValue.arrayRemove([uid])});
     } else {
@@ -110,7 +100,7 @@ class _StaticPostController {
     if (user == null) return;
     await _db.collection('stories').add({
       'userId': user.uid,
-      'userName': user.displayName ?? user.email?.split('@')[0] ?? "User",
+      'userName': user.displayName ?? "User",
       'userImage': user.photoURL ?? "",
       'storyImage': postData['storyImage'] ?? "",
       'caption': "Shared: ${postData['caption'] ?? ""}",
