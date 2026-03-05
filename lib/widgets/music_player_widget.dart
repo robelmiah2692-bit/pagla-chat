@@ -23,7 +23,7 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
   @override
   void initState() {
     super.initState();
-    // যদি মেইন থেকে প্লেয়ার না আসে তবে লোকাল প্লেয়ার ব্যবহার হবে
+    // রুম থেকে আসা মেইন প্লেয়ার ব্যবহার করা হচ্ছে যাতে সাউন্ড রুমে শোনা যায়
     _localAudioPlayer = widget.audioPlayer ?? AudioPlayer();
     loadMusicList();
   }
@@ -39,17 +39,15 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.audio,
       allowMultiple: true,
-      withData: kIsWeb, // ওয়েবের জন্য ডাটা ট্রু রাখা জরুরি
+      withData: kIsWeb,
     );
 
     if (result != null) {
       List<String> newItems = [];
       for (var file in result.files) {
         if (kIsWeb) {
-          // ওয়েবে পাথের বদলে নাম সেভ করছি
           if (file.name != null) newItems.add(file.name);
         } else {
-          // মোবাইলে ফুল পাথ সেভ করছি
           if (file.path != null) newItems.add(file.path!);
         }
       }
@@ -115,12 +113,20 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
                           icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
                           onPressed: () => deleteMusic(index),
                         ),
-                        onTap: () {
+                        onTap: () async {
                           setState(() {
                             currentIndex = index;
                             isPlaying = true;
                           });
-                          // এখানে আপনি আপনার প্লেয়ার লজিক কল করতে পারেন
+
+                          // ✅ মেইন প্লেয়ারের মাধ্যমে গান প্লে করা (যাতে ভাসমান প্লেয়ার ট্রিগার হয়)
+                          try {
+                            await _localAudioPlayer.play(DeviceFileSource(path));
+                            // গান সিলেক্ট করার পর স্টোর বন্ধ করে রুমে ফিরে যাবে
+                            if(context.mounted) Navigator.pop(context);
+                          } catch (e) {
+                            debugPrint("Error playing: $e");
+                          }
                         },
                       );
                     },
