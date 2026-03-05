@@ -462,37 +462,36 @@ Widget _buildBottomActionArea() {
           onPressed: () => showModalBottomSheet(context: context, builder: (c) => const GamePanelView())
         ),
 
-        // ✅ মিউজিক বাটন ফিক্সড
+        // ✅ মিউজিক বাটন (আপনার MusicPlayerPage ক্লাসের সাথে মিলিয়ে)
         IconButton(
           icon: const Icon(Icons.music_note, color: Colors.cyanAccent), 
           onPressed: () {
-            showDialog(
+            showModalBottomSheet(
               context: context,
-              barrierColor: Colors.transparent,
-              builder: (context) => Center(
-                child: MusicPlayerWidget(
-                  audioPlayer: _audioPlayer,
-                  onClose: () => Navigator.pop(context),
-                ),
-              ),
+              backgroundColor: Colors.transparent,
+              builder: (context) => MusicPlayerPage(audioPlayer: _audioPlayer),
             );
-          }, // এই ব্র্যাকেটটা আগে মিসিং ছিল
+          },
         ),
 
-        // ✅ গিফট বাটন ফিক্সড
+        // ✅ গিফট বাটন (আপনার GiftBottomSheet ক্লাসের সাথে মিলিয়ে)
         IconButton(
           icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent), 
           onPressed: () {
-            GiftSystem.showGiftPanel(
+            showModalBottomSheet(
               context: context,
-              roomId: widget.roomId,
-              onGiftSent: (giftImage) {
-                setState(() {
-                  currentGiftImage = giftImage;
-                  isGiftAnimating = true;
-                });
-                Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
-              },
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) => GiftBottomSheet(
+                diamondBalance: 1000, // আপনার ডায়মন্ড ভেরিয়েবলটি এখানে বসাতে পারেন
+                onGiftSend: (gift, count, target) {
+                  setState(() {
+                    currentGiftImage = gift['icon']; // গিফট আইকন সেট
+                    isGiftAnimating = true;
+                  });
+                  Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
+                },
+              ),
             );
           },
         ),
