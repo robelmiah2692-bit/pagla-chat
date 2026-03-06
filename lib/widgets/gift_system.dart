@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pagla_chat/services/database_service.dart';
 
 class GiftBottomSheet extends StatefulWidget {
   final int diamondBalance;
@@ -18,7 +19,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   Map<String, dynamic>? selectedGift;
   int selectedCount = 1;
   String targetType = "Selected User"; // All Room, All Mic, Selected User
-
+final DatabaseService _dbService = DatabaseService();
   // ওস্তাদ, এখানে আপনার ১০টি ফ্রি গিফট এবং ডায়মন্ড গিফট লিস্ট
   final List<Map<String, dynamic>> allGifts = [
     {"id": "f1", "icon": "https://cdn-icons-png.flaticon.com/128/744/744502.png", "price": 0, "type": "free"},
