@@ -197,7 +197,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     setState(() => isPKActive = false);
   }
 
-// ১. সিটে বসার লজিক (নিজের প্রোফাইল ছবিসহ)
+  // ১. সিটে বসার মেইন লজিক (পুরাতন লজিক + রিয়েল টাইম সিঙ্ক)
 void sitOnSeat(int index) async {
   // ১. পুরাতন রুলস: একই সিটে থাকলে লিভ কনফার্মেশন
   if (currentSeatIndex == index) { 
@@ -208,10 +208,10 @@ void sitOnSeat(int index) async {
   // ২. পুরাতন রুলস: সিট বুকিং বা কলিং বা লক থাকলে রিটার্ন (অন্য কেউ বসতে পারবে না)
   if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
 
-  // ৩. সুইচিং লজিক (আপনার সেই পুরাতন পারফেক্ট লজিক): আগের সিট সাথে সাথে ক্লিয়ার করা
+  // ৩. সুইচিং লজিক (আপনার পুরাতন পারফেক্ট লজিক): আগের সিট সাথে সাথে ক্লিয়ার করা
   if (currentSeatIndex != -1) {
     int oldIndex = currentSeatIndex;
-    // ডাটাবেস থেকে মুছে ফেলা
+    // ডাটাবেস থেকে আগের সিট মুছে ফেলা
     await _roomService.updateSeatData(
       roomId: widget.roomId, 
       seatIndex: oldIndex, 
@@ -245,8 +245,7 @@ void sitOnSeat(int index) async {
       String myActualName = userDoc.data()?['name'] ?? "User"; 
       String myActualPic = userDoc.data()?['profilePic'] ?? "";
 
-      // ৬. ফায়ারবেসে ডাটা পাঠানো (যাতে অন্য ইউজাররা দেখতে পারে)
-      // এখানে status সহ পাঠানো হচ্ছে যাতে অন্য ইউজাররা রিয়েল টাইমে সিঙ্ক পায়
+      // ৬. ফায়ারবেসে ডাটা পাঠানো (যাতে অন্য ইউজারের স্ক্রিনে আপনার ছবি ও নাম দেখা যায়)
       await FirebaseFirestore.instance
           .collection('rooms')
           .doc(widget.roomId)
@@ -258,6 +257,7 @@ void sitOnSeat(int index) async {
         'isOccupied': true,
         'status': 'occupied',
         'isMicOn': true,
+        'userId': uid,
       });
 
       // ৭. আপনার পুরাতন setState লজিক
@@ -267,7 +267,7 @@ void sitOnSeat(int index) async {
         seats[index]["userImage"] = myActualPic; 
         seats[index]["isMicOn"] = true;
         isMicOn = true;
-        currentSeatIndex = index; // এখন আপনার কারেন্ট সিট শুধুমাত্র এটিই
+        currentSeatIndex = index; // এখন আপনার কারেন্ট সিট শুধুমাত্র একটিই
       });
 
     } catch (e) {
@@ -281,7 +281,7 @@ void sitOnSeat(int index) async {
   });
 }
 
-// ২. সিট ছাড়ার লজিক (সব ডাটা মুছে ফেলা)
+// ২. সিট ছাড়ার লজিক (সব ডাটা মুছে ফেলা)
 void _showLeaveConfirmation(int index) {
   showDialog(
     context: context,
@@ -300,17 +300,27 @@ void _showLeaveConfirmation(int index) {
               uImage: "",
               isOccupied: false,
             );
+            
+            // ফায়ারবেস থেকেও মুছে ফেলা
+            await FirebaseFirestore.instance
+                .collection('rooms')
+                .doc(widget.roomId)
+                .collection('seats')
+                .doc(index.toString())
+                .delete();
 
             // স্ক্রিন থেকে সব ক্লিয়ার (মাইক, ছবি, নাম)
-            setState(() {
-              seats[index]["isOccupied"] = false;
-              seats[index]["status"] = "empty";
-              seats[index]["userName"] = "";
-              seats[index]["userImage"] = "";
-              seats[index]["isMicOn"] = false; // 🔥 নীল মাইক বন্ধ
-              currentSeatIndex = -1;
-              isMicOn = false;
-            });
+            if (mounted) {
+              setState(() {
+                seats[index]["isOccupied"] = false;
+                seats[index]["status"] = "empty";
+                seats[index]["userName"] = "";
+                seats[index]["userImage"] = "";
+                seats[index]["isMicOn"] = false; 
+                currentSeatIndex = -1;
+                isMicOn = false;
+              });
+            }
             Navigator.pop(context);
           }, 
           child: const Text("হ্যাঁ", style: TextStyle(color: Colors.redAccent))
@@ -319,6 +329,7 @@ void _showLeaveConfirmation(int index) {
     ),
   );
 }
+
 
   @override
   Widget build(BuildContext context) {
@@ -364,8 +375,8 @@ void _showLeaveConfirmation(int index) {
 
           // ৩. ফ্লোটিং টুলস
           FloatingRoomTools(onGiftCountStart: _startGiftCounting),
-          // 🔥 আপনার সেই হারানো ভাসমান প্লেয়ার (১০০% ফিক্সড)
-          // মিউজিক বাজলে এই ভাসমান প্লেয়ারটি দেখা যাবে
+          
+          // ৪. ভাসমান প্লেয়ার
           if (isRoomMusicPlaying)
             Positioned(
               left: playerPosition.dx, 
@@ -391,6 +402,36 @@ void _showLeaveConfirmation(int index) {
       ),
     );
   }
+
+  // 🔥 আপনার দেওয়া dispose কোডটি ঠিক এখানে বসবে
+  @override
+  void dispose() {
+    // ইউজার যদি কোনো সিটে বসা থাকে তবে বের হওয়ার সময় সিট খালি হবে
+    if (currentSeatIndex != -1) {
+      _roomService.updateSeatData(
+        roomId: widget.roomId, 
+        seatIndex: currentSeatIndex, 
+        uName: "", 
+        uImage: "", 
+        isOccupied: false
+      );
+      
+      FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(widget.roomId)
+          .collection('seats')
+          .doc(currentSeatIndex.toString())
+          .update({
+            'isOccupied': false,
+            'userName': '',
+            'userImage': '',
+            'status': 'empty',
+            'isMicOn': false,
+          });
+    }
+    super.dispose();
+  }
+} // VoiceRoomState ক্লাসের শেষ ব্র্যাকেট
 
   // --- উইজেট ফাংশনসমূহ ---
   Widget _buildTopNavBar() {
