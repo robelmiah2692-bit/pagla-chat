@@ -42,60 +42,78 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // ৩. ডাইনামিক আইডি জেনারেশন এবং অ্যাকাউন্ট সেটআপ লজিক
   void setupUserAccount() async {
-    String? uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+  String? uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return;
 
-    // 🔥 হৃদয় ভাই, এখানে আপনার ওনার আইডি কাজ করবে
-    const String ownerUID = "YOUR_ACTUAL_FIREBASE_UID_HERE"; 
+  // 🔥 হৃদয় ভাই, এখানে আপনার অরিজিনাল ফায়ারবেস UID টা বসাবেন
+  const String ownerUID = "YOUR_ACTUAL_FIREBASE_UID_HERE"; 
 
-    try {
-      DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(uid);
-      DocumentSnapshot userDoc = await userRef.get();
+  try {
+    DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+    
+    // সার্ভার এবং ক্যাশ দুই জায়গা থেকেই ডাটা চেক করবে যাতে স্পিড বাড়ে
+    DocumentSnapshot userDoc = await userRef.get(const GetOptions(source: Source.serverAndCache));
 
-      if (userDoc.exists && userDoc.data() != null) {
-        var data = userDoc.data() as Map<String, dynamic>;
-        
-        if (mounted) {
-          setState(() {
-            uIDValue = data['uID']?.toString() ?? "";
-            
-            if (uid == ownerUID) {
-              userName = "Hridoy (Owner) 😎";
-            } else {
-              userName = data['name'] ?? "পাগলা ইউজার";
-            }
-            
-            gender = data['gender'] ?? "অনির্ধারিত";
-            diamonds = data['diamonds'] ?? 0;
-            xp = data['xp'] ?? 0;
-            userImageURL = data['profilePic'] ?? "";
-            age = data['age'] ?? 22;
-          });
-        }
-      } else {
-        String newUserID = (100000 + (uid.hashCode.abs() % 899999)).toString();
-        
-        await userRef.set({
-          'uID': newUserID,
-          'name': (uid == ownerUID) ? "Hridoy (Owner) 😎" : "পাগলা ইউজার",
-          'gender': "অনির্ধারিত",
-          'diamonds': 200, 
-          'xp': 0,
-          'profilePic': "",
-          'createdAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-
-        if (mounted) {
-          setState(() {
-            uIDValue = newUserID;
-            userName = (uid == ownerUID) ? "Hridoy (Owner) 😎" : "পাগলা ইউজার";
-          });
-        }
+    if (userDoc.exists && userDoc.data() != null) {
+      var data = userDoc.data() as Map<String, dynamic>;
+      
+      if (mounted) {
+        setState(() {
+          // আইডি যদি ডাটাবেসে না থাকে বা ফাঁকা থাকে, তবে সাথে সাথে তৈরি করবে
+          String? serverID = data['uID']?.toString();
+          if (serverID == null || serverID.isEmpty) {
+            uIDValue = (100000 + (uid.hashCode.abs() % 899999)).toString();
+            userRef.update({'uID': uIDValue}); // ডাটাবেসে আপডেট করে দিবে
+          } else {
+            uIDValue = serverID;
+          }
+          
+          // আপনার ওনার আইডি চেক
+          if (uid == ownerUID) {
+            userName = "Hridoy (Owner) 😎";
+          } else {
+            userName = data['name'] ?? "পাগলা ইউজার";
+          }
+          
+          gender = data['gender'] ?? "অনির্ধারিত";
+          diamonds = data['diamonds'] ?? 0;
+          xp = data['xp'] ?? 0;
+          userImageURL = data['profilePic'] ?? "";
+          age = data['age'] ?? 22;
+        });
       }
-    } catch (e) {
-      debugPrint("Firebase Error: $e");
+    } else {
+      // যদি ইউজার একদম নতুন হয়, তবে সাথে সাথে আইডি জেনারেট হবে
+      String newUserID = (100000 + (uid.hashCode.abs() % 899999)).toString();
+      
+      if (mounted) {
+        setState(() {
+          uIDValue = newUserID;
+          userName = (uid == ownerUID) ? "Hridoy (Owner) 😎" : "পাগলা ইউজার";
+        });
+      }
+
+      // নতুন ইউজারের ডাটাবেস এন্ট্রি
+      await userRef.set({
+        'uID': newUserID,
+        'name': (uid == ownerUID) ? "Hridoy (Owner) 😎" : "পাগলা ইউজার",
+        'gender': "অনির্ধারিত",
+        'diamonds': 200, 
+        'xp': 0,
+        'profilePic': "",
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
+  } catch (e) {
+    debugPrint("Firebase Error: $e");
+    // যদি ইন্টারনেটের কারণে এরর হয়, তবুও যাতে আইডি ফাঁকা না থাকে
+    if (mounted && uIDValue.isEmpty) {
+      setState(() {
+        uIDValue = (100000 + (uid.hashCode.abs() % 899999)).toString();
+      });
     }
   }
+}
 
   // আপনার ২০টি রিয়েল অবতার লিস্ট
   final List<String> maleAvatars = [
