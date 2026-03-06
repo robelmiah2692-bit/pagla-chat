@@ -402,8 +402,8 @@ Widget build(BuildContext context) {
                   alignment: Alignment.centerLeft,
                   child: _buildMarriageHeader(
                     marriageData,
-                    userImageURL,
-                    userData['avatarFrame'] ?? '', // ✅ সরাসরি ডাটাবেস থেকে নেওয়া হলো
+                    userImageURL, // ✅ এটি আপনার পেজে আছে
+                    "", // ⚠️ আপাতত ফ্রেম খালি রাখা হলো যাতে বিল্ড ফেল না হয়
                   ),
                 ),
               );
