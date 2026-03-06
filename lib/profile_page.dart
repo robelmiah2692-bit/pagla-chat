@@ -424,9 +424,11 @@ Widget build(BuildContext context) {
 
             const SizedBox(height: 25),
 
-            // ✅ ফলোয়ার, মেসেজ এবং ফলোয়িং স্ট্যাটাস (ক্লিকযোগ্য)
+            // ✅ ফলোয়ার, মেসেজ এবং ফলোয়িং স্ট্যাটাস (ফিক্সড কোড)
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              _buildStat("Followers", followers, targetUserId),
+              // ফলোয়ার অংশ (Fix: context added)
+              _buildStat("Followers", followers, targetUserId, context), 
+              
               const SizedBox(width: 25),
 
               if (!isMe) ...[
@@ -436,34 +438,6 @@ Widget build(BuildContext context) {
                   child: Text(isFollowing ? "Friend" : "Follow", style: const TextStyle(color: Colors.white)),
                 ),
                 const SizedBox(width: 10),
-                // ✅ মেসেজ বাটনে ক্লিক করলে চ্যাট ওপেন হবে
-                IconButton(
-                  icon: const Icon(Icons.mail, color: Colors.white),
-                  onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(receiverId: targetUserId, receiverName: userName)));
-                  },
-                ),
-              ] else
-                const SizedBox(width: 80, child: Center(child: Text("MY PROFILE", style: TextStyle(color: Colors.white54, fontSize: 10)))),
-
-              const SizedBox(width: 25),
-              // ✅ ফলোয়ার, মেসেজ এবং ফলোয়িং স্ট্যাটাস (সম্পূর্ণ কোড)
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              // ফলোয়ার অংশ
-              _buildStat("Followers", followers, targetUserId, context), 
-              
-              const SizedBox(width: 25),
-
-              if (!isMe) ...[
-                ElevatedButton(
-                  onPressed: _toggleFollow,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isFollowing ? Colors.blueGrey : Colors.pinkAccent, 
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
-                  ),
-                  child: Text(isFollowing ? "Friend" : "Follow", style: const TextStyle(color: Colors.white)),
-                ),
-                const SizedBox(width: 10),
                 IconButton(
                   icon: const Icon(Icons.mail, color: Colors.white),
                   onPressed: () {
@@ -475,19 +449,23 @@ Widget build(BuildContext context) {
 
               const SizedBox(width: 25),
               
-              // ফলোয়িং অংশ
+              // ফলোয়িং অংশ (Fix: context added)
               _buildStat("Following", following, targetUserId, context),
             ]),
 
             const SizedBox(height: 35),
 
             // ✅ মেইন অ্যাকশন বক্স: শুধু নিজের জন্য দেখাবে
-            if (isMe) 
-            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-              _buildActionBox("Diamond", Icons.diamond, Colors.cyan, _openDiamondStore),
-              _buildActionBox("Premium", Icons.card_membership, Colors.purple, _openPremiumStore),
-              _buildActionBox("Backpack", Icons.backpack, Colors.orange, _openBackpack),
-            ]),
+            if (isMe) ...[
+              Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                _buildActionBox("Diamond", Icons.diamond, Colors.cyan, _openDiamondStore),
+                _buildActionBox("Premium", Icons.card_membership, Colors.purple, _openPremiumStore),
+                _buildActionBox("Backpack", Icons.backpack, Colors.orange, _openBackpack),
+              ]),
+              const SizedBox(height: 30),
+              // ✅ আপনার নতুন "প্রিয়জন" সেকশনটি এখানে থাকবে
+              _buildSoulmateSection(),
+            ],
             
             const SizedBox(height: 30),
           ]),
