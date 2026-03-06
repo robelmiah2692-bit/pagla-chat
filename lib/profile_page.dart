@@ -9,6 +9,7 @@ import 'chat_screen.dart';
 import 'package:pagla_chat/services/database_service.dart';
 import 'user_list_screen.dart';
 import 'package:pagla_chat/services/soulmate_service.dart';
+import 'package:pagla_chat/marriage_service.dart';
 
 class ProfilePage extends StatefulWidget {
   final String? userId; // ✅ এটি যোগ করা হয়েছে যাতে অন্যের প্রোফাইল আইডি রিসিভ করা যায়
