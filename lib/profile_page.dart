@@ -557,7 +557,7 @@ ImageProvider _getProfileImage() {
           child: StreamBuilder<QuerySnapshot>(
             // সোলমেট কালেকশন থেকে আপনার ৬টি রিলেশন আনা হচ্ছে
             stream: FirebaseFirestore.instance.collection('soulmates')
-                .where('ownerId', isEqualTo: currentId).limit(6).snapshots(),
+            .where('ownerId', isEqualTo: FirebaseAuth.instance.currentUser?.uid ?? '').limit(6).snapshots(),
             builder: (context, snapshot) {
               return ListView.builder(
                 scrollDirection: Axis.horizontal,
