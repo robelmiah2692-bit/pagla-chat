@@ -541,67 +541,83 @@ ImageProvider _getProfileImage() {
 }
 
 // ৪. আপনার নতুন "প্রিয়জন" সেকশনটি এখানে বসবে (যা আমি আগের মেসেজে দিয়েছিলাম)
-// ✅ প্রিয়জন সেকশন ডিজাইন
-  Widget _buildSoulmateSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Text("প্রিয়জন (Soulmates)", 
-            style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 140,
-          child: StreamBuilder<QuerySnapshot>(
-            // সোলমেট কালেকশন থেকে আপনার ৬টি রিলেশন আনা হচ্ছে
-            stream: FirebaseFirestore.instance.collection('soulmates')
-            .where('ownerId', isEqualTo: FirebaseAuth.instance.currentUser?.uid ?? '').limit(6).snapshots(),
-            builder: (context, snapshot) {
-              return ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 15),
-                itemCount: 6, // আপনার বলা ৬টি কার্ড
-                itemBuilder: (context, index) {
-                  // যদি ডাটা থাকে তবে পার্টনারের ছবি দেখাবে, নাহলে 'ফাঁকা'
-                  var data = (snapshot.hasData && snapshot.data!.docs.length > index) 
-                      ? snapshot.data!.docs[index] : null;
+Widget _buildSoulmateSection() {
+  // ✅ এই লাইনটি এখন ফাংশনের ভেতরে আছে, তাই আর এরর আসবে না
+  final String currentId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-                  return Container(
-                    width: 100,
-                    margin: const EdgeInsets.only(right: 12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(15),
-                      image: DecorationImage(
-                        image: NetworkImage(data != null ? data['cardBg'] : "https://i.ibb.co/3ykC7mP/empty-card.png"),
-                        fit: BoxFit.cover,
-                      ),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20),
+        child: Text("প্রিয়জন (Soulmates)", 
+          style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+      ),
+      const SizedBox(height: 10),
+      SizedBox(
+        height: 150, 
+        child: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance.collection('soulmates')
+              .where('ownerId', isEqualTo: currentId).limit(6).snapshots(),
+          builder: (context, snapshot) {
+            return ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 15),
+              itemCount: 6, 
+              itemBuilder: (context, index) {
+                var data = (snapshot.hasData && snapshot.data!.docs.length > index) 
+                    ? snapshot.data!.docs[index] : null;
+
+                return Container(
+                  width: 110,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(15),
+                    image: const DecorationImage(
+                      // ⚠️ এখানে আপনার সেই সোলমেট কার্ডের অরিজিনাল লিংকটি বসিয়ে দিন
+                      image: NetworkImage("https://your-design-card-url.png"), 
+                      fit: BoxFit.cover,
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundImage: NetworkImage(data != null ? data['partnerImage'] : "https://i.ibb.co/empty-avatar.png"),
+                  ),
+                  child: data != null ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 55,
+                        height: 55,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                          image: DecorationImage(
+                            image: NetworkImage(data['partnerImage']),
+                            fit: BoxFit.cover,
+                          ),
                         ),
-                        const SizedBox(height: 5),
-                        Text(data != null ? data['partnerName'] : "ফাঁকা",
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                        if (data != null) 
-                          const Icon(Icons.favorite, color: Colors.pinkAccent, size: 12),
-                      ],
-                    ),
-                  );
-                },
-              );
-            },
-          ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        data['partnerName'],
+                        style: const TextStyle(
+                          color: Colors.white, 
+                          fontSize: 11, 
+                          fontWeight: FontWeight.bold, 
+                          shadows: [Shadow(blurRadius: 5, color: Colors.black)]
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ) : const Center(child: Icon(Icons.add, color: Colors.white24)), 
+                );
+              },
+            );
+          },
         ),
-      ],
-    );
-  }
-
+      ),
+    ],
+  );
+}
   // ✅ ১০০০ ডায়মন্ড কেটে সম্পর্ক ছিন্ন করার পপ-আপ
   void _showBreakupDialog(String partnerId) {
     showDialog(
