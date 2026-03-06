@@ -15,52 +15,97 @@ class PostCard extends StatelessWidget {
     final List likes = data['likes'] ?? [];
     final bool isLiked = likes.contains(uid);
 
+    // 🔥 মালিক শনাক্তকরণ (Hridoy ভাইয়ের জন্য বিশেষ কোড)
+    bool isOwner = (data['userId'] == "আপনার_ইউজার_আইডি" || data['userName'] == "King.Hridoy");
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      color: const Color(0xFF18191A), // ডার্ক থিম
+      color: const Color(0xFF18191A), // ফেসবুক ডার্ক থিম
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // প্রোফাইল সেকশন
+          // --- প্রোফাইল সেকশন ---
           ListTile(
             leading: CircleAvatar(
+              backgroundColor: Colors.grey[800],
               backgroundImage: NetworkImage(data['userImage'] ?? "https://www.w3schools.com/howto/img_avatar.png"),
             ),
-            title: Text(data['userName'] ?? "User", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            title: Row(
+              children: [
+                Text(
+                  data['userName'] ?? "User",
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 5),
+                // মালিক হলে ভেরিফাইড ব্যাজ দেখাবে
+                if (isOwner)
+                  const Icon(Icons.verified, color: Colors.blueAccent, size: 16),
+              ],
+            ),
             subtitle: const Text("Just now", style: TextStyle(color: Colors.white54, fontSize: 11)),
             trailing: const Icon(Icons.more_vert, color: Colors.white54),
           ),
 
-          // ক্যাপশন
-          if (data['caption'] != null)
+          // --- ক্যাপশন সেকশন ---
+          if (data['caption'] != null && data['caption'].toString().isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-              child: Text(data['caption'], style: const TextStyle(color: Colors.white, fontSize: 14)),
-            ),
-
-          // 🔥 ফিক্সড ইমেজ সেকশন (ছবি না থাকলেও জায়গা ধরে রাখবে না, থাকলে ফেসবুকের মতো দেখাবে)
-          if (data['storyImage'] != null && data['storyImage'].toString().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Image.network(
-                data['storyImage'],
-                width: double.infinity,
-                fit: BoxFit.contain, // ছবি কাটবে না, পূর্ণ দেখাবে
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    height: 200,
-                    color: Colors.white10,
-                    child: const Center(child: CircularProgressIndicator(color: Colors.blueAccent)),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return const SizedBox.shrink(); // এরর হলে জায়গা খালি রাখবে
-                },
+              child: Text(
+                data['caption'],
+                style: const TextStyle(color: Colors.white, fontSize: 14),
               ),
             ),
 
-          // লাইক কাউন্ট
+          // --- 🔥 ফিক্সড ইমেজ ফ্রেম (আপনার মূল সমস্যা এখানেই ছিল) ---
+          if (data['storyImage'] != null && data['storyImage'].toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(
+                  minHeight: 200, // ছবি আসার আগে অন্তত ২০০ পিক্সেল জায়গা নিয়ে থাকবে
+                  maxHeight: 500, // খুব বড় ছবি হলে অটো অ্যাডজাস্ট করবে
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05), // জায়গাটা বোঝানোর জন্য হালকা কালার
+                ),
+                child: Image.network(
+                  data['storyImage'],
+                  width: double.infinity,
+                  fit: BoxFit.contain, // ছবি কাটবে না, পুরোটা দেখাবে
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      height: 200,
+                      alignment: Alignment.center,
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                            : null,
+                        color: Colors.blueAccent,
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    // ছবি লোড না হলে জায়গাটি খালি না রেখে একটি আইকন দেখাবে
+                    return Container(
+                      height: 200,
+                      color: Colors.white10,
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.broken_image, color: Colors.white24, size: 40),
+                          SizedBox(height: 8),
+                          Text("ছবিটি লোড করা যাচ্ছে না", style: TextStyle(color: Colors.white24)),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+          // --- লাইক কাউন্ট ---
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -74,20 +119,17 @@ class PostCard extends StatelessWidget {
 
           const Divider(color: Colors.white10, height: 1),
 
-          // বাটন সেকশন (লাইক, কমেন্ট, শেয়ার)
+          // --- বাটন সেকশন (লাইক, কমেন্ট, শেয়ার) ---
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildBtn(isLiked ? Icons.favorite : Icons.favorite_border, isLiked ? Colors.red : Colors.white70, "লাইক", () {
                 if (postId != null) _toggleLike(postId!, uid, likes);
               }),
-              
-              // 🔥 কমেন্ট বাটন (ক্লিক করলে কমেন্ট বক্স খুলবে)
               _buildBtn(Icons.mode_comment_outlined, Colors.white70, "কমেন্ট", () {
-                _showCommentSheet(context, postId!);
+                if (postId != null) _showCommentSheet(context, postId!);
               }),
-              
-              _buildBtn(Icons.share_outlined, Colors.white70, "শেয়ার", () {}),
+              _buildBtn(Icons.share_outlined, Colors.white70, "শেয়ার", () {}),
             ],
           ),
         ],
@@ -95,7 +137,7 @@ class PostCard extends StatelessWidget {
     );
   }
 
-  // বাটন ডিজাইন
+  // বাটন ডিজাইন উইজেট
   Widget _buildBtn(IconData icon, Color color, String text, VoidCallback onTap) {
     return TextButton.icon(
       onPressed: onTap,
@@ -114,7 +156,7 @@ class PostCard extends StatelessWidget {
     }
   }
 
-  // 🔥 কমেন্ট বক্স লজিক (ফেসবুকের মতো নিচ থেকে উঠবে)
+  // কমেন্ট বক্স লজিক
   void _showCommentSheet(BuildContext context, String pId) {
     final TextEditingController _commentController = TextEditingController();
 
@@ -130,8 +172,6 @@ class PostCard extends StatelessWidget {
           children: [
             const Text("কমেন্ট করুন", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            
-            // কমেন্ট লিস্ট (রিয়েল টাইম)
             SizedBox(
               height: 300,
               child: StreamBuilder<QuerySnapshot>(
@@ -148,8 +188,6 @@ class PostCard extends StatelessWidget {
                 },
               ),
             ),
-
-            // ইনপুট বক্স
             TextField(
               controller: _commentController,
               style: const TextStyle(color: Colors.white),
@@ -172,13 +210,12 @@ class PostCard extends StatelessWidget {
   void _submitComment(String pId, String text, TextEditingController controller) async {
     if (text.isEmpty) return;
     final user = FirebaseAuth.instance.currentUser;
-    // প্রোফাইল ডাটা নিয়ে কমেন্ট সেভ
     DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user!.uid).get();
     
     await FirebaseFirestore.instance.collection('stories').doc(pId).collection('comments').add({
       'text': text,
-      'userName': userDoc['name'] ?? "User",
-      'userImage': userDoc['profilePic'] ?? "",
+      'userName': userDoc.exists ? userDoc['name'] : "User",
+      'userImage': userDoc.exists ? userDoc['profilePic'] : "",
       'timestamp': FieldValue.serverTimestamp(),
     });
     controller.clear();
