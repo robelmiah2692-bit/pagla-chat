@@ -14,7 +14,10 @@ class RoomListPage extends StatefulWidget {
 
 class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  String displayRoomID = "123456";
+  
+  // 🔥 '123456' মুছে ফেলুন। এখন আইডি হবে ডাইনামিক।
+  // আপনি চাইলে এটি খালি রাখতে পারেন অথবা এই লাইনটিই ফেলে দিতে পারেন।
+  String? displayRoomID;
   
   @override
   void initState() {
@@ -168,55 +171,63 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     );
   }
 
-  // ৩. রুম গ্রিড লজিক (যেখানে মাই রুম ঠিক করা হয়েছে)
-  Widget _buildRoomGrid(String type) {
-  return GridView.builder(
-    padding: const EdgeInsets.all(10),
-    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: 2,
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
-      childAspectRatio: 0.9,
-    ),
-    itemCount: (type == "my_room") ? 1 : 10,
-    itemBuilder: (context, index) {
-      return GestureDetector(
-        onTap: () async {
-          String finalRoomId;
+Widget _buildRoomGrid(String type) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(10),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 0.9,
+      ),
+      itemCount: (type == "my_room") ? 1 : 10,
+      itemBuilder: (context, index) {
+        return GestureDetector(
+          onTap: () async {
+            String finalRoomId;
 
-          if (type == "my_room") {
-            // 🔥 ৫ ডিজিটের ডাইনামিক আইডি জেনারেট বা লোড করা
-            final user = FirebaseAuth.instance.currentUser;
-            final userDoc = await FirebaseFirestore.instance.collection('users').doc(user?.uid).get();
+            if (type == "my_room") {
+              final user = FirebaseAuth.instance.currentUser;
+              if (user == null) return;
 
-            if (userDoc.exists && userDoc.data()?.containsKey('myRoomId') == true) {
-              finalRoomId = userDoc.data()!['myRoomId'].toString();
+              // ১. প্রথমে চেক করো ইউজারের আগে থেকে কোনো আইডি সেভ করা আছে কি না
+              final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+
+              if (userDoc.exists && userDoc.data()?.containsKey('myRoomId') == true) {
+                // ২. আইডি থাকলে সেটাই ব্যবহার করো
+                finalRoomId = userDoc.data()!['myRoomId'].toString();
+              } else {
+                // ৩. আইডি না থাকলে (অর্থাৎ প্রথমবার ঢুকলে) নতুন ৫-৬ ডিজিটের আইডি বানাও
+                // উদাহরণ: ৬ ডিজিটের আইডি (১০০০০০ থেকে ৯৯৯৯৯৯)
+                finalRoomId = (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString();
+                
+                // ৪. সাথে সাথে ফায়ারবেসে ইউজারের প্রোফাইলে আইডিটা ফিক্সড করে দাও
+                await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+                  'myRoomId': finalRoomId,
+                }, SetOptions(merge: true));
+                
+                print("নতুন আইডি জেনারেট হয়েছে: $finalRoomId");
+              }
             } else {
-              // নতুন ৫ ডিজিটের আইডি তৈরি (যেমন: ১২৩৪৫)
-              finalRoomId = (10000 + (DateTime.now().millisecondsSinceEpoch % 90000)).toString();
-              // ইউজারের প্রোফাইলে সেভ করে রাখা যেন আর না বদলায়
-              await FirebaseFirestore.instance.collection('users').doc(user?.uid).set({
-                'myRoomId': finalRoomId,
-              }, SetOptions(merge: true));
+              // সাধারণ রুমের জন্য
+              finalRoomId = "public_room_$index";
             }
-          } else {
-            finalRoomId = "room_$index";
-          }
 
-          if (!context.mounted) return;
+            if (!context.mounted) return;
 
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => VoiceRoom(roomId: finalRoomId),
-            ),
-          );
-        },
-        child: _buildRoomCard(index, type),
-      );
-    },
-  );
-}
+            // ৫. জেনারেট হওয়া বা খুঁজে পাওয়া আইডি নিয়ে রুমে প্রবেশ
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VoiceRoom(roomId: finalRoomId),
+              ),
+            );
+          },
+          child: _buildRoomCard(index, type),
+        );
+      },
+    );
+  }
 
   // ৪. রুম কার্ড ডিজাইন
   Widget _buildRoomCard(int index, String type) {
