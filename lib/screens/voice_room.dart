@@ -589,66 +589,97 @@ Widget _buildBottomActionArea() {
 }
   
   Widget _buildSeatGridArea() {
-    return SizedBox(
-      height: 300,
-      child: GridView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 15),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 5, 
-          childAspectRatio: 0.7,
-        ),
-        itemCount: 15,
-        itemBuilder: (context, index) {
-          var seat = seats[index];
-          return GestureDetector(
-            onTap: () => sitOnSeat(index),
-            child: Column(
-              children: [
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    CircleAvatar(
-                      radius: 24,
-                      // ✅ ফিচার ১: অকুপাইড হলে নীল, না হলে সাদাটে (ঠিক আছে)
-                      backgroundColor: seat["isOccupied"] ? Colors.blueAccent : Colors.white10,
-                      
-                      // ✅ ফিচার ২: ইমেজ থাকলে নেটওয়ার্ক ইমেজ (ঠিক আছে)
-                      backgroundImage: (seat["userImage"] != null && seat["userImage"].toString().isNotEmpty) 
-                          ? NetworkImage(seat["userImage"]) 
-                          : null,
-                      
-                      // ✅ ফিচার ৩: কলিং এনিমেশন অথবা ভিআইপি/চেয়ার আইকন (ঠিক আছে)
-                      child: seat["status"] == "calling" 
-                          ? const CircularProgressIndicator(strokeWidth: 2, color: Colors.white) 
-                          : (seat["isOccupied"] 
-                              ? null 
-                              : Icon(seat["isVip"] ? Icons.stars : Icons.chair, color: Colors.white24)),
-                    ),
-                    
-                    // ✅ ফিচার ৪: মাইক অন থাকলে আইকন (ঠিক আছে)
-                    if (seat["isMicOn"] == true) 
-                      Positioned(
-                        bottom: 0, 
-                        right: 0, 
-                        child: const Icon(Icons.mic, size: 12, color: Colors.greenAccent),
+  return SizedBox(
+    height: 300,
+    child: StreamBuilder<QuerySnapshot>(
+      // 🔥 ফায়ারবেস থেকে রিয়েল-টাইম সিট ডাটা আনা হচ্ছে
+      stream: FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(widget.roomId)
+          .collection('seats')
+          .snapshots(),
+      builder: (context, snapshot) {
+        // ডাটাবেসের সিটগুলোকে একটা ম্যাপে নিয়ে আসা
+        Map<String, dynamic> firestoreSeats = {};
+        if (snapshot.hasData) {
+          for (var doc in snapshot.data!.docs) {
+            firestoreSeats[doc.id] = doc.data();
+          }
+        }
+
+        return GridView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 15),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 5,
+            childAspectRatio: 0.7,
+          ),
+          itemCount: 15,
+          itemBuilder: (context, index) {
+            // ডাটাবেস থেকে ওই নির্দিষ্ট সিটের ডাটা চেক
+            var dbSeat = firestoreSeats[index.toString()];
+            
+            // ডাটাবেসে ডাটা থাকলে সেটা নিবে, নাহলে লোকাল seats লিস্ট থেকে নিবে (সেফটি হিসেবে)
+            bool isOccupied = dbSeat != null ? (dbSeat['isOccupied'] ?? false) : seats[index]['isOccupied'];
+            String uName = dbSeat != null ? (dbSeat['userName'] ?? "") : seats[index]['userName'];
+            String uImage = dbSeat != null ? (dbSeat['userImage'] ?? "") : seats[index]['userImage'];
+            bool isMicOn = dbSeat != null ? (dbSeat['isMicOn'] ?? false) : seats[index]['isMicOn'];
+            String status = dbSeat != null ? (dbSeat['status'] ?? "empty") : seats[index]['status'];
+            bool isVip = seats[index]['isVip']; // এটা লোকাল থেকেই থাক
+
+            return GestureDetector(
+              onTap: () => sitOnSeat(index),
+              child: Column(
+                children: [
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // সিটের বর্ডার ও ব্যাকগ্রাউন্ড
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: isOccupied ? Colors.blueAccent : Colors.white10,
+                        
+                        // ✅ ইউজারের প্রোফাইল পিকচার (নেটওয়ার্ক থেকে)
+                        backgroundImage: (uImage.isNotEmpty) 
+                            ? NetworkImage(uImage) 
+                            : null,
+                        
+                        // সিট খালি থাকলে আইকন অথবা কলিং এনিমেশন
+                        child: status == "calling"
+                            ? const CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
+                            : (isOccupied 
+                                ? null 
+                                : Icon(isVip ? Icons.stars : Icons.chair, color: Colors.white24)),
                       ),
-                  ],
-                ),
-                
-                // 🔥 ফিচার ৫: নাম এবং সিট নাম্বার (এখানেই পরিবর্তন ছিল)
-                Text(
-                  seat["isOccupied"] ? (seat["userName"] ?? "") : "${index + 1}", 
-                  style: const TextStyle(color: Colors.white54, fontSize: 10),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
+                      
+                      // ✅ মাইক অন থাকলে আইকন
+                      if (isMicOn)
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: const Icon(Icons.mic, size: 12, color: Colors.greenAccent),
+                        ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 4),
+                  
+                  // ✅ ইউজারের নাম অথবা সিট নাম্বার
+                  Text(
+                    isOccupied ? uName : "${index + 1}",
+                    style: const TextStyle(color: Colors.white54, fontSize: 10),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    ),
+  );
+}
+  
 
   Widget _buildViewerArea() { 
   return Container(
