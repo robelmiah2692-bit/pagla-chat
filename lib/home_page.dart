@@ -24,7 +24,7 @@ class _HomePageState extends State<HomePage> {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image != null) {
-        // মডেলের স্টেট আপডেট করার জন্য setModalState ব্যবহার করা হয়েছে
+        // মডেলের স্টেট আপডেট করার জন্য setModalState ব্যবহার করা হয়েছে
         setModalState(() {
           _pickedImage = image;
         });
@@ -77,7 +77,7 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 15),
 
-              // ২. 🔥 ইমেজ প্রিভিউ সেকশন (এখন এটি নিখুঁতভাবে কাজ করবে)
+              // ২. 🔥 ইমেজ প্রিভিউ সেকশন
               if (_pickedImage != null)
                 Stack(
                   children: [
@@ -89,7 +89,6 @@ class _HomePageState extends State<HomePage> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.pinkAccent.withOpacity(0.3)),
                         image: DecorationImage(
-                          // FileImage লোকাল পাথ থেকে ডাটা নিয়ে প্রিভিউ দেখায়
                           image: FileImage(File(_pickedImage!.path)), 
                           fit: BoxFit.cover,
                         ),
@@ -100,7 +99,8 @@ class _HomePageState extends State<HomePage> {
                       child: GestureDetector(
                         onTap: () => setModalState(() => _pickedImage = null),
                         child: Container(
-                          decoration: const BoxDecoration(color: Colors.black54, shape: BoxType.circle),
+                          // 🔥 BoxType এর বদলে BoxShape ব্যবহার করা হয়েছে (ফিক্সড)
+                          decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
                           child: const Icon(Icons.close, color: Colors.white, size: 20),
                         ),
                       ),
@@ -113,7 +113,8 @@ class _HomePageState extends State<HomePage> {
                 contentPadding: EdgeInsets.zero,
                 leading: Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.greenAccent.withOpacity(0.1), shape: BoxType.circle),
+                  // 🔥 BoxType এর বদলে BoxShape ব্যবহার করা হয়েছে (ফিক্সড)
+                  decoration: BoxDecoration(color: Colors.greenAccent.withOpacity(0.1), shape: BoxShape.circle),
                   child: const Icon(Icons.photo_library, color: Colors.greenAccent),
                 ),
                 title: const Text("গ্যালারি থেকে ছবি নিন", style: TextStyle(color: Colors.white, fontSize: 14)),
@@ -133,14 +134,12 @@ class _HomePageState extends State<HomePage> {
                   String text = _captionController.text.trim();
                   if (_pickedImage != null || text.isNotEmpty) {
                     
-                    // লোডিং ডায়ালগ
                     showDialog(
                       context: context, 
                       barrierDismissible: false,
                       builder: (c) => const Center(child: CircularProgressIndicator(color: Colors.pinkAccent))
                     );
                     
-                    // আপলোড লজিক
                     await StoriesService().uploadStory(
                       _pickedImage?.path ?? "",
                       text,
