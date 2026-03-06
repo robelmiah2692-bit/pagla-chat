@@ -661,20 +661,20 @@ Widget _buildMarriageHeader(Map<String, dynamic> data) {
     child: Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // বামে আপনার প্রোফাইল (ফ্রেমসহ)
-        _buildUserWithFrame(userImageUrl, myFrameUrl, 45), 
+        // ✅ userImageURL এবং myFrameURL আপনার পেজে যেভাবে ডিফাইন করা আছে সেভাবে দেওয়া হলো
+        _buildUserWithFrame(userImageURL, userData['avatarFrame'] ?? '', 45), 
 
-        // মাঝখানে সেই স্পেশাল রিং
+        // মাঝখানে স্পেশাল রিং
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Image.network(
-            "https://i.ibb.co/ring-sample.png", // আপনার রিং এর লিংক এখানে দিন
+            "https://i.ibb.co/ring-sample.png", // আপনার অরিজিনাল রিং এর লিংক এখানে দিন
             width: 60,
             height: 60,
           ),
         ),
 
-        // ডানে পার্টনারের প্রোফাইল (ফ্রেমসহ)
+        // ডানে পার্টনারের প্রোফাইল
         _buildUserWithFrame(data['partnerImage'] ?? '', data['partnerFrame'] ?? '', 45),
       ],
     ),
@@ -697,11 +697,11 @@ Widget _buildUserWithFrame(String imageUrl, String frameUrl, double radius) {
           ),
         ),
       ),
-      // ফ্রেম (ছবির ওপর বসবে)
+      // ফ্রেম থাকলে তবেই দেখাবে
       if (frameUrl.isNotEmpty)
         Image.network(
           frameUrl,
-          width: radius * 3, // ফ্রেমটি ছবির চেয়ে বড় দেখাবে
+          width: radius * 3, 
           height: radius * 3,
           fit: BoxFit.contain,
         ),
