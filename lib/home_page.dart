@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; 
-import 'dart:io'; // 🔥 লোকাল ফাইল প্রিভিউ করার জন্য
+import 'dart:io'; 
+import 'package:flutter/foundation.dart'; // 🔥 kIsWeb ব্যবহারের জন্য লাগবে
 import 'story_section.dart'; 
 import 'stories_service.dart'; 
 import 'app_config.dart';
@@ -17,6 +18,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final ImagePicker _picker = ImagePicker();
   XFile? _pickedImage;
+  Uint8List? _webImageBytes; // 🔥 ওয়েবের ছবির ডাটা রাখার জন্য
   final TextEditingController _captionController = TextEditingController();
 
   // গ্যালারি থেকে ছবি সিলেক্ট করার ফাংশন
@@ -24,11 +26,20 @@ class _HomePageState extends State<HomePage> {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image != null) {
-        // মডেলের স্টেট আপডেট করার জন্য setModalState ব্যবহার করা হয়েছে
-        setModalState(() {
-          _pickedImage = image;
-        });
-        setState(() {}); // মেইন পেজের স্টেটও আপডেট রাখা
+        if (kIsWeb) {
+          // 🔥 ওয়েবের জন্য ছবির বাইটস রিড করা
+          final bytes = await image.readAsBytes();
+          setModalState(() {
+            _webImageBytes = bytes;
+            _pickedImage = image;
+          });
+        } else {
+          // মোবাইলের জন্য শুধু পাথ
+          setModalState(() {
+            _pickedImage = image;
+          });
+        }
+        setState(() {}); 
       }
     } catch (e) {
       debugPrint("Error picking image: $e");
@@ -62,7 +73,6 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 15),
               
-              // ১. টেক্সট ইনপুট
               TextField(
                 controller: _captionController,
                 style: const TextStyle(color: Colors.white),
@@ -77,7 +87,7 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 15),
 
-              // ২. 🔥 ইমেজ প্রিভিউ সেকশন
+              // ২. 🔥 ইমেজ প্রিভিউ সেকশন (Web & Mobile Fixed)
               if (_pickedImage != null)
                 Stack(
                   children: [
@@ -88,18 +98,22 @@ class _HomePageState extends State<HomePage> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.pinkAccent.withOpacity(0.3)),
-                        image: DecorationImage(
-                          image: FileImage(File(_pickedImage!.path)), 
-                          fit: BoxFit.cover,
-                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: kIsWeb 
+                          ? Image.memory(_webImageBytes!, fit: BoxFit.cover) // ওয়েবের প্রিভিউ
+                          : Image.file(File(_pickedImage!.path), fit: BoxFit.cover), // মোবাইলের প্রিভিউ
                       ),
                     ),
                     Positioned(
                       right: 8, top: 8,
                       child: GestureDetector(
-                        onTap: () => setModalState(() => _pickedImage = null),
+                        onTap: () => setModalState(() {
+                          _pickedImage = null;
+                          _webImageBytes = null;
+                        }),
                         child: Container(
-                          // 🔥 BoxType এর বদলে BoxShape ব্যবহার করা হয়েছে (ফিক্সড)
                           decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
                           child: const Icon(Icons.close, color: Colors.white, size: 20),
                         ),
@@ -108,13 +122,11 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
 
-              // ৩. গ্যালারি বাটন
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Container(
                   padding: const EdgeInsets.all(8),
-                  // 🔥 BoxType এর বদলে BoxShape ব্যবহার করা হয়েছে (ফিক্সড)
-                  decoration: BoxDecoration(color: Colors.greenAccent.withOpacity(0.1), shape: BoxShape.circle),
+                  decoration: const BoxDecoration(color: Colors.white10, shape: BoxShape.circle),
                   child: const Icon(Icons.photo_library, color: Colors.greenAccent),
                 ),
                 title: const Text("গ্যালারি থেকে ছবি নিন", style: TextStyle(color: Colors.white, fontSize: 14)),
@@ -123,7 +135,6 @@ class _HomePageState extends State<HomePage> {
 
               const SizedBox(height: 15),
 
-              // ৪. পোস্ট বাটন
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.pinkAccent,
@@ -140,13 +151,18 @@ class _HomePageState extends State<HomePage> {
                       builder: (c) => const Center(child: CircularProgressIndicator(color: Colors.pinkAccent))
                     );
                     
+                    // 🔥 ওয়েব বাইটস সহ আপলোড
                     await StoriesService().uploadStory(
                       _pickedImage?.path ?? "",
                       text,
+                      webImageBytes: _webImageBytes, 
                     );
 
                     _captionController.clear();
-                    setState(() => _pickedImage = null);
+                    setState(() {
+                      _pickedImage = null;
+                      _webImageBytes = null;
+                    });
 
                     if (mounted) {
                       Navigator.pop(context); // ক্লোজ লোডিং
