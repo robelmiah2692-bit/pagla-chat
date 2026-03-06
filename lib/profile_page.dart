@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'main.dart'; 
 import 'chat_screen.dart';
 import 'package:pagla_chat/services/database_service.dart';
+import 'user_list_screen.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
