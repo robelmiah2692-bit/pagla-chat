@@ -548,44 +548,52 @@ ImageProvider _getProfileImage() {
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Text("প্রিয়জন", style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+          child: Text("প্রিয়জন (Soulmates)", 
+            style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(height: 10),
         SizedBox(
           height: 140,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 15),
-            itemCount: 6, // আপনার বলা ৬টি কার্ড
-            itemBuilder: (context, index) {
-              return Container(
-                width: 100,
-                margin: const EdgeInsets.only(right: 12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.pinkAccent.withOpacity(0.2)),
-                  // কার্ডের ব্যাকগ্রাউন্ড (এখানে আপনার পছন্দের কার্ড ইমেজ লিঙ্ক দিন)
-                  image: const DecorationImage(
-                    image: NetworkImage("https://i.ibb.co/3ykC7mP/soulmate-card-bg.png"), 
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                child: InkWell(
-                  onTap: () => _showBreakupDialog("PARTNER_UID_HERE"), // এখানে পার্টনারের আইডি লজিক আসবে
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // বর্তমানে ফাঁকা দেখাচ্ছে, রিলেশন থাকলে এখানে দুজনের প্রোফাইল পিক বসবে
-                      Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(color: Colors.black26, shape: BoxShape.circle),
-                        child: const Icon(Icons.favorite, color: Colors.pinkAccent, size: 24),
+          child: StreamBuilder<QuerySnapshot>(
+            // সোলমেট কালেকশন থেকে আপনার ৬টি রিলেশন আনা হচ্ছে
+            stream: FirebaseFirestore.instance.collection('soulmates')
+                .where('ownerId', isEqualTo: myUid).limit(6).snapshots(),
+            builder: (context, snapshot) {
+              return ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                itemCount: 6, // আপনার বলা ৬টি কার্ড
+                itemBuilder: (context, index) {
+                  // যদি ডাটা থাকে তবে পার্টনারের ছবি দেখাবে, নাহলে 'ফাঁকা'
+                  var data = (snapshot.hasData && snapshot.data!.docs.length > index) 
+                      ? snapshot.data!.docs[index] : null;
+
+                  return Container(
+                    width: 100,
+                    margin: const EdgeInsets.only(right: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(15),
+                      image: DecorationImage(
+                        image: NetworkImage(data != null ? data['cardBg'] : "https://i.ibb.co/3ykC7mP/empty-card.png"),
+                        fit: BoxFit.cover,
                       ),
-                      const SizedBox(height: 8),
-                      const Text("ফাঁকা", style: TextStyle(color: Colors.white54, fontSize: 10)),
-                    ],
-                  ),
-                ),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundImage: NetworkImage(data != null ? data['partnerImage'] : "https://i.ibb.co/empty-avatar.png"),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(data != null ? data['partnerName'] : "ফাঁকা",
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        if (data != null) 
+                          const Icon(Icons.favorite, color: Colors.pinkAccent, size: 12),
+                      ],
+                    ),
+                  );
+                },
               );
             },
           ),
