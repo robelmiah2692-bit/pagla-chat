@@ -472,6 +472,8 @@ Widget _buildBottomActionArea() {
           ),
         ),
         const SizedBox(width: 8),
+
+        // ১. মাইক বাটন
         IconButton(
           icon: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: isMicOn ? Colors.greenAccent : Colors.redAccent),
           onPressed: () {
@@ -482,34 +484,72 @@ Widget _buildBottomActionArea() {
             }
           },
         ),
+
+        // ২. গেম বাটন
         IconButton(
           icon: const Icon(Icons.videogame_asset, color: Colors.orange), 
           onPressed: () => showModalBottomSheet(context: context, builder: (c) => const GamePanelView())
         ),
 
-        // ✅ মিউজিক বাটন (ফিচার ঠিক রেখে লজিক আপডেট করা হয়েছে)
-      // VoiceRoom ফাইলের ভেতর শুধু এই বাটনটি রিপ্লেস করুন
-          IconButton(
-            icon: const Icon(Icons.music_note, color: Colors.cyanAccent), 
-            onPressed: () async {
-              // স্টোর ওপেন করা এবং ডাটা রিসিভ করা
-              final result = await showModalBottomSheet<Map<String, dynamic>>(
-                context: context,
-                backgroundColor: Colors.transparent,
-                builder: (context) => MusicPlayerPage(audioPlayer: _audioPlayer),
-              );
+        // 🔥 নতুন সংযোজন: ইনবক্স নোটিফিকেশন কাউন্টার
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('chats')
+              .where('receiverId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+              .where('isSeen', isEqualTo: false)
+              .snapshots(),
+          builder: (context, snapshot) {
+            int unreadCount = (snapshot.hasData) ? snapshot.data!.docs.length : 0;
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.mail, color: Colors.white70),
+                  onPressed: () {
+                    // এখানে আপনার ইনবক্স পেজে যাওয়ার কোড লিখুন
+                    print("Inbox Clicked");
+                  },
+                ),
+                if (unreadCount > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
+                      constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                      child: Text(
+                        '$unreadCount',
+                        style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
 
-              // গান সিলেক্ট করলে নিচের এই অংশটিই ভাসমান প্লেয়ার আনবে
-              if (result != null && result['path'] != null) {
-                await _audioPlayer.play(DeviceFileSource(result['path']));
-                setState(() {
-                  isRoomMusicPlaying = true; // এটিই সেই জাদুর লাইন
-                });
-              }
-            },
-          ),
+        // ৩. মিউজিক বাটন
+        IconButton(
+          icon: const Icon(Icons.music_note, color: Colors.cyanAccent), 
+          onPressed: () async {
+            final result = await showModalBottomSheet<Map<String, dynamic>>(
+              context: context,
+              backgroundColor: Colors.transparent,
+              builder: (context) => MusicPlayerPage(audioPlayer: _audioPlayer),
+            );
+
+            if (result != null && result['path'] != null) {
+              await _audioPlayer.play(DeviceFileSource(result['path']));
+              setState(() {
+                isRoomMusicPlaying = true; 
+              });
+            }
+          },
+        ),
         
-        // ✅ গিফট বাটন
+        // ৪. গিফট বাটন
         IconButton(
           icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent), 
           onPressed: () {
