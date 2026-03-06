@@ -82,6 +82,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
   @override
   void initState() {
     super.initState();
+    
+    // ১. সিট জেনারেশন
     seats = List.generate(15, (index) => {
       "isOccupied": false,
       "userName": "",
@@ -92,81 +94,66 @@ class _VoiceRoomState extends State<VoiceRoom> {
       "isMicOn": false,
     });
 
+    // ২. পিকে ম্যানেজার
     pkManager = VSPKManager(
       onTick: (seconds) => setState(() => pkSeconds = seconds),
       onFinished: () => _endPKBattle(),
     );
 
-    // এটি initState এর ভেতর বসবে
-_audioPlayer.onPlayerStateChanged.listen((state) {
-  if (mounted) {
-    setState(() {
-      isRoomMusicPlaying = (state == PlayerState.playing);
+    // ৩. অডিও প্লেয়ার লিসেনার
+    _audioPlayer.onPlayerStateChanged.listen((state) {
+      if (mounted) {
+        setState(() {
+          isRoomMusicPlaying = (state == PlayerState.playing);
+        });
+      }
     });
-  }
-});
 
-_audioPlayer.onPlayerComplete.listen((event) {
-  if (mounted) setState(() => isRoomMusicPlaying = false);
-});
+    _audioPlayer.onPlayerComplete.listen((event) {
+      if (mounted) setState(() => isRoomMusicPlaying = false);
+    });
     
-    // 🔥 ১. আগে ডাটা লোড হবে
+    // ৪. ডাটা লোড এবং মেম্বার লিস্টে নাম তোলা
     FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
       if (doc.exists && mounted) {
         setState(() {
           roomName = doc.data()?['roomName'] ?? roomName;
           roomProfileImage = doc.data()?['roomImage'] ?? roomProfileImage;
           followerCount = doc.data()?['followerCount'] ?? 0;
-          isRoomLocked = doc.data()?['isLocked'] ?? false;
+          isLocked = doc.data()?['isLocked'] ?? false;
           roomWallpaperPath = doc.data()?['wallpaper'] ?? '';
         });
       }
 
-      // 🔥 ২. ডাটা লোড হওয়া শেষ হলে তারপর সার্ভিস আপডেট হবে
+      // সার্ভিস আপডেট
       _roomService.updateRoomFullData(
         roomId: widget.roomId,
         roomName: roomName,
         roomImage: roomProfileImage,
-        isLocked: isRoomLocked,
+        isLocked: isLocked,
         wallpaper: roomWallpaperPath,
         followers: followerCount,
         totalDiamonds: 0,
       );
+
+      // 🔥 এই যে লাইনটি যেটা আড্ডায় নাম যোগ করবে
+      _addUserToViewers();
     });
   }
 
-  void _addUserToViewers() async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user != null) {
-    final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-    await FirebaseFirestore.instance
-        .collection('rooms')
-        .doc(widget.roomId)
-        .collection('viewers')
-        .doc(user.uid)
-        .set({
-      'uid': user.uid,
-      'userName': userDoc.data()?['name'] ?? 'User',
-      'userImage': userDoc.data()?['profilePic'] ?? '',
-      'joinedAt': FieldValue.serverTimestamp(),
-    });
-  }
-}
-  
   @override
-void dispose() {
-  // 🔥 ১. রুম থেকে বের হওয়ার সময় লিস্ট থেকে নাম মুছে দেওয়া
-  _removeUserFromViewers(); 
+  void dispose() {
+    // 🔥 রুম থেকে বের হওয়ার সময় নাম মুছে দেওয়া
+    _removeUserFromViewers(); 
 
-  // আপনার আগের কোডগুলো
-  giftTimer?.cancel();
-  pkManager.stopPK();
-  _audioPlayer.dispose();
-  _messageController.dispose();
-  
-  super.dispose();
-}
-
+    giftTimer?.cancel();
+    pkManager.stopPK();
+    _audioPlayer.dispose();
+    _messageController.dispose();
+    
+    super.dispose();
+  }
+ 
   // --- গিফট লজিক ---
   void _startGiftCounting() {
     if (isCountingGifts) return;
@@ -735,7 +722,7 @@ Widget _buildBottomActionArea() {
             BoxShadow(
               color: Colors.cyanAccent.withOpacity(0.4),
               blurRadius: 10,
-              spreadRadius: 1
+              spreadRadius: 1,
             )
           ],
         ),
@@ -745,7 +732,7 @@ Widget _buildBottomActionArea() {
             // মিউজিক আইকন
             const Icon(Icons.music_note, color: Colors.cyanAccent, size: 30),
             
-            // প্লেয়ার বন্ধ করার ছোট লাল বাটন
+            // প্লেয়ার বন্ধ করার ছোট লাল বাটন
             Positioned(
               right: 0,
               top: 0,
@@ -768,4 +755,37 @@ Widget _buildBottomActionArea() {
       ),
     );
   }
-}
+
+  // --- মেম্বার লিস্ট ম্যানেজমেন্ট (নতুন কোড) ---
+
+  void _addUserToViewers() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      await FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(widget.roomId)
+          .collection('viewers')
+          .doc(user.uid)
+          .set({
+        'uid': user.uid,
+        'userName': userDoc.data()?['name'] ?? 'User',
+        'userImage': userDoc.data()?['profilePic'] ?? '',
+        'joinedAt': FieldValue.serverTimestamp(),
+      });
+    }
+  }
+
+  void _removeUserFromViewers() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      await FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(widget.roomId)
+          .collection('viewers')
+          .doc(user.uid)
+          .delete();
+    }
+  }
+
+} // <--- এইটা হলো আপনার পুরো ভয়েস রুম ক্লাসের শেষ ব্র্যাকেট
