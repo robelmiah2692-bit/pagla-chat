@@ -391,6 +391,18 @@ Widget build(BuildContext context) {
         body: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Column(children: [
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance.collection('marriages').doc(targetUserId).snapshots(),
+              builder: (context, mSnapshot) {
+                if (mSnapshot.hasData && mSnapshot.data!.exists) {
+                  var marriageData = mSnapshot.data!.data() as Map<String, dynamic>;
+                  return _buildMarriageHeader(marriageData); // আপনার সেই রিং ডিজাইন
+                }
+                // বিয়ে না থাকলে শুধু একটু গ্যাপ থাকবে আগের মতো
+                return const SizedBox(height: 20); 
+              },
+            ),
+            
             const SizedBox(height: 20),
             Center(child: Stack(alignment: Alignment.center, children: [
               if (vipLevel > 0) Image.network("https://png.pngtree.com/png-clipart/20230501/original/pngtree-golden-vip-frame-png-image_9128509.png", width: 130, height: 130),
@@ -641,4 +653,59 @@ Widget _buildSoulmateSection() {
       ),
     );
   }
+// --- এই অংশটুকু ফাইলের শেষে অন্য ফাংশনের সাথে বসান ---
+
+Widget _buildMarriageHeader(Map<String, dynamic> data) {
+  return Container(
+    padding: const EdgeInsets.symmetric(vertical: 20),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // বামে আপনার প্রোফাইল (ফ্রেমসহ)
+        _buildUserWithFrame(userImageUrl, myFrameUrl, 45), 
+
+        // মাঝখানে সেই স্পেশাল রিং
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Image.network(
+            "https://i.ibb.co/ring-sample.png", // আপনার রিং এর লিংক এখানে দিন
+            width: 60,
+            height: 60,
+          ),
+        ),
+
+        // ডানে পার্টনারের প্রোফাইল (ফ্রেমসহ)
+        _buildUserWithFrame(data['partnerImage'] ?? '', data['partnerFrame'] ?? '', 45),
+      ],
+    ),
+  );
+}
+
+Widget _buildUserWithFrame(String imageUrl, String frameUrl, double radius) {
+  return Stack(
+    alignment: Alignment.center,
+    children: [
+      // প্রোফাইল পিকচার
+      Container(
+        width: radius * 2,
+        height: radius * 2,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          image: DecorationImage(
+            image: NetworkImage(imageUrl.isEmpty ? "https://i.ibb.co/empty.png" : imageUrl),
+            fit: BoxFit.cover,
+          ),
+        ),
+      ),
+      // ফ্রেম (ছবির ওপর বসবে)
+      if (frameUrl.isNotEmpty)
+        Image.network(
+          frameUrl,
+          width: radius * 3, // ফ্রেমটি ছবির চেয়ে বড় দেখাবে
+          height: radius * 3,
+          fit: BoxFit.contain,
+        ),
+    ],
+  );
+}
 } // এই লাস্ট ব্র্যাকেটটি আপনার _ProfilePageState ক্লাসের শেষ ব্র্যাকেট
