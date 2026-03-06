@@ -15,22 +15,20 @@ class PostCard extends StatelessWidget {
     final List likes = data['likes'] ?? [];
     final bool isLiked = likes.contains(uid);
 
-    // 🔥 আপনি মালিক কি না চেক (আপনার ইনস্ট্রাকশন অনুযায়ী হদয় আইডি চেক)
-    final bool isOwner = (uid == data['userId'] || data['userName'] == "Hridoy");
-
     return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      color: Colors.black,
+      margin: const EdgeInsets.only(bottom: 10),
+      color: const Color(0xFF18191A), // ফেসবুক ডার্ক মোড কালার
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // প্রোফাইল ও নাম
+          // ১. প্রোফাইল ও নাম সেকশন
           ListTile(
             leading: CircleAvatar(
-              backgroundColor: Colors.grey[800],
-              backgroundImage: (data['userImage'] != null && data['userImage'].toString().isNotEmpty)
-                  ? NetworkImage(data['userImage'])
-                  : const NetworkImage("https://www.w3schools.com/howto/img_avatar.png"),
+              backgroundImage: NetworkImage(
+                (data['userImage'] != null && data['userImage'].toString().isNotEmpty)
+                    ? data['userImage']
+                    : "https://www.w3schools.com/howto/img_avatar.png",
+              ),
             ),
             title: Text(data['userName'] ?? "User", 
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -38,154 +36,129 @@ class PostCard extends StatelessWidget {
               _formatTimestamp(data['timestamp']),
               style: const TextStyle(color: Colors.white54, fontSize: 11),
             ),
-            // 🔥 ডিলিট বাটন (শুধুমাত্র পোস্টকারী বা মালিকের জন্য)
-            trailing: isOwner 
-              ? IconButton(
-                  icon: const Icon(Icons.more_vert, color: Colors.white54),
-                  onPressed: () => _showDeleteDialog(context, postId),
-                )
-              : null,
+            trailing: const Icon(Icons.more_horiz, color: Colors.white54),
           ),
 
-          // ক্যাপশন
+          // ২. ক্যাপশন সেকশন
           if (data['caption'] != null && data['caption'].toString().isNotEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-              child: Text(data['caption'], style: const TextStyle(color: Colors.white)),
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+              child: Text(data['caption'], 
+                  style: const TextStyle(color: Colors.white, fontSize: 15)),
             ),
 
-          // 🖼️ ইমেজ সেকশন (ফিক্স করা হয়েছে)
+          // ৩. 🔥 ইমেজ সেকশন (এখানেই ফেসবুক লুক আসবে)
           if (data['storyImage'] != null && data['storyImage'].toString().isNotEmpty)
             Container(
-              constraints: const BoxConstraints(maxHeight: 400),
               width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey[900], // ছবি লোড হওয়ার আগে এই ব্যাকগ্রাউন্ড থাকবে
+              ),
+              constraints: const BoxConstraints(minHeight: 200, maxHeight: 500),
               child: Image.network(
                 data['storyImage'],
-                fit: BoxFit.contain, // ইমেজ যেন কেটে না যায়
+                fit: BoxFit.cover, // ছবির পুরো জায়গা জুড়ে থাকবে
                 loadingBuilder: (context, child, loadingProgress) {
                   if (loadingProgress == null) return child;
-                  return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
+                  return Container(
+                    height: 250,
+                    alignment: Alignment.center,
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                          : null,
+                      color: Colors.blueAccent,
+                    ),
+                  );
                 },
                 errorBuilder: (context, error, stackTrace) {
-                  // ছবি লোড না হলে একটি এম্পটি বক্স দেখাবে
                   return Container(
                     height: 200,
+                    width: double.infinity,
                     color: Colors.white10,
-                    child: const Icon(Icons.broken_image, color: Colors.white24, size: 40),
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.broken_image, color: Colors.white24, size: 50),
+                        Text("ছবি লোড করা সম্ভব হয়নি", style: TextStyle(color: Colors.white24)),
+                      ],
+                    ),
                   );
                 },
               ),
             ),
 
-          // বাটন সেকশন
+          // ৪. রিঅ্যাকশন কাউন্ট (লাইক সংখ্যা)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                // লাইক
-                _buildAction(
-                  isLiked ? Icons.favorite : Icons.favorite_border, 
-                  isLiked ? Colors.red : Colors.white70, 
-                  "Like ${likes.length}", 
-                  () {
-                    if (postId != null) _StaticPostController.toggleLike(postId!, likes);
-                  }
-                ),
-                // কমেন্ট
-                _buildAction(Icons.mode_comment_outlined, Colors.white70, "Comment", () {
-                  print("Comment Clicked");
-                }),
-                // শেয়ার
-                _buildAction(Icons.share_outlined, Colors.white70, "Share", () {
-                  _StaticPostController.sharePost(data);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("শেয়ার হয়েছে! ✅")));
-                }),
+                const Icon(Icons.favorite, color: Colors.red, size: 16),
+                const SizedBox(width: 5),
+                Text("${likes.length}", style: const TextStyle(color: Colors.white54)),
               ],
             ),
           ),
-          const Divider(color: Colors.white10, thickness: 6),
+
+          const Divider(color: Colors.white10, height: 1),
+
+          // ৫. বাটন সেকশন (লাইক, কমেন্ট, শেয়ার)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildActionButton(
+                  isLiked ? Icons.favorite : Icons.favorite_border, 
+                  isLiked ? Colors.red : Colors.white70, 
+                  "Like", 
+                  () {
+                    if (postId != null) _PostController.toggleLike(postId!, likes);
+                  }
+                ),
+                _buildActionButton(Icons.mode_comment_outlined, Colors.white70, "Comment", () {}),
+                _buildActionButton(Icons.share_outlined, Colors.white70, "Share", () {}),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildAction(IconData icon, Color color, String label, VoidCallback onTap) {
+  Widget _buildActionButton(IconData icon, Color color, String text, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(width: 5),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 5),
+            Text(text, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          ],
+        ),
       ),
     );
   }
 
   String _formatTimestamp(dynamic timestamp) {
     if (timestamp == null) return "Just now";
-    if (timestamp is Timestamp) {
-      DateTime date = timestamp.toDate();
-      return "${date.hour}:${date.minute} - ${date.day}/${date.month}";
-    }
-    return "Just now";
-  }
-
-  void _showDeleteDialog(BuildContext context, String? pId) {
-    if (pId == null) return;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: const Text("পোস্ট ডিলিট করবেন?", style: TextStyle(color: Colors.white)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("না")),
-          TextButton(
-            onPressed: () {
-              FirebaseFirestore.instance.collection('stories').doc(pId).delete();
-              Navigator.pop(context);
-            }, 
-            child: const Text("হ্যাঁ", style: TextStyle(color: Colors.red))
-          ),
-        ],
-      ),
-    );
+    DateTime date = (timestamp as Timestamp).toDate();
+    return "${date.hour}:${date.minute} - ${date.day}/${date.month}";
   }
 }
 
-class _StaticPostController {
-  static final _db = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
-
+// কন্ট্রোলার
+class _PostController {
   static Future<void> toggleLike(String pId, List currentLikes) async {
-    final uid = _auth.currentUser?.uid;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    DocumentReference ref = _db.collection('stories').doc(pId);
+    DocumentReference ref = FirebaseFirestore.instance.collection('stories').doc(pId);
     if (currentLikes.contains(uid)) {
       await ref.update({'likes': FieldValue.arrayRemove([uid])});
     } else {
       await ref.update({'likes': FieldValue.arrayUnion([uid])});
     }
-  }
-
-  static Future<void> sharePost(Map<String, dynamic> postData) async {
-    final user = _auth.currentUser;
-    if (user == null) return;
-
-    // 🔥 শেয়ার করার সময় ইউজারের প্রোফাইল ডাটা আনা
-    DocumentSnapshot userDoc = await _db.collection('users').doc(user.uid).get();
-    String myName = userDoc.exists ? userDoc.get('name') : "User";
-    String myPic = userDoc.exists ? userDoc.get('profilePic') : "";
-
-    await _db.collection('stories').add({
-      'userId': user.uid,
-      'userName': myName,
-      'userImage': myPic,
-      'storyImage': postData['storyImage'] ?? "",
-      'caption': "Shared: ${postData['caption'] ?? ""}",
-      'timestamp': FieldValue.serverTimestamp(),
-      'likes': [],
-    });
   }
 }
