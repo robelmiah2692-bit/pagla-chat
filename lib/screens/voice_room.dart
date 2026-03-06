@@ -11,6 +11,9 @@ import 'package:pagla_chat/room_sync_service.dart';
 import 'package:pagla_chat/services/database_service.dart';
 import 'package:pagla_chat/widgets/live_viewers_list.dart';
 import 'package:pagla_chat/services/soulmate_animation_service.dart';
+// --- নতুন আলাদা করা ফাইলগুলোর ইম্পোর্ট ---
+import 'package:pagla_chat/services/seat_sync_service.dart'; // সিট সিঙ্ক করার জন্য
+import 'package:pagla_chat/widgets/live_viewers_list.dart';   // ভিউয়ার লিস্ট দেখানোর জন্য
 // আপনার সব ফাইল ইমপোর্ট
 import '../pk_battle_view.dart';
 import '../pk_winner_dialog.dart';
@@ -195,42 +198,57 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
 // ১. সিটে বসার লজিক (নিজের প্রোফাইল ছবিসহ)
-void sitOnSeat(int index) {
+void sitOnSeat(int index) async {
+  // ১. যদি ইউজার অলরেডি ওই সিটেই থাকে, তবে লিভ কনফার্মেশন দেখাবে
   if (currentSeatIndex == index) { 
     _showLeaveConfirmation(index); 
     return; 
   }
 
+  // ২. সিট যদি অন্য কেউ দখল করে থাকে বা রুম লক থাকে, তবে কিছু হবে না
   if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
 
-  // সুইচিং লজিক: আগের সিট সাথে সাথে ক্লিয়ার করা
-  if (currentSeatIndex != -1) {
-    int oldIndex = currentSeatIndex;
-    _roomService.updateSeatData(roomId: widget.roomId, seatIndex: oldIndex, uName: "", uImage: "", isOccupied: false);
+  try {
+    // ইউজারের ডাটা আনা (নাম ও প্রোফাইল পিকচার)
+    final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    String myActualName = userDoc.data()?['name'] ?? "User"; 
+    String myActualPic = userDoc.data()?['profilePic'] ?? "";
+
+    // ৩. সুইচিং লজিক: আগে যদি অন্য কোনো সিটে থাকে, তবে ডাটাবেস থেকে সেই সিট ক্লিয়ার করা
+    if (currentSeatIndex != -1) {
+      await _roomService.updateSeatData(
+        roomId: widget.roomId, 
+        seatIndex: currentSeatIndex, 
+        uName: "", 
+        uImage: "", 
+        isOccupied: false
+      );
+    }
+
+    // ৪. কলিং স্ট্যাটাস সাথে সাথে ডাটাবেসে পাঠানো (যাতে অন্য ইউজাররা দেখতে পায় আপনি বসছেন)
     setState(() {
-      seats[oldIndex]["isOccupied"] = false;
-      seats[oldIndex]["status"] = "empty";
-      seats[oldIndex]["userName"] = "";
-      seats[oldIndex]["userImage"] = "";
-      seats[oldIndex]["isMicOn"] = false;
+      seats[index]["status"] = "calling";
+      seats[index]["isOccupied"] = true;
     });
-  }
 
-  setState(() {
-    seats[index]["status"] = "calling";
-    seats[index]["isOccupied"] = true;
-  });
+    // 🔥 ফায়ারবেসে 'calling' স্ট্যাটাস আপডেট (যাতে সবাই রিয়েল টাইমে দেখে)
+    await FirebaseFirestore.instance
+        .collection('rooms')
+        .doc(widget.roomId)
+        .collection('seats')
+        .doc(index.toString())
+        .set({
+      'userName': myActualName,
+      'userImage': myActualPic,
+      'isOccupied': true,
+      'status': 'calling',
+      'isMicOn': false,
+    });
 
-  Timer(const Duration(seconds: 3), () async {
-    if (!mounted) return;
-    try {
-      // 🔥 ফায়ারবেস থেকে কারেন্ট ইউজারের অরিজিনাল ডাটা আনা হচ্ছে
-      final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-      
-      // আপনার ডাটাবেস অনুযায়ী 'name' এবং 'profilePic' ফিল্ড থেকে ডাটা আসবে
-      String myActualName = userDoc.data()?['name'] ?? "User"; 
-      String myActualPic = userDoc.data()?['profilePic'] ?? ""; // গ্যালারির ছবি বা অবতার যা প্রোফাইলে আছে
+    // ৫. ৩ সেকেন্ড পর সিট কনফার্ম করা (আপনার রুলস অনুযায়ী কলিং এর পর বসা)
+    Timer(const Duration(seconds: 3), () async {
+      if (!mounted) return;
 
       await _roomService.updateSeatData(
         roomId: widget.roomId, 
@@ -240,19 +258,35 @@ void sitOnSeat(int index) {
         isOccupied: true,
       );
 
-      setState(() {
-        seats[index]["status"] = "occupied";
-        seats[index]["userName"] = myActualName;
-        seats[index]["userImage"] = myActualPic; // ✅ সিটে আপনার প্রোফাইল ছবি বসবে
-        seats[index]["isMicOn"] = true;
-        isMicOn = true;
-        currentSeatIndex = index;
-      });
+      // ডাটাবেসে স্ট্যাটাস 'occupied' করে দেওয়া
+      await FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(widget.roomId)
+          .collection('seats')
+          .doc(index.toString())
+          .update({'status': 'occupied', 'isMicOn': true});
 
-    } catch (e) {
-      if (mounted) setState(() { seats[index]["status"] = "empty"; seats[index]["isOccupied"] = false; });
+      if (mounted) {
+        setState(() {
+          seats[index]["status"] = "occupied";
+          seats[index]["userName"] = myActualName;
+          seats[index]["userImage"] = myActualPic;
+          seats[index]["isMicOn"] = true;
+          isMicOn = true;
+          currentSeatIndex = index;
+        });
+      }
+    });
+
+  } catch (e) {
+    print("Error sitting on seat: $e");
+    if (mounted) {
+      setState(() { 
+        seats[index]["status"] = "empty"; 
+        seats[index]["isOccupied"] = false; 
+      });
     }
-  });
+  }
 }
 
 // ২. সিট ছাড়ার লজিক (সব ডাটা মুছে ফেলা)
