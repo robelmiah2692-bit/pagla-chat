@@ -9,6 +9,7 @@ import 'package:lottie/lottie.dart';
 import '../services/room_service.dart';
 import 'package:pagla_chat/room_sync_service.dart';
 import 'package:pagla_chat/services/database_service.dart';
+import '../widgets/live_viewers_list.dart';
 
 // আপনার সব ফাইল ইমপোর্ট
 import '../pk_battle_view.dart';
@@ -133,15 +134,38 @@ _audioPlayer.onPlayerComplete.listen((event) {
       );
     });
   }
+
+  void _addUserToViewers() async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    await FirebaseFirestore.instance
+        .collection('rooms')
+        .doc(widget.roomId)
+        .collection('viewers')
+        .doc(user.uid)
+        .set({
+      'uid': user.uid,
+      'userName': userDoc.data()?['name'] ?? 'User',
+      'userImage': userDoc.data()?['profilePic'] ?? '',
+      'joinedAt': FieldValue.serverTimestamp(),
+    });
+  }
+}
   
   @override
-  void dispose() {
-    giftTimer?.cancel();
-    pkManager.stopPK();
-    _audioPlayer.dispose();
-    _messageController.dispose();
-    super.dispose();
-  }
+void dispose() {
+  // 🔥 ১. রুম থেকে বের হওয়ার সময় লিস্ট থেকে নাম মুছে দেওয়া
+  _removeUserFromViewers(); 
+
+  // আপনার আগের কোডগুলো
+  giftTimer?.cancel();
+  pkManager.stopPK();
+  _audioPlayer.dispose();
+  _messageController.dispose();
+  
+  super.dispose();
+}
 
   // --- গিফট লজিক ---
   void _startGiftCounting() {
@@ -639,8 +663,52 @@ Widget _buildBottomActionArea() {
     );
   }
 
-  Widget _buildViewerArea() { return Container(height: 40, child: const Center(child: Text("Live Viewers", style: TextStyle(color: Colors.white24)))); }
-  Widget _buildMessageRow(Map<String, String> msg) { return Padding(padding: const EdgeInsets.all(4.0), child: Text("${msg['userName']}: ${msg['text']}", style: const TextStyle(color: Colors.white, fontSize: 12))); }
+  Widget _buildViewerArea() { 
+  return Container(
+    height: 50, 
+    margin: const EdgeInsets.symmetric(vertical: 5),
+    padding: const EdgeInsets.symmetric(horizontal: 10),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.05), // হালকা একটা ব্যাকগ্রাউন্ড
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.groups, color: Colors.white54, size: 18),
+        const SizedBox(width: 8),
+        const Text(
+          "আড্ডায়:", 
+          style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)
+        ),
+        const SizedBox(width: 10),
+        // 🔥 এই সেই ফাইল যেটা আমরা আলাদাভাবে তৈরি করেছি
+        Expanded(
+          child: LiveViewersList(roomId: widget.roomId), 
+        ),
+      ],
+    ),
+  ); 
+}
+
+  Widget _buildMessageRow(Map<String, String> msg) { 
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), 
+    child: RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: "${msg['userName']}: ", 
+            style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 13)
+          ),
+          TextSpan(
+            text: "${msg['text']}", 
+            style: const TextStyle(color: Colors.white, fontSize: 13)
+          ),
+        ],
+      ),
+    ),
+  ); 
+}
 
   void _showSettings() {
     RoomSettingsHandler.showSettings(
