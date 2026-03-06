@@ -17,10 +17,11 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final DatabaseService _dbService = DatabaseService();
-  // ১. আপনার দেওয়া সব ভেরিয়েবল (এগুলো আগের মতোই থাকবে)
+
+  // ১. ভেরিয়েবল সেকশন (ফিক্সড আইডি মুছে ফেলা হয়েছে)
   String userImageURL = ""; 
   String userName = "পাগলা ইউজার";
-  String uIDValue = "";
+  String uIDValue = ""; // এটি এখন ডাইনামিক
   String gender = "অনির্ধারিত"; 
   int age = 22; 
   int diamonds = 200; 
@@ -33,67 +34,69 @@ class _ProfilePageState extends State<ProfilePage> {
   DateTime premiumExpiryDate = DateTime.now().add(const Duration(days: 30));
   DateTime lastLevelUpDate = DateTime.now(); 
 
-  // ২. অ্যাপ ওপেন হলেই যেন ডাটা লোড হয় (এইটুকু নতুন যোগ করবেন)
+  // ২. অ্যাপ ওপেন হলেই ডাটা লোড হবে
   @override
   void initState() {
     super.initState();
-    setupUserAccount(); // এটি আপনার ভেরিয়েবলগুলোতে ডাটাবেস থেকে মান বসাবে
+    setupUserAccount(); 
   }
 
+  // ৩. ডাইনামিক আইডি জেনারেশন এবং অ্যাকাউন্ট সেটআপ লজিক
   void setupUserAccount() async {
     String? uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    // হৃদয় ভাই, এখানে আপনার নিজের ফায়ারবেস UID টি বসাবেন
-    // যেটা আপনি আপনার ফায়ারবেস কনসোল থেকে পাবেন
+    // 🔥 হৃদয় ভাই, এখানে আপনার ফায়ারবেস থেকে পাওয়া আসল UID বসান
     const String ownerUID = "YOUR_ACTUAL_FIREBASE_UID_HERE"; 
 
-    DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(uid);
-    DocumentSnapshot userDoc = await userRef.get();
+    try {
+      DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+      DocumentSnapshot userDoc = await userRef.get();
 
-    if (userDoc.exists && userDoc.data() != null) {
-      var data = userDoc.data() as Map<String, dynamic>;
-      
-      if (mounted) {
-        setState(() {
-          // ১. ডাটাবেস থেকে ইউনিক আইডি লোড করা
-          uIDValue = data['uID']?.toString() ?? "";
-          
-          // ২. মালিক হলে বিশেষ নাম দেখানো
-          if (uid == ownerUID) {
-            userName = "Hridoy (Owner) 😎";
-          } else {
-            userName = data['name'] ?? "পাগলা ইউজার";
-          }
-          
-          gender = data['gender'] ?? "অনির্ধারিত";
-          diamonds = data['diamonds'] ?? 0;
-          xp = data['xp'] ?? 0;
-          userImageURL = data['profilePic'] ?? "";
-        });
-      }
-    } else {
-      // ৩. ইউজার একদম নতুন হলে ইউনিক আইডি জেনারেশন (লগইন করার মুহূর্তেই)
-      // .abs() ব্যবহার করা হয়েছে যাতে আইডি কখনো মাইনাস (-) না আসে
-      String newUserID = (100000 + (uid.hashCode.abs() % 899999)).toString();
-      
-      // নতুন ইউজারের ডাটা সেভ করা
-      await userRef.set({
-        'uID': newUserID,
-        'name': (uid == ownerUID) ? "Hridoy (Owner) 😎" : "পাগলা ইউজার",
-        'gender': "",
-        'diamonds': 200, // লগইন বোনাস
-        'xp': 0,
-        'profilePic': "",
-        'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      if (userDoc.exists && userDoc.data() != null) {
+        var data = userDoc.data() as Map<String, dynamic>;
+        
+        if (mounted) {
+          setState(() {
+            // ডাটাবেস থেকে ইউনিক আইডি এবং অন্যান্য তথ্য লোড
+            uIDValue = data['uID']?.toString() ?? "";
+            
+            // আপনি মালিক কি না তা চেক করা হচ্ছে
+            if (uid == ownerUID) {
+              userName = "Hridoy (Owner) 😎";
+            } else {
+              userName = data['name'] ?? "পাগলা ইউজার";
+            }
+            
+            gender = data['gender'] ?? "অনির্ধারিত";
+            diamonds = data['diamonds'] ?? 0;
+            xp = data['xp'] ?? 0;
+            userImageURL = data['profilePic'] ?? "";
+          });
+        }
+      } else {
+        // নতুন ইউজার হলে ইউনিক ৬ ডিজিটের আইডি তৈরি হবে (লগইন মুহূর্তে)
+        String newUserID = (100000 + (uid.hashCode.abs() % 899999)).toString();
+        
+        await userRef.set({
+          'uID': newUserID,
+          'name': (uid == ownerUID) ? "Hridoy (Owner) 😎" : "পাগলা ইউজার",
+          'gender': "অনির্ধারিত",
+          'diamonds': 200, // নতুন ইউজারকে উপহার
+          'xp': 0,
+          'profilePic': "",
+          'createdAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
 
-      if (mounted) {
-        setState(() {
-          uIDValue = newUserID;
-          userName = (uid == ownerUID) ? "Hridoy (Owner) 😎" : "পাগলা ইউজার";
-        });
+        if (mounted) {
+          setState(() {
+            uIDValue = newUserID;
+            userName = (uid == ownerUID) ? "Hridoy (Owner) 😎" : "পাগলা ইউজার";
+          });
+        }
       }
+    } catch (e) {
+      debugPrint("Firebase Error: $e");
     }
   }
 
