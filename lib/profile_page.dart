@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'main.dart'; 
 import 'chat_screen.dart';
+import 'package:pagla_chat/services/database_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -15,6 +16,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  final DatabaseService _dbService = DatabaseService();
   // ১. আপনার দেওয়া সব ভেরিয়েবল (এগুলো আগের মতোই থাকবে)
   String userImageURL = ""; 
   String userName = "পাগলা ইউজার";
