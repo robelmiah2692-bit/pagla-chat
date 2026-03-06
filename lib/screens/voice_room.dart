@@ -199,106 +199,86 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
 // ১. সিটে বসার লজিক (নিজের প্রোফাইল ছবিসহ)
 void sitOnSeat(int index) async {
-  // ১. আপনি যদি অলরেডি সেই সিটেই বসে থাকেন, তবে লিভ করার অপশন আসবে
+  // ১. পুরাতন রুলস: একই সিটে থাকলে লিভ কনফার্মেশন
   if (currentSeatIndex == index) { 
     _showLeaveConfirmation(index); 
     return; 
   }
 
-  // ২. বুকিং চেক: যদি সিটটি অলরেডি দখল করা থাকে (অন্য কেউ বসে আছে)
-  if (seats[index]["isOccupied"] == true) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("এই সিটটি অলরেডি বুকিং!")),
+  // ২. পুরাতন রুলস: সিট বুকিং বা কলিং বা লক থাকলে রিটার্ন (অন্য কেউ বসতে পারবে না)
+  if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
+
+  // ৩. সুইচিং লজিক (আপনার সেই পুরাতন পারফেক্ট লজিক): আগের সিট সাথে সাথে ক্লিয়ার করা
+  if (currentSeatIndex != -1) {
+    int oldIndex = currentSeatIndex;
+    // ডাটাবেস থেকে মুছে ফেলা
+    await _roomService.updateSeatData(
+      roomId: widget.roomId, 
+      seatIndex: oldIndex, 
+      uName: "", 
+      uImage: "", 
+      isOccupied: false
     );
-    return;
+    // লোকাল লিস্ট ক্লিয়ার করা (যাতে আপনি সব সিটের মালিক না হয়ে যান)
+    setState(() {
+      seats[oldIndex]["isOccupied"] = false;
+      seats[oldIndex]["status"] = "empty";
+      seats[oldIndex]["userName"] = "";
+      seats[oldIndex]["userImage"] = "";
+      seats[oldIndex]["isMicOn"] = false;
+    });
   }
 
-  // ৩. রুম লক বা কলিং চেক
-  if (isRoomLocked || seats[index]["status"] == "calling") return;
+  // ৪. নতুন সিটে 'Calling' শুরু (লোকাল আপডেট)
+  setState(() {
+    seats[index]["status"] = "calling";
+    seats[index]["isOccupied"] = true; // বুকিং যাতে অন্য কেউ টাচ করতে না পারে
+  });
 
-  try {
-    final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
-    final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-    String myActualName = userDoc.data()?['name'] ?? "User"; 
-    String myActualPic = userDoc.data()?['profilePic'] ?? "";
-
-    // ৪. গুরুত্বপূর্ণ: সুইচিং লজিক (আগের সিট ক্লিয়ার করা)
-    if (currentSeatIndex != -1) {
-      int oldIndex = currentSeatIndex; // আগের সিটটি মনে রাখা
+  // ৫. টাইমার - আপনার পুরাতন ৩ সেকেন্ড রুলস
+  Timer(const Duration(seconds: 3), () async {
+    if (!mounted) return;
+    try {
+      final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
       
-      // ডাটাবেস থেকে মুছে ফেলা
-      await _roomService.updateSeatData(
-        roomId: widget.roomId, 
-        seatIndex: oldIndex, 
-        uName: "", 
-        uImage: "", 
-        isOccupied: false
-      );
+      String myActualName = userDoc.data()?['name'] ?? "User"; 
+      String myActualPic = userDoc.data()?['profilePic'] ?? "";
 
-      // লোকাল স্টেইট ক্লিয়ার করা
-      setState(() {
-        seats[oldIndex]["isOccupied"] = false;
-        seats[oldIndex]["status"] = "empty";
-        seats[oldIndex]["userName"] = "";
-        seats[oldIndex]["userImage"] = "";
-        seats[oldIndex]["isMicOn"] = false;
-      });
-    }
-
-    // ৫. নতুন সিটে 'Calling' শুরু করা (লোকাল + ডাটাবেস)
-    setState(() {
-      seats[index]["status"] = "calling";
-      seats[index]["isOccupied"] = true;
-    });
-
-    await FirebaseFirestore.instance
-        .collection('rooms')
-        .doc(widget.roomId)
-        .collection('seats')
-        .doc(index.toString())
-        .set({
-      'userName': myActualName,
-      'userImage': myActualPic,
-      'isOccupied': true,
-      'status': 'calling',
-      'isMicOn': false,
-    });
-
-    // ৬. ৩ সেকেন্ড টাইমার (কলিং পিরিয়ড)
-    Timer(const Duration(seconds: 3), () async {
-      if (!mounted) return;
-
-      // ডাটাবেসে স্ট্যাটাস 'occupied' করে কনফার্ম করা
-      await _roomService.updateSeatData(
-        roomId: widget.roomId, 
-        seatIndex: index,
-        uName: myActualName, 
-        uImage: myActualPic, 
-        isOccupied: true,
-      );
-
+      // ৬. ফায়ারবেসে ডাটা পাঠানো (যাতে অন্য ইউজাররা দেখতে পারে)
+      // এখানে status সহ পাঠানো হচ্ছে যাতে অন্য ইউজাররা রিয়েল টাইমে সিঙ্ক পায়
       await FirebaseFirestore.instance
           .collection('rooms')
           .doc(widget.roomId)
           .collection('seats')
           .doc(index.toString())
-          .update({'status': 'occupied', 'isMicOn': true});
+          .set({
+        'userName': myActualName,
+        'userImage': myActualPic,
+        'isOccupied': true,
+        'status': 'occupied',
+        'isMicOn': true,
+      });
 
+      // ৭. আপনার পুরাতন setState লজিক
+      setState(() {
+        seats[index]["status"] = "occupied";
+        seats[index]["userName"] = myActualName;
+        seats[index]["userImage"] = myActualPic; 
+        seats[index]["isMicOn"] = true;
+        isMicOn = true;
+        currentSeatIndex = index; // এখন আপনার কারেন্ট সিট শুধুমাত্র এটিই
+      });
+
+    } catch (e) {
       if (mounted) {
-        setState(() {
-          seats[index]["status"] = "occupied";
-          seats[index]["userName"] = myActualName;
-          seats[index]["userImage"] = myActualPic;
-          seats[index]["isMicOn"] = true;
-          isMicOn = true;
-          currentSeatIndex = index; // বর্তমান সিট আপডেট
+        setState(() { 
+          seats[index]["status"] = "empty"; 
+          seats[index]["isOccupied"] = false; 
         });
       }
-    });
-
-  } catch (e) {
-    print("Seat logic error: $e");
-  }
+    }
+  });
 }
 
 // ২. সিট ছাড়ার লজিক (সব ডাটা মুছে ফেলা)
