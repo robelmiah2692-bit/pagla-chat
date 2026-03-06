@@ -716,7 +716,7 @@ Widget _buildBottomActionArea() {
         height: 60,
         decoration: BoxDecoration(
           color: Colors.black.withOpacity(0.85),
-          shape: BoxShape.circle, // গোল ডিজাইন
+          shape: BoxShape.circle,
           border: Border.all(color: Colors.cyanAccent, width: 2),
           boxShadow: [
             BoxShadow(
@@ -729,10 +729,7 @@ Widget _buildBottomActionArea() {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // মিউজিক আইকন
             const Icon(Icons.music_note, color: Colors.cyanAccent, size: 30),
-            
-            // প্লেয়ার বন্ধ করার ছোট লাল বাটন
             Positioned(
               right: 0,
               top: 0,
@@ -756,7 +753,7 @@ Widget _buildBottomActionArea() {
     );
   }
 
-  // --- মেম্বার লিস্ট ম্যানেজমেন্ট (নতুন কোড) ---
+  // --- মেম্বার লিস্ট ম্যানেজমেন্ট ---
 
   void _addUserToViewers() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -787,5 +784,4 @@ Widget _buildBottomActionArea() {
           .delete();
     }
   }
-
-} // <--- এইটা হলো আপনার পুরো ভয়েস রুম ক্লাসের শেষ ব্র্যাকেট
+}
