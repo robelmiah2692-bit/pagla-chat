@@ -392,16 +392,25 @@ Widget build(BuildContext context) {
           physics: const BouncingScrollPhysics(),
           child: Column(children: [
             StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance.collection('marriages').doc(targetUserId).snapshots(),
-              builder: (context, mSnapshot) {
-                if (mSnapshot.hasData && mSnapshot.data!.exists) {
-                  var marriageData = mSnapshot.data!.data() as Map<String, dynamic>;
-                  return _buildMarriageHeader(marriageData); // আপনার সেই রিং ডিজাইন
-                }
-                // বিয়ে না থাকলে শুধু একটু গ্যাপ থাকবে আগের মতো
-                return const SizedBox(height: 20); 
-              },
-            ),
+          stream: FirebaseFirestore.instance.collection('marriages').doc(targetUserId).snapshots(),
+          builder: (context, mSnapshot) {
+            if (mSnapshot.hasData && mSnapshot.data!.exists) {
+              var marriageData = mSnapshot.data!.data() as Map<String, dynamic>;
+              return Padding(
+                padding: const EdgeInsets.only(left: 20, top: 10, bottom: 10),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _buildMarriageHeader(
+                    marriageData,
+                    userImageURL,
+                    userData['avatarFrame'] ?? '',
+                  ),
+                ),
+              );
+            }
+            return const SizedBox(height: 20);
+          },
+        ),
             
             const SizedBox(height: 20),
             Center(child: Stack(alignment: Alignment.center, children: [
@@ -655,37 +664,38 @@ Widget _buildSoulmateSection() {
   }
 // --- এই অংশটুকু ফাইলের শেষে অন্য ফাংশনের সাথে বসান ---
 
-Widget _buildMarriageHeader(Map<String, dynamic> data) {
+// ১. ম্যারেজ হেডার ফাংশন আপডেট
+Widget _buildMarriageHeader(Map<String, dynamic> data, String myImg, String myFrame) {
   return Container(
     padding: const EdgeInsets.symmetric(vertical: 20),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // ✅ userImageURL এবং myFrameURL আপনার পেজে যেভাবে ডিফাইন করা আছে সেভাবে দেওয়া হলো
-        _buildUserWithFrame(userImageURL, userData['avatarFrame'] ?? '', 45), 
+        // ✅ আপনার ছবি ও ফ্রেম (প্যারামিটার থেকে আসছে)
+        _buildUserWithFrame(myImg, myFrame, 45), 
 
-        // মাঝখানে স্পেশাল রিং
+        // মাঝখানে সেই স্পেশাল রিং
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Image.network(
-            "https://i.ibb.co/ring-sample.png", // আপনার অরিজিনাল রিং এর লিংক এখানে দিন
+            "https://i.ibb.co/ring-sample.png", // আপনার রিং এর লিংক
             width: 60,
             height: 60,
           ),
         ),
 
-        // ডানে পার্টনারের প্রোফাইল
+        // ডানে পার্টনারের প্রোফাইল (snapshot data থেকে আসছে)
         _buildUserWithFrame(data['partnerImage'] ?? '', data['partnerFrame'] ?? '', 45),
       ],
     ),
   );
 }
 
+// ২. ইউজার ফ্রেম ফাংশন (আগের মতোই থাকবে)
 Widget _buildUserWithFrame(String imageUrl, String frameUrl, double radius) {
   return Stack(
     alignment: Alignment.center,
     children: [
-      // প্রোফাইল পিকচার
       Container(
         width: radius * 2,
         height: radius * 2,
@@ -697,7 +707,6 @@ Widget _buildUserWithFrame(String imageUrl, String frameUrl, double radius) {
           ),
         ),
       ),
-      // ফ্রেম থাকলে তবেই দেখাবে
       if (frameUrl.isNotEmpty)
         Image.network(
           frameUrl,
