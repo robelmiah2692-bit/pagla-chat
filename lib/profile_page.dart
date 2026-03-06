@@ -402,8 +402,8 @@ Widget build(BuildContext context) {
                   alignment: Alignment.centerLeft,
                   child: _buildMarriageHeader(
                     marriageData,
-                    userImageURL,
-                    userData['avatarFrame'] ?? '',
+                    userImageURL, // ✅ userData['profilePic'] এর বদলে গ্লোবাল ভেরিয়েবল
+                    myFrameURL,   // ✅ userData['avatarFrame'] এর বদলে গ্লোবাল ভেরিয়েবল
                   ),
                 ),
               );
