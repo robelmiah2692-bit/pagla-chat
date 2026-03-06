@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; 
+import 'dart:io'; // 🔥 লোকাল ফাইল দেখানোর জন্য এটা লাগবে
 import 'story_section.dart'; 
 import 'stories_service.dart'; 
 import 'app_config.dart';
@@ -51,7 +52,7 @@ class _HomePageState extends State<HomePage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                "নতুন স্টোরি দিন",
+                "নতুন পোস্ট দিন",
                 style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 15),
@@ -68,29 +69,38 @@ class _HomePageState extends State<HomePage> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.all(12),
                 ),
               ),
               const SizedBox(height: 15),
+              
+              // 🔥 ফিক্সড ইমেজ প্রিভিউ (File ব্যবহার করে)
               if (_pickedImage != null)
-                Container(
-                  height: 150,
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 10),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      _pickedImage!.path, 
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const Center(
-                        child: Icon(Icons.broken_image, color: Colors.white24),
+                Stack(
+                  children: [
+                    Container(
+                      height: 180,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        image: DecorationImage(
+                          image: FileImage(File(_pickedImage!.path)), // লোকাল ফাইল দেখাবে
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
-                  ),
+                    Positioned(
+                      right: 5, top: 5,
+                      child: IconButton(
+                        icon: const Icon(Icons.cancel, color: Colors.red),
+                        onPressed: () => setModalState(() => _pickedImage = null),
+                      ),
+                    )
+                  ],
                 ),
+                
               ListTile(
                 leading: const Icon(Icons.photo_library, color: Colors.greenAccent),
-                title: const Text("ছবি যোগ করুন", style: TextStyle(color: Colors.white)),
+                title: const Text("গ্যালারি থেকে ছবি নিন", style: TextStyle(color: Colors.white)),
                 onTap: () async {
                   await _pickImage();
                   setModalState(() {});
@@ -106,30 +116,28 @@ class _HomePageState extends State<HomePage> {
                 onPressed: () async {
                   String text = _captionController.text.trim();
                   if (_pickedImage != null || text.isNotEmpty) {
+                    // লোডিং ডায়ালগ
+                    showDialog(context: context, builder: (c) => const Center(child: CircularProgressIndicator()));
+                    
                     await StoriesService().uploadStory(
                       _pickedImage?.path ?? "",
                       text,
                     );
 
                     _captionController.clear();
-                    setState(() {
-                      _pickedImage = null;
-                    });
+                    setState(() => _pickedImage = null);
 
-                    if (mounted) Navigator.pop(context);
+                    if (mounted) {
+                      Navigator.pop(context); // ক্লোজ লোডিং
+                      Navigator.pop(context); // ক্লোজ মডেল
+                    }
 
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("স্টোরি সফলভাবে পোস্ট হয়েছে! 🔥"),
-                        backgroundColor: Colors.green,
-                      ),
+                      const SnackBar(content: Text("পোস্ট সফলভাবে লাইভ হয়েছে! 🔥"), backgroundColor: Colors.green),
                     );
                   }
                 },
-                child: const Text(
-                  "পোস্ট করুন",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
-                ),
+                child: const Text("পোস্ট করুন", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(height: 25),
             ],
@@ -147,13 +155,6 @@ class _HomePageState extends State<HomePage> {
         title: const Text("PAGLA CHAT", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          if (AppConfig.isHridoy("885522"))
-            const Padding(
-              padding: EdgeInsets.only(right: 15),
-              child: Icon(Icons.verified, color: Colors.amber, size: 28),
-            ),
-        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showPostModal,
@@ -169,39 +170,12 @@ class _HomePageState extends State<HomePage> {
                 .orderBy('timestamp', descending: true)
                 .snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SliverToBoxAdapter(
-                  child: Center(child: Padding(
-                    padding: EdgeInsets.all(20.0),
-                    child: CircularProgressIndicator(),
-                  )),
-                );
-              }
-
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const SliverToBoxAdapter(
-                  child: Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(20.0),
-                      child: Text("এখনও কোনো পোস্ট নেই", style: TextStyle(color: Colors.white24)),
-                    ),
-                  ),
-                );
-              }
-
+              if (!snapshot.hasData) return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
+              
               final docs = snapshot.data!.docs;
-
               return SliverList(
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final doc = docs[index];
-                    final data = doc.data() as Map<String, dynamic>;
-                    
-                    return PostCard(
-                      data: data, 
-                      postId: doc.id,
-                    ); 
-                  },
+                  (context, index) => PostCard(data: docs[index].data() as Map<String, dynamic>, postId: docs[index].id),
                   childCount: docs.length,
                 ),
               );
@@ -211,10 +185,4 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-
-  @override
-  void dispose() {
-    _captionController.dispose();
-    super.dispose();
-  }
-} // 🔥 এই ব্র্যাকেটটি আপনার কোডে মিসিং ছিল
+}
