@@ -120,7 +120,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
           roomName = doc.data()?['roomName'] ?? roomName;
           roomProfileImage = doc.data()?['roomImage'] ?? roomProfileImage;
           followerCount = doc.data()?['followerCount'] ?? 0;
-          isLocked = doc.data()?['isLocked'] ?? false;
+          isRoomLocked = doc.data()?['isLocked'] ?? false;
           roomWallpaperPath = doc.data()?['wallpaper'] ?? '';
         });
       }
