@@ -10,7 +10,8 @@ import 'package:pagla_chat/services/database_service.dart';
 import 'user_list_screen.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  final String? userId; // ✅ এটি যোগ করা হয়েছে যাতে অন্যের প্রোফাইল আইডি রিসিভ করা যায়
+  const ProfilePage({super.key, this.userId}); // ✅ কনস্ট্রাক্টর আপডেট করা হয়েছে
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -18,7 +19,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final DatabaseService _dbService = DatabaseService();
-
+  // ... বাকি ভেরিয়েবলগুলো এখানে থাকবে
   // ১. ভেরিয়েবল সেকশন
   String userImageURL = ""; 
   String userName = "পাগলা ইউজার";
@@ -488,7 +489,6 @@ Widget _buildStat(String label, int value, String uID) {
   );
 }
   
-  Widget _buildStat(String label, int count) => Column(children: [Text("$count", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)), Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12))]);
 
   Widget _buildActionBox(String title, IconData icon, Color color, VoidCallback onTap) => GestureDetector(
     onTap: onTap, child: Container(width: 100, height: 85, decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: color.withOpacity(0.5))), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, color: color, size: 28), const SizedBox(height: 5), Text(title, style: const TextStyle(color: Colors.white, fontSize: 11))])),
