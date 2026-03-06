@@ -8,6 +8,7 @@ import 'main.dart';
 import 'chat_screen.dart';
 import 'package:pagla_chat/services/database_service.dart';
 import 'user_list_screen.dart';
+import 'package:pagla_chat/services/soulmate_service.dart';
 
 class ProfilePage extends StatefulWidget {
   final String? userId; // ✅ এটি যোগ করা হয়েছে যাতে অন্যের প্রোফাইল আইডি রিসিভ করা যায়
@@ -446,7 +447,36 @@ Widget build(BuildContext context) {
                 const SizedBox(width: 80, child: Center(child: Text("MY PROFILE", style: TextStyle(color: Colors.white54, fontSize: 10)))),
 
               const SizedBox(width: 25),
-              _buildStat("Following", following, targetUserId),
+              // ✅ ফলোয়ার, মেসেজ এবং ফলোয়িং স্ট্যাটাস (সম্পূর্ণ কোড)
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              // ফলোয়ার অংশ
+              _buildStat("Followers", followers, targetUserId, context), 
+              
+              const SizedBox(width: 25),
+
+              if (!isMe) ...[
+                ElevatedButton(
+                  onPressed: _toggleFollow,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isFollowing ? Colors.blueGrey : Colors.pinkAccent, 
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
+                  ),
+                  child: Text(isFollowing ? "Friend" : "Follow", style: const TextStyle(color: Colors.white)),
+                ),
+                const SizedBox(width: 10),
+                IconButton(
+                  icon: const Icon(Icons.mail, color: Colors.white),
+                  onPressed: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(receiverId: targetUserId, receiverName: userName)));
+                  },
+                ),
+              ] else
+                const SizedBox(width: 80, child: Center(child: Text("MY PROFILE", style: TextStyle(color: Colors.white54, fontSize: 10)))),
+
+              const SizedBox(width: 25),
+              
+              // ফলোয়িং অংশ
+              _buildStat("Following", following, targetUserId, context),
             ]),
 
             const SizedBox(height: 35),
