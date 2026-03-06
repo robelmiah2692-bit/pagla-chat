@@ -20,9 +20,8 @@ class _ProfilePageState extends State<ProfilePage> {
   // ১. আপনার দেওয়া সব ভেরিয়েবল (এগুলো আগের মতোই থাকবে)
   String userImageURL = ""; 
   String userName = "পাগলা ইউজার";
-  String uIDValue = "885522"; 
-  String roomIDValue = "441100"; 
-  String gender = "পুরুষ"; 
+  String uIDValue = "";
+  String gender = "অনির্ধারিত"; 
   int age = 22; 
   int diamonds = 200; 
   int xp = 0; 
@@ -41,46 +40,62 @@ class _ProfilePageState extends State<ProfilePage> {
     setupUserAccount(); // এটি আপনার ভেরিয়েবলগুলোতে ডাটাবেস থেকে মান বসাবে
   }
 
-  // ৩. ডাটাবেস থেকে ডাটা আনার লজিক (আপনার ফিচারের সাথে মিল রেখে)
   void setupUserAccount() async {
     String? uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
+    // হৃদয় ভাই, এখানে আপনার নিজের ফায়ারবেস UID টি বসাবেন
+    // যেটা আপনি আপনার ফায়ারবেস কনসোল থেকে পাবেন
+    const String ownerUID = "YOUR_ACTUAL_FIREBASE_UID_HERE"; 
+
     DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(uid);
     DocumentSnapshot userDoc = await userRef.get();
 
-    if (userDoc.exists) {
+    if (userDoc.exists && userDoc.data() != null) {
       var data = userDoc.data() as Map<String, dynamic>;
-      setState(() {
-        // আপনার ভেরিয়েবলগুলো এখন ডাটাবেসের মান দিয়ে আপডেট হবে
-        uIDValue = data['uID'] ?? uIDValue;
-        roomIDValue = data['roomID'] ?? roomIDValue;
-        userName = data['name'] ?? userName;
-        gender = data['gender'] ?? gender;
-        diamonds = data['diamonds'] ?? diamonds;
-        xp = data['xp'] ?? xp;
-        // ... অন্যান্য ফিচারও এখানে সেভ থাকবে
-      });
+      
+      if (mounted) {
+        setState(() {
+          // ১. ডাটাবেস থেকে ইউনিক আইডি লোড করা
+          uIDValue = data['uID']?.toString() ?? "";
+          
+          // ২. মালিক হলে বিশেষ নাম দেখানো
+          if (uid == ownerUID) {
+            userName = "Hridoy (Owner) 😎";
+          } else {
+            userName = data['name'] ?? "পাগলা ইউজার";
+          }
+          
+          gender = data['gender'] ?? "অনির্ধারিত";
+          diamonds = data['diamonds'] ?? 0;
+          xp = data['xp'] ?? 0;
+          userImageURL = data['profilePic'] ?? "";
+        });
+      }
     } else {
-      // নতুন ইউজারের জন্য ইউনিক আইডি তৈরি এবং ২০০ ডায়মন্ড সেট করা
-      String newUserID = (100000 + (uid.hashCode % 900000)).toString();
-      String newRoomID = (200000 + (uid.hashCode % 800000)).toString();
-
+      // ৩. ইউজার একদম নতুন হলে ইউনিক আইডি জেনারেশন (লগইন করার মুহূর্তেই)
+      // .abs() ব্যবহার করা হয়েছে যাতে আইডি কখনো মাইনাস (-) না আসে
+      String newUserID = (100000 + (uid.hashCode.abs() % 899999)).toString();
+      
+      // নতুন ইউজারের ডাটা সেভ করা
       await userRef.set({
         'uID': newUserID,
-        'roomID': newRoomID,
-        'name': userName,
-        'gender': gender,
-        'diamonds': 200, // নতুন ইউজার ২০০ ডায়মন্ড পাবে
+        'name': (uid == ownerUID) ? "Hridoy (Owner) 😎" : "পাগলা ইউজার",
+        'gender': "",
+        'diamonds': 200, // লগইন বোনাস
         'xp': 0,
+        'profilePic': "",
+        'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      setState(() {
-        uIDValue = newUserID;
-        roomIDValue = newRoomID;
-      });
+      if (mounted) {
+        setState(() {
+          uIDValue = newUserID;
+          userName = (uid == ownerUID) ? "Hridoy (Owner) 😎" : "পাগলা ইউজার";
+        });
+      }
     }
-  } 
+  }
 
   // আপনার ২০টি রিয়েল অবতার লিস্ট
   final List<String> maleAvatars = [
