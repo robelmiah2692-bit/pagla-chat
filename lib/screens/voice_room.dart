@@ -8,6 +8,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:lottie/lottie.dart';
 import '../services/room_service.dart';
 import 'package:pagla_chat/room_sync_service.dart';
+import 'package:pagla_chat/services/database_service.dart';
 
 // আপনার সব ফাইল ইমপোর্ট
 import '../pk_battle_view.dart';
@@ -41,7 +42,8 @@ class VoiceRoom extends StatefulWidget {
 class _VoiceRoomState extends State<VoiceRoom> {
  final RoomService _roomService = RoomService();
  final RoomSyncService _syncService = RoomSyncService();
- 
+ final DatabaseService _dbService = DatabaseService();
+  
   String userProfilePic = ""; // এটি আপনার নিজের প্রোফাইল ছবি রাখার জন্য
   // --- সব ভেরিয়েবল ---
   String myPersonalAvatar = ""; // এটি ইউজারের নিজের প্রোফাইল ছবি
