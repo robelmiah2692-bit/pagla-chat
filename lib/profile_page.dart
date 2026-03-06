@@ -563,79 +563,87 @@ ImageProvider _getProfileImage() {
 
 // ৪. আপনার নতুন "প্রিয়জন" সেকশনটি এখানে বসবে (যা আমি আগের মেসেজে দিয়েছিলাম)
 Widget _buildSoulmateSection() {
-  // ✅ এই লাইনটি এখন ফাংশনের ভেতরে আছে, তাই আর এরর আসবে না
   final String currentId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  // আপনার গোল্ডেন কার্ডের ডিজাইন লিংক
+  const String goldenCardUrl = "https://i.ibb.co/v6m4VfW/Picsart-26-03-06-12-06-39-154.jpg";
 
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20),
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Text("প্রিয়জন (Soulmates)", 
-          style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+          style: TextStyle(color: Colors.white70, fontSize: 15, fontWeight: FontWeight.bold)),
       ),
-      const SizedBox(height: 10),
-      SizedBox(
-        height: 150, 
-        child: StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('soulmates')
-              .where('ownerId', isEqualTo: currentId).limit(6).snapshots(),
-          builder: (context, snapshot) {
-            return ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              itemCount: 6, 
-              itemBuilder: (context, index) {
-                var data = (snapshot.hasData && snapshot.data!.docs.length > index) 
-                    ? snapshot.data!.docs[index] : null;
+      
+      // ৬টি স্লটের গ্রিড (৩+৩)
+      StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('soulmates')
+            .where('ownerId', isEqualTo: currentId).limit(6).snapshots(),
+        builder: (context, snapshot) {
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 15),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,        // এক সারিতে ৩টি
+              childAspectRatio: 0.72,   // গোল্ডেন কার্ডের শেপ ঠিক রাখার জন্য
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+            ),
+            itemCount: 6, // মোট ৬টি স্লট
+            itemBuilder: (context, index) {
+              // ডাটা চেক করা হচ্ছে স্লট অনুযায়ী
+              var data = (snapshot.hasData && snapshot.data!.docs.length > index) 
+                  ? snapshot.data!.docs[index] : null;
 
-                return Container(
-                  width: 110,
-                  margin: const EdgeInsets.only(right: 12),
+              return GestureDetector(
+                // ✅ সোলমেট থাকলে লং প্রেস করলে ডায়মন্ড কাটার ডায়ালগ আসবে
+                onLongPress: data != null ? () => _showBreakupDialog(data['partnerId']) : null,
+                child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(15),
                     image: const DecorationImage(
-                      // ⚠️ এখানে আপনার সেই সোলমেট কার্ডের অরিজিনাল লিংকটি বসিয়ে দিন
-                      image: NetworkImage("https://your-design-card-url.png"), 
-                      fit: BoxFit.cover,
+                      image: NetworkImage(goldenCardUrl), // আপনার সেই গোল্ডেন কার্ড
+                      fit: BoxFit.fill,
                     ),
                   ),
                   child: data != null ? Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      const SizedBox(height: 15),
                       Container(
-                        width: 55,
-                        height: 55,
+                        width: 50,
+                        height: 50,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
+                          border: Border.all(color: Colors.amber, width: 2),
                           image: DecorationImage(
                             image: NetworkImage(data['partnerImage']),
                             fit: BoxFit.cover,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        data['partnerName'],
-                        style: const TextStyle(
-                          color: Colors.white, 
-                          fontSize: 11, 
-                          fontWeight: FontWeight.bold, 
-                          shadows: [Shadow(blurRadius: 5, color: Colors.black)]
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          data['partnerName'],
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                  ) : const Center(child: Icon(Icons.add, color: Colors.white24)), 
-                );
-              },
-            );
-          },
-        ),
+                  ) : const Center(child: Icon(Icons.add, color: Colors.white24, size: 28)), 
+                ),
+              );
+            },
+          );
+        },
       ),
+      const SizedBox(height: 20),
     ],
   );
 }
