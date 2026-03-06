@@ -9,7 +9,7 @@ import 'package:lottie/lottie.dart';
 import '../services/room_service.dart';
 import 'package:pagla_chat/room_sync_service.dart';
 import 'package:pagla_chat/services/database_service.dart';
-import '../widgets/live_viewers_list.dart';
+import 'package:pagla_chat/widgets/live_viewers_list.dart';
 
 // আপনার সব ফাইল ইমপোর্ট
 import '../pk_battle_view.dart';
