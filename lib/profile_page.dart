@@ -467,20 +467,26 @@ Widget build(BuildContext context) {
   );
 }
 
-// ✅ ফলোয়ার/ফলোয়িং লিস্ট দেখার জন্য আপডেট করা উইজেট
-Widget _buildStat(String label, int value, String uID) {
+// ✅ ১. ফলোয়ার/ফলোয়িং লিস্ট দেখার উইজেট (প্যারামিটারে context যোগ করা হয়েছে)
+Widget _buildStat(String label, int value, String uID, BuildContext context) {
   final String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
   return GestureDetector(
     onTap: () {
-       // ✅ সিকিউরিটি লজিক: মালিক ছাড়া অন্য কেউ লিস্ট দেখতে পারবে না
-       if (myId == uID) {
-         Navigator.push(context, MaterialPageRoute(builder: (context) => UserListScreen(title: label, userId: uID)));
-       } else {
-         ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text("আপনি অন্যের $label লিস্ট দেখতে পারবেন না!"), backgroundColor: Colors.redAccent)
-         );
-       }
+      // ✅ সিকিউরিটি লজিক: শুধু প্রোফাইলের মালিক লিস্ট দেখতে পারবে
+      if (myId == uID) {
+        Navigator.push(
+          context, 
+          MaterialPageRoute(builder: (context) => UserListScreen(title: label, userId: uID))
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("আপনি অন্যের $label লিস্ট দেখতে পারবেন না!"), 
+            backgroundColor: Colors.redAccent
+          )
+        );
+      }
     },
     child: Column(children: [
       Text(value.toString(), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
@@ -488,15 +494,119 @@ Widget _buildStat(String label, int value, String uID) {
     ]),
   );
 }
-  
 
-  Widget _buildActionBox(String title, IconData icon, Color color, VoidCallback onTap) => GestureDetector(
-    onTap: onTap, child: Container(width: 100, height: 85, decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: color.withOpacity(0.5))), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, color: color, size: 28), const SizedBox(height: 5), Text(title, style: const TextStyle(color: Colors.white, fontSize: 11))])),
+// ✅ ২. অ্যাকশন বক্স উইজেট
+Widget _buildActionBox(String title, IconData icon, Color color, VoidCallback onTap) {
+  return GestureDetector(
+    onTap: onTap, 
+    child: Container(
+      width: 100, 
+      height: 85, 
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1), 
+        borderRadius: BorderRadius.circular(15), 
+        border: Border.all(color: color.withOpacity(0.5))
+      ), 
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center, 
+        children: [
+          Icon(icon, color: color, size: 28), 
+          const SizedBox(height: 5), 
+          Text(title, style: const TextStyle(color: Colors.white, fontSize: 11))
+        ]
+      )
+    ),
   );
-
-  ImageProvider _getProfileImage() {
-    if (userImageURL.isEmpty) return NetworkImage(maleAvatars[0]);
-    if (userImageURL.startsWith('http') || kIsWeb) return NetworkImage(userImageURL);
-    return FileImage(File(userImageURL));
-  }
 }
+
+// ✅ ৩. প্রোফাইল ইমেজ হ্যান্ডলার
+ImageProvider _getProfileImage() {
+  if (userImageURL.isEmpty) {
+    return NetworkImage(maleAvatars[0]);
+  }
+  // ওয়েব এবং ইউআরএল এর জন্য
+  if (userImageURL.startsWith('http') || kIsWeb) {
+    return NetworkImage(userImageURL);
+  }
+  // লোকাল ফাইলের জন্য
+  return FileImage(File(userImageURL));
+}
+
+// ৪. আপনার নতুন "প্রিয়জন" সেকশনটি এখানে বসবে (যা আমি আগের মেসেজে দিয়েছিলাম)
+// ✅ প্রিয়জন সেকশন ডিজাইন
+  Widget _buildSoulmateSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: Text("প্রিয়জন", style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 140,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 15),
+            itemCount: 6, // আপনার বলা ৬টি কার্ড
+            itemBuilder: (context, index) {
+              return Container(
+                width: 100,
+                margin: const EdgeInsets.only(right: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.pinkAccent.withOpacity(0.2)),
+                  // কার্ডের ব্যাকগ্রাউন্ড (এখানে আপনার পছন্দের কার্ড ইমেজ লিঙ্ক দিন)
+                  image: const DecorationImage(
+                    image: NetworkImage("https://i.ibb.co/3ykC7mP/soulmate-card-bg.png"), 
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                child: InkWell(
+                  onTap: () => _showBreakupDialog("PARTNER_UID_HERE"), // এখানে পার্টনারের আইডি লজিক আসবে
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // বর্তমানে ফাঁকা দেখাচ্ছে, রিলেশন থাকলে এখানে দুজনের প্রোফাইল পিক বসবে
+                      Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(color: Colors.black26, shape: BoxShape.circle),
+                        child: const Icon(Icons.favorite, color: Colors.pinkAccent, size: 24),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text("ফাঁকা", style: TextStyle(color: Colors.white54, fontSize: 10)),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ✅ ১০০০ ডায়মন্ড কেটে সম্পর্ক ছিন্ন করার পপ-আপ
+  void _showBreakupDialog(String partnerId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E2F),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: const Text("সম্পর্ক ছিন্ন করবেন?", style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: const Text("এটি করতে আপনার অ্যাকাউন্ট থেকে ১০০০ ডায়মন্ড কেটে নেওয়া হবে।", style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("বাতিল")),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              String response = await SoulmateService().breakRelation(partnerId);
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response), backgroundColor: Colors.pinkAccent));
+            }, 
+            child: const Text("হ্যাঁ, কাটবো", style: TextStyle(color: Colors.redAccent))
+          ),
+        ],
+      ),
+    );
+  }
+} // এই লাস্ট ব্র্যাকেটটি আপনার _ProfilePageState ক্লাসের শেষ ব্র্যাকেট
