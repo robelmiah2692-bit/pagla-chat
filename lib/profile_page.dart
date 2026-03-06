@@ -326,15 +326,28 @@ class _ProfilePageState extends State<ProfilePage> {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('users').doc(currentUserId).snapshots(),
       builder: (context, snapshot) {
+        // ১. ডাটা কানেক্ট হতে দেরি হলে বা এরর হলে হ্যান্ডেল করা
+        if (snapshot.hasError) {
+          return const Scaffold(body: Center(child: Text("Error loading data", style: TextStyle(color: Colors.white))));
+        }
+
+        // ২. ডাটা এখনো আসেনি এমন অবস্থায় (কানেক্টিং)
+        if (snapshot.connectionState == ConnectionState.waiting) {
+           return const Scaffold(backgroundColor: Color(0xFF0D0D1A), body: Center(child: CircularProgressIndicator(color: Colors.pinkAccent)));
+        }
+
+        // ৩. ডাটা পাওয়া গেলে ভেরিয়েবল আপডেট
         if (snapshot.hasData && snapshot.data!.exists) {
           var userData = snapshot.data!.data() as Map<String, dynamic>;
           userName = userData['name'] ?? userName;
-          uIDValue = userData['uID'] ?? uIDValue;
-          diamonds = userData['diamonds'] ?? diamonds;
-          xp = userData['xp'] ?? xp;
-          userImageURL = userData['profilePic'] ?? userImageURL;
+          uIDValue = userData['uID']?.toString() ?? "N/A"; // ID যাতে ফাকা না থাকে
+          diamonds = userData['diamonds'] ?? 0;
+          xp = userData['xp'] ?? 0;
+          userImageURL = userData['profilePic'] ?? "";
           gender = userData['gender'] ?? gender;
-          hasPremiumCard = userData['hasPremium'] ?? hasPremiumCard;
+          hasPremiumCard = userData['hasPremium'] ?? false;
+          followers = userData['followers'] ?? 0;
+          following = userData['following'] ?? 0;
         }
 
         int vipLevel = getVipLevel();
@@ -342,21 +355,40 @@ class _ProfilePageState extends State<ProfilePage> {
         return Scaffold(
           backgroundColor: const Color(0xFF0D0D1A),
           appBar: AppBar(
-            backgroundColor: Colors.transparent, elevation: 0,
-            leading: Row(children: [const SizedBox(width: 10), const Icon(Icons.diamond, color: Colors.cyanAccent, size: 18), Text(" $diamonds", style: const TextStyle(color: Colors.white, fontSize: 12))]),
+            backgroundColor: Colors.transparent, 
+            elevation: 0,
+            leading: Padding(
+              padding: const EdgeInsets.only(left: 10),
+              child: Row(children: [
+                const Icon(Icons.diamond, color: Colors.cyanAccent, size: 18), 
+                Text(" $diamonds", style: const TextStyle(color: Colors.white, fontSize: 12))
+              ]),
+            ),
             actions: [IconButton(icon: const Icon(Icons.settings, color: Colors.white), onPressed: _openSettings)],
           ),
           body: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(), // স্মুথ স্ক্রলিং
             child: Column(children: [
+              const SizedBox(height: 20),
               Center(child: Stack(alignment: Alignment.center, children: [
                 if (vipLevel > 0) Image.network("https://png.pngtree.com/png-clipart/20230501/original/pngtree-golden-vip-frame-png-image_9128509.png", width: 130, height: 130),
-                GestureDetector(onTap: _pickProfileImage, child: CircleAvatar(radius: 50, backgroundColor: Colors.grey[900], backgroundImage: _getProfileImage())),
+                GestureDetector(
+                  onTap: _pickProfileImage, 
+                  child: CircleAvatar(radius: 50, backgroundColor: Colors.grey[900], backgroundImage: _getProfileImage())
+                ),
               ])),
               const SizedBox(height: 10),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text(userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)), IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.pinkAccent), onPressed: _editName)]),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text(userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)), 
+                IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.pinkAccent), onPressed: _editName)
+              ]),
+              
+              // ইউজার আইডি সেকশন
               Text("User ID: $uIDValue", style: const TextStyle(color: Colors.pinkAccent, fontSize: 13, fontWeight: FontWeight.bold)),
               
               const SizedBox(height: 15),
+              
+              // VIP এবং XP সেকশন
               Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 if (vipLevel > 0) Image.network(getVipBadge(vipLevel), width: 45, height: 45) else const SizedBox(width: 45),
                 const SizedBox(width: 12),
@@ -368,18 +400,29 @@ class _ProfilePageState extends State<ProfilePage> {
                 const SizedBox(width: 12),
                 if (hasPremiumCard) Image.network(premiumBadgeUrl, width: 45, height: 45) else const SizedBox(width: 45),
               ])),
-              const SizedBox(height: 20),
+              
+              const SizedBox(height: 25),
+              
+              // ফলোয়ার, মেসেজ এবং ফলোয়িং স্ট্যাটাস
               Row(
                 mainAxisAlignment: MainAxisAlignment.center, 
                 children: [
                   _buildStat("Followers", followers),
                   const SizedBox(width: 25),
+                  
+                  // কন্ডিশনাল বাটন: নিজের প্রোফাইলে ফলো বাটন থাকবে না
                   if (FirebaseAuth.instance.currentUser!.uid != currentUserId) 
                     ElevatedButton(
                       onPressed: _toggleFollow, 
-                      style: ElevatedButton.styleFrom(backgroundColor: isFollowing ? Colors.blueGrey : Colors.pinkAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))), 
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isFollowing ? Colors.blueGrey : Colors.pinkAccent, 
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
+                      ), 
                       child: Text(isFollowing ? "Friend" : "Follow", style: const TextStyle(color: Colors.white)),
-                    ),
+                    )
+                  else
+                    const SizedBox(width: 80, child: Center(child: Text("ME", style: TextStyle(color: Colors.white54)))),
+
                   const SizedBox(width: 10),
                   IconButton(
                     icon: const Icon(Icons.mail, color: Colors.white),
@@ -390,7 +433,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(width: 25), 
                   _buildStat("Following", following),
               ]),
-              const SizedBox(height: 30),
+              
+              const SizedBox(height: 35),
+              
+              // মেইন অ্যাকশন বক্স
               Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
                 _buildActionBox("Diamond", Icons.diamond, Colors.cyan, _openDiamondStore),
                 _buildActionBox("Premium", Icons.card_membership, Colors.purple, _openPremiumStore),
@@ -403,7 +449,6 @@ class _ProfilePageState extends State<ProfilePage> {
       },
     );
   }
-
   Widget _buildStat(String label, int count) => Column(children: [Text("$count", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)), Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12))]);
 
   Widget _buildActionBox(String title, IconData icon, Color color, VoidCallback onTap) => GestureDetector(
