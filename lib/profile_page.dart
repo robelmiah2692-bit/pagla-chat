@@ -18,10 +18,10 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final DatabaseService _dbService = DatabaseService();
 
-  // ১. ভেরিয়েবল সেকশন (ফিক্সড আইডি মুছে ফেলা হয়েছে)
+  // ১. ভেরিয়েবল সেকশন
   String userImageURL = ""; 
   String userName = "পাগলা ইউজার";
-  String uIDValue = ""; // এটি এখন ডাইনামিক
+  String uIDValue = ""; 
   String gender = "অনির্ধারিত"; 
   int age = 22; 
   int diamonds = 200; 
@@ -34,7 +34,6 @@ class _ProfilePageState extends State<ProfilePage> {
   DateTime premiumExpiryDate = DateTime.now().add(const Duration(days: 30));
   DateTime lastLevelUpDate = DateTime.now(); 
 
-  // ২. অ্যাপ ওপেন হলেই ডাটা লোড হবে
   @override
   void initState() {
     super.initState();
@@ -46,7 +45,7 @@ class _ProfilePageState extends State<ProfilePage> {
     String? uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    // 🔥 হৃদয় ভাই, এখানে আপনার ফায়ারবেস থেকে পাওয়া আসল UID বসান
+    // 🔥 হৃদয় ভাই, এখানে আপনার ওনার আইডি কাজ করবে
     const String ownerUID = "YOUR_ACTUAL_FIREBASE_UID_HERE"; 
 
     try {
@@ -58,10 +57,8 @@ class _ProfilePageState extends State<ProfilePage> {
         
         if (mounted) {
           setState(() {
-            // ডাটাবেস থেকে ইউনিক আইডি এবং অন্যান্য তথ্য লোড
             uIDValue = data['uID']?.toString() ?? "";
             
-            // আপনি মালিক কি না তা চেক করা হচ্ছে
             if (uid == ownerUID) {
               userName = "Hridoy (Owner) 😎";
             } else {
@@ -72,17 +69,17 @@ class _ProfilePageState extends State<ProfilePage> {
             diamonds = data['diamonds'] ?? 0;
             xp = data['xp'] ?? 0;
             userImageURL = data['profilePic'] ?? "";
+            age = data['age'] ?? 22;
           });
         }
       } else {
-        // নতুন ইউজার হলে ইউনিক ৬ ডিজিটের আইডি তৈরি হবে (লগইন মুহূর্তে)
         String newUserID = (100000 + (uid.hashCode.abs() % 899999)).toString();
         
         await userRef.set({
           'uID': newUserID,
           'name': (uid == ownerUID) ? "Hridoy (Owner) 😎" : "পাগলা ইউজার",
           'gender': "অনির্ধারিত",
-          'diamonds': 200, // নতুন ইউজারকে উপহার
+          'diamonds': 200, 
           'xp': 0,
           'profilePic': "",
           'createdAt': FieldValue.serverTimestamp(),
@@ -152,48 +149,27 @@ class _ProfilePageState extends State<ProfilePage> {
     if (xp >= 9000)  return 3;
     if (xp >= 5000)  return 2;
     if (xp >= 2500)  return 1;
-    return 0; // শুরুতে ০ লেভেল দেখাবে
+    return 0;
   }
 
-void _editName() {
+  void _editName() {
     TextEditingController _nameController = TextEditingController(text: userName);
     showDialog(
       context: context, 
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E2F),
         title: const Text("নাম পরিবর্তন", style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: _nameController, 
-          style: const TextStyle(color: Colors.white),
-        ),
+        content: TextField(controller: _nameController, style: const TextStyle(color: Colors.white)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context), 
-            child: const Text("বাতিল")
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("বাতিল")),
           TextButton(
             onPressed: () async {
               String newName = _nameController.text.trim(); 
-              
               if (newName.isNotEmpty) {
-                try {
-                  String uid = FirebaseAuth.instance.currentUser!.uid;
-                  
-                  // ১. ফায়ারবেস ডেটাবেসে পার্মানেন্টলি সেভ করা
-                  await FirebaseFirestore.instance.collection('users').doc(uid).set({
-                    'name': newName
-                  }, SetOptions(merge: true)); // merge: true দিলে অন্য ডাটা হারাবে না
-                  
-                  // ২. সাথে সাথে প্রোফাইল স্ক্রিনে আপডেট করা
-                  setState(() {
-                    userName = newName;
-                  });
-                  
-                  Navigator.pop(context);
-                } catch (e) {
-                  // যদি কোনো কারণে সেভ না হয় তবে এরর দেখাবে
-                  print("Error saving name: $e");
-                }
+                String uid = FirebaseAuth.instance.currentUser!.uid;
+                await FirebaseFirestore.instance.collection('users').doc(uid).set({'name': newName}, SetOptions(merge: true));
+                setState(() => userName = newName);
+                Navigator.pop(context);
               }
             }, 
             child: const Text("সেভ", style: TextStyle(color: Colors.pinkAccent))
@@ -204,24 +180,18 @@ void _editName() {
   }
 
   void _toggleFollow() async {
-  String myUid = FirebaseAuth.instance.currentUser!.uid;
-  // targetUserUid হলো সেই ইউজারের আইডি যার প্রোফাইল আপনি দেখছেন
-  String targetUid = uIDValue; 
-
-  var followRef = FirebaseFirestore.instance.collection('users');
-
-  if (isFollowing) {
-    await followRef.doc(myUid).update({'following': FieldValue.increment(-1)});
-    await followRef.doc(targetUid).update({'followers': FieldValue.increment(-1)});
-  } else {
-    await followRef.doc(myUid).update({'following': FieldValue.increment(1)});
-    await followRef.doc(targetUid).update({'followers': FieldValue.increment(1)});
+    String myUid = FirebaseAuth.instance.currentUser!.uid;
+    String targetUid = uIDValue; 
+    var followRef = FirebaseFirestore.instance.collection('users');
+    if (isFollowing) {
+      await followRef.doc(myUid).update({'following': FieldValue.increment(-1)});
+      await followRef.doc(targetUid).update({'followers': FieldValue.increment(-1)});
+    } else {
+      await followRef.doc(myUid).update({'following': FieldValue.increment(1)});
+      await followRef.doc(targetUid).update({'followers': FieldValue.increment(1)});
+    }
+    setState(() => isFollowing = !isFollowing);
   }
-
-  setState(() {
-    isFollowing = !isFollowing;
-  });
-}
  
   void _showAgePicker() {
     showDialog(context: context, builder: (ctx) => AlertDialog(
@@ -360,7 +330,6 @@ void _editName() {
           var userData = snapshot.data!.data() as Map<String, dynamic>;
           userName = userData['name'] ?? userName;
           uIDValue = userData['uID'] ?? uIDValue;
-          roomIDValue = userData['roomID'] ?? roomIDValue; 
           diamonds = userData['diamonds'] ?? diamonds;
           xp = userData['xp'] ?? xp;
           userImageURL = userData['profilePic'] ?? userImageURL;
@@ -386,7 +355,7 @@ void _editName() {
               const SizedBox(height: 10),
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text(userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)), IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.pinkAccent), onPressed: _editName)]),
               Text("User ID: $uIDValue", style: const TextStyle(color: Colors.pinkAccent, fontSize: 13, fontWeight: FontWeight.bold)),
-              Text("Room ID: $roomIDValue", style: const TextStyle(color: Colors.cyanAccent, fontSize: 12)),
+              
               const SizedBox(height: 15),
               Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 if (vipLevel > 0) Image.network(getVipBadge(vipLevel), width: 45, height: 45) else const SizedBox(width: 45),
@@ -400,54 +369,26 @@ void _editName() {
                 if (hasPremiumCard) Image.network(premiumBadgeUrl, width: 45, height: 45) else const SizedBox(width: 45),
               ])),
               const SizedBox(height: 20),
-              // ফলো, মেসেজ বাটন সব ফিরে এসেছে
-              // --- স্ট্যাট এবং ফলো বাটন সেকশন শুরু ---
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center, 
-                  children: [
-                    // ১. ফলোয়ার সংখ্যা দেখাবে
-                    _buildStat("Followers", followers),
-                    
-                    const SizedBox(width: 25),
-                    
-                    // ২. কন্ডিশনাল ফলো বাটন: নিজের প্রোফাইলে এটি দেখা যাবে না
-                    if (FirebaseAuth.instance.currentUser!.uid != uIDValue) 
-                      ElevatedButton(
-                        onPressed: () {
-                          // আমাদের বানানো সেই অরিজিনাল লজিক কল করা হলো
-                          _toggleFollow(); 
-                        }, 
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isFollowing ? Colors.blueGrey : Colors.pinkAccent,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        ), 
-                        child: Text(
-                          isFollowing ? "Friend" : "Follow",
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    
-                    const SizedBox(width: 10),
-                    // --- সেকশন শেষ ---
-                // --- মেসেজ বাটন সেকশন শুরু ---
-                IconButton(
-                  icon: const Icon(Icons.mail, color: Colors.white),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ChatScreen(
-                          receiverId: uIDValue,   // যাকে মেসেজ পাঠাবেন তার আইডি
-                          receiverName: userName, // তার নাম
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                
-                const SizedBox(width: 25), 
-                // --- মেসেজ বাটন সেকশন শেষ ---
-                _buildStat("Following", following),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center, 
+                children: [
+                  _buildStat("Followers", followers),
+                  const SizedBox(width: 25),
+                  if (FirebaseAuth.instance.currentUser!.uid != currentUserId) 
+                    ElevatedButton(
+                      onPressed: _toggleFollow, 
+                      style: ElevatedButton.styleFrom(backgroundColor: isFollowing ? Colors.blueGrey : Colors.pinkAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))), 
+                      child: Text(isFollowing ? "Friend" : "Follow", style: const TextStyle(color: Colors.white)),
+                    ),
+                  const SizedBox(width: 10),
+                  IconButton(
+                    icon: const Icon(Icons.mail, color: Colors.white),
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(receiverId: uIDValue, receiverName: userName)));
+                    },
+                  ),
+                  const SizedBox(width: 25), 
+                  _buildStat("Following", following),
               ]),
               const SizedBox(height: 30),
               Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
