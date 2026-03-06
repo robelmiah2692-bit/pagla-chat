@@ -130,7 +130,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
         roomId: widget.roomId,
         roomName: roomName,
         roomImage: roomProfileImage,
-        isLocked: isLocked,
+        isLocked: isRoomLocked,
         wallpaper: roomWallpaperPath,
         followers: followerCount,
         totalDiamonds: 0,
