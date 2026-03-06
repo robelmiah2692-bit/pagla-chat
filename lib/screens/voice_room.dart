@@ -10,6 +10,7 @@ import '../services/room_service.dart';
 import 'package:pagla_chat/room_sync_service.dart';
 import 'package:pagla_chat/services/database_service.dart';
 import 'package:pagla_chat/widgets/live_viewers_list.dart';
+import 'package:pagla_chat/soulmate_animation_service.dart';
 
 // আপনার সব ফাইল ইমপোর্ট
 import '../pk_battle_view.dart';
