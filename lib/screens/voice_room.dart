@@ -88,95 +88,102 @@ class _VoiceRoomState extends State<VoiceRoom> {
   Timer? giftTimer;
 
   @override
-  void initState() {
-    super.initState();
-    
-    // ১. সিট জেনারেশন
-    seats = List.generate(15, (index) => {
-      "isOccupied": false,
-      "userName": "",
-      "userImage": "",
-      "isVip": index < 5, 
-      "status": "empty", 
-      "giftCount": 0,
-      "isMicOn": false,
-    });
+void initState() {
+  super.initState();
+  
+  // ১. সিট জেনারেশন (আপনার অরিজিনাল ১৫টি সিট)
+  seats = List.generate(15, (index) => {
+    "isOccupied": false,
+    "userName": "",
+    "userImage": "",
+    "isVip": index < 5, 
+    "status": "empty", 
+    "giftCount": 0,
+    "isMicOn": false,
+  });
 
-    void listenToSeats() {
+  // 🔥 সমস্যা এখানে ছিল: ফাংশনটি ডিফাইন করা ছিল কিন্তু কল করা ছিল না।
+  // আমি শুধু ফাংশনটির নাম সরিয়ে সরাসরি লিসেনারটি চালু করে দিয়েছি।
   FirebaseDatabase.instance
       .ref('rooms/${widget.roomId}/seats')
       .onValue.listen((event) {
+    if (!mounted) return; // মাউন্টেড চেক যোগ করলাম যাতে ক্রাশ না করে
     final dynamic data = event.snapshot.value;
-    if (data != null) {
-      setState(() {
-        // প্রথমে সব সিট খালি করুন
-        for (var seat in seats) {
-          seat["isOccupied"] = false;
-          seat["status"] = "empty";
-          seat["userName"] = "";
-          seat["userImage"] = "";
-        }
-        // ডাটাবেসে যারা আছে তাদের বসান
+    
+    setState(() {
+      // আপনার অরিজিনাল লুপ: প্রথমে সব সিট খালি করুন
+      for (var seat in seats) {
+        seat["isOccupied"] = false;
+        seat["status"] = "empty";
+        seat["userName"] = "";
+        seat["userImage"] = "";
+        seat["isMicOn"] = false; // মাইক স্ট্যাটাসও ক্লিয়ার করা দরকার
+      }
+      
+      // ডাটাবেসে যারা আছে তাদের বসান
+      if (data != null) {
         data.forEach((key, value) {
           int index = int.parse(key.toString());
-          seats[index]["isOccupied"] = value["isOccupied"] ?? false;
-          seats[index]["status"] = value["status"] ?? "occupied";
-          seats[index]["userName"] = value["userName"] ?? "";
-          seats[index]["userImage"] = value["userImage"] ?? "";
-          seats[index]["isMicOn"] = value["isMicOn"] ?? false;
+          if (index < seats.length) { // ইনডেক্স আউট অফ বাউন্ড সেফটি
+            seats[index]["isOccupied"] = value["isOccupied"] ?? false;
+            seats[index]["status"] = value["status"] ?? "occupied";
+            seats[index]["userName"] = value["userName"] ?? "";
+            seats[index]["userImage"] = value["userImage"] ?? "";
+            seats[index]["isMicOn"] = value["isMicOn"] ?? false;
+            seats[index]["userId"] = value["userId"] ?? ""; // আইডিটাও দরকার
+          }
         });
+      }
+    });
+  });
+
+  // ২. পিকে ম্যানেজার (আপনার অরিজিনাল)
+  pkManager = VSPKManager(
+    onTick: (seconds) => setState(() => pkSeconds = seconds),
+    onFinished: () => _endPKBattle(),
+  );
+
+  _agoraManager.initAgora(); 
+  
+  // ৩. অডিও প্লেয়ার লিসেনার (আপনার অরিজিনাল)
+  _audioPlayer.onPlayerStateChanged.listen((state) {
+    if (mounted) {
+      setState(() {
+        isRoomMusicPlaying = (state == PlayerState.playing);
       });
     }
   });
-}
-    
-    // ২. পিকে ম্যানেজার
-    pkManager = VSPKManager(
-      onTick: (seconds) => setState(() => pkSeconds = seconds),
-      onFinished: () => _endPKBattle(),
+
+  _audioPlayer.onPlayerComplete.listen((event) {
+    if (mounted) setState(() => isRoomMusicPlaying = false);
+  });
+  
+  // ৪. ডাটা লোড এবং মেম্বার লিস্ট (আপনার অরিজিনাল)
+  FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
+    if (doc.exists && mounted) {
+      setState(() {
+        roomName = doc.data()?['roomName'] ?? roomName;
+        roomProfileImage = doc.data()?['roomImage'] ?? roomProfileImage;
+        followerCount = doc.data()?['followerCount'] ?? 0;
+        isRoomLocked = doc.data()?['isLocked'] ?? false;
+        roomWallpaperPath = doc.data()?['wallpaper'] ?? '';
+      });
+    }
+
+    // সার্ভিস আপডেট
+    _roomService.updateRoomFullData(
+      roomId: widget.roomId,
+      roomName: roomName,
+      roomImage: roomProfileImage,
+      isLocked: isRoomLocked,
+      wallpaper: roomWallpaperPath,
+      followers: followerCount,
+      totalDiamonds: 0,
     );
 
-    _agoraManager.initAgora(); // এটি Agora রেডি করবে
-    // ৩. অডিও প্লেয়ার লিসেনার
-    _audioPlayer.onPlayerStateChanged.listen((state) {
-      if (mounted) {
-        setState(() {
-          isRoomMusicPlaying = (state == PlayerState.playing);
-        });
-      }
-    });
-
-    _audioPlayer.onPlayerComplete.listen((event) {
-      if (mounted) setState(() => isRoomMusicPlaying = false);
-    });
-    
-    // ৪. ডাটা লোড এবং মেম্বার লিস্টে নাম তোলা
-    FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
-      if (doc.exists && mounted) {
-        setState(() {
-          roomName = doc.data()?['roomName'] ?? roomName;
-          roomProfileImage = doc.data()?['roomImage'] ?? roomProfileImage;
-          followerCount = doc.data()?['followerCount'] ?? 0;
-          isRoomLocked = doc.data()?['isLocked'] ?? false;
-          roomWallpaperPath = doc.data()?['wallpaper'] ?? '';
-        });
-      }
-
-      // সার্ভিস আপডেট
-      _roomService.updateRoomFullData(
-        roomId: widget.roomId,
-        roomName: roomName,
-        roomImage: roomProfileImage,
-        isLocked: isRoomLocked,
-        wallpaper: roomWallpaperPath,
-        followers: followerCount,
-        totalDiamonds: 0,
-      );
-
-      // 🔥 এই যে লাইনটি যেটা আড্ডায় নাম যোগ করবে
-      _addUserToViewers();
-    });
-  }
+    _addUserToViewers();
+  });
+}
  
   // --- গিফট লজিক ---
   void _startGiftCounting() {
