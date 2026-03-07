@@ -197,138 +197,132 @@ class _VoiceRoomState extends State<VoiceRoom> {
     setState(() => isPKActive = false);
   }
 
-  // ১. সিটে বসার মেইন লজিক (পুরাতন লজিক + রিয়েল টাইম সিঙ্ক)
-void sitOnSeat(int index) async {
-  // ১. পুরাতন রুলস: একই সিটে থাকলে লিভ কনফার্মেশন
-  if (currentSeatIndex == index) { 
-    _showLeaveConfirmation(index); 
-    return; 
-  }
+// ১. সিটে বসার মেইন লজিক (পুরাতন লজিক + রিয়েল টাইম সিঙ্ক)
+  void sitOnSeat(int index) async {
+    // একই সিটে থাকলে লিভ কনফার্মেশন
+    if (currentSeatIndex == index) { 
+      _showLeaveConfirmation(index); 
+      return; 
+    }
 
-  // ২. পুরাতন রুলস: সিট বুকিং বা কলিং বা লক থাকলে রিটার্ন (অন্য কেউ বসতে পারবে না)
-  if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
+    // সিট বুকিং বা কলিং বা লক থাকলে রিটার্ন
+    if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
 
-  // ৩. সুইচিং লজিক (আপনার পুরাতন পারফেক্ট লজিক): আগের সিট সাথে সাথে ক্লিয়ার করা
-  if (currentSeatIndex != -1) {
-    int oldIndex = currentSeatIndex;
-    // ডাটাবেস থেকে আগের সিট মুছে ফেলা
-    await _roomService.updateSeatData(
-      roomId: widget.roomId, 
-      seatIndex: oldIndex, 
-      uName: "", 
-      uImage: "", 
-      isOccupied: false
-    );
-    // লোকাল লিস্ট ক্লিয়ার করা (যাতে আপনি সব সিটের মালিক না হয়ে যান)
+    // সুইচিং লজিক: আগের সিট ক্লিয়ার করা
+    if (currentSeatIndex != -1) {
+      int oldIndex = currentSeatIndex;
+      await _roomService.updateSeatData(
+        roomId: widget.roomId, 
+        seatIndex: oldIndex, 
+        uName: "", 
+        uImage: "", 
+        isOccupied: false
+      );
+      
+      setState(() {
+        seats[oldIndex]["isOccupied"] = false;
+        seats[oldIndex]["status"] = "empty";
+        seats[oldIndex]["userName"] = "";
+        seats[oldIndex]["userImage"] = "";
+        seats[oldIndex]["isMicOn"] = false;
+      });
+    }
+
+    // নতুন সিটে 'Calling' শুরু
     setState(() {
-      seats[oldIndex]["isOccupied"] = false;
-      seats[oldIndex]["status"] = "empty";
-      seats[oldIndex]["userName"] = "";
-      seats[oldIndex]["userImage"] = "";
-      seats[oldIndex]["isMicOn"] = false;
+      seats[index]["status"] = "calling";
+      seats[index]["isOccupied"] = true;
+    });
+
+    Timer(const Duration(seconds: 3), () async {
+      if (!mounted) return;
+      try {
+        final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+        
+        String myActualName = userDoc.data()?['name'] ?? "User"; 
+        String myActualPic = userDoc.data()?['profilePic'] ?? "";
+
+        // ফায়ারবেসে ডাটা পাঠানো
+        await FirebaseFirestore.instance
+            .collection('rooms')
+            .doc(widget.roomId)
+            .collection('seats')
+            .doc(index.toString())
+            .set({
+          'userName': myActualName,
+          'userImage': myActualPic,
+          'isOccupied': true,
+          'status': 'occupied',
+          'isMicOn': true,
+          'userId': uid,
+        });
+
+        setState(() {
+          seats[index]["status"] = "occupied";
+          seats[index]["userName"] = myActualName;
+          seats[index]["userImage"] = myActualPic; 
+          seats[index]["isMicOn"] = true;
+          isMicOn = true;
+          currentSeatIndex = index;
+        });
+
+      } catch (e) {
+        if (mounted) {
+          setState(() { 
+            seats[index]["status"] = "empty"; 
+            seats[index]["isOccupied"] = false; 
+          });
+        }
+      }
     });
   }
 
-  // ৪. নতুন সিটে 'Calling' শুরু (লোকাল আপডেট)
-  setState(() {
-    seats[index]["status"] = "calling";
-    seats[index]["isOccupied"] = true; // বুকিং যাতে অন্য কেউ টাচ করতে না পারে
-  });
+  // ২. সিট ছাড়ার লজিক
+  void _showLeaveConfirmation(int index) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: const Text("সিট ছেড়ে দিন", style: TextStyle(color: Colors.white)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("না")),
+          TextButton(
+            onPressed: () async {
+              await _roomService.updateSeatData(
+                roomId: widget.roomId,
+                seatIndex: index,
+                uName: "",
+                uImage: "",
+                isOccupied: false,
+              );
+              
+              await FirebaseFirestore.instance
+                  .collection('rooms')
+                  .doc(widget.roomId)
+                  .collection('seats')
+                  .doc(index.toString())
+                  .delete();
 
-  // ৫. টাইমার - আপনার পুরাতন ৩ সেকেন্ড রুলস
-  Timer(const Duration(seconds: 3), () async {
-    if (!mounted) return;
-    try {
-      final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-      
-      String myActualName = userDoc.data()?['name'] ?? "User"; 
-      String myActualPic = userDoc.data()?['profilePic'] ?? "";
-
-      // ৬. ফায়ারবেসে ডাটা পাঠানো (যাতে অন্য ইউজারের স্ক্রিনে আপনার ছবি ও নাম দেখা যায়)
-      await FirebaseFirestore.instance
-          .collection('rooms')
-          .doc(widget.roomId)
-          .collection('seats')
-          .doc(index.toString())
-          .set({
-        'userName': myActualName,
-        'userImage': myActualPic,
-        'isOccupied': true,
-        'status': 'occupied',
-        'isMicOn': true,
-        'userId': uid,
-      });
-
-      // ৭. আপনার পুরাতন setState লজিক
-      setState(() {
-        seats[index]["status"] = "occupied";
-        seats[index]["userName"] = myActualName;
-        seats[index]["userImage"] = myActualPic; 
-        seats[index]["isMicOn"] = true;
-        isMicOn = true;
-        currentSeatIndex = index; // এখন আপনার কারেন্ট সিট শুধুমাত্র একটিই
-      });
-
-    } catch (e) {
-      if (mounted) {
-        setState(() { 
-          seats[index]["status"] = "empty"; 
-          seats[index]["isOccupied"] = false; 
-        });
-      }
-    }
-  });
-}
-
-// ২. সিট ছাড়ার লজিক (সব ডাটা মুছে ফেলা)
-void _showLeaveConfirmation(int index) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      backgroundColor: Colors.grey[900],
-      title: const Text("সিট ছেড়ে দিন", style: TextStyle(color: Colors.white)),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("না")),
-        TextButton(
-          onPressed: () async {
-            // ডাটাবেস থেকে সব ক্লিয়ার
-            await _roomService.updateSeatData(
-              roomId: widget.roomId,
-              seatIndex: index,
-              uName: "",
-              uImage: "",
-              isOccupied: false,
-            );
-            
-            // ফায়ারবেস থেকেও মুছে ফেলা
-            await FirebaseFirestore.instance
-                .collection('rooms')
-                .doc(widget.roomId)
-                .collection('seats')
-                .doc(index.toString())
-                .delete();
-
-            // স্ক্রিন থেকে সব ক্লিয়ার (মাইক, ছবি, নাম)
-            if (mounted) {
-              setState(() {
-                seats[index]["isOccupied"] = false;
-                seats[index]["status"] = "empty";
-                seats[index]["userName"] = "";
-                seats[index]["userImage"] = "";
-                seats[index]["isMicOn"] = false; 
-                currentSeatIndex = -1;
-                isMicOn = false;
-              });
-            }
-            Navigator.pop(context);
-          }, 
-          child: const Text("হ্যাঁ", style: TextStyle(color: Colors.redAccent))
-        ),
-      ],
-    ),
-  );
-}
+              if (mounted) {
+                setState(() {
+                  seats[index]["isOccupied"] = false;
+                  seats[index]["status"] = "empty";
+                  seats[index]["userName"] = "";
+                  seats[index]["userImage"] = "";
+                  seats[index]["isMicOn"] = false; 
+                  currentSeatIndex = -1;
+                  isMicOn = false;
+                });
+              }
+              Navigator.pop(context);
+            }, 
+            child: const Text("হ্যাঁ", style: TextStyle(color: Colors.redAccent))
+          ),
+        ],
+      ),
+    );
+  }
 
 
   @override
