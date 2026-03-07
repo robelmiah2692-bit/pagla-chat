@@ -200,11 +200,11 @@ class _VoiceRoomState extends State<VoiceRoom> {
   // ২. সিট দখল বা রুম লক থাকলে রিটার্ন
   if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
 
-  // 🔥 ৩. পুরনো সিট পরিষ্কার এবং এগোরা ভয়েস চ্যানেল থেকে লিভ নেওয়া
+  // 🔥 ৩. পুরনো সিট পরিষ্কার এবং এগোরা ভয়েস চ্যানেল থেকে লিভ নেওয়া
   if (currentSeatIndex != -1) {
     int oldIndex = currentSeatIndex;
     
-    // এগোরা থেকে ভয়েস কানেকশন বিচ্ছিন্ন করা
+    // এগোরা থেকে ভয়েস কানেকশন বিচ্ছিন্ন করা
     await _agoraManager.leaveRoom();
 
     // সরাসরি ফায়ারবেস থেকে ডিলিট করছি যাতে কোনোভাবেই ছবি না থাকে
@@ -224,7 +224,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     });
   }
 
-  // ৪. নতুন সিটে "Calling" স্ট্যাটাস দেওয়া এবং সাথে সাথে এগোরা জয়েন করা
+  // ৪. নতুন সিটে "Calling" স্ট্যাটাস দেওয়া এবং সাথে সাথে এগোরা জয়েন করা
   setState(() {
     seats[index]["status"] = "calling";
     seats[index]["isOccupied"] = true;
@@ -232,10 +232,15 @@ class _VoiceRoomState extends State<VoiceRoom> {
     isMicOn = true; // লোকাললি মাইক অন আইকন দেখানো
   });
 
-  // 🚀 এগোরা জয়েন করা: সিটে বসার সাথে সাথেই ভয়েস চালু হবে
-  await _agoraManager.joinRoom(widget.roomId);
-  await _agoraManager.toggleMic(false); // মাইক আনমিউট করা
-  AgoraStatusChecker.checkStatus(_agoraManager.engine, context);
+  // 🚀 কলিং ফিক্স: আগে নিশ্চিত করছি ইঞ্জিন রেডি আছে কি না, তারপর জয়েন
+  try {
+    await _agoraManager.initAgora(); // নিশ্চিত করছি ইঞ্জিন সচল
+    await _agoraManager.joinRoom(widget.roomId);
+    await _agoraManager.toggleMic(false); // মাইক আনমিউট করা
+    AgoraStatusChecker.checkStatus(_agoraManager.engine, context);
+  } catch (e) {
+    print("Agora Join Error: $e");
+  }
     
   // ৫. ৩ সেকেন্ড পর অরিজিনাল প্রোফাইল ডাটা ডাটাবেসে বসানো
   Timer(const Duration(seconds: 3), () async {
@@ -276,10 +281,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
           seats[index]["isOccupied"] = false; 
           currentSeatIndex = -1;
         });
-        await _agoraManager.leaveRoom(); // এরর হলে ভয়েস কেটে দেওয়া
+        await _agoraManager.leaveRoom(); // এরর হলে ভয়েস কেটে দেওয়া
       }
     }
-  });  
+  }); 
 }
   // ২. সিট ছাড়ার লজিক
   void _showLeaveConfirmation(int index) {
@@ -538,16 +543,36 @@ Widget _buildBottomActionArea() {
 
         // ১. মাইক বাটন
         IconButton(
-          icon: Icon(isMicOn ? Icons.mic : Icons.mic_off, color: isMicOn ? Colors.greenAccent : Colors.redAccent),
-          onPressed: () {
+          icon: Icon(
+            isMicOn ? Icons.mic : Icons.mic_off,
+            color: isMicOn ? Colors.greenAccent : Colors.redAccent,
+          ),
+          onPressed: () async {
             if (currentSeatIndex != -1) {
-              setState(() { isMicOn = !isMicOn; seats[currentSeatIndex]["isMicOn"] = isMicOn; });
+              bool newMicState = !isMicOn;
+
+              // ১. লোকাল সাউন্ড বন্ধ/অন করা
+              await _agoraManager.toggleMic(!newMicState);
+
+              // ২. ডাটাবেসে আপডেট
+              await FirebaseFirestore.instance
+                  .collection('rooms')
+                  .doc(widget.roomId)
+                  .collection('seats')
+                  .doc(currentSeatIndex.toString())
+                  .update({'isMicOn': newMicState});
+
+              setState(() {
+                isMicOn = newMicState;
+                seats[currentSeatIndex]["isMicOn"] = newMicState;
+              });
             } else {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("আগে সিটে বসুন!")));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("আগে সিটে বসুন!")),
+              );
             }
           },
         ),
-
         // ২. গেম বাটন
         IconButton(
           icon: const Icon(Icons.videogame_asset, color: Colors.orange), 
