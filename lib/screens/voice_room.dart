@@ -197,18 +197,14 @@ class _VoiceRoomState extends State<VoiceRoom> {
     setState(() => isPKActive = false);
   }
 
-// ১. সিটে বসার মেইন লজিক (পুরাতন লজিক + রিয়েল টাইম সিঙ্ক)
+  // ১. সিটে বসার মেইন লজিক (আপনার দেওয়া রিয়েল টাইম সিঙ্ক সহ)
   void sitOnSeat(int index) async {
-    // একই সিটে থাকলে লিভ কনফার্মেশন
     if (currentSeatIndex == index) { 
       _showLeaveConfirmation(index); 
       return; 
     }
-
-    // সিট বুকিং বা কলিং বা লক থাকলে রিটার্ন
     if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
 
-    // সুইচিং লজিক: আগের সিট ক্লিয়ার করা
     if (currentSeatIndex != -1) {
       int oldIndex = currentSeatIndex;
       await _roomService.updateSeatData(
@@ -228,7 +224,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
       });
     }
 
-    // নতুন সিটে 'Calling' শুরু
     setState(() {
       seats[index]["status"] = "calling";
       seats[index]["isOccupied"] = true;
@@ -243,7 +238,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
         String myActualName = userDoc.data()?['name'] ?? "User"; 
         String myActualPic = userDoc.data()?['profilePic'] ?? "";
 
-        // ফায়ারবেসে ডাটা পাঠানো
         await FirebaseFirestore.instance
             .collection('rooms')
             .doc(widget.roomId)
@@ -278,32 +272,19 @@ class _VoiceRoomState extends State<VoiceRoom> {
     });
   }
 
-  // ২. সিট ছাড়ার লজিক
+  // ২. সিট ছাড়ার লজিক
   void _showLeaveConfirmation(int index) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.grey[900],
-        title: const Text("সিট ছেড়ে দিন", style: TextStyle(color: Colors.white)),
+        title: const Text("সিট ছেড়ে দিন", style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("না")),
           TextButton(
             onPressed: () async {
-              await _roomService.updateSeatData(
-                roomId: widget.roomId,
-                seatIndex: index,
-                uName: "",
-                uImage: "",
-                isOccupied: false,
-              );
-              
-              await FirebaseFirestore.instance
-                  .collection('rooms')
-                  .doc(widget.roomId)
-                  .collection('seats')
-                  .doc(index.toString())
-                  .delete();
-
+              await _roomService.updateSeatData(roomId: widget.roomId, seatIndex: index, uName: "", uImage: "", isOccupied: false);
+              await FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).collection('seats').doc(index.toString()).delete();
               if (mounted) {
                 setState(() {
                   seats[index]["isOccupied"] = false;
@@ -324,7 +305,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -332,13 +312,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
-          // ১. ওয়ালপেপার সেকশন
           if (roomWallpaperPath.isNotEmpty)
-            Positioned.fill(
-              child: Image.network(roomWallpaperPath, fit: BoxFit.cover),
-            ),
+            Positioned.fill(child: Image.network(roomWallpaperPath, fit: BoxFit.cover)),
           
-          // ২. মেইন কন্টেন্ট
           Column(
             children: [
               const SizedBox(height: 40),
@@ -367,10 +343,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
             ],
           ),
 
-          // ৩. ফ্লোটিং টুলস
           FloatingRoomTools(onGiftCountStart: _startGiftCounting),
           
-          // ৪. ভাসমান প্লেয়ার
           if (isRoomMusicPlaying)
             Positioned(
               left: playerPosition.dx, 
@@ -379,15 +353,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 feedback: _buildFloatingPlayer(isDragging: true),
                 childWhenDragging: Container(),
                 onDragEnd: (details) {
-                  setState(() {
-                    playerPosition = details.offset;
-                  });
+                  setState(() { playerPosition = details.offset; });
                 },
                 child: _buildFloatingPlayer(isDragging: false),
               ),
             ),
 
-          // ৫. গিফট অ্যানিমেশন
           if (isGiftAnimating)
             IgnorePointer(
               child: Center(child: Lottie.network(currentGiftImage, width: 300)),
@@ -397,35 +368,19 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  // 🔥 আপনার দেওয়া dispose কোডটি ঠিক এখানে বসবে
   @override
   void dispose() {
-    // ইউজার যদি কোনো সিটে বসা থাকে তবে বের হওয়ার সময় সিট খালি হবে
     if (currentSeatIndex != -1) {
-      _roomService.updateSeatData(
-        roomId: widget.roomId, 
-        seatIndex: currentSeatIndex, 
-        uName: "", 
-        uImage: "", 
-        isOccupied: false
-      );
-      
+      _roomService.updateSeatData(roomId: widget.roomId, seatIndex: currentSeatIndex, uName: "", uImage: "", isOccupied: false);
       FirebaseFirestore.instance
           .collection('rooms')
           .doc(widget.roomId)
           .collection('seats')
           .doc(currentSeatIndex.toString())
-          .update({
-            'isOccupied': false,
-            'userName': '',
-            'userImage': '',
-            'status': 'empty',
-            'isMicOn': false,
-          });
+          .update({'isOccupied': false, 'status': 'empty'});
     }
     super.dispose();
   }
-} // VoiceRoomState ক্লাসের শেষ ব্র্যাকেট
 
   // --- উইজেট ফাংশনসমূহ ---
   Widget _buildTopNavBar() {
