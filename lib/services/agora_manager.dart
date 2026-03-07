@@ -5,12 +5,15 @@ import 'package:permission_handler/permission_handler.dart';
 class AgoraManager {
   late RtcEngine engine;
   
-  // 🔥 আপনার দেওয়া নতুন অ্যাপ আইডি এখানে সেট করা হয়েছে
+  // 🔥 আপনার দেওয়া অ্যাপ আইডি
   final String appId = "32133508104045b687aae00c5ccc59a5"; 
 
   Future<void> initAgora() async {
-    // ১. পারমিশন লজিক: মোবাইলের জন্য আলাদা পারমিশন রিকোয়েস্ট
-    if (!kIsWeb) {
+    // ১. পারমিশন লজিক
+    if (kIsWeb) {
+      // ওয়েবে ব্রাউজার যখনই মাইক এক্সেস চাবে, এইটা সাহায্য করবে
+      debugPrint("Web Browser Microphone Requesting...");
+    } else {
       await [Permission.microphone].request();
     }
 
@@ -20,31 +23,31 @@ class AgoraManager {
     // ৩. ইনিশিয়ালাইজেশন
     await engine.initialize(RtcEngineContext(
       appId: appId,
-      channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
+      // ওয়েব এবং অডিও কলের জন্য Communication প্রোফাইল সবথেকে ভালো কাজ করে
+      channelProfile: ChannelProfileType.channelProfileCommunication,
     ));
 
-    // ৪. অডিও সেটিংস (ওয়েবে মাইক পারমিশন পপ-আপ ট্রিগার করার জন্য এটি জরুরি)
+    // ৪. অডিও ইঞ্জিন চালু করা
     await engine.enableAudio();
     
-    // 🔥 এই লাইনটি ব্রাউজারকে সিগন্যাল দিবে মাইক এক্সেস করার জন্য
+    // 🔥 ৫. ওয়েবে মাইক পারমিশন পপ-আপ না আসলে সাউন্ড কানেক্ট হবে না
+    // এই কমান্ডটি ব্রাউজারকে বাধ্য করবে পারমিশন ডায়ালগ দেখাতে
     await engine.enableLocalAudio(true); 
 
-    // ৫. রোল সেটআপ: ব্রডকাস্টার হিসেবে সেট করা
-    await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
-
-    // ৬. অডিও কোয়ালিটি সেটিংস
+    // ৬. অডিও কোয়ালিটি এবং চ্যাটরুম সিনারিও সেট করা
     await engine.setAudioProfile(
-      profile: AudioProfileType.audioProfileMusicHighQuality,
-      scenario: AudioScenarioType.audioScenarioGameStreaming,
+      profile: AudioProfileType.audioProfileSpeechStandard,
+      scenario: AudioScenarioType.audioScenarioChatroom,
     );
     
-    debugPrint("Agora Initialized with ID: $appId");
+    debugPrint("Agora Initialized for Web/Mobile: $appId");
   }
 
-  // ৭. রুমে জয়েন করা (সিটে ক্লিক করলে এটি কল হবে)
+  // ৭. রুমে জয়েন করা
   Future<void> joinRoom(String channelName) async {
+    // জয়েন করার ঠিক আগে আবার চেক করা যেন পারমিশন মিস না হয়
     await engine.joinChannel(
-      token: "", // নতুন প্রজেক্ট Testing Mode এ থাকলে টোকেন লাগবে না
+      token: "", 
       channelId: channelName,
       uid: 0,
       options: const ChannelMediaOptions(
@@ -54,7 +57,6 @@ class AgoraManager {
       ),
     );
     
-    // ৮. স্পিকার লাউড করা (শুধু মোবাইলের জন্য)
     if (!kIsWeb) {
       await engine.setEnableSpeakerphone(true);
     }
@@ -62,12 +64,12 @@ class AgoraManager {
     debugPrint("Joined Voice Room: $channelName");
   }
 
-  // মাইক অন/অফ করার ফাংশন
+  // মাইক অন/অফ
   Future<void> toggleMic(bool isMute) async {
     await engine.muteLocalAudioStream(isMute);
   }
 
-  // রুম থেকে বের হওয়ার ফাংশন
+  // রুম থেকে বের হওয়া
   Future<void> leaveRoom() async {
     await engine.leaveChannel();
     debugPrint("Left Voice Room");
