@@ -191,101 +191,98 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   // ১. সিটে বসার মেইন লজিক (আপনার দেওয়া রিয়েল টাইম সিঙ্ক সহ)
   void sitOnSeat(int index) async {
-  // ১. যদি একই সিটে আবার ক্লিক করেন
-  if (currentSeatIndex == index) { 
-    _showLeaveConfirmation(index); 
-    return; 
-  }
-  
-  // ২. সিট দখল বা রুম লক থাকলে রিটার্ন
-  if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
-
-  // 🔥 ৩. পুরনো সিট পরিষ্কার এবং এগোরা ভয়েস চ্যানেল থেকে লিভ নেওয়া
-  if (currentSeatIndex != -1) {
-    int oldIndex = currentSeatIndex;
-    
-    // এগোরা থেকে ভয়েস কানেকশন বিচ্ছিন্ন করা
-    await _agoraManager.leaveRoom();
-
-    // সরাসরি ফায়ারবেস থেকে ডিলিট করছি যাতে কোনোভাবেই ছবি না থাকে
-    await FirebaseFirestore.instance
-        .collection('rooms')
-        .doc(widget.roomId)
-        .collection('seats')
-        .doc(oldIndex.toString())
-        .delete(); 
-
-    setState(() {
-      seats[oldIndex]["isOccupied"] = false;
-      seats[oldIndex]["status"] = "empty";
-      seats[oldIndex]["userName"] = "";
-      seats[oldIndex]["userImage"] = "";
-      seats[oldIndex]["isMicOn"] = false;
-    });
-  }
-
-  // ৪. নতুন সিটে "Calling" স্ট্যাটাস দেওয়া এবং সাথে সাথে এগোরা জয়েন করা
-  setState(() {
-    seats[index]["status"] = "calling";
-    seats[index]["isOccupied"] = true;
-    currentSeatIndex = index; 
-    isMicOn = true; // লোকাললি মাইক অন আইকন দেখানো
-  });
-
-  // 🚀 কলিং ফিক্স: আগে নিশ্চিত করছি ইঞ্জিন রেডি আছে কি না, তারপর জয়েন
-  try {
-    await _agoraManager.initAgora(); // নিশ্চিত করছি ইঞ্জিন সচল
-    await _agoraManager.joinRoom(widget.roomId);
-    await _agoraManager.toggleMic(false); // মাইক আনমিউট করা
-    AgoraStatusChecker.checkStatus(_agoraManager.engine, context);
-  } catch (e) {
-    print("Agora Join Error: $e");
-  }
-    
-  // ৫. ৩ সেকেন্ড পর অরিজিনাল প্রোফাইল ডাটা ডাটাবেসে বসানো
-  Timer(const Duration(seconds: 3), () async {
-    if (!mounted) return;
-    try {
-      final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      // ১. যদি একই সিটে আবার ক্লিক করেন
+      if (currentSeatIndex == index) { 
+        _showLeaveConfirmation(index); 
+        return; 
+      }
       
-      String myActualName = userDoc.data()?['name'] ?? "User"; 
-      String myActualPic = userDoc.data()?['profilePic'] ?? "";
+      // ২. সিট দখল বা রুম লক থাকলে রিটার্ন
+      if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
 
-      await FirebaseFirestore.instance
-          .collection('rooms')
-          .doc(widget.roomId)
-          .collection('seats')
-          .doc(index.toString())
-          .set({
-        'userName': myActualName,
-        'userImage': myActualPic,
-        'isOccupied': true,
-        'status': 'occupied',
-        'isMicOn': true,
-        'userId': uid,
-      }, SetOptions(merge: true));
+      // 🔥 ৩. পুরনো সিট পরিষ্কার এবং এগোরা ভয়েস চ্যানেল থেকে লিভ নেওয়া
+      if (currentSeatIndex != -1) {
+        int oldIndex = currentSeatIndex;
+        
+        await _agoraManager.leaveRoom();
 
-      if (mounted) {
+        // Realtime Database থেকে ডিলিট
+        await FirebaseDatabase.instance
+            .ref('rooms/${widget.roomId}/seats/$oldIndex')
+            .remove();
+
         setState(() {
-          seats[index]["status"] = "occupied";
-          seats[index]["userName"] = myActualName;
-          seats[index]["userImage"] = myActualPic; 
-          seats[index]["isMicOn"] = true;
+          seats[oldIndex]["isOccupied"] = false;
+          seats[oldIndex]["status"] = "empty";
+          seats[oldIndex]["userName"] = "";
+          seats[oldIndex]["userImage"] = "";
+          seats[oldIndex]["isMicOn"] = false;
         });
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() { 
-          seats[index]["status"] = "empty"; 
-          seats[index]["isOccupied"] = false; 
-          currentSeatIndex = -1;
-        });
-        await _agoraManager.leaveRoom(); // এরর হলে ভয়েস কেটে দেওয়া
+
+      // ৪. নতুন সিটে "Calling" স্ট্যাটাস দেওয়া
+      setState(() {
+        seats[index]["status"] = "calling";
+        seats[index]["isOccupied"] = true;
+        currentSeatIndex = index; 
+        isMicOn = true; 
+      });
+
+      // 🚀 কলিং ফিক্স
+      try {
+        await _agoraManager.initAgora(); 
+        await _agoraManager.joinRoom(widget.roomId);
+        await _agoraManager.toggleMic(false); 
+        AgoraStatusChecker.checkStatus(_agoraManager.engine, context);
+      } catch (e) {
+        print("Agora Join Error: $e");
       }
+        
+      // 🔥 ৫. Realtime Database-এর মেইন কানেকশন (Ghost ID ফিক্স)
+      final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
+      // অ্যাপ ক্রাশ করলে বা নেট গেলে অটোমেটিক সিট খালি হবে
+      await seatRef.onDisconnect().remove();
+
+      // ৬. আপনার অরিজিনাল লজিক: ৩ সেকেন্ড পর প্রোফাইল ডাটা বসানো
+      Timer(const Duration(seconds: 3), () async {
+        if (!mounted) return;
+        try {
+          final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
+          final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+          
+          String myActualName = userDoc.data()?['name'] ?? "User"; 
+          String myActualPic = userDoc.data()?['profilePic'] ?? "";
+
+          // Realtime Database এ সেট করা
+          await seatRef.set({
+            'userName': myActualName,
+            'userImage': myActualPic,
+            'isOccupied': true,
+            'status': 'occupied',
+            'isMicOn': true,
+            'userId': uid,
+          });
+
+          if (mounted) {
+            setState(() {
+              seats[index]["status"] = "occupied";
+              seats[index]["userName"] = myActualName;
+              seats[index]["userImage"] = myActualPic; 
+              seats[index]["isMicOn"] = true;
+            });
+          }
+        } catch (e) {
+          if (mounted) {
+            setState(() { 
+              seats[index]["status"] = "empty"; 
+              seats[index]["isOccupied"] = false; 
+              currentSeatIndex = -1;
+            });
+            await _agoraManager.leaveRoom();
+          }
+        }
+      }); 
     }
-  }); 
-}
   // ২. সিট ছাড়ার লজিক
   void _showLeaveConfirmation(int index) {
     showDialog(
