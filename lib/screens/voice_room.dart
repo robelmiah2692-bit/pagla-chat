@@ -25,6 +25,7 @@ import '../top_room_leaderboard.dart';
 import '../personal_pk_view.dart';
 import '../vs_pk_view.dart';
 import '../live_notification_service.dart';
+import 'package:pagla_chat/services/voice_engine.dart'; // এখানে আপনার প্রোজেক্টের নাম অনুযায়ী পাথ হবে
 
 import '../widgets/chat_input_bar.dart';
 import '../widgets/emoji_handler.dart';
@@ -47,6 +48,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
  final RoomService _roomService = RoomService();
  final RoomSyncService _syncService = RoomSyncService();
  final DatabaseService _dbService = DatabaseService();
+ final AgoraManager _agoraManager = AgoraManager();
   
   String userProfilePic = ""; // এটি আপনার নিজের প্রোফাইল ছবি রাখার জন্য
   // --- সব ভেরিয়েবল ---
@@ -103,6 +105,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
       onFinished: () => _endPKBattle(),
     );
 
+    _agoraManager.initAgora(); // এটি Agora রেডি করবে
     // ৩. অডিও প্লেয়ার লিসেনার
     _audioPlayer.onPlayerStateChanged.listen((state) {
       if (mounted) {
@@ -195,11 +198,14 @@ class _VoiceRoomState extends State<VoiceRoom> {
   // ২. সিট দখল বা রুম লক থাকলে রিটার্ন
   if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
 
-  // 🔥 ৩. পুরনো সিট ডাটাবেস থেকে একদম মুছে ফেলা (সবচেয়ে গুরুত্বপূর্ণ অংশ)
+  // 🔥 ৩. পুরনো সিট পরিষ্কার এবং এগোরা ভয়েস চ্যানেল থেকে লিভ নেওয়া
   if (currentSeatIndex != -1) {
     int oldIndex = currentSeatIndex;
     
-    // সরাসরি ফায়ারবেস থেকে ডিলিট করছি যাতে কোনোভাবেই ছবি না থাকে
+    // এগোরা থেকে ভয়েস কানেকশন বিচ্ছিন্ন করা
+    await _agoraManager.leaveRoom();
+
+    // সরাসরি ফায়ারবেস থেকে ডিলিট করছি যাতে কোনোভাবেই ছবি না থাকে
     await FirebaseFirestore.instance
         .collection('rooms')
         .doc(widget.roomId)
@@ -212,18 +218,23 @@ class _VoiceRoomState extends State<VoiceRoom> {
       seats[oldIndex]["status"] = "empty";
       seats[oldIndex]["userName"] = "";
       seats[oldIndex]["userImage"] = "";
+      seats[oldIndex]["isMicOn"] = false;
     });
   }
 
-  // ৪. নতুন সিটে "Calling" স্ট্যাটাস দেওয়া
+  // ৪. নতুন সিটে "Calling" স্ট্যাটাস দেওয়া এবং সাথে সাথে এগোরা জয়েন করা
   setState(() {
     seats[index]["status"] = "calling";
     seats[index]["isOccupied"] = true;
-    // এখানে সাথে সাথে ইনডেক্স আপডেট করে দিচ্ছি যাতে লজিক ক্লিয়ার থাকে
     currentSeatIndex = index; 
+    isMicOn = true; // লোকাললি মাইক অন আইকন দেখানো
   });
 
-  // ৫. ৩ সেকেন্ড পর অরিজিনাল ডাটা বসানো
+  // 🚀 এগোরা জয়েন করা: সিটে বসার সাথে সাথেই ভয়েস চালু হবে
+  await _agoraManager.joinRoom(widget.roomId);
+  await _agoraManager.toggleMic(false); // মাইক আনমিউট করা
+
+  // ৫. ৩ সেকেন্ড পর অরিজিনাল প্রোফাইল ডাটা ডাটাবেসে বসানো
   Timer(const Duration(seconds: 3), () async {
     if (!mounted) return;
     try {
@@ -245,14 +256,14 @@ class _VoiceRoomState extends State<VoiceRoom> {
         'status': 'occupied',
         'isMicOn': true,
         'userId': uid,
-      });
+      }, SetOptions(merge: true));
 
       if (mounted) {
         setState(() {
           seats[index]["status"] = "occupied";
           seats[index]["userName"] = myActualName;
           seats[index]["userImage"] = myActualPic; 
-          isMicOn = true;
+          seats[index]["isMicOn"] = true;
         });
       }
     } catch (e) {
@@ -260,13 +271,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
         setState(() { 
           seats[index]["status"] = "empty"; 
           seats[index]["isOccupied"] = false; 
-          currentSeatIndex = -1; // এরর হলে ইনডেক্স রিসেট
+          currentSeatIndex = -1;
         });
+        await _agoraManager.leaveRoom(); // এরর হলে ভয়েস কেটে দেওয়া
       }
     }
-  });
+  });  
 }
-
   // ২. সিট ছাড়ার লজিক
   void _showLeaveConfirmation(int index) {
     showDialog(
