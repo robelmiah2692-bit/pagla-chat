@@ -143,19 +143,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
       _addUserToViewers();
     });
   }
-
-  @override
-  void dispose() {
-    // 🔥 রুম থেকে বের হওয়ার সময় নাম মুছে দেওয়া
-    _removeUserFromViewers(); 
-
-    giftTimer?.cancel();
-    pkManager.stopPK();
-    _audioPlayer.dispose();
-    _messageController.dispose();
-    
-    super.dispose();
-  }
  
   // --- গিফট লজিক ---
   void _startGiftCounting() {
@@ -368,17 +355,42 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
+ // 🔥 এটিই আপনার ফাইনাল এবং একমাত্র dispose ফাংশন
   @override
   void dispose() {
+    // ১. আড্ডা (Viewers List) থেকে নাম মুছে ফেলা
+    _removeUserFromViewers(); 
+
+    // ২. সিটে বসা থাকলে সেই সিটটি অটো খালি করে দেওয়া (Real-time Sync)
     if (currentSeatIndex != -1) {
-      _roomService.updateSeatData(roomId: widget.roomId, seatIndex: currentSeatIndex, uName: "", uImage: "", isOccupied: false);
+      _roomService.updateSeatData(
+        roomId: widget.roomId, 
+        seatIndex: currentSeatIndex, 
+        uName: "", 
+        uImage: "", 
+        isOccupied: false
+      );
+      
       FirebaseFirestore.instance
           .collection('rooms')
           .doc(widget.roomId)
           .collection('seats')
           .doc(currentSeatIndex.toString())
-          .update({'isOccupied': false, 'status': 'empty'});
+          .update({
+            'isOccupied': false,
+            'userName': '',
+            'userImage': '',
+            'status': 'empty',
+            'isMicOn': false,
+          });
     }
+
+    // ৩. মেমোরি ক্লিনআপ (টাইমার, পিকে, অডিও এবং মেসেজ কন্ট্রোলার বন্ধ করা)
+    giftTimer?.cancel();
+    pkManager.stopPK();
+    _audioPlayer.dispose();
+    _messageController.dispose();
+    
     super.dispose();
   }
 
