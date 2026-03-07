@@ -112146,14 +112146,14 @@ var $async$qE=A.p(function(a,b){if(a===1)return A.q(b,r)
 for(;;)switch(s){case 0:p=A.bhA(null)
 q.a=p
 s=2
-return A.n(p.l1(0,new A.atQ("bd010dec4aa141228c87ec2cb9d4f6e8",B.oT)),$async$qE)
+return A.n(p.l1(0,new A.atQ("32133508104045b687aae00c5ccc59a5",B.oT)),$async$qE)
 case 2:s=3
 return A.n(q.a.DZ(),$async$qE)
 case 3:s=4
 return A.n(q.a.zR(B.oX),$async$qE)
 case 4:s=5
 return A.n(q.a.zQ(B.o8,B.o9),$async$qE)
-case 5:A.kN().$1("Agora Initialized with ID: bd010dec4aa141228c87ec2cb9d4f6e8")
+case 5:A.kN().$1("Agora Initialized with ID: 32133508104045b687aae00c5ccc59a5")
 return A.r(null,r)}})
 return A.t($async$qE,r)},
 EW(a){return this.aBm(a)},
