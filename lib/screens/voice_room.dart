@@ -186,78 +186,86 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   // ১. সিটে বসার মেইন লজিক (আপনার দেওয়া রিয়েল টাইম সিঙ্ক সহ)
   void sitOnSeat(int index) async {
-    if (currentSeatIndex == index) { 
-      _showLeaveConfirmation(index); 
-      return; 
-    }
-    if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
+  // ১. যদি একই সিটে আবার ক্লিক করেন
+  if (currentSeatIndex == index) { 
+    _showLeaveConfirmation(index); 
+    return; 
+  }
+  
+  // ২. সিট দখল বা রুম লক থাকলে রিটার্ন
+  if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
 
-    if (currentSeatIndex != -1) {
-      int oldIndex = currentSeatIndex;
-      await _roomService.updateSeatData(
-        roomId: widget.roomId, 
-        seatIndex: oldIndex, 
-        uName: "", 
-        uImage: "", 
-        isOccupied: false
-      );
-      
-      setState(() {
-        seats[oldIndex]["isOccupied"] = false;
-        seats[oldIndex]["status"] = "empty";
-        seats[oldIndex]["userName"] = "";
-        seats[oldIndex]["userImage"] = "";
-        seats[oldIndex]["isMicOn"] = false;
-      });
-    }
+  // 🔥 ৩. পুরনো সিট ডাটাবেস থেকে একদম মুছে ফেলা (সবচেয়ে গুরুত্বপূর্ণ অংশ)
+  if (currentSeatIndex != -1) {
+    int oldIndex = currentSeatIndex;
+    
+    // সরাসরি ফায়ারবেস থেকে ডিলিট করছি যাতে কোনোভাবেই ছবি না থাকে
+    await FirebaseFirestore.instance
+        .collection('rooms')
+        .doc(widget.roomId)
+        .collection('seats')
+        .doc(oldIndex.toString())
+        .delete(); 
 
     setState(() {
-      seats[index]["status"] = "calling";
-      seats[index]["isOccupied"] = true;
+      seats[oldIndex]["isOccupied"] = false;
+      seats[oldIndex]["status"] = "empty";
+      seats[oldIndex]["userName"] = "";
+      seats[oldIndex]["userImage"] = "";
     });
+  }
 
-    Timer(const Duration(seconds: 3), () async {
-      if (!mounted) return;
-      try {
-        final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
-        final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-        
-        String myActualName = userDoc.data()?['name'] ?? "User"; 
-        String myActualPic = userDoc.data()?['profilePic'] ?? "";
+  // ৪. নতুন সিটে "Calling" স্ট্যাটাস দেওয়া
+  setState(() {
+    seats[index]["status"] = "calling";
+    seats[index]["isOccupied"] = true;
+    // এখানে সাথে সাথে ইনডেক্স আপডেট করে দিচ্ছি যাতে লজিক ক্লিয়ার থাকে
+    currentSeatIndex = index; 
+  });
 
-        await FirebaseFirestore.instance
-            .collection('rooms')
-            .doc(widget.roomId)
-            .collection('seats')
-            .doc(index.toString())
-            .set({
-          'userName': myActualName,
-          'userImage': myActualPic,
-          'isOccupied': true,
-          'status': 'occupied',
-          'isMicOn': true,
-          'userId': uid,
-        });
+  // ৫. ৩ সেকেন্ড পর অরিজিনাল ডাটা বসানো
+  Timer(const Duration(seconds: 3), () async {
+    if (!mounted) return;
+    try {
+      final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      
+      String myActualName = userDoc.data()?['name'] ?? "User"; 
+      String myActualPic = userDoc.data()?['profilePic'] ?? "";
 
+      await FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(widget.roomId)
+          .collection('seats')
+          .doc(index.toString())
+          .set({
+        'userName': myActualName,
+        'userImage': myActualPic,
+        'isOccupied': true,
+        'status': 'occupied',
+        'isMicOn': true,
+        'userId': uid,
+      });
+
+      if (mounted) {
         setState(() {
           seats[index]["status"] = "occupied";
           seats[index]["userName"] = myActualName;
           seats[index]["userImage"] = myActualPic; 
-          seats[index]["isMicOn"] = true;
           isMicOn = true;
-          currentSeatIndex = index;
         });
-
-      } catch (e) {
-        if (mounted) {
-          setState(() { 
-            seats[index]["status"] = "empty"; 
-            seats[index]["isOccupied"] = false; 
-          });
-        }
       }
-    });
-  }
+    } catch (e) {
+      if (mounted) {
+        setState(() { 
+          seats[index]["status"] = "empty"; 
+          seats[index]["isOccupied"] = false; 
+          currentSeatIndex = -1; // এরর হলে ইনডেক্স রিসেট
+        });
+      }
+    }
+  });
+}
 
   // ২. সিট ছাড়ার লজিক
   void _showLeaveConfirmation(int index) {
