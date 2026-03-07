@@ -11,6 +11,7 @@ import 'package:pagla_chat/room_sync_service.dart';
 import 'package:pagla_chat/services/database_service.dart';
 import 'package:pagla_chat/widgets/live_viewers_list.dart';
 import 'package:pagla_chat/services/soulmate_animation_service.dart';
+import 'package:pagla_chat/services/agora_status_checker.dart';
 // --- নতুন আলাদা করা ফাইলগুলোর ইম্পোর্ট ---
 import 'package:pagla_chat/services/seat_sync_service.dart'; // সিট সিঙ্ক করার জন্য
 import 'package:pagla_chat/widgets/live_viewers_list.dart';   // ভিউয়ার লিস্ট দেখানোর জন্য
@@ -234,7 +235,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
   // 🚀 এগোরা জয়েন করা: সিটে বসার সাথে সাথেই ভয়েস চালু হবে
   await _agoraManager.joinRoom(widget.roomId);
   await _agoraManager.toggleMic(false); // মাইক আনমিউট করা
-
+  AgoraStatusChecker.checkStatus(_agoraManager.engine, context);
+    
   // ৫. ৩ সেকেন্ড পর অরিজিনাল প্রোফাইল ডাটা ডাটাবেসে বসানো
   Timer(const Duration(seconds: 3), () async {
     if (!mounted) return;
