@@ -7,15 +7,21 @@
     
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" /> <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" /> 
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
-    
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/> <application
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <application
         android:label="Pagla Chat"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
@@ -44,6 +50,11 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name="io.agora.rtc.ss.impl.ScreenSharingService"
+            android:foregroundServiceType="microphone"
+            android:exported="false" />
 
         <service
             android:name="com.google.firebase.messaging.FirebaseMessagingService"
