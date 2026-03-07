@@ -4,7 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 class AgoraManager {
   late RtcEngine engine;
-  final String appId = "bd010dec4aa141228c87ec2cb9d4f6e8"; 
+  final String appId = "32133508104045b687aae00c5ccc59a5"; 
 
   Future<void> initAgora() async {
     // ১. পারমিশন লজিক: ব্রাউজারে এরর এড়াতে kIsWeb চেক ঠিক আছে
