@@ -16,6 +16,6 @@ jobs:
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebase_service_account: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PAGLA_CHAT }}'
-          channel_id: live
-          project_id: paglachat
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PAGLA_CHAT }}'
+          projectId: paglachat
+          channelId: live
