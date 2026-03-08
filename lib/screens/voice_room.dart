@@ -144,7 +144,7 @@ void initState() {
     onFinished: () => _endPKBattle(),
   );
 
-  _agoraManager.initAgora(); 
+  _agoraManager.initAgora("32133508104045b687aae00c5ccc59a5"); 
   
   // ৩. অডিও প্লেয়ার লিসেনার (আপনার অরিজিনাল)
   _audioPlayer.onPlayerStateChanged.listen((state) {
