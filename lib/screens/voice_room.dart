@@ -235,26 +235,25 @@ void initState() {
 
   // ১. সিটে বসার মেইন লজিক (আপনার দেওয়া রিয়েল টাইম সিঙ্ক সহ)
   void sitOnSeat(int index) async {
-  // ১. আপনার অরিজিনাল লজিক: একই সিটে ক্লিক করলে লিভ কনফার্মেশন
+  // ১. আপনার অরিজিনাল লজিক: একই সিটে ক্লিক করলে লিভ কনফার্মেশন (ঠিক আছে)
   if (currentSeatIndex == index) { 
     _showLeaveConfirmation(index); 
     return; 
   }
   
-  // ২. সিট দখল বা রুম লক থাকলে রিটার্ন
+  // ২. সিট দখল বা রুম লক থাকলে রিটার্ন (ঠিক আছে)
   if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
 
-  // 🔥 ৩. পুরনো সিট পরিষ্কার (আপনার ফিচার অনুযায়ী)
+  // 🔥 ৩. পুরনো সিট পরিষ্কার (আপনার ফিচার ঠিক রেখে লিভ নেওয়া ফিক্স করা হয়েছে)
   if (currentSeatIndex != -1) {
     int oldIndex = currentSeatIndex;
     
-    // সিট পরিবর্তনের সময় আগের রুম কানেকশন রিলিজ করা
-    await _agoraManager.leaveRoom();
+    // আগের সিটের ডাটাবেস রিমুভ
+    await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').remove();
 
-    // Realtime Database থেকে আগের সিট ডিলিট
-    await FirebaseDatabase.instance
-        .ref('rooms/${widget.roomId}/seats/$oldIndex')
-        .remove();
+    // এগোরা লিভ নেওয়ার পর সামান্য অপেক্ষা (এটি না দিলে মাইক ক্রাশ করে)
+    await _agoraManager.leaveRoom();
+    await Future.delayed(const Duration(milliseconds: 300));
 
     setState(() {
       seats[oldIndex]["isOccupied"] = false;
@@ -273,23 +272,27 @@ void initState() {
     isMicOn = true; 
   });
 
-  // 🚀 ভয়েস কানেকশন লজিক (সব ফিচার অক্ষুণ্ণ রেখে)
+  // 🚀 ভয়েস কানেকশন লজিক (সব ঠিক রেখে সিটে কথা বলা নিশ্চিত করা)
   try {
-    // 🔥 ফিক্স: বারবার init করলে ব্রাউজার মাইক আইকন কেড়ে নেয়। 
-    // তাই শুধু জয়েন করা এবং সাউন্ড এনাবল করার দিকে ফোকাস।
+    // রুমে জয়েন করা (ইঞ্জিন অলরেডি initState এ রেডি থাকে)
     await _agoraManager.joinRoom(widget.roomId);
     
-    // ছোট বিরতি যাতে এগোরা সিগনাল ঠিকমতো পায়
-    await Future.delayed(const Duration(milliseconds: 500));
+    // 🔥 ছোট বিরতি: ব্রাউজার অডিও চ্যানেল ওপেন হতে সময় নেয়
+    await Future.delayed(const Duration(milliseconds: 800));
 
     // নিশ্চিত করা যে আপনি ব্রডকাস্টার হিসেবে কথা বলছেন
     await _agoraManager.engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
-    await _agoraManager.toggleMic(false); // মাইক সচল করা
     
-    AgoraStatusChecker.checkStatus(_agoraManager.engine, context);
+    // 🔥 ওয়েবে অডিও স্ট্রিম সচল করতে এটি আবার কল করা মাস্ট
+    await _agoraManager.engine.muteLocalAudioStream(false);
+    await _agoraManager.engine.enableLocalAudio(true); 
+    
+    if (mounted) {
+      AgoraStatusChecker.checkStatus(_agoraManager.engine, context);
+    }
   } catch (e) {
     debugPrint("Agora Connection Error: $e");
-    // কানেকশন ফেইল হলে আবার ট্রাই করার চেষ্টা
+    // এরর হলে সেফটির জন্য একবার ইনইট করে জয়েন
     await _agoraManager.initAgora();
     await _agoraManager.joinRoom(widget.roomId);
   }
@@ -298,11 +301,11 @@ void initState() {
   final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
   await seatRef.onDisconnect().remove();
 
-  // ৬. আপনার ৩ সেকেন্ডের টাইমার ও প্রোফাইল ডাটা ফিচার
+  // ৬. আপনার ৩ সেকেন্ডের টাইমার ও প্রোফাইল ডাটা ফিচার (অপরিবর্তিত)
   Timer(const Duration(seconds: 3), () async {
     if (!mounted) return;
     try {
-      // টাইমারের পরেও অডিও কানেকশন ধরে রাখা
+      // টাইমারের পরেও অডিও কানেকশন ধরে রাখা (Double Check)
       await _agoraManager.engine.muteLocalAudioStream(false);
 
       final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
@@ -311,7 +314,7 @@ void initState() {
       String myActualName = userDoc.data()?['name'] ?? "User"; 
       String myActualPic = userDoc.data()?['profilePic'] ?? "";
 
-      // ডাটাবেসে ইউজার ডাটা সেট করা (Realtime DB)
+      // ডাটাবেসে ইউজার ডাটা সেট করা
       await seatRef.set({
         'userName': myActualName,
         'userImage': myActualPic,
