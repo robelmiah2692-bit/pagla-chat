@@ -226,7 +226,7 @@ void initState() {
   }
 
   // ১. সিটে বসার মেইন লজিক (আপনার দেওয়া রিয়েল টাইম সিঙ্ক সহ)
-   void sitOnSeat(int index) async {
+  void sitOnSeat(int index) async {
   // ১. যদি একই সিটে আবার ক্লিক করেন (আপনার অরিজিনাল লজিক)
   if (currentSeatIndex == index) { 
     _showLeaveConfirmation(index); 
@@ -256,7 +256,7 @@ void initState() {
     });
   }
 
-  // ৪. নতুন সিটে "Calling" স্ট্যাটাস দেওয়া
+  // ৪. নতুন সিটে "Calling" স্ট্যাটাস দেওয়া
   setState(() {
     seats[index]["status"] = "calling";
     seats[index]["isOccupied"] = true;
@@ -264,18 +264,31 @@ void initState() {
     isMicOn = true; 
   });
 
-  // 🚀 কলিং ফিক্স (এখানেই আসল পরিবর্তন)
+  // 🚀 কলিং ফিক্স (এগোরা পারমিশন ও রোল সেটআপ)
   try {
+    // আপনার নতুন initAgora কল হচ্ছে (যেখানে এখন ওয়েব পারমিশন আছে)
     await _agoraManager.initAgora(); 
+    
+    // রুমে জয়েন করা
     await _agoraManager.joinRoom(widget.roomId);
     
-    // 🔥 ফিক্স: জয়েন করার সাথে সাথেই মাইক্রোফোন পারমিশন সচল করা
+    // 🔥 ফিক্স: জয়েন করার সাথে সাথেই মাইক্রোফোন আনমিউট (false মানে আনমিউট)
+    // এবং রোল Broadcaster হিসেবে নিশ্চিত করা।
     await _agoraManager.engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
-    await _agoraManager.toggleMic(true); 
+    await _agoraManager.toggleMic(false); 
     
     AgoraStatusChecker.checkStatus(_agoraManager.engine, context);
   } catch (e) {
     print("Agora Join Error: $e");
+    // এরর আসলে সিট খালি করে দেওয়া ভালো
+    if (mounted) {
+      setState(() {
+        seats[index]["status"] = "empty";
+        seats[index]["isOccupied"] = false;
+        currentSeatIndex = -1;
+      });
+    }
+    return; // এরর হলে আর সামনে না আগানোই ভালো
   }
     
   // 🔥 ৫. Realtime Database-এর মেইন কানেকশন
@@ -286,7 +299,7 @@ void initState() {
   Timer(const Duration(seconds: 3), () async {
     if (!mounted) return;
     try {
-      // 🔥 ফিক্স: কথা বলার পারমিশন নিশ্চিত করা যাতে টাইমারের পর মাইক বন্ধ না হয়ে যায়
+      // 🔥 ফিক্স: টাইমারের পর মাইক যাতে অন থাকে সেটি নিশ্চিত করা
       await _agoraManager.engine.muteLocalAudioStream(false);
 
       final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
@@ -295,6 +308,7 @@ void initState() {
       String myActualName = userDoc.data()?['name'] ?? "User"; 
       String myActualPic = userDoc.data()?['profilePic'] ?? "";
 
+      // ডাটাবেসে ডাটা সেট করা
       await seatRef.set({
         'userName': myActualName,
         'userImage': myActualPic,
@@ -582,36 +596,47 @@ Widget _buildBottomActionArea() {
 
         // ১. মাইক বাটন
         IconButton(
-          icon: Icon(
-            isMicOn ? Icons.mic : Icons.mic_off,
-            color: isMicOn ? Colors.greenAccent : Colors.redAccent,
-          ),
-          onPressed: () async {
-            if (currentSeatIndex != -1) {
-              bool newMicState = !isMicOn;
+       icon: Icon(
+     isMicOn ? Icons.mic : Icons.mic_off,
+    color: isMicOn ? Colors.greenAccent : Colors.redAccent,
+  ),
+  onPressed: () async {
+    if (currentSeatIndex != -1) {
+      // বর্তমান অবস্থার উল্টোটা সেট হবে
+      bool newMicState = !isMicOn;
 
-              // ১. লোকাল সাউন্ড বন্ধ/অন করা
-              await _agoraManager.toggleMic(!newMicState);
+      try {
+        // ১. এগোরা ইঞ্জিনে মাইক অন/অফ করা
+        // !newMicState দেওয়ার কারণ: toggleMic(true) মানে মিউট, toggleMic(false) মানে আনমিউট
+        await _agoraManager.toggleMic(!newMicState);
 
-              // ২. ডাটাবেসে আপডেট
-              await FirebaseFirestore.instance
-                  .collection('rooms')
-                  .doc(widget.roomId)
-                  .collection('seats')
-                  .doc(currentSeatIndex.toString())
-                  .update({'isMicOn': newMicState});
+        // 🔥 ২. রিয়েলটাইম ডাটাবেসে আপডেট (যাতে অন্য সবাই দেখতে পায় আপনার মাইক অন/অফ)
+        await FirebaseDatabase.instance
+            .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
+            .update({'isMicOn': newMicState});
 
-              setState(() {
-                isMicOn = newMicState;
-                seats[currentSeatIndex]["isMicOn"] = newMicState;
-              });
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("আগে সিটে বসুন!")),
-              );
-            }
-          },
+        // ৩. লোকাল অ্যাপের স্টেট আপডেট করা
+        setState(() {
+          isMicOn = newMicState;
+          seats[currentSeatIndex]["isMicOn"] = newMicState;
+        });
+        
+        debugPrint("Mic state updated to: $newMicState");
+      } catch (e) {
+        debugPrint("Mic Toggle Error: $e");
+      }
+    } else {
+      // সিটে না বসে মাইক চাপলে ওয়ার্নিং
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("আগে সিটে বসুন!"),
+          backgroundColor: Colors.orange,
         ),
+      );
+    }
+  },
+),
+        
         // ২. গেম বাটন
         IconButton(
           icon: const Icon(Icons.videogame_asset, color: Colors.orange), 
