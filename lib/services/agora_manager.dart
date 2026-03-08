@@ -1,19 +1,16 @@
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart'; 
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:html' as html; // 🔥 ওয়েবে পারমিশনের জন্য এটি লাগবে
+import 'dart:html' as html; 
 
 class AgoraManager {
   late RtcEngine engine;
-  
-  // 🔥 আপনার দেওয়া অ্যাপ আইডি
   final String appId = "32133508104045b687aae00c5ccc59a5"; 
 
   Future<void> initAgora() async {
-    // ১. পারমিশন লজিক
+    // ১. আপনার তৈরি করা সেই মাইক পারমিশন লজিক (অপরিবর্তিত)
     if (kIsWeb) {
       try {
-        // 🔥 ফিক্স: ওয়েবে ব্রাউজারকে বাধ্য করা মাইক পারমিশন পপ-আপ দেখানোর জন্য
         await html.window.navigator.getUserMedia(audio: true);
         debugPrint("Web Browser Microphone Requesting...");
       } catch (e) {
@@ -29,49 +26,55 @@ class AgoraManager {
     // ৩. ইনিশিয়ালাইজেশন
     await engine.initialize(RtcEngineContext(
       appId: appId,
-      // 🔥 ফিক্স: মাল্টি-ইউজার চ্যাটরুমের জন্য LiveBroadcasting সবথেকে ভালো
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
     // ৪. অডিও ইঞ্জিন চালু করা
     await engine.enableAudio();
     
-    // ৫. ডিফল্ট রোল সেট করা (Broadcaster না হলে কথা যাবে না)
+    // ৫. রোল সেট করা
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
 
-    // 🔥 ৬. ওয়েবে অডিও স্ট্রীম সচল করার জন্য এটি মাস্ট
+    // 🔥 ৬. সাউন্ড সচল করতে এটি গুরুত্বপূর্ণ
     await engine.muteLocalAudioStream(false);
     
-    // অডিও কোয়ালিটি সেটআপ
     await engine.setAudioProfile(
       profile: AudioProfileType.audioProfileSpeechStandard,
       scenario: AudioScenarioType.audioScenarioChatroom,
     );
     
-    debugPrint("Agora Initialized for Web/Mobile: $appId");
+    debugPrint("Agora Initialized: $appId");
   }
 
-  // ৭. রুমে জয়েন করা
+  // ৭. রুমে জয়েন করা (ভয়েস শোনার জন্য এখানে ছোট পরিবর্তন)
   Future<void> joinRoom(String channelName) async {
+    // 🔥 ফিক্স: ওয়েবে uid: 0 দিলে অনেক সময় ভয়েস অন্যদের কাছে যায় না। 
+    // তাই একটি ইউনিক আইডি (যেমন: ১২৩) ব্যবহার করছি।
+    int myUid = DateTime.now().millisecondsSinceEpoch % 100000;
+
     await engine.joinChannel(
       token: "", 
       channelId: channelName,
-      uid: 0,
+      uid: myUid, // এখানে ০ এর বদলে ইউনিক আইডি দেওয়া হয়েছে
       options: const ChannelMediaOptions(
         clientRoleType: ClientRoleType.clientRoleBroadcaster,
-        publishMicrophoneTrack: true, // নিজের কথা পাঠানোর জন্য
-        autoSubscribeAudio: true,     // অন্যের কথা শোনার জন্য
+        publishMicrophoneTrack: true, // ভয়েস পাঠানোর জন্য
+        autoSubscribeAudio: true,     // ভয়েস শোনার জন্য
       ),
     );
+    
+    // 🔥 জয়েন করার পর ভলিউম এবং মিউট স্ট্যাটাস রিফ্রেশ
+    await engine.adjustRecordingSignalVolume(100); 
+    await engine.muteLocalAudioStream(false);
     
     if (!kIsWeb) {
       await engine.setEnableSpeakerphone(true);
     }
     
-    debugPrint("Joined Voice Room: $channelName");
+    debugPrint("Joined Voice Room: $channelName with UID: $myUid");
   }
 
-  // মাইক অন/অফ (isMute: true মানে কথা বন্ধ, false মানে কথা চালু)
+  // মাইক অন/অফ
   Future<void> toggleMic(bool isMute) async {
     await engine.muteLocalAudioStream(isMute);
   }
