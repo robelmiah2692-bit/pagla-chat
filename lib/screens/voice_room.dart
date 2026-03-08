@@ -226,8 +226,8 @@ void initState() {
   }
 
   // ১. সিটে বসার মেইন লজিক (আপনার দেওয়া রিয়েল টাইম সিঙ্ক সহ)
-  void sitOnSeat(int index) async {
-  // ১. যদি একই সিটে আবার ক্লিক করেন (আপনার অরিজিনাল লজিক)
+   void sitOnSeat(int index) async {
+  // ১. যদি একই সিটে আবার ক্লিক করেন (অরিজিনাল লজিক)
   if (currentSeatIndex == index) { 
     _showLeaveConfirmation(index); 
     return; 
@@ -264,23 +264,24 @@ void initState() {
     isMicOn = true; 
   });
 
-  // 🚀 কলিং ফিক্স (এগোরা পারমিশন ও রোল সেটআপ)
+  // 🚀 কলিং ফিক্স (সব ঠিক রেখে সিটে কথা বলা নিশ্চিত করা)
   try {
-    // আপনার নতুন initAgora কল হচ্ছে (যেখানে এখন ওয়েব পারমিশন আছে)
+    // এগোরা ইঞ্জিন স্টার্ট করা (আপনার সেই সাকসেসফুল ওয়েব পারমিশন সহ)
     await _agoraManager.initAgora(); 
     
+    // 🔥 ছোট বিরতি: ইঞ্জিন পুরোপুরি রেডি হওয়ার জন্য ১ সেকেন্ড অপেক্ষা
+    await Future.delayed(const Duration(seconds: 1));
+
     // রুমে জয়েন করা
     await _agoraManager.joinRoom(widget.roomId);
     
-    // 🔥 ফিক্স: জয়েন করার সাথে সাথেই মাইক্রোফোন আনমিউট (false মানে আনমিউট)
-    // এবং রোল Broadcaster হিসেবে নিশ্চিত করা।
+    // নিশ্চিত করা যে রোল ব্রডকাস্টার এবং মাইক আনমিউট
     await _agoraManager.engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
-    await _agoraManager.toggleMic(false); 
+    await _agoraManager.toggleMic(false); // false মানে মাইক চালু
     
     AgoraStatusChecker.checkStatus(_agoraManager.engine, context);
   } catch (e) {
-    print("Agora Join Error: $e");
-    // এরর আসলে সিট খালি করে দেওয়া ভালো
+    debugPrint("Agora Join Error: $e");
     if (mounted) {
       setState(() {
         seats[index]["status"] = "empty";
@@ -288,7 +289,7 @@ void initState() {
         currentSeatIndex = -1;
       });
     }
-    return; // এরর হলে আর সামনে না আগানোই ভালো
+    return; 
   }
     
   // 🔥 ৫. Realtime Database-এর মেইন কানেকশন
@@ -299,7 +300,7 @@ void initState() {
   Timer(const Duration(seconds: 3), () async {
     if (!mounted) return;
     try {
-      // 🔥 ফিক্স: টাইমারের পর মাইক যাতে অন থাকে সেটি নিশ্চিত করা
+      // টাইমারের পর কথা বলা চালু রাখা নিশ্চিত করা
       await _agoraManager.engine.muteLocalAudioStream(false);
 
       final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
