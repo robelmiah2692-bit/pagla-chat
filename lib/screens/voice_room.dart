@@ -256,7 +256,7 @@ void initState() {
     });
   }
 
-  // ৪. নতুন সিটে "Calling" স্ট্যাটাস দেওয়া (আপনার লোকাল setState রাখা হলো)
+  // ৪. নতুন সিটে "Calling" স্ট্যাটাস দেওয়া
   setState(() {
     seats[index]["status"] = "calling";
     seats[index]["isOccupied"] = true;
@@ -264,32 +264,37 @@ void initState() {
     isMicOn = true; 
   });
 
-  // 🚀 কলিং ফিক্স (AgoraStatusChecker রাখা হলো)
+  // 🚀 কলিং ফিক্স (এখানেই আসল পরিবর্তন)
   try {
     await _agoraManager.initAgora(); 
     await _agoraManager.joinRoom(widget.roomId);
-    await _agoraManager.toggleMic(false); 
+    
+    // 🔥 ফিক্স: জয়েন করার সাথে সাথেই মাইক্রোফোন পারমিশন সচল করা
+    await _agoraManager.engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+    await _agoraManager.toggleMic(true); 
+    
     AgoraStatusChecker.checkStatus(_agoraManager.engine, context);
   } catch (e) {
     print("Agora Join Error: $e");
   }
     
-  // 🔥 ৫. Realtime Database-এর মেইন কানেকশন (Ghost ID ফিক্স)
+  // 🔥 ৫. Realtime Database-এর মেইন কানেকশন
   final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
-  // অ্যাপ ক্রাশ করলে বা নেট গেলে অটোমেটিক সিট খালি হবে
   await seatRef.onDisconnect().remove();
 
-  // ৬. ৩ সেকেন্ড পর প্রোফাইল ডাটা বসানো (আপনার অরিজিনাল লজিক ও mounted চেক)
+  // ৬. ৩ সেকেন্ড পর প্রোফাইল ডাটা বসানো
   Timer(const Duration(seconds: 3), () async {
     if (!mounted) return;
     try {
+      // 🔥 ফিক্স: কথা বলার পারমিশন নিশ্চিত করা যাতে টাইমারের পর মাইক বন্ধ না হয়ে যায়
+      await _agoraManager.engine.muteLocalAudioStream(false);
+
       final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
       
       String myActualName = userDoc.data()?['name'] ?? "User"; 
       String myActualPic = userDoc.data()?['profilePic'] ?? "";
 
-      // Realtime Database এ সেট করা (পুরো অবজেক্ট আপনার রিকোয়ারমেন্ট অনুযায়ী)
       await seatRef.set({
         'userName': myActualName,
         'userImage': myActualPic,
@@ -319,6 +324,7 @@ void initState() {
     }
   }); 
 }
+
   // ২. সিট ছাড়ার লজিক
   void _showLeaveConfirmation(int index) {
     showDialog(
