@@ -33531,7 +33531,8 @@ aQ4:function aQ4(a){this.a=a},
 aQ3:function aQ3(a){this.a=a},
 aPK:function aPK(a){this.a=a},
 aPJ:function aPJ(a){this.a=a},
-aaU:function aaU(){this.a=$},
+aaU:function aaU(){this.a=$
+this.b=!1},
 bcR(a,b){a.G5(new A.auI(new A.aaV(b),new A.aaW(b),new A.aaX(b),new A.aaY(b)))},
 aaV:function aaV(a){this.a=a},
 aaW:function aaW(a){this.a=a},
@@ -113001,40 +113002,42 @@ A.aPJ.prototype={
 $0(){this.a.fr=!1},
 $S:0}
 A.aaU.prototype={
-m1(){var s=0,r=A.u(t.H),q=1,p=[],o=this,n,m,l,k
-var $async$m1=A.p(function(a,b){if(a===1){p.push(b)
-s=q}for(;;)switch(s){case 0:q=3
-m=window.navigator
-m.toString
-s=6
-return A.m(B.YI.a6M(m,!0),$async$m1)
-case 6:A.fN().$1("Web Browser Microphone Requesting...")
-q=1
-s=5
-break
-case 3:q=2
-k=p.pop()
-n=A.aa(k)
-A.fN().$1("Microphone Permission Denied or Error: "+A.k(n))
-s=5
-break
-case 2:s=1
-break
-case 5:m=A.bj6(null)
-o.a=m
+m1(){var s=0,r=A.u(t.H),q,p=2,o=[],n=this,m,l,k,j
+var $async$m1=A.p(function(a,b){if(a===1){o.push(b)
+s=p}for(;;)switch(s){case 0:if(n.b){s=1
+break}p=4
+l=window.navigator
+l.toString
 s=7
-return A.m(m.l6(0,new A.auH("32133508104045b687aae00c5ccc59a5",B.oV)),$async$m1)
-case 7:s=8
-return A.m(o.a.Ec(),$async$m1)
+return A.m(B.YI.a6M(l,!0),$async$m1)
+case 7:A.fN().$1("Web Browser Microphone Requesting...")
+p=2
+s=6
+break
+case 4:p=3
+j=o.pop()
+m=A.aa(j)
+A.fN().$1("Microphone Permission Denied: "+A.k(m))
+s=6
+break
+case 3:s=2
+break
+case 6:l=A.bj6(null)
+n.a=l
+s=8
+return A.m(l.l6(0,new A.auH("32133508104045b687aae00c5ccc59a5",B.oV)),$async$m1)
 case 8:s=9
-return A.m(o.a.vz(B.kA),$async$m1)
+return A.m(n.a.Ec(),$async$m1)
 case 9:s=10
-return A.m(o.a.qW(!1),$async$m1)
+return A.m(n.a.vz(B.kA),$async$m1)
 case 10:s=11
-return A.m(o.a.A1(B.oa,B.ob),$async$m1)
-case 11:A.fN().$1("Agora Initialized: 32133508104045b687aae00c5ccc59a5")
-return A.r(null,r)
-case 1:return A.q(p.at(-1),r)}})
+return A.m(n.a.qW(!1),$async$m1)
+case 11:s=12
+return A.m(n.a.A1(B.oa,B.ob),$async$m1)
+case 12:n.b=!0
+A.fN().$1("Agora Initialized: 32133508104045b687aae00c5ccc59a5")
+case 1:return A.r(q,r)
+case 2:return A.q(o.at(-1),r)}})
 return A.t($async$m1,r)},
 qP(a){return this.aBK(a)},
 aBK(a){var s=0,r=A.u(t.H),q=this,p,o
