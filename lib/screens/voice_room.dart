@@ -103,49 +103,57 @@ void initState() {
     "isMicOn": false,
   });
 
-  // 🔥 সমস্যা এখানে ছিল: ফাংশনটি ডিফাইন করা ছিল কিন্তু কল করা ছিল না।
-  // আমি শুধু ফাংশনটির নাম সরিয়ে সরাসরি লিসেনারটি চালু করে দিয়েছি।
+  // ২. রিয়েলটাইম ডাটাবেস লিসেনার (সরাসরি সচল করা হলো)
   FirebaseDatabase.instance
       .ref('rooms/${widget.roomId}/seats')
       .onValue.listen((event) {
-    if (!mounted) return; // মাউন্টেড চেক যোগ করলাম যাতে ক্রাশ না করে
+    if (!mounted) return;
     final dynamic data = event.snapshot.value;
     
     setState(() {
-      // আপনার অরিজিনাল লুপ: প্রথমে সব সিট খালি করুন
+      // প্রথমে সব সিট ক্লিয়ার করুন (আপনার অরিজিনাল লজিক)
       for (var seat in seats) {
         seat["isOccupied"] = false;
         seat["status"] = "empty";
         seat["userName"] = "";
         seat["userImage"] = "";
-        seat["isMicOn"] = false; // মাইক স্ট্যাটাসও ক্লিয়ার করা দরকার
+        seat["isMicOn"] = false;
       }
       
-      // ডাটাবেসে যারা আছে তাদের বসান
+      // ডাটাবেস থেকে পাওয়া ডাটা দিয়ে সিটগুলো আপডেট করুন
       if (data != null) {
         data.forEach((key, value) {
           int index = int.parse(key.toString());
-          if (index < seats.length) { // ইনডেক্স আউট অফ বাউন্ড সেফটি
+          if (index < seats.length) {
             seats[index]["isOccupied"] = value["isOccupied"] ?? false;
             seats[index]["status"] = value["status"] ?? "occupied";
             seats[index]["userName"] = value["userName"] ?? "";
             seats[index]["userImage"] = value["userImage"] ?? "";
             seats[index]["isMicOn"] = value["isMicOn"] ?? false;
-            seats[index]["userId"] = value["userId"] ?? ""; // আইডিটাও দরকার
+            seats[index]["userId"] = value["userId"] ?? "";
           }
         });
       }
     });
   });
 
-  // ২. পিকে ম্যানেজার (আপনার অরিজিনাল)
+  // ৩. পিকে ম্যানেজার (আপনার অরিজিনাল)
   pkManager = VSPKManager(
     onTick: (seconds) => setState(() => pkSeconds = seconds),
     onFinished: () => _endPKBattle(),
   );
 
-  _agoraManager.initAgora();
-  // ৩. অডিও প্লেয়ার লিসেনার (আপনার অরিজিনাল)
+  // 🔥 ৪. এগোরা ইঞ্জিন শুরু করা (Async পদ্ধতিতে ফিক্স করা হলো)
+  Future.microtask(() async {
+    try {
+      await _agoraManager.initAgora();
+      debugPrint("✅ Agora Initialized in Room");
+    } catch (e) {
+      debugPrint("❌ Agora Init Error: $e");
+    }
+  });
+
+  // ৫. অডিও প্লেয়ার লিসেনার (আপনার অরিজিনাল)
   _audioPlayer.onPlayerStateChanged.listen((state) {
     if (mounted) {
       setState(() {
@@ -158,7 +166,7 @@ void initState() {
     if (mounted) setState(() => isRoomMusicPlaying = false);
   });
   
-  // ৪. ডাটা লোড এবং মেম্বার লিস্ট (আপনার অরিজিনাল)
+  // ৬. ফায়ারস্টোর ডাটা লোড (আপনার অরিজিনাল)
   FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
     if (doc.exists && mounted) {
       setState(() {
@@ -170,7 +178,7 @@ void initState() {
       });
     }
 
-    // সার্ভিস আপডেট
+    // সার্ভিস আপডেট (আপনার অরিজিনাল)
     _roomService.updateRoomFullData(
       roomId: widget.roomId,
       roomName: roomName,
