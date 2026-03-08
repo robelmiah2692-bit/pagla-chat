@@ -4,8 +4,11 @@ import 'package:permission_handler/permission_handler.dart';
 class VoiceEngine {
   late RtcEngine _engine;
 
+  // 🔥 এই লাইনটি অবশ্যই যোগ করুন, নাহলে voice_room.dart এরর দেবে
+  RtcEngine get engine => _engine; 
+
   Future<void> initAgora(String appId) async {
-    // ১. মাইক পারমিশন নেওয়া
+    // ১. মাইক পারমিশন নেওয়া
     await [Permission.microphone].request();
 
     // ২. ইঞ্জিন তৈরি করা
@@ -16,7 +19,7 @@ class VoiceEngine {
     _engine.registerEventHandler(
       RtcEngineEventHandler(
         onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
-          print("রুম জয়েন হয়েছে successfully!");
+          print("রুম জয়েন হয়েছে successfully!");
         },
       ),
     );
@@ -24,19 +27,19 @@ class VoiceEngine {
     // ৪. অডিও প্রোফাইল সেটআপ
     await _engine.enableAudio();
     
-    // 🔥 এখানে পরিবর্তন করা হয়েছে: Named arguments ব্যবহার করা হয়েছে
+    // ৫. চ্যানেল প্রোফাইল সেট করা
     await _engine.setChannelProfile(ChannelProfileType.channelProfileLiveBroadcasting);
     
-    // ✅ এই লাইনটিই আপনার GitHub Build ফেইল করাচ্ছিল, এখন ঠিক করে দেওয়া হয়েছে:
+    // ৬. ক্লায়েন্ট রোল সেট করা
     await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
   }
 
   // রুমে ঢোকার ফাংশন
-  Future<void> joinRoom(String token, String channelId, int uid) async {
+  Future<void> joinRoom(String channelId) async {
     await _engine.joinChannel(
-      token: token,
+      token: "", // আপনার যদি টোকেন না থাকে তবে খালি রাখুন
       channelId: channelId,
-      uid: uid,
+      uid: 0, // ০ দিলে এগোরা অটোমেটিক একটা আইডি নেবে
       options: const ChannelMediaOptions(
         publishMicrophoneTrack: true,
         autoSubscribeAudio: true,
@@ -52,7 +55,5 @@ class VoiceEngine {
 
   Future<void> leaveRoom() async {
     await _engine.leaveChannel();
-    // রিলিজ করার আগে চেক করে নেওয়া ভালো
-    // await _engine.release(); 
   }
 }
