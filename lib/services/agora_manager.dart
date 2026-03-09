@@ -4,12 +4,14 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:html' as html; 
 import 'dart:async';
 import 'dart:js' as js; 
+import 'dart:math'; // 👈 এটি জরুরি ইউনিক আইডি তৈরির জন্য
 
 class AgoraManager {
   late RtcEngine engine;
   bool _isInitialized = false; 
   final String appId = "32133508104045b687aae00c5ccc59a5"; 
   Timer? _keepAliveTimer;
+  int? _currentUid; // নিজের আইডি মনে রাখার জন্য
 
   Future<void> initAgora() async {
     if (_isInitialized) return;
@@ -22,29 +24,37 @@ class AgoraManager {
     ));
 
     await engine.enableAudio();
+    
+    // 🔥 মাল্টি-ইউজার অডিও ব্যালেন্স করার প্যারামিটার
+    await engine.setParameters('{"che.audio.enable.vqe":true}');
+    await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
+    
     _isInitialized = true; 
     debugPrint("Agora Initialized");
   }
 
   Future<void> joinAsListener(String channelName) async {
     if (!_isInitialized) await initAgora();
-    int myUid = DateTime.now().millisecondsSinceEpoch % 100000;
+    
+    // 🔥 ইউনিক আইডি জেনারেশন (Conflict এড়ানোর জন্য)
+    _currentUid = Random().nextInt(899999) + 100000; 
+
     await engine.joinChannel(
       token: "", 
       channelId: channelName, 
-      uid: myUid,
+      uid: _currentUid!,
       options: const ChannelMediaOptions(
         clientRoleType: ClientRoleType.clientRoleAudience, 
         publishMicrophoneTrack: false, 
         autoSubscribeAudio: true,      
       ),
     );
+    debugPrint("Joined with Unique UID: $_currentUid");
   }
 
   Future<void> becomeBroadcaster() async {
     if (kIsWeb) {
       try {
-        // 🔥 ব্রাউজারকে সিগনাল দেওয়া যে আমি দীর্ঘক্ষণ কথা বলবো (Wake Lock)
         js.context.callMethod('eval', [
           "if(window.AudioContext){"
           "var ctx = new AudioContext();"
@@ -74,21 +84,18 @@ class AgoraManager {
     ));
 
     await engine.muteLocalAudioStream(false);
-    await engine.adjustRecordingSignalVolume(100);
+    await engine.adjustRecordingSignalVolume(150); // 👈 ভলিউম একটু বুস্ট করা হয়েছে
 
-    // 🔥 সিট না ছাড়া পর্যন্ত মাইক আইকন ধরে রাখার পালস (প্রতি ১ সেকেন্ডে)
     _keepAliveTimer?.cancel();
     _keepAliveTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_isInitialized) {
-        // এই কমান্ডটি ব্রাউজারকে আইকনটি সচল রাখতে বাধ্য করে
         engine.muteLocalAudioStream(false);
-        // ডাটা প্যাকেট পাঠানোর জন্য ছোট সিগনাল পুশ
-        engine.adjustRecordingSignalVolume(120); 
+        // ডাটা প্যাকেট সচল রাখার জন্য পালস
+        engine.adjustRecordingSignalVolume(130); 
       }
     });
   }
 
-  // সিট ছাড়ার সময় সব বন্ধ করা
   Future<void> becomeListener() async {
     _keepAliveTimer?.cancel(); 
     if (kIsWeb) js.context.callMethod('eval', ["clearInterval(window.agoraAudioInterval);"]);
