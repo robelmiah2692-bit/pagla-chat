@@ -51,13 +51,12 @@ class AgoraManager {
       channelId: channelName, 
       uid: myUid,
       options: const ChannelMediaOptions(
-        clientRoleType: ClientRoleType.clientRoleAudience, // 🔥 অডিয়েন্স মানে মাইক বন্ধ থাকবে
-        publishMicrophoneTrack: false, // মাইক ডাটা পাঠাবে না
-        autoSubscribeAudio: true,      // অন্যদের কথা শোনা যাবে
+        clientRoleType: ClientRoleType.clientRoleAudience, 
+        publishMicrophoneTrack: false, 
+        autoSubscribeAudio: true,      
       ),
     );
     
-    // শুরুতে মাইক মিউট করে রাখা নিশ্চিত করা
     await engine.muteLocalAudioStream(true);
     await engine.enableLocalAudio(false); 
     
@@ -73,7 +72,18 @@ class AgoraManager {
     debugPrint("✅ Now Broadcaster - Green Dot should appear");
   }
 
-  // ৩. সিট থেকে নেমে গেলে মাইক বন্ধ করা (গ্রিন ডট চলে যাবে)
+  // 🔥 ৩. আপনার UI-এর মাইক বাটনের জন্য (এটি গিটহাব এরর ফিক্স করবে)
+  Future<void> toggleMic(bool isMute) async {
+    // কথা বলতে চাইলে মাইক ডাটা অন করবে, মিউট করলে বন্ধ করবে
+    await engine.muteLocalAudioStream(isMute);
+    // যদি আনমিউট করা হয়, তবে অডিও সচল আছে কি না নিশ্চিত করা
+    if (!isMute) {
+      await engine.enableLocalAudio(true);
+    }
+    debugPrint("🎤 Mic state changed: ${isMute ? 'Muted' : 'Unmuted'}");
+  }
+
+  // ৪. সিট থেকে নেমে গেলে মাইক বন্ধ করা (গ্রিন ডট চলে যাবে)
   Future<void> becomeListener() async {
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
     await engine.muteLocalAudioStream(true);
