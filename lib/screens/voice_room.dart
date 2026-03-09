@@ -145,9 +145,13 @@ void initState() {
   // 🔥 ৪. এগোরা ইঞ্জিন শুরু করা (Async পদ্ধতিতে ফিক্স করা হলো)
    Future.microtask(() async {
   try {
-    await _agoraManager.initAgora(); // শুধু ইঞ্জিন রেডি হবে
+    // ১. ইঞ্জিন রেডি হবে কিন্তু পারমিশন পপআপ আসবে না
+    await _agoraManager.initAgora(); 
+    
+    // ২. শুধু শোনার জন্য জয়েন করবে
     await _agoraManager.joinAsListener(widget.roomId);
-    debugPrint("✅ রুমে ঢোকা সফল - এখন শুধু শোনা যাবে, মাইক বন্ধ।");
+    
+    debugPrint("✅ রুমে ঢোকা সফল - সবুজ আইকন আসবে না কারণ মাইক এখনো চাওয়া হয়নি");
   } catch (e) {
     debugPrint("❌ Agora Init Error: $e");
   }
@@ -296,12 +300,14 @@ void initState() {
   await seatRef.onDisconnect().remove();
 
   // ৭. আপনার ৩ সেকেন্ডের টাইমার ও প্রোফাইল ডাটা ফিচার (অপরিবর্তিত)
+  // আপনার টাইমারের ভেতরে (৭ নম্বর ধাপ)
   Timer(const Duration(seconds: 3), () async {
     if (!mounted) return;
     try {
-      // টাইমারের পরেও নিশ্চিত করা যে মাইক সচল আছে
+      // 🔥 সিটে বসার ৩ সেকেন্ড পর মাইক যেন না কাটে, তাই আবার নিশ্চিত করা
       await _agoraManager.engine.muteLocalAudioStream(false);
-
+      await _agoraManager.engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+    
       final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
       
