@@ -144,14 +144,14 @@ void initState() {
   );
 
   // 🔥 ৪. এগোরা ইঞ্জিন শুরু করা (Async পদ্ধতিতে ফিক্স করা হলো)
-  Future.microtask(() async {
-    try {
-      await _agoraManager.initAgora();
-      debugPrint("✅ Agora Initialized in Room");
-    } catch (e) {
-      debugPrint("❌ Agora Init Error: $e");
-    }
-  });
+   Future.microtask(() async {
+  try {
+    await _agoraManager.initAgora(); // শুধু ইঞ্জিন রেডি হবে
+    debugPrint("✅ Agora Engine Ready (Waiting for Seat)");
+  } catch (e) {
+    debugPrint("❌ Agora Init Error: $e");
+  }
+});
 
   // ৫. অডিও প্লেয়ার লিসেনার (আপনার অরিজিনাল)
   _audioPlayer.onPlayerStateChanged.listen((state) {
@@ -244,14 +244,17 @@ void initState() {
   // ২. সিট দখল বা রুম লক থাকলে রিটার্ন
   if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
 
-  // 🔥 ৩. পুরনো সিট পরিষ্কার (আপনার ফিচার ঠিক রেখে লজিক ফিক্স)
+  // 🔥 ৩. পুরনো সিট পরিষ্কার এবং এগোরা থেকে লিভ (যাতে মাইক বন্ধ হয়)
   if (currentSeatIndex != -1) {
     int oldIndex = currentSeatIndex;
     
     // আগের সিটের ডাটাবেস রিমুভ
     await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').remove();
 
-    // নোট: লিভ নেওয়া হবে না যাতে গ্রিন ডট না হারায়, শুধু UI আপডেট হবে
+    // সিট পরিবর্তনের সময় আগের কানেকশন পুরোপুরি বন্ধ করা (যাতে মাইক আইকন চলে যায়)
+    await _agoraManager.leaveRoom();
+    await Future.delayed(const Duration(milliseconds: 300));
+
     setState(() {
       seats[oldIndex]["isOccupied"] = false;
       seats[oldIndex]["status"] = "empty";
@@ -269,37 +272,40 @@ void initState() {
     isMicOn = true; 
   });
 
-  // 🚀 ভয়েস কানেকশন লজিক (গ্রিন ডট ফিক্সড ভার্সন)
+  // 🚀 ৫. এখন ভয়েস কানেকশন শুরু (এই মুহূর্তে গ্রিন ডট আসবে)
   try {
-    // সরাসরি মাইক সচল করা (এতে ব্রাউজার কানেকশন কাটে না)
-    await _agoraManager.engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
-    await _agoraManager.engine.muteLocalAudioStream(false);
-    await _agoraManager.engine.enableLocalAudio(true);
-    
-    // রুমে জয়েন করা (যদি আগে থেকে জয়েন না থাকে তবে কাজ করবে)
+    // সিটে বসার সাথে সাথে রুমে জয়েন এবং মাইক অন
     await _agoraManager.joinRoom(widget.roomId);
     
-    debugPrint("✅ Mic Active - Green Dot should stay now");
+    // ব্রাউজারকে সময় দেওয়া সিগনাল ধরার জন্য
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // নিশ্চিত করা যে মাইক সচল এবং আপনি ব্রডকাস্টার
+    await _agoraManager.engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+    await _agoraManager.engine.muteLocalAudioStream(false);
+    await _agoraManager.engine.enableLocalAudio(true); 
+    
+    debugPrint("✅ সিটে বসা সফল - এখন গ্রিন ডট আসবে এবং কথা বলা যাবে");
 
     if (mounted) {
       AgoraStatusChecker.checkStatus(_agoraManager.engine, context);
     }
   } catch (e) {
-    debugPrint("Agora Error: $e");
+    debugPrint("Agora Connection Error: $e");
     // এরর হলে সেফটির জন্য একবার ইনইট করে ট্রাই
     await _agoraManager.initAgora();
     await _agoraManager.joinRoom(widget.roomId);
   }
     
-  // 🔥 ৫. Realtime Database কানেকশন সেটআপ
+  // 🔥 ৬. Realtime Database কানেকশন সেটআপ
   final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
   await seatRef.onDisconnect().remove();
 
-  // ৬. আপনার ৩ সেকেন্ডের টাইমার ও প্রোফাইল ডাটা ফিচার (অপরিবর্তিত)
+  // ৭. আপনার ৩ সেকেন্ডের টাইমার ও প্রোফাইল ডাটা ফিচার (অপরিবর্তিত)
   Timer(const Duration(seconds: 3), () async {
     if (!mounted) return;
     try {
-      // টাইমারের পরেও অডিও কানেকশন ডাবল চেক
+      // টাইমারের পরেও অডিও কানেকশন ধরে রাখা (Double Check)
       await _agoraManager.engine.muteLocalAudioStream(false);
 
       final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
@@ -333,6 +339,7 @@ void initState() {
           seats[index]["isOccupied"] = false; 
           currentSeatIndex = -1;
         });
+        await _agoraManager.leaveRoom();
       }
     }
   }); 
