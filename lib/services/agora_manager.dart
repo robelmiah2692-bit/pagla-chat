@@ -24,13 +24,18 @@ class AgoraManager {
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
+    // অডিও ইঞ্জিন এনাবল করা
     await engine.enableAudio();
     
-    // হাই কোয়ালিটি অডিও সেট করা যাতে ব্রাউজার কানেকশন না কাটে
+    // হাই কোয়ালিটি অডিও লক করা
     await engine.setAudioProfile(
       profile: AudioProfileType.audioProfileMusicHighQuality,
       scenario: AudioScenarioType.audioScenarioGameStreaming, 
     );
+
+    // 🔥 কানেকশন ডাটা ট্রান্সফার মোড অন করা
+    await engine.setParameters('{"rtc.dual_stream_mode":true}');
+    await engine.setParameters('{"che.audio.keep.audiosession":true}');
     
     _isInitialized = true; 
     debugPrint("Agora Initialized: $appId");
@@ -55,33 +60,35 @@ class AgoraManager {
     await engine.muteLocalAudioStream(true);
     await engine.enableLocalAudio(false); 
     
-    debugPrint("✅ Joined as Listener - No Green Dot");
+    debugPrint("✅ Joined as Listener");
   }
 
   Future<void> becomeBroadcaster() async {
     if (kIsWeb) {
       try {
-        // ১. ব্রাউজার লেভেলে মাইক হার্ডওয়্যার সজাগ করা
+        // ব্রাউজার লেভেলে মাইক হার্ডওয়্যার কনফার্ম করা
         await html.window.navigator.getUserMedia(audio: true);
       } catch (e) {
         debugPrint("Mic access failed: $e");
       }
     }
 
-    // ২. রোল ব্রডকাস্টার করা (সবুজ আইকন আসবে)
-    await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+    // ১. রোল ব্রডকাস্টার করা (Low Latency অপশন সহ)
+    await engine.setClientRole(
+      role: ClientRoleType.clientRoleBroadcaster,
+      options: const ClientRoleOptions(
+        audienceLatencyLevel: AudienceLatencyLevelType.audienceLatencyLevelLowLatency
+      ),
+    );
     
-    // ৩. অডিও ইঞ্জিনকে রিফ্রেশ করা
     await engine.enableAudio();
     await engine.enableLocalAudio(true);
-    
-    // 🔥 ৪. সবচেয়ে গুরুত্বপূর্ণ: প্রিভিউ স্টার্ট করা (এটি ওয়েব ব্রাউজারকে ডাটা পাঠাতে বাধ্য করে)
     await engine.startPreview(); 
 
-    // ৫. পাবলিশ অপশন কনফার্ম করা
+    // ২. পাবলিশিং লজিক (এটি মিনিট যোগ করার মেইন লক)
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
-      publishMicrophoneTrack: true,      // আওয়াজ ইন্টারনেটে পাঠাও
-      autoSubscribeAudio: true,          // অন্যদের আওয়াজ আনো
+      publishMicrophoneTrack: true,      
+      autoSubscribeAudio: true,         
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
       publishCameraTrack: false,
     ));
@@ -89,21 +96,21 @@ class AgoraManager {
     await engine.muteLocalAudioStream(false);
     await engine.adjustRecordingSignalVolume(100);
 
-    // 🔥 ৬. ওয়েব প্যারামিটার: এটি এগোরা সার্ভারের সাথে কথা বলা নিশ্চিত করবে
+    // ৩. ওয়েব প্যারামিটার (সার্ভারের সাথে কানেকশন লক করা)
     await engine.setParameters('{"che.audio.opensl":true}'); 
+    await engine.setParameters('{"che.audio.live_for_comm":true}');
 
-    // ৭. কিপ-অ্যালাইভ পালস (ব্রাউজারকে জাগিয়ে রাখার জন্য)
+    // ৪. কিপ-অ্যালাইভ পালস (৩ সেকেন্ড পর পর রিফ্রেশ)
     _keepAliveTimer?.cancel();
-    _keepAliveTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _keepAliveTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (_isInitialized) {
-        // প্রতি ৫ সেকেন্ডে একবার মাইক ট্র্যাক রিফ্রেশ করা
         engine.muteLocalAudioStream(false);
         engine.adjustRecordingSignalVolume(100); 
-        debugPrint("💓 Connection active - Streaming to Agora...");
+        debugPrint("💓 Connection active - minutes adding...");
       }
     });
 
-    debugPrint("✅ Broadcaster fully active - Minutes should count now");
+    debugPrint("✅ Broadcaster Active - Connection Locked");
   }
 
   Future<void> toggleMic(bool isMute) async {
@@ -116,7 +123,7 @@ class AgoraManager {
 
   Future<void> becomeListener() async {
     _keepAliveTimer?.cancel(); 
-    await engine.stopPreview(); // প্রিভিউ বন্ধ করা
+    await engine.stopPreview();
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
     await engine.muteLocalAudioStream(true);
     await engine.enableLocalAudio(false);
