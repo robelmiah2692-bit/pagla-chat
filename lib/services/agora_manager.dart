@@ -22,13 +22,6 @@ class AgoraManager {
     ));
 
     await engine.enableAudio();
-    
-    // অডিও প্রোফাইল লক করা
-    await engine.setAudioProfile(
-      profile: AudioProfileType.audioProfileMusicHighQuality,
-      scenario: AudioScenarioType.audioScenarioGameStreaming, 
-    );
-    
     _isInitialized = true; 
     debugPrint("Agora Initialized");
   }
@@ -46,17 +39,17 @@ class AgoraManager {
         autoSubscribeAudio: true,      
       ),
     );
-    debugPrint("✅ Joined as Listener");
   }
 
   Future<void> becomeBroadcaster() async {
     if (kIsWeb) {
       try {
-        // 🔥 মোবাইল ক্রোমের অডিও গেটওয়ে খোলার জন্য স্পেশাল লজিক
+        // 🔥 ব্রাউজারকে সিগনাল দেওয়া যে আমি দীর্ঘক্ষণ কথা বলবো (Wake Lock)
         js.context.callMethod('eval', [
-          "if(window.AudioContext || window.webkitAudioContext){"
-          "var context = new (window.AudioContext || window.webkitAudioContext)();"
-          "context.resume().then(() => { console.log('Audio Context Resumed'); });"
+          "if(window.AudioContext){"
+          "var ctx = new AudioContext();"
+          "ctx.resume();"
+          "window.agoraAudioInterval = setInterval(() => { if(ctx.state === 'suspended') ctx.resume(); }, 1000);"
           "}"
         ]);
         await html.window.navigator.getUserMedia(audio: true);
@@ -83,19 +76,23 @@ class AgoraManager {
     await engine.muteLocalAudioStream(false);
     await engine.adjustRecordingSignalVolume(100);
 
-    // কিপ-অ্যালাইভ পালস (যাতে ব্রাউজার অডিও সেশন না কাটে)
+    // 🔥 সিট না ছাড়া পর্যন্ত মাইক আইকন ধরে রাখার পালস (প্রতি ১ সেকেন্ডে)
     _keepAliveTimer?.cancel();
-    _keepAliveTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+    _keepAliveTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_isInitialized) {
+        // এই কমান্ডটি ব্রাউজারকে আইকনটি সচল রাখতে বাধ্য করে
         engine.muteLocalAudioStream(false);
-        debugPrint("💓 Connection active - Streaming...");
+        // ডাটা প্যাকেট পাঠানোর জন্য ছোট সিগনাল পুশ
+        engine.adjustRecordingSignalVolume(120); 
       }
     });
   }
 
-  // ✅ এটি voice_room.dart এ আপনার প্রয়োজন (বসে থাকা সিট থেকে নামার জন্য)
+  // সিট ছাড়ার সময় সব বন্ধ করা
   Future<void> becomeListener() async {
     _keepAliveTimer?.cancel(); 
+    if (kIsWeb) js.context.callMethod('eval', ["clearInterval(window.agoraAudioInterval);"]);
+    
     await engine.stopPreview();
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
     await engine.muteLocalAudioStream(true);
@@ -105,25 +102,22 @@ class AgoraManager {
       publishMicrophoneTrack: false,
       clientRoleType: ClientRoleType.clientRoleAudience,
     ));
-    debugPrint("✅ Back to Listener");
   }
 
-  // ✅ এটি আপনার মাইক বাটন কন্ট্রোল করার জন্য প্রয়োজন
   Future<void> toggleMic(bool isMute) async {
     await engine.muteLocalAudioStream(isMute);
     await engine.updateChannelMediaOptions(ChannelMediaOptions(
       publishMicrophoneTrack: !isMute,
     ));
-    debugPrint("🎤 Mic state: ${isMute ? 'Muted' : 'Unmuted'}");
   }
 
   Future<void> leaveRoom() async {
     _keepAliveTimer?.cancel();
+    if (kIsWeb) js.context.callMethod('eval', ["clearInterval(window.agoraAudioInterval);"]);
     try {
       await engine.leaveChannel();
-      debugPrint("Left Voice Room");
     } catch (e) {
-      debugPrint("Error leaving room: $e");
+      debugPrint("Error: $e");
     }
   }
 }
