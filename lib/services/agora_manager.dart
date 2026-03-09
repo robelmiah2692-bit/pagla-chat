@@ -5,14 +5,14 @@ import 'dart:html' as html;
 
 class AgoraManager {
   late RtcEngine engine;
-  bool _isInitialized = false; // এটি বাদ দিলে ইঞ্জিন ডাবল লোড হয়ে মাইক কেটে যেতে পারে
+  bool _isInitialized = false; 
   final String appId = "32133508104045b687aae00c5ccc59a5"; 
 
   Future<void> initAgora() async {
-    // যদি অলরেডি ইনিশিয়ালাইজ হয়ে থাকে, তবে আর করার দরকার নেই
+    // যদি অলরেডি ইনিশিয়ালাইজ হয়ে থাকে, তবে আর করার দরকার নেই
     if (_isInitialized) return;
 
-    // ১. আপনার তৈরি করা সেই মাইক পারমিশন লজিক (অপরিবর্তিত)
+    // ১. আপনার সেই মাইক পারমিশন লজিক
     if (kIsWeb) {
       try {
         await html.window.navigator.getUserMedia(audio: true);
@@ -39,26 +39,26 @@ class AgoraManager {
     // ৫. রোল সেট করা
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
 
-    // ৬. সাউন্ড সচল করা
-    await engine.muteLocalAudioStream(false);
-    
+    // ৬. সাউন্ড প্রোফাইল সেটআপ
     await engine.setAudioProfile(
       profile: AudioProfileType.audioProfileSpeechStandard,
       scenario: AudioScenarioType.audioScenarioChatroom,
     );
     
-    _isInitialized = true; // মার্ক করে রাখলাম যে ইঞ্জিন রেডি
+    _isInitialized = true; 
     debugPrint("Agora Initialized: $appId");
   }
 
-  // ৭. রুমে জয়েন করা
+  // ৭. রুমে জয়েন করা (আপনার পুরাতন লজিক + নতুন ফিক্সড অডিও লজিক)
   Future<void> joinRoom(String channelName) async {
-    // ফিক্স: ইউনিক আইডি ব্যবহার করছি যাতে অডিও পাবলিশ হয়
+    if (!_isInitialized) await initAgora();
+
+    // প্রত্যেক ইউজারের জন্য আলাদা আইডি (যাতে কথা না কাটে)
     int myUid = DateTime.now().millisecondsSinceEpoch % 100000;
 
     await engine.joinChannel(
       token: "", 
-      channelId: channelName,
+      channelId: channelName, // এখানে widget.roomId ই বসবে
       uid: myUid,
       options: const ChannelMediaOptions(
         clientRoleType: ClientRoleType.clientRoleBroadcaster,
@@ -67,15 +67,16 @@ class AgoraManager {
       ),
     );
     
-    // জয়েন করার পর সাউন্ড নিশ্চিত করা
-    await engine.adjustRecordingSignalVolume(100); 
+    // 🔥 গ্রিন ডট ধরে রাখার জন্য অডিও ফোর্সফুলি এনাবল করা
+    await engine.enableLocalAudio(true);
     await engine.muteLocalAudioStream(false);
+    await engine.adjustRecordingSignalVolume(100); 
     
     if (!kIsWeb) {
       await engine.setEnableSpeakerphone(true);
     }
     
-    debugPrint("Joined Voice Room: $channelName with UID: $myUid");
+    debugPrint("✅ Joined Channel: $channelName with UID: $myUid");
   }
 
   // মাইক অন/অফ
