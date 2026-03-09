@@ -8,7 +8,7 @@ class AgoraManager {
   late RtcEngine engine;
   bool _isInitialized = false; 
   final String appId = "32133508104045b687aae00c5ccc59a5"; 
-  Timer? _keepAliveTimer; // ব্রাউজারকে জাগিয়ে রাখার জন্য টাইমার
+  Timer? _keepAliveTimer;
 
   Future<void> initAgora() async {
     if (_isInitialized) return;
@@ -24,9 +24,9 @@ class AgoraManager {
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
+    // অডিও ইঞ্জিন এনাবল করা
     await engine.enableAudio();
     
-    // হাই কোয়ালিটি অডিও সেট করা যাতে ব্রাউজার কানেকশন না কাটে
     await engine.setAudioProfile(
       profile: AudioProfileType.audioProfileMusicHighQuality,
       scenario: AudioScenarioType.audioScenarioGameStreaming, 
@@ -36,7 +36,6 @@ class AgoraManager {
     debugPrint("Agora Initialized: $appId");
   }
 
-  // ১. রুমে জয়েন করা (লিসেনার হিসেবে)
   Future<void> joinAsListener(String channelName) async {
     if (!_isInitialized) await initAgora();
 
@@ -56,63 +55,61 @@ class AgoraManager {
     await engine.muteLocalAudioStream(true);
     await engine.enableLocalAudio(false); 
     
-    debugPrint("✅ Joined as Listener - No Green Dot");
+    debugPrint("✅ Joined as Listener");
   }
 
-  // ২. সিটে বসার পর (গ্রিন ডট আসবে এবং কথা শোনা যাবে)
   Future<void> becomeBroadcaster() async {
     if (kIsWeb) {
       try {
-        // ব্রাউজারের মাইক স্ট্রিমিং সচল করা
+        // ১. ব্রাউজার লেভেলে মাইক নিশ্চিত করা
         await html.window.navigator.getUserMedia(audio: true);
       } catch (e) {
         debugPrint("Mic access failed: $e");
       }
     }
 
-    // রোল ব্রডকাস্টার করা
+    // ২. রোল চেঞ্জ (সবুজ আইকন আসবে)
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     
-    // অডিও ট্র্যাকগুলো অন করা
+    // ৩. অডিও সোর্সগুলো সজাগ করা
     await engine.enableAudio();
     await engine.enableLocalAudio(true);
     await engine.muteLocalAudioStream(false);
     
-    // 🔥 কথা শোনানোর মেইন ফিক্স: পাবলিশ অপশন কনফার্ম করা
+    // 🔥 ৪. এই অংশটিই আপনার ড্যাশবোর্ডে মিনিট যোগ করবে
+    // আমরা এগোরাকে ফোর্স করছি অডিও ডাটা পাবলিশ করতে
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
-      publishMicrophoneTrack: true,      // আওয়াজ সবার কাছে পাঠাবে
-      autoSubscribeAudio: true,          // অন্যদের আওয়াজ আনবে
+      publishMicrophoneTrack: true,      // আওয়াজ ইন্টারনেটে পাঠাও
+      autoSubscribeAudio: true,         // অন্যের আওয়াজ আনো
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
+      publishCameraTrack: false,
     ));
 
     await engine.adjustRecordingSignalVolume(100);
 
-    // 🔥 ব্রাউজারকে জাগিয়ে রাখা (আপনার স্ক্রিন ট্যাপ করার বিকল্প)
+    // ৫. কিপ-অ্যালাইভ পালস (ব্রাউজারকে জাগিয়ে রাখার জন্য)
     _keepAliveTimer?.cancel();
     _keepAliveTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (_isInitialized) {
+        // অডিও ট্র্যাক রিফ্রেশ করা
+        engine.muteLocalAudioStream(false);
         engine.adjustRecordingSignalVolume(100); 
-        debugPrint("💓 Keep-alive pulse sent to browser");
+        debugPrint("💓 Pulse sent - Server connection active");
       }
     });
 
-    debugPrint("✅ Now Broadcaster - Voice & Green Dot Active");
+    debugPrint("✅ Broadcaster fully active - Minutes should start adding");
   }
 
-  // ৩. মাইক মিউট/আনমিউট বাটন ফিচার
   Future<void> toggleMic(bool isMute) async {
     await engine.muteLocalAudioStream(isMute);
-    // আনমিউট করলে অডিও ট্র্যাক যেন সচল থাকে
+    // মিউট বা আনমিউট করলে সার্ভারকে আপডেট জানানো
     await engine.updateChannelMediaOptions(ChannelMediaOptions(
       publishMicrophoneTrack: !isMute,
     ));
-    if (!isMute) {
-      await engine.enableLocalAudio(true);
-    }
     debugPrint("🎤 Mic state: ${isMute ? 'Muted' : 'Unmuted'}");
   }
 
-  // ৪. সিট ছাড়লে লিসেনার মোডে ফিরে যাওয়া
   Future<void> becomeListener() async {
     _keepAliveTimer?.cancel(); 
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
