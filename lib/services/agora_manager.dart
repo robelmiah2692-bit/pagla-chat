@@ -2,11 +2,13 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart'; 
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:html' as html; 
+import 'dart:async';
 
 class AgoraManager {
   late RtcEngine engine;
   bool _isInitialized = false; 
   final String appId = "32133508104045b687aae00c5ccc59a5"; 
+  Timer? _keepAliveTimer; // ব্রাউজারকে জাগিয়ে রাখার জন্য টাইমার
 
   Future<void> initAgora() async {
     if (_isInitialized) return;
@@ -24,16 +26,16 @@ class AgoraManager {
 
     await engine.enableAudio();
     
+    // 🔥 এখানে scenario পরিবর্তন করা হয়েছে যেন ব্রাউজার মাইক না কাটে
     await engine.setAudioProfile(
-      profile: AudioProfileType.audioProfileSpeechStandard,
-      scenario: AudioScenarioType.audioScenarioChatroom,
+      profile: AudioProfileType.audioProfileMusicHighQuality,
+      scenario: AudioScenarioType.audioScenarioGameStreaming, 
     );
     
     _isInitialized = true; 
     debugPrint("Agora Initialized: $appId");
   }
 
-  // ১. রুমে জয়েন করা (সবুজ আইকন আসবে না)
   Future<void> joinAsListener(String channelName) async {
     if (!_isInitialized) await initAgora();
 
@@ -51,38 +53,40 @@ class AgoraManager {
     );
     
     await engine.muteLocalAudioStream(true);
-    // ওয়েব ব্রাউজারের জন্য অতিরিক্ত সেফটি
     await engine.enableLocalAudio(false); 
     
     debugPrint("✅ Joined as Listener - No Green Dot");
   }
 
-  // ২. সিটে বসার পর (গ্রিন ডট আসার মেইন ফাংশন)
   Future<void> becomeBroadcaster() async {
     if (kIsWeb) {
       try {
-        // ওয়েব ব্রাউজারে মাইক একটিভ করার আসল কমান্ড
         await html.window.navigator.getUserMedia(audio: true);
       } catch (e) {
         debugPrint("Mic access failed: $e");
       }
     }
 
-    // 🔥 এখানে আমরা এগোরাকে জোর দিয়ে বলছি যে আমি এখন ব্রডকাস্টার
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     
-    // অডিও ট্র্যাকগুলো পুনরায় চেক করে অন করা
     await engine.muteLocalAudioStream(false);
     await engine.enableLocalAudio(true);
     await engine.adjustRecordingSignalVolume(100);
     
-    // ওয়েব ব্রাউজারে অনেক সময় সাথে সাথে সিগনাল ধরে না, তাই আপডেট পাঠিয়ে দেওয়া
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: true,
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
     ));
 
-    debugPrint("✅ Now Broadcaster - Green Dot Fixed");
+    // 🔥 ম্যাজিক পার্ট: প্রতি ৫ সেকেন্ডে একবার ব্রাউজারকে 'ধাক্কা' দেওয়া
+    // এটি আপনার স্ক্রিনে ট্যাপ করার মতোই কাজ করবে
+    _keepAliveTimer?.cancel();
+    _keepAliveTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      engine.adjustRecordingSignalVolume(100); 
+      debugPrint("💓 Keep-alive pulse sent to browser");
+    });
+
+    debugPrint("✅ Now Broadcaster - Keep-Alive Active");
   }
 
   Future<void> toggleMic(bool isMute) async {
@@ -94,11 +98,11 @@ class AgoraManager {
   }
 
   Future<void> becomeListener() async {
+    _keepAliveTimer?.cancel(); // টাইমার বন্ধ করা
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
     await engine.muteLocalAudioStream(true);
     await engine.enableLocalAudio(false);
     
-    // রোল চেঞ্জটা এগোরা সার্ভারে আপডেট করা
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: false,
       clientRoleType: ClientRoleType.clientRoleAudience,
@@ -108,6 +112,7 @@ class AgoraManager {
   }
 
   Future<void> leaveRoom() async {
+    _keepAliveTimer?.cancel();
     try {
       await engine.leaveChannel();
       debugPrint("Left Voice Room");
