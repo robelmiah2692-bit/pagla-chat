@@ -112506,7 +112506,7 @@ s=6
 return A.m(l.oQ(),$async$$0)
 case 6:s=7
 return A.m(l.oV(m.a.c),$async$$0)
-case 7:A.eQ().$1("\u2705 Agora Engine Ready & Joined as Listener")
+case 7:A.eQ().$1("\u2705 \u09b0\u09c1\u09ae\u09c7 \u09a2\u09cb\u0995\u09be \u09b8\u09ab\u09b2 - \u098f\u0996\u09a8 \u09b6\u09c1\u09a7\u09c1 \u09b6\u09cb\u09a8\u09be \u09af\u09be\u09ac\u09c7, \u09ae\u09be\u0987\u0995 \u09ac\u09a8\u09cd\u09a7\u0964")
 q=1
 s=5
 break
