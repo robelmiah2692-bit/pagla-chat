@@ -36,8 +36,8 @@ class AgoraManager {
     // ৪. অডিও ইঞ্জিন চালু করা
     await engine.enableAudio();
     
-    // ৫. রোল সেট করা
-    await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+    // ৫. রোল শুরুতে অডিয়েন্স রাখা ভালো (সিটে বসলে ব্রডকাস্টার হবে)
+    await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
 
     // ৬. সাউন্ড প্রোফাইল সেটআপ
     await engine.setAudioProfile(
@@ -49,7 +49,7 @@ class AgoraManager {
     debugPrint("Agora Initialized: $appId");
   }
 
-  // ৭. রুমে জয়েন করা (আপনার পুরাতন লজিক + নতুন ফিক্সড অডিও লজিক)
+  // ৭. রুমে জয়েন করা (সিটে বসার সময় কল হবে)
   Future<void> joinRoom(String channelName) async {
     if (!_isInitialized) await initAgora();
 
@@ -58,16 +58,16 @@ class AgoraManager {
 
     await engine.joinChannel(
       token: "", 
-      channelId: channelName, // এখানে widget.roomId ই বসবে
+      channelId: channelName, 
       uid: myUid,
       options: const ChannelMediaOptions(
-        clientRoleType: ClientRoleType.clientRoleBroadcaster,
-        publishMicrophoneTrack: true, 
-        autoSubscribeAudio: true,     
+        clientRoleType: ClientRoleType.clientRoleBroadcaster, // কথা বলার রোল
+        publishMicrophoneTrack: true, // মাইক সচল করা
+        autoSubscribeAudio: true,     // অন্যদের কথা শোনা
       ),
     );
     
-    // 🔥 গ্রিন ডট ধরে রাখার জন্য অডিও ফোর্সফুলি এনাবল করা
+    // 🔥 ওয়েব ব্রাউজারের জন্য এই ২টা লাইন মাস্ট, না হলে গ্রিন ডট আসবে না
     await engine.enableLocalAudio(true);
     await engine.muteLocalAudioStream(false);
     await engine.adjustRecordingSignalVolume(100); 
@@ -76,7 +76,7 @@ class AgoraManager {
       await engine.setEnableSpeakerphone(true);
     }
     
-    debugPrint("✅ Joined Channel: $channelName with UID: $myUid");
+    debugPrint("✅ সিটে বসা সফল! এখন গ্রিন মাইক আসবে। UID: $myUid");
   }
 
   // মাইক অন/অফ
@@ -84,9 +84,13 @@ class AgoraManager {
     await engine.muteLocalAudioStream(isMute);
   }
 
-  // রুম থেকে বের হওয়া
+  // রুম থেকে বের হওয়া (সিট ছাড়লে এটি কল হবে)
   Future<void> leaveRoom() async {
-    await engine.leaveChannel();
-    debugPrint("Left Voice Room");
+    try {
+      await engine.leaveChannel();
+      debugPrint("Left Voice Room");
+    } catch (e) {
+      debugPrint("Error leaving room: $e");
+    }
   }
 }
