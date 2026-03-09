@@ -9,10 +9,8 @@ class AgoraManager {
   final String appId = "32133508104045b687aae00c5ccc59a5"; 
 
   Future<void> initAgora() async {
-    // যদি অলরেডি ইনিশিয়ালাইজ হয়ে থাকে, তবে আর করার দরকার নেই
     if (_isInitialized) return;
 
-    // ১. আপনার সেই মাইক পারমিশন লজিক
     if (kIsWeb) {
       try {
         await html.window.navigator.getUserMedia(audio: true);
@@ -24,22 +22,15 @@ class AgoraManager {
       await [Permission.microphone].request();
     }
 
-    // ২. ইঞ্জিন তৈরি
     engine = createAgoraRtcEngine();
     
-    // ৩. ইনিশিয়ালাইজেশন
     await engine.initialize(RtcEngineContext(
       appId: appId,
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
-    // ৪. অডিও ইঞ্জিন চালু করা
     await engine.enableAudio();
     
-    // ৫. রোল শুরুতে অডিয়েন্স রাখা ভালো (সিটে বসলে ব্রডকাস্টার হবে)
-    await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
-
-    // ৬. সাউন্ড প্রোফাইল সেটআপ
     await engine.setAudioProfile(
       profile: AudioProfileType.audioProfileSpeechStandard,
       scenario: AudioScenarioType.audioScenarioChatroom,
@@ -49,11 +40,10 @@ class AgoraManager {
     debugPrint("Agora Initialized: $appId");
   }
 
-  // ৭. রুমে জয়েন করা (সিটে বসার সময় কল হবে)
-  Future<void> joinRoom(String channelName) async {
+  // ১. রুমে জয়েন করা (শুধুমাত্র লিসেনার হিসেবে - কোনো গ্রিন ডট আসবে না)
+  Future<void> joinAsListener(String channelName) async {
     if (!_isInitialized) await initAgora();
 
-    // প্রত্যেক ইউজারের জন্য আলাদা আইডি (যাতে কথা না কাটে)
     int myUid = DateTime.now().millisecondsSinceEpoch % 100000;
 
     await engine.joinChannel(
@@ -61,30 +51,36 @@ class AgoraManager {
       channelId: channelName, 
       uid: myUid,
       options: const ChannelMediaOptions(
-        clientRoleType: ClientRoleType.clientRoleBroadcaster, // কথা বলার রোল
-        publishMicrophoneTrack: true, // মাইক সচল করা
-        autoSubscribeAudio: true,     // অন্যদের কথা শোনা
+        clientRoleType: ClientRoleType.clientRoleAudience, // 🔥 অডিয়েন্স মানে মাইক বন্ধ থাকবে
+        publishMicrophoneTrack: false, // মাইক ডাটা পাঠাবে না
+        autoSubscribeAudio: true,      // অন্যদের কথা শোনা যাবে
       ),
     );
     
-    // 🔥 ওয়েব ব্রাউজারের জন্য এই ২টা লাইন মাস্ট, না হলে গ্রিন ডট আসবে না
+    // শুরুতে মাইক মিউট করে রাখা নিশ্চিত করা
+    await engine.muteLocalAudioStream(true);
+    await engine.enableLocalAudio(false); 
+    
+    debugPrint("✅ Joined as Listener - Mic off (No Green Dot)");
+  }
+
+  // ২. সিটে বসার পর মাইক সচল করা (এখুনি গ্রিন ডট আসবে)
+  Future<void> becomeBroadcaster() async {
+    await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     await engine.enableLocalAudio(true);
     await engine.muteLocalAudioStream(false);
-    await engine.adjustRecordingSignalVolume(100); 
-    
-    if (!kIsWeb) {
-      await engine.setEnableSpeakerphone(true);
-    }
-    
-    debugPrint("✅ সিটে বসা সফল! এখন গ্রিন মাইক আসবে। UID: $myUid");
+    await engine.adjustRecordingSignalVolume(100);
+    debugPrint("✅ Now Broadcaster - Green Dot should appear");
   }
 
-  // মাইক অন/অফ
-  Future<void> toggleMic(bool isMute) async {
-    await engine.muteLocalAudioStream(isMute);
+  // ৩. সিট থেকে নেমে গেলে মাইক বন্ধ করা (গ্রিন ডট চলে যাবে)
+  Future<void> becomeListener() async {
+    await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
+    await engine.muteLocalAudioStream(true);
+    await engine.enableLocalAudio(false);
+    debugPrint("✅ Back to Listener - Green Dot should disappear");
   }
 
-  // রুম থেকে বের হওয়া (সিট ছাড়লে এটি কল হবে)
   Future<void> leaveRoom() async {
     try {
       await engine.leaveChannel();
