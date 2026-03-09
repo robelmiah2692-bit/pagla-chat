@@ -11,14 +11,8 @@ class AgoraManager {
   Future<void> initAgora() async {
     if (_isInitialized) return;
 
-    if (kIsWeb) {
-      try {
-        await html.window.navigator.getUserMedia(audio: true);
-        debugPrint("Web Browser Microphone Requesting...");
-      } catch (e) {
-        debugPrint("Microphone Permission Denied: $e");
-      }
-    } else {
+    // ১. পারমিশন লজিক পরিবর্তন (Web-এর জন্য এখানে getUserMedia করার দরকার নেই শুরুতে)
+    if (!kIsWeb) {
       await [Permission.microphone].request();
     }
 
@@ -29,6 +23,7 @@ class AgoraManager {
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
+    // ২. অডিও ইঞ্জিন এনাবল করলেও শুরুতে অডিও ট্র্যাক বন্ধ রাখা
     await engine.enableAudio();
     
     await engine.setAudioProfile(
@@ -40,7 +35,7 @@ class AgoraManager {
     debugPrint("Agora Initialized: $appId");
   }
 
-  // ১. রুমে জয়েন করা (শুধুমাত্র লিসেনার হিসেবে - কোনো গ্রিন ডট আসবে না)
+  // ১. রুমে জয়েন করা (সবুজ আইকন আসবে না)
   Future<void> joinAsListener(String channelName) async {
     if (!_isInitialized) await initAgora();
 
@@ -51,20 +46,29 @@ class AgoraManager {
       channelId: channelName, 
       uid: myUid,
       options: const ChannelMediaOptions(
-        clientRoleType: ClientRoleType.clientRoleAudience, 
-        publishMicrophoneTrack: false, 
+        clientRoleType: ClientRoleType.clientRoleAudience, // লিসেনার
+        publishMicrophoneTrack: false, // 🔥 মাইক ট্র্যাক পাঠানো পুরোপুরি বন্ধ
         autoSubscribeAudio: true,      
       ),
     );
     
+    // ব্রাউজারকে সিগনাল দেওয়া যে আমি এখন মাইক ব্যবহার করছি না
     await engine.muteLocalAudioStream(true);
-    await engine.enableLocalAudio(false); 
     
-    debugPrint("✅ Joined as Listener - Mic off (No Green Dot)");
+    debugPrint("✅ Joined as Listener - No Green Dot");
   }
 
-  // ২. সিটে বসার পর মাইক সচল করা (এখুনি গ্রিন ডট আসবে)
+  // ২. সিটে বসার পর (এখন গ্রিন ডট আসবে)
   Future<void> becomeBroadcaster() async {
+    // 🔥 Web-এর জন্য সিটে বসার সময় মাইক পারমিশন পপআপ বা একটিভ করা
+    if (kIsWeb) {
+      try {
+        await html.window.navigator.getUserMedia(audio: true);
+      } catch (e) {
+        debugPrint("Mic access failed: $e");
+      }
+    }
+
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     await engine.enableLocalAudio(true);
     await engine.muteLocalAudioStream(false);
@@ -72,23 +76,21 @@ class AgoraManager {
     debugPrint("✅ Now Broadcaster - Green Dot should appear");
   }
 
-  // 🔥 ৩. আপনার UI-এর মাইক বাটনের জন্য (এটি গিটহাব এরর ফিক্স করবে)
+  // বাকি toggleMic, becomeListener এবং leaveRoom আপনার আগের ফাইলের মতোই থাকবে...
+  
   Future<void> toggleMic(bool isMute) async {
-    // কথা বলতে চাইলে মাইক ডাটা অন করবে, মিউট করলে বন্ধ করবে
     await engine.muteLocalAudioStream(isMute);
-    // যদি আনমিউট করা হয়, তবে অডিও সচল আছে কি না নিশ্চিত করা
     if (!isMute) {
       await engine.enableLocalAudio(true);
     }
-    debugPrint("🎤 Mic state changed: ${isMute ? 'Muted' : 'Unmuted'}");
+    debugPrint("🎤 Mic state: ${isMute ? 'Muted' : 'Unmuted'}");
   }
 
-  // ৪. সিট থেকে নেমে গেলে মাইক বন্ধ করা (গ্রিন ডট চলে যাবে)
   Future<void> becomeListener() async {
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
     await engine.muteLocalAudioStream(true);
     await engine.enableLocalAudio(false);
-    debugPrint("✅ Back to Listener - Green Dot should disappear");
+    debugPrint("✅ Back to Listener");
   }
 
   Future<void> leaveRoom() async {
