@@ -11,7 +11,6 @@ class AgoraManager {
   Future<void> initAgora() async {
     if (_isInitialized) return;
 
-    // ১. পারমিশন লজিক পরিবর্তন (Web-এর জন্য এখানে getUserMedia করার দরকার নেই শুরুতে)
     if (!kIsWeb) {
       await [Permission.microphone].request();
     }
@@ -23,7 +22,6 @@ class AgoraManager {
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
-    // ২. অডিও ইঞ্জিন এনাবল করলেও শুরুতে অডিও ট্র্যাক বন্ধ রাখা
     await engine.enableAudio();
     
     await engine.setAudioProfile(
@@ -46,38 +44,47 @@ class AgoraManager {
       channelId: channelName, 
       uid: myUid,
       options: const ChannelMediaOptions(
-        clientRoleType: ClientRoleType.clientRoleAudience, // লিসেনার
-        publishMicrophoneTrack: false, // 🔥 মাইক ট্র্যাক পাঠানো পুরোপুরি বন্ধ
+        clientRoleType: ClientRoleType.clientRoleAudience, 
+        publishMicrophoneTrack: false, 
         autoSubscribeAudio: true,      
       ),
     );
     
-    // ব্রাউজারকে সিগনাল দেওয়া যে আমি এখন মাইক ব্যবহার করছি না
     await engine.muteLocalAudioStream(true);
+    // ওয়েব ব্রাউজারের জন্য অতিরিক্ত সেফটি
+    await engine.enableLocalAudio(false); 
     
     debugPrint("✅ Joined as Listener - No Green Dot");
   }
 
-  // ২. সিটে বসার পর (এখন গ্রিন ডট আসবে)
+  // ২. সিটে বসার পর (গ্রিন ডট আসার মেইন ফাংশন)
   Future<void> becomeBroadcaster() async {
-    // 🔥 Web-এর জন্য সিটে বসার সময় মাইক পারমিশন পপআপ বা একটিভ করা
     if (kIsWeb) {
       try {
+        // ওয়েব ব্রাউজারে মাইক একটিভ করার আসল কমান্ড
         await html.window.navigator.getUserMedia(audio: true);
       } catch (e) {
         debugPrint("Mic access failed: $e");
       }
     }
 
+    // 🔥 এখানে আমরা এগোরাকে জোর দিয়ে বলছি যে আমি এখন ব্রডকাস্টার
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
-    await engine.enableLocalAudio(true);
+    
+    // অডিও ট্র্যাকগুলো পুনরায় চেক করে অন করা
     await engine.muteLocalAudioStream(false);
+    await engine.enableLocalAudio(true);
     await engine.adjustRecordingSignalVolume(100);
-    debugPrint("✅ Now Broadcaster - Green Dot should appear");
+    
+    // ওয়েব ব্রাউজারে অনেক সময় সাথে সাথে সিগনাল ধরে না, তাই আপডেট পাঠিয়ে দেওয়া
+    await engine.updateChannelMediaOptions(const ChannelMediaOptions(
+      publishMicrophoneTrack: true,
+      clientRoleType: ClientRoleType.clientRoleBroadcaster,
+    ));
+
+    debugPrint("✅ Now Broadcaster - Green Dot Fixed");
   }
 
-  // বাকি toggleMic, becomeListener এবং leaveRoom আপনার আগের ফাইলের মতোই থাকবে...
-  
   Future<void> toggleMic(bool isMute) async {
     await engine.muteLocalAudioStream(isMute);
     if (!isMute) {
@@ -90,6 +97,13 @@ class AgoraManager {
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
     await engine.muteLocalAudioStream(true);
     await engine.enableLocalAudio(false);
+    
+    // রোল চেঞ্জটা এগোরা সার্ভারে আপডেট করা
+    await engine.updateChannelMediaOptions(const ChannelMediaOptions(
+      publishMicrophoneTrack: false,
+      clientRoleType: ClientRoleType.clientRoleAudience,
+    ));
+    
     debugPrint("✅ Back to Listener");
   }
 
