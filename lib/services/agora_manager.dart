@@ -24,16 +24,14 @@ class AgoraManager {
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
-    // অডিও ইঞ্জিন এনাবল করা
     await engine.enableAudio();
     
-    // হাই কোয়ালিটি অডিও লক করা
     await engine.setAudioProfile(
       profile: AudioProfileType.audioProfileMusicHighQuality,
       scenario: AudioScenarioType.audioScenarioGameStreaming, 
     );
 
-    // 🔥 কানেকশন ডাটা ট্রান্সফার মোড অন করা
+    // কানেকশন লক প্যারামিটার
     await engine.setParameters('{"rtc.dual_stream_mode":true}');
     await engine.setParameters('{"che.audio.keep.audiosession":true}');
     
@@ -59,21 +57,20 @@ class AgoraManager {
     
     await engine.muteLocalAudioStream(true);
     await engine.enableLocalAudio(false); 
-    
     debugPrint("✅ Joined as Listener");
   }
 
   Future<void> becomeBroadcaster() async {
     if (kIsWeb) {
       try {
-        // ব্রাউজার লেভেলে মাইক হার্ডওয়্যার কনফার্ম করা
+        // ১. ব্রাউজার অডিও সচল করা
         await html.window.navigator.getUserMedia(audio: true);
       } catch (e) {
         debugPrint("Mic access failed: $e");
       }
     }
 
-    // ১. রোল ব্রডকাস্টার করা (Low Latency অপশন সহ)
+    // ২. রোল লক করা
     await engine.setClientRole(
       role: ClientRoleType.clientRoleBroadcaster,
       options: const ClientRoleOptions(
@@ -85,7 +82,7 @@ class AgoraManager {
     await engine.enableLocalAudio(true);
     await engine.startPreview(); 
 
-    // ২. পাবলিশিং লজিক (এটি মিনিট যোগ করার মেইন লক)
+    // ৩. পাবলিশিং অপশন
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: true,      
       autoSubscribeAudio: true,         
@@ -93,20 +90,20 @@ class AgoraManager {
       publishCameraTrack: false,
     ));
 
+    // ৪. হার্ডওয়্যার সেটিংস লক
     await engine.muteLocalAudioStream(false);
     await engine.adjustRecordingSignalVolume(100);
-
-    // ৩. ওয়েব প্যারামিটার (সার্ভারের সাথে কানেকশন লক করা)
     await engine.setParameters('{"che.audio.opensl":true}'); 
     await engine.setParameters('{"che.audio.live_for_comm":true}');
 
-    // ৪. কিপ-অ্যালাইভ পালস (৩ সেকেন্ড পর পর রিফ্রেশ)
+    // ৫. পালস লজিক (৩ সেকেন্ড)
     _keepAliveTimer?.cancel();
     _keepAliveTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (_isInitialized) {
+        // মোবাইল ক্রোমে এটি অডিও ট্র্যাক সচল রাখে
         engine.muteLocalAudioStream(false);
         engine.adjustRecordingSignalVolume(100); 
-        debugPrint("💓 Connection active - minutes adding...");
+        debugPrint("💓 Connection pulse sent...");
       }
     });
 
@@ -132,7 +129,6 @@ class AgoraManager {
       publishMicrophoneTrack: false,
       clientRoleType: ClientRoleType.clientRoleAudience,
     ));
-    
     debugPrint("✅ Back to Listener");
   }
 
@@ -140,9 +136,8 @@ class AgoraManager {
     _keepAliveTimer?.cancel();
     try {
       await engine.leaveChannel();
-      debugPrint("Left Voice Room");
     } catch (e) {
-      debugPrint("Error leaving room: $e");
+      debugPrint("Error: $e");
     }
   }
 }
