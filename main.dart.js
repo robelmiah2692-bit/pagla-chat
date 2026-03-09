@@ -110967,7 +110967,7 @@ if(r.b){s=r.a
 s===$&&A.a()
 s.nk(!1)
 r.a.xn(100)
-A.eL().$1("\ud83d\udc93 Connection active - minutes adding...")}},
+A.eL().$1("\ud83d\udc93 Connection pulse sent...")}},
 $S:96}
 A.acX.prototype={}
 A.atm.prototype={
