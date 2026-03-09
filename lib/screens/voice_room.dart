@@ -239,19 +239,21 @@ void initState() {
 
   // ১. সিটে বসার মেইন লজিক (আপনার দেওয়া রিয়েল টাইম সিঙ্ক সহ)
   void sitOnSeat(int index) async {
-  // ১. একই সিটে ক্লিক করলে লিভ কনফার্মেশন (অপরিবর্তিত)
+  // ১. লিভ কনফার্মেশন (অপরিবর্তিত)
   if (currentSeatIndex == index) { 
     _showLeaveConfirmation(index); 
     return; 
   }
   
-  // ২. সিট দখল বা রুম লক থাকলে রিটার্ন
+  // ২. সিট দখল বা রুম লক চেক (অপরিবর্তিত)
   if (seats[index]["isOccupied"] || seats[index]["status"] == "calling" || isRoomLocked) return;
 
-  // ৩. পুরনো সিট ডাটাবেস থেকে রিমুভ (অপরিবর্তিত)
+  // ৩. পুরনো সিট পরিষ্কার এবং লিসেনার হওয়া
   if (currentSeatIndex != -1) {
     int oldIndex = currentSeatIndex;
     await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').remove();
+    
+    // ম্যানেজার থেকে টাইমার বন্ধ করবে এবং লিসেনার হবে
     await _agoraManager.becomeListener();
 
     setState(() {
@@ -263,7 +265,7 @@ void initState() {
     });
   }
 
-  // ৪. নতুন সিটে "Calling" স্ট্যাটাস (অপরিবর্তিত)
+  // ৪. নতুন সিটে "Calling" স্ট্যাটাস দেওয়া
   setState(() {
     seats[index]["status"] = "calling";
     seats[index]["isOccupied"] = true;
@@ -271,33 +273,34 @@ void initState() {
     isMicOn = true; 
   });
 
-  // ৫. এগোরা কানেকশন (সবুজ আইকন আসবে)
+  // ৫. এগোরা কানেকশন (রোল চেঞ্জ এবং পালস টাইমার শুরু)
   try {
+    // এটি কল করলেই AgoraManager এর ভেতর ৫ সেকেন্ডের পিরিওডিক টাইমার শুরু হবে
     await _agoraManager.becomeBroadcaster();
-    debugPrint("✅ Broadcaster role active");
+    debugPrint("✅ ব্রডকাস্টার একটিভ এবং কিপ-অ্যালাইভ লজিক চালু");
   } catch (e) {
     debugPrint("Agora Error: $e");
   }
 
-  // ৬. Realtime Database কানেকশন সেটআপ (অপরিবর্তিত)
+  // ৬. Realtime Database ডিসকানেক্ট হ্যান্ডেল
   final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
   await seatRef.onDisconnect().remove();
 
-  // ৭. আপনার ৩ সেকেন্ডের টাইমার ও ফায়ারস্টোর প্রোফাইল ডাটা (এই সেই ফিচার)
+  // ৭. ৩ সেকেন্ডের টাইমার ও ফায়ারস্টোর প্রোফাইল ডাটা ফিচার
   Timer(const Duration(seconds: 3), () async {
     if (!mounted) return;
     try {
-      // 🔥 মাইক যেন না কাটে তাই আবার ম্যানেজার থেকে কনফার্ম করা
+      // 🔥 ৩ সেকেন্ড পর আবার কনফার্ম করা যাতে ২ সেকেন্ডের মাথায় মাইক না কাটে
       await _agoraManager.becomeBroadcaster(); 
 
-      // ফায়ারস্টোর থেকে নাম ও ছবি আনা
+      // ফায়ারস্টোর থেকে ডাটা আনা (আপনার অরিজিনাল ফিচার)
       final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
       
       String myActualName = userDoc.data()?['name'] ?? "User"; 
       String myActualPic = userDoc.data()?['profilePic'] ?? "";
 
-      // রিয়েলটাইম ডাটাবেসে ডাটা সেট করা (আপনার অরিজিনাল ফিচার)
+      // রিয়েলটাইম ডাটাবেসে ডাটা সেট করা
       await seatRef.set({
         'userName': myActualName,
         'userImage': myActualPic,
@@ -315,6 +318,10 @@ void initState() {
           seats[index]["isMicOn"] = true;
         });
       }
+      
+      // সেফটির জন্য মাইক আনমিউট রাখা
+      await _agoraManager.engine.muteLocalAudioStream(false);
+
     } catch (e) {
       if (mounted) {
         setState(() { 
