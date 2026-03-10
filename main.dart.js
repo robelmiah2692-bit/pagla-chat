@@ -110990,18 +110990,18 @@ for(;;)switch(s){case 0:s=!q.b?2:3
 break
 case 2:s=4
 return A.l(q.ne(),$async$yK)
-case 4:case 3:p=q.e=B.e3.nk(9e5)+1e5
+case 4:case 3:p=q.e=B.e3.nk(899999)+1e5
 o=q.a
 o===$&&A.a()
 s=5
 return A.l(o.Fc(a,B.H6,"",p),$async$yK)
-case 5:A.fW().$1("\u2705 Unique User Joined with UID: "+A.k(q.e))
+case 5:A.fW().$1("\u2705 Joined UID: "+A.k(q.e))
 return A.o(null,r)}})
 return A.p($async$yK,r)},
 jZ(){var s=0,r=A.q(t.H),q=1,p=[],o=this,n,m,l,k
 var $async$jZ=A.m(function(a,b){if(a===1){p.push(b)
 s=q}for(;;)switch(s){case 0:q=3
-$.aVD().Ds("eval",["var AudioContext = window.AudioContext || window.webkitAudioContext;var audioCtx = new AudioContext();audioCtx.resume();window.micKeepAlive = setInterval(function(){ if(audioCtx.state === 'suspended') audioCtx.resume(); }, 500);"])
+$.aVD().Ds("eval",["if(!window.audioCtx){window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();}window.audioCtx.resume();window.micKeepAlive = setInterval(() => { if(window.audioCtx.state === 'suspended') window.audioCtx.resume(); }, 500);"])
 m=window.navigator
 m.toString
 s=6
@@ -111074,7 +111074,7 @@ $1(a){var s,r=this.a
 if(r.b){s=r.a
 s===$&&A.a()
 s.p_(!1)
-r.a.xl(140)}},
+r.a.xl(135)}},
 $S:96}
 A.ad3.prototype={}
 A.att.prototype={
