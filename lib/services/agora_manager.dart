@@ -15,7 +15,14 @@ class AgoraManager {
 
   Future<void> initAgora() async {
     if (_isInitialized) return;
-    if (!kIsWeb) await [Permission.microphone].request();
+    
+    // পারমিশন হ্যান্ডলিং
+    if (!kIsWeb) {
+      await [Permission.microphone].request();
+    } else {
+      // ওয়েব ব্রাউজারের জন্য মাইক্রোফোন পারমিশন প্রম্পট
+      await html.window.navigator.getUserMedia(audio: true);
+    }
 
     engine = createAgoraRtcEngine();
     
@@ -24,28 +31,20 @@ class AgoraManager {
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
-    // নেটওয়ার্ক রিকানেকশন সেটিংস (আঠার মতো লেগে থাকবে)
+    // ওয়েব অডিওর জন্য বিশেষ প্যারামিটার
     await engine.setParameters('{"rtc.web_receiver_report_interval":1000}');
-    await engine.setParameters('{"che.audio.enable.vqe":true}');
-    await engine.setParameters('{"che.audio.live_for_comm":true}');
-    await engine.setParameters('{"che.audio.keep_audiosession_alive":true}');
+    await engine.setParameters('{"che.audio.opensl":true}');
+    await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
 
     await engine.enableAudio();
     _isInitialized = true; 
     debugPrint("Agora Initialized - Ready to Connect");
   }
 
-  // এখানে [String? fireUid] রেখেছি যাতে আপনি পাঠালেও কাজ করে, না পাঠালেও বিল্ড না ভাঙে
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
     
-    // ইউনিক আইডি জেনারেশন - যাতে প্রত্যেক ইউজার আলাদা হয়
-    if (fireUid != null && fireUid.toString().isNotEmpty) {
-      _localUid = fireUid.hashCode.abs() % 1000000;
-    } else {
-      // যদি আইডি না পাঠান, তবে র‍্যান্ডম আইডি তৈরি হবে (বিল্ড ফেইল হবে না)
-      _localUid = (Random().nextInt(899999) + 100000); 
-    }
+    _localUid = fireUid?.hashCode.abs() ?? (Random().nextInt(899999) + 100000);
 
     await engine.joinChannel(
       token: "", 
@@ -59,18 +58,33 @@ class AgoraManager {
     );
     
     await engine.muteAllRemoteAudioStreams(false);
-    await engine.adjustPlaybackSignalVolume(150); // সাউন্ড বুস্ট
-    debugPrint("✅ Joined Room: $channelName with UID: $_localUid");
+    debugPrint("✅ Joined Room: $channelName as Listener");
+  }
+
+  // কথা না আসার সমস্যা সমাধানের আসল ফাংশন
+  Future<void> forceResumeAudio() async {
+    if (kIsWeb) {
+      js.context.callMethod('eval', [
+        """
+        (function() {
+          var audioCtx = window.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume().then(() => { console.log('AudioContext Resumed'); });
+          }
+          window.audioCtx = audioCtx;
+        })();
+        """
+      ]);
+    }
   }
 
   Future<void> becomeBroadcaster() async {
+    await forceResumeAudio(); // সবার আগে অডিও ইঞ্জিন জাগানো
+
     if (kIsWeb) {
       try {
-        // জাভাস্ক্রিপ্ট দিয়ে ব্রাউজারের অডিও ইঞ্জিনকে জাগিয়ে রাখা
         js.context.callMethod('eval', [
-          "if(!window.audioCtx){ window.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }"
-          "window.audioCtx.resume();"
-          "window.micKeepAlive = setInterval(() => { if(window.audioCtx.state === 'suspended') window.audioCtx.resume(); }, 1000);"
+          "window.micKeepAlive = setInterval(() => { if(window.audioCtx && window.audioCtx.state === 'suspended') window.audioCtx.resume(); }, 1000);"
         ]);
         await html.window.navigator.getUserMedia(audio: true);
       } catch (e) {
@@ -78,31 +92,22 @@ class AgoraManager {
       }
     }
 
-    await engine.setClientRole(
-      role: ClientRoleType.clientRoleBroadcaster,
-      options: const ClientRoleOptions(
-        audienceLatencyLevel: AudienceLatencyLevelType.audienceLatencyLevelLowLatency,
-      ),
-    );
+    await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     
-    await engine.enableAudio();
-    await engine.enableLocalAudio(true);
-
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: true,      
       autoSubscribeAudio: true,         
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
     ));
 
+    await engine.enableLocalAudio(true);
     await engine.muteLocalAudioStream(false);
     await engine.adjustRecordingSignalVolume(200);
 
-    // নেটওয়ার্ক স্লো হলে অটো-রিকানেক্ট পালস
     _keepAliveTimer?.cancel();
     _keepAliveTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       if (_isInitialized) {
         engine.muteLocalAudioStream(false);
-        engine.adjustRecordingSignalVolume(150);
       }
     });
   }
@@ -113,20 +118,11 @@ class AgoraManager {
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
     await engine.muteLocalAudioStream(true);
     await engine.enableLocalAudio(false);
-    await engine.updateChannelMediaOptions(const ChannelMediaOptions(
-      publishMicrophoneTrack: false,
-      clientRoleType: ClientRoleType.clientRoleAudience,
-    ));
-  }
-
-  Future<void> toggleMic(bool isMute) async {
-    await engine.muteLocalAudioStream(isMute);
-    await engine.updateChannelMediaOptions(ChannelMediaOptions(publishMicrophoneTrack: !isMute));
   }
 
   Future<void> leaveRoom() async {
     _keepAliveTimer?.cancel();
-    if (kIsWeb) js.context.callMethod('eval', ["clearInterval(window.micKeepAlive);"]);
+    if (kIsWeb) js.context.callMethod('eval', ["if(window.micKeepAlive) clearInterval(window.micKeepAlive);"]);
     try { await engine.leaveChannel(); _localUid = null; } catch (e) {}
   }
 }
