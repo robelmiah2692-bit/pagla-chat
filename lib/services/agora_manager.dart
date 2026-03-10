@@ -26,20 +26,19 @@ class AgoraManager {
 
     await engine.enableAudio();
     
-    // নেটওয়ার্ক স্ট্যাবিলিটি সেটিংস
+    // মোবাইল ব্রাউজারের অডিও অপ্টিমাইজেশন
     await engine.setParameters('{"che.audio.enable.vqe":true}');
     await engine.setParameters('{"che.audio.live_for_comm":true}');
     await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
     await engine.setParameters('{"rtc.web_receiver_report_interval":1000}');
     
     _isInitialized = true; 
-    debugPrint("Agora Initialized with Network Backup");
+    debugPrint("Agora Initialized with Mobile Audio Support");
   }
 
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
     
-    // ইউনিক আইডি জেনারেশন (ফায়ারবেস আইডি থেকে)
     if (fireUid != null && fireUid.isNotEmpty) {
       _localUid = fireUid.hashCode.abs() % 1000000;
     } else {
@@ -57,8 +56,12 @@ class AgoraManager {
       ),
     );
     
-    await engine.muteAllRemoteAudioStreams(false);
-    debugPrint("✅ Joined UID: $_localUid");
+    // 🔥 মোবাইল স্পিকার সচল করার কমান্ড
+    await engine.muteAllRemoteAudioStreams(false); 
+    await engine.setEnableSpeakerphone(true); // স্পিকারফোন অন করা
+    await engine.adjustPlaybackSignalVolume(100); // আওয়াজ ১০০% করা
+    
+    debugPrint("✅ Joined UID: $_localUid | Audio Active");
   }
 
   Future<void> becomeBroadcaster() async {
@@ -75,7 +78,6 @@ class AgoraManager {
       }
     }
 
-    // 🔥 এখানে পরিবর্তন করা হয়েছে (ChannelMediaOptions এর বদলে ClientRoleOptions)
     await engine.setClientRole(
       role: ClientRoleType.clientRoleBroadcaster,
       options: const ClientRoleOptions(
@@ -86,7 +88,6 @@ class AgoraManager {
     await engine.enableAudio();
     await engine.enableLocalAudio(true);
 
-    // আলাদাভাবে চ্যানেল মিডিয়া অপশন আপডেট করা হচ্ছে
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: true,      
       autoSubscribeAudio: true,         
@@ -94,6 +95,7 @@ class AgoraManager {
     ));
 
     await engine.muteLocalAudioStream(false);
+    await engine.setEnableSpeakerphone(true); // কথা বলার সময়ও স্পিকার সচল
     await engine.adjustRecordingSignalVolume(150);
 
     _keepAliveTimer?.cancel();
