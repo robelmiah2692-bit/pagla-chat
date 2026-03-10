@@ -150,7 +150,7 @@ void initState() {
     
     // ২. ফায়ারবেস আইডি সহ জয়েন করবে (যাতে সবার আইডি আলাদা থাকে)
     // ধরুন আপনার widget এ ইউজারের আইডি আছে, সেটা পাঠিয়ে দিন
-    await _agoraManager.joinAsListener(widget.roomId, widget.currentUserUid);
+    await _agoraManager.joinAsListener(widget.roomId);
     
     debugPrint("✅ ইউনিক আইডি দিয়ে রুমে ঢোকা সফল");
   } catch (e) {
