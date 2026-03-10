@@ -241,55 +241,53 @@ void initState() {
 
   // ১. সিটে বসার মেইন লজিক (আপনার দেওয়া রিয়েল টাইম সিঙ্ক সহ)
   void sitOnSeat(int index) async {
-  // ১. লিভ কনফার্মেশন (অপরিবর্তিত)
+  // ১. বেসিক চেক (আগের মতোই)
   if (currentSeatIndex == index) { 
     _showLeaveConfirmation(index); 
     return; 
   }
-  
-  // ২. সিট দখল চেক
   if (seats[index]["isOccupied"] || isRoomLocked) return;
 
-  // ৩. কথা বের করার আসল ট্রিক (সবার আগে অডিও চালু করা)
+  // 🔥 ২. কথা বের করার আসল সিকোয়েন্স (এই অর্ডারে কোনো ভুল নেই)
   try {
-    // কোনোরকম await ছাড়াই সরাসরি মাইক সচল করা
-    // এতে ব্রাউজার বুঝবে ইউজার সরাসরি কথা বলতে চাচ্ছে
-    await _agoraManager.forceResumeAudio(); // সিটে ক্লিক করলেই আগে অডিও জাগাবে
-    _agoraManager.becomeBroadcaster().then((_) {
-      _agoraManager.engine.muteLocalAudioStream(false);
-      _agoraManager.engine.setEnableSpeakerphone(true);
-      _agoraManager.engine.adjustRecordingSignalVolume(200);
-      debugPrint("✅ মাইক ট্র্যাক এখন ১০০% সচল");
-    });
+    // সবার আগে ব্রাউজারের অডিও ইঞ্জিনকে ধাক্কা দেওয়া
+    await _agoraManager.forceResumeAudio(); 
+    
+    // এগোরা ব্রডকাস্টার রোল সেট করা
+    await _agoraManager.becomeBroadcaster();
+    
+    // ম্যানুয়ালি ভলিউম এবং স্ট্রিম চেক করা
+    await _agoraManager.engine.muteLocalAudioStream(false);
+    await _agoraManager.engine.adjustRecordingSignalVolume(200);
+    
+    debugPrint("✅ কথা এখন বের হতে বাধ্য!");
   } catch (e) {
-    debugPrint("Agora Audio Error: $e");
+    debugPrint("Agora Error: $e");
   }
 
-  // ৪. পুরনো সিট পরিষ্কার
+  // ৩. পুরাতন সিট ক্লিয়ার করা (যদি আগে কোথাও বসে থাকেন)
   if (currentSeatIndex != -1) {
     int oldIndex = currentSeatIndex;
     FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').remove();
-    
     setState(() {
       seats[oldIndex]["isOccupied"] = false;
       seats[oldIndex]["status"] = "empty";
     });
   }
 
-  // ৫. পুরাতন ফিচার: ফায়ারস্টোর ও ডাটাবেস আপডেট (ব্যাকগ্রাউন্ডে হবে)
+  // ৪. ফায়ারবেস থেকে আপনার ডাটা আনা এবং সিট আপডেট করা
   try {
     final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
     final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
     
-    String myActualName = userDoc.data()?['name'] ?? "User"; 
-    String myActualPic = userDoc.data()?['profilePic'] ?? "";
+    String myName = userDoc.data()?['name'] ?? "User"; 
+    String myPic = userDoc.data()?['profilePic'] ?? "";
 
     final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
     
-    // ডাটাবেসে তথ্য সেট করা (যাতে সবাই আপনাকে দেখে)
     await seatRef.set({
-      'userName': myActualName,
-      'userImage': myActualPic,
+      'userName': myName,
+      'userImage': myPic,
       'isOccupied': true,
       'status': 'occupied',
       'isMicOn': true,
@@ -298,21 +296,19 @@ void initState() {
     
     await seatRef.onDisconnect().remove();
 
-    // ৬. লোকাল UI আপডেট
     if (mounted) {
       setState(() {
         currentSeatIndex = index;
         isMicOn = true;
         seats[index]["status"] = "occupied";
         seats[index]["isOccupied"] = true;
-        seats[index]["userName"] = myActualName;
-        seats[index]["userImage"] = myActualPic; 
+        seats[index]["userName"] = myName;
+        seats[index]["userImage"] = myPic; 
         seats[index]["isMicOn"] = true;
       });
     }
-
   } catch (e) {
-    debugPrint("Final Sync Error: $e");
+    debugPrint("Database Update Error: $e");
   }
 }
   // ২. সিট ছাড়ার লজিক
