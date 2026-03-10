@@ -143,21 +143,21 @@ void initState() {
   );
 
   // 🔥 ৪. এগোরা ইঞ্জিন শুরু করা (Async পদ্ধতিতে ফিক্স করা হলো)
-   Future.microtask(() async {
+    Future.microtask(() async {
   try {
-    // ১. ইঞ্জিন রেডি হবে
     await _agoraManager.initAgora(); 
     
-    // ২. ফায়ারবেস আইডি সহ জয়েন করবে (যাতে সবার আইডি আলাদা থাকে)
-    // ধরুন আপনার widget এ ইউজারের আইডি আছে, সেটা পাঠিয়ে দিন
-    _agoraManager.joinAsListener(widget.roomId, widget.roomId + "user");
+    // আমার আগের দেওয়া ভুলের বদলে এখানে ইউজারের নিজের অরিজিনাল UID দিন
+    final String myActualUid = FirebaseAuth.instance.currentUser?.uid ?? "guest_${Random().nextInt(10000)}";
     
-    debugPrint("✅ ইউনিক আইডি দিয়ে রুমে ঢোকা সফল");
+    // এখন সবাই আলাদা আলাদা আইডি পাবে, আর কেউ কাউকে কিক করবে না
+    await _agoraManager.joinAsListener(widget.roomId, myActualUid);
+    
+    debugPrint("✅ ইউনিক আইডি $myActualUid দিয়ে জয়েন সফল। এখন কথা হবেই!");
   } catch (e) {
     debugPrint("❌ Agora Init Error: $e");
   }
 });
-
   // ৫. অডিও প্লেয়ার লিসেনার (আপনার অরিজিনাল)
   _audioPlayer.onPlayerStateChanged.listen((state) {
     if (mounted) {
