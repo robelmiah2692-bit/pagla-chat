@@ -19,7 +19,6 @@ class AgoraManager {
 
     engine = createAgoraRtcEngine();
     
-    // 💡 ফিচার ১: নেটওয়ার্ক লজিক অ্যাড করা হয়েছে (Reconnection Policy)
     await engine.initialize(RtcEngineContext(
       appId: appId,
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
@@ -27,22 +26,20 @@ class AgoraManager {
 
     await engine.enableAudio();
     
-    // নেট স্লো হলেও যেন কানেকশন ধরে রাখে তার প্যারামিটার
+    // নেটওয়ার্ক স্ট্যাবিলিটি সেটিংস
     await engine.setParameters('{"che.audio.enable.vqe":true}');
     await engine.setParameters('{"che.audio.live_for_comm":true}');
     await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
-    
-    // নেটওয়ার্ক রিকানেক্ট হওয়ার জন্য ১ সেকেন্ড বিরতি সেট করা
     await engine.setParameters('{"rtc.web_receiver_report_interval":1000}');
     
     _isInitialized = true; 
     debugPrint("Agora Initialized with Network Backup");
   }
 
-  // 💡 ফিচার ২: এখানে fireUid-কে কাজে লাগানো হয়েছে (Unique User Logic)
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
     
+    // প্রোফাইল আইডি থেকে ইউনিক সংখ্যা তৈরি (যাতে সবাইকে আলাদা চেনে)
     if (fireUid != null && fireUid.isNotEmpty) {
       _localUid = fireUid.hashCode.abs() % 1000000;
     } else {
@@ -57,12 +54,10 @@ class AgoraManager {
         clientRoleType: ClientRoleType.clientRoleAudience, 
         publishMicrophoneTrack: false, 
         autoSubscribeAudio: true,
-        // নেট ডিসকানেক্ট হলে অটো ট্রাই করবে
-        enableAudioRecordingDevice: true, 
+        // এখান থেকে সেই এরর দেওয়া লাইনটি ফেলে দিয়েছি
       ),
     );
     
-    // অন্যের আওয়াজ শোনার গেট খোলা
     await engine.muteAllRemoteAudioStreams(false);
     debugPrint("✅ Joined UID: $_localUid");
   }
@@ -83,29 +78,25 @@ class AgoraManager {
 
     await engine.setClientRole(
       role: ClientRoleType.clientRoleBroadcaster,
-      options: const ClientRoleOptions(audienceLatencyLevel: AudienceLatencyLevelType.audienceLatencyLevelLowLatency),
+      options: const ChannelMediaOptions(
+          clientRoleType: ClientRoleType.clientRoleBroadcaster,
+          autoSubscribeAudio: true,
+          publishMicrophoneTrack: true,
+      ),
     );
     
     await engine.enableAudio();
     await engine.enableLocalAudio(true);
-    await engine.startPreview(); 
-
-    await engine.updateChannelMediaOptions(const ChannelMediaOptions(
-      publishMicrophoneTrack: true,      
-      autoSubscribeAudio: true,         
-      clientRoleType: ClientRoleType.clientRoleBroadcaster,
-    ));
 
     await engine.muteLocalAudioStream(false);
     await engine.adjustRecordingSignalVolume(150);
 
-    // 💡 নেটওয়ার্ক অটো-হিলিং পালস
+    // পালস লজিক: নেটওয়ার্ক ড্রপ সামলানোর জন্য
     _keepAliveTimer?.cancel();
     _keepAliveTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_isInitialized) {
-        // নেট ২-৩ সেকেন্ডের জন্য চলে গিয়ে আবার আসলে মাইক নিজেই অন হবে
         engine.muteLocalAudioStream(false);
-        engine.adjustRecordingSignalVolume(135); 
+        engine.adjustRecordingSignalVolume(140); 
       }
     });
   }
@@ -113,7 +104,6 @@ class AgoraManager {
   Future<void> becomeListener() async {
     _keepAliveTimer?.cancel(); 
     if (kIsWeb) js.context.callMethod('eval', ["clearInterval(window.micKeepAlive);"]);
-    await engine.stopPreview();
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
     await engine.muteLocalAudioStream(true);
     await engine.enableLocalAudio(false);
