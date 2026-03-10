@@ -145,13 +145,14 @@ void initState() {
   // 🔥 ৪. এগোরা ইঞ্জিন শুরু করা (Async পদ্ধতিতে ফিক্স করা হলো)
    Future.microtask(() async {
   try {
-    // ১. ইঞ্জিন রেডি হবে কিন্তু পারমিশন পপআপ আসবে না
+    // ১. ইঞ্জিন রেডি হবে
     await _agoraManager.initAgora(); 
     
-    // ২. শুধু শোনার জন্য জয়েন করবে
-    await _agoraManager.joinAsListener(widget.roomId);
+    // ২. ফায়ারবেস আইডি সহ জয়েন করবে (যাতে সবার আইডি আলাদা থাকে)
+    // ধরুন আপনার widget এ ইউজারের আইডি আছে, সেটা পাঠিয়ে দিন
+    await _agoraManager.joinAsListener(widget.roomId, widget.currentUserUid);
     
-    debugPrint("✅ রুমে ঢোকা সফল - সবুজ আইকন আসবে না কারণ মাইক এখনো চাওয়া হয়নি");
+    debugPrint("✅ ইউনিক আইডি দিয়ে রুমে ঢোকা সফল");
   } catch (e) {
     debugPrint("❌ Agora Init Error: $e");
   }
