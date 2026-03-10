@@ -16,12 +16,14 @@ class AgoraManager {
   Future<void> initAgora() async {
     if (_isInitialized) return;
     
-    // পারমিশন হ্যান্ডলিং
     if (!kIsWeb) {
       await [Permission.microphone].request();
     } else {
-      // ওয়েব ব্রাউজারের জন্য মাইক্রোফোন পারমিশন প্রম্পট
-      await html.window.navigator.getUserMedia(audio: true);
+      try {
+        await html.window.navigator.getUserMedia(audio: true);
+      } catch (e) {
+        debugPrint("Mic Permission Error: $e");
+      }
     }
 
     engine = createAgoraRtcEngine();
@@ -31,19 +33,16 @@ class AgoraManager {
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
-    // ওয়েব অডিওর জন্য বিশেষ প্যারামিটার
     await engine.setParameters('{"rtc.web_receiver_report_interval":1000}');
-    await engine.setParameters('{"che.audio.opensl":true}');
     await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
 
     await engine.enableAudio();
     _isInitialized = true; 
-    debugPrint("Agora Initialized - Ready to Connect");
+    debugPrint("Agora Initialized");
   }
 
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
-    
     _localUid = fireUid?.hashCode.abs() ?? (Random().nextInt(899999) + 100000);
 
     await engine.joinChannel(
@@ -56,12 +55,8 @@ class AgoraManager {
         autoSubscribeAudio: true,
       ),
     );
-    
-    await engine.muteAllRemoteAudioStreams(false);
-    debugPrint("✅ Joined Room: $channelName as Listener");
   }
 
-  // কথা না আসার সমস্যা সমাধানের আসল ফাংশন
   Future<void> forceResumeAudio() async {
     if (kIsWeb) {
       js.context.callMethod('eval', [
@@ -69,7 +64,7 @@ class AgoraManager {
         (function() {
           var audioCtx = window.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
           if (audioCtx.state === 'suspended') {
-            audioCtx.resume().then(() => { console.log('AudioContext Resumed'); });
+            audioCtx.resume();
           }
           window.audioCtx = audioCtx;
         })();
@@ -79,21 +74,14 @@ class AgoraManager {
   }
 
   Future<void> becomeBroadcaster() async {
-    await forceResumeAudio(); // সবার আগে অডিও ইঞ্জিন জাগানো
-
+    await forceResumeAudio();
     if (kIsWeb) {
-      try {
-        js.context.callMethod('eval', [
-          "window.micKeepAlive = setInterval(() => { if(window.audioCtx && window.audioCtx.state === 'suspended') window.audioCtx.resume(); }, 1000);"
-        ]);
-        await html.window.navigator.getUserMedia(audio: true);
-      } catch (e) {
-        debugPrint("Mic access failed: $e");
-      }
+      js.context.callMethod('eval', [
+        "window.micKeepAlive = setInterval(() => { if(window.audioCtx && window.audioCtx.state === 'suspended') window.audioCtx.resume(); }, 1000);"
+      ]);
     }
 
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
-    
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: true,      
       autoSubscribeAudio: true,         
@@ -112,9 +100,19 @@ class AgoraManager {
     });
   }
 
+  // 🔥 আপনার মিসিং হওয়া toggleMic ফাংশনটি নিচে দেওয়া হলো
+  Future<void> toggleMic(bool isMute) async {
+    if (!_isInitialized) return;
+    await engine.muteLocalAudioStream(isMute);
+    await engine.updateChannelMediaOptions(ChannelMediaOptions(
+      publishMicrophoneTrack: !isMute,
+    ));
+    debugPrint("Mic Toggled: ${isMute ? 'Muted' : 'Unmuted'}");
+  }
+
   Future<void> becomeListener() async {
     _keepAliveTimer?.cancel(); 
-    if (kIsWeb) js.context.callMethod('eval', ["clearInterval(window.micKeepAlive);"]);
+    if (kIsWeb) js.context.callMethod('eval', ["if(window.micKeepAlive) clearInterval(window.micKeepAlive);"]);
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
     await engine.muteLocalAudioStream(true);
     await engine.enableLocalAudio(false);
