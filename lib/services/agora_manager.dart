@@ -24,24 +24,26 @@ class AgoraManager {
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
-    await engine.enableAudio();
-    
-    // মোবাইল ব্রাউজারের অডিও অপ্টিমাইজেশন
+    // নেটওয়ার্ক রিকানেকশন সেটিংস (আঠার মতো লেগে থাকবে)
+    await engine.setParameters('{"rtc.web_receiver_report_interval":1000}');
     await engine.setParameters('{"che.audio.enable.vqe":true}');
     await engine.setParameters('{"che.audio.live_for_comm":true}');
-    await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
-    await engine.setParameters('{"rtc.web_receiver_report_interval":1000}');
-    
+    await engine.setParameters('{"che.audio.keep_audiosession_alive":true}');
+
+    await engine.enableAudio();
     _isInitialized = true; 
-    debugPrint("Agora Initialized with Mobile Audio Support");
+    debugPrint("Agora Initialized - Ready to Connect");
   }
 
+  // এখানে [String? fireUid] রেখেছি যাতে আপনি পাঠালেও কাজ করে, না পাঠালেও বিল্ড না ভাঙে
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
     
-    if (fireUid != null && fireUid.isNotEmpty) {
+    // ইউনিক আইডি জেনারেশন - যাতে প্রত্যেক ইউজার আলাদা হয়
+    if (fireUid != null && fireUid.toString().isNotEmpty) {
       _localUid = fireUid.hashCode.abs() % 1000000;
     } else {
+      // যদি আইডি না পাঠান, তবে র‍্যান্ডম আইডি তৈরি হবে (বিল্ড ফেইল হবে না)
       _localUid = (Random().nextInt(899999) + 100000); 
     }
 
@@ -56,21 +58,19 @@ class AgoraManager {
       ),
     );
     
-    // 🔥 মোবাইল স্পিকার সচল করার কমান্ড
-    await engine.muteAllRemoteAudioStreams(false); 
-    await engine.setEnableSpeakerphone(true); // স্পিকারফোন অন করা
-    await engine.adjustPlaybackSignalVolume(100); // আওয়াজ ১০০% করা
-    
-    debugPrint("✅ Joined UID: $_localUid | Audio Active");
+    await engine.muteAllRemoteAudioStreams(false);
+    await engine.adjustPlaybackSignalVolume(150); // সাউন্ড বুস্ট
+    debugPrint("✅ Joined Room: $channelName with UID: $_localUid");
   }
 
   Future<void> becomeBroadcaster() async {
     if (kIsWeb) {
       try {
+        // জাভাস্ক্রিপ্ট দিয়ে ব্রাউজারের অডিও ইঞ্জিনকে জাগিয়ে রাখা
         js.context.callMethod('eval', [
           "if(!window.audioCtx){ window.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }"
           "window.audioCtx.resume();"
-          "window.micKeepAlive = setInterval(() => { if(window.audioCtx.state === 'suspended') window.audioCtx.resume(); }, 500);"
+          "window.micKeepAlive = setInterval(() => { if(window.audioCtx.state === 'suspended') window.audioCtx.resume(); }, 1000);"
         ]);
         await html.window.navigator.getUserMedia(audio: true);
       } catch (e) {
@@ -95,14 +95,14 @@ class AgoraManager {
     ));
 
     await engine.muteLocalAudioStream(false);
-    await engine.setEnableSpeakerphone(true); // কথা বলার সময়ও স্পিকার সচল
-    await engine.adjustRecordingSignalVolume(150);
+    await engine.adjustRecordingSignalVolume(200);
 
+    // নেটওয়ার্ক স্লো হলে অটো-রিকানেক্ট পালস
     _keepAliveTimer?.cancel();
-    _keepAliveTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _keepAliveTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       if (_isInitialized) {
         engine.muteLocalAudioStream(false);
-        engine.adjustRecordingSignalVolume(140); 
+        engine.adjustRecordingSignalVolume(150);
       }
     });
   }
