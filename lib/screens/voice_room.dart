@@ -253,6 +253,7 @@ void initState() {
   try {
     // কোনোরকম await ছাড়াই সরাসরি মাইক সচল করা
     // এতে ব্রাউজার বুঝবে ইউজার সরাসরি কথা বলতে চাচ্ছে
+    await _agoraManager.forceResumeAudio(); // সিটে ক্লিক করলেই আগে অডিও জাগাবে
     _agoraManager.becomeBroadcaster().then((_) {
       _agoraManager.engine.muteLocalAudioStream(false);
       _agoraManager.engine.setEnableSpeakerphone(true);
