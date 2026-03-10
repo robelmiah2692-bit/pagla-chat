@@ -5,11 +5,16 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Live Voice Adda App">
+  
+  <meta http-equiv="Permissions-Policy" content="microphone=*, camera=*, display-capture=*">
+
   <title>Pagla Chat</title>
   
   <link rel="icon" type="image/png" href="favicon.png?v=101"/>
   <link rel="apple-touch-icon" href="icons/Icon-192.png?v=101">
   <link rel="manifest" href="manifest.json">
+
+  <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
 
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -31,7 +36,6 @@
   </script>
 
   <style>
-    /* 🔥 ডিফল্ট লোগোর সব রাস্তা বন্ধ করার জন্য */
     .flutter-loader, #flutter-loader, picture, #splash, [id*="splash"], flutter-loading {
       display: none !important;
       visibility: hidden !important;
@@ -67,25 +71,29 @@
   <script src="main.dart.js" type="application/javascript"></script>
 
   <script>
-    // এই লজিকটি ডিফল্ট লোগোকে আসতে দেবে না
     window.addEventListener('load', function() {
       var loader = document.getElementById('loading-indicator');
-      
-      // ফ্লাটার ইঞ্জিন পুরোপুরি লোড হওয়ার জন্য ৩ সেকেন্ড সময় নেবে 
-      // এবং আপনার লোগো ততক্ষণ পর্যন্ত পর্দা হয়ে দাঁড়িয়ে থাকবে।
       setTimeout(function() {
         loader.style.transition = "opacity 1s ease";
         loader.style.opacity = "0";
         setTimeout(function() {
           loader.style.display = 'none';
         }, 1000);
-      }, 5000); // এখানে ৫ সেকেন্ড দিলাম যাতে ইঞ্জিন পুরোপুরি চালু হওয়ার গ্যাপ না পায়
+      }, 5000);
     });
 
-    // ফ্লাটার ইঞ্জিন যখন ইন্টারনাল স্প্ল্যাশ রেন্ডার করতে যাবে, এটা সেটা ব্লক করবে
     Object.defineProperty(window, 'flutter_web_config', {
       value: { isVisible: false },
       writable: false
+    });
+
+    // 🔥 অডিও কন্টেক্সট অটো-রিজুম (ব্রাউজার ব্লক করলে এটি খুলে দেবে)
+    window.addEventListener('click', () => {
+        if (window.AgoraRTC) {
+            AgoraRTC.onAudioAutoplayFailed = () => {
+                console.log("Audio autoplay failed, resuming...");
+            };
+        }
     });
   </script>
 </body>
