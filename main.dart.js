@@ -110900,21 +110900,22 @@ case 6:p.b=!0
 case 1:return A.o(q,r)}})
 return A.p($async$oR,r)},
 uu(a,b){return this.aBN(a,b)},
-aBN(a,b){var s=0,r=A.q(t.H),q=this,p,o
+aBN(a,b){var s=0,r=A.q(t.H),q=this,p,o,n,m
 var $async$uu=A.m(function(c,d){if(c===1)return A.n(d,r)
 for(;;)switch(s){case 0:s=!q.b?2:3
 break
 case 2:s=4
 return A.l(q.oR(),$async$uu)
-case 4:case 3:if(b.length!==0)p=q.e=Math.abs(B.d.gA(b))
-else p=q.e=B.dn.m8(899999)+1e5
-o=q.a
-o===$&&A.a()
+case 4:case 3:p=b.length
+if(p!==0){for(o=0,n=0;n<p;++n)o=b.charCodeAt(n)+((o<<5>>>0)-o)
+p=q.e=B.f.be(Math.abs(o),1e6)}else p=q.e=B.dn.m8(899999)+1e5
+m=q.a
+m===$&&A.a()
 s=5
-return A.l(o.Fa(a,B.H4,"",p),$async$uu)
+return A.l(m.Fa(a,B.H4,"",p),$async$uu)
 case 5:s=6
 return A.l(q.a.p_(!0),$async$uu)
-case 6:A.fG().$1("\u2705 Joined as UID: "+A.k(q.e)+" (Listener)")
+case 6:A.fG().$1("\u2705 Joined with UID: "+A.k(q.e))
 return A.o(null,r)}})
 return A.p($async$uu,r)},
 Ey(){var s=0,r=A.q(t.H)
