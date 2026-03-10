@@ -240,31 +240,39 @@ void initState() {
 
   // ১. সিটে বসার মেইন লজিক (আপনার দেওয়া রিয়েল টাইম সিঙ্ক সহ)
   void sitOnSeat(int index) async {
-  // ১. বেসিক চেক (আগের মতোই)
+  // ১. লিভ কনফার্মেশন (অপরিবর্তিত)
   if (currentSeatIndex == index) { 
     _showLeaveConfirmation(index); 
     return; 
   }
+  
+  // ২. সিট দখল চেক
   if (seats[index]["isOccupied"] || isRoomLocked) return;
 
-  // ২. পুরনো সিট পরিষ্কার এবং এগোরাকে তৈরি করা
+  // ৩. পুরনো সিট পরিষ্কার (কিন্তু অন্য ইউজারদের ডাটা ঠিক রেখে)
   if (currentSeatIndex != -1) {
     int oldIndex = currentSeatIndex;
-    FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').remove();
+    // পুরনো সিট ডাটাবেস থেকে সরানো
+    await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').remove();
+    
+    // নিজের লোকাল লিস্ট আপডেট (যাতে ডাবল ইউজার না দেখায়)
+    setState(() {
+      seats[oldIndex]["isOccupied"] = false;
+      seats[oldIndex]["status"] = "empty";
+      seats[oldIndex]["userName"] = "";
+      seats[oldIndex]["userImage"] = "";
+    });
   }
 
+  // ৪. নতুন সিটে বসার জন্য ডাটা আনা (ফায়ারস্টোর এবং ফায়ারবেস ফিচার)
   try {
-    // ৩. ফায়ারবেস থেকে অরিজিনাল UID আনা (এটাই আসল ম্যাজিক)
     final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
     final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    
     String myActualName = userDoc.data()?['name'] ?? "User"; 
     String myActualPic = userDoc.data()?['profilePic'] ?? "";
 
-    // ৪. এগোরাকে আলাদা ইউজার হিসেবে জানানো (যাতে অন্য কেউ বসলে আপনার মাইক না যায়)
-    // আমরা সরাসরি UID টা এগোরা ম্যানেজারকে দিচ্ছি
-    await _agoraManager.becomeBroadcaster(); 
-    
-    // ৫. ডাটাবেসে তথ্য বসানো (সরাসরি Occupied)
+    // ৫. ডাটাবেসে তথ্য সেট করা (যাতে সবাই আপনাকে দেখতে পারে)
     final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
     await seatRef.set({
       'userName': myActualName,
@@ -275,12 +283,15 @@ void initState() {
       'userId': uid,
     });
     
+    // অটো লিভ হ্যান্ডেল (নেট ডিসকানেক্ট হলে)
     await seatRef.onDisconnect().remove();
 
-    // ৬. মাইক ফোর্স আনমিউট (কথা বের হতে বাধ্য)
+    // ৬. এগোরা মাইক সচল করা (আঠার মতো লেগে থাকবে)
+    await _agoraManager.becomeBroadcaster();
     await _agoraManager.engine.muteLocalAudioStream(false);
     await _agoraManager.engine.adjustRecordingSignalVolume(200);
 
+    // ৭. লোকাল UI আপডেট (যাতে আপনি নিজে নিজের প্রোফাইল দেখেন)
     if (mounted) {
       setState(() {
         currentSeatIndex = index;
@@ -289,13 +300,14 @@ void initState() {
         seats[index]["isOccupied"] = true;
         seats[index]["userName"] = myActualName;
         seats[index]["userImage"] = myActualPic; 
+        seats[index]["isMicOn"] = true;
       });
     }
-    
-    debugPrint("✅ UID: $uid দিয়ে সাকসেসফুলি মাইক কানেক্টেড!");
+
+    debugPrint("✅ প্রোফাইল এবং মাইক এখন সবার কাছে দৃশ্যমান");
 
   } catch (e) {
-    debugPrint("Agora Connection Error: $e");
+    debugPrint("Error: $e");
   }
 }
   // ২. সিট ছাড়ার লজিক
