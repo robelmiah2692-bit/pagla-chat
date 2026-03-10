@@ -18,12 +18,6 @@ class AgoraManager {
     
     if (!kIsWeb) {
       await [Permission.microphone].request();
-    } else {
-      try {
-        await html.window.navigator.getUserMedia(audio: true);
-      } catch (e) {
-        debugPrint("Mic Permission Error: $e");
-      }
     }
 
     engine = createAgoraRtcEngine();
@@ -33,17 +27,24 @@ class AgoraManager {
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
+    // অডিও কোয়ালিটি এবং ওয়েব সিঙ্ক প্যারামিটার
     await engine.setParameters('{"rtc.web_receiver_report_interval":1000}');
     await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
-
+    
     await engine.enableAudio();
     _isInitialized = true; 
-    debugPrint("Agora Initialized");
   }
 
+  // ১. আলাদা আলাদা ইউজার চেনার জন্য ইউনিক UID লজিক
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
-    _localUid = fireUid?.hashCode.abs() ?? (Random().nextInt(899999) + 100000);
+    
+    // ফায়ারবেস UID থেকে একটি ইউনিক ইনটিজার (Integer) তৈরি করা হচ্ছে যা এগোরা চিনবে
+    if (fireUid != null && fireUid.isNotEmpty) {
+      _localUid = fireUid.hashCode.abs();
+    } else {
+      _localUid = (Random().nextInt(899999) + 100000);
+    }
 
     await engine.joinChannel(
       token: "", 
@@ -55,6 +56,9 @@ class AgoraManager {
         autoSubscribeAudio: true,
       ),
     );
+    
+    await engine.muteLocalAudioStream(true);
+    debugPrint("✅ Joined as UID: $_localUid (Listener)");
   }
 
   Future<void> forceResumeAudio() async {
@@ -73,12 +77,19 @@ class AgoraManager {
     }
   }
 
+  // ২. সিটে বসলে মাইক সচল এবং রোল পরিবর্তন
   Future<void> becomeBroadcaster() async {
     await forceResumeAudio();
+    
     if (kIsWeb) {
-      js.context.callMethod('eval', [
-        "window.micKeepAlive = setInterval(() => { if(window.audioCtx && window.audioCtx.state === 'suspended') window.audioCtx.resume(); }, 1000);"
-      ]);
+      try {
+        await html.window.navigator.getUserMedia(audio: true);
+        js.context.callMethod('eval', [
+          "window.micKeepAlive = setInterval(() => { if(window.audioCtx && window.audioCtx.state === 'suspended') window.audioCtx.resume(); }, 1000);"
+        ]);
+      } catch (e) {
+        debugPrint("Mic Error: $e");
+      }
     }
 
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
@@ -92,6 +103,7 @@ class AgoraManager {
     await engine.muteLocalAudioStream(false);
     await engine.adjustRecordingSignalVolume(200);
 
+    // মাইক যাতে ড্রপ না করে তার জন্য টাইমার
     _keepAliveTimer?.cancel();
     _keepAliveTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       if (_isInitialized) {
@@ -100,27 +112,36 @@ class AgoraManager {
     });
   }
 
-  // 🔥 আপনার মিসিং হওয়া toggleMic ফাংশনটি নিচে দেওয়া হলো
+  // ৩. মাইক আইকন ক্লিক করলে সিঙ্ক হওয়ার ফাংশন
   Future<void> toggleMic(bool isMute) async {
     if (!_isInitialized) return;
     await engine.muteLocalAudioStream(isMute);
     await engine.updateChannelMediaOptions(ChannelMediaOptions(
       publishMicrophoneTrack: !isMute,
     ));
-    debugPrint("Mic Toggled: ${isMute ? 'Muted' : 'Unmuted'}");
+    debugPrint("✅ Mic is now: ${isMute ? 'Muted' : 'Unmuted'}");
   }
 
   Future<void> becomeListener() async {
     _keepAliveTimer?.cancel(); 
     if (kIsWeb) js.context.callMethod('eval', ["if(window.micKeepAlive) clearInterval(window.micKeepAlive);"]);
+    
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
     await engine.muteLocalAudioStream(true);
     await engine.enableLocalAudio(false);
+    
+    await engine.updateChannelMediaOptions(const ChannelMediaOptions(
+      publishMicrophoneTrack: false,
+      clientRoleType: ClientRoleType.clientRoleAudience,
+    ));
   }
 
   Future<void> leaveRoom() async {
     _keepAliveTimer?.cancel();
     if (kIsWeb) js.context.callMethod('eval', ["if(window.micKeepAlive) clearInterval(window.micKeepAlive);"]);
-    try { await engine.leaveChannel(); _localUid = null; } catch (e) {}
+    try { 
+      await engine.leaveChannel(); 
+      _localUid = null; 
+    } catch (e) {}
   }
 }
