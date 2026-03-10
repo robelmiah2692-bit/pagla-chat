@@ -1,9 +1,10 @@
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart'; 
+import 'package:permission_handler/permission_handler.dart'; // 👈 এটি আবার যোগ করা হয়েছে
 import 'dart:html' as html; 
 import 'dart:async';
 import 'dart:js' as js; 
-import 'dart:math'; // আইডি তৈরির জন্য মাস্ট লাগবে
+import 'dart:math';
 
 class AgoraManager {
   late RtcEngine engine;
@@ -14,6 +15,12 @@ class AgoraManager {
 
   Future<void> initAgora() async {
     if (_isInitialized) return;
+    
+    // মোবাইল ডিভাইসের জন্য পারমিশন চেক
+    if (!kIsWeb) {
+      await [Permission.microphone].request();
+    }
+
     engine = createAgoraRtcEngine();
     await engine.initialize(RtcEngineContext(
       appId: appId,
@@ -21,7 +28,7 @@ class AgoraManager {
     ));
 
     await engine.enableAudio();
-    // এই সেটিংসগুলো মাল্টি-ইউজার অডিওর জন্য সবচেয়ে শক্তিশালী
+    // মাল্টি-ইউজার অডিও মিক্সিং সেটিংস
     await engine.setParameters('{"che.audio.enable.vqe":true}');
     await engine.setParameters('{"che.audio.live_for_comm":true}');
     await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
@@ -30,16 +37,14 @@ class AgoraManager {
     debugPrint("Agora Initialized");
   }
 
-  // এখানে [fireUid] অপশনাল রাখা হয়েছে যাতে আপনার বিল্ড ফেইল না হয়
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
     
-    // 🔥 আইডি তৈরির সবচেয়ে শক্তিশালী লজিক যাতে কেউ কারও সাথে না মেলে
+    // ইউনিক আইডি জেনারেশন যাতে এগোরা সবাইকে আলাদা মানুষ মনে করে
     if (fireUid != null && fireUid.isNotEmpty) {
       _localUid = fireUid.hashCode.abs() % 1000000;
     } else {
-      // যদি ফায়ারবেস আইডি না পাওয়া যায়, তবে প্রতিবার আলাদা আইডি হবে
-      _localUid = (Random().nextInt(900000) + 100000); 
+      _localUid = (Random().nextInt(899999) + 100000); 
     }
 
     await engine.joinChannel(
@@ -52,19 +57,22 @@ class AgoraManager {
         autoSubscribeAudio: true,      
       ),
     );
-    debugPrint("✅ Unique User Joined with UID: $_localUid");
+    debugPrint("✅ Joined UID: $_localUid");
   }
 
   Future<void> becomeBroadcaster() async {
     if (kIsWeb) {
       try {
-        // ব্রাউজারকে বাধ্য করা অডিও সেশন চালু রাখতে
+        // 🔥 ব্রাউজারের মাইক আইকন সচল রাখার জন্য ডাবল-গার্ড লজিক
         js.context.callMethod('eval', [
-          "var AudioContext = window.AudioContext || window.webkitAudioContext;"
-          "var audioCtx = new AudioContext();"
-          "audioCtx.resume();"
-          "window.micKeepAlive = setInterval(function(){ if(audioCtx.state === 'suspended') audioCtx.resume(); }, 500);"
+          "if(!window.audioCtx){"
+          "window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();"
+          "}"
+          "window.audioCtx.resume();"
+          "window.micKeepAlive = setInterval(() => { if(window.audioCtx.state === 'suspended') window.audioCtx.resume(); }, 500);"
         ]);
+        
+        // এটি ব্রাউজারকে সিগনাল দেয় যে মাইক ব্যবহার হচ্ছে
         await html.window.navigator.getUserMedia(audio: true);
       } catch (e) {
         debugPrint("Mic access failed: $e");
@@ -89,12 +97,12 @@ class AgoraManager {
     await engine.muteLocalAudioStream(false);
     await engine.adjustRecordingSignalVolume(150);
 
-    // পালস লজিক: যাতে এগোরা মনে না করে ইউজার সাইলেন্ট আছে
+    // পালস লজিক যাতে কানেকশন ড্রপ না হয়
     _keepAliveTimer?.cancel();
     _keepAliveTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_isInitialized) {
         engine.muteLocalAudioStream(false);
-        engine.adjustRecordingSignalVolume(140); 
+        engine.adjustRecordingSignalVolume(135); 
       }
     });
   }
@@ -102,10 +110,12 @@ class AgoraManager {
   Future<void> becomeListener() async {
     _keepAliveTimer?.cancel(); 
     if (kIsWeb) js.context.callMethod('eval', ["clearInterval(window.micKeepAlive);"]);
+    
     await engine.stopPreview();
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
     await engine.muteLocalAudioStream(true);
     await engine.enableLocalAudio(false);
+    
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: false,
       clientRoleType: ClientRoleType.clientRoleAudience,
