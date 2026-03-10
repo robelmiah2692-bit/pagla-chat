@@ -1,9 +1,9 @@
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart'; 
-import 'package:permission_handler/permission_handler.dart';
 import 'dart:html' as html; 
 import 'dart:async';
 import 'dart:js' as js; 
+import 'dart:math'; // আইডি তৈরির জন্য মাস্ট লাগবে
 
 class AgoraManager {
   late RtcEngine engine;
@@ -12,15 +12,8 @@ class AgoraManager {
   Timer? _keepAliveTimer;
   int? _localUid;
 
-  // ফায়ারবেসের স্ট্রিং ইউআইডি-কে এগোরা ফ্রেন্ডলি সংখ্যায় রূপান্তর
-  int _createStaticId(String fireUid) {
-    return fireUid.hashCode.abs() % 1000000;
-  }
-
   Future<void> initAgora() async {
     if (_isInitialized) return;
-    if (!kIsWeb) await [Permission.microphone].request();
-
     engine = createAgoraRtcEngine();
     await engine.initialize(RtcEngineContext(
       appId: appId,
@@ -28,22 +21,25 @@ class AgoraManager {
     ));
 
     await engine.enableAudio();
+    // এই সেটিংসগুলো মাল্টি-ইউজার অডিওর জন্য সবচেয়ে শক্তিশালী
     await engine.setParameters('{"che.audio.enable.vqe":true}');
     await engine.setParameters('{"che.audio.live_for_comm":true}');
+    await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
     
     _isInitialized = true; 
     debugPrint("Agora Initialized");
   }
 
-  // 🔥 সমাধান: [String? fireUid] দেওয়ার ফলে এখন ১টি আর্গুমেন্ট দিলেও বিল্ড ফেইল হবে না
+  // এখানে [fireUid] অপশনাল রাখা হয়েছে যাতে আপনার বিল্ড ফেইল না হয়
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
     
-    // যদি আইডি থাকে তবে ফিক্সড আইডি হবে, না থাকলে র্যান্ডম হবে
+    // 🔥 আইডি তৈরির সবচেয়ে শক্তিশালী লজিক যাতে কেউ কারও সাথে না মেলে
     if (fireUid != null && fireUid.isNotEmpty) {
-      _localUid = _createStaticId(fireUid);
+      _localUid = fireUid.hashCode.abs() % 1000000;
     } else {
-      _localUid = DateTime.now().millisecondsSinceEpoch % 1000000;
+      // যদি ফায়ারবেস আইডি না পাওয়া যায়, তবে প্রতিবার আলাদা আইডি হবে
+      _localUid = (Random().nextInt(900000) + 100000); 
     }
 
     await engine.joinChannel(
@@ -56,18 +52,18 @@ class AgoraManager {
         autoSubscribeAudio: true,      
       ),
     );
-    debugPrint("Joined as: $_localUid");
+    debugPrint("✅ Unique User Joined with UID: $_localUid");
   }
 
   Future<void> becomeBroadcaster() async {
     if (kIsWeb) {
       try {
+        // ব্রাউজারকে বাধ্য করা অডিও সেশন চালু রাখতে
         js.context.callMethod('eval', [
-          "if(window.AudioContext || window.webkitAudioContext){"
-          "var context = new (window.AudioContext || window.webkitAudioContext)();"
-          "context.resume();"
-          "window.agoraKeepAlive = setInterval(() => { if(context.state === 'suspended') context.resume(); }, 500);"
-          "}"
+          "var AudioContext = window.AudioContext || window.webkitAudioContext;"
+          "var audioCtx = new AudioContext();"
+          "audioCtx.resume();"
+          "window.micKeepAlive = setInterval(function(){ if(audioCtx.state === 'suspended') audioCtx.resume(); }, 500);"
         ]);
         await html.window.navigator.getUserMedia(audio: true);
       } catch (e) {
@@ -93,6 +89,7 @@ class AgoraManager {
     await engine.muteLocalAudioStream(false);
     await engine.adjustRecordingSignalVolume(150);
 
+    // পালস লজিক: যাতে এগোরা মনে না করে ইউজার সাইলেন্ট আছে
     _keepAliveTimer?.cancel();
     _keepAliveTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_isInitialized) {
@@ -104,7 +101,7 @@ class AgoraManager {
 
   Future<void> becomeListener() async {
     _keepAliveTimer?.cancel(); 
-    if (kIsWeb) js.context.callMethod('eval', ["clearInterval(window.agoraKeepAlive);"]);
+    if (kIsWeb) js.context.callMethod('eval', ["clearInterval(window.micKeepAlive);"]);
     await engine.stopPreview();
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
     await engine.muteLocalAudioStream(true);
@@ -124,7 +121,12 @@ class AgoraManager {
 
   Future<void> leaveRoom() async {
     _keepAliveTimer?.cancel();
-    if (kIsWeb) js.context.callMethod('eval', ["clearInterval(window.agoraKeepAlive);"]);
-    try { await engine.leaveChannel(); } catch (e) { debugPrint("Error: $e"); }
+    if (kIsWeb) js.context.callMethod('eval', ["clearInterval(window.micKeepAlive);"]);
+    try {
+      await engine.leaveChannel();
+      _localUid = null;
+    } catch (e) {
+      debugPrint("Error: $e");
+    }
   }
 }
