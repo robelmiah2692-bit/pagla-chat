@@ -12,9 +12,8 @@ class AgoraManager {
   Timer? _keepAliveTimer;
   int? _localUid;
 
-  // ফায়ারবেসের স্ট্রিং ইউআইডি-কে এগোরা ফ্রেন্ডলি সংখ্যায় রূপান্তর (Fixed ID)
+  // ফায়ারবেসের স্ট্রিং ইউআইডি-কে এগোরা ফ্রেন্ডলি সংখ্যায় রূপান্তর
   int _createStaticId(String fireUid) {
-    // এটি ফায়ারবেস আইডি থেকে একটি নির্দিষ্ট সংখ্যা তৈরি করবে যা কখনো পাল্টাবে না
     return fireUid.hashCode.abs() % 1000000;
   }
 
@@ -29,7 +28,6 @@ class AgoraManager {
     ));
 
     await engine.enableAudio();
-    // মাল্টি-ইউজার অডিও মিক্সিং সেটিংস
     await engine.setParameters('{"che.audio.enable.vqe":true}');
     await engine.setParameters('{"che.audio.live_for_comm":true}');
     
@@ -37,12 +35,16 @@ class AgoraManager {
     debugPrint("Agora Initialized");
   }
 
-  // 👈 এখানে fireUid প্যারামিটারটি যোগ করেছি
-  Future<void> joinAsListener(String channelName, String fireUid) async {
+  // 🔥 সমাধান: [String? fireUid] দেওয়ার ফলে এখন ১টি আর্গুমেন্ট দিলেও বিল্ড ফেইল হবে না
+  Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
     
-    // আপনার ফায়ারবেস আইডি থেকে স্থায়ী এগোরা আইডি তৈরি
-    _localUid = _createStaticId(fireUid);
+    // যদি আইডি থাকে তবে ফিক্সড আইডি হবে, না থাকলে র্যান্ডম হবে
+    if (fireUid != null && fireUid.isNotEmpty) {
+      _localUid = _createStaticId(fireUid);
+    } else {
+      _localUid = DateTime.now().millisecondsSinceEpoch % 1000000;
+    }
 
     await engine.joinChannel(
       token: "", 
@@ -54,7 +56,7 @@ class AgoraManager {
         autoSubscribeAudio: true,      
       ),
     );
-    debugPrint("Joined as Unique User: $_localUid");
+    debugPrint("Joined as: $_localUid");
   }
 
   Future<void> becomeBroadcaster() async {
@@ -95,7 +97,6 @@ class AgoraManager {
     _keepAliveTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_isInitialized) {
         engine.muteLocalAudioStream(false);
-        // ডাটা প্যাকেট পুশ (Force Push)
         engine.adjustRecordingSignalVolume(140); 
       }
     });
@@ -104,12 +105,10 @@ class AgoraManager {
   Future<void> becomeListener() async {
     _keepAliveTimer?.cancel(); 
     if (kIsWeb) js.context.callMethod('eval', ["clearInterval(window.agoraKeepAlive);"]);
-    
     await engine.stopPreview();
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
     await engine.muteLocalAudioStream(true);
     await engine.enableLocalAudio(false);
-    
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: false,
       clientRoleType: ClientRoleType.clientRoleAudience,
@@ -126,10 +125,6 @@ class AgoraManager {
   Future<void> leaveRoom() async {
     _keepAliveTimer?.cancel();
     if (kIsWeb) js.context.callMethod('eval', ["clearInterval(window.agoraKeepAlive);"]);
-    try {
-      await engine.leaveChannel();
-    } catch (e) {
-      debugPrint("Error: $e");
-    }
+    try { await engine.leaveChannel(); } catch (e) { debugPrint("Error: $e"); }
   }
 }
