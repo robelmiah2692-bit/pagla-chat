@@ -26,7 +26,7 @@ class AgoraManager {
 
     await engine.enableAudio();
     
-    // নেটওয়ার্ক স্ট্যাবিলিটি সেটিংস
+    // নেটওয়ার্ক স্ট্যাবিলিটি সেটিংস
     await engine.setParameters('{"che.audio.enable.vqe":true}');
     await engine.setParameters('{"che.audio.live_for_comm":true}');
     await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
@@ -39,7 +39,7 @@ class AgoraManager {
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
     
-    // প্রোফাইল আইডি থেকে ইউনিক সংখ্যা তৈরি (যাতে সবাইকে আলাদা চেনে)
+    // ইউনিক আইডি জেনারেশন (ফায়ারবেস আইডি থেকে)
     if (fireUid != null && fireUid.isNotEmpty) {
       _localUid = fireUid.hashCode.abs() % 1000000;
     } else {
@@ -54,7 +54,6 @@ class AgoraManager {
         clientRoleType: ClientRoleType.clientRoleAudience, 
         publishMicrophoneTrack: false, 
         autoSubscribeAudio: true,
-        // এখান থেকে সেই এরর দেওয়া লাইনটি ফেলে দিয়েছি
       ),
     );
     
@@ -76,22 +75,27 @@ class AgoraManager {
       }
     }
 
+    // 🔥 এখানে পরিবর্তন করা হয়েছে (ChannelMediaOptions এর বদলে ClientRoleOptions)
     await engine.setClientRole(
       role: ClientRoleType.clientRoleBroadcaster,
-      options: const ChannelMediaOptions(
-          clientRoleType: ClientRoleType.clientRoleBroadcaster,
-          autoSubscribeAudio: true,
-          publishMicrophoneTrack: true,
+      options: const ClientRoleOptions(
+        audienceLatencyLevel: AudienceLatencyLevelType.audienceLatencyLevelLowLatency,
       ),
     );
     
     await engine.enableAudio();
     await engine.enableLocalAudio(true);
 
+    // আলাদাভাবে চ্যানেল মিডিয়া অপশন আপডেট করা হচ্ছে
+    await engine.updateChannelMediaOptions(const ChannelMediaOptions(
+      publishMicrophoneTrack: true,      
+      autoSubscribeAudio: true,         
+      clientRoleType: ClientRoleType.clientRoleBroadcaster,
+    ));
+
     await engine.muteLocalAudioStream(false);
     await engine.adjustRecordingSignalVolume(150);
 
-    // পালস লজিক: নেটওয়ার্ক ড্রপ সামলানোর জন্য
     _keepAliveTimer?.cancel();
     _keepAliveTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_isInitialized) {
