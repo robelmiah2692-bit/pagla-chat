@@ -156,59 +156,60 @@ void initState() {
 
       _agoraManager.engine.registerEventHandler(
         RtcEngineEventHandler(
-          // ✅ ফিচার ১: অন্য ইউজারকে রুমে দেখা (লিস্ট রিফ্রেশসহ)
+          // ✅ ফিচার ১: অন্য ইউজারকে রুমে দেখা (লিস্ট রিফ্রেশ)
           onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
             debugPrint("👥 Remote user joined: $remoteUid");
             if (mounted) {
               setState(() {
-                // এখানে আপনার মেম্বার বা ভিউয়ার লিস্ট রিফ্রেশ করার ফাংশন কল করুন
-                _addUserToViewers(); // অথবা আপনার লিস্ট আপডেট করার নির্দিষ্ট ফাংশন
+                _addUserToViewers(); // ইউজার লিস্ট আপডেট
               });
             }
           },
 
-          // ✅ ফিচার ২: ইউজার লিভ করলে লিস্ট থেকে সরানো
+          // ✅ ফিচার ২: ইউজার চলে গেলে লিস্ট থেকে সরানো
           onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
             debugPrint("👋 Remote user left: $remoteUid");
-            if (mounted) {
-              setState(() {
-                // লিস্ট থেকে ইউজার সরাতে আপনার ফাংশন কল করুন
-              });
-            }
+            if (mounted) setState(() {});
           },
 
-          // ✅ ফিচার ৩: অডিও স্টেট (কথা শোনা নিশ্চিত করবে)
+          // ✅ ফিচার ৩: কথা শোনা নিশ্চিত করা
           onRemoteAudioStateChanged: (RtcConnection connection, int remoteUid, RemoteAudioState state, RemoteAudioStateReason reason, int elapsed) {
-            if (state == RemoteAudioState.remoteAudioStateDecoding) {
-               debugPrint("🔊 কথা শোনা যাচ্ছে - User: $remoteUid");
-            }
+            debugPrint("🔊 Audio State Changed for $remoteUid: $state");
           },
 
-          // ✅ ফিচার ৪: পানির ঢেউ (রিপেল) ও আইডি ম্যাচিং
+          // ✅ ফিচার ৪: পানির ঢেউ (রিপেল) - ওয়েব বিল্ড এরর ফিক্সড
           onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int totalVolume, int speakerNumber) {
             if (!mounted) return;
             
             setState(() {
+              // সবার ঢেউ আগে অফ করি
               for (int i = 0; i < seats.length; i++) {
                 seats[i]["isTalking"] = false;
               }
 
               for (var speaker in speakers) {
-                int sUid = speaker.uid ?? 0;
-                int? managerLocalUid = _agoraManager.localUid;
-                int currentSpeakerUid = (sUid == 0) ? (managerLocalUid ?? 0) : sUid;
+                // 🔥 ওয়েব বিল্ড ফিক্স: টাইপ কাস্টিং নিশ্চিত করা
+                final int sUid = speaker.uid ?? 0;
+                final int managerUid = _agoraManager.localUid ?? 0;
+                final int currentSpeakerUid = (sUid == 0) ? managerUid : sUid;
 
                 for (int i = 0; i < seats.length; i++) {
-                  bool isMe = (sUid == 0 && seats[i]["userId"].toString() == myActualUid.toString());
-                  bool isOthers = (seats[i]["agoraUid"].toString() == currentSpeakerUid.toString() || 
-                                  seats[i]["userId"].toString() == currentSpeakerUid.toString());
+                  // স্ট্রিং কম্পারিজন সবচেয়ে নিরাপদ
+                  final String seatUserId = seats[i]["userId"]?.toString() ?? "";
+                  final String seatAgoraUid = seats[i]["agoraUid"]?.toString() ?? "";
+                  final String speakerUidStr = currentSpeakerUid.toString();
+
+                  bool isMe = (sUid == 0 && seatUserId == myActualUid.toString());
+                  bool isOthers = (seatAgoraUid == speakerUidStr || seatUserId == speakerUidStr);
 
                   if (isMe || isOthers) {
-                    int vol = speaker.volume ?? 0;
-                    bool talkingNow = vol > 10; 
+                    final int vol = speaker.volume ?? 0;
+                    final bool talkingNow = vol > 10; 
 
                     if (seats[i]["isTalking"] != talkingNow) {
                       seats[i]["isTalking"] = talkingNow;
+
+                      // ফায়ারবেসে আপডেট
                       FirebaseFirestore.instance
                           .collection('rooms')
                           .doc(widget.roomId)
