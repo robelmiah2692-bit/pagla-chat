@@ -9,7 +9,7 @@ import 'dart:math';
 class AgoraManager {
   late RtcEngine engine;
   bool _isInitialized = false; 
-  final String appId = "32133508104045b687aae00c5ccc59a5"; 
+  final String appId = "855883e294ec4144b8e955451c06e3d7"; 
   Timer? _keepAliveTimer;
   int? _localUid;
   bool _shouldBeBroadcasting = false; // আঠার মতো লেগে থাকার জন্য ফ্ল্যাগ
