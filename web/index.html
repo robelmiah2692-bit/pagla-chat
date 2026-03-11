@@ -7,6 +7,7 @@
   <meta name="description" content="Live Voice Adda App">
   
   <meta http-equiv="Permissions-Policy" content="microphone=*, camera=*, display-capture=*">
+  <meta name="cross-origin-embedder-policy" content="credentialless">
 
   <title>Pagla Chat</title>
   
@@ -68,6 +69,10 @@
     <p style="color: white; font-family: sans-serif; margin-top: 20px; font-weight: bold;">Pagla Chat Loading...</p>
   </div>
 
+  <script>
+    window.flutterWebRenderer = "html"; // এটা ছবি কালো হওয়া বন্ধ করবে
+  </script>
+
   <script src="main.dart.js" type="application/javascript"></script>
 
   <script>
@@ -87,34 +92,26 @@
       writable: false
     });
 
-    // 🔥 অডিও কন্টেক্সট এবং অটো-রিজুম লজিক (আঠার মতো লেগে থাকার জন্য)
+    // 🔥 মাইক আঠার মতো লক করার চূড়ান্ত স্ক্রিপ্ট
     window.addEventListener('click', () => {
-        // ১. ব্রাউজার অডিও কন্টেক্সট চালু করা
         if (window.AudioContext || window.webkitAudioContext) {
             const audioCtx = window.myAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume();
-                console.log("✅ AudioContext Resumed!");
             }
             window.myAudioCtx = audioCtx;
         }
 
-        // ২. এগোরা অটো-প্লে ফেইলর হ্যান্ডল করা
         if (window.AgoraRTC) {
             AgoraRTC.onAudioAutoplayFailed = () => {
-                console.warn("⚠️ Autoplay failed, forcing resume...");
                 if(window.myAudioCtx) window.myAudioCtx.resume();
             };
         }
     });
 
-    // ৩. নেট চলে গেলে বা ট্যাব ইনঅ্যাক্টিভ হলে অটো-রিকানেক্ট সাপোর্ট
     document.addEventListener("visibilitychange", function() {
-      if (!document.hidden) {
-        console.log("♻️ Tab Active: Checking Audio...");
-        if(window.myAudioCtx && window.myAudioCtx.state === 'suspended') {
-          window.myAudioCtx.resume();
-        }
+      if (!document.hidden && window.myAudioCtx) {
+        if(window.myAudioCtx.state === 'suspended') window.myAudioCtx.resume();
       }
     });
   </script>
