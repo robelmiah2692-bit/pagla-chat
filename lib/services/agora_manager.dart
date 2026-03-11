@@ -6,7 +6,7 @@ import 'dart:math';
 class AgoraManager {
   late RtcEngine engine;
   bool _isInitialized = false; 
-  // আপনার নতুন ফ্রেশ আইডি
+  // আপনার নতুন এবং ফ্রেশ অ্যাপ আইডি
   final String appId = "855883e294ec4144b8e955451c06e3d7"; 
   Timer? _keepAliveTimer;
   int? _localUid;
@@ -19,32 +19,31 @@ class AgoraManager {
 
     engine = createAgoraRtcEngine();
     
-    // ✅ গ্লোবাল বাদ দিয়ে সরাসরি সিম্পল ইনিশিয়ালাইজেশন
+    // একদম বেসিক ইনিশিয়ালাইজেশন যা সব ফ্লাটার ভার্সনে কাজ করবে
     await engine.initialize(RtcEngineContext(
       appId: appId,
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
-    // অডিও ভলিউম ইন্ডিকেশন (রিপেল বা ঢেউয়ের জন্য)
+    // অডিও ভলিউম ট্র্যাকিং
     await engine.enableAudioVolumeIndication(
       interval: 200, 
       smooth: 3, 
       reportVad: true,
     );
 
-    // ওয়েব এরর হ্যান্ডলার
     engine.registerEventHandler(RtcEngineEventHandler(
       onConnectionStateChanged: (connection, state, reason) {
-        debugPrint("📡 Connection State: $state");
+        debugPrint("📡 Agora Status: $state");
         if (state == ConnectionStateType.connectionStateConnected && _shouldBeBroadcasting) {
           _ensureAudioPublishing();
         }
       },
       onJoinChannelSuccess: (connection, elapsed) {
-        debugPrint("✅ সফলভাবে জয়েন হয়েছে!");
+        debugPrint("✅ জয়েন সফল হয়েছে!");
       },
       onError: (ErrorCodeType err, String msg) {
-        debugPrint("❌ Agora Error: $err");
+        debugPrint("❌ এরর: $err");
       },
     ));
 
@@ -52,6 +51,7 @@ class AgoraManager {
     _isInitialized = true; 
   }
 
+  // শ্রোতা হিসেবে জয়েন করলেও রোল 'Broadcaster' রাখা হয়েছে যাতে ডাটা শো করে
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
     
@@ -78,6 +78,7 @@ class AgoraManager {
     _shouldBeBroadcasting = false;
   }
 
+  // কথা বলার জন্য মিক অন করা
   Future<void> becomeBroadcaster() async {
     _shouldBeBroadcasting = true;
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
