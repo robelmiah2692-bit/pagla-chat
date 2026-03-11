@@ -87,13 +87,35 @@
       writable: false
     });
 
-    // 🔥 অডিও কন্টেক্সট অটো-রিজুম (ব্রাউজার ব্লক করলে এটি খুলে দেবে)
+    // 🔥 অডিও কন্টেক্সট এবং অটো-রিজুম লজিক (আঠার মতো লেগে থাকার জন্য)
     window.addEventListener('click', () => {
+        // ১. ব্রাউজার অডিও কন্টেক্সট চালু করা
+        if (window.AudioContext || window.webkitAudioContext) {
+            const audioCtx = window.myAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+                console.log("✅ AudioContext Resumed!");
+            }
+            window.myAudioCtx = audioCtx;
+        }
+
+        // ২. এগোরা অটো-প্লে ফেইলর হ্যান্ডল করা
         if (window.AgoraRTC) {
             AgoraRTC.onAudioAutoplayFailed = () => {
-                console.log("Audio autoplay failed, resuming...");
+                console.warn("⚠️ Autoplay failed, forcing resume...");
+                if(window.myAudioCtx) window.myAudioCtx.resume();
             };
         }
+    });
+
+    // ৩. নেট চলে গেলে বা ট্যাব ইনঅ্যাক্টিভ হলে অটো-রিকানেক্ট সাপোর্ট
+    document.addEventListener("visibilitychange", function() {
+      if (!document.hidden) {
+        console.log("♻️ Tab Active: Checking Audio...");
+        if(window.myAudioCtx && window.myAudioCtx.state === 'suspended') {
+          window.myAudioCtx.resume();
+        }
+      }
     });
   </script>
 </body>
