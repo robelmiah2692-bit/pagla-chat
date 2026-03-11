@@ -89,11 +89,11 @@ class _VoiceRoomState extends State<VoiceRoom> {
   int remainingSeconds = 900;
   Timer? giftTimer;
 
-@override
+  @override
 void initState() {
   super.initState();
   
-  // ১. সিট জেনারেশন (আপনার অরিজিনাল ১৫টি সিট)
+  // ১. সিট জেনারেশন (অরিজিনাল ১৫টি সিট ও আপনার VIP লজিক)
   seats = List.generate(15, (index) => {
     "isOccupied": false,
     "userName": "",
@@ -102,10 +102,11 @@ void initState() {
     "status": "empty", 
     "giftCount": 0,
     "isMicOn": false,
-    "isTalking": false, // নতুন ফিচার: কথা বলছে কি না
+    "isTalking": false, 
+    "userId": "",
   });
 
-  // ২. রিয়েলটাইম ডাটাবেস লিসেনার (আগের মতোই ঠিক আছে)
+  // ২. রিয়েলটাইম ডাটাবেস লিসেনার (আগের মতোই + Talking রিসেট)
   FirebaseDatabase.instance
       .ref('rooms/${widget.roomId}/seats')
       .onValue.listen((event) {
@@ -119,13 +120,13 @@ void initState() {
         seat["userName"] = "";
         seat["userImage"] = "";
         seat["isMicOn"] = false;
-        // রিয়েলটাইম আপডেটের সময় যেন এনিমেশন হুট করে বন্ধ না হয় তাই এটা চেক করা হয়
+        seat["isTalking"] = false; // সিট আপডেট হওয়ার সময় এটি রিসেট করা নিরাপদ
       }
       
       if (data != null) {
         data.forEach((key, value) {
-          int index = int.parse(key.toString());
-          if (index < seats.length) {
+          int? index = int.tryParse(key.toString());
+          if (index != null && index < seats.length) {
             seats[index]["isOccupied"] = value["isOccupied"] ?? false;
             seats[index]["status"] = value["status"] ?? "occupied";
             seats[index]["userName"] = value["userName"] ?? "";
@@ -144,7 +145,7 @@ void initState() {
     onFinished: () => _endPKBattle(),
   );
 
-  // 🔥 ৪. এগোরা ইঞ্জিন শুরু এবং ভয়েস ডিটেকশন লজিক
+  // 🔥 ৪. এগোরা ম্যানেজার ব্যবহার করে ভয়েস ডিটেকশন (সব ফিচার নিশ্চিত)
   Future.microtask(() async {
     try {
       await _agoraManager.initAgora(); 
@@ -152,7 +153,7 @@ void initState() {
       final String myActualUid = FirebaseAuth.instance.currentUser?.uid ?? "guest_${Random().nextInt(10000)}";
       await _agoraManager.joinAsListener(widget.roomId, myActualUid);
 
-      // 🎤 পানির ঢেউ (Ripple) এর জন্য অডিও লিসেনার এখানে বসবে
+      // আপনার ম্যানেজারের মাধ্যমে ইভেন্ট হ্যান্ডলার
       _agoraManager.engine.registerEventHandler(
         RtcEngineEventHandler(
           onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int totalVolume) {
@@ -165,10 +166,9 @@ void initState() {
                 // যারা কথা বলছে তাদের ঢেউ চালু করি
                 for (var speaker in speakers) {
                   for (int i = 0; i < seats.length; i++) {
-                    // এগোরা UID এবং ডাটাবেস UID ম্যাচ করা হচ্ছে
                     if (seats[i]["userId"] == speaker.uid.toString() || 
                         (speaker.uid == 0 && seats[i]["userId"] == myActualUid)) {
-                      seats[i]["isTalking"] = speaker.volume > 5; // ভলিউম ৫ এর বেশি হলেই ঢেউ খেলবে
+                      seats[i]["isTalking"] = speaker.volume > 5;
                     }
                   }
                 }
@@ -177,19 +177,16 @@ void initState() {
           },
         ),
       );
-
-      debugPrint("✅ ইউনিক আইডি $myActualUid এবং ভয়েস এনিমেশন লজিক সফল!");
+      debugPrint("✅ ভয়েস এনিমেশন লজিক এখন এগোরা ম্যানেজারের সাথে যুক্ত!");
     } catch (e) {
-      debugPrint("❌ Agora Init Error: $e");
+      debugPrint("❌ Agora Manager Error: $e");
     }
   });
 
   // ৫. অডিও প্লেয়ার লিসেনার (আগের মতোই)
   _audioPlayer.onPlayerStateChanged.listen((state) {
     if (mounted) {
-      setState(() {
-        isRoomMusicPlaying = (state == PlayerState.playing);
-      });
+      setState(() => isRoomMusicPlaying = (state == PlayerState.playing));
     }
   });
 
@@ -197,7 +194,7 @@ void initState() {
     if (mounted) setState(() => isRoomMusicPlaying = false);
   });
   
-  // ৬. ফায়ারস্টোর ডাটা লোড (আগের মতোই)
+  // ৬. ফায়ারস্টোর ডাটা লোড (আপনার অরিজিনাল সব রুম ডাটা)
   FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
     if (doc.exists && mounted) {
       setState(() {
@@ -207,19 +204,18 @@ void initState() {
         isRoomLocked = doc.data()?['isLocked'] ?? false;
         roomWallpaperPath = doc.data()?['wallpaper'] ?? '';
       });
+      
+      _roomService.updateRoomFullData(
+        roomId: widget.roomId,
+        roomName: roomName,
+        roomImage: roomProfileImage,
+        isLocked: isRoomLocked,
+        wallpaper: roomWallpaperPath,
+        followers: followerCount,
+        totalDiamonds: 0,
+      );
+      _addUserToViewers();
     }
-
-    _roomService.updateRoomFullData(
-      roomId: widget.roomId,
-      roomName: roomName,
-      roomImage: roomProfileImage,
-      isLocked: isRoomLocked,
-      wallpaper: roomWallpaperPath,
-      followers: followerCount,
-      totalDiamonds: 0,
-    );
-
-    _addUserToViewers();
   });
 }
  
