@@ -2,6 +2,9 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart'; 
 import 'dart:async';
 import 'dart:math';
+// ওয়েব ফিচারগুলোর জন্য এই কন্ডিশনাল ইমপোর্ট দরকার
+import 'dart:html' as html;
+import 'dart:js' as js;
 
 class AgoraManager {
   late RtcEngine engine;
@@ -18,16 +21,25 @@ class AgoraManager {
 
     engine = createAgoraRtcEngine();
     
+    // ✅ গ্লোবাল এরিয়া কোড (সঠিক সিনট্যাক্স সহ)
     await engine.initialize(RtcEngineContext(
       appId: appId,
+      areaCode: AreaCode.areaCodeGlob.value(), // ফাংশন হিসেবে কল করা হয়েছে
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
+    // অডিও ভলিউম ট্র্যাকিং
     await engine.enableAudioVolumeIndication(
       interval: 200, 
       smooth: 3, 
       reportVad: true,
     );
+
+    // 🔥 ওয়েব অপ্টিমাইজেশন প্যারামিটার
+    if (kIsWeb) {
+      await engine.setParameters('{"rtc.web_receiver_report_interval":1000}');
+      await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
+    }
 
     engine.registerEventHandler(RtcEngineEventHandler(
       onConnectionStateChanged: (connection, state, reason) {
@@ -36,10 +48,7 @@ class AgoraManager {
         }
       },
       onJoinChannelSuccess: (connection, elapsed) {
-        debugPrint("✅ Join Success!");
-      },
-      onError: (ErrorCodeType err, String msg) {
-        debugPrint("❌ Error: $err");
+        debugPrint("✅ চ্যানেলে জয়েন সফল!");
       },
     ));
 
@@ -47,9 +56,23 @@ class AgoraManager {
     _isInitialized = true; 
   }
 
-  // voice_room.dart এর এরর ফিক্স করার জন্য এটি জরুরি
+  // ✅ ব্রাউজারের অডিও আটকে যাওয়া ঠেকাতে আসল লজিক
   Future<void> forceResumeAudio() async {
-    // ডামি ফাংশন যাতে বিল্ড পাস হয়
+    if (kIsWeb) {
+      try {
+        js.context.callMethod('eval', [
+          """
+          (function() {
+            var audioCtx = window.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+            window.audioCtx = audioCtx;
+          })();
+          """
+        ]);
+      } catch (e) {
+        debugPrint("Audio Resume Error: $e");
+      }
+    }
   }
 
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
@@ -80,6 +103,17 @@ class AgoraManager {
 
   Future<void> becomeBroadcaster() async {
     _shouldBeBroadcasting = true;
+    
+    // ✅ ব্রাউজার মাইক পারমিশন চেক
+    if (kIsWeb) {
+      try {
+        await html.window.navigator.getUserMedia(audio: true);
+      } catch (e) {
+        debugPrint("Mic Permission Denied: $e");
+      }
+    }
+
+    await forceResumeAudio();
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     await _ensureAudioPublishing();
 
