@@ -156,39 +156,49 @@ void initState() {
       // আপনার ম্যানেজারের মাধ্যমে ইভেন্ট হ্যান্ডলার
       _agoraManager.engine.registerEventHandler(
         RtcEngineEventHandler(
+          // ✅ ফিচার ১: এগোরার স্ক্রিনশটের নিয়ম (Remote Audio Subscription)
+          onUserPublished: (RtcConnection connection, int remoteUid, HeritageMediaSourceType sourceType) async {
+            if (sourceType == HeritageMediaSourceType.heritageMediaSourceMicrophone) {
+              debugPrint("🎙️ Remote User $remoteUid published audio - এগোরা রুলস অনুযায়ী কানেক্টেড");
+            }
+          },
+
+          // ✅ ফিচার ২: রিপেল (VoiceRipple) এবং ভলিউম ইন্ডিকেশন
           onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int totalVolume, int speakerNumber) {
             if (!mounted) return;
             
             setState(() {
-              // ১. প্রথমে লোকাল লিস্টে সবার ঢেউ বন্ধ করি
-              for (var seat in seats) {
-                seat["isTalking"] = false;
+              // প্রথমে সবার রিপেল (isTalking) বন্ধ করি যাতে কথা থামলে ঢেউ থেমে যায়
+              for (int i = 0; i < seats.length; i++) {
+                seats[i]["isTalking"] = false;
               }
 
-              // ২. এখন যারা কথা বলছে তাদের চেক করি
+              // স্পিকারদের ডাটা প্রসেস করি
               for (var speaker in speakers) {
+                // ✅ ফিচার ৩: লোকাল আইডি ফিক্স (Getter ব্যবহার করে নিজের আইডি চেনা)
+                int currentSpeakerUid = (speaker.uid == 0) ? (_agoraManager.localUid ?? 0) : speaker.uid;
+
                 for (int i = 0; i < seats.length; i++) {
-                  // ✅ ফিক্সড লজিক: 
-                  // যদি speaker.uid ০ হয় তবে সে আপনি নিজে, তাই myActualUid দিয়ে চেক হবে।
-                  // অন্যথায় স্পিকারের অরিজিনাল UID দিয়ে সিটের ইউজার আইডি চেক হবে।
+                  // ✅ ফিচার ৪: মাল্টিপল আইডি ম্যাচিং (Firebase ID এবং Agora UID)
                   bool isMe = (speaker.uid == 0 && seats[i]["userId"].toString() == myActualUid.toString());
-                  bool isOthers = (seats[i]["userId"].toString() == speaker.uid.toString());
+                  bool isOthers = (seats[i]["agoraUid"].toString() == currentSpeakerUid.toString());
 
                   if (isMe || isOthers) {
                     int vol = speaker.volume ?? 0;
-                    bool talkingNow = vol > 5;
+                    bool talkingNow = vol > 5; // ৫ এর বেশি ভলিউম মানেই কথা বলছে (রিপেল অন হবে)
                     
-                    // লোকাল UI আপডেট
-                    seats[i]["isTalking"] = talkingNow;
+                    // ✅ ফিচার ৫: পারফরম্যান্স অপ্টিমাইজেশন (শুধু চেঞ্জ হলেই ডাটাবেস হিট করবে)
+                    if (seats[i]["isTalking"] != talkingNow) {
+                      seats[i]["isTalking"] = talkingNow; // লোকাল ইউআই আপডেট (রিপেল চালু হবে)
 
-                    // ৩. 🔥 ডাটাবেস আপডেট (যাতে অন্যরাও ঢেউ দেখে)
-                    // এখানে Firestore বা Realtime DB যেটা ব্যবহার করছেন সে অনুযায়ী পাথ ঠিক রাখুন
-                    FirebaseFirestore.instance
-                        .collection('rooms')
-                        .doc(widget.roomId)
-                        .collection('seats')
-                        .doc(i.toString())
-                        .update({"isTalking": talkingNow});
+                      FirebaseFirestore.instance
+                          .collection('rooms')
+                          .doc(widget.roomId)
+                          .collection('seats')
+                          .doc(i.toString())
+                          .update({"isTalking": talkingNow})
+                          .catchError((e) => debugPrint("DB Error: $e"));
+                    }
                   }
                 }
               }
@@ -196,7 +206,7 @@ void initState() {
           },
         ),
       );
-      debugPrint("✅ ভয়েস এনিমেশন লজিক এখন এগোরা ম্যানেজারের সাথে যুক্ত!");
+      debugPrint("✅ সব ফিচার (রিপেল + এগোরা রুলস + আইডি ফিক্স) একসাথে চালু হয়েছে!");
     } catch (e) {
       debugPrint("❌ Agora Manager Error: $e");
     }
