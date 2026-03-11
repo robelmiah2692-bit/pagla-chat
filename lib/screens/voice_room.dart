@@ -120,7 +120,7 @@ void initState() {
         seat["userName"] = "";
         seat["userImage"] = "";
         seat["isMicOn"] = false;
-        seat["isTalking"] = false; // সিট আপডেট হওয়ার সময় এটি রিসেট করা নিরাপদ
+        seat["isTalking"] = false;
       }
       
       if (data != null) {
@@ -156,45 +156,38 @@ void initState() {
 
       _agoraManager.engine.registerEventHandler(
         RtcEngineEventHandler(
-          // ✅ ফিচার ১: অন্য ইউজারকে রুমে দেখা (লিস্ট রিফ্রেশ)
           onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
             debugPrint("👥 Remote user joined: $remoteUid");
             if (mounted) {
               setState(() {
-                _addUserToViewers(); // ইউজার লিস্ট আপডেট
+                _addUserToViewers(); 
               });
             }
           },
 
-          // ✅ ফিচার ২: ইউজার চলে গেলে লিস্ট থেকে সরানো
           onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
             debugPrint("👋 Remote user left: $remoteUid");
             if (mounted) setState(() {});
           },
 
-          // ✅ ফিচার ৩: কথা শোনা নিশ্চিত করা
           onRemoteAudioStateChanged: (RtcConnection connection, int remoteUid, RemoteAudioState state, RemoteAudioStateReason reason, int elapsed) {
             debugPrint("🔊 Audio State Changed for $remoteUid: $state");
           },
 
-          // ✅ ফিচার ৪: পানির ঢেউ (রিপেল) - ওয়েব বিল্ড এরর ফিক্সড
           onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int totalVolume, int speakerNumber) {
             if (!mounted) return;
             
             setState(() {
-              // সবার ঢেউ আগে অফ করি
               for (int i = 0; i < seats.length; i++) {
                 seats[i]["isTalking"] = false;
               }
 
               for (var speaker in speakers) {
-                // 🔥 ওয়েব বিল্ড ফিক্স: টাইপ কাস্টিং নিশ্চিত করা
                 final int sUid = speaker.uid ?? 0;
                 final int managerUid = _agoraManager.localUid ?? 0;
                 final int currentSpeakerUid = (sUid == 0) ? managerUid : sUid;
 
                 for (int i = 0; i < seats.length; i++) {
-                  // স্ট্রিং কম্পারিজন সবচেয়ে নিরাপদ
                   final String seatUserId = seats[i]["userId"]?.toString() ?? "";
                   final String seatAgoraUid = seats[i]["agoraUid"]?.toString() ?? "";
                   final String speakerUidStr = currentSpeakerUid.toString();
@@ -209,7 +202,6 @@ void initState() {
                     if (seats[i]["isTalking"] != talkingNow) {
                       seats[i]["isTalking"] = talkingNow;
 
-                      // ফায়ারবেসে আপডেট
                       FirebaseFirestore.instance
                           .collection('rooms')
                           .doc(widget.roomId)
@@ -229,7 +221,7 @@ void initState() {
     } catch (e) {
       debugPrint("❌ Agora Error: $e");
     }
-  });
+  }); // মাইক্রোটাস্ক শেষ
 
   // ৫. অডিও প্লেয়ার লিসেনার
   _audioPlayer.onPlayerStateChanged.listen((state) {
@@ -265,7 +257,7 @@ void initState() {
       _addUserToViewers();
     }
   });
- 
+} // initState পুরোপুরি শেষ
   // --- গিফট লজিক ---
   void _startGiftCounting() {
     if (isCountingGifts) return;
