@@ -1,7 +1,5 @@
-// ফাইল ৩৬: RoomSettingsHandler.dart (Updated)
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter/foundation.dart'; // kIsWeb চেক করার জন্য
 
 class RoomSettingsHandler {
   static void showSettings({
@@ -11,6 +9,7 @@ class RoomSettingsHandler {
     required Function(String) onSetWallpaper, 
     required VoidCallback onLeave, 
     required VoidCallback onMinimize, 
+    required VoidCallback onClearChat, // 🔥 চ্যাট ক্লিনের জন্য নতুন রিকোয়ার্ড প্যারামিটার
   }) {
     showModalBottomSheet(
       context: context,
@@ -33,29 +32,36 @@ class RoomSettingsHandler {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
+                  // ১. রুম লক/আনলক
                   _buildItem(isLocked ? Icons.lock : Icons.lock_open,
                       isLocked ? "Unlock" : "Lock", Colors.amber, () {
                     Navigator.pop(context);
                     onToggleLock();
                   }),
                   
+                  // ২. ওয়ালপেপার পরিবর্তন
                   _buildItem(Icons.wallpaper, "Wallpaper", Colors.cyanAccent, () async {
                     Navigator.pop(context);
                     final ImagePicker picker = ImagePicker();
                     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-                    
                     if (image != null) {
-                      // 💡 ওয়েব এরর এড়াতে পাথের সঠিক ব্যবহার
-                      // মোবাইলে image.path কাজ করে, ওয়েবে এটি একটি blob url দেয়।
                       onSetWallpaper(image.path);
                     }
                   }),
 
+                  // ৩. চ্যাট ক্লিন (হারানো ফিচারটি এখানে যোগ করা হলো)
+                  _buildItem(Icons.delete_sweep, "Clean Chat", Colors.orangeAccent, () {
+                    Navigator.pop(context);
+                    onClearChat(); // মেইন ফাইল থেকে চ্যাট মুছার ফাংশন কল হবে
+                  }),
+
+                  // ৪. মিনিমাইজ
                   _buildItem(Icons.open_in_full, "Minimize", Colors.green, () {
                     Navigator.pop(context); 
                     onMinimize(); 
                   }),
                   
+                  // ৫. এক্সিট (রুম থেকে বিদায়)
                   _buildItem(Icons.logout, "Exit", Colors.redAccent, () {
                     Navigator.pop(context);
                     _showExitDialog(context, onLeave);
