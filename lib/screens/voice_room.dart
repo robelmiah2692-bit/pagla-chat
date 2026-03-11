@@ -160,36 +160,35 @@ void initState() {
             if (!mounted) return;
             
             setState(() {
-              // ১. প্রথমে লোকাল সিটগুলোতে সবার ঢেউ বন্ধ করি
+              // ১. প্রথমে লোকাল লিস্টে সবার ঢেউ বন্ধ করি
               for (var seat in seats) {
                 seat["isTalking"] = false;
               }
 
-              // ২. যারা কথা বলছে তাদের চেক করি
+              // ২. এখন যারা কথা বলছে তাদের চেক করি
               for (var speaker in speakers) {
-                // এগোরা আইডি ০ মানে আপনি নিজে, তাই তখন আপনার আসল আইডি ব্যবহার হবে
-                int speakerId = (speaker.uid == 0) ? _agoraManager.localUid! : speaker.uid;
-
                 for (int i = 0; i < seats.length; i++) {
-                  // ✅ মেইন ফিক্স: আইডি দুটোকে স্ট্রিং বানিয়ে তুলনা করা (যাতে টাইপ এরর না হয়)
-                  if (seats[i]["userId"].toString() == speakerId.toString()) {
+                  // ✅ ফিক্সড লজিক: 
+                  // যদি speaker.uid ০ হয় তবে সে আপনি নিজে, তাই myActualUid দিয়ে চেক হবে।
+                  // অন্যথায় স্পিকারের অরিজিনাল UID দিয়ে সিটের ইউজার আইডি চেক হবে।
+                  bool isMe = (speaker.uid == 0 && seats[i]["userId"].toString() == myActualUid.toString());
+                  bool isOthers = (seats[i]["userId"].toString() == speaker.uid.toString());
+
+                  if (isMe || isOthers) {
                     int vol = speaker.volume ?? 0;
                     bool talkingNow = vol > 5;
                     
                     // লোকাল UI আপডেট
                     seats[i]["isTalking"] = talkingNow;
 
-                    // ৩. 🔥 ফায়ারবেসে আপডেট (যাতে অন্যরাও ঢেউ দেখে)
-                    // আপনি চাইলে এটা শুধু নিজের ইউআইতে রাখতে পারেন পারফরম্যান্সের জন্য
-                    if (talkingNow) {
-                       FirebaseDatabase.instance
-                          .ref('rooms/${widget.roomId}/seats/$i')
-                          .update({"isTalking": true});
-                    } else {
-                       FirebaseDatabase.instance
-                          .ref('rooms/${widget.roomId}/seats/$i')
-                          .update({"isTalking": false});
-                    }
+                    // ৩. 🔥 ডাটাবেস আপডেট (যাতে অন্যরাও ঢেউ দেখে)
+                    // এখানে Firestore বা Realtime DB যেটা ব্যবহার করছেন সে অনুযায়ী পাথ ঠিক রাখুন
+                    FirebaseFirestore.instance
+                        .collection('rooms')
+                        .doc(widget.roomId)
+                        .collection('seats')
+                        .doc(i.toString())
+                        .update({"isTalking": talkingNow});
                   }
                 }
               }
