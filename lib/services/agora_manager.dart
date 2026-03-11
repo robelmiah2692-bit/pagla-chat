@@ -12,6 +12,7 @@ class AgoraManager {
   final String appId = "32133508104045b687aae00c5ccc59a5"; 
   Timer? _keepAliveTimer;
   int? _localUid;
+  bool _shouldBeBroadcasting = false; // আঠার মতো লেগে থাকার জন্য ফ্ল্যাগ
 
   Future<void> initAgora() async {
     if (_isInitialized) return;
@@ -23,24 +24,42 @@ class AgoraManager {
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
+    // --- নেটওয়ার্ক রেজিলিয়েন্স সেটআপ (অটো রিকানেক্ট লজিক) ---
     await engine.setParameters('{"rtc.web_receiver_report_interval":1000}');
     await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
+    
+    // কানেকশন লস্ট হলে যাতে দ্রুত ফিরে আসে তার প্যারামিটার
+    await engine.setParameters('{"rtc.net_status_notification_interval":1000}');
+    
+    // ইভেন্ট হ্যান্ডলার যোগ করা (যাতে নেট ফিরে আসলে অটো কথা শুরু হয়)
+    engine.registerEventHandler(RtcEngineEventHandler(
+      onConnectionStateChanged: (connection, state, reason) {
+        debugPrint("📡 Connection State: $state, Reason: $reason");
+        if (state == ConnectionStateType.connectionStateConnected && _shouldBeBroadcasting) {
+          // নেট ফিরে আসলে যদি সে সিটে থাকে, তবে অটো অডিও রি-পাবলিশ
+          _ensureAudioPublishing();
+        }
+      },
+      onRejoinChannelSuccess: (connection, elapsed) {
+        debugPrint("🔄 অটো রিকানেক্ট সফল!");
+        if (_shouldBeBroadcasting) _ensureAudioPublishing();
+      },
+    ));
+
     await engine.enableAudio();
     _isInitialized = true; 
   }
 
-  // ১. ইউনিক আইডি জেনারেশন - যা ইউজারদের আলাদা রাখবে (Fix for Icon Disappearing)
+  // ইউনিক আইডি জেনারেশন (আইকন ফিক্স)
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
     
     if (fireUid != null && fireUid.isNotEmpty) {
-      // শুধু hashCode না নিয়ে, স্ট্রিং এর ক্যারেক্টার কোড সাম করে ছোট এবং ইউনিক আইডি বানানো
-      // এটি এগোরা-র ৩২-বিট লিমিটের মধ্যে আইডি নিশ্চিত করবে
       int hash = 0;
       for (int i = 0; i < fireUid.length; i++) {
         hash = fireUid.codeUnitAt(i) + ((hash << 5) - hash);
       }
-      _localUid = hash.abs() % 1000000; // ০ থেকে ৯৯৯৯৯৯ এর মধ্যে ইউনিক আইডি
+      _localUid = hash.abs() % 1000000;
     } else {
       _localUid = (Random().nextInt(899999) + 100000);
     }
@@ -55,11 +74,11 @@ class AgoraManager {
         autoSubscribeAudio: true,
       ),
     );
-    
-    await engine.muteLocalAudioStream(true);
+    _shouldBeBroadcasting = false;
     debugPrint("✅ Joined with UID: $_localUid");
   }
 
+  // অডিও ইঞ্জিনকে আঠার মতো ধরে রাখা
   Future<void> forceResumeAudio() async {
     if (kIsWeb) {
       js.context.callMethod('eval', [
@@ -77,61 +96,63 @@ class AgoraManager {
   }
 
   Future<void> becomeBroadcaster() async {
+    _shouldBeBroadcasting = true;
     await forceResumeAudio();
+    
     if (kIsWeb) {
       try {
         await html.window.navigator.getUserMedia(audio: true);
-        js.context.callMethod('eval', [
-          "window.micKeepAlive = setInterval(() => { if(window.audioCtx && window.audioCtx.state === 'suspended') window.audioCtx.resume(); }, 1000);"
-        ]);
       } catch (e) {
-        debugPrint("Mic Error: $e");
+        debugPrint("Mic Permission Error: $e");
       }
     }
 
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+    await _ensureAudioPublishing();
+
+    // 🔥 আঠার মতো লেগে থাকার মূল লজিক (Keep-Alive Timer)
+    _keepAliveTimer?.cancel();
+    _keepAliveTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_isInitialized && _shouldBeBroadcasting) {
+        _ensureAudioPublishing(); // প্রতি ১ সেকেন্ডে অডিও চেক করবে
+      }
+    });
+  }
+
+  // অডিও পাবলিশিং নিশ্চিত করার প্রাইভেট ফাংশন
+  Future<void> _ensureAudioPublishing() async {
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: true,      
       autoSubscribeAudio: true,         
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
     ));
-
     await engine.enableLocalAudio(true);
     await engine.muteLocalAudioStream(false);
     await engine.adjustRecordingSignalVolume(200);
-
-    _keepAliveTimer?.cancel();
-    _keepAliveTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      if (_isInitialized) engine.muteLocalAudioStream(false);
-    });
   }
 
   Future<void> toggleMic(bool isMute) async {
     if (!_isInitialized) return;
-    await engine.muteLocalAudioStream(isMute);
-    await engine.updateChannelMediaOptions(ChannelMediaOptions(
-      publishMicrophoneTrack: !isMute,
-    ));
-    debugPrint("✅ Mic is now: ${isMute ? 'Muted' : 'Unmuted'}");
+    // যদি ইউজার মিউট করে, তবে আঠার মতো লেগে থাকার লজিক সাময়িক থামবে
+    if (isMute) {
+      await engine.muteLocalAudioStream(true);
+      await engine.updateChannelMediaOptions(const ChannelMediaOptions(publishMicrophoneTrack: false));
+    } else {
+      await _ensureAudioPublishing();
+    }
   }
 
   Future<void> becomeListener() async {
+    _shouldBeBroadcasting = false;
     _keepAliveTimer?.cancel(); 
-    if (kIsWeb) js.context.callMethod('eval', ["if(window.micKeepAlive) clearInterval(window.micKeepAlive);"]);
-    
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
     await engine.muteLocalAudioStream(true);
     await engine.enableLocalAudio(false);
-    
-    await engine.updateChannelMediaOptions(const ChannelMediaOptions(
-      publishMicrophoneTrack: false,
-      clientRoleType: ClientRoleType.clientRoleAudience,
-    ));
   }
 
   Future<void> leaveRoom() async {
+    _shouldBeBroadcasting = false;
     _keepAliveTimer?.cancel();
-    if (kIsWeb) js.context.callMethod('eval', ["if(window.micKeepAlive) clearInterval(window.micKeepAlive);"]);
     try { 
       await engine.leaveChannel(); 
       _localUid = null; 
