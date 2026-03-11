@@ -156,28 +156,44 @@ void initState() {
       // আপনার ম্যানেজারের মাধ্যমে ইভেন্ট হ্যান্ডলার
       _agoraManager.engine.registerEventHandler(
         RtcEngineEventHandler(
-          // ✅ প্যারামিটার ৪টি হবে (connection, speakers, totalVolume, speakerNumber)
           onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int totalVolume, int speakerNumber) {
-            if (mounted) {
-              setState(() {
-                // প্রথমে সবার ঢেউ বন্ধ করি
-                for (var seat in seats) {
-                  seat["isTalking"] = false;
-                }
-                // যারা কথা বলছে তাদের ঢেউ চালু করি
-                for (var speaker in speakers) {
-                  for (int i = 0; i < seats.length; i++) {
-                    if (seats[i]["userId"] == speaker.uid.toString() || 
-                        (speaker.uid == 0 && seats[i]["userId"] == myActualUid)) {
-                      
-                      // ✅ Null safety ফিক্স: volume? ব্যবহার করা হয়েছে
-                      int vol = speaker.volume ?? 0;
-                      seats[i]["isTalking"] = vol > 5;
+            if (!mounted) return;
+            
+            setState(() {
+              // ১. প্রথমে লোকাল সিটগুলোতে সবার ঢেউ বন্ধ করি
+              for (var seat in seats) {
+                seat["isTalking"] = false;
+              }
+
+              // ২. যারা কথা বলছে তাদের চেক করি
+              for (var speaker in speakers) {
+                // এগোরা আইডি ০ মানে আপনি নিজে, তাই তখন আপনার আসল আইডি ব্যবহার হবে
+                int speakerId = (speaker.uid == 0) ? _agoraManager.localUid! : speaker.uid;
+
+                for (int i = 0; i < seats.length; i++) {
+                  // ✅ মেইন ফিক্স: আইডি দুটোকে স্ট্রিং বানিয়ে তুলনা করা (যাতে টাইপ এরর না হয়)
+                  if (seats[i]["userId"].toString() == speakerId.toString()) {
+                    int vol = speaker.volume ?? 0;
+                    bool talkingNow = vol > 5;
+                    
+                    // লোকাল UI আপডেট
+                    seats[i]["isTalking"] = talkingNow;
+
+                    // ৩. 🔥 ফায়ারবেসে আপডেট (যাতে অন্যরাও ঢেউ দেখে)
+                    // আপনি চাইলে এটা শুধু নিজের ইউআইতে রাখতে পারেন পারফরম্যান্সের জন্য
+                    if (talkingNow) {
+                       FirebaseDatabase.instance
+                          .ref('rooms/${widget.roomId}/seats/$i')
+                          .update({"isTalking": true});
+                    } else {
+                       FirebaseDatabase.instance
+                          .ref('rooms/${widget.roomId}/seats/$i')
+                          .update({"isTalking": false});
                     }
                   }
                 }
-              });
-            }
+              }
+            });
           },
         ),
       );
@@ -743,14 +759,14 @@ Widget _buildSeatGridArea() {
   return SizedBox(
     height: 300,
     child: StreamBuilder<QuerySnapshot>(
-      // 🔥 ফায়ারবেস থেকে রিয়েল-টাইম সিট ডাটা আনা হচ্ছে
+      // 🔥 ফায়ারবেস থেকে রিয়েল-টাইম সিট ডাটা
       stream: FirebaseFirestore.instance
           .collection('rooms')
           .doc(widget.roomId)
           .collection('seats')
           .snapshots(),
       builder: (context, snapshot) {
-        // ডাটাবেসের সিটগুলোকে একটা ম্যাপে নিয়ে আসা
+        // ডাটাবেসের সিটগুলোকে একটা ম্যাপে নিয়ে আসা
         Map<String, dynamic> firestoreSeats = {};
         if (snapshot.hasData) {
           for (var doc in snapshot.data!.docs) {
@@ -769,16 +785,17 @@ Widget _buildSeatGridArea() {
             // ডাটাবেস থেকে ওই নির্দিষ্ট সিটের ডাটা চেক
             var dbSeat = firestoreSeats[index.toString()];
             
-            // ডাটাবেসে ডাটা থাকলে সেটা নিবে, নাহলে লোকাল seats লিস্ট থেকে নিবে (সেফটি হিসেবে)
+            // ✅ আগের সব ফিচার এর ভেরিয়েবল ঠিক রাখা হলো
             bool isOccupied = dbSeat != null ? (dbSeat['isOccupied'] ?? false) : seats[index]['isOccupied'];
             String uName = dbSeat != null ? (dbSeat['userName'] ?? "") : seats[index]['userName'];
             String uImage = dbSeat != null ? (dbSeat['userImage'] ?? "") : seats[index]['userImage'];
             bool isMicOn = dbSeat != null ? (dbSeat['isMicOn'] ?? false) : seats[index]['isMicOn'];
             String status = dbSeat != null ? (dbSeat['status'] ?? "empty") : seats[index]['status'];
-            bool isVip = seats[index]['isVip'] ?? false; // লোকাল থেকে VIP চেক
+            bool isVip = seats[index]['isVip'] ?? false; 
             
-            // 🔥 কথা বলছে কিনা তা চেক করা (পানির ঢেউয়ের জন্য)
-            bool isTalking = dbSeat != null ? (dbSeat['isTalking'] ?? false) : false;
+            // 🔥 ভয়েস রিপেল (পানির ঢেউ) এর জন্য Talking ডাটা
+            // এটি setState বা সরাসরি ফায়ারবেস থেকে আপডেট হবে
+            bool isTalking = dbSeat != null ? (dbSeat['isTalking'] ?? false) : (seats[index]['isTalking'] ?? false);
 
             return GestureDetector(
               onTap: () => sitOnSeat(index),
@@ -790,32 +807,40 @@ Widget _buildSeatGridArea() {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // সিটের বর্ডার ও ব্যাকগ্রাউন্ড
+                        // সিটের মেইন বর্ডার
                         CircleAvatar(
                           radius: 24,
                           backgroundColor: isOccupied ? Colors.blueAccent : Colors.white10,
                           
-                          // ✅ ইউজারের প্রোফাইল পিকচার (নেটওয়ার্ক থেকে)
+                          // ✅ ইউজারের প্রোফাইল পিকচার (অবতার)
                           backgroundImage: (isOccupied && uImage.isNotEmpty) 
                               ? NetworkImage(uImage) 
                               : null,
                           
-                          // সিট খালি থাকলে আইকন অথবা কলিং এনিমেশন
+                          // সিট খালি থাকলে অথবা কলিং হলে আইকন/এনিমেশন
                           child: status == "calling"
-                              ? const CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
                               : (isOccupied 
                                   ? null 
-                                  : Icon(isVip ? Icons.stars : Icons.chair, color: Colors.white24)),
+                                  : Icon(isVip ? Icons.stars : Icons.chair, color: Colors.white24, size: 20)),
                         ),
                         
-                        // ✅ মাইক অন থাকলে আইকন (আগের ফিচার)
+                        // ✅ মাইক অন থাকলে ছোট্ট আইকন (আগের ফিচার)
                         if (isOccupied && isMicOn)
                           Positioned(
                             bottom: 0,
                             right: 0,
                             child: Container(
-                              padding: const EdgeInsets.all(1),
-                              decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(
+                                color: Colors.black87, 
+                                shape: BoxShape.circle,
+                                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 2)],
+                              ),
                               child: const Icon(Icons.mic, size: 10, color: Colors.greenAccent),
                             ),
                           ),
@@ -826,10 +851,14 @@ Widget _buildSeatGridArea() {
                   
                   const SizedBox(height: 4),
                   
-                  // ✅ ইউজারের নাম অথবা সিট নাম্বার (আগের ফিচার অক্ষুণ্ণ)
+                  // ✅ ইউজারের নাম অথবা সিট নম্বর (আগের ফিচার)
                   Text(
                     isOccupied ? uName : "${index + 1}",
-                    style: const TextStyle(color: Colors.white54, fontSize: 10),
+                    style: TextStyle(
+                      color: isOccupied ? Colors.white : Colors.white54, 
+                      fontSize: 10,
+                      fontWeight: isOccupied ? FontWeight.bold : FontWeight.normal,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
