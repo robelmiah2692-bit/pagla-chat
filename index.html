@@ -7,6 +7,7 @@
   <meta name="description" content="Live Voice Adda App">
   
   <meta http-equiv="Permissions-Policy" content="microphone=*, camera=*, display-capture=*">
+  <meta name="cross-origin-embedder-policy" content="credentialless">
 
   <title>Pagla Chat</title>
   
@@ -68,6 +69,10 @@
     <p style="color: white; font-family: sans-serif; margin-top: 20px; font-weight: bold;">Pagla Chat Loading...</p>
   </div>
 
+  <script>
+    window.flutterWebRenderer = "html"; // এটা ছবি কালো হওয়া বন্ধ করবে
+  </script>
+
   <script src="main.dart.js" type="application/javascript"></script>
 
   <script>
@@ -87,13 +92,27 @@
       writable: false
     });
 
-    // 🔥 অডিও কন্টেক্সট অটো-রিজুম (ব্রাউজার ব্লক করলে এটি খুলে দেবে)
+    // 🔥 মাইক আঠার মতো লক করার চূড়ান্ত স্ক্রিপ্ট
     window.addEventListener('click', () => {
+        if (window.AudioContext || window.webkitAudioContext) {
+            const audioCtx = window.myAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            window.myAudioCtx = audioCtx;
+        }
+
         if (window.AgoraRTC) {
             AgoraRTC.onAudioAutoplayFailed = () => {
-                console.log("Audio autoplay failed, resuming...");
+                if(window.myAudioCtx) window.myAudioCtx.resume();
             };
         }
+    });
+
+    document.addEventListener("visibilitychange", function() {
+      if (!document.hidden && window.myAudioCtx) {
+        if(window.myAudioCtx.state === 'suspended') window.myAudioCtx.resume();
+      }
     });
   </script>
 </body>
