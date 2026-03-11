@@ -14,6 +14,9 @@ class AgoraManager {
   int? _localUid;
   bool _shouldBeBroadcasting = false; // আঠার মতো লেগে থাকার জন্য ফ্ল্যাগ
 
+  // ✅ গিটহাব এরর ফিক্স: বাইরের ফাইল থেকে uid পড়ার জন্য Getter
+  int? get localUid => _localUid;
+
   Future<void> initAgora() async {
     if (_isInitialized) return;
     if (!kIsWeb) await [Permission.microphone].request();
@@ -24,7 +27,7 @@ class AgoraManager {
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
-    // 🔥 নতুন ফিচার: অডিও ভলিউম ইন্ডিকেশন চালু করা (পানির ঢেউয়ের জন্য)
+    // 🔥 নতুন ফিচার: অডিও ভলিউম ইন্ডিকেশন চালু করা (পানির ঢেউয়ের জন্য)
     // এটি প্রতি ২০০ মিলিসেকেন্ড পরপর কে কথা বলছে তার ডাটা পাঠাবে
     await engine.enableAudioVolumeIndication(
       interval: 200, 
