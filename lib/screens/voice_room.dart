@@ -1,3 +1,4 @@
+import 'package:pagla_chat/widgets/voice_ripple.dart';
 import 'dart:math';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -241,50 +242,60 @@ void initState() {
 
   // ১. সিটে বসার মেইন লজিক (আপনার দেওয়া রিয়েল টাইম সিঙ্ক সহ)
   void sitOnSeat(int index) async {
-  // ১. বেসিক চেক (আগের মতোই)
+  // ১. বেসিক চেক (আগের মতোই ঠিক আছে)
   if (currentSeatIndex == index) { 
     _showLeaveConfirmation(index); 
     return; 
   }
   if (seats[index]["isOccupied"] || isRoomLocked) return;
 
-  // 🔥 ২. কথা বের করার আসল সিকোয়েন্স (এই অর্ডারে কোনো ভুল নেই)
+  // 🔥 ২. এগোরা এবং অডিও সিকোয়েন্স (আঠার মতো লেগে থাকার জন্য)
   try {
-    // সবার আগে ব্রাউজারের অডিও ইঞ্জিনকে ধাক্কা দেওয়া
+    // অডিও ইঞ্জিন রেজুউম করা
     await _agoraManager.forceResumeAudio(); 
     
-    // এগোরা ব্রডকাস্টার রোল সেট করা
+    // ব্রডকাস্টার রোল সেট করা (যাতে কথা বলতে পারে)
     await _agoraManager.becomeBroadcaster();
     
-    // ম্যানুয়ালি ভলিউম এবং স্ট্রিম চেক করা
+    // ম্যানুয়ালি ভলিউম ২০০% করা এবং আনমিউট করা
     await _agoraManager.engine.muteLocalAudioStream(false);
     await _agoraManager.engine.adjustRecordingSignalVolume(200);
     
-    debugPrint("✅ কথা এখন বের হতে বাধ্য!");
+    // 🎤 অডিও ভলিউম ইন্ডিকেশন চালু করা (পানির ঢেউ এনিমেশনের জন্য)
+    await _agoraManager.engine.enableAudioVolumeIndication(
+      interval: 250, 
+      smooth: 3, 
+      reportVad: true
+    );
+    
+    debugPrint("✅ কলিং এবং ভয়েস এনিমেশন লজিক সফল!");
   } catch (e) {
     debugPrint("Agora Error: $e");
   }
 
-  // ৩. পুরাতন সিট ক্লিয়ার করা (যদি আগে কোথাও বসে থাকেন)
+  // ৩. পুরাতন সিট ক্লিয়ার করা (অন্য ফিচার বাদ পড়েনি)
   if (currentSeatIndex != -1) {
     int oldIndex = currentSeatIndex;
     FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').remove();
     setState(() {
       seats[oldIndex]["isOccupied"] = false;
       seats[oldIndex]["status"] = "empty";
+      seats[oldIndex]["isTalking"] = false; // এনিমেশন অফ
     });
   }
 
-  // ৪. ফায়ারবেস থেকে আপনার ডাটা আনা এবং সিট আপডেট করা
+  // ৪. ফায়ারবেস আপডেট এবং আপনার আইডি শনাক্তকরণ
   try {
     final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
-    final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
     
+    // মালিক শনাক্তকরণ এবং ডাটা আনা
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
     String myName = userDoc.data()?['name'] ?? "User"; 
     String myPic = userDoc.data()?['profilePic'] ?? "";
 
     final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
     
+    // সব ফিচার ডাটাবেসে পাঠানো হচ্ছে
     await seatRef.set({
       'userName': myName,
       'userImage': myPic,
@@ -292,8 +303,10 @@ void initState() {
       'status': 'occupied',
       'isMicOn': true,
       'userId': uid,
+      'isTalking': false, // ডিফল্ট সাইলেন্ট
     });
     
+    // ৫. ডিসকানেক্ট হলে অটো সিট খালি হওয়া
     await seatRef.onDisconnect().remove();
 
     if (mounted) {
@@ -305,8 +318,12 @@ void initState() {
         seats[index]["userName"] = myName;
         seats[index]["userImage"] = myPic; 
         seats[index]["isMicOn"] = true;
+        seats[index]["userId"] = uid;
+        seats[index]["isTalking"] = false;
       });
     }
+    
+    debugPrint("👑 সিট সফলভাবে দখল হয়েছে!");
   } catch (e) {
     debugPrint("Database Update Error: $e");
   }
@@ -699,18 +716,18 @@ Widget _buildBottomActionArea() {
   );
 }
   
-  Widget _buildSeatGridArea() {
+Widget _buildSeatGridArea() {
   return SizedBox(
     height: 300,
     child: StreamBuilder<QuerySnapshot>(
-      // 🔥 ফায়ারবেস থেকে রিয়েল-টাইম সিট ডাটা আনা হচ্ছে
+      // 🔥 ফায়ারবেস থেকে রিয়েল-টাইম সিট ডাটা আনা হচ্ছে
       stream: FirebaseFirestore.instance
           .collection('rooms')
           .doc(widget.roomId)
           .collection('seats')
           .snapshots(),
       builder: (context, snapshot) {
-        // ডাটাবেসের সিটগুলোকে একটা ম্যাপে নিয়ে আসা
+        // ডাটাবেসের সিটগুলোকে একটা ম্যাপে নিয়ে আসা
         Map<String, dynamic> firestoreSeats = {};
         if (snapshot.hasData) {
           for (var doc in snapshot.data!.docs) {
@@ -735,46 +752,58 @@ Widget _buildBottomActionArea() {
             String uImage = dbSeat != null ? (dbSeat['userImage'] ?? "") : seats[index]['userImage'];
             bool isMicOn = dbSeat != null ? (dbSeat['isMicOn'] ?? false) : seats[index]['isMicOn'];
             String status = dbSeat != null ? (dbSeat['status'] ?? "empty") : seats[index]['status'];
-            bool isVip = seats[index]['isVip']; // এটা লোকাল থেকেই থাক
+            bool isVip = seats[index]['isVip'] ?? false; // লোকাল থেকে VIP চেক
+            
+            // 🔥 কথা বলছে কিনা তা চেক করা (পানির ঢেউয়ের জন্য)
+            bool isTalking = dbSeat != null ? (dbSeat['isTalking'] ?? false) : false;
 
             return GestureDetector(
               onTap: () => sitOnSeat(index),
               child: Column(
                 children: [
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // সিটের বর্ডার ও ব্যাকগ্রাউন্ড
-                      CircleAvatar(
-                        radius: 24,
-                        backgroundColor: isOccupied ? Colors.blueAccent : Colors.white10,
-                        
-                        // ✅ ইউজারের প্রোফাইল পিকচার (নেটওয়ার্ক থেকে)
-                        backgroundImage: (uImage.isNotEmpty) 
-                            ? NetworkImage(uImage) 
-                            : null,
-                        
-                        // সিট খালি থাকলে আইকন অথবা কলিং এনিমেশন
-                        child: status == "calling"
-                            ? const CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
-                            : (isOccupied 
-                                ? null 
-                                : Icon(isVip ? Icons.stars : Icons.chair, color: Colors.white24)),
-                      ),
-                      
-                      // ✅ মাইক অন থাকলে আইকন
-                      if (isMicOn)
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: const Icon(Icons.mic, size: 12, color: Colors.greenAccent),
+                  // --- পানির ঢেউ (VoiceRipple) শুরু ---
+                  VoiceRipple(
+                    isTalking: isOccupied && isTalking, 
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // সিটের বর্ডার ও ব্যাকগ্রাউন্ড
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor: isOccupied ? Colors.blueAccent : Colors.white10,
+                          
+                          // ✅ ইউজারের প্রোফাইল পিকচার (নেটওয়ার্ক থেকে)
+                          backgroundImage: (isOccupied && uImage.isNotEmpty) 
+                              ? NetworkImage(uImage) 
+                              : null,
+                          
+                          // সিট খালি থাকলে আইকন অথবা কলিং এনিমেশন
+                          child: status == "calling"
+                              ? const CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
+                              : (isOccupied 
+                                  ? null 
+                                  : Icon(isVip ? Icons.stars : Icons.chair, color: Colors.white24)),
                         ),
-                    ],
+                        
+                        // ✅ মাইক অন থাকলে আইকন (আগের ফিচার)
+                        if (isOccupied && isMicOn)
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(1),
+                              decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                              child: const Icon(Icons.mic, size: 10, color: Colors.greenAccent),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
+                  // --- পানির ঢেউ শেষ ---
                   
                   const SizedBox(height: 4),
                   
-                  // ✅ ইউজারের নাম অথবা সিট নাম্বার
+                  // ✅ ইউজারের নাম অথবা সিট নাম্বার (আগের ফিচার অক্ষুণ্ণ)
                   Text(
                     isOccupied ? uName : "${index + 1}",
                     style: const TextStyle(color: Colors.white54, fontSize: 10),
