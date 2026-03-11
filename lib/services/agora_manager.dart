@@ -1,9 +1,6 @@
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart'; 
-import 'package:permission_handler/permission_handler.dart';
-import 'dart:html' as html; 
 import 'dart:async';
-import 'dart:js' as js; 
 import 'dart:math';
 
 class AgoraManager {
@@ -19,14 +16,12 @@ class AgoraManager {
 
   Future<void> initAgora() async {
     if (_isInitialized) return;
-    if (!kIsWeb) await [Permission.microphone].request();
 
     engine = createAgoraRtcEngine();
     
-    // ✅ গ্লোবাল রিজিয়ন (areaCodeGlob) যোগ করা হয়েছে যাতে কানেকশন মিস না হয়
+    // ✅ গ্লোবাল বাদ দিয়ে সরাসরি সিম্পল ইনিশিয়ালাইজেশন
     await engine.initialize(RtcEngineContext(
       appId: appId,
-      areaCode: AreaCode.areaCodeGlob.value, 
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
@@ -37,32 +32,24 @@ class AgoraManager {
       reportVad: true,
     );
 
-    // --- নেটওয়ার্ক রেজিলিয়েন্স সেটআপ ---
-    await engine.setParameters('{"rtc.web_receiver_report_interval":1000}');
-    await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
-    await engine.setParameters('{"rtc.net_status_notification_interval":1000}');
-    
-    // ইভেন্ট হ্যান্ডলার
+    // ওয়েব এরর হ্যান্ডলার
     engine.registerEventHandler(RtcEngineEventHandler(
       onConnectionStateChanged: (connection, state, reason) {
-        debugPrint("📡 Connection State: $state, Reason: $reason");
+        debugPrint("📡 Connection State: $state");
         if (state == ConnectionStateType.connectionStateConnected && _shouldBeBroadcasting) {
           _ensureAudioPublishing();
         }
       },
-      onRejoinChannelSuccess: (connection, elapsed) {
-        debugPrint("🔄 অটো রিকানেক্ট সফল!");
-        if (_shouldBeBroadcasting) _ensureAudioPublishing();
+      onJoinChannelSuccess: (connection, elapsed) {
+        debugPrint("✅ সফলভাবে জয়েন হয়েছে!");
       },
-      // ✅ এরর ধরার জন্য নতুন লগার যোগ করা হয়েছে
       onError: (ErrorCodeType err, String msg) {
-        debugPrint("❌ Agora Error Code: $err, Message: $msg");
+        debugPrint("❌ Agora Error: $err");
       },
     ));
 
     await engine.enableAudio();
     _isInitialized = true; 
-    debugPrint("✅ Agora Initialized Globally with App ID: $appId");
   }
 
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
@@ -83,43 +70,16 @@ class AgoraManager {
       channelId: channelName, 
       uid: _localUid!, 
       options: const ChannelMediaOptions(
-        clientRoleType: ClientRoleType.clientRoleAudience, 
+        clientRoleType: ClientRoleType.clientRoleBroadcaster, 
         publishMicrophoneTrack: false, 
         autoSubscribeAudio: true,
       ),
     );
     _shouldBeBroadcasting = false;
-    debugPrint("✅ Joined with UID: $_localUid");
-  }
-
-  Future<void> forceResumeAudio() async {
-    if (kIsWeb) {
-      js.context.callMethod('eval', [
-        """
-        (function() {
-          var audioCtx = window.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-          if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-          }
-          window.audioCtx = audioCtx;
-        })();
-        """
-      ]);
-    }
   }
 
   Future<void> becomeBroadcaster() async {
     _shouldBeBroadcasting = true;
-    await forceResumeAudio();
-    
-    if (kIsWeb) {
-      try {
-        await html.window.navigator.getUserMedia(audio: true);
-      } catch (e) {
-        debugPrint("Mic Permission Error: $e");
-      }
-    }
-
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     await _ensureAudioPublishing();
 
@@ -139,7 +99,6 @@ class AgoraManager {
     ));
     await engine.enableLocalAudio(true);
     await engine.muteLocalAudioStream(false);
-    await engine.adjustRecordingSignalVolume(200);
   }
 
   Future<void> toggleMic(bool isMute) async {
