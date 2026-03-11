@@ -24,6 +24,14 @@ class AgoraManager {
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
+    // 🔥 নতুন ফিচার: অডিও ভলিউম ইন্ডিকেশন চালু করা (পানির ঢেউয়ের জন্য)
+    // এটি প্রতি ২০০ মিলিসেকেন্ড পরপর কে কথা বলছে তার ডাটা পাঠাবে
+    await engine.enableAudioVolumeIndication(
+      interval: 200, 
+      smooth: 3, 
+      reportVad: true,
+    );
+
     // --- নেটওয়ার্ক রেজিলিয়েন্স সেটআপ (অটো রিকানেক্ট লজিক) ---
     await engine.setParameters('{"rtc.web_receiver_report_interval":1000}');
     await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
@@ -31,7 +39,7 @@ class AgoraManager {
     // কানেকশন লস্ট হলে যাতে দ্রুত ফিরে আসে তার প্যারামিটার
     await engine.setParameters('{"rtc.net_status_notification_interval":1000}');
     
-    // ইভেন্ট হ্যান্ডলার যোগ করা (যাতে নেট ফিরে আসলে অটো কথা শুরু হয়)
+    // ইভেন্ট হ্যান্ডলার যোগ করা (যাতে নেট ফিরে আসলে অটো কথা শুরু হয়)
     engine.registerEventHandler(RtcEngineEventHandler(
       onConnectionStateChanged: (connection, state, reason) {
         debugPrint("📡 Connection State: $state, Reason: $reason");
