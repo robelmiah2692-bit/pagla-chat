@@ -156,37 +156,39 @@ void initState() {
       // আপনার ম্যানেজারের মাধ্যমে ইভেন্ট হ্যান্ডলার
       _agoraManager.engine.registerEventHandler(
         RtcEngineEventHandler(
-          // ✅ ফিচার ১: এগোরার রুলস অনুযায়ী ইউজার জয়েন চেক (ফ্লাটার ভার্সন)
+          // ✅ ফিচার ১: ইউজার জয়েন (এগোরা ডকস অনুযায়ী)
           onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
-            debugPrint("🎙️ Remote User $remoteUid joined and audio is ready.");
+            debugPrint("🎙️ Remote User $remoteUid joined and ready.");
           },
 
-          // ✅ ফিচার ২: রিপেল (VoiceRipple) এবং ভলিউম ইন্ডিকেশন (একদম ঠিক রেখে)
+          // ✅ ফিচার ২: অডিও ভলিউম ও রিপেল লজিক
           onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int totalVolume, int speakerNumber) {
             if (!mounted) return;
             
             setState(() {
-              // সবার আগে রিপেল রিসেট
+              // সব সিটের রিপেল আগে অফ করি
               for (int i = 0; i < seats.length; i++) {
                 seats[i]["isTalking"] = false;
               }
 
               for (var speaker in speakers) {
-                // ✅ ফিচার ৩: লোকাল আইডি ফিক্স (Getter ব্যবহার করে)
-                int currentSpeakerUid = (speaker.uid == 0) ? (_agoraManager.localUid ?? 0) : speaker.uid;
+                // ✅ ফিচার ৩: নাল সেফটি ফিক্স (Error: A value of type 'int?' can't be assigned...)
+                // এখানে ! এবং ?? ব্যবহার করে নিশ্চিত করা হয়েছে যে ভ্যালু নাল হবে না।
+                int sUid = speaker.uid ?? 0;
+                int currentSpeakerUid = (sUid == 0) ? (_agoraManager.localUid ?? 0) : sUid;
 
                 for (int i = 0; i < seats.length; i++) {
-                  // ✅ ফিচার ৪: আইডি ম্যাচিং (Firebase ID + Agora UID)
-                  bool isMe = (speaker.uid == 0 && seats[i]["userId"].toString() == myActualUid.toString());
+                  // ✅ ফিচার ৪: আইডি ম্যাচিং লজিক
+                  bool isMe = (sUid == 0 && seats[i]["userId"].toString() == myActualUid.toString());
                   bool isOthers = (seats[i]["agoraUid"].toString() == currentSpeakerUid.toString());
 
                   if (isMe || isOthers) {
                     int vol = speaker.volume ?? 0;
-                    bool talkingNow = vol > 5; // ভলিউম ৫ এর বেশি হলে রিপেল চলবে
+                    bool talkingNow = vol > 5;
                     
-                    // ✅ ফিচার ৫: পারফরম্যান্স অপ্টিমাইজেশন
+                    // ✅ ফিচার ৫: ডাটাবেস আপডেট (রিপেল সিঙ্ক)
                     if (seats[i]["isTalking"] != talkingNow) {
-                      seats[i]["isTalking"] = talkingNow; // লোকাল ইউআই আপডেট
+                      seats[i]["isTalking"] = talkingNow;
 
                       FirebaseFirestore.instance
                           .collection('rooms')
