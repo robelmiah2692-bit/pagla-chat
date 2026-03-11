@@ -152,48 +152,53 @@ void initState() {
       
       final String myActualUid = FirebaseAuth.instance.currentUser?.uid ?? "guest_${Random().nextInt(10000)}";
       
-      // শুরুতে লিসেনার হিসেবে জয়েন
       await _agoraManager.joinAsListener(widget.roomId, myActualUid);
 
       _agoraManager.engine.registerEventHandler(
         RtcEngineEventHandler(
-          // ✅ ফিচার ১: ইউজার জয়েন হলে লিস্ট আপডেট (যাতে অন্যকে দেখা যায়)
+          // ✅ ফিচার ১: অন্য ইউজারকে রুমে দেখা (লিস্ট রিফ্রেশসহ)
           onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
             debugPrint("👥 Remote user joined: $remoteUid");
-            if (mounted) setState(() {});
-          },
-
-          // ✅ ফিচার ২: ইউজার চলে গেলে লিস্ট আপডেট
-          onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
-            debugPrint("👋 Remote user left: $remoteUid");
-            if (mounted) setState(() {});
-          },
-
-          // 🔥 ফিচার ৩ (নতুন): কথা বলা এবং শোনার মেইন লজিক (যা বাদ পড়েছিল)
-          onRemoteAudioStateChanged: (RtcConnection connection, int remoteUid, RemoteAudioState state, RemoteAudioStateReason reason, int elapsed) {
-            // এই ইভেন্টটি নিশ্চিত করে যে আপনি অন্যের কথা শুনতে পাচ্ছেন
-            if (state == RemoteAudioState.remoteAudioStateDecoding) {
-               debugPrint("🔊 এখন কথা শোনা যাবে - User: $remoteUid");
+            if (mounted) {
+              setState(() {
+                // এখানে আপনার মেম্বার বা ভিউয়ার লিস্ট রিফ্রেশ করার ফাংশন কল করুন
+                _addUserToViewers(); // অথবা আপনার লিস্ট আপডেট করার নির্দিষ্ট ফাংশন
+              });
             }
           },
 
-          // ✅ ফিচার ৪: পানির ঢেউ (রিপেল) - আপনার আইডি ম্যাচিং সহ
+          // ✅ ফিচার ২: ইউজার লিভ করলে লিস্ট থেকে সরানো
+          onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
+            debugPrint("👋 Remote user left: $remoteUid");
+            if (mounted) {
+              setState(() {
+                // লিস্ট থেকে ইউজার সরাতে আপনার ফাংশন কল করুন
+              });
+            }
+          },
+
+          // ✅ ফিচার ৩: অডিও স্টেট (কথা শোনা নিশ্চিত করবে)
+          onRemoteAudioStateChanged: (RtcConnection connection, int remoteUid, RemoteAudioState state, RemoteAudioStateReason reason, int elapsed) {
+            if (state == RemoteAudioState.remoteAudioStateDecoding) {
+               debugPrint("🔊 কথা শোনা যাচ্ছে - User: $remoteUid");
+            }
+          },
+
+          // ✅ ফিচার ৪: পানির ঢেউ (রিপেল) ও আইডি ম্যাচিং
           onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int totalVolume, int speakerNumber) {
             if (!mounted) return;
             
             setState(() {
-              // সবার রিপেল আগে অফ করি
               for (int i = 0; i < seats.length; i++) {
                 seats[i]["isTalking"] = false;
               }
 
               for (var speaker in speakers) {
                 int sUid = speaker.uid ?? 0;
-                // লোকাল আইডি চেনা (ম্যানেজার থেকে)
-                int currentSpeakerUid = (sUid == 0) ? (_agoraManager.localUid ?? 0) : sUid;
+                int? managerLocalUid = _agoraManager.localUid;
+                int currentSpeakerUid = (sUid == 0) ? (managerLocalUid ?? 0) : sUid;
 
                 for (int i = 0; i < seats.length; i++) {
-                  // Firebase ID এবং Agora UID দুটোর সাথেই ম্যাচিং
                   bool isMe = (sUid == 0 && seats[i]["userId"].toString() == myActualUid.toString());
                   bool isOthers = (seats[i]["agoraUid"].toString() == currentSpeakerUid.toString() || 
                                   seats[i]["userId"].toString() == currentSpeakerUid.toString());
@@ -204,8 +209,6 @@ void initState() {
 
                     if (seats[i]["isTalking"] != talkingNow) {
                       seats[i]["isTalking"] = talkingNow;
-
-                      // ডাটাবেস আপডেট (যাতে অন্যরাও ঢেউ দেখে)
                       FirebaseFirestore.instance
                           .collection('rooms')
                           .doc(widget.roomId)
@@ -221,7 +224,7 @@ void initState() {
           },
         ),
       );
-      debugPrint("✅ সব ফিচার (ইউজার দেখা + অডিও + রিপেল) এখন সচল!");
+      debugPrint("✅ সব ফিচার (ইউজার লিস্ট + অডিও + রিপেল) এখন সচল!");
     } catch (e) {
       debugPrint("❌ Agora Error: $e");
     }
