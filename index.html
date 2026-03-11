@@ -70,7 +70,7 @@
   </div>
 
   <script>
-    window.flutterWebRenderer = "html"; // এটা ছবি কালো হওয়া বন্ধ করবে
+    window.flutterWebRenderer = "html"; 
   </script>
 
   <script src="main.dart.js" type="application/javascript"></script>
@@ -87,31 +87,41 @@
       }, 5000);
     });
 
-    Object.defineProperty(window, 'flutter_web_config', {
-      value: { isVisible: false },
-      writable: false
-    });
-
-    // 🔥 মাইক আঠার মতো লক করার চূড়ান্ত স্ক্রিপ্ট
-    window.addEventListener('click', () => {
+    // 🔴 মাস্টার মাইক আনলকার লজিক (হৃদয় ভাইয়ের জন্য স্পেশাল)
+    async function unlockAudio() {
         if (window.AudioContext || window.webkitAudioContext) {
-            const audioCtx = window.myAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!window.myAudioCtx) window.myAudioCtx = new AudioContext();
+            
+            if (window.myAudioCtx.state === 'suspended') {
+                await window.myAudioCtx.resume();
             }
-            window.myAudioCtx = audioCtx;
         }
-
+        
+        // এগোরা এসডিকে-কে ব্রাউজারের অডিও লেয়ারের সাথে কানেক্ট করা
         if (window.AgoraRTC) {
             AgoraRTC.onAudioAutoplayFailed = () => {
-                if(window.myAudioCtx) window.myAudioCtx.resume();
+                console.log("Autoplay failed, waiting for user click...");
             };
         }
-    });
+    }
 
+    // ইউজার যখনই স্ক্রিনে টাচ করবে বা ক্লিক করবে
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio);
+
+    // ট্যাব সুইচ করলে মাইক যেন মরে না যায়
     document.addEventListener("visibilitychange", function() {
       if (!document.hidden && window.myAudioCtx) {
-        if(window.myAudioCtx.state === 'suspended') window.myAudioCtx.resume();
+        window.myAudioCtx.resume();
+      }
+    });
+
+    // ব্রাউজারকে সরাসরি বলা যে মাইক পারমিশন দরকার
+    navigator.mediaDevices.enumerateDevices().then(devices => {
+      const hasMic = devices.some(d => d.kind === 'audioinput');
+      if (hasMic) {
+        console.log("🎤 Microphone detected on this device.");
       }
     });
   </script>
