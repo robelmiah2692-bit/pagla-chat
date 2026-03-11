@@ -156,40 +156,37 @@ void initState() {
       // আপনার ম্যানেজারের মাধ্যমে ইভেন্ট হ্যান্ডলার
       _agoraManager.engine.registerEventHandler(
         RtcEngineEventHandler(
-          // ✅ ফিচার ১: এগোরার স্ক্রিনশটের নিয়ম (Remote Audio Subscription)
-          onUserPublished: (RtcConnection connection, int remoteUid, HeritageMediaSourceType sourceType) async {
-            if (sourceType == HeritageMediaSourceType.heritageMediaSourceMicrophone) {
-              debugPrint("🎙️ Remote User $remoteUid published audio - এগোরা রুলস অনুযায়ী কানেক্টেড");
-            }
+          // ✅ ফিচার ১: এগোরার রুলস অনুযায়ী ইউজার জয়েন চেক (ফ্লাটার ভার্সন)
+          onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
+            debugPrint("🎙️ Remote User $remoteUid joined and audio is ready.");
           },
 
-          // ✅ ফিচার ২: রিপেল (VoiceRipple) এবং ভলিউম ইন্ডিকেশন
+          // ✅ ফিচার ২: রিপেল (VoiceRipple) এবং ভলিউম ইন্ডিকেশন (একদম ঠিক রেখে)
           onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int totalVolume, int speakerNumber) {
             if (!mounted) return;
             
             setState(() {
-              // প্রথমে সবার রিপেল (isTalking) বন্ধ করি যাতে কথা থামলে ঢেউ থেমে যায়
+              // সবার আগে রিপেল রিসেট
               for (int i = 0; i < seats.length; i++) {
                 seats[i]["isTalking"] = false;
               }
 
-              // স্পিকারদের ডাটা প্রসেস করি
               for (var speaker in speakers) {
-                // ✅ ফিচার ৩: লোকাল আইডি ফিক্স (Getter ব্যবহার করে নিজের আইডি চেনা)
+                // ✅ ফিচার ৩: লোকাল আইডি ফিক্স (Getter ব্যবহার করে)
                 int currentSpeakerUid = (speaker.uid == 0) ? (_agoraManager.localUid ?? 0) : speaker.uid;
 
                 for (int i = 0; i < seats.length; i++) {
-                  // ✅ ফিচার ৪: মাল্টিপল আইডি ম্যাচিং (Firebase ID এবং Agora UID)
+                  // ✅ ফিচার ৪: আইডি ম্যাচিং (Firebase ID + Agora UID)
                   bool isMe = (speaker.uid == 0 && seats[i]["userId"].toString() == myActualUid.toString());
                   bool isOthers = (seats[i]["agoraUid"].toString() == currentSpeakerUid.toString());
 
                   if (isMe || isOthers) {
                     int vol = speaker.volume ?? 0;
-                    bool talkingNow = vol > 5; // ৫ এর বেশি ভলিউম মানেই কথা বলছে (রিপেল অন হবে)
+                    bool talkingNow = vol > 5; // ভলিউম ৫ এর বেশি হলে রিপেল চলবে
                     
-                    // ✅ ফিচার ৫: পারফরম্যান্স অপ্টিমাইজেশন (শুধু চেঞ্জ হলেই ডাটাবেস হিট করবে)
+                    // ✅ ফিচার ৫: পারফরম্যান্স অপ্টিমাইজেশন
                     if (seats[i]["isTalking"] != talkingNow) {
-                      seats[i]["isTalking"] = talkingNow; // লোকাল ইউআই আপডেট (রিপেল চালু হবে)
+                      seats[i]["isTalking"] = talkingNow; // লোকাল ইউআই আপডেট
 
                       FirebaseFirestore.instance
                           .collection('rooms')
@@ -206,7 +203,7 @@ void initState() {
           },
         ),
       );
-      debugPrint("✅ সব ফিচার (রিপেল + এগোরা রুলস + আইডি ফিক্স) একসাথে চালু হয়েছে!");
+      debugPrint("✅ সব ফিচার (রিপেল + এগোরা ফিক্স + আইডি ফিক্স) একসাথে সাকসেসফুল!");
     } catch (e) {
       debugPrint("❌ Agora Manager Error: $e");
     }
