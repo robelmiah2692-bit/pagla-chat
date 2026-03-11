@@ -959,15 +959,36 @@ Widget _buildSeatGridArea() {
 }
 
   void _showSettings() {
-    RoomSettingsHandler.showSettings(
-      context: context,
-      isLocked: isRoomLocked,
-      onToggleLock: () => setState(() => isRoomLocked = !isRoomLocked),
-      onSetWallpaper: (p) => setState(() => roomWallpaperPath = p),
-      onMinimize: () => Navigator.pop(context),
-      onLeave: () { _audioPlayer.stop(); Navigator.pop(context); }
-    );
-  }
+  RoomSettingsHandler.showSettings(
+    context: context,
+    isLocked: isRoomLocked,
+    onToggleLock: () => setState(() => isRoomLocked = !isRoomLocked),
+    onSetWallpaper: (p) => setState(() => roomWallpaperPath = p),
+    onMinimize: () => Navigator.pop(context),
+    
+    // 🔥 চ্যাট ক্লিন করার লজিক (এটি নতুন যোগ হলো)
+    onClearChat: () async {
+      // আপনার ডাটাবেস থেকে মেসেজ ডিলিট করার কমান্ড
+      await FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(widget.roomId)
+          .collection('chats')
+          .get()
+          .then((snapshot) {
+            for (DocumentSnapshot ds in snapshot.docs) {
+              ds.reference.delete();
+            }
+          });
+      debugPrint("🧹 চ্যাট পরিষ্কার করা হয়েছে!");
+    },
+
+    // ✅ এক্সিট লজিক (আগের মতোই)
+    onLeave: () {
+      _agoraManager.engine.leaveChannel();
+      Navigator.pop(context);
+    },
+  );
+}
 
   Widget _buildFloatingPlayer({required bool isDragging}) {
     return Material(
