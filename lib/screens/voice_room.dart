@@ -156,7 +156,8 @@ void initState() {
       // আপনার ম্যানেজারের মাধ্যমে ইভেন্ট হ্যান্ডলার
       _agoraManager.engine.registerEventHandler(
         RtcEngineEventHandler(
-          onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int totalVolume) {
+          // ✅ প্যারামিটার ৪টি হবে (connection, speakers, totalVolume, speakerNumber)
+          onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int totalVolume, int speakerNumber) {
             if (mounted) {
               setState(() {
                 // প্রথমে সবার ঢেউ বন্ধ করি
@@ -168,7 +169,10 @@ void initState() {
                   for (int i = 0; i < seats.length; i++) {
                     if (seats[i]["userId"] == speaker.uid.toString() || 
                         (speaker.uid == 0 && seats[i]["userId"] == myActualUid)) {
-                      seats[i]["isTalking"] = speaker.volume > 5;
+                      
+                      // ✅ Null safety ফিক্স: volume? ব্যবহার করা হয়েছে
+                      int vol = speaker.volume ?? 0;
+                      seats[i]["isTalking"] = vol > 5;
                     }
                   }
                 }
