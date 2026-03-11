@@ -151,59 +151,61 @@ void initState() {
       await _agoraManager.initAgora(); 
       
       final String myActualUid = FirebaseAuth.instance.currentUser?.uid ?? "guest_${Random().nextInt(10000)}";
+      
+      // শুরুতে লিসেনার হিসেবে জয়েন
       await _agoraManager.joinAsListener(widget.roomId, myActualUid);
 
-      // আপনার ম্যানেজারের মাধ্যমে ইভেন্ট হ্যান্ডলার
       _agoraManager.engine.registerEventHandler(
         RtcEngineEventHandler(
-          // ✅ ফিচার ১: অন্য ইউজারকে দেখার লজিক (যা বাদ পড়েছিল)
+          // ✅ ফিচার ১: ইউজার জয়েন হলে লিস্ট আপডেট (যাতে অন্যকে দেখা যায়)
           onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
             debugPrint("👥 Remote user joined: $remoteUid");
-            // এখানে আপনি চাইলে ইউজার লিস্ট রিফ্রেশ করার লজিক কল করতে পারেন
-            if (mounted) {
-              setState(() {
-                // ইউজার জয়েন করলে সিট বা মেম্বার লিস্ট আপডেট করার জন্য
-              });
-            }
+            if (mounted) setState(() {});
           },
 
-          // ✅ ফিচার ২: ইউজার চলে গেলে তাকে লিস্ট থেকে সরানো
+          // ✅ ফিচার ২: ইউজার চলে গেলে লিস্ট আপডেট
           onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
             debugPrint("👋 Remote user left: $remoteUid");
-            if (mounted) {
-              setState(() {});
+            if (mounted) setState(() {});
+          },
+
+          // 🔥 ফিচার ৩ (নতুন): কথা বলা এবং শোনার মেইন লজিক (যা বাদ পড়েছিল)
+          onRemoteAudioStateChanged: (RtcConnection connection, int remoteUid, RemoteAudioState state, RemoteAudioStateReason reason, int elapsed) {
+            // এই ইভেন্টটি নিশ্চিত করে যে আপনি অন্যের কথা শুনতে পাচ্ছেন
+            if (state == RemoteAudioState.remoteAudioStateDecoding) {
+               debugPrint("🔊 এখন কথা শোনা যাবে - User: $remoteUid");
             }
           },
 
-          // ✅ ফিচার ৩: অডিও ভলিউম এবং পানির ঢেউ (রিপেল)
+          // ✅ ফিচার ৪: পানির ঢেউ (রিপেল) - আপনার আইডি ম্যাচিং সহ
           onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int totalVolume, int speakerNumber) {
             if (!mounted) return;
             
             setState(() {
-              // প্রথমে সবার ঢেউ অফ করি (পুরাতন লজিক ঠিক আছে)
+              // সবার রিপেল আগে অফ করি
               for (int i = 0; i < seats.length; i++) {
                 seats[i]["isTalking"] = false;
               }
 
               for (var speaker in speakers) {
-                // Null safety ফিক্স (int? to int)
                 int sUid = speaker.uid ?? 0;
+                // লোকাল আইডি চেনা (ম্যানেজার থেকে)
                 int currentSpeakerUid = (sUid == 0) ? (_agoraManager.localUid ?? 0) : sUid;
 
                 for (int i = 0; i < seats.length; i++) {
-                  // আপনার Firebase ID এবং Agora UID দিয়ে ম্যাচিং
+                  // Firebase ID এবং Agora UID দুটোর সাথেই ম্যাচিং
                   bool isMe = (sUid == 0 && seats[i]["userId"].toString() == myActualUid.toString());
                   bool isOthers = (seats[i]["agoraUid"].toString() == currentSpeakerUid.toString() || 
                                   seats[i]["userId"].toString() == currentSpeakerUid.toString());
 
                   if (isMe || isOthers) {
                     int vol = speaker.volume ?? 0;
-                    bool talkingNow = vol > 10; // ১০ এর বেশি ভলিউম হলে ঢেউ উঠবে
+                    bool talkingNow = vol > 10; 
 
                     if (seats[i]["isTalking"] != talkingNow) {
                       seats[i]["isTalking"] = talkingNow;
 
-                      // ডাটাবেস আপডেট যাতে অন্যরাও ঢেউ দেখে
+                      // ডাটাবেস আপডেট (যাতে অন্যরাও ঢেউ দেখে)
                       FirebaseFirestore.instance
                           .collection('rooms')
                           .doc(widget.roomId)
@@ -219,13 +221,13 @@ void initState() {
           },
         ),
       );
-      debugPrint("✅ সব ফিচার এখন একদম ঠিকঠাক যুক্ত হয়েছে!");
+      debugPrint("✅ সব ফিচার (ইউজার দেখা + অডিও + রিপেল) এখন সচল!");
     } catch (e) {
       debugPrint("❌ Agora Error: $e");
     }
   });
 
-  // ৫. অডিও প্লেয়ার লিসেনার (আগের মতোই)
+  // ৫. অডিও প্লেয়ার লিসেনার
   _audioPlayer.onPlayerStateChanged.listen((state) {
     if (mounted) {
       setState(() => isRoomMusicPlaying = (state == PlayerState.playing));
@@ -236,7 +238,7 @@ void initState() {
     if (mounted) setState(() => isRoomMusicPlaying = false);
   });
   
-  // ৬. ফায়ারস্টোর ডাটা লোড (আপনার অরিজিনাল সব রুম ডাটা)
+  // ৬. ফায়ারস্টোর ডাটা লোড
   FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
     if (doc.exists && mounted) {
       setState(() {
@@ -259,7 +261,6 @@ void initState() {
       _addUserToViewers();
     }
   });
-}
  
   // --- গিফট লজিক ---
   void _startGiftCounting() {
@@ -395,13 +396,23 @@ void initState() {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.grey[900],
-        title: const Text("সিট ছেড়ে দিন", style: TextStyle(color: Colors.white)),
+        title: const Text("সিট ছেড়ে দিন", style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("না")),
           TextButton(
             onPressed: () async {
+              // 🔥 ১. এগোরাকে লিসেনার মোডে নেওয়া (যাতে কথা বলা বন্ধ হয়)
+              try {
+                await _agoraManager.becomeListener();
+                debugPrint("🔇 এগোরা এখন লিসেনার মোডে।");
+              } catch (e) {
+                debugPrint("Agora Error: $e");
+              }
+
+              // ২. আপনার ডাটাবেস আপডেট লজিক (আগের মতোই)
               await _roomService.updateSeatData(roomId: widget.roomId, seatIndex: index, uName: "", uImage: "", isOccupied: false);
               await FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).collection('seats').doc(index.toString()).delete();
+              
               if (mounted) {
                 setState(() {
                   seats[index]["isOccupied"] = false;
@@ -409,6 +420,7 @@ void initState() {
                   seats[index]["userName"] = "";
                   seats[index]["userImage"] = "";
                   seats[index]["isMicOn"] = false; 
+                  seats[index]["isTalking"] = false; // রিপেল অফ করা
                   currentSeatIndex = -1;
                   isMicOn = false;
                 });
