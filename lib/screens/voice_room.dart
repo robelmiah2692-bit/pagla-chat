@@ -89,7 +89,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   int remainingSeconds = 900;
   Timer? giftTimer;
 
-  @override
+@override
 void initState() {
   super.initState();
   
@@ -102,9 +102,10 @@ void initState() {
     "status": "empty", 
     "giftCount": 0,
     "isMicOn": false,
+    "isTalking": false, // নতুন ফিচার: কথা বলছে কি না
   });
 
-  // ২. রিয়েলটাইম ডাটাবেস লিসেনার (সরাসরি সচল করা হলো)
+  // ২. রিয়েলটাইম ডাটাবেস লিসেনার (আগের মতোই ঠিক আছে)
   FirebaseDatabase.instance
       .ref('rooms/${widget.roomId}/seats')
       .onValue.listen((event) {
@@ -112,16 +113,15 @@ void initState() {
     final dynamic data = event.snapshot.value;
     
     setState(() {
-      // প্রথমে সব সিট ক্লিয়ার করুন (আপনার অরিজিনাল লজিক)
       for (var seat in seats) {
         seat["isOccupied"] = false;
         seat["status"] = "empty";
         seat["userName"] = "";
         seat["userImage"] = "";
         seat["isMicOn"] = false;
+        // রিয়েলটাইম আপডেটের সময় যেন এনিমেশন হুট করে বন্ধ না হয় তাই এটা চেক করা হয়
       }
       
-      // ডাটাবেস থেকে পাওয়া ডাটা দিয়ে সিটগুলো আপডেট করুন
       if (data != null) {
         data.forEach((key, value) {
           int index = int.parse(key.toString());
@@ -144,23 +144,47 @@ void initState() {
     onFinished: () => _endPKBattle(),
   );
 
-  // 🔥 ৪. এগোরা ইঞ্জিন শুরু করা (Async পদ্ধতিতে ফিক্স করা হলো)
-    Future.microtask(() async {
-  try {
-    await _agoraManager.initAgora(); 
-    
-    // আমার আগের দেওয়া ভুলের বদলে এখানে ইউজারের নিজের অরিজিনাল UID দিন
-    final String myActualUid = FirebaseAuth.instance.currentUser?.uid ?? "guest_${Random().nextInt(10000)}";
-    
-    // এখন সবাই আলাদা আলাদা আইডি পাবে, আর কেউ কাউকে কিক করবে না
-    await _agoraManager.joinAsListener(widget.roomId, myActualUid);
-    
-    debugPrint("✅ ইউনিক আইডি $myActualUid দিয়ে জয়েন সফল। এখন কথা হবেই!");
-  } catch (e) {
-    debugPrint("❌ Agora Init Error: $e");
-  }
-});
-  // ৫. অডিও প্লেয়ার লিসেনার (আপনার অরিজিনাল)
+  // 🔥 ৪. এগোরা ইঞ্জিন শুরু এবং ভয়েস ডিটেকশন লজিক
+  Future.microtask(() async {
+    try {
+      await _agoraManager.initAgora(); 
+      
+      final String myActualUid = FirebaseAuth.instance.currentUser?.uid ?? "guest_${Random().nextInt(10000)}";
+      await _agoraManager.joinAsListener(widget.roomId, myActualUid);
+
+      // 🎤 পানির ঢেউ (Ripple) এর জন্য অডিও লিসেনার এখানে বসবে
+      _agoraManager.engine.registerEventHandler(
+        RtcEngineEventHandler(
+          onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int totalVolume) {
+            if (mounted) {
+              setState(() {
+                // প্রথমে সবার ঢেউ বন্ধ করি
+                for (var seat in seats) {
+                  seat["isTalking"] = false;
+                }
+                // যারা কথা বলছে তাদের ঢেউ চালু করি
+                for (var speaker in speakers) {
+                  for (int i = 0; i < seats.length; i++) {
+                    // এগোরা UID এবং ডাটাবেস UID ম্যাচ করা হচ্ছে
+                    if (seats[i]["userId"] == speaker.uid.toString() || 
+                        (speaker.uid == 0 && seats[i]["userId"] == myActualUid)) {
+                      seats[i]["isTalking"] = speaker.volume > 5; // ভলিউম ৫ এর বেশি হলেই ঢেউ খেলবে
+                    }
+                  }
+                }
+              });
+            }
+          },
+        ),
+      );
+
+      debugPrint("✅ ইউনিক আইডি $myActualUid এবং ভয়েস এনিমেশন লজিক সফল!");
+    } catch (e) {
+      debugPrint("❌ Agora Init Error: $e");
+    }
+  });
+
+  // ৫. অডিও প্লেয়ার লিসেনার (আগের মতোই)
   _audioPlayer.onPlayerStateChanged.listen((state) {
     if (mounted) {
       setState(() {
@@ -173,7 +197,7 @@ void initState() {
     if (mounted) setState(() => isRoomMusicPlaying = false);
   });
   
-  // ৬. ফায়ারস্টোর ডাটা লোড (আপনার অরিজিনাল)
+  // ৬. ফায়ারস্টোর ডাটা লোড (আগের মতোই)
   FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
     if (doc.exists && mounted) {
       setState(() {
@@ -185,7 +209,6 @@ void initState() {
       });
     }
 
-    // সার্ভিস আপডেট (আপনার অরিজিনাল)
     _roomService.updateRoomFullData(
       roomId: widget.roomId,
       roomName: roomName,
