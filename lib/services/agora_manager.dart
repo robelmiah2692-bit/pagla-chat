@@ -55,7 +55,7 @@ class AgoraManager {
         forceResumeAudio(); // কানেক্ট হওয়া মাত্রই অডিও সচল করা
       },
       onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
-        // রিয়েল টাইম রিপেল ডাটা
+        // এখানে ভলিউম ডেটা রিয়েল টাইমে আসবে যা রিপেল তৈরি করবে
       },
     ));
 
@@ -77,8 +77,11 @@ class AgoraManager {
               contexts.forEach(function(ctx) {
                 if (ctx.state !== 'running') ctx.resume();
               });
+              // ব্রাউজারকে জানানো যে মাইক সচল করতে হবে
+              navigator.mediaDevices.getUserMedia({ audio: true }).then(function(s) {
+                 s.getTracks().forEach(t => t.stop()); 
+              }).catch(e => console.log('Mic Init Error'));
             };
-            // ইউজার যখনই স্ক্রিনে টাচ করবে বা ক্লিক করবে, অডিও সচল হবে
             document.body.addEventListener('click', resume, {once: false});
             document.body.addEventListener('touchstart', resume, {once: false});
             resume();
@@ -109,7 +112,7 @@ class AgoraManager {
       channelId: channelName,
       uid: _localUid!,
       options: const ChannelMediaOptions(
-        clientRoleType: ClientRoleType.clientRoleBroadcaster, // অলওয়েজ ব্রডকাস্টার মুড ফর ডাটা ট্র্যাকিং
+        clientRoleType: ClientRoleType.clientRoleBroadcaster, 
         publishMicrophoneTrack: false,
         autoSubscribeAudio: true,
       ),
@@ -135,7 +138,6 @@ class AgoraManager {
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     await _ensureAudioPublishing();
 
-    // কানেকশন ড্রপ হওয়া ঠেকাতে ১ সেকেন্ড পরপর হার্টবিট চেক
     _keepAliveTimer?.cancel();
     _keepAliveTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_isInitialized && _shouldBeBroadcasting) {
