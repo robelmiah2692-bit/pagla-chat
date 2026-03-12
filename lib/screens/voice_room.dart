@@ -432,7 +432,7 @@ void initState() {
     );
   }
 
-   @override
+  @override
 Widget build(BuildContext context) {
   return Scaffold(
     backgroundColor: const Color(0xFF0F0F1E),
@@ -508,7 +508,7 @@ Widget build(BuildContext context) {
         // ৬. ফ্লোটিং টুলস (পুরাতন ফিচার)
         FloatingRoomTools(onGiftCountStart: _startGiftCounting),
 
-        // ৭. গিফট অ্যানিমেশন (পুরাতন ফিচার)
+        // ७. গিফট অ্যানিমেশন (পুরাতন ফিচার)
         if (isGiftAnimating)
           IgnorePointer(
             child: Center(
@@ -576,12 +576,13 @@ Widget build(BuildContext context) {
         ),
 
         // ৯. সিট ইমোজি অ্যানিমেশন (সবার শেষে যাতে সিটের ওপর ভাসমান দেখায়)
-        // ইউজার যেই সিটে বসেছে ইমোজি ঠিক সেই সিটের মাঝখান থেকেই আসবে
+        // ইমোজি ঠিক সেই সিটের মাঝখান থেকেই আসবে
         ..._buildFloatingEmojiAnimations(), 
       ],
     ),
   );
 }
+  
  // 🔥 এটিই আপনার ফাইনাল এবং একমাত্র dispose ফাংশন
   @override
   void dispose() {
