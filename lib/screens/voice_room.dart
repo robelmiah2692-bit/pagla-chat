@@ -437,13 +437,16 @@ void initState() {
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
+          // ১. ওয়ালপেপার ফিচার (ঠিক আছে)
           if (roomWallpaperPath.isNotEmpty)
             Positioned.fill(child: Image.network(roomWallpaperPath, fit: BoxFit.cover)),
           
           Column(
             children: [
               const SizedBox(height: 40),
+              // ২. টপ বার
               _buildTopNavBar(),
+              // ৩. পিকে ব্যাটল ফিচার (ঠিক আছে)
               if (isPKActive)
                 PKBattleView(
                   bluePoints: blueTeamPoints, 
@@ -451,8 +454,10 @@ void initState() {
                   pkSeconds: pkSeconds,
                   pkManager: pkManager,
                 ),
+              // ৪. ভিউয়ার এবং সিট এরিয়া
               _buildViewerArea(),
               _buildSeatGridArea(),
+              // ৫. রুম চ্যাট লিস্ট এরিয়া (ঠিক আছে)
               Expanded(
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -464,12 +469,15 @@ void initState() {
                   ),
                 ),
               ),
+              // ৬. নিচের অ্যাকশন বার
               _buildBottomActionArea(),
             ],
           ),
 
+          // ৭. ফ্লোটিং টুলস (ঠিক আছে)
           FloatingRoomTools(onGiftCountStart: _startGiftCounting),
           
+          // ৮. মিউজিক প্লেয়ার ড্র্যাগেবল ফিচার (ঠিক আছে)
           if (isRoomMusicPlaying)
             Positioned(
               left: playerPosition.dx, 
@@ -484,10 +492,69 @@ void initState() {
               ),
             ),
 
+          // ৯. গিফট অ্যানিমেশন ফিচার (ঠিক আছে)
           if (isGiftAnimating)
             IgnorePointer(
               child: Center(child: Lottie.network(currentGiftImage, width: 300)),
             ),
+
+          // 🔥 ১০. নতুন ভাসমান মেইল বাটন (আপনার রিকোয়েস্ট অনুযায়ী)
+          // এটি চ্যাট বক্স বা সিটের কোনো ক্ষতি করবে না, উপরে ভেসে থাকবে
+          Positioned(
+            bottom: 110, // নিচের বারের ঠিক উপরে রাখার জন্য
+            right: 15,
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('chats')
+                  .where('receiverId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                  .where('isSeen', isEqualTo: false)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                int unreadCount = (snapshot.hasData) ? snapshot.data!.docs.length : 0;
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6), // আবছা কালো ব্যাকগ্রাউন্ড
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white24, width: 1),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.mail, color: Colors.white, size: 24),
+                        onPressed: () {
+                          // ইনবক্স পেজে যাওয়ার নেভিগেশন এখানে লিখুন
+                          print("Inbox Clicked");
+                        },
+                      ),
+                    ),
+                    if (unreadCount > 0)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            color: Colors.red, 
+                            shape: BoxShape.circle
+                          ),
+                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                          child: Text(
+                            '$unreadCount',
+                            style: const TextStyle(
+                              color: Colors.white, 
+                              fontSize: 9, 
+                              fontWeight: FontWeight.bold
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
@@ -701,94 +768,6 @@ Widget _buildBottomActionArea() {
           onPressed: () => showModalBottomSheet(context: context, builder: (c) => const GamePanelView())
         ),
 
-        // 🔥 নতুন সংযোজন: ইনবক্স নোটিফিকেশন কাউন্টার
-        StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('chats')
-              .where('receiverId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
-              .where('isSeen', isEqualTo: false)
-              .snapshots(),
-          builder: (context, snapshot) {
-            int unreadCount = (snapshot.hasData) ? snapshot.data!.docs.length : 0;
-            return Stack(
-              alignment: Alignment.center,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.mail, color: Colors.white70),
-                  onPressed: () {
-                    // এখানে আপনার ইনবক্স পেজে যাওয়ার কোড লিখুন
-                    print("Inbox Clicked");
-                  },
-                ),
-                if (unreadCount > 0)
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
-                      constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
-                      child: Text(
-                        '$unreadCount',
-                        style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-
-        // ৩. মিউজিক বাটন
-        IconButton(
-          icon: const Icon(Icons.music_note, color: Colors.cyanAccent), 
-          onPressed: () async {
-            final result = await showModalBottomSheet<Map<String, dynamic>>(
-              context: context,
-              backgroundColor: Colors.transparent,
-              builder: (context) => MusicPlayerPage(audioPlayer: _audioPlayer),
-            );
-
-            if (result != null && result['path'] != null) {
-              await _audioPlayer.play(DeviceFileSource(result['path']));
-              setState(() {
-                isRoomMusicPlaying = true; 
-              });
-            }
-          },
-        ),
-        
-        // ৪. গিফট বাটন
-        IconButton(
-          icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent), 
-          onPressed: () {
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (context) => GiftBottomSheet(
-                diamondBalance: 1000, 
-                onGiftSend: (gift, count, target) {
-                  setState(() {
-                    currentGiftImage = gift['icon']; 
-                    isGiftAnimating = true;
-                  });
-                  Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
-                },
-              ),
-            );
-          },
-        ),
-      ],
-    ),
-  );
-}
-  
-Widget _buildSeatGridArea() {
-  return SizedBox(
-    height: 300,
-    child: StreamBuilder<QuerySnapshot>(
       // 🔥 ফায়ারবেস থেকে রিয়েল-টাইম সিট ডাটা
       stream: FirebaseFirestore.instance
           .collection('rooms')
