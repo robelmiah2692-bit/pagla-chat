@@ -437,16 +437,18 @@ void initState() {
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
-          // ১. ওয়ালপেপার ফিচার (ঠিক আছে)
+          // ১. ওয়ালপেপার ফিচার
           if (roomWallpaperPath.isNotEmpty)
-            Positioned.fill(child: Image.network(roomWallpaperPath, fit: BoxFit.cover)),
+            Positioned.fill(
+              child: Image.network(roomWallpaperPath, fit: BoxFit.cover),
+            ),
           
           Column(
             children: [
               const SizedBox(height: 40),
               // ২. টপ বার
               _buildTopNavBar(),
-              // ৩. পিকে ব্যাটল ফিচার (ঠিক আছে)
+              // ৩. পিকে ব্যাটল ফিচার
               if (isPKActive)
                 PKBattleView(
                   bluePoints: blueTeamPoints, 
@@ -457,15 +459,19 @@ void initState() {
               // ৪. ভিউয়ার এবং সিট এরিয়া
               _buildViewerArea(),
               _buildSeatGridArea(),
-              // ৫. রুম চ্যাট লিস্ট এরিয়া (ঠিক আছে)
+              // ৫. রুম চ্যাট লিস্ট এরিয়া
               Expanded(
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(15)),
+                  decoration: BoxDecoration(
+                    color: Colors.black12, 
+                    borderRadius: BorderRadius.circular(15),
+                  ),
                   child: ListView.builder(
                     reverse: true,
                     itemCount: chatMessages.length,
-                    itemBuilder: (context, index) => _buildMessageRow(chatMessages[chatMessages.length - 1 - index]),
+                    itemBuilder: (context, index) => 
+                        _buildMessageRow(chatMessages[chatMessages.length - 1 - index]),
                   ),
                 ),
               ),
@@ -474,10 +480,10 @@ void initState() {
             ],
           ),
 
-          // ৭. ফ্লোটিং টুলস (ঠিক আছে)
+          // ৭. ফ্লোটিং টুলস
           FloatingRoomTools(onGiftCountStart: _startGiftCounting),
           
-          // ৮. মিউজিক প্লেয়ার ড্র্যাগেবল ফিচার (ঠিক আছে)
+          // ৮. মিউজিক প্লেয়ার ড্র্যাগেবল ফিচার
           if (isRoomMusicPlaying)
             Positioned(
               left: playerPosition.dx, 
@@ -492,16 +498,17 @@ void initState() {
               ),
             ),
 
-          // ৯. গিফট অ্যানিমেশন ফিচার (ঠিক আছে)
+          // ৯. গিফট অ্যানিমেশন ফিচার
           if (isGiftAnimating)
             IgnorePointer(
-              child: Center(child: Lottie.network(currentGiftImage, width: 300)),
+              child: Center(
+                child: Lottie.network(currentGiftImage, width: 300),
+              ),
             ),
 
-          // 🔥 ১০. নতুন ভাসমান মেইল বাটন (আপনার রিকোয়েস্ট অনুযায়ী)
-          // এটি চ্যাট বক্স বা সিটের কোনো ক্ষতি করবে না, উপরে ভেসে থাকবে
+          // 🔥 ১০. নতুন ভাসমান মেইল বাটন (ইনবক্স)
           Positioned(
-            bottom: 110, // নিচের বারের ঠিক উপরে রাখার জন্য
+            bottom: 110, 
             right: 15,
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
@@ -516,14 +523,14 @@ void initState() {
                   children: [
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6), // আবছা কালো ব্যাকগ্রাউন্ড
+                        color: Colors.black.withOpacity(0.6),
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white24, width: 1),
                       ),
                       child: IconButton(
                         icon: const Icon(Icons.mail, color: Colors.white, size: 24),
                         onPressed: () {
-                          // ইনবক্স পেজে যাওয়ার নেভিগেশন এখানে লিখুন
+                          // ইনবক্স পেজে যাওয়ার কোড এখানে
                           print("Inbox Clicked");
                         },
                       ),
@@ -536,15 +543,18 @@ void initState() {
                           padding: const EdgeInsets.all(3),
                           decoration: const BoxDecoration(
                             color: Colors.red, 
-                            shape: BoxShape.circle
+                            shape: BoxShape.circle,
                           ),
-                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                          constraints: const BoxConstraints(
+                            minWidth: 16, 
+                            minHeight: 16,
+                          ),
                           child: Text(
                             '$unreadCount',
                             style: const TextStyle(
                               color: Colors.white, 
                               fontSize: 9, 
-                              fontWeight: FontWeight.bold
+                              fontWeight: FontWeight.bold,
                             ),
                             textAlign: TextAlign.center,
                           ),
