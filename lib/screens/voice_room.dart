@@ -436,22 +436,23 @@ void initState() {
 Widget build(BuildContext context) {
   return Scaffold(
     backgroundColor: const Color(0xFF0F0F1E),
-    resizeToAvoidBottomInset: true,
+    // কিবোর্ড সমস্যা সমাধানের জন্য এটি অবশ্যই true থাকবে
+    resizeToAvoidBottomInset: true, 
     body: Stack(
       children: [
-        // ১. ওয়ালপেপার ফিচার (অরিজিনাল)
+        // ১. ওয়ালপেপার ফিচার (পুরাতন ফিচার ঠিক রাখা হয়েছে)
         if (roomWallpaperPath.isNotEmpty)
           Positioned.fill(
             child: Image.network(roomWallpaperPath, fit: BoxFit.cover),
           ),
         
+        // মেইন কন্টেন্ট লেআউট
         Column(
           children: [
             const SizedBox(height: 40),
-            // ২. টপ বার
-            _buildTopNavBar(),
+            _buildTopNavBar(), // টপ বার (পুরাতন)
             
-            // ৩. পিকে ব্যাটল ফিচার
+            // ২. পিকে ব্যাটল (পুরাতন ফিচার অক্ষত)
             if (isPKActive)
               PKBattleView(
                 bluePoints: blueTeamPoints, 
@@ -460,19 +461,20 @@ Widget build(BuildContext context) {
                 pkManager: pkManager,
               ),
             
-            _buildViewerArea(),
-            _buildSeatGridArea(),
+            _buildViewerArea(), // ভিউয়ার এরিয়া (পুরাতন)
+            _buildSeatGridArea(), // সিট গ্রিড (পুরাতন)
             
-            const Spacer(),
+            const Spacer(), // সিট এবং চ্যাটের মাঝে গ্যাপ তৈরি করে
             
-            // ৫. রুম চ্যাট লিস্ট (কোনো কালো বক্স নেই - একদম স্বচ্ছ)
+            // ৩. রুম চ্যাট লিস্ট (সম্পূর্ণ স্বচ্ছ - কোনো কালো বক্স বা ঘর নেই)
             Container(
-              height: 220, 
+              height: 200, 
               width: double.infinity,
               margin: const EdgeInsets.only(left: 10, right: 85, bottom: 5),
+              decoration: const BoxDecoration(color: Colors.transparent), // স্বচ্ছ করা হয়েছে
               child: ListView.builder(
                 reverse: true,
-                padding: const EdgeInsets.symmetric(vertical: 5),
+                padding: EdgeInsets.zero,
                 itemCount: chatMessages.length,
                 itemBuilder: (context, index) {
                   return Align(
@@ -483,19 +485,18 @@ Widget build(BuildContext context) {
               ),
             ),
             
+            // ৪. বটম অ্যাকশন এরিয়া (মেসেজ লেখার জায়গা - কিবোর্ড উঠলে উপরে থাকবে)
             _buildBottomActionArea(),
           ],
         ),
 
-        // ৭. ফ্লোটিং টুলস
-        FloatingRoomTools(onGiftCountStart: _startGiftCounting),
-        
-        // ৮. মিউজিক প্লেয়ার (ড্র্যাগেবল ফিচার)
+        // ৫. মিউজিক ভাসমান প্লেয়ার (অরিজিনাল মিউজিক ডার্টের সাথে কানেক্টেড)
         if (isRoomMusicPlaying)
           Positioned(
             left: playerPosition.dx, 
             top: playerPosition.dy,
             child: Draggable(
+              // আপনার অরিজিনাল মিউজিক প্লেয়ার উইজেট এখানে থাকবে
               feedback: _buildFloatingPlayer(isDragging: true),
               childWhenDragging: Container(),
               onDragEnd: (details) {
@@ -505,7 +506,10 @@ Widget build(BuildContext context) {
             ),
           ),
 
-        // ৯. গিফট অ্যানিমেশন
+        // ৬. ফ্লোটিং টুলস (পুরাতন ফিচার)
+        FloatingRoomTools(onGiftCountStart: _startGiftCounting),
+
+        // ৭. গিফট অ্যানিমেশন (পুরাতন ফিচার)
         if (isGiftAnimating)
           IgnorePointer(
             child: Center(
@@ -513,7 +517,7 @@ Widget build(BuildContext context) {
             ),
           ),
 
-        // ১০. ভাসমান মেইল বাটন (এরর ফিক্সড - ফাংশনটি সরাসরি এখানে লেখা হয়েছে)
+        // ৮. মেইল বাটন ও ইনবক্স (আপনার দেওয়া পূর্ণাঙ্গ লজিক ফিরিয়ে আনা হয়েছে)
         Positioned(
           bottom: 110, 
           right: 15,
@@ -571,6 +575,9 @@ Widget build(BuildContext context) {
             ),
           ),
         ),
+
+        // ৯. সিট ইমোজি অ্যানিমেশন (সিটের ওপর সঠিকভাবে দেখাবে)
+        ..._buildFloatingEmojiAnimations(), 
       ],
     ),
   );
