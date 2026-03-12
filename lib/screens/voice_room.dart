@@ -467,24 +467,26 @@ Widget build(BuildContext context) {
             const Spacer(), // সিট এবং চ্যাটের মাঝে গ্যাপ তৈরি করে
             
            // ৩. রুম চ্যাট লিস্ট (সম্পূর্ণ স্বচ্ছ - কোনো কালো বক্স বা ঘর নেই)
-            // ৩. AhChat স্টাইল চ্যাট লিস্ট (সম্পূর্ণ স্বচ্ছ এবং ফ্লেক্সিবল)
-        Positioned(
-          top: MediaQuery.of(context).size.height * 0.55, // সিটের নিচ থেকে শুরু হবে (আপনার স্ক্রিন অনুযায়ী অ্যাডজাস্ট করুন)
-          bottom: 80, // টাইপিং বারের ওপর পর্যন্ত
-          left: 10,
-          right: 90, // ডানপাশের টুলসগুলোর জন্য গ্যাপ
-          child: Container(
-            decoration: const BoxDecoration(color: Colors.transparent),
-            child: ListView.builder(
-              reverse: true, // নতুন মেসেজ নিচ থেকে আসবে
-              padding: EdgeInsets.zero,
-              itemCount: chatMessages.length,
-              itemBuilder: (context, index) {
-                return _buildMessageRow(chatMessages[chatMessages.length - 1 - index]);
-              },
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                // বাঁপাশে ১০ এবং ডানে ৯০ গ্যাপ (টুলস এর জন্য)
+                margin: const EdgeInsets.only(left: 10, right: 90, bottom: 5),
+                color: Colors.transparent, // সম্পূর্ণ স্বচ্ছ
+                child: ListView.builder(
+                  reverse: true, // মেসেজ নিচ থেকে আসবে
+                  padding: EdgeInsets.zero,
+                  itemCount: chatMessages.length,
+                  itemBuilder: (context, index) {
+                    // মেসেজগুলো যেন ভেঙে না যায় তাই Align ব্যবহার করা হলো
+                    return Align(
+                      alignment: Alignment.bottomLeft,
+                      child: _buildMessageRow(chatMessages[chatMessages.length - 1 - index]),
+                    );
+                  },
+                ),
+              ),
             ),
-          ),
-        ),  
             // ৪. বটম অ্যাকশন এরিয়া (মেসেজ লেখার জায়গা - কিবোর্ড উঠলে উপরে থাকবে)
             _buildBottomActionArea(),
           ],
