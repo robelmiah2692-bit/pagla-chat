@@ -790,10 +790,10 @@ Widget _buildSeatGridArea() {
   Widget _buildBottomActionArea() {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
-    color: Colors.black45, // হালকা কালো ব্যাকগ্রাউন্ড যাতে বাটন ফুটে ওঠে
+    color: Colors.black45,
     child: Row(
       children: [
-        // ১. ইমোজি এবং চ্যাট ইনপুট বার (EmojiHandler আলাদা ফাইল থেকে কাজ করবে)
+        // ১. চ্যাট ও ইমোজি
         Expanded(
           child: ChatInputBar(
             controller: _messageController,
@@ -811,7 +811,7 @@ Widget _buildSeatGridArea() {
           ),
         ),
         
-        // ২. মাইক বাটন
+        // ২. মাইক
         IconButton(
           constraints: const BoxConstraints(),
           padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -832,7 +832,7 @@ Widget _buildSeatGridArea() {
           },
         ),
 
-        // ৩. মিউজিক বাটন (এটি আপনার ড্র্যাগেবল প্লেয়ার অন করবে)
+        // ৩. মিউজিক (ড্র্যাগেবল প্লেয়ার অন/অফ)
         IconButton(
           constraints: const BoxConstraints(),
           padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -844,18 +844,32 @@ Widget _buildSeatGridArea() {
           onPressed: () => setState(() => isRoomMusicPlaying = !isRoomMusicPlaying),
         ),
 
-        // ৪. গিফট বক্স বাটন (GiftBottomSheet আলাদা ফাইল থেকে কল হবে)
+        // ৪. গিফট বাটন (ইউজার প্রোফাইল থেকে ডায়মন্ড ব্যালেন্স সহ)
         IconButton(
           constraints: const BoxConstraints(),
           padding: const EdgeInsets.symmetric(horizontal: 4),
           icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
-          onPressed: () {
+          onPressed: () async {
+            // ইউজারের প্রোফাইল থেকে ডায়মন্ড ব্যালেন্স ফেচ করা
+            final userDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(FirebaseAuth.instance.currentUser?.uid)
+                .get();
+            
+            int currentBalance = 0;
+            if (userDoc.exists && userDoc.data() != null) {
+              // আপনার ডাটাবেসে ফিল্ডের নাম 'diamonds' ধরে নিয়েছি
+              currentBalance = userDoc.data()!['diamonds'] ?? 0;
+            }
+
+            if (!mounted) return;
+
             showModalBottomSheet(
               context: context,
               backgroundColor: Colors.transparent,
               isScrollControlled: true,
               builder: (context) => GiftBottomSheet(
-                diamondBalance: userDiamondBalance, // আপনার ডায়মন্ড ভেরিয়েবল
+                diamondBalance: currentBalance, // প্রোফাইলের আসল ব্যালেন্স
                 onGiftSend: (gift, count, target) {
                   setState(() {
                     currentGiftImage = gift['icon'];
@@ -870,14 +884,14 @@ Widget _buildSeatGridArea() {
           },
         ),
 
-        // ৫. গেম বাটন (GamePanelView আলাদা ফাইল থেকে)
+        // ৫. গেম বাটন
         IconButton(
           constraints: const BoxConstraints(),
           padding: const EdgeInsets.symmetric(horizontal: 4),
           icon: const Icon(Icons.videogame_asset, color: Colors.orange, size: 22), 
           onPressed: () => showModalBottomSheet(
             context: context, 
-            builder: (c) => const GamePanelView() // আপনার গেম ফাইল
+            builder: (c) => const GamePanelView()
           ),
         ),
       ],
