@@ -431,14 +431,14 @@ void initState() {
     );
   }
 
-@override
+  @override
 Widget build(BuildContext context) {
   return Scaffold(
     backgroundColor: const Color(0xFF0F0F1E),
     resizeToAvoidBottomInset: true,
     body: Stack(
       children: [
-        // ১. ওয়ালপেপার ফিচার
+        // ১. ওয়ালপেপার ফিচার (অরিজিনাল ফিচার)
         if (roomWallpaperPath.isNotEmpty)
           Positioned.fill(
             child: Image.network(roomWallpaperPath, fit: BoxFit.cover),
@@ -447,10 +447,10 @@ Widget build(BuildContext context) {
         Column(
           children: [
             const SizedBox(height: 40),
-            // ২. টপ বার
+            // ২. টপ বার (অরিজিনাল ফিচার)
             _buildTopNavBar(),
             
-            // ৩. পিকে ব্যাটল ফিচার
+            // ৩. পিকে ব্যাটল ফিচার (অরিজিনাল ফিচার - এটি ঠিক রাখা হয়েছে)
             if (isPKActive)
               PKBattleView(
                 bluePoints: blueTeamPoints, 
@@ -459,22 +459,24 @@ Widget build(BuildContext context) {
                 pkManager: pkManager,
               ),
             
-            // ৪. ভিউয়ার এবং সিট এরিয়া (এটি উপরের দিকেই থাকবে)
+            // ৪. ভিউয়ার এবং সিট এরিয়া (অরিজিনাল ফিচার - এটি ঠিক রাখা হয়েছে)
             _buildViewerArea(),
             _buildSeatGridArea(),
             
-            // 🔥 গুরুত্বপূর্ণ: এখানে একটি Spacer দিন যাতে চ্যাট লিস্ট নিচে চলে যায়
-            // এতে সিট এবং চ্যাটের মাঝে সুন্দর গ্যাপ থাকবে (আপনার দেওয়া ৩য় ছবির মতো)
+            // 🔥 সমাধান ১: Spacer যোগ করা হয়েছে যাতে সিট এবং চ্যাটের মাঝে গ্যাপ থাকে
             const Spacer(),
             
-            // ৫. রুম চ্যাট লিস্ট এরিয়া (অন্য অ্যাপের মতো ডিজাইন - স্বচ্ছ ব্যাকগ্রাউন্ড)
+            // ৫. রুম চ্যাট লিস্ট এরিয়া (সমাধান ২: কোনো কালো দাগ বা বক্স নেই)
             Container(
-              height: 200, // উচ্চতা ফিক্সড করা হলো
-              margin: const EdgeInsets.only(left: 10, right: 60, bottom: 5), // ডানে মেইল বাটনের জন্য গ্যাপ
+              height: 220, // আপনার চাহিদা মতো ফিক্সড হাইট
+              width: double.infinity,
+              // সমাধান ৩: ডানে ৮৫ মার্জিন দেওয়া হয়েছে যাতে চ্যাট মেইল বাটনের নিচে না যায়
+              margin: const EdgeInsets.only(left: 10, right: 85, bottom: 5),
               child: ListView.builder(
                 reverse: true,
-                padding: const EdgeInsets.only(bottom: 5),
+                padding: const EdgeInsets.symmetric(vertical: 5),
                 itemCount: chatMessages.length,
+                // এখানে কোনো Decoration নেই, তাই এটি এখন পুরোপুরি স্বচ্ছ (AhChat এর মতো)
                 itemBuilder: (context, index) {
                   return Align(
                     alignment: Alignment.bottomLeft,
@@ -484,15 +486,15 @@ Widget build(BuildContext context) {
               ),
             ),
             
-            // ৬. নিচের অ্যাকশন বার (সব বাটন ঠিক থাকবে)
+            // ৬. নিচের অ্যাকশন বার (সব বাটন ফিচার ঠিক রাখা হয়েছে)
             _buildBottomActionArea(),
           ],
         ),
 
-        // ৭. ফ্লোটিং টুলস (আগের পজিশন)
+        // ৭. ফ্লোটিং টুলস (অরিজিনাল ফিচার - আগের পজিশনে ঠিক রাখা হয়েছে)
         FloatingRoomTools(onGiftCountStart: _startGiftCounting),
         
-        // ৮. মিউজিক প্লেয়ার ড্র্যাগেবল ফিচার (আপনার অরিজিনাল কোড)
+        // ৮. মিউজিক প্লেয়ার ড্র্যাগেবল ফিচার (অরিজিনাল ফিচার - এটি বাদ দেওয়া হয়নি)
         if (isRoomMusicPlaying)
           Positioned(
             left: playerPosition.dx, 
@@ -507,7 +509,7 @@ Widget build(BuildContext context) {
             ),
           ),
 
-        // ৯. গিফট অ্যানিমেশন ফিচার
+        // ৯. গিফট অ্যানিমেশন ফিচার (অরিজিনাল ফিচার - এটি ঠিক রাখা হয়েছে)
         if (isGiftAnimating)
           IgnorePointer(
             child: Center(
@@ -515,15 +517,26 @@ Widget build(BuildContext context) {
             ),
           ),
 
-        // ১০. ভাসমান মেইল বাটন
+        // ১০. ভাসমান মেইল বাটন (সমাধান ৪: ইনবক্স এখন হাফ স্ক্রিন শো করবে)
         Positioned(
           bottom: 110, 
           right: 15,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {
-               print("Inbox Clicked");
-               // আপনার ইনবক্স নেভিগেশন এখানে
+              // আপনার অরিজিনাল ইনবক্স পেজটি হাফ স্ক্রিনে ওপেন হবে
+              showModalBottomSheet(
+                context: context,
+                backgroundColor: Colors.transparent,
+                isScrollControlled: true,
+                builder: (context) => ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+                  child: SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.7, 
+                    child: const InboxPage(), // আপনার ফাইলের ক্লাস নাম
+                  ),
+                ),
+              );
             },
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
