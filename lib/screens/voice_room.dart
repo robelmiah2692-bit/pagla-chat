@@ -430,7 +430,7 @@ void initState() {
     );
   }
 
-  @override
+@override
 Widget build(BuildContext context) {
   return Scaffold(
     backgroundColor: const Color(0xFF0F0F1E),
@@ -448,6 +448,7 @@ Widget build(BuildContext context) {
             const SizedBox(height: 40),
             // ২. টপ বার
             _buildTopNavBar(),
+            
             // ৩. পিকে ব্যাটল ফিচার
             if (isPKActive)
               PKBattleView(
@@ -456,34 +457,38 @@ Widget build(BuildContext context) {
                 pkSeconds: pkSeconds,
                 pkManager: pkManager,
               ),
-            // ৪. ভিউয়ার এবং সিট এরিয়া
+            
+            // ৪. ভিউয়ার এবং সিট এরিয়া (এটি উপরের দিকেই থাকবে)
             _buildViewerArea(),
             _buildSeatGridArea(),
             
-            // ৫. রুম চ্যাট লিস্ট এরিয়া (ফিক্সড: এখানে Expanded এর বদলে SizedBox দিন যাতে সিট ঢাকা না পড়ে)
-            SizedBox(
-              height: 180, // এই উচ্চতা আপনার সিট গ্রিডকে বাঁচাবে
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.black12, 
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: ListView.builder(
-                  reverse: true,
-                  itemCount: chatMessages.length,
-                  itemBuilder: (context, index) => 
-                      _buildMessageRow(chatMessages[chatMessages.length - 1 - index]),
-                ),
+            // 🔥 গুরুত্বপূর্ণ: এখানে একটি Spacer দিন যাতে চ্যাট লিস্ট নিচে চলে যায়
+            // এতে সিট এবং চ্যাটের মাঝে সুন্দর গ্যাপ থাকবে (আপনার দেওয়া ৩য় ছবির মতো)
+            const Spacer(),
+            
+            // ৫. রুম চ্যাট লিস্ট এরিয়া (অন্য অ্যাপের মতো ডিজাইন - স্বচ্ছ ব্যাকগ্রাউন্ড)
+            Container(
+              height: 200, // উচ্চতা ফিক্সড করা হলো
+              margin: const EdgeInsets.only(left: 10, right: 60, bottom: 5), // ডানে মেইল বাটনের জন্য গ্যাপ
+              child: ListView.builder(
+                reverse: true,
+                padding: const EdgeInsets.only(bottom: 5),
+                itemCount: chatMessages.length,
+                itemBuilder: (context, index) {
+                  return Align(
+                    alignment: Alignment.bottomLeft,
+                    child: _buildMessageRow(chatMessages[chatMessages.length - 1 - index]),
+                  );
+                },
               ),
             ),
             
-            // ৬. নিচের অ্যাকশন বার (আপনার সব বাটন ফিরে আসবে)
+            // ৬. নিচের অ্যাকশন বার (সব বাটন ঠিক থাকবে)
             _buildBottomActionArea(),
           ],
         ),
 
-        // ৭. ফ্লোটিং টুলস (আপনার আগের পজিশনে)
+        // ৭. ফ্লোটিং টুলস (আগের পজিশন)
         FloatingRoomTools(onGiftCountStart: _startGiftCounting),
         
         // ৮. মিউজিক প্লেয়ার ড্র্যাগেবল ফিচার (আপনার অরিজিনাল কোড)
@@ -509,15 +514,15 @@ Widget build(BuildContext context) {
             ),
           ),
 
-        // 🔥 ১০. ভাসমান মেইল বাটন (ক্লিক কাজ করার জন্য GestureDetector দিয়েছি)
+        // ১০. ভাসমান মেইল বাটন
         Positioned(
           bottom: 110, 
           right: 15,
           child: GestureDetector(
-            behavior: HitTestBehavior.opaque, // যাতে ক্লিক মিস না হয়
+            behavior: HitTestBehavior.opaque,
             onTap: () {
                print("Inbox Clicked");
-               // আপনার ইনবক্স পেজে যাওয়ার নেভিগেশন এখানে দিন
+               // আপনার ইনবক্স নেভিগেশন এখানে
             },
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
