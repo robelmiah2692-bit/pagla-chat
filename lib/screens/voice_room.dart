@@ -533,7 +533,7 @@ Widget build(BuildContext context) {
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
                   child: SizedBox(
                     height: MediaQuery.of(context).size.height * 0.7, 
-                    child: const InboxPage(), // আপনার ফাইলের ক্লাস নাম
+                    child: InboxPage(), // আপনার ফাইলের ক্লাস নাম
                   ),
                 ),
               );
