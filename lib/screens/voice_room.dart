@@ -432,7 +432,7 @@ void initState() {
     );
   }
 
-  @override
+@override
 Widget build(BuildContext context) {
   return Scaffold(
     backgroundColor: const Color(0xFF0F0F1E),
@@ -440,7 +440,7 @@ Widget build(BuildContext context) {
     resizeToAvoidBottomInset: true, 
     body: Stack(
       children: [
-        // ১. ওয়ালপেপার ফিচার (আপনার অরিজিনাল লজিক)
+        // ১. ওয়ালপেপার ফিচার (পুরাতন লজিক অক্ষত)
         if (roomWallpaperPath.isNotEmpty)
           Positioned.fill(
             child: Image.network(roomWallpaperPath, fit: BoxFit.cover),
@@ -471,7 +471,7 @@ Widget build(BuildContext context) {
               height: 200, 
               width: double.infinity,
               margin: const EdgeInsets.only(left: 10, right: 85, bottom: 5),
-              decoration: const BoxDecoration(color: Colors.transparent), // স্বচ্ছ করা হয়েছে
+              decoration: const BoxDecoration(color: Colors.transparent), 
               child: ListView.builder(
                 reverse: true,
                 padding: EdgeInsets.zero,
@@ -508,7 +508,7 @@ Widget build(BuildContext context) {
         // ৬. ফ্লোটিং টুলস (পুরাতন ফিচার)
         FloatingRoomTools(onGiftCountStart: _startGiftCounting),
 
-        // ७. গিফট অ্যানিমেশন (পুরাতন ফিচার)
+        // ৭. গিফট অ্যানিমেশন (পুরাতন ফিচার)
         if (isGiftAnimating)
           IgnorePointer(
             child: Center(
@@ -516,7 +516,7 @@ Widget build(BuildContext context) {
             ),
           ),
 
-        // ৮. মেইল বাটন ও ইনবক্স (আপনার দেওয়া সেই পূর্ণাঙ্গ লজিক ফিরিয়ে আনা হয়েছে)
+        // ৮. মেইল বাটন ও ইনবক্স (আপনার দেওয়া সেই পূর্ণাঙ্গ লজিক)
         Positioned(
           bottom: 110, 
           right: 15,
@@ -575,12 +575,18 @@ Widget build(BuildContext context) {
           ),
         ),
 
-        // ৯. সিট ইমোজি অ্যানিমেশন (সবার শেষে যাতে সিটের ওপর ভাসমান দেখায়)
-        // ইমোজি ঠিক সেই সিটের মাঝখান থেকেই আসবে
+        // ৯. সিট ইমোজি অ্যানিমেশন
         ..._buildFloatingEmojiAnimations(), 
       ],
     ),
   );
+}
+
+// বিল্ড এরর ফিক্স করতে এই মেথডটি আপনার _VoiceRoomState ক্লাসের ভেতরে অবশ্যই থাকতে হবে
+List<Widget> _buildFloatingEmojiAnimations() {
+  // আপনার ইমোজি অ্যানিমেশনের লজিক এখানে থাকবে। 
+  // আপাতত বিল্ড ঠিক করার জন্য খালি লিস্ট পাঠানো হলো।
+  return []; 
 }
   
  // 🔥 এটিই আপনার ফাইনাল এবং একমাত্র dispose ফাংশন
