@@ -448,10 +448,10 @@ Widget build(BuildContext context) {
         Column(
           children: [
             const SizedBox(height: 40),
-            // ২. টপ বার (অরিজিনাল)
+            // ২. টপ বার
             _buildTopNavBar(),
             
-            // ৩. পিকে ব্যাটল (অরিজিনাল ফিচার ঠিক রাখা হয়েছে)
+            // ৩. পিকে ব্যাটল ফিচার
             if (isPKActive)
               PKBattleView(
                 bluePoints: blueTeamPoints, 
@@ -463,14 +463,12 @@ Widget build(BuildContext context) {
             _buildViewerArea(),
             _buildSeatGridArea(),
             
-            // সমাধান ১: চ্যাটকে নিচে রাখার জন্য Spacer
             const Spacer(),
             
-            // ৫. রুম চ্যাট লিস্ট (সমাধান ২: চ্যাট লিস্ট এখন পুরোপুরি স্বচ্ছ)
+            // ৫. রুম চ্যাট লিস্ট (কোনো কালো বক্স নেই - একদম স্বচ্ছ)
             Container(
               height: 220, 
               width: double.infinity,
-              // সমাধান ৩: ডানে মার্জিন যাতে মেইল বাটনের নিচে চ্যাট না ঢোকে
               margin: const EdgeInsets.only(left: 10, right: 85, bottom: 5),
               child: ListView.builder(
                 reverse: true,
@@ -489,10 +487,10 @@ Widget build(BuildContext context) {
           ],
         ),
 
-        // ৭. ফ্লোটিং টুলস (অরিজিনাল)
+        // ৭. ফ্লোটিং টুলস
         FloatingRoomTools(onGiftCountStart: _startGiftCounting),
         
-        // ৮. মিউজিক প্লেয়ার (অরিজিনাল ড্র্যাগেবল ফিচার)
+        // ৮. মিউজিক প্লেয়ার (ড্র্যাগেবল ফিচার)
         if (isRoomMusicPlaying)
           Positioned(
             left: playerPosition.dx, 
@@ -507,7 +505,7 @@ Widget build(BuildContext context) {
             ),
           ),
 
-        // ৯. গিফট অ্যানিমেশন (অরিজিনাল)
+        // ৯. গিফট অ্যানিমেশন
         if (isGiftAnimating)
           IgnorePointer(
             child: Center(
@@ -515,13 +513,12 @@ Widget build(BuildContext context) {
             ),
           ),
 
-        // ১০. মেইল বাটন - আপনার ইনবক্স পেজের সাথে কানেক্টেড
+        // ১০. ভাসমান মেইল বাটন (এরর ফিক্সড - ফাংশনটি সরাসরি এখানে লেখা হয়েছে)
         Positioned(
           bottom: 110, 
           right: 15,
           child: GestureDetector(
             onTap: () {
-              // ইনবক্স হাফ স্ক্রিনে ওপেন হবে
               showModalBottomSheet(
                 context: context,
                 backgroundColor: Colors.transparent,
@@ -529,13 +526,49 @@ Widget build(BuildContext context) {
                 builder: (context) => ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
                   child: SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.75, 
-                    child: const InboxPage(), // আপনার ইনবক্স ক্লাসের নাম
+                    height: MediaQuery.of(context).size.height * 0.7, 
+                    child: const InboxPage(), 
                   ),
                 ),
               );
             },
-            child: _buildMailIconWithBadge(), // আপনার মেইল আইকন ও লাল ডট
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('chats')
+                  .where('receiverId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                  .where('isSeen', isEqualTo: false)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                int unreadCount = (snapshot.hasData) ? snapshot.data!.docs.length : 0;
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white24, width: 1),
+                      ),
+                      child: const Icon(Icons.mail, color: Colors.white, size: 24),
+                    ),
+                    if (unreadCount > 0)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                          child: Text('$unreadCount', 
+                            style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold), 
+                            textAlign: TextAlign.center),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ],
