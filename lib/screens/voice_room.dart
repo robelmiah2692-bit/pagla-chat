@@ -707,167 +707,151 @@ void initState() {
     );
   }
 
-  Widget _buildBottomActionArea() {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-    color: Colors.black26,
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: ChatInputBar(
-                controller: _messageController,
-                onEmojiTap: () => EmojiHandler.showPicker(
-                  context: context, 
-                  seatIndex: -1, 
-                  onEmojiSelected: (i, url) {
-                    setState(() { currentGiftImage = url; isGiftAnimating = true; });
-                    Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
-                  }
-                ),
-                onMessageSend: (msg) => setState(() => chatMessages.add(msg)),
-              ),
-            ),
-            const SizedBox(width: 8),
+  // --- ১. মেইন সিট গ্রিড এরিয়া (যা আপনি build এ কল করেছেন) ---
+Widget _buildSeatGridArea() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('rooms')
+        .doc(widget.roomId)
+        .collection('seats')
+        .snapshots(),
+    builder: (context, snapshot) {
+      Map<String, dynamic> firestoreSeats = {};
+      if (snapshot.hasData) {
+        for (var doc in snapshot.data!.docs) {
+          firestoreSeats[doc.id] = doc.data();
+        }
+      }
 
-            // ১. মাইক বাটন
-            IconButton(
-              icon: Icon(
-                isMicOn ? Icons.mic : Icons.mic_off,
-                color: isMicOn ? Colors.greenAccent : Colors.redAccent,
-              ),
-              onPressed: () async {
-                if (currentSeatIndex != -1) {
-                  bool newMicState = !isMicOn;
-                  try {
-                    await _agoraManager.toggleMic(!newMicState);
-                    await FirebaseDatabase.instance
-                        .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
-                        .update({'isMicOn': newMicState});
-                    setState(() {
-                      isMicOn = newMicState;
-                      seats[currentSeatIndex]["isMicOn"] = newMicState;
-                    });
-                    debugPrint("Mic state updated to: $newMicState");
-                  } catch (e) {
-                    debugPrint("Mic Toggle Error: $e");
-                  }
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("আগে সিটে বসুন!"),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                }
-              },
-            ),
-            
-            // ২. গেম বাটন
-            IconButton(
-              icon: const Icon(Icons.videogame_asset, color: Colors.orange), 
-              onPressed: () => showModalBottomSheet(context: context, builder: (c) => const GamePanelView()),
-            ),
-          ],
-        ),
+      return SizedBox(
+        height: 250, // সিট গ্রিডের উচ্চতা
+        child: GridView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 5,
+            childAspectRatio: 0.7,
+          ),
+          itemCount: 15,
+          itemBuilder: (context, index) {
+            var dbSeat = firestoreSeats[index.toString()];
+            bool isOccupied = dbSeat != null ? (dbSeat['isOccupied'] ?? false) : seats[index]['isOccupied'];
+            String uName = dbSeat != null ? (dbSeat['userName'] ?? "") : seats[index]['userName'];
+            String uImage = dbSeat != null ? (dbSeat['userImage'] ?? "") : seats[index]['userImage'];
+            bool isMicOnLocal = dbSeat != null ? (dbSeat['isMicOn'] ?? false) : seats[index]['isMicOn'];
+            String status = dbSeat != null ? (dbSeat['status'] ?? "empty") : seats[index]['status'];
+            bool isVip = seats[index]['isVip'] ?? false; 
+            bool isTalking = dbSeat != null ? (dbSeat['isTalking'] ?? false) : (seats[index]['isTalking'] ?? false);
 
-        // 🔥 ৩. আপনার অরিজিনাল ফায়ারবেস সিট ডাটা এবং গ্রিড ফিচার
-        StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('rooms')
-              .doc(widget.roomId)
-              .collection('seats')
-              .snapshots(),
-          builder: (context, snapshot) {
-            Map<String, dynamic> firestoreSeats = {};
-            if (snapshot.hasData) {
-              for (var doc in snapshot.data!.docs) {
-                firestoreSeats[doc.id] = doc.data();
-              }
-            }
-
-            return SizedBox(
-              height: 250, // গ্রিড দেখানোর জন্য উচ্চতা সেট করা হলো
-              child: GridView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 5,
-                  childAspectRatio: 0.7,
-                ),
-                itemCount: 15,
-                itemBuilder: (context, index) {
-                  var dbSeat = firestoreSeats[index.toString()];
-                  bool isOccupied = dbSeat != null ? (dbSeat['isOccupied'] ?? false) : seats[index]['isOccupied'];
-                  String uName = dbSeat != null ? (dbSeat['userName'] ?? "") : seats[index]['userName'];
-                  String uImage = dbSeat != null ? (dbSeat['userImage'] ?? "") : seats[index]['userImage'];
-                  bool isMicOn = dbSeat != null ? (dbSeat['isMicOn'] ?? false) : seats[index]['isMicOn'];
-                  String status = dbSeat != null ? (dbSeat['status'] ?? "empty") : seats[index]['status'];
-                  bool isVip = seats[index]['isVip'] ?? false; 
-                  bool isTalking = dbSeat != null ? (dbSeat['isTalking'] ?? false) : (seats[index]['isTalking'] ?? false);
-
-                  return GestureDetector(
-                    onTap: () => sitOnSeat(index),
-                    child: Column(
+            return GestureDetector(
+              onTap: () => sitOnSeat(index),
+              child: Column(
+                children: [
+                  VoiceRipple(
+                    isTalking: isOccupied && isTalking, 
+                    child: Stack(
+                      alignment: Alignment.center,
                       children: [
-                        VoiceRipple(
-                          isTalking: isOccupied && isTalking, 
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              CircleAvatar(
-                                radius: 24,
-                                backgroundColor: isOccupied ? Colors.blueAccent : Colors.white10,
-                                backgroundImage: (isOccupied && uImage.isNotEmpty) ? NetworkImage(uImage) : null,
-                                child: status == "calling"
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                      )
-                                    : (isOccupied ? null : Icon(isVip ? Icons.stars : Icons.chair, color: Colors.white24, size: 20)),
-                              ),
-                              if (isOccupied && isMicOn)
-                                Positioned(
-                                  bottom: 0,
-                                  right: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(2),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.black87, 
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(Icons.mic, size: 10, color: Colors.greenAccent),
-                                  ),
-                                ),
-                            ],
-                          ),
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor: isOccupied ? Colors.blueAccent : Colors.white10,
+                          backgroundImage: (isOccupied && uImage.isNotEmpty) ? NetworkImage(uImage) : null,
+                          child: status == "calling"
+                              ? const SizedBox(
+                                  width: 20, height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : (isOccupied ? null : Icon(isVip ? Icons.stars : Icons.chair, color: Colors.white24, size: 20)),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          isOccupied ? uName : "${index + 1}",
-                          style: TextStyle(
-                            color: isOccupied ? Colors.white : Colors.white54, 
-                            fontSize: 10,
-                            fontWeight: isOccupied ? FontWeight.bold : FontWeight.normal,
+                        if (isOccupied && isMicOnLocal)
+                          Positioned(
+                            bottom: 0, right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(color: Colors.black87, shape: BoxShape.circle),
+                              child: const Icon(Icons.mic, size: 10, color: Colors.greenAccent),
+                            ),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
                       ],
                     ),
-                  );
-                },
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    isOccupied ? uName : "${index + 1}",
+                    style: TextStyle(
+                      color: isOccupied ? Colors.white : Colors.white54, 
+                      fontSize: 10,
+                      fontWeight: isOccupied ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             );
           },
+        ),
+      );
+    },
+  );
+}
+
+// --- ২. অ্যাকশন বার (মাইক, গেম এবং চ্যাট ইনপুট) ---
+Widget _buildBottomActionArea() {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    color: Colors.black26,
+    child: Row(
+      children: [
+        Expanded(
+          child: ChatInputBar(
+            controller: _messageController,
+            onEmojiTap: () => EmojiHandler.showPicker(
+              context: context, 
+              seatIndex: -1, 
+              onEmojiSelected: (i, url) {
+                setState(() { currentGiftImage = url; isGiftAnimating = true; });
+                Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
+              }
+            ),
+            onMessageSend: (msg) => setState(() => chatMessages.add(msg)),
+          ),
+        ),
+        const SizedBox(width: 8),
+
+        IconButton(
+          icon: Icon(
+            isMicOn ? Icons.mic : Icons.mic_off,
+            color: isMicOn ? Colors.greenAccent : Colors.redAccent,
+          ),
+          onPressed: () async {
+            if (currentSeatIndex != -1) {
+              bool newMicState = !isMicOn;
+              try {
+                await _agoraManager.toggleMic(!newMicState);
+                await FirebaseDatabase.instance
+                    .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
+                    .update({'isMicOn': newMicState});
+                setState(() {
+                  isMicOn = newMicState;
+                  seats[currentSeatIndex]["isMicOn"] = newMicState;
+                });
+              } catch (e) {
+                debugPrint("Mic Toggle Error: $e");
+              }
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("আগে সিটে বসুন!")));
+            }
+          },
+        ),
+        
+        IconButton(
+          icon: const Icon(Icons.videogame_asset, color: Colors.orange), 
+          onPressed: () => showModalBottomSheet(context: context, builder: (c) => const GamePanelView()),
         ),
       ],
     ),
   );
 }
-  
 
   Widget _buildViewerArea() { 
   return Container(
