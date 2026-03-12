@@ -432,7 +432,7 @@ void initState() {
     );
   }
 
-  @override
+   @override
 Widget build(BuildContext context) {
   return Scaffold(
     backgroundColor: const Color(0xFF0F0F1E),
@@ -440,7 +440,7 @@ Widget build(BuildContext context) {
     resizeToAvoidBottomInset: true, 
     body: Stack(
       children: [
-        // ১. ওয়ালপেপার ফিচার (পুরাতন ফিচার ঠিক রাখা হয়েছে)
+        // ১. ওয়ালপেপার ফিচার (আপনার অরিজিনাল লজিক)
         if (roomWallpaperPath.isNotEmpty)
           Positioned.fill(
             child: Image.network(roomWallpaperPath, fit: BoxFit.cover),
@@ -456,7 +456,7 @@ Widget build(BuildContext context) {
             if (isPKActive)
               PKBattleView(
                 bluePoints: blueTeamPoints, 
-                redPoints: redTeamPoints,
+                redPoints: redTeamPoints, 
                 pkSeconds: pkSeconds,
                 pkManager: pkManager,
               ),
@@ -471,7 +471,7 @@ Widget build(BuildContext context) {
               height: 200, 
               width: double.infinity,
               margin: const EdgeInsets.only(left: 10, right: 85, bottom: 5),
-              decoration: const BoxDecoration(color: Colors.transparent), // স্বচ্ছ করা হয়েছে
+              decoration: const BoxDecoration(color: Colors.transparent), // স্বচ্ছ করা হয়েছে
               child: ListView.builder(
                 reverse: true,
                 padding: EdgeInsets.zero,
@@ -485,7 +485,7 @@ Widget build(BuildContext context) {
               ),
             ),
             
-            // ৪. বটম অ্যাকশন এরিয়া (মেসেজ লেখার জায়গা - কিবোর্ড উঠলে উপরে থাকবে)
+            // ৪. বটম অ্যাকশন এরিয়া (মেসেজ লেখার জায়গা - কিবোর্ড উঠলে উপরে থাকবে)
             _buildBottomActionArea(),
           ],
         ),
@@ -496,7 +496,6 @@ Widget build(BuildContext context) {
             left: playerPosition.dx, 
             top: playerPosition.dy,
             child: Draggable(
-              // আপনার অরিজিনাল মিউজিক প্লেয়ার উইজেট এখানে থাকবে
               feedback: _buildFloatingPlayer(isDragging: true),
               childWhenDragging: Container(),
               onDragEnd: (details) {
@@ -517,7 +516,7 @@ Widget build(BuildContext context) {
             ),
           ),
 
-        // ৮. মেইল বাটন ও ইনবক্স (আপনার দেওয়া পূর্ণাঙ্গ লজিক ফিরিয়ে আনা হয়েছে)
+        // ৮. মেইল বাটন ও ইনবক্স (আপনার দেওয়া সেই পূর্ণাঙ্গ লজিক ফিরিয়ে আনা হয়েছে)
         Positioned(
           bottom: 110, 
           right: 15,
@@ -576,13 +575,13 @@ Widget build(BuildContext context) {
           ),
         ),
 
-        // ৯. সিট ইমোজি অ্যানিমেশন (সিটের ওপর সঠিকভাবে দেখাবে)
+        // ৯. সিট ইমোজি অ্যানিমেশন (সবার শেষে যাতে সিটের ওপর ভাসমান দেখায়)
+        // ইউজার যেই সিটে বসেছে ইমোজি ঠিক সেই সিটের মাঝখান থেকেই আসবে
         ..._buildFloatingEmojiAnimations(), 
       ],
     ),
   );
 }
-
  // 🔥 এটিই আপনার ফাইনাল এবং একমাত্র dispose ফাংশন
   @override
   void dispose() {
