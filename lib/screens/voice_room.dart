@@ -431,85 +431,94 @@ void initState() {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1E),
-      resizeToAvoidBottomInset: true,
-      body: Stack(
-        children: [
-          // ১. ওয়ালপেপার ফিচার
-          if (roomWallpaperPath.isNotEmpty)
-            Positioned.fill(
-              child: Image.network(roomWallpaperPath, fit: BoxFit.cover),
-            ),
-          
-          Column(
-            children: [
-              const SizedBox(height: 40),
-              // ২. টপ বার
-              _buildTopNavBar(),
-              // ৩. পিকে ব্যাটল ফিচার
-              if (isPKActive)
-                PKBattleView(
-                  bluePoints: blueTeamPoints, 
-                  redPoints: redTeamPoints,
-                  pkSeconds: pkSeconds,
-                  pkManager: pkManager,
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: const Color(0xFF0F0F1E),
+    resizeToAvoidBottomInset: true,
+    body: Stack(
+      children: [
+        // ১. ওয়ালপেপার ফিচার
+        if (roomWallpaperPath.isNotEmpty)
+          Positioned.fill(
+            child: Image.network(roomWallpaperPath, fit: BoxFit.cover),
+          ),
+        
+        Column(
+          children: [
+            const SizedBox(height: 40),
+            // ২. টপ বার
+            _buildTopNavBar(),
+            // ৩. পিকে ব্যাটল ফিচার
+            if (isPKActive)
+              PKBattleView(
+                bluePoints: blueTeamPoints, 
+                redPoints: redTeamPoints,
+                pkSeconds: pkSeconds,
+                pkManager: pkManager,
+              ),
+            // ৪. ভিউয়ার এবং সিট এরিয়া
+            _buildViewerArea(),
+            _buildSeatGridArea(),
+            
+            // ৫. রুম চ্যাট লিস্ট এরিয়া (ফিক্সড: এখানে Expanded এর বদলে SizedBox দিন যাতে সিট ঢাকা না পড়ে)
+            SizedBox(
+              height: 180, // এই উচ্চতা আপনার সিট গ্রিডকে বাঁচাবে
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.black12, 
+                  borderRadius: BorderRadius.circular(15),
                 ),
-              // ৪. ভিউয়ার এবং সিট এরিয়া
-              _buildViewerArea(),
-              _buildSeatGridArea(),
-              // ৫. রুম চ্যাট লিস্ট এরিয়া
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Colors.black12, 
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: ListView.builder(
-                    reverse: true,
-                    itemCount: chatMessages.length,
-                    itemBuilder: (context, index) => 
-                        _buildMessageRow(chatMessages[chatMessages.length - 1 - index]),
-                  ),
+                child: ListView.builder(
+                  reverse: true,
+                  itemCount: chatMessages.length,
+                  itemBuilder: (context, index) => 
+                      _buildMessageRow(chatMessages[chatMessages.length - 1 - index]),
                 ),
               ),
-              // ৬. নিচের অ্যাকশন বার
-              _buildBottomActionArea(),
-            ],
+            ),
+            
+            // ৬. নিচের অ্যাকশন বার (আপনার সব বাটন ফিরে আসবে)
+            _buildBottomActionArea(),
+          ],
+        ),
+
+        // ৭. ফ্লোটিং টুলস (আপনার আগের পজিশনে)
+        FloatingRoomTools(onGiftCountStart: _startGiftCounting),
+        
+        // ৮. মিউজিক প্লেয়ার ড্র্যাগেবল ফিচার (আপনার অরিজিনাল কোড)
+        if (isRoomMusicPlaying)
+          Positioned(
+            left: playerPosition.dx, 
+            top: playerPosition.dy,
+            child: Draggable(
+              feedback: _buildFloatingPlayer(isDragging: true),
+              childWhenDragging: Container(),
+              onDragEnd: (details) {
+                setState(() { playerPosition = details.offset; });
+              },
+              child: _buildFloatingPlayer(isDragging: false),
+            ),
           ),
 
-          // ৭. ফ্লোটিং টুলস
-          FloatingRoomTools(onGiftCountStart: _startGiftCounting),
-          
-          // ৮. মিউজিক প্লেয়ার ড্র্যাগেবল ফিচার
-          if (isRoomMusicPlaying)
-            Positioned(
-              left: playerPosition.dx, 
-              top: playerPosition.dy,
-              child: Draggable(
-                feedback: _buildFloatingPlayer(isDragging: true),
-                childWhenDragging: Container(),
-                onDragEnd: (details) {
-                  setState(() { playerPosition = details.offset; });
-                },
-                child: _buildFloatingPlayer(isDragging: false),
-              ),
+        // ৯. গিফট অ্যানিমেশন ফিচার
+        if (isGiftAnimating)
+          IgnorePointer(
+            child: Center(
+              child: Lottie.network(currentGiftImage, width: 300),
             ),
+          ),
 
-          // ৯. গিফট অ্যানিমেশন ফিচার
-          if (isGiftAnimating)
-            IgnorePointer(
-              child: Center(
-                child: Lottie.network(currentGiftImage, width: 300),
-              ),
-            ),
-
-          // 🔥 ১০. নতুন ভাসমান মেইল বাটন (ইনবক্স)
-          Positioned(
-            bottom: 110, 
-            right: 15,
+        // 🔥 ১০. ভাসমান মেইল বাটন (ক্লিক কাজ করার জন্য GestureDetector দিয়েছি)
+        Positioned(
+          bottom: 110, 
+          right: 15,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque, // যাতে ক্লিক মিস না হয়
+            onTap: () {
+               print("Inbox Clicked");
+               // আপনার ইনবক্স পেজে যাওয়ার নেভিগেশন এখানে দিন
+            },
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('chats')
@@ -522,18 +531,13 @@ void initState() {
                   alignment: Alignment.center,
                   children: [
                     Container(
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.6),
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white24, width: 1),
                       ),
-                      child: IconButton(
-                        icon: const Icon(Icons.mail, color: Colors.white, size: 24),
-                        onPressed: () {
-                          // ইনবক্স পেজে যাওয়ার কোড এখানে
-                          print("Inbox Clicked");
-                        },
-                      ),
+                      child: const Icon(Icons.mail, color: Colors.white, size: 24),
                     ),
                     if (unreadCount > 0)
                       Positioned(
@@ -541,23 +545,9 @@ void initState() {
                         top: 0,
                         child: Container(
                           padding: const EdgeInsets.all(3),
-                          decoration: const BoxDecoration(
-                            color: Colors.red, 
-                            shape: BoxShape.circle,
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 16, 
-                            minHeight: 16,
-                          ),
-                          child: Text(
-                            '$unreadCount',
-                            style: const TextStyle(
-                              color: Colors.white, 
-                              fontSize: 9, 
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
+                          decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                          child: Text('$unreadCount', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                         ),
                       ),
                   ],
@@ -565,10 +555,11 @@ void initState() {
               },
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
  // 🔥 এটিই আপনার ফাইনাল এবং একমাত্র dispose ফাংশন
   @override
