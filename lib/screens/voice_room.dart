@@ -464,8 +464,6 @@ Widget build(BuildContext context) {
             _buildViewerArea(), // ভিউয়ার এরিয়া (পুরাতন)
             _buildSeatGridArea(), // সিট গ্রিড (পুরাতন)
             
-            const Spacer(), // সিট এবং চ্যাটের মাঝে গ্যাপ তৈরি করে
-            
            // ৩. রুম চ্যাট লিস্ট (সম্পূর্ণ স্বচ্ছ - কোনো কালো বক্স বা ঘর নেই)
             Expanded(
               child: Container(
