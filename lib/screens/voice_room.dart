@@ -707,186 +707,163 @@ void initState() {
     );
   }
 
-Widget _buildBottomActionArea() {
+  Widget _buildBottomActionArea() {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
     color: Colors.black26,
-    child: Row(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Expanded(
-          child: ChatInputBar(
-            controller: _messageController,
-            onEmojiTap: () => EmojiHandler.showPicker(
-              context: context, 
-              seatIndex: -1, 
-              onEmojiSelected: (i, url) {
-                setState(() { currentGiftImage = url; isGiftAnimating = true; });
-                Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
-              }
+        Row(
+          children: [
+            Expanded(
+              child: ChatInputBar(
+                controller: _messageController,
+                onEmojiTap: () => EmojiHandler.showPicker(
+                  context: context, 
+                  seatIndex: -1, 
+                  onEmojiSelected: (i, url) {
+                    setState(() { currentGiftImage = url; isGiftAnimating = true; });
+                    Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
+                  }
+                ),
+                onMessageSend: (msg) => setState(() => chatMessages.add(msg)),
+              ),
             ),
-            onMessageSend: (msg) => setState(() => chatMessages.add(msg)),
-          ),
-        ),
-        const SizedBox(width: 8),
+            const SizedBox(width: 8),
 
-        // ১. মাইক বাটন
-        IconButton(
-       icon: Icon(
-     isMicOn ? Icons.mic : Icons.mic_off,
-    color: isMicOn ? Colors.greenAccent : Colors.redAccent,
-  ),
-  onPressed: () async {
-    if (currentSeatIndex != -1) {
-      // বর্তমান অবস্থার উল্টোটা সেট হবে
-      bool newMicState = !isMicOn;
-
-      try {
-        // ১. এগোরা ইঞ্জিনে মাইক অন/অফ করা
-        // !newMicState দেওয়ার কারণ: toggleMic(true) মানে মিউট, toggleMic(false) মানে আনমিউট
-        await _agoraManager.toggleMic(!newMicState);
-
-        // 🔥 ২. রিয়েলটাইম ডাটাবেসে আপডেট (যাতে অন্য সবাই দেখতে পায় আপনার মাইক অন/অফ)
-        await FirebaseDatabase.instance
-            .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
-            .update({'isMicOn': newMicState});
-
-        // ৩. লোকাল অ্যাপের স্টেট আপডেট করা
-        setState(() {
-          isMicOn = newMicState;
-          seats[currentSeatIndex]["isMicOn"] = newMicState;
-        });
-        
-        debugPrint("Mic state updated to: $newMicState");
-      } catch (e) {
-        debugPrint("Mic Toggle Error: $e");
-      }
-    } else {
-      // সিটে না বসে মাইক চাপলে ওয়ার্নিং
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("আগে সিটে বসুন!"),
-          backgroundColor: Colors.orange,
-        ),
-      );
-    }
-  },
-),
-        
-        // ২. গেম বাটন
-        IconButton(
-          icon: const Icon(Icons.videogame_asset, color: Colors.orange), 
-          onPressed: () => showModalBottomSheet(context: context, builder: (c) => const GamePanelView())
-        ),
-
-      // 🔥 ফায়ারবেস থেকে রিয়েল-টাইম সিট ডাটা
-      stream: FirebaseFirestore.instance
-          .collection('rooms')
-          .doc(widget.roomId)
-          .collection('seats')
-          .snapshots(),
-      builder: (context, snapshot) {
-        // ডাটাবেসের সিটগুলোকে একটা ম্যাপে নিয়ে আসা
-        Map<String, dynamic> firestoreSeats = {};
-        if (snapshot.hasData) {
-          for (var doc in snapshot.data!.docs) {
-            firestoreSeats[doc.id] = doc.data();
-          }
-        }
-
-        return GridView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 15),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 5,
-            childAspectRatio: 0.7,
-          ),
-          itemCount: 15,
-          itemBuilder: (context, index) {
-            // ডাটাবেস থেকে ওই নির্দিষ্ট সিটের ডাটা চেক
-            var dbSeat = firestoreSeats[index.toString()];
+            // ১. মাইক বাটন
+            IconButton(
+              icon: Icon(
+                isMicOn ? Icons.mic : Icons.mic_off,
+                color: isMicOn ? Colors.greenAccent : Colors.redAccent,
+              ),
+              onPressed: () async {
+                if (currentSeatIndex != -1) {
+                  bool newMicState = !isMicOn;
+                  try {
+                    await _agoraManager.toggleMic(!newMicState);
+                    await FirebaseDatabase.instance
+                        .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
+                        .update({'isMicOn': newMicState});
+                    setState(() {
+                      isMicOn = newMicState;
+                      seats[currentSeatIndex]["isMicOn"] = newMicState;
+                    });
+                    debugPrint("Mic state updated to: $newMicState");
+                  } catch (e) {
+                    debugPrint("Mic Toggle Error: $e");
+                  }
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("আগে সিটে বসুন!"),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                }
+              },
+            ),
             
-            // ✅ আগের সব ফিচার এর ভেরিয়েবল ঠিক রাখা হলো
-            bool isOccupied = dbSeat != null ? (dbSeat['isOccupied'] ?? false) : seats[index]['isOccupied'];
-            String uName = dbSeat != null ? (dbSeat['userName'] ?? "") : seats[index]['userName'];
-            String uImage = dbSeat != null ? (dbSeat['userImage'] ?? "") : seats[index]['userImage'];
-            bool isMicOn = dbSeat != null ? (dbSeat['isMicOn'] ?? false) : seats[index]['isMicOn'];
-            String status = dbSeat != null ? (dbSeat['status'] ?? "empty") : seats[index]['status'];
-            bool isVip = seats[index]['isVip'] ?? false; 
-            
-            // 🔥 ভয়েস রিপেল (পানির ঢেউ) এর জন্য Talking ডাটা
-            // এটি setState বা সরাসরি ফায়ারবেস থেকে আপডেট হবে
-            bool isTalking = dbSeat != null ? (dbSeat['isTalking'] ?? false) : (seats[index]['isTalking'] ?? false);
+            // ২. গেম বাটন
+            IconButton(
+              icon: const Icon(Icons.videogame_asset, color: Colors.orange), 
+              onPressed: () => showModalBottomSheet(context: context, builder: (c) => const GamePanelView()),
+            ),
+          ],
+        ),
 
-            return GestureDetector(
-              onTap: () => sitOnSeat(index),
-              child: Column(
-                children: [
-                  // --- পানির ঢেউ (VoiceRipple) শুরু ---
-                  VoiceRipple(
-                    isTalking: isOccupied && isTalking, 
-                    child: Stack(
-                      alignment: Alignment.center,
+        // 🔥 ৩. আপনার অরিজিনাল ফায়ারবেস সিট ডাটা এবং গ্রিড ফিচার
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('rooms')
+              .doc(widget.roomId)
+              .collection('seats')
+              .snapshots(),
+          builder: (context, snapshot) {
+            Map<String, dynamic> firestoreSeats = {};
+            if (snapshot.hasData) {
+              for (var doc in snapshot.data!.docs) {
+                firestoreSeats[doc.id] = doc.data();
+              }
+            }
+
+            return SizedBox(
+              height: 250, // গ্রিড দেখানোর জন্য উচ্চতা সেট করা হলো
+              child: GridView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 5,
+                  childAspectRatio: 0.7,
+                ),
+                itemCount: 15,
+                itemBuilder: (context, index) {
+                  var dbSeat = firestoreSeats[index.toString()];
+                  bool isOccupied = dbSeat != null ? (dbSeat['isOccupied'] ?? false) : seats[index]['isOccupied'];
+                  String uName = dbSeat != null ? (dbSeat['userName'] ?? "") : seats[index]['userName'];
+                  String uImage = dbSeat != null ? (dbSeat['userImage'] ?? "") : seats[index]['userImage'];
+                  bool isMicOn = dbSeat != null ? (dbSeat['isMicOn'] ?? false) : seats[index]['isMicOn'];
+                  String status = dbSeat != null ? (dbSeat['status'] ?? "empty") : seats[index]['status'];
+                  bool isVip = seats[index]['isVip'] ?? false; 
+                  bool isTalking = dbSeat != null ? (dbSeat['isTalking'] ?? false) : (seats[index]['isTalking'] ?? false);
+
+                  return GestureDetector(
+                    onTap: () => sitOnSeat(index),
+                    child: Column(
                       children: [
-                        // সিটের মেইন বর্ডার
-                        CircleAvatar(
-                          radius: 24,
-                          backgroundColor: isOccupied ? Colors.blueAccent : Colors.white10,
-                          
-                          // ✅ ইউজারের প্রোফাইল পিকচার (অবতার)
-                          backgroundImage: (isOccupied && uImage.isNotEmpty) 
-                              ? NetworkImage(uImage) 
-                              : null,
-                          
-                          // সিট খালি থাকলে অথবা কলিং হলে আইকন/এনিমেশন
-                          child: status == "calling"
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : (isOccupied 
-                                  ? null 
-                                  : Icon(isVip ? Icons.stars : Icons.chair, color: Colors.white24, size: 20)),
-                        ),
-                        
-                        // ✅ মাইক অন থাকলে ছোট্ট আইকন (আগের ফিচার)
-                        if (isOccupied && isMicOn)
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(
-                                color: Colors.black87, 
-                                shape: BoxShape.circle,
-                                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 2)],
+                        VoiceRipple(
+                          isTalking: isOccupied && isTalking, 
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              CircleAvatar(
+                                radius: 24,
+                                backgroundColor: isOccupied ? Colors.blueAccent : Colors.white10,
+                                backgroundImage: (isOccupied && uImage.isNotEmpty) ? NetworkImage(uImage) : null,
+                                child: status == "calling"
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      )
+                                    : (isOccupied ? null : Icon(isVip ? Icons.stars : Icons.chair, color: Colors.white24, size: 20)),
                               ),
-                              child: const Icon(Icons.mic, size: 10, color: Colors.greenAccent),
-                            ),
+                              if (isOccupied && isMicOn)
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.black87, 
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.mic, size: 10, color: Colors.greenAccent),
+                                  ),
+                                ),
+                            ],
                           ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          isOccupied ? uName : "${index + 1}",
+                          style: TextStyle(
+                            color: isOccupied ? Colors.white : Colors.white54, 
+                            fontSize: 10,
+                            fontWeight: isOccupied ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ],
                     ),
-                  ),
-                  // --- পানির ঢেউ শেষ ---
-                  
-                  const SizedBox(height: 4),
-                  
-                  // ✅ ইউজারের নাম অথবা সিট নম্বর (আগের ফিচার)
-                  Text(
-                    isOccupied ? uName : "${index + 1}",
-                    style: TextStyle(
-                      color: isOccupied ? Colors.white : Colors.white54, 
-                      fontSize: 10,
-                      fontWeight: isOccupied ? FontWeight.bold : FontWeight.normal,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                  );
+                },
               ),
             );
           },
-        );
-      },
+        ),
+      ],
     ),
   );
 }
