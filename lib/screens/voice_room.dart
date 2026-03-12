@@ -1,3 +1,4 @@
+import 'package:pagla_chat/inbox_page.dart'; // ফাইল পাথ অনুযায়ী এটি দিন
 import 'package:pagla_chat/widgets/voice_ripple.dart';
 import 'dart:math';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
@@ -438,7 +439,7 @@ Widget build(BuildContext context) {
     resizeToAvoidBottomInset: true,
     body: Stack(
       children: [
-        // ১. ওয়ালপেপার ফিচার (অরিজিনাল ফিচার)
+        // ১. ওয়ালপেপার ফিচার (অরিজিনাল)
         if (roomWallpaperPath.isNotEmpty)
           Positioned.fill(
             child: Image.network(roomWallpaperPath, fit: BoxFit.cover),
@@ -447,10 +448,10 @@ Widget build(BuildContext context) {
         Column(
           children: [
             const SizedBox(height: 40),
-            // ২. টপ বার (অরিজিনাল ফিচার)
+            // ২. টপ বার (অরিজিনাল)
             _buildTopNavBar(),
             
-            // ৩. পিকে ব্যাটল ফিচার (অরিজিনাল ফিচার - এটি ঠিক রাখা হয়েছে)
+            // ৩. পিকে ব্যাটল (অরিজিনাল ফিচার ঠিক রাখা হয়েছে)
             if (isPKActive)
               PKBattleView(
                 bluePoints: blueTeamPoints, 
@@ -459,24 +460,22 @@ Widget build(BuildContext context) {
                 pkManager: pkManager,
               ),
             
-            // ৪. ভিউয়ার এবং সিট এরিয়া (অরিজিনাল ফিচার - এটি ঠিক রাখা হয়েছে)
             _buildViewerArea(),
             _buildSeatGridArea(),
             
-            // 🔥 সমাধান ১: Spacer যোগ করা হয়েছে যাতে সিট এবং চ্যাটের মাঝে গ্যাপ থাকে
+            // সমাধান ১: চ্যাটকে নিচে রাখার জন্য Spacer
             const Spacer(),
             
-            // ৫. রুম চ্যাট লিস্ট এরিয়া (সমাধান ২: কোনো কালো দাগ বা বক্স নেই)
+            // ৫. রুম চ্যাট লিস্ট (সমাধান ২: চ্যাট লিস্ট এখন পুরোপুরি স্বচ্ছ)
             Container(
-              height: 220, // আপনার চাহিদা মতো ফিক্সড হাইট
+              height: 220, 
               width: double.infinity,
-              // সমাধান ৩: ডানে ৮৫ মার্জিন দেওয়া হয়েছে যাতে চ্যাট মেইল বাটনের নিচে না যায়
+              // সমাধান ৩: ডানে মার্জিন যাতে মেইল বাটনের নিচে চ্যাট না ঢোকে
               margin: const EdgeInsets.only(left: 10, right: 85, bottom: 5),
               child: ListView.builder(
                 reverse: true,
                 padding: const EdgeInsets.symmetric(vertical: 5),
                 itemCount: chatMessages.length,
-                // এখানে কোনো Decoration নেই, তাই এটি এখন পুরোপুরি স্বচ্ছ (AhChat এর মতো)
                 itemBuilder: (context, index) {
                   return Align(
                     alignment: Alignment.bottomLeft,
@@ -486,15 +485,14 @@ Widget build(BuildContext context) {
               ),
             ),
             
-            // ৬. নিচের অ্যাকশন বার (সব বাটন ফিচার ঠিক রাখা হয়েছে)
             _buildBottomActionArea(),
           ],
         ),
 
-        // ৭. ফ্লোটিং টুলস (অরিজিনাল ফিচার - আগের পজিশনে ঠিক রাখা হয়েছে)
+        // ৭. ফ্লোটিং টুলস (অরিজিনাল)
         FloatingRoomTools(onGiftCountStart: _startGiftCounting),
         
-        // ৮. মিউজিক প্লেয়ার ড্র্যাগেবল ফিচার (অরিজিনাল ফিচার - এটি বাদ দেওয়া হয়নি)
+        // ৮. মিউজিক প্লেয়ার (অরিজিনাল ড্র্যাগেবল ফিচার)
         if (isRoomMusicPlaying)
           Positioned(
             left: playerPosition.dx, 
@@ -509,7 +507,7 @@ Widget build(BuildContext context) {
             ),
           ),
 
-        // ৯. গিফট অ্যানিমেশন ফিচার (অরিজিনাল ফিচার - এটি ঠিক রাখা হয়েছে)
+        // ৯. গিফট অ্যানিমেশন (অরিজিনাল)
         if (isGiftAnimating)
           IgnorePointer(
             child: Center(
@@ -517,14 +515,13 @@ Widget build(BuildContext context) {
             ),
           ),
 
-        // ১০. ভাসমান মেইল বাটন (সমাধান ৪: ইনবক্স এখন হাফ স্ক্রিন শো করবে)
+        // ১০. মেইল বাটন - আপনার ইনবক্স পেজের সাথে কানেক্টেড
         Positioned(
           bottom: 110, 
           right: 15,
           child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
             onTap: () {
-              // আপনার অরিজিনাল ইনবক্স পেজটি হাফ স্ক্রিনে ওপেন হবে
+              // ইনবক্স হাফ স্ক্রিনে ওপেন হবে
               showModalBottomSheet(
                 context: context,
                 backgroundColor: Colors.transparent,
@@ -532,47 +529,13 @@ Widget build(BuildContext context) {
                 builder: (context) => ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
                   child: SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.7, 
-                    child: InboxPage(), // আপনার ফাইলের ক্লাস নাম
+                    height: MediaQuery.of(context).size.height * 0.75, 
+                    child: const InboxPage(), // আপনার ইনবক্স ক্লাসের নাম
                   ),
                 ),
               );
             },
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('chats')
-                  .where('receiverId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
-                  .where('isSeen', isEqualTo: false)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                int unreadCount = (snapshot.hasData) ? snapshot.data!.docs.length : 0;
-                return Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white24, width: 1),
-                      ),
-                      child: const Icon(Icons.mail, color: Colors.white, size: 24),
-                    ),
-                    if (unreadCount > 0)
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(3),
-                          decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                          child: Text('$unreadCount', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
+            child: _buildMailIconWithBadge(), // আপনার মেইল আইকন ও লাল ডট
           ),
         ),
       ],
