@@ -467,29 +467,24 @@ Widget build(BuildContext context) {
             const Spacer(), // সিট এবং চ্যাটের মাঝে গ্যাপ তৈরি করে
             
             // ৩. রুম চ্যাট লিস্ট (সম্পূর্ণ স্বচ্ছ - কোনো কালো বক্স বা ঘর নেই)
-            Container(
-              height: 200, 
-              width: double.infinity,
-              margin: const EdgeInsets.only(left: 10, right: 85, bottom: 5),
-              decoration: const BoxDecoration(color: Colors.transparent), 
-              child: ListView.builder(
-                reverse: true,
-                padding: EdgeInsets.zero,
-                itemCount: chatMessages.length,
-                itemBuilder: (context, index) {
-                  return Align(
-                    alignment: Alignment.bottomLeft,
-                    child: _buildMessageRow(chatMessages[chatMessages.length - 1 - index]),
-                  );
-                },
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.only(left: 10, right: 85), 
+                decoration: const BoxDecoration(color: Colors.transparent),
+                child: ListView.builder(
+                  reverse: true,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  itemCount: chatMessages.length,
+                  itemBuilder: (context, index) {
+                    return _buildMessageRow(chatMessages[chatMessages.length - 1 - index]);
+                  },
+                ),
               ),
-            ),
-            
+            ), // Expanded এখানে শেষ হবে এবং এরপরে কমা (,) হবে  
             // ৪. বটম অ্যাকশন এরিয়া (মেসেজ লেখার জায়গা - কিবোর্ড উঠলে উপরে থাকবে)
             _buildBottomActionArea(),
           ],
         ),
-
         // ৫. মিউজিক ভাসমান প্লেয়ার (অরিজিনাল মিউজিক ডার্টের সাথে কানেক্টেড)
         if (isRoomMusicPlaying)
           Positioned(
