@@ -787,13 +787,13 @@ Widget _buildSeatGridArea() {
 }
 
 // --- ২. অ্যাকশন বার (মাইক, গেম এবং চ্যাট ইনপুট) ---
-Widget _buildBottomActionArea() {
+  Widget _buildBottomActionArea() {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
     color: Colors.black45, // হালকা কালো ব্যাকগ্রাউন্ড যাতে বাটন ফুটে ওঠে
     child: Row(
       children: [
-        // ১. ইমোজি এবং চ্যাট ইনপুট বার
+        // ১. ইমোজি এবং চ্যাট ইনপুট বার (EmojiHandler আলাদা ফাইল থেকে কাজ করবে)
         Expanded(
           child: ChatInputBar(
             controller: _messageController,
@@ -802,7 +802,9 @@ Widget _buildBottomActionArea() {
               seatIndex: -1, 
               onEmojiSelected: (i, url) {
                 setState(() { currentGiftImage = url; isGiftAnimating = true; });
-                Timer(const Duration(seconds: 3), () => setState(() => isGiftAnimating = false));
+                Timer(const Duration(seconds: 3), () {
+                  if (mounted) setState(() => isGiftAnimating = false);
+                });
               }
             ),
             onMessageSend: (msg) => setState(() => chatMessages.add(msg)),
@@ -819,7 +821,7 @@ Widget _buildBottomActionArea() {
             size: 22,
           ),
           onPressed: () async {
-             if (currentSeatIndex != -1) {
+            if (currentSeatIndex != -1) {
               bool newMicState = !isMicOn;
               await _agoraManager.toggleMic(!newMicState);
               await FirebaseDatabase.instance
@@ -830,28 +832,53 @@ Widget _buildBottomActionArea() {
           },
         ),
 
-        // ৩. মিউজিক বাটন (আপনার হারানো ফিচার)
+        // ৩. মিউজিক বাটন (এটি আপনার ড্র্যাগেবল প্লেয়ার অন করবে)
         IconButton(
           constraints: const BoxConstraints(),
           padding: const EdgeInsets.symmetric(horizontal: 4),
-          icon: const Icon(Icons.music_note, color: Colors.blueAccent, size: 22),
+          icon: Icon(
+            Icons.music_note, 
+            color: isRoomMusicPlaying ? Colors.blueAccent : Colors.white70, 
+            size: 22
+          ),
           onPressed: () => setState(() => isRoomMusicPlaying = !isRoomMusicPlaying),
         ),
 
-        // ৪. গিফট বক্স বাটন (আপনার হারানো ফিচার)
+        // ৪. গিফট বক্স বাটন (GiftBottomSheet আলাদা ফাইল থেকে কল হবে)
         IconButton(
           constraints: const BoxConstraints(),
           padding: const EdgeInsets.symmetric(horizontal: 4),
           icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
-          onPressed: () => _showGiftPanel(), // আপনার অরিজিনাল গিফট ফাংশন
+          onPressed: () {
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              isScrollControlled: true,
+              builder: (context) => GiftBottomSheet(
+                diamondBalance: userDiamondBalance, // আপনার ডায়মন্ড ভেরিয়েবল
+                onGiftSend: (gift, count, target) {
+                  setState(() {
+                    currentGiftImage = gift['icon'];
+                    isGiftAnimating = true;
+                  });
+                  Timer(const Duration(seconds: 3), () {
+                    if (mounted) setState(() => isGiftAnimating = false);
+                  });
+                },
+              ),
+            );
+          },
         ),
 
-        // ৫. গেম বাটন
+        // ৫. গেম বাটন (GamePanelView আলাদা ফাইল থেকে)
         IconButton(
           constraints: const BoxConstraints(),
           padding: const EdgeInsets.symmetric(horizontal: 4),
           icon: const Icon(Icons.videogame_asset, color: Colors.orange, size: 22), 
-          onPressed: () => showModalBottomSheet(context: context, builder: (c) => const GamePanelView()),
+          onPressed: () => showModalBottomSheet(
+            context: context, 
+            builder: (c) => const GamePanelView() // আপনার গেম ফাইল
+          ),
         ),
       ],
     ),
