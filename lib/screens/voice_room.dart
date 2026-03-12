@@ -798,10 +798,11 @@ Widget _buildSeatGridArea() {
 // --- ২. অ্যাকশন বার (মাইক, গেম এবং চ্যাট ইনপুট) ---
 Widget _buildBottomActionArea() {
   return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-    color: Colors.black26,
+    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
+    color: Colors.black45, // হালকা কালো ব্যাকগ্রাউন্ড যাতে বাটন ফুটে ওঠে
     child: Row(
       children: [
+        // ১. ইমোজি এবং চ্যাট ইনপুট বার
         Expanded(
           child: ChatInputBar(
             controller: _messageController,
@@ -816,36 +817,49 @@ Widget _buildBottomActionArea() {
             onMessageSend: (msg) => setState(() => chatMessages.add(msg)),
           ),
         ),
-        const SizedBox(width: 8),
-
+        
+        // ২. মাইক বাটন
         IconButton(
+          constraints: const BoxConstraints(),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           icon: Icon(
             isMicOn ? Icons.mic : Icons.mic_off,
             color: isMicOn ? Colors.greenAccent : Colors.redAccent,
+            size: 22,
           ),
           onPressed: () async {
-            if (currentSeatIndex != -1) {
+             if (currentSeatIndex != -1) {
               bool newMicState = !isMicOn;
-              try {
-                await _agoraManager.toggleMic(!newMicState);
-                await FirebaseDatabase.instance
-                    .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
-                    .update({'isMicOn': newMicState});
-                setState(() {
-                  isMicOn = newMicState;
-                  seats[currentSeatIndex]["isMicOn"] = newMicState;
-                });
-              } catch (e) {
-                debugPrint("Mic Toggle Error: $e");
-              }
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("আগে সিটে বসুন!")));
+              await _agoraManager.toggleMic(!newMicState);
+              await FirebaseDatabase.instance
+                  .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
+                  .update({'isMicOn': newMicState});
+              setState(() { isMicOn = newMicState; });
             }
           },
         ),
-        
+
+        // ৩. মিউজিক বাটন (আপনার হারানো ফিচার)
         IconButton(
-          icon: const Icon(Icons.videogame_asset, color: Colors.orange), 
+          constraints: const BoxConstraints(),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          icon: const Icon(Icons.music_note, color: Colors.blueAccent, size: 22),
+          onPressed: () => setState(() => isRoomMusicPlaying = !isRoomMusicPlaying),
+        ),
+
+        // ৪. গিফট বক্স বাটন (আপনার হারানো ফিচার)
+        IconButton(
+          constraints: const BoxConstraints(),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
+          onPressed: () => _showGiftPanel(), // আপনার অরিজিনাল গিফট ফাংশন
+        ),
+
+        // ৫. গেম বাটন
+        IconButton(
+          constraints: const BoxConstraints(),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          icon: const Icon(Icons.videogame_asset, color: Colors.orange, size: 22), 
           onPressed: () => showModalBottomSheet(context: context, builder: (c) => const GamePanelView()),
         ),
       ],
