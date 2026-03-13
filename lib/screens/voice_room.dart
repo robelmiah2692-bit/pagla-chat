@@ -45,9 +45,15 @@ import '../widgets/room_profile_handler.dart';
 import '../widgets/room_settings_handler.dart';
 
 class VoiceRoom extends StatefulWidget {
-  final String roomId; 
-  const VoiceRoom({super.key, required this.roomId});
+  final String roomId;
+  final String ownerId;
 
+  const VoiceRoom({
+    super.key, 
+    required this.roomId, 
+    this.ownerId = "",
+  });
+ 
   @override
   State<VoiceRoom> createState() => _VoiceRoomState();
 }
@@ -57,15 +63,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
  final RoomSyncService _syncService = RoomSyncService();
  final DatabaseService _dbService = DatabaseService();
  final AgoraManager _agoraManager = AgoraManager();
- final String roomId;
- final String ownerId;
- const VoiceRoom({
-    super.key, 
-    required this.roomId, 
-    required this.ownerId,
-  });
-
-  
+ 
   String userProfilePic = ""; // এটি আপনার নিজের প্রোফাইল ছবি রাখার জন্য
   // --- সব ভেরিয়েবল ---
   String myPersonalAvatar = ""; // এটি ইউজারের নিজের প্রোফাইল ছবি
