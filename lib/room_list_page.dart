@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'screens/voice_room.dart'; // এইটা লিখে দিন
-import 'package:firebase_auth/firebase_auth.dart'; // 🔥 এটি উপরে যোগ করুন
+import 'package:pagla_chat/screens/voice_room.dart'; 
+import 'package:firebase_auth/firebase_auth.dart'; 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'live_room_grid.dart';
 import 'following_room_grid.dart';
@@ -14,9 +14,6 @@ class RoomListPage extends StatefulWidget {
 
 class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
-  // 🔥 '123456' মুছে ফেলুন। এখন আইডি হবে ডাইনামিক।
-  // আপনি চাইলে এটি খালি রাখতে পারেন অথবা এই লাইনটিই ফেলে দিতে পারেন।
   String? displayRoomID;
   
   @override
@@ -31,7 +28,7 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     super.dispose();
   }
 
-@override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
@@ -52,21 +49,21 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
       ),
       body: Column(
         children: [
-          _buildBanner(),
+          _buildBanner(), // ফিচার ১: প্রিমিয়াম ব্যানার
           const SizedBox(height: 15),
-          _buildFeaturedRooms(),
+          _buildFeaturedRooms(), // ফিচার ২: ফিচারড রুম লিস্ট
           const SizedBox(height: 15),
           Expanded(
             child: TabBarView(
               controller: _tabController,
               children: [
-                // ১. লাইভ রুম সেকশন (সব লাইভ রুম দেখাবে)
-                const LiveRoomGrid(), 
+                // ১. লাইভ রুম সেকশন (const সরানো হয়েছে এরর ঠিক করতে)
+                LiveRoomGrid(), 
 
-                // ২. ফলোয়িং সেকশন (শুধুমাত্র আপনার ফলো করা রুমগুলো দেখাবে)
-                const FollowingRoomGrid(), 
+                // ২. ফলোয়িং সেকশন (const সরানো হয়েছে এরর ঠিক করতে)
+                FollowingRoomGrid(), 
 
-                // ৩. মাই রুম সেকশন (আপনার নিজস্ব রুমের আইডি নিয়ে আসবে)
+                // ৩. মাই রুম সেকশন (আপনার নিজস্ব রুমের আইডি জেনারেশন ফিচার সহ)
                 _buildRoomGrid("my_room"), 
               ],
             ),
@@ -76,7 +73,7 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     );
   }
 
-  // ১. প্রিমিয়াম ব্যানার (সঠিক বানান)
+  // --- ১. প্রিমিয়াম ব্যানার ---
   Widget _buildBanner() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
@@ -136,7 +133,7 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     );
   }
 
-  // ২. ফিচারড রুম
+  // --- ২. ফিচারড রুম ---
   Widget _buildFeaturedRooms() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -171,7 +168,8 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     );
   }
 
-Widget _buildRoomGrid(String type) {
+  // --- ৩. রুম গ্রিড ও ডাইনামিক আইডি জেনারেশন ---
+  Widget _buildRoomGrid(String type) {
     return GridView.builder(
       padding: const EdgeInsets.all(10),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -185,37 +183,26 @@ Widget _buildRoomGrid(String type) {
         return GestureDetector(
           onTap: () async {
             String finalRoomId;
-
             if (type == "my_room") {
               final user = FirebaseAuth.instance.currentUser;
               if (user == null) return;
 
-              // ১. প্রথমে চেক করো ইউজারের আগে থেকে কোনো আইডি সেভ করা আছে কি না
               final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
               if (userDoc.exists && userDoc.data()?.containsKey('myRoomId') == true) {
-                // ২. আইডি থাকলে সেটাই ব্যবহার করো
                 finalRoomId = userDoc.data()!['myRoomId'].toString();
               } else {
-                // ৩. আইডি না থাকলে (অর্থাৎ প্রথমবার ঢুকলে) নতুন ৫-৬ ডিজিটের আইডি বানাও
-                // উদাহরণ: ৬ ডিজিটের আইডি (১০০০০০ থেকে ৯৯৯৯৯৯)
                 finalRoomId = (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString();
-                
-                // ৪. সাথে সাথে ফায়ারবেসে ইউজারের প্রোফাইলে আইডিটা ফিক্সড করে দাও
                 await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
                   'myRoomId': finalRoomId,
                 }, SetOptions(merge: true));
-                
-                print("নতুন আইডি জেনারেট হয়েছে: $finalRoomId");
               }
             } else {
-              // সাধারণ রুমের জন্য
               finalRoomId = "public_room_$index";
             }
 
             if (!context.mounted) return;
 
-            // ৫. জেনারেট হওয়া বা খুঁজে পাওয়া আইডি নিয়ে রুমে প্রবেশ
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -229,7 +216,7 @@ Widget _buildRoomGrid(String type) {
     );
   }
 
-  // ৪. রুম কার্ড ডিজাইন
+  // --- ৪. রুম কার্ড ডিজাইন ---
   Widget _buildRoomCard(int index, String type) {
     return Container(
       decoration: BoxDecoration(
