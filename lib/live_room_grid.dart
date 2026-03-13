@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'screens/voice_room.dart'; // আপনার ভয়েস রুমের পাথ
+import 'package:pagla_chat/screens/voice_room.dart'; // এখানে আপনার প্যাকেজের নামসহ পাথটি সঠিক করে দিলাম
 
 class LiveRoomGrid extends StatelessWidget {
   const LiveRoomGrid({super.key});
@@ -8,7 +8,6 @@ class LiveRoomGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      // 🔥 শুধুমাত্র একটিভ রুমগুলো ফায়ারবেস থেকে আনবে
       stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -51,7 +50,6 @@ class LiveRoomGrid extends StatelessWidget {
     );
   }
 
-  // আলাদা ডিজাইন ফাংশন (সবুজ LIVE ট্যাগসহ)
   Widget _buildLiveCard(Map<String, dynamic> data) {
     return Container(
       decoration: BoxDecoration(
@@ -63,7 +61,6 @@ class LiveRoomGrid extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // 🟢 সবুজ LIVE ট্যাগ
           Positioned(
             top: 8,
             left: 8,
@@ -73,23 +70,26 @@ class LiveRoomGrid extends StatelessWidget {
                 color: Colors.greenAccent,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Row(
+              child: Row( // এখানে const সরিয়ে দেওয়া হয়েছে কারণ এটি ডায়নামিক হতে পারে
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.circle, size: 6, color: Colors.white),
-                  SizedBox(width: 4),
-                  Text("LIVE", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                  const Icon(Icons.circle, size: 6, color: Colors.white),
+                  const SizedBox(width: 4),
+                  Text(
+                    "LIVE", 
+                    style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)
+                  ),
                 ],
               ),
             ),
           ),
-          // রুমের নাম
           Positioned(
             bottom: 0, left: 0, right: 0,
             child: Container(
               padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                color: Colors.black45,
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(15)),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.5), // opacity সরাসরি দেওয়া নিরাপদ
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(15)),
               ),
               child: Text(
                 data['roomName'] ?? "আড্ডা ঘর",
