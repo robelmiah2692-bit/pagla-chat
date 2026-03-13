@@ -730,7 +730,21 @@ List<Widget> _buildFloatingEmojiAnimations() {
             },
           ),
 
-          IconButton(icon: const Icon(Icons.group, color: Colors.white70), onPressed: () => FollowerListHandler.show(context, followerCount)),
+          IconButton(
+            icon: const Icon(Icons.group, color: Colors.white70),
+            onPressed: () {
+              showModalBottomSheet(
+                   context: context,
+                   isScrollControlled: true, // এটি লিস্টটিকে বড় হয়ে ওপেন হতে সাহায্য করবে
+                   backgroundColor: Colors.transparent, // আমাদের গোল ডিজাইন ঠিক রাখার জন্য
+                   builder: (context) => RoomFollowerSheet(
+                     roomId: widget.roomId, 
+                     ownerId: roomData['ownerId'] ?? "", // রুম ডাটা থেকে ওনার আইডি
+                  ),
+                );
+              },
+            ),
+         
           IconButton(icon: const Icon(Icons.settings, color: Colors.white70), onPressed: _showSettings),
         ],
       ),
