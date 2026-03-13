@@ -60,12 +60,10 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
         List<dynamic> admins = roomData['admins'] ?? [];
         String ownerId = widget.ownerId;
 
-        // ওনারকে জোর করে লিস্টে আনা
         if (ownerId.isNotEmpty && !followers.contains(ownerId)) {
           followers.insert(0, ownerId);
         }
 
-        // র‍্যাঙ্ক অনুযায়ী সর্টিং
         followers.sort((a, b) {
           if (a == ownerId) return -1;
           if (b == ownerId) return 1;
@@ -159,7 +157,6 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
           itemCount: kickedUsers.length,
           itemBuilder: (context, index) {
             String uid = kickedUsers[index];
-            // কিক লিস্টেও নাম ও প্রোফাইল ছবি দেখানোর জন্য FutureBuilder
             return FutureBuilder<DocumentSnapshot>(
               future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
               builder: (context, userSnap) {
@@ -171,7 +168,10 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
                   leading: CircleAvatar(radius: 15, backgroundImage: NetworkImage(photo)),
                   title: Text(name, style: const TextStyle(color: Colors.white, fontSize: 13)),
                   trailing: ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, density: VisualDensity.compact),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent, 
+                      visualDensity: VisualDensity.compact, // এখানে সংশোধন করা হয়েছে
+                    ),
                     onPressed: (myUid == widget.ownerId || (data?['admins'] ?? []).contains(myUid)) 
                       ? () => _unKickUser(uid) : null,
                     child: const Text("Unkick", style: TextStyle(color: Colors.white, fontSize: 11)),
