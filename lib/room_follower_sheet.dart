@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class RoomFollowerSheet extends StatefulWidget {
   final String roomId;
-  final String ownerId; // এটি VoiceRoom থেকে আসা মালিকের আইডি
+  final String ownerId;
 
   const RoomFollowerSheet({super.key, required this.roomId, required this.ownerId});
 
@@ -57,19 +57,18 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
 
         var roomData = snapshot.data!.data() as Map<String, dynamic>;
         
-        // ১. ডাটাবেস থেকে সরাসরি আসল ওনার আইডি নেওয়া হচ্ছে (যেখানে গিফট বা ডাইমন্ড যায়)
+        // ১. ডাটাবেস থেকে ওনার আইডি নিশ্চিত করা
         String actualOwnerId = roomData['ownerId'] ?? roomData['owner'] ?? widget.ownerId;
         
         List<dynamic> followers = List.from(roomData['followers'] ?? []);
-        List<dynamic> admins = roomData['admins'] ?? [];
+        List<dynamic> admins = List.from(roomData['admins'] ?? []);
 
-        // ২. ওনার যদি ফলোয়ার লিস্টে না থাকে (কারণ সে মালিক, ফলো করার দরকার নেই), 
-        // তবুও তাকে লিস্টে সবার উপরে জোর করে ঢুকিয়ে দেওয়া হচ্ছে।
+        // ২. ওনার যদি লিস্টে না থাকে, তবে তাকে লিস্টে যুক্ত করা
         if (actualOwnerId.isNotEmpty && !followers.contains(actualOwnerId)) {
-          followers.insert(0, actualOwnerId);
+          followers.add(actualOwnerId);
         }
 
-        // ৩. র‍্যাঙ্ক অনুযায়ী সাজানো: ওনার (👑) > এডমিন (🛡️) > বাকিরা
+        // ৩. র‍্যাঙ্ক অনুযায়ী সাজানো: ওনার (👑) সবার উপরে
         followers.sort((a, b) {
           if (a == actualOwnerId) return -1;
           if (b == actualOwnerId) return 1;
@@ -84,7 +83,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
           itemCount: followers.length,
           itemBuilder: (context, index) {
             String uid = followers[index];
-            bool isOwner = (uid == actualOwnerId); // এটিই ওনার চেনার আসল উপায়
+            bool isOwner = (uid == actualOwnerId);
             bool isAdmin = admins.contains(uid);
 
             return FutureBuilder<DocumentSnapshot>(
