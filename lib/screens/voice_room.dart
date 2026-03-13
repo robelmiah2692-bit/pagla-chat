@@ -729,20 +729,30 @@ List<Widget> _buildFloatingEmojiAnimations() {
             },
           ),
 
+          // IconButton এর ভেতর এই কোডটি আপডেট করুন
           IconButton(
             icon: const Icon(Icons.group, color: Colors.white70),
-            onPressed: () {
+            onPressed: () async {
+              // ১. ফায়ারবেস থেকে এই রুমের ডাটা আনা হচ্ছে ওনার আইডি পাওয়ার জন্য
+              var roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get();
+    
+             // ২. রুমের ডাটা থেকে মালিকের আইডি বের করা (ধরি ফিল্ডের নাম 'ownerId')
+              String ownerUidFromFirestore = roomDoc.data()?['ownerId'] ?? "";
+
+              if (!context.mounted) return;
+
+              // ৩. এখন লিস্টটি ওপেন করার সময় ওনার আইডি পাঠিয়ে দেওয়া হচ্ছে
               showModalBottomSheet(
-                   context: context,
-                   isScrollControlled: true, // এটি লিস্টটিকে বড় হয়ে ওপেন হতে সাহায্য করবে
-                   backgroundColor: Colors.transparent, // আমাদের গোল ডিজাইন ঠিক রাখার জন্য
-                   builder: (context) => RoomFollowerSheet(
-                     roomId: widget.roomId, 
-                     ownerId: roomData['ownerId'] ?? "", // রুম ডাটা থেকে ওনার আইডি
-                  ),
-                );
-              },
-            ),
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => RoomFollowerSheet(
+                roomId: widget.roomId,
+                ownerId: ownerUidFromFirestore, // এটিই প্রোফাইল/ডাটাবেস থেকে আসা আইডি
+              ),
+            );
+          },
+        ),
          
           IconButton(icon: const Icon(Icons.settings, color: Colors.white70), onPressed: _showSettings),
         ],
