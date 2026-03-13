@@ -33374,11 +33374,15 @@ adA:function adA(a,b){this.a=a
 this.b=b},
 bew(a){var s,r,q,p,o,n,m,l=A.b([],t.H7)
 for(s=t.N,r=t.z,q=0;q<15;++q){p=a[q]
-if(p.h(0,"uid")!=null&&J.ct(p.h(0,"uid")).length!==0){o=p.h(0,"uid")
-n=p.h(0,"userName")
-if(n==null)n="Unknown"
+o=p.h(0,"uid")!=null||p.h(0,"userId")!=null
+if(o){o=p.h(0,"uid")
+n=J.ct(o==null?p.h(0,"userId"):o)
+if(n.length!==0){o=p.h(0,"userName")
+if(o==null)o=p.h(0,"name")
+if(o==null)o="Unknown"
 m=p.h(0,"userAvatar")
-l.push(A.a1(["uid",o,"name",n,"photoUrl",m==null?"":m],s,r))}}return l},
+if(m==null)m=p.h(0,"avatar")
+l.push(A.a1(["uid",n,"name",o,"photoUrl",m==null?"":m],s,r))}}}return l},
 bex(a,b,c){A.hQ(B.bg,new A.aiy(b,c),a,!1,B.ca,t.z)},
 aiy:function aiy(a,b){this.a=a
 this.b=b},
