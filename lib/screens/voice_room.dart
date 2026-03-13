@@ -884,15 +884,18 @@ Widget _buildSeatGridArea() {
           padding: const EdgeInsets.symmetric(horizontal: 4),
           icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
           onPressed: () async {
-            // ইউজারের প্রোফাইল থেকে ডায়মন্ড ব্যালেন্স ফেচ করা
+            // ডায়মন্ড ব্যালেন্স ফেচ করা
             final userDoc = await FirebaseFirestore.instance
                 .collection('users')
                 .doc(FirebaseAuth.instance.currentUser?.uid)
                 .get();
             
             int currentBalance = 0;
+            String senderName = "User"; // ডিফল্ট নাম
+            
             if (userDoc.exists && userDoc.data() != null) {
               currentBalance = userDoc.data()!['diamonds'] ?? 0;
+              senderName = userDoc.data()!['name'] ?? "User"; // ডাটাবেস থেকে ইউজারের নাম নিলাম
             }
 
             if (!mounted) return;
@@ -903,14 +906,25 @@ Widget _buildSeatGridArea() {
               isScrollControlled: true,
               builder: (context) => GiftBottomSheet(
                 diamondBalance: currentBalance, 
-                currentSeats: List.from(seats), // আপনার late List<Map<String, dynamic>> seats
+                currentSeats: List.from(seats), 
                 onGiftSend: (gift, count, target) {
                   setState(() {
                     currentGiftImage = gift['icon'];
                     isGiftAnimating = true;
+                    
+                    // --- নতুন ৩টি লাইন যা আপনার এরর ঠিক করবে ---
+                    targetType = target; 
+                    currentSenderName = senderName; 
+                    currentReceiverName = target; 
+                    // ---------------------------------------
                   });
+                  
                   Timer(const Duration(seconds: 3), () {
-                    if (mounted) setState(() => isGiftAnimating = false);
+                    if (mounted) {
+                      setState(() {
+                        isGiftAnimating = false;
+                      });
+                    }
                   });
                 },
               ),
