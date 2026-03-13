@@ -44,11 +44,22 @@ class FollowingRoomGrid extends StatelessWidget {
               itemCount: rooms.length,
               itemBuilder: (context, index) {
                 var roomData = rooms[index].data() as Map<String, dynamic>;
+                String roomId = rooms[index].id;
+                
+                // 🔥 সরাসরি রুমের ডাটা থেকে মালিকের আইডি নেওয়া হচ্ছে
+                String ownerId = roomData['ownerId'] ?? roomData['owner'] ?? "";
+
                 return GestureDetector(
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => VoiceRoom(roomId: rooms[index].id)),
+                      MaterialPageRoute(
+                        builder: (context) => VoiceRoom(
+                          roomId: roomId,
+                          // আপনার VoiceRoom যদি ownerId গ্রহণ করে তবে নিচের লাইনটি আনকমেন্ট করুন
+                          // ownerId: ownerId, 
+                        ),
+                      ),
                     );
                   },
                   child: _buildFollowingCard(roomData),
@@ -84,8 +95,15 @@ class FollowingRoomGrid extends StatelessWidget {
             bottom: 0, left: 0, right: 0,
             child: Container(
               padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.vertical(bottom: Radius.circular(15))),
-              child: Text(data['roomName'] ?? "আড্ডা ঘর", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+              decoration: const BoxDecoration(
+                color: Colors.black45, 
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(15))
+              ),
+              child: Text(
+                data['roomName'] ?? "আড্ডা ঘর", 
+                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
         ],
