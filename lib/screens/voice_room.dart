@@ -466,7 +466,7 @@ Widget build(BuildContext context) {
             
            // ৩. রুম চ্যাট লিস্ট (সম্পূর্ণ স্বচ্ছ - কোনো কালো বক্স বা ঘর নেই)
            SizedBox(
-             height: 180, // আপনার যতটুকু জায়গা দরকার এখানে সেট করুন (যেমন ১৫০ বা ১৮০)
+             height: 160, // আপনার যতটুকু জায়গা দরকার এখানে সেট করুন (যেমন ১৫০ বা ১৮০)
              width: double.infinity,
              child: Container(
                margin: const EdgeInsets.only(left: 10, right: 90),
