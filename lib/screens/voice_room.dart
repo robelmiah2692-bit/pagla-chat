@@ -466,7 +466,7 @@ Widget build(BuildContext context) {
             
            // ৩. রুম চ্যাট লিস্ট (সম্পূর্ণ স্বচ্ছ - কোনো কালো বক্স বা ঘর নেই)
            SizedBox(
-             height: 160, // আপনার যতটুকু জায়গা দরকার এখানে সেট করুন (যেমন ১৫০ বা ১৮০)
+             height: 180, // আপনার যতটুকু জায়গা দরকার এখানে সেট করুন (যেমন ১৫০ বা ১৮০)
              width: double.infinity,
              child: Container(
                margin: const EdgeInsets.only(left: 10, right: 90),
@@ -484,10 +484,7 @@ Widget build(BuildContext context) {
                ),
              ),
            ),
-
-        // ২. এই Spacer টাই আপনার নিচের আইকনগুলোকে উপরে উঠতে দেবে না
-          const Spacer(), 
-
+          const SizedBox(height: 10),
         // ৩. আপনার টাইপিং বার এবং নিচের আইকনগুলো (যা আগে থেকে আছে)
           _buildBottomActionArea(),
           ],
@@ -820,7 +817,7 @@ Widget _buildSeatGridArea() {
   Widget _buildBottomActionArea() {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
-    color: Colors.black45,
+    color: Colors.transparent,
     child: Row(
       children: [
         // ১. চ্যাট ও ইমোজি
