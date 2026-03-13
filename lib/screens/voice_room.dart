@@ -59,6 +59,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
  final AgoraManager _agoraManager = AgoraManager();
  final String roomId;
  final String ownerId;
+ const VoiceRoom({
+    super.key, 
+    required this.roomId, 
+    required this.ownerId,
+  });
+
   
   String userProfilePic = ""; // এটি আপনার নিজের প্রোফাইল ছবি রাখার জন্য
   // --- সব ভেরিয়েবল ---
