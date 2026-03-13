@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pagla_chat/services/database_service.dart';
 import 'package:pagla_chat/services/gift_logic_helper.dart';
 
-// আপনার তৈরি করা ৪টি আলাদা গিফট ফাইল ইমপোর্ট করা হলো
+// ডাটা ফাইল ইমপোর্ট
 import 'package:pagla_chat/data/free_gifts.dart';
 import 'package:pagla_chat/data/classic_gifts.dart';
 import 'package:pagla_chat/data/romantic_gifts.dart';
@@ -10,11 +10,13 @@ import 'package:pagla_chat/data/luxury_gifts.dart';
 
 class GiftBottomSheet extends StatefulWidget {
   final int diamondBalance;
+  final List<dynamic> currentSeats; // সিটের ইউজারদের জন্য
   final Function(Map<String, dynamic> gift, int count, String target) onGiftSend;
 
   const GiftBottomSheet({
     super.key,
     required this.diamondBalance,
+    required this.currentSeats,
     required this.onGiftSend,
   });
 
@@ -26,23 +28,24 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   Map<String, dynamic>? selectedGift;
   int selectedCount = 1;
   String targetType = "Selected User"; 
-  final DatabaseService _dbService = DatabaseService();
+  String? selectedTargetId; // টার্গেট ইউজারের আইডি রাখার জন্য
 
-  // ৪টি ফাইল থেকে সব গিফটকে এখানে একত্রিত করা হয়েছে
-  late final List<Map<String, dynamic>> allGifts = [
-    ...freeGifts,
-    ...classicGifts,
-    ...romanticGifts,
-    ...luxuryGifts,
-  ];
+  // ফ্রি গিফট একবার সেন্ড হলে রিমুভ করার জন্য এই লিস্টটি ব্যবহার হবে
+  late List<Map<String, dynamic>> dynamicFreeGifts;
+
+  @override
+  void initState() {
+    super.initState();
+    // শুরুতেই সব ফ্রি গিফট কপি করে নেওয়া হলো
+    dynamicFreeGifts = List.from(freeGifts);
+  }
 
   @override
   Widget build(BuildContext context) {
-    // ক্যাটাগরি অনুযায়ী ফিল্টার
-    final freeList = allGifts.where((g) => g['type'] == 'free').toList();
-    final classicList = allGifts.where((g) => g['type'] == 'classic').toList();
-    final romanticList = allGifts.where((g) => g['type'] == 'romantic').toList();
-    final luxuryList = allGifts.where((g) => g['type'] == 'luxury').toList();
+    // সব গিফটকে ক্যাটাগরি অনুযায়ী লিস্ট করা
+    final classicList = classicGifts;
+    final romanticList = romanticGifts;
+    final luxuryList = luxuryGifts;
 
     return DefaultTabController(
       length: 4,
@@ -68,8 +71,10 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
             Expanded(
               child: TabBarView(
                 children: [
-                  _buildGrid(freeList), _buildGrid(classicList),
-                  _buildGrid(romanticList), _buildGrid(luxuryList),
+                  _buildGrid(dynamicFreeGifts), // ফ্রি গিফট এখন ডাইনামিক লিস্ট থেকে আসবে
+                  _buildGrid(classicList),
+                  _buildGrid(romanticList),
+                  _buildGrid(luxuryList),
                 ],
               ),
             ),
@@ -80,15 +85,14 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     );
   }
 
-  // --- হেল্পার উইজেটস (আপনার আগের কোড অনুযায়ী) ---
-
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text("💎 Balance: ${widget.diamondBalance}", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+          Text("💎 Balance: ${widget.diamondBalance}", 
+            style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
           const Text("Select Gift", style: TextStyle(color: Colors.white, fontSize: 16)),
           const Icon(Icons.history, color: Colors.white38),
         ],
@@ -110,20 +114,28 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   }
 
   Widget _targetChip(String label, IconData icon) {
-    bool isSelected = targetType == label;
+    bool isSelected = (label == "Target" && targetType != "All Room" && targetType != "All Mic" && targetType != "Selected User") 
+                    || targetType == label;
+    
     return GestureDetector(
       onTap: () {
         if (label == "Target") {
-          // গিফট লজিক হেল্পার থেকে টার্গেট সিলেক্টর ওপেন হবে
+          final micUsers = GiftLogicHelper.getAllMicUsers(widget.currentSeats);
           GiftLogicHelper.showTargetSelector(
             context: context,
-            micUsers: GiftLogicHelper.getAllMicUsers([]), // এখানে আপনার বর্তমান সিট লিস্ট পাঠাতে হবে
+            micUsers: micUsers,
             onSelected: (uid, name) {
-              setState(() => targetType = name);
+              setState(() {
+                targetType = name;
+                selectedTargetId = uid;
+              });
             },
           );
         } else {
-          setState(() => targetType = label);
+          setState(() {
+            targetType = label;
+            selectedTargetId = null;
+          });
         }
       },
       child: Container(
@@ -147,7 +159,10 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   Widget _buildGrid(List gifts) {
     return GridView.builder(
       padding: const EdgeInsets.all(15),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, childAspectRatio: 0.85),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4, 
+        childAspectRatio: 0.85
+      ),
       itemCount: gifts.length,
       itemBuilder: (context, index) {
         var gift = gifts[index];
@@ -194,7 +209,10 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
           )),
           const Spacer(),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, shape: const StadiumBorder()),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.pinkAccent, 
+              shape: const StadiumBorder()
+            ),
             onPressed: selectedGift == null ? null : _handleSendAction,
             child: const Text("SEND", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
@@ -203,28 +221,39 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     );
   }
 
-  // --- স্পেশাল গিফট লজিক ---
   void _handleSendAction() {
-    int totalPrice = (selectedGift!['price'] as int) * selectedCount;
-    
-    // ১. যদি গিফট টাইপ 'free' হয়, তবে ডায়মন্ড কাটবে না (যত দামই হোক)
-    if (selectedGift!['type'] == 'free') {
-      widget.onGiftSend(selectedGift!, selectedCount, targetType);
-      Navigator.pop(context);
-    } 
-    // ২. পেইড গিফট হলে ব্যালেন্স চেক করবে
-    else if (widget.diamondBalance >= totalPrice) {
-      widget.onGiftSend(selectedGift!, selectedCount, targetType);
-      Navigator.pop(context);
-    } 
-    // ৩. ব্যালেন্স না থাকলে রিচার্জ অপশন বা মেসেজ দেখাবে
-    else {
+    int unitPrice = selectedGift!['price'] as int;
+    int totalPrice = unitPrice * selectedCount;
+    bool isFree = selectedGift!['type'] == 'free';
+
+    // ১. ব্যালেন্স চেক (ফ্রি হলে চেক করবে না)
+    if (!isFree && widget.diamondBalance < totalPrice) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Insufficient Diamonds! Please recharge."),
-          backgroundColor: Colors.redAccent,
-        ),
+        const SnackBar(content: Text("Insufficient Diamonds!"), backgroundColor: Colors.redAccent)
       );
+      return;
     }
+
+    // ২. লজিক অনুযায়ী ভাগাভাগির হিসাব
+    final split = GiftLogicHelper.calculateSplit(totalPrice);
+
+    // ৩. মেইন ফাংশনে ডাটা পাঠানো
+    widget.onGiftSend({
+      ...selectedGift!,
+      'userShare': split['userShare'],      // ইউজার পাবে ৪০%
+      'ownerShare': split['ownerShare'],    // মালিক পাবে ১০%
+      'isFree': isFree,
+      'targetId': selectedTargetId,
+    }, selectedCount, targetType);
+
+    // ৪. ফ্রি গিফট হলে লিস্ট থেকে সরিয়ে ফেলা
+    if (isFree) {
+      setState(() {
+        dynamicFreeGifts.removeWhere((g) => g['id'] == selectedGift!['id']);
+        selectedGift = null; // সিলেকশন ক্লিয়ার
+      });
+    }
+
+    Navigator.pop(context);
   }
 }
