@@ -53,21 +53,19 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
       stream: FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        if (!snapshot.data!.exists) return const Center(child: Text("রুম পাওয়া যায়নি", style: TextStyle(color: Colors.white54)));
+        if (!snapshot.data!.exists) return const Center(child: Text("রুম পাওয়া যায়নি", style: TextStyle(color: Colors.white54)));
 
         var roomData = snapshot.data!.data() as Map<String, dynamic>;
-        
-        // সব ফলোয়ার এবং এডমিন নেওয়া হচ্ছে
         List<dynamic> followers = List.from(roomData['followers'] ?? []);
         List<dynamic> admins = roomData['admins'] ?? [];
         String ownerId = widget.ownerId;
 
-        // 🔥 ওনার যদি লিস্টে না থাকে, তাকে জোর করে লিস্টের শুরুতে যোগ করা হচ্ছে
+        // ওনারকে জোর করে লিস্টে আনা
         if (ownerId.isNotEmpty && !followers.contains(ownerId)) {
           followers.insert(0, ownerId);
         }
 
-        // র‍্যাঙ্ক অনুযায়ী সাজানো: ওনার > এডমিন > বাকিরা
+        // র‍্যাঙ্ক অনুযায়ী সর্টিং
         followers.sort((a, b) {
           if (a == ownerId) return -1;
           if (b == ownerId) return 1;
@@ -91,14 +89,11 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
                 if (!userSnap.hasData) return const ListTile();
                 var userData = userSnap.data?.data() as Map<String, dynamic>?;
                 
-                // ইউজার ডাটা না থাকলে নাম 'User' হিসেবে দেখাবে
                 String name = userData?['name'] ?? "User";
                 String photo = userData?['photoUrl'] ?? "https://via.placeholder.com/150";
 
                 return ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: NetworkImage(photo),
-                  ),
+                  leading: CircleAvatar(backgroundImage: NetworkImage(photo)),
                   title: Text(name, style: const TextStyle(color: Colors.white)),
                   subtitle: _buildBadge(isOwner, isAdmin),
                   trailing: (myUid == ownerId && uid != myUid) 
@@ -122,7 +117,6 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
     return const Text("Follower", style: TextStyle(color: Colors.white54, fontSize: 12));
   }
 
-  // ওনারের জন্য কিক ও এডমিন কন্ট্রোল মেনু
   void _showAdminOptions(String targetUid, bool isAdmin) {
     showModalBottomSheet(
       context: context,
@@ -159,20 +153,31 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
         var data = snapshot.data!.data() as Map<String, dynamic>?;
         List kickedUsers = data?['kickedUsers'] ?? [];
 
-        if (kickedUsers.isEmpty) return const Center(child: Text("No one is kicked", style: TextStyle(color: Colors.white38)));
+        if (kickedUsers.isEmpty) return const Center(child: Text("কেউ কিক লিস্টে নেই", style: TextStyle(color: Colors.white38)));
 
         return ListView.builder(
           itemCount: kickedUsers.length,
           itemBuilder: (context, index) {
             String uid = kickedUsers[index];
-            return ListTile(
-              title: Text(uid, style: const TextStyle(color: Colors.white, fontSize: 13)),
-              trailing: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                onPressed: (myUid == widget.ownerId || (data?['admins'] ?? []).contains(myUid)) 
-                  ? () => _unKickUser(uid) : null,
-                child: const Text("Unkick", style: TextStyle(color: Colors.white)),
-              ),
+            // কিক লিস্টেও নাম ও প্রোফাইল ছবি দেখানোর জন্য FutureBuilder
+            return FutureBuilder<DocumentSnapshot>(
+              future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
+              builder: (context, userSnap) {
+                var userData = userSnap.data?.data() as Map<String, dynamic>?;
+                String name = userData?['name'] ?? uid;
+                String photo = userData?['photoUrl'] ?? "https://via.placeholder.com/150";
+
+                return ListTile(
+                  leading: CircleAvatar(radius: 15, backgroundImage: NetworkImage(photo)),
+                  title: Text(name, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                  trailing: ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, density: VisualDensity.compact),
+                    onPressed: (myUid == widget.ownerId || (data?['admins'] ?? []).contains(myUid)) 
+                      ? () => _unKickUser(uid) : null,
+                    child: const Text("Unkick", style: TextStyle(color: Colors.white, fontSize: 11)),
+                  ),
+                );
+              },
             );
           },
         );
