@@ -57,18 +57,17 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
 
         var roomData = snapshot.data!.data() as Map<String, dynamic>;
         
-        // ১. ডাটাবেস থেকে ওনার আইডি নিশ্চিত করা
-        String actualOwnerId = roomData['ownerId'] ?? roomData['owner'] ?? widget.ownerId;
+        // ১. স্ক্রিনশট অনুযায়ী 'adminId' ফিল্ড থেকে মালিকের আইডি নেওয়া হচ্ছে
+        String actualOwnerId = roomData['adminId'] ?? widget.ownerId;
         
         List<dynamic> followers = List.from(roomData['followers'] ?? []);
         List<dynamic> admins = List.from(roomData['admins'] ?? []);
 
-        // ২. ওনার যদি লিস্টে না থাকে, তবে তাকে লিস্টে যুক্ত করা
+        // ২. ওনারকে লিস্টে যুক্ত করা এবং সবার উপরে (👑) নিয়ে আসা
         if (actualOwnerId.isNotEmpty && !followers.contains(actualOwnerId)) {
           followers.add(actualOwnerId);
         }
 
-        // ৩. র‍্যাঙ্ক অনুযায়ী সাজানো: ওনার (👑) সবার উপরে
         followers.sort((a, b) {
           if (a == actualOwnerId) return -1;
           if (b == actualOwnerId) return 1;
@@ -93,10 +92,14 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
                 var userData = userSnap.data?.data() as Map<String, dynamic>?;
                 
                 String name = userData?['name'] ?? "User";
-                String photo = userData?['photoUrl'] ?? "https://via.placeholder.com/150";
+                String photo = userData?['photoUrl'] ?? "";
 
                 return ListTile(
-                  leading: CircleAvatar(backgroundImage: NetworkImage(photo)),
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.grey[800],
+                    backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null,
+                    child: photo.isEmpty ? const Icon(Icons.person, color: Colors.white54) : null,
+                  ),
                   title: Text(name, style: const TextStyle(color: Colors.white)),
                   subtitle: _buildBadge(isOwner, isAdmin),
                   trailing: (myUid == actualOwnerId && uid != myUid) 
@@ -154,6 +157,9 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         var data = snapshot.data!.data() as Map<String, dynamic>?;
+        
+        // স্ক্রিনশট অনুযায়ী adminId চেক
+        String actualOwnerId = data?['adminId'] ?? widget.ownerId;
         List kickedUsers = data?['kickedUsers'] ?? [];
 
         if (kickedUsers.isEmpty) return const Center(child: Text("কেউ কিক লিস্টে নেই", style: TextStyle(color: Colors.white38)));
@@ -167,17 +173,22 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
               builder: (context, userSnap) {
                 var userData = userSnap.data?.data() as Map<String, dynamic>?;
                 String name = userData?['name'] ?? uid;
-                String photo = userData?['photoUrl'] ?? "https://via.placeholder.com/150";
+                String photo = userData?['photoUrl'] ?? "";
 
                 return ListTile(
-                  leading: CircleAvatar(radius: 15, backgroundImage: NetworkImage(photo)),
+                  leading: CircleAvatar(
+                    radius: 15, 
+                    backgroundColor: Colors.grey[800],
+                    backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null,
+                    child: photo.isEmpty ? const Icon(Icons.person, color: Colors.white54, size: 15) : null,
+                  ),
                   title: Text(name, style: const TextStyle(color: Colors.white, fontSize: 13)),
                   trailing: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.redAccent, 
                       visualDensity: VisualDensity.compact,
                     ),
-                    onPressed: (myUid == widget.ownerId || (data?['admins'] ?? []).contains(myUid)) 
+                    onPressed: (myUid == actualOwnerId || (data?['admins'] ?? []).contains(myUid)) 
                       ? () => _unKickUser(uid) : null,
                     child: const Text("Unkick", style: TextStyle(color: Colors.white, fontSize: 11)),
                   ),
