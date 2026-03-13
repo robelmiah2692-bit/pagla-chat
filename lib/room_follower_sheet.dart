@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class RoomFollowerSheet extends StatefulWidget {
   final String roomId;
-  final String ownerId;
+  final String ownerId; // এটি VoiceRoom থেকে আসা মালিকের আইডি
 
   const RoomFollowerSheet({super.key, required this.roomId, required this.ownerId});
 
@@ -56,17 +56,23 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
         if (!snapshot.data!.exists) return const Center(child: Text("রুম পাওয়া যায়নি", style: TextStyle(color: Colors.white54)));
 
         var roomData = snapshot.data!.data() as Map<String, dynamic>;
+        
+        // ১. ডাটাবেস থেকে সরাসরি আসল ওনার আইডি নেওয়া হচ্ছে (যেখানে গিফট বা ডাইমন্ড যায়)
+        String actualOwnerId = roomData['ownerId'] ?? roomData['owner'] ?? widget.ownerId;
+        
         List<dynamic> followers = List.from(roomData['followers'] ?? []);
         List<dynamic> admins = roomData['admins'] ?? [];
-        String ownerId = widget.ownerId;
 
-        if (ownerId.isNotEmpty && !followers.contains(ownerId)) {
-          followers.insert(0, ownerId);
+        // ২. ওনার যদি ফলোয়ার লিস্টে না থাকে (কারণ সে মালিক, ফলো করার দরকার নেই), 
+        // তবুও তাকে লিস্টে সবার উপরে জোর করে ঢুকিয়ে দেওয়া হচ্ছে।
+        if (actualOwnerId.isNotEmpty && !followers.contains(actualOwnerId)) {
+          followers.insert(0, actualOwnerId);
         }
 
+        // ৩. র‍্যাঙ্ক অনুযায়ী সাজানো: ওনার (👑) > এডমিন (🛡️) > বাকিরা
         followers.sort((a, b) {
-          if (a == ownerId) return -1;
-          if (b == ownerId) return 1;
+          if (a == actualOwnerId) return -1;
+          if (b == actualOwnerId) return 1;
           bool aIsAdmin = admins.contains(a);
           bool bIsAdmin = admins.contains(b);
           if (aIsAdmin && !bIsAdmin) return -1;
@@ -78,7 +84,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
           itemCount: followers.length,
           itemBuilder: (context, index) {
             String uid = followers[index];
-            bool isOwner = uid == ownerId;
+            bool isOwner = (uid == actualOwnerId); // এটিই ওনার চেনার আসল উপায়
             bool isAdmin = admins.contains(uid);
 
             return FutureBuilder<DocumentSnapshot>(
@@ -94,7 +100,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
                   leading: CircleAvatar(backgroundImage: NetworkImage(photo)),
                   title: Text(name, style: const TextStyle(color: Colors.white)),
                   subtitle: _buildBadge(isOwner, isAdmin),
-                  trailing: (myUid == ownerId && uid != myUid) 
+                  trailing: (myUid == actualOwnerId && uid != myUid) 
                       ? IconButton(
                           icon: const Icon(Icons.more_vert, color: Colors.white54),
                           onPressed: () => _showAdminOptions(uid, isAdmin),
@@ -170,7 +176,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
                   trailing: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.redAccent, 
-                      visualDensity: VisualDensity.compact, // এখানে সংশোধন করা হয়েছে
+                      visualDensity: VisualDensity.compact,
                     ),
                     onPressed: (myUid == widget.ownerId || (data?['admins'] ?? []).contains(myUid)) 
                       ? () => _unKickUser(uid) : null,
