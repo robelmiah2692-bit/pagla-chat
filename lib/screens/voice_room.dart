@@ -484,7 +484,6 @@ Widget build(BuildContext context) {
                ),
              ),
            ),
-          const SizedBox(height: 10),
         // ৩. আপনার টাইপিং বার এবং নিচের আইকনগুলো (যা আগে থেকে আছে)
           _buildBottomActionArea(),
           ],
