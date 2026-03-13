@@ -27,22 +27,19 @@ class GiftBottomSheet extends StatefulWidget {
 class _GiftBottomSheetState extends State<GiftBottomSheet> {
   Map<String, dynamic>? selectedGift;
   int selectedCount = 1;
-  String targetType = "Selected User"; 
+  String targetType = "Target"; 
   String? selectedTargetId; // টার্গেট ইউজারের আইডি রাখার জন্য
 
-  // ফ্রি গিফট একবার সেন্ড হলে রিমুভ করার জন্য এই লিস্টটি ব্যবহার হবে
   late List<Map<String, dynamic>> dynamicFreeGifts;
 
   @override
   void initState() {
     super.initState();
-    // শুরুতেই সব ফ্রি গিফট কপি করে নেওয়া হলো
     dynamicFreeGifts = List.from(freeGifts);
   }
 
   @override
   Widget build(BuildContext context) {
-    // সব গিফটকে ক্যাটাগরি অনুযায়ী লিস্ট করা
     final classicList = classicGifts;
     final romanticList = romanticGifts;
     final luxuryList = luxuryGifts;
@@ -71,7 +68,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
             Expanded(
               child: TabBarView(
                 children: [
-                  _buildGrid(dynamicFreeGifts), // ফ্রি গিফট এখন ডাইনামিক লিস্ট থেকে আসবে
+                  _buildGrid(dynamicFreeGifts),
                   _buildGrid(classicList),
                   _buildGrid(romanticList),
                   _buildGrid(luxuryList),
@@ -114,8 +111,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   }
 
   Widget _targetChip(String label, IconData icon) {
-    bool isSelected = (label == "Target" && targetType != "All Room" && targetType != "All Mic" && targetType != "Selected User") 
-                    || targetType == label;
+    bool isSelected = (label == "Target" && targetType != "All Room" && targetType != "All Mic") || targetType == label;
     
     return GestureDetector(
       onTap: () {
@@ -134,7 +130,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
         } else {
           setState(() {
             targetType = label;
-            selectedTargetId = null;
+            selectedTargetId = "ALL"; // All Room/Mic এর জন্য
           });
         }
       },
@@ -149,7 +145,8 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
           children: [
             Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.white54),
             const SizedBox(width: 5),
-            Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.white54, fontSize: 12)),
+            Text(isSelected ? targetType : label, 
+              style: TextStyle(color: isSelected ? Colors.white : Colors.white54, fontSize: 12)),
           ],
         ),
       ),
@@ -179,7 +176,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.network(gift["icon"], height: 40),
+                Image.network(gift["icon"], height: 40, errorBuilder: (c, e, s) => const Icon(Icons.card_giftcard, color: Colors.white24)),
                 Text("💎 ${gift["price"]}", style: const TextStyle(color: Colors.amber, fontSize: 10)),
               ],
             ),
@@ -222,11 +219,19 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   }
 
   void _handleSendAction() {
-    int unitPrice = selectedGift!['price'] as int;
+    int unitPrice = (selectedGift!['price'] ?? 0) as int;
     int totalPrice = unitPrice * selectedCount;
-    bool isFree = selectedGift!['type'] == 'free';
+    bool isFree = selectedGift!['type'] == 'free' || unitPrice == 0;
 
-    // ১. ব্যালেন্স চেক (ফ্রি হলে চেক করবে না)
+    // ১. টার্গেট ইউজার চেক
+    if (selectedTargetId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("কাকে গিফট পাঠাবেন সিলেক্ট করুন!"), backgroundColor: Colors.orange)
+      );
+      return;
+    }
+
+    // ২. ব্যালেন্স চেক
     if (!isFree && widget.diamondBalance < totalPrice) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Insufficient Diamonds!"), backgroundColor: Colors.redAccent)
@@ -234,23 +239,23 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       return;
     }
 
-    // ২. লজিক অনুযায়ী ভাগাভাগির হিসাব
+    // ৩. ভাগাভাগির হিসাব
     final split = GiftLogicHelper.calculateSplit(totalPrice);
 
-    // ৩. মেইন ফাংশনে ডাটা পাঠানো
+    // ৪. মেইন ফাংশনে ডাটা পাঠানো
     widget.onGiftSend({
       ...selectedGift!,
-      'userShare': split['userShare'],      // ইউজার পাবে ৪০%
-      'ownerShare': split['ownerShare'],    // মালিক পাবে ১০%
+      'userShare': split['userShare'],
+      'ownerShare': split['ownerShare'],
       'isFree': isFree,
       'targetId': selectedTargetId,
     }, selectedCount, targetType);
 
-    // ৪. ফ্রি গিফট হলে লিস্ট থেকে সরিয়ে ফেলা
+    // ৫. ফ্রি গিফট হলে রিমুভ করা
     if (isFree) {
       setState(() {
         dynamicFreeGifts.removeWhere((g) => g['id'] == selectedGift!['id']);
-        selectedGift = null; // সিলেকশন ক্লিয়ার
+        selectedGift = null;
       });
     }
 
