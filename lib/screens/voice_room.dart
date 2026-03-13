@@ -512,33 +512,14 @@ Widget build(BuildContext context) {
 
         // ৬. ফ্লোটিং টুলস (পুরাতন ফিচার)
         FloatingRoomTools(onGiftCountStart: _startGiftCounting),
-        // ৭. গিফট অ্যানিমেশন (PNG এর জন্য আপডেট করা)
-        if (isGiftAnimating && currentGiftImage.isNotEmpty)
-          IgnorePointer(
-            ignoring: true,
-            child: Center(
-              child: TweenAnimationBuilder(
-                duration: const Duration(milliseconds: 600),
-                tween: Tween<double>(begin: 0.0, end: 1.0),
-                builder: (context, double value, child) {
-                  return Opacity(
-                    opacity: value,
-                    child: Transform.scale(
-                      scale: value + 0.2, // একটু জুম ইফেক্ট দিবে
-                      child: Image.network(
-                        currentGiftImage, 
-                        width: 250, 
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) => 
-                            const Icon(Icons.card_giftcard, size: 100, color: Colors.pinkAccent),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-
+        // ৭. গিফট অ্যানিমেশন (এখন আলাদা হ্যান্ডেলার ফাইল থেকে আসবে)
+        GiftOverlayHandler(
+        isGiftAnimating: isGiftAnimating,
+        currentGiftImage: currentGiftImage,
+        isFullScreenBinding: (selectedGift?['price'] ?? 0) >= 500, // ৫০০ এর বেশি দাম হলে বড় দেখাবে
+        senderName: "Hridoy", // এখানে দাতার নাম আসবে
+        receiverName: targetType, // এখানে গ্রহীতার নাম আসবে
+      ),
         // ৮. মেইল বাটন ও ইনবক্স (আপনার দেওয়া সেই পূর্ণাঙ্গ লজিক)
         Positioned(
           bottom: 110, 
