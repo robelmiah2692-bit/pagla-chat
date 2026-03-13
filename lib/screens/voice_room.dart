@@ -909,48 +909,53 @@ Widget _buildSeatGridArea() {
       children: [
         // ১. চ্যাট ও ইমোজি
         Expanded(
-          child: ChatInputBar(
-            controller: _messageController,
-            onEmojiTap: () {
-              // ইউজারের বর্তমান সিট নম্বর বের করা
-              int mySeatIndex = seats.indexWhere((s) => s != null && s['uid'] == myUid);
-      
-              EmojiHandler.showPicker(
-                context: context, 
-                seatIndex: mySeatIndex, // এখানে -১ এর বদলে ইউজারের সিট ইনডেক্স দেওয়া হয়েছে
-                onEmojiSelected: (i, url) {
-                  setState(() { 
-                    currentGiftImage = url; 
-                    isGiftAnimating = true; 
-                  });
-                  Timer(const Duration(seconds: 3), () {
-                    if (mounted) setState(() => isGiftAnimating = false);
-                  });
-                }
-              );
-            },
-           onMessageSend: (msg) async {
-             // ১. মেসেজ ডাটাবেসে পাঠানো (যাতে রুমের সবাই দেখতে পায়)
-             await FirebaseFirestore.instance
-                 .collection('rooms')
-                 .doc(widget.roomId)
-                 .collection('messages')
-                 .add({
-               'userName': msg['userName'],
-               'userImage': msg['userImage'],
-               'text': msg['text'],
-               'senderId': FirebaseAuth.instance.currentUser?.uid,
-               'timestamp': FieldValue.serverTimestamp(),
-             });
+            child: ChatInputBar(
+              controller: _messageController,
+              onEmojiTap: () {
+                // ১. বর্তমান ইউজারের আইডি বের করা (যাতে myUid এরর না আসে)
+                final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? "";
+                
+                // ২. ইউজার কোন সিটে আছে তা বের করা
+                int mySeatIndex = seats.indexWhere((s) => s != null && s['uid'] == currentUid);
 
-             // ২. ইমোজি হলে সিটে এনিমেশন ট্রিগার করা (আপনার এনিমেটেড ইমোজি ফাইল অনুযায়ী)
-              int senderSeat = seats.indexWhere((s) => s != null && s['uid'] == FirebaseAuth.instance.currentUser?.uid);
-              if (senderSeat != -1) {
-        // এখানে আপনার এনিমেটেড ইমোজি দেখানোর ফাংশন কল হবে
-            }
-          },
-        ),
-      ),
+                EmojiHandler.showPicker(
+                  context: context, 
+                  seatIndex: mySeatIndex, 
+                  onEmojiSelected: (i, url) {
+                    setState(() { 
+                      currentGiftImage = url; 
+                      isGiftAnimating = true; 
+                    });
+                    Timer(const Duration(seconds: 3), () {
+                      if (mounted) setState(() => isGiftAnimating = false);
+                    });
+                  }
+                );
+              },
+              onMessageSend: (msg) async {
+                final String senderId = FirebaseAuth.instance.currentUser?.uid ?? "";
+
+                // ৩. মেসেজ ফায়ারবেস ডাটাবেসে পাঠানো (সবার জন্য লাইভ)
+                await FirebaseFirestore.instance
+                    .collection('rooms')
+                    .doc(widget.roomId)
+                    .collection('messages')
+                    .add({
+                  'userName': msg['userName'],
+                  'userImage': msg['userImage'],
+                  'text': msg['text'],
+                  'senderId': senderId,
+                  'timestamp': FieldValue.serverTimestamp(),
+                });
+
+                // ৪. ইমোজি হলে সিটে এনিমেশন ট্রিগার করা
+                int senderSeat = seats.indexWhere((s) => s != null && s['uid'] == senderId);
+                if (senderSeat != -1) {
+                  // এখানে আপনার এনিমেটেড ইমোজি দেখানোর ফাংশন কল হবে
+                }
+              },
+            ),
+          ),
         
         // ২. মাইক
         IconButton(
