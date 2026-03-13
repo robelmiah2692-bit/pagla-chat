@@ -883,7 +883,7 @@ Widget _buildSeatGridArea() {
         ),
 
         // ৪. গিফট বাটন (ইউজার প্রোফাইল থেকে ডায়মন্ড ব্যালেন্স সহ)
-        IconButton(
+          IconButton(
   constraints: const BoxConstraints(),
   padding: const EdgeInsets.symmetric(horizontal: 4),
   icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
@@ -921,23 +921,20 @@ Widget _buildSeatGridArea() {
             currentReceiverName = target; 
           });
 
-          // ৩. ডাটাবেসে ডায়মন্ড লেনদেনের লজিক (নতুন যোগ করা হয়েছে)
+          // ৩. ডাটাবেসে লেনদেনের লজিক (সংশোধিত)
           try {
             bool isFree = gift['isFree'] ?? false;
-            String receiverId = gift['targetId'] ?? ""; // টার্গেট ইউজারের UID
+            String receiverId = gift['targetId'] ?? ""; 
             int unitPrice = gift['price'] ?? 0;
             int totalAmount = unitPrice * count;
 
             if (receiverId.isNotEmpty) {
-              // ডায়মন্ড ভাগাভাগির হিসাব (৪০% ইউজার, ১০% মালিক)
-              final split = GiftLogicHelper.calculateSplit(totalAmount);
-
-              // ট্রানজ্যাকশন শুরু
+              // আমরা সরাসরি সার্ভিস কল করছি, split হিসাব এখানে করার দরকার নেই
+              // কারণ GiftTransactionHelper নিজেই সেটা করে নেবে।
               await GiftTransactionHelper.processGiftTransaction(
                 senderId: FirebaseAuth.instance.currentUser!.uid,
                 receiverId: receiverId,
                 totalPrice: totalAmount,
-                split: split,
                 isFree: isFree,
                 giftName: gift['name'] ?? "Gift",
               );
@@ -959,6 +956,7 @@ Widget _buildSeatGridArea() {
     );
   },
 ),
+        
         // ৫. গেম বাটন
         IconButton(
           constraints: const BoxConstraints(),
