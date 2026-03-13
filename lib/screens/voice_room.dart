@@ -57,6 +57,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
  final RoomSyncService _syncService = RoomSyncService();
  final DatabaseService _dbService = DatabaseService();
  final AgoraManager _agoraManager = AgoraManager();
+ final String roomId;
+ final String ownerId;
   
   String userProfilePic = ""; // এটি আপনার নিজের প্রোফাইল ছবি রাখার জন্য
   // --- সব ভেরিয়েবল ---
@@ -731,28 +733,34 @@ List<Widget> _buildFloatingEmojiAnimations() {
 
           // IconButton এর ভেতর এই কোডটি আপডেট করুন
           IconButton(
-            icon: const Icon(Icons.group, color: Colors.white70),
-            onPressed: () async {
-              // ১. ফায়ারবেস থেকে এই রুমের ডাটা আনা হচ্ছে ওনার আইডি পাওয়ার জন্য
-              var roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get();
-    
-             // ২. রুমের ডাটা থেকে মালিকের আইডি বের করা (ধরি ফিল্ডের নাম 'ownerId')
-              String ownerUidFromFirestore = roomDoc.data()?['ownerId'] ?? "";
-
-              if (!context.mounted) return;
-
-              // ৩. এখন লিস্টটি ওপেন করার সময় ওনার আইডি পাঠিয়ে দেওয়া হচ্ছে
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (context) => RoomFollowerSheet(
-                roomId: widget.roomId,
-                ownerId: ownerUidFromFirestore, // এটিই প্রোফাইল/ডাটাবেস থেকে আসা আইডি
-              ),
-            );
-          },
-        ),
+                  icon: const Icon(Icons.group, color: Colors.white70),
+                  onPressed: () async {
+                    // ১. ডাটাবেস থেকে রুমের তথ্য নিচ্ছি
+                    var roomDoc = await FirebaseFirestore.instance
+                        .collection('rooms')
+                        .doc(widget.roomId)
+                        .get();
+                
+                    if (!roomDoc.exists) return;
+                
+                    // ২. ওনার আইডি খুঁজে বের করা
+                    var data = roomDoc.data();
+                    String ownerUid = data?['ownerId'] ?? data?['owner'] ?? data?['creator'] ?? "";
+                
+                    if (!context.mounted) return;
+                
+                    // ৩. ফলোয়ার শিটে ওনার আইডি পাঠানো
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => RoomFollowerSheet(
+                        roomId: widget.roomId,
+                        ownerId: ownerUid,
+                      ),
+                    );
+                  },
+                ),
          
           IconButton(icon: const Icon(Icons.settings, color: Colors.white70), onPressed: _showSettings),
         ],
