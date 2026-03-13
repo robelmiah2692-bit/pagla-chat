@@ -8,51 +8,53 @@ class GiftTransactionHelper {
     required String senderId,
     required String receiverId,
     required int totalPrice,
-    required Map<String, int> split,
     required bool isFree,
     required String giftName,
   }) async {
     try {
-      // যদি ফ্রি গিফট না হয় তবেই ব্যালেন্স কাটবে
+      // যদি ফ্রি গিফট না হয় এবং দাম ০ এর বেশি হয়
       if (!isFree && totalPrice > 0) {
         
+        // ভাগের হিসাব এখানেই করে ফেলছি যেন অন্য ফাইল না লাগে
+        int userShare = (totalPrice * 0.40).floor(); // ৪০% গ্রহীতা পাবে
+        int ownerShare = (totalPrice * 0.10).floor(); // ১০% মালিক পাবে
+
         WriteBatch batch = _firestore.batch();
 
-        // ১. দাতার আইডি থেকে ডায়মন্ড মাইনাস করা
+        // ১. দাতার (Sender) ডায়মন্ড মাইনাস
         DocumentReference senderRef = _firestore.collection('users').doc(senderId);
         batch.update(senderRef, {
           'diamonds': FieldValue.increment(-totalPrice),
         });
 
-        // ২. গ্রহীতার আইডিতে ৪০% ডায়মন্ড যোগ করা
+        // ২. গ্রহীতার (Receiver) ডায়মন্ড যোগ (৪০%)
         DocumentReference receiverRef = _firestore.collection('users').doc(receiverId);
         batch.update(receiverRef, {
-          'diamonds': FieldValue.increment(split['userShare'] ?? 0),
+          'diamonds': FieldValue.increment(userShare),
         });
 
-        // ৩. এডমিন স্ট্যাটসে ১০% কমিশন রেকর্ড করা
+        // ৩. এডমিন স্ট্যাটসে কমিশন রেকর্ড (১০%)
         DocumentReference adminRef = _firestore.collection('admin_stats').doc('revenue');
         batch.set(adminRef, {
-          'ownerCommission': FieldValue.increment(split['ownerShare'] ?? 0),
+          'ownerCommission': FieldValue.increment(ownerShare),
           'lastUpdate': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
 
-        // ৪. গিফট লগ তৈরি করা
+        // ৪. গিফট লগ সেভ করা
         DocumentReference logRef = _firestore.collection('gift_logs').doc();
         batch.set(logRef, {
           'senderId': senderId,
           'receiverId': receiverId,
           'giftName': giftName,
           'totalPrice': totalPrice,
-          'isFree': isFree,
+          'isFree': false,
           'timestamp': FieldValue.serverTimestamp(),
         });
 
-        // সব কাজ একসাথে সাবমিট করা
         await batch.commit();
       }
     } catch (e) {
-      debugPrint("Error in Gift Transaction: $e");
+      debugPrint("Gift Transaction Error: $e");
     }
   }
 }
