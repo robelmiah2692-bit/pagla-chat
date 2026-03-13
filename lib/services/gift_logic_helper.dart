@@ -1,31 +1,33 @@
 import 'package:flutter/material.dart';
 
 class GiftLogicHelper {
-  
-  // ১. ডায়মন্ড ভাগাভাগির হিসাব (যা আপনি মেইন ফাইলে কল করেছেন)
+  // ১. ডায়মন্ড ভাগাভাগির হিসাব
   static Map<String, int> calculateSplit(int totalPrice) {
     return {
-      'userShare': (totalPrice * 0.40).floor(),   // ইউজার ৪০%
-      'ownerShare': (totalPrice * 0.10).floor(),  // মালিক ১০%
+      'userShare': (totalPrice * 0.40).floor(),
+      'ownerShare': (totalPrice * 0.10).floor(),
     };
   }
 
-  // ২. সিটে থাকা ইউজারদের ফিল্টার করা
+  // ২. সিটে থাকা ইউজারদের ফিল্টার করা (Target এর জন্য)
   static List<Map<String, dynamic>> getAllMicUsers(List<dynamic> currentSeats) {
     List<Map<String, dynamic>> micUsers = [];
     for (var seat in currentSeats) {
-      if (seat != null && seat['uid'] != null && seat['uid'].toString().isNotEmpty) {
-        micUsers.add({
-          'uid': seat['uid'],
-          'name': seat['userName'] ?? 'Unknown',
-          'photoUrl': seat['userAvatar'] ?? '',
-        });
+      if (seat != null && (seat['uid'] != null || seat['userId'] != null)) {
+        String uid = (seat['uid'] ?? seat['userId']).toString();
+        if (uid.isNotEmpty) {
+          micUsers.add({
+            'uid': uid,
+            'name': seat['userName'] ?? seat['name'] ?? 'Unknown',
+            'photoUrl': seat['userAvatar'] ?? seat['avatar'] ?? '',
+          });
+        }
       }
     }
     return micUsers;
   }
 
-  // ৩. টার্গেট সিলেক্টর পপআপ (বটম শিট)
+  // ৩. টার্গেট সিলেক্টর পপআপ
   static void showTargetSelector({
     required BuildContext context,
     required List<Map<String, dynamic>> micUsers,
