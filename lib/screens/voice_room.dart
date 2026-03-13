@@ -465,28 +465,31 @@ Widget build(BuildContext context) {
             _buildSeatGridArea(), // সিট গ্রিড (পুরাতন)
             
            // ৩. রুম চ্যাট লিস্ট (সম্পূর্ণ স্বচ্ছ - কোনো কালো বক্স বা ঘর নেই)
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                // বাঁপাশে ১০ এবং ডানে ৯০ গ্যাপ (টুলস এর জন্য)
-                margin: const EdgeInsets.only(left: 10, right: 90, bottom: 5),
-                color: Colors.transparent, // সম্পূর্ণ স্বচ্ছ
-                child: ListView.builder(
-                  reverse: true, // মেসেজ নিচ থেকে আসবে
-                  padding: EdgeInsets.zero,
-                  itemCount: chatMessages.length,
-                  itemBuilder: (context, index) {
-                    // মেসেজগুলো যেন ভেঙে না যায় তাই Align ব্যবহার করা হলো
-                    return Align(
-                      alignment: Alignment.bottomLeft,
-                      child: _buildMessageRow(chatMessages[chatMessages.length - 1 - index]),
-                    );
-                  },
-                ),
-              ),
-            ),
-            // ৪. বটম অ্যাকশন এরিয়া (মেসেজ লেখার জায়গা - কিবোর্ড উঠলে উপরে থাকবে)
-            _buildBottomActionArea(),
+           SizedBox(
+             height: 180, // আপনার যতটুকু জায়গা দরকার এখানে সেট করুন (যেমন ১৫০ বা ১৮০)
+             width: double.infinity,
+             child: Container(
+               margin: const EdgeInsets.only(left: 10, right: 90),
+               color: Colors.transparent,
+               child: ListView.builder(
+                 reverse: true,
+                 padding: EdgeInsets.zero,
+                 itemCount: chatMessages.length,
+                 itemBuilder: (context, index) {
+                   return Align(
+                     alignment: Alignment.bottomLeft,
+                     child: _buildMessageRow(chatMessages[chatMessages.length - 1 - index]),
+                   );
+                 },
+               ),
+             ),
+           ),
+
+        // ২. এই Spacer টাই আপনার নিচের আইকনগুলোকে উপরে উঠতে দেবে না
+          const Spacer(), 
+
+        // ৩. আপনার টাইপিং বার এবং নিচের আইকনগুলো (যা আগে থেকে আছে)
+          _buildBottomActionArea(),
           ],
         ),
         // ৫. মিউজিক ভাসমান প্লেয়ার (অরিজিনাল মিউজিক ডার্টের সাথে কানেক্টেড)
