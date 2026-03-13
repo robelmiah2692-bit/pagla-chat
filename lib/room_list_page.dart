@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:pagla_chat/screens/voice_room.dart'; 
 import 'package:firebase_auth/firebase_auth.dart'; 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'screens/voice_room.dart'; 
 import 'live_room_grid.dart';
 import 'following_room_grid.dart';
 
@@ -14,7 +14,6 @@ class RoomListPage extends StatefulWidget {
 
 class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  String? displayRoomID;
   
   @override
   void initState() {
@@ -49,21 +48,21 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
       ),
       body: Column(
         children: [
-          _buildBanner(), // ফিচার ১: প্রিমিয়াম ব্যানার
+          _buildBanner(),
           const SizedBox(height: 15),
-          _buildFeaturedRooms(), // ফিচার ২: ফিচারড রুম লিস্ট
+          _buildFeaturedRooms(),
           const SizedBox(height: 15),
           Expanded(
             child: TabBarView(
               controller: _tabController,
               children: [
-                // ১. লাইভ রুম সেকশন (const সরানো হয়েছে এরর ঠিক করতে)
+                // ১. লাইভ রুম (const নেই, এরর হবে না)
                 LiveRoomGrid(), 
 
-                // ২. ফলোয়িং সেকশন (const সরানো হয়েছে এরর ঠিক করতে)
+                // ২. ফলোয়িং রুম (const নেই, এরর হবে nez)
                 FollowingRoomGrid(), 
 
-                // ৩. মাই রুম সেকশন (আপনার নিজস্ব রুমের আইডি জেনারেশন ফিচার সহ)
+                // ৩. মাই রুম সেকশন
                 _buildRoomGrid("my_room"), 
               ],
             ),
@@ -73,7 +72,7 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     );
   }
 
-  // --- ১. প্রিমিয়াম ব্যানার ---
+  // --- প্রিমিয়াম ব্যানার ফিচার ---
   Widget _buildBanner() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
@@ -88,52 +87,33 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.4),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+            color: Colors.blue.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -30,
-            top: -30,
-            child: CircleAvatar(
-              radius: 70,
-              backgroundColor: Colors.white.withOpacity(0.05),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "পাগলা আড্ডায় জয়েন হও",
+              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "পাগলা আড্ডায় জয়েন হও",
-                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 5),
-                const Text(
-                  "আড্ডা দাও মন খুলে",
-                  style: TextStyle(color: Colors.white70, fontSize: 18),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-                  child: const Text("Join Now", style: TextStyle(color: Color(0xFF2575FC), fontWeight: FontWeight.bold, fontSize: 12)),
-                ),
-              ],
+            const Text(
+              "আড্ডা দাও মন খুলে",
+              style: TextStyle(color: Colors.white70, fontSize: 16),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  // --- ২. ফিচারড রুম ---
+  // --- ফিচারড রুম সেকশন ---
   Widget _buildFeaturedRooms() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,7 +124,7 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
         ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 120,
+          height: 100,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -155,6 +135,7 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
                 margin: const EdgeInsets.only(right: 10),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(15),
+                  color: Colors.white12,
                   image: const DecorationImage(
                     image: NetworkImage("https://picsum.photos/200"),
                     fit: BoxFit.cover,
@@ -168,7 +149,7 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     );
   }
 
-  // --- ৩. রুম গ্রিড ও ডাইনামিক আইডি জেনারেশন ---
+  // --- রুম গ্রিড ও আইডি জেনারেশন লজিক ---
   Widget _buildRoomGrid(String type) {
     return GridView.builder(
       padding: const EdgeInsets.all(10),
@@ -176,19 +157,18 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
         crossAxisCount: 2,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        childAspectRatio: 0.9,
+        childAspectRatio: 1.0,
       ),
       itemCount: (type == "my_room") ? 1 : 10,
       itemBuilder: (context, index) {
         return GestureDetector(
           onTap: () async {
-            String finalRoomId;
+            String finalRoomId = "";
             if (type == "my_room") {
               final user = FirebaseAuth.instance.currentUser;
               if (user == null) return;
-
+              
               final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-
               if (userDoc.exists && userDoc.data()?.containsKey('myRoomId') == true) {
                 finalRoomId = userDoc.data()!['myRoomId'].toString();
               } else {
@@ -202,12 +182,9 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
             }
 
             if (!context.mounted) return;
-
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => VoiceRoom(roomId: finalRoomId),
-              ),
+              MaterialPageRoute(builder: (context) => VoiceRoom(roomId: finalRoomId)),
             );
           },
           child: _buildRoomCard(index, type),
@@ -216,52 +193,18 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     );
   }
 
-  // --- ৪. রুম কার্ড ডিজাইন ---
   Widget _buildRoomCard(int index, String type) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white10,
         borderRadius: BorderRadius.circular(15),
         border: type == "my_room" ? Border.all(color: Colors.amber, width: 1) : null,
-        image: DecorationImage(
-          image: NetworkImage("https://picsum.photos/id/${index + 50}/200/300"),
-          fit: BoxFit.cover,
-        ),
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(15)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    type == "my_room" ? "আমার আড্ডাখানা" : "রুম নাম ${index + 1}",
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                  Text(
-                    type == "my_room" ? "Owner: You" : "Users: 15",
-                    style: const TextStyle(color: Colors.white70, fontSize: 10),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (type == "my_room")
-            const Positioned(
-              top: 8,
-              left: 8,
-              child: Icon(Icons.stars, color: Colors.amber, size: 20),
-            ),
-        ],
+      child: Center(
+        child: Text(
+          type == "my_room" ? "My Room" : "Room ${index + 1}",
+          style: const TextStyle(color: Colors.white),
+        ),
       ),
     );
   }
