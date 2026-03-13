@@ -512,12 +512,30 @@ Widget build(BuildContext context) {
 
         // ৬. ফ্লোটিং টুলস (পুরাতন ফিচার)
         FloatingRoomTools(onGiftCountStart: _startGiftCounting),
-
-        // ৭. গিফট অ্যানিমেশন (পুরাতন ফিচার)
-        if (isGiftAnimating)
+        // ৭. গিফট অ্যানিমেশন (PNG এর জন্য আপডেট করা)
+        if (isGiftAnimating && currentGiftImage.isNotEmpty)
           IgnorePointer(
+            ignoring: true,
             child: Center(
-              child: Lottie.network(currentGiftImage, width: 300),
+              child: TweenAnimationBuilder(
+                duration: const Duration(milliseconds: 600),
+                tween: Tween<double>(begin: 0.0, end: 1.0),
+                builder: (context, double value, child) {
+                  return Opacity(
+                    opacity: value,
+                    child: Transform.scale(
+                      scale: value + 0.2, // একটু জুম ইফেক্ট দিবে
+                      child: Image.network(
+                        currentGiftImage, 
+                        width: 250, 
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => 
+                            const Icon(Icons.card_giftcard, size: 100, color: Colors.pinkAccent),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
 
