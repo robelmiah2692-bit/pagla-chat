@@ -103896,27 +103896,23 @@ $0(){var s=this.a
 s.ax=!0;++s.as},
 $S:0}
 A.aKy.prototype={
-$0(){var s=0,r=A.w(t.H),q,p=this,o,n,m,l,k,j,i
+$0(){var s=0,r=A.w(t.H),q,p=this,o,n,m,l,k,j
 var $async$$0=A.q(function(a,b){if(a===1)return A.t(b,r)
-for(;;)switch(s){case 0:j=$.O
-i=(j==null?$.O=$.az():j).ao("[DEFAULT]")
-A.a5(i,$.aZ(),!0)
-j=A.bJ(new A.av(i))
+for(;;)switch(s){case 0:k=$.O
+j=(k==null?$.O=$.az():k).ao("[DEFAULT]")
+A.a5(j,$.aZ(),!0)
+k=A.bJ(new A.av(j))
 o=p.a
 s=3
-return A.m(A.bv(j,j.gaT().aN("rooms")).aW(o.a.c).ft(0),$async$$0)
+return A.m(A.bv(k,k.gaT().aN("rooms")).aW(o.a.c).ft(0),$async$$0)
 case 3:n=b
 if(!n.gjt()){s=1
 break}m=n.eh(0)
-j=m==null
-l=j?null:m.h(0,"ownerId")
-if(l==null)l=j?null:m.h(0,"owner")
-if(l==null){j=j?null:m.h(0,"creator")
-k=j}else k=l
-if(k==null)k=""
-j=o.c
-if(j.e==null){s=1
-break}A.h_(B.z,new A.aKp(o,k),j,!0,null,t.z)
+l=m==null?null:m.h(0,"adminId")
+if(l==null)l=""
+k=o.c
+if(k.e==null){s=1
+break}A.h_(B.z,new A.aKp(o,l),k,!0,null,t.z)
 case 1:return A.u(q,r)}})
 return A.v($async$$0,r)},
 $S:7}
