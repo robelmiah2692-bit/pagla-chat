@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class GiftLogicHelper {
-  // ১. ডায়মন্ড ভাগাভাগির হিসাব
+  // ১. ডায়মন্ড ভাগাভাগির হিসাব (৪০% ইউজার, ১০% মালিক)
   static Map<String, int> calculateSplit(int totalPrice) {
     return {
       'userShare': (totalPrice * 0.40).floor(),
@@ -9,13 +9,17 @@ class GiftLogicHelper {
     };
   }
 
-  // ২. সিটে থাকা ইউজারদের ফিল্টার করা (Target এর জন্য)
+  // ২. সিটে থাকা ইউজারদের ফিল্টার করা (TargetSelector এর জন্য)
   static List<Map<String, dynamic>> getAllMicUsers(List<dynamic> currentSeats) {
     List<Map<String, dynamic>> micUsers = [];
     for (var seat in currentSeats) {
-      if (seat != null && (seat['uid'] != null || seat['userId'] != null)) {
-        String uid = (seat['uid'] ?? seat['userId']).toString();
-        if (uid.isNotEmpty) {
+      if (seat != null) {
+        // UID পাওয়ার জন্য সব সম্ভাব্য কি (Key) চেক করা হচ্ছে যেন মিস না হয়
+        String? uid = seat['uid']?.toString() ?? 
+                      seat['userId']?.toString() ?? 
+                      seat['id']?.toString();
+        
+        if (uid != null && uid.isNotEmpty) {
           micUsers.add({
             'uid': uid,
             'name': seat['userName'] ?? seat['name'] ?? 'Unknown',
@@ -27,7 +31,7 @@ class GiftLogicHelper {
     return micUsers;
   }
 
-  // ৩. টার্গেট সিলেক্টর পপআপ
+  // ৩. টার্গেট সিলেক্টর পপআপ (সিটের ইউজারদের লিস্ট দেখাবে)
   static void showTargetSelector({
     required BuildContext context,
     required List<Map<String, dynamic>> micUsers,
@@ -53,6 +57,7 @@ class GiftLogicHelper {
                 style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
               ),
               const Divider(color: Colors.white10, height: 1),
+              
               if (micUsers.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(30.0),
@@ -67,8 +72,13 @@ class GiftLogicHelper {
                       final user = micUsers[index];
                       return ListTile(
                         leading: CircleAvatar(
-                          backgroundImage: NetworkImage(user['photoUrl']),
-                          child: user['photoUrl'].isEmpty ? const Icon(Icons.person) : null,
+                          backgroundColor: Colors.white10,
+                          backgroundImage: user['photoUrl'].toString().startsWith('http') 
+                              ? NetworkImage(user['photoUrl']) 
+                              : null,
+                          child: (user['photoUrl'] == null || user['photoUrl'].isEmpty) 
+                              ? const Icon(Icons.person, color: Colors.white54) 
+                              : null,
                         ),
                         title: Text(user['name'], style: const TextStyle(color: Colors.white)),
                         onTap: () {
