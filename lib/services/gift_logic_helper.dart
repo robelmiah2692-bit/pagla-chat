@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 
 class GiftLogicHelper {
-  // ১. অল রুম লজিক (রুমের সব ইউজার কাউন্ট - মেম্বার লিস্ট থেকে আসবে)
-  static int getAllRoomCount(List<dynamic> roomMembers) {
-    return roomMembers.length;
+  
+  // ১. ডায়মন্ড ভাগাভাগির হিসাব (যা আপনি মেইন ফাইলে কল করেছেন)
+  static Map<String, int> calculateSplit(int totalPrice) {
+    return {
+      'userShare': (totalPrice * 0.40).floor(),   // ইউজার ৪০%
+      'ownerShare': (totalPrice * 0.10).floor(),  // মালিক ১০%
+    };
   }
 
-  // ২. অল মাইক লজিক (সিটে যারা আছে তাদের ডাটা ফিল্টার করা)
+  // ২. সিটে থাকা ইউজারদের ফিল্টার করা
   static List<Map<String, dynamic>> getAllMicUsers(List<dynamic> currentSeats) {
     List<Map<String, dynamic>> micUsers = [];
     for (var seat in currentSeats) {
@@ -21,7 +25,7 @@ class GiftLogicHelper {
     return micUsers;
   }
 
-  // ৩. টার্গেট ইউজার সিলেক্টর (বটম শিট এর ভেতর আরেকটি পপআপ)
+  // ৩. টার্গেট সিলেক্টর পপআপ (বটম শিট)
   static void showTargetSelector({
     required BuildContext context,
     required List<Map<String, dynamic>> micUsers,
@@ -43,10 +47,8 @@ class GiftLogicHelper {
             children: [
               const Padding(
                 padding: EdgeInsets.all(15.0),
-                child: Text(
-                  "Select Seat User",
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+                child: Text("Select Seat User", 
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
               ),
               const Divider(color: Colors.white10, height: 1),
               if (micUsers.isEmpty)
@@ -63,16 +65,10 @@ class GiftLogicHelper {
                       final user = micUsers[index];
                       return ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: Colors.white10,
-                          backgroundImage: user['photoUrl'].isNotEmpty 
-                              ? NetworkImage(user['photoUrl']) 
-                              : null,
-                          child: user['photoUrl'].isEmpty 
-                              ? const Icon(Icons.person, color: Colors.white24) 
-                              : null,
+                          backgroundImage: NetworkImage(user['photoUrl']),
+                          child: user['photoUrl'].isEmpty ? const Icon(Icons.person) : null,
                         ),
                         title: Text(user['name'], style: const TextStyle(color: Colors.white)),
-                        trailing: const Icon(Icons.chevron_right, color: Colors.white24),
                         onTap: () {
                           onSelected(user['uid'], user['name']);
                           Navigator.pop(context);
