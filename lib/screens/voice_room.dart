@@ -446,13 +446,13 @@ Widget build(BuildContext context) {
             child: Image.network(roomWallpaperPath, fit: BoxFit.cover),
           ),
         
-        // মেইন কন্টেন্ট লেআউট
+        // মেইন কন্টেন্ট লেআউট (সবকিছু এক পার্টে থাকবে)
         Column(
           children: [
             const SizedBox(height: 40),
-            _buildTopNavBar(), // টপ বার (পুরাতন)
+            _buildTopNavBar(), // টপ বার
             
-            // ২. পিকে ব্যাটল (পুরাতন ফিচার অক্ষত)
+            // ২. পিকে ব্যাটল
             if (isPKActive)
               PKBattleView(
                 bluePoints: blueTeamPoints, 
@@ -461,31 +461,38 @@ Widget build(BuildContext context) {
                 pkManager: pkManager,
               ),
             
-            _buildViewerArea(), // ভিউয়ার এরিয়া (পুরাতন)
-            _buildSeatGridArea(), // সিট গ্রিড (পুরাতন)
+            _buildViewerArea(), // ভিউয়ার এরিয়া
+            _buildSeatGridArea(), // সিট গ্রিড (এটি তার অরিজিনাল সাইজেই থাকবে)
             
-           // ৩. রুম চ্যাট লিস্ট (সম্পূর্ণ স্বচ্ছ - কোনো কালো বক্স বা ঘর নেই)
-           SizedBox(
-             height: 180, // আপনার যতটুকু জায়গা দরকার এখানে সেট করুন (যেমন ১৫০ বা ১৮০)
-             width: double.infinity,
-             child: Container(
-               margin: const EdgeInsets.only(left: 10, right: 90),
-               color: Colors.transparent,
-               child: ListView.builder(
-                 reverse: true,
-                 padding: EdgeInsets.zero,
-                 itemCount: chatMessages.length,
-                 itemBuilder: (context, index) {
-                   return Align(
-                     alignment: Alignment.bottomLeft,
-                     child: _buildMessageRow(chatMessages[chatMessages.length - 1 - index]),
-                   );
-                 },
-               ),
-             ),
-           ),
-        // ৩. আপনার টাইপিং বার এবং নিচের আইকনগুলো (যা আগে থেকে আছে)
-          _buildBottomActionArea(),
+            // ৩. ম্যাজিক পার্ট: এই Expanded আপনার সিট আর চ্যাটের মাঝখানের 
+            // সব "কালো গর্ত" মুছে দিয়ে সেখানে ওয়ালপেপার ফুটিয়ে তুলবে।
+            const Expanded(
+              child: SizedBox.shrink(), // এটি সিটকে উপরে আর চ্যাটকে নিচে ঠেলে রাখবে মাঝখানে গ্যাপ না বাড়িয়ে
+            ),
+
+            // ৪. রুম চ্যাট লিস্ট (পুরোপুরি ওয়ালপেপারের ওপর ভাসবে)
+            SizedBox(
+              height: 180, 
+              width: double.infinity,
+              child: Container(
+                margin: const EdgeInsets.only(left: 10, right: 90),
+                color: Colors.transparent, // স্বচ্ছ ব্যাকগ্রাউন্ড
+                child: ListView.builder(
+                  reverse: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: chatMessages.length,
+                  itemBuilder: (context, index) {
+                    return Align(
+                      alignment: Alignment.bottomLeft,
+                      child: _buildMessageRow(chatMessages[chatMessages.length - 1 - index]),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+            // ৫. টাইপিং বার এবং নিচের আইকনগুলো
+            _buildBottomActionArea(),
           ],
         ),
         // ৫. মিউজিক ভাসমান প্লেয়ার (অরিজিনাল মিউজিক ডার্টের সাথে কানেক্টেড)
