@@ -53,16 +53,24 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
       stream: FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        if (!snapshot.data!.exists) return const Center(child: Text("No room found", style: TextStyle(color: Colors.white54)));
+        if (!snapshot.data!.exists) return const Center(child: Text("রুম পাওয়া যায়নি", style: TextStyle(color: Colors.white54)));
 
         var roomData = snapshot.data!.data() as Map<String, dynamic>;
-        List followers = roomData['followers'] ?? [];
-        List admins = roomData['admins'] ?? [];
+        
+        // সব ফলোয়ার এবং এডমিন নেওয়া হচ্ছে
+        List<dynamic> followers = List.from(roomData['followers'] ?? []);
+        List<dynamic> admins = roomData['admins'] ?? [];
+        String ownerId = widget.ownerId;
 
-        // Rank sorting: Owner > Admin > Others
+        // 🔥 ওনার যদি লিস্টে না থাকে, তাকে জোর করে লিস্টের শুরুতে যোগ করা হচ্ছে
+        if (ownerId.isNotEmpty && !followers.contains(ownerId)) {
+          followers.insert(0, ownerId);
+        }
+
+        // র‍্যাঙ্ক অনুযায়ী সাজানো: ওনার > এডমিন > বাকিরা
         followers.sort((a, b) {
-          if (a == widget.ownerId) return -1;
-          if (b == widget.ownerId) return 1;
+          if (a == ownerId) return -1;
+          if (b == ownerId) return 1;
           bool aIsAdmin = admins.contains(a);
           bool bIsAdmin = admins.contains(b);
           if (aIsAdmin && !bIsAdmin) return -1;
@@ -74,23 +82,26 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
           itemCount: followers.length,
           itemBuilder: (context, index) {
             String uid = followers[index];
-            bool isOwner = uid == widget.ownerId;
+            bool isOwner = uid == ownerId;
             bool isAdmin = admins.contains(uid);
 
             return FutureBuilder<DocumentSnapshot>(
               future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
               builder: (context, userSnap) {
                 if (!userSnap.hasData) return const ListTile();
-                var userData = userSnap.data!.data() as Map<String, dynamic>?;
-                if (userData == null) return const ListTile();
+                var userData = userSnap.data?.data() as Map<String, dynamic>?;
+                
+                // ইউজার ডাটা না থাকলে নাম 'User' হিসেবে দেখাবে
+                String name = userData?['name'] ?? "User";
+                String photo = userData?['photoUrl'] ?? "https://via.placeholder.com/150";
 
                 return ListTile(
                   leading: CircleAvatar(
-                    backgroundImage: NetworkImage(userData['photoUrl'] ?? "https://via.placeholder.com/150"),
+                    backgroundImage: NetworkImage(photo),
                   ),
-                  title: Text(userData['name'] ?? "User", style: const TextStyle(color: Colors.white)),
+                  title: Text(name, style: const TextStyle(color: Colors.white)),
                   subtitle: _buildBadge(isOwner, isAdmin),
-                  trailing: (myUid == widget.ownerId && uid != myUid) 
+                  trailing: (myUid == ownerId && uid != myUid) 
                       ? IconButton(
                           icon: const Icon(Icons.more_vert, color: Colors.white54),
                           onPressed: () => _showAdminOptions(uid, isAdmin),
@@ -106,11 +117,12 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
   }
 
   Widget _buildBadge(bool isOwner, bool isAdmin) {
-    if (isOwner) return const Text("👑 Owner", style: TextStyle(color: Colors.amber, fontSize: 12));
+    if (isOwner) return const Text("👑 Owner", style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold));
     if (isAdmin) return const Text("🛡️ Admin", style: TextStyle(color: Colors.blueAccent, fontSize: 12));
     return const Text("Follower", style: TextStyle(color: Colors.white54, fontSize: 12));
   }
 
+  // ওনারের জন্য কিক ও এডমিন কন্ট্রোল মেনু
   void _showAdminOptions(String targetUid, bool isAdmin) {
     showModalBottomSheet(
       context: context,
@@ -154,11 +166,12 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
           itemBuilder: (context, index) {
             String uid = kickedUsers[index];
             return ListTile(
-              title: Text(uid, style: const TextStyle(color: Colors.white)),
+              title: Text(uid, style: const TextStyle(color: Colors.white, fontSize: 13)),
               trailing: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
                 onPressed: (myUid == widget.ownerId || (data?['admins'] ?? []).contains(myUid)) 
                   ? () => _unKickUser(uid) : null,
-                child: const Text("Unkick"),
+                child: const Text("Unkick", style: TextStyle(color: Colors.white)),
               ),
             );
           },
