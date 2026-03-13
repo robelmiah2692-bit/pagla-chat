@@ -90,7 +90,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
   bool isCountingGifts = false;
   int remainingSeconds = 900;
   Timer? giftTimer;
-
+  String targetType = ""; 
+  String currentSenderName = "";
+  String currentReceiverName = "";
+  
   @override
 void initState() {
   super.initState();
