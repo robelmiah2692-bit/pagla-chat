@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:pagla_chat/services/database_service.dart';
 import 'package:pagla_chat/services/gift_logic_helper.dart';
 
+// আপনার তৈরি করা ৪টি আলাদা গিফট ফাইল ইমপোর্ট করা হলো
+import 'package:pagla_chat/data/free_gifts.dart';
+import 'package:pagla_chat/data/classic_gifts.dart';
+import 'package:pagla_chat/data/romantic_gifts.dart';
+import 'package:pagla_chat/data/luxury_gifts.dart';
+
 class GiftBottomSheet extends StatefulWidget {
   final int diamondBalance;
   final Function(Map<String, dynamic> gift, int count, String target) onGiftSend;
@@ -19,28 +25,24 @@ class GiftBottomSheet extends StatefulWidget {
 class _GiftBottomSheetState extends State<GiftBottomSheet> {
   Map<String, dynamic>? selectedGift;
   int selectedCount = 1;
-  String targetType = "Selected User"; // All Room, All Mic, Selected User
-final DatabaseService _dbService = DatabaseService();
-  // ওস্তাদ, এখানে আপনার ১০টি ফ্রি গিফট এবং ডায়মন্ড গিফট লিস্ট
-  final List<Map<String, dynamic>> allGifts = [
-    {"id": "f1", "icon": "https://cdn-icons-png.flaticon.com/128/744/744502.png", "price": 0, "type": "free"},
-    {"id": "f2", "icon": "https://cdn-icons-png.flaticon.com/128/2559/2559915.png", "price": 0, "type": "free"},
-    {"id": "f3", "icon": "https://cdn-icons-png.flaticon.com/128/1041/1041888.png", "price": 0, "type": "free"},
-    {"id": "f4", "icon": "https://cdn-icons-png.flaticon.com/128/1922/1922714.png", "price": 0, "type": "free"},
-    {"id": "f5", "icon": "https://cdn-icons-png.flaticon.com/128/2164/2164589.png", "price": 0, "type": "free"},
-    {"id": "c1", "icon": "https://cdn-icons-png.flaticon.com/128/1161/1161388.png", "price": 10, "type": "classic"},
-    {"id": "c2", "icon": "https://cdn-icons-png.flaticon.com/128/9405/9405825.png", "price": 20, "type": "classic"},
-    {"id": "r1", "icon": "https://cdn-icons-png.flaticon.com/128/4359/4359295.png", "price": 30, "type": "romantic"},
-    {"id": "r2", "icon": "https://cdn-icons-png.flaticon.com/128/2904/2904973.png", "price": 50, "type": "romantic"},
-    {"id": "l1", "icon": "https://cdn-icons-png.flaticon.com/128/1152/1152912.png", "price": 100, "type": "luxury"},
+  String targetType = "Selected User"; 
+  final DatabaseService _dbService = DatabaseService();
+
+  // ৪টি ফাইল থেকে সব গিফটকে এখানে একত্রিত করা হয়েছে
+  late final List<Map<String, dynamic>> allGifts = [
+    ...freeGifts,
+    ...classicGifts,
+    ...romanticGifts,
+    ...luxuryGifts,
   ];
 
   @override
   Widget build(BuildContext context) {
-    final freeGifts = allGifts.where((g) => g['type'] == 'free').toList();
-    final classicGifts = allGifts.where((g) => g['type'] == 'classic').toList();
-    final romanticGifts = allGifts.where((g) => g['type'] == 'romantic').toList();
-    final luxuryGifts = allGifts.where((g) => g['type'] == 'luxury').toList();
+    // ক্যাটাগরি অনুযায়ী ফিল্টার
+    final freeList = allGifts.where((g) => g['type'] == 'free').toList();
+    final classicList = allGifts.where((g) => g['type'] == 'classic').toList();
+    final romanticList = allGifts.where((g) => g['type'] == 'romantic').toList();
+    final luxuryList = allGifts.where((g) => g['type'] == 'luxury').toList();
 
     return DefaultTabController(
       length: 4,
@@ -66,8 +68,8 @@ final DatabaseService _dbService = DatabaseService();
             Expanded(
               child: TabBarView(
                 children: [
-                  _buildGrid(freeGifts), _buildGrid(classicGifts),
-                  _buildGrid(romanticGifts), _buildGrid(luxuryGifts),
+                  _buildGrid(freeList), _buildGrid(classicList),
+                  _buildGrid(romanticList), _buildGrid(luxuryList),
                 ],
               ),
             ),
@@ -77,6 +79,8 @@ final DatabaseService _dbService = DatabaseService();
       ),
     );
   }
+
+  // --- হেল্পার উইজেটস (আপনার আগের কোড অনুযায়ী) ---
 
   Widget _buildHeader() {
     return Padding(
@@ -108,9 +112,22 @@ final DatabaseService _dbService = DatabaseService();
   Widget _targetChip(String label, IconData icon) {
     bool isSelected = targetType == label;
     return GestureDetector(
-      onTap: () => setState(() => targetType = label),
+      onTap: () {
+        if (label == "Target") {
+          // গিফট লজিক হেল্পার থেকে টার্গেট সিলেক্টর ওপেন হবে
+          GiftLogicHelper.showTargetSelector(
+            context: context,
+            micUsers: GiftLogicHelper.getAllMicUsers([]), // এখানে আপনার বর্তমান সিট লিস্ট পাঠাতে হবে
+            onSelected: (uid, name) {
+              setState(() => targetType = name);
+            },
+          );
+        } else {
+          setState(() => targetType = label);
+        }
+      },
       child: Container(
-        margin: const EdgeInsets.only(right:10),
+        margin: const EdgeInsets.only(right: 10),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? Colors.pinkAccent : Colors.white10,
@@ -177,15 +194,37 @@ final DatabaseService _dbService = DatabaseService();
           )),
           const Spacer(),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, shape: StadiumBorder()),
-            onPressed: selectedGift == null ? null : () {
-              widget.onGiftSend(selectedGift!, selectedCount, targetType);
-              Navigator.pop(context);
-            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, shape: const StadiumBorder()),
+            onPressed: selectedGift == null ? null : _handleSendAction,
             child: const Text("SEND", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
+  }
+
+  // --- স্পেশাল গিফট লজিক ---
+  void _handleSendAction() {
+    int totalPrice = (selectedGift!['price'] as int) * selectedCount;
+    
+    // ১. যদি গিফট টাইপ 'free' হয়, তবে ডায়মন্ড কাটবে না (যত দামই হোক)
+    if (selectedGift!['type'] == 'free') {
+      widget.onGiftSend(selectedGift!, selectedCount, targetType);
+      Navigator.pop(context);
+    } 
+    // ২. পেইড গিফট হলে ব্যালেন্স চেক করবে
+    else if (widget.diamondBalance >= totalPrice) {
+      widget.onGiftSend(selectedGift!, selectedCount, targetType);
+      Navigator.pop(context);
+    } 
+    // ৩. ব্যালেন্স না থাকলে রিচার্জ অপশন বা মেসেজ দেখাবে
+    else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Insufficient Diamonds! Please recharge."),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 }
