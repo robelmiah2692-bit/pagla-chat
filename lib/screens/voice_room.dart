@@ -486,15 +486,38 @@ Widget build(BuildContext context) {
               width: double.infinity,
               child: Container(
                 margin: const EdgeInsets.only(left: 10, right: 90),
-                color: Colors.transparent, // স্বচ্ছ ব্যাকগ্রাউন্ড
-                child: ListView.builder(
-                  reverse: true,
-                  padding: EdgeInsets.zero,
-                  itemCount: chatMessages.length,
-                  itemBuilder: (context, index) {
-                    return Align(
-                      alignment: Alignment.bottomLeft,
-                      child: _buildMessageRow(chatMessages[chatMessages.length - 1 - index]),
+                color: Colors.transparent,
+                child: StreamBuilder<QuerySnapshot>(
+                  // ফায়ারবেস থেকে রিয়েল-টাইম মেসেজ ডাটা নেওয়া হচ্ছে
+                  stream: FirebaseFirestore.instance
+                      .collection('rooms')
+                      .doc(widget.roomId)
+                      .collection('messages')
+                      .orderBy('timestamp', descending: true)
+                      .limit(30) // শেষ ৩০টি মেসেজ দেখাবে
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const SizedBox();
+
+                    var docs = snapshot.data!.docs;
+
+                    return ListView.builder(
+                      reverse: true, // নতুন মেসেজ সবসময় নিচে দেখাবে
+                      padding: EdgeInsets.zero,
+                      itemCount: docs.length,
+                      itemBuilder: (context, index) {
+                        var data = docs[index].data() as Map<String, dynamic>;
+                        
+                        // আপনার আগের মেসেজ ডিজাইন ফাংশনটি এখানে কল করা হয়েছে
+                        return Align(
+                          alignment: Alignment.bottomLeft,
+                          child: _buildMessageRow({
+                            'userName': data['userName'] ?? "User",
+                            'userImage': data['userImage'] ?? "",
+                            'text': data['text'] ?? "",
+                          }),
+                        );
+                      },
                     );
                   },
                 ),
@@ -888,19 +911,46 @@ Widget _buildSeatGridArea() {
         Expanded(
           child: ChatInputBar(
             controller: _messageController,
-            onEmojiTap: () => EmojiHandler.showPicker(
-              context: context, 
-              seatIndex: -1, 
-              onEmojiSelected: (i, url) {
-                setState(() { currentGiftImage = url; isGiftAnimating = true; });
-                Timer(const Duration(seconds: 3), () {
-                  if (mounted) setState(() => isGiftAnimating = false);
-                });
-              }
-            ),
-            onMessageSend: (msg) => setState(() => chatMessages.add(msg)),
-          ),
+            onEmojiTap: () {
+              // ইউজারের বর্তমান সিট নম্বর বের করা
+              int mySeatIndex = seats.indexWhere((s) => s != null && s['uid'] == myUid);
+      
+              EmojiHandler.showPicker(
+                context: context, 
+                seatIndex: mySeatIndex, // এখানে -১ এর বদলে ইউজারের সিট ইনডেক্স দেওয়া হয়েছে
+                onEmojiSelected: (i, url) {
+                  setState(() { 
+                    currentGiftImage = url; 
+                    isGiftAnimating = true; 
+                  });
+                  Timer(const Duration(seconds: 3), () {
+                    if (mounted) setState(() => isGiftAnimating = false);
+                  });
+                }
+              );
+            },
+           onMessageSend: (msg) async {
+             // ১. মেসেজ ডাটাবেসে পাঠানো (যাতে রুমের সবাই দেখতে পায়)
+             await FirebaseFirestore.instance
+                 .collection('rooms')
+                 .doc(widget.roomId)
+                 .collection('messages')
+                 .add({
+               'userName': msg['userName'],
+               'userImage': msg['userImage'],
+               'text': msg['text'],
+               'senderId': FirebaseAuth.instance.currentUser?.uid,
+               'timestamp': FieldValue.serverTimestamp(),
+             });
+
+             // ২. ইমোজি হলে সিটে এনিমেশন ট্রিগার করা (আপনার এনিমেটেড ইমোজি ফাইল অনুযায়ী)
+              int senderSeat = seats.indexWhere((s) => s != null && s['uid'] == FirebaseAuth.instance.currentUser?.uid);
+              if (senderSeat != -1) {
+        // এখানে আপনার এনিমেটেড ইমোজি দেখানোর ফাংশন কল হবে
+            }
+          },
         ),
+      ),
         
         // ২. মাইক
         IconButton(
