@@ -18,45 +18,64 @@ class GiftOverlayHandler extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!isGiftAnimating) return const SizedBox();
+    if (!isGiftAnimating || currentGiftImage.isEmpty) return const SizedBox.shrink();
 
-    return Center(
-      child: TweenAnimationBuilder(
-        duration: const Duration(milliseconds: 800),
-        tween: Tween<double>(begin: 0, end: 1),
-        builder: (context, double value, child) {
-          return Opacity(
-            opacity: value,
-            child: Transform.scale(
-              scale: value,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // দামী গিফট বড়, কম দামী ছোট (আপনার আগের লজিক)
-                  Image.network(
-                    currentGiftImage,
-                    height: isFullScreenBinding ? 380 : 180,
-                    errorBuilder: (context, error, stackTrace) => 
-                        const Icon(Icons.card_giftcard, size: 100, color: Colors.pink),
-                  ),
-                  const SizedBox(height: 10),
-                  // গিফট দাতা ও গ্রহীতার নাম
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.pinkAccent.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(20),
+    return IgnorePointer( // গিফট চলাকালীন যেন নিচের বাটনে ভুল টাচ না লাগে
+      ignoring: true,
+      child: Center(
+        child: TweenAnimationBuilder(
+          duration: const Duration(milliseconds: 800),
+          tween: Tween<double>(begin: 0, end: 1),
+          builder: (context, double value, child) {
+            return Opacity(
+              opacity: value,
+              child: Transform.scale(
+                scale: value,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // দামী গিফট ৩৪০ সাইজ, সাধারণ গিফট ১৮০
+                    Image.network(
+                      currentGiftImage,
+                      height: isFullScreenBinding ? 340 : 180,
+                      width: isFullScreenBinding ? 340 : 180,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => 
+                          const Icon(Icons.card_giftcard, size: 100, color: Colors.pink),
                     ),
-                    child: Text(
-                      "$senderName 🎁 $receiverName",
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    const SizedBox(height: 15),
+                    
+                    // গিফট দাতা ও গ্রহীতার নাম
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Colors.pinkAccent, Colors.purpleAccent],
+                        ),
+                        borderRadius: BorderRadius.circular(25),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          )
+                        ],
+                      ),
+                      child: Text(
+                        "$senderName 🎁 $receiverName",
+                        style: const TextStyle(
+                          color: Colors.white, 
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
