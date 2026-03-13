@@ -38,7 +38,6 @@ import 'package:pagla_chat/services/agora_manager.dart'; // আপনার ফ�
 
 import '../widgets/chat_input_bar.dart';
 import '../widgets/emoji_handler.dart';
-import '../widgets/follower_list_handler.dart';
 import '../widgets/gift_overlay_handler.dart';
 import '../widgets/gift_system.dart';
 import '../widgets/music_player_widget.dart';
