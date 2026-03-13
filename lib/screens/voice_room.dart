@@ -879,43 +879,43 @@ Widget _buildSeatGridArea() {
 
         // ৪. গিফট বাটন (ইউজার প্রোফাইল থেকে ডায়মন্ড ব্যালেন্স সহ)
         IconButton(
-  constraints: const BoxConstraints(),
-  padding: const EdgeInsets.symmetric(horizontal: 4),
-  icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
-  onPressed: () async {
-    // ইউজারের প্রোফাইল থেকে ডায়মন্ড ব্যালেন্স ফেচ করা
-    final userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(FirebaseAuth.instance.currentUser?.uid)
-        .get();
-    
-    int currentBalance = 0;
-    if (userDoc.exists && userDoc.data() != null) {
-      currentBalance = userDoc.data()!['diamonds'] ?? 0;
-    }
+          constraints: const BoxConstraints(),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
+          onPressed: () async {
+            // ইউজারের প্রোফাইল থেকে ডায়মন্ড ব্যালেন্স ফেচ করা
+            final userDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(FirebaseAuth.instance.currentUser?.uid)
+                .get();
+            
+            int currentBalance = 0;
+            if (userDoc.exists && userDoc.data() != null) {
+              currentBalance = userDoc.data()!['diamonds'] ?? 0;
+            }
 
-    if (!mounted) return;
+            if (!mounted) return;
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => GiftBottomSheet(
-        diamondBalance: currentBalance, 
-        currentSeats: seats, // <--- এই লাইনটি অবশ্যই যোগ করতে হবে (যেখানে আপনার সিট ডাটা আছে)
-        onGiftSend: (gift, count, target) {
-          setState(() {
-            currentGiftImage = gift['icon'];
-            isGiftAnimating = true;
-          });
-          Timer(const Duration(seconds: 3), () {
-            if (mounted) setState(() => isGiftAnimating = false);
-          });
-        },
-      ),
-    );
-  },
-),
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              isScrollControlled: true,
+              builder: (context) => GiftBottomSheet(
+                diamondBalance: currentBalance, 
+                currentSeats: seats, // নিশ্চিত করুন 'seats' লিস্টটি আপনার কোডে ডিফাইন করা আছে
+                onGiftSend: (gift, count, target) {
+                  setState(() {
+                    currentGiftImage = gift['icon'];
+                    isGiftAnimating = true;
+                  });
+                  Timer(const Duration(seconds: 3), () {
+                    if (mounted) setState(() => isGiftAnimating = false);
+                  });
+                },
+              ),
+            );
+          },
+        ),
         // ৫. গেম বাটন
         IconButton(
           constraints: const BoxConstraints(),
