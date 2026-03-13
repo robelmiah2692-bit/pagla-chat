@@ -708,63 +708,79 @@ List<Widget> _buildFloatingEmojiAnimations() {
           // ➕ ফলোয়ার বাটন (Toggle Logic: একবার ক্লিক করলে ফলো, আবার করলে আনফলো)
           IconButton(
             icon: Icon(
-              isFollowing ? Icons.check_circle : Icons.person_add_alt_1, // ফলো হলে টিক মার্ক
+              isFollowing ? Icons.check_circle : Icons.person_add_alt_1,
               color: isFollowing ? Colors.greenAccent : Colors.blueAccent, 
               size: 20
             ),
-            onPressed: () {
-              setState(() {
-                if (isFollowing) {
-                  followerCount--; // আনফলো করলে ১ কমবে
+            onPressed: () async {
+              final String myUid = FirebaseAuth.instance.currentUser?.uid ?? "";
+              if (myUid.isEmpty) return;
+
+              // ১. ডাটাবেসে আইডি যোগ/বিয়োগ করার লজিক
+              var roomRef = FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
+              
+              if (isFollowing) {
+                // আনফলো করলে: লিস্ট থেকে আইডি সরাবে এবং কাউন্ট কমাবে
+                await roomRef.update({
+                  'followers': FieldValue.arrayRemove([myUid]),
+                  'followerCount': FieldValue.increment(-1),
+                });
+                setState(() {
                   isFollowing = false;
-                } else {
-                  followerCount++; // ফলো করলে ১ বাড়বে
+                  followerCount--;
+                });
+              } else {
+                // ফলো করলে: লিস্টে আইডি যোগ করবে (এক আইডি দুইবার হবে না) এবং কাউন্ট বাড়াবে
+                await roomRef.update({
+                  'followers': FieldValue.arrayUnion([myUid]),
+                  'followerCount': FieldValue.increment(1),
+                });
+                setState(() {
                   isFollowing = true;
-                }
-              });
-              // 🔥 ফায়ারবেসে আপডেট
+                  followerCount++;
+                });
+              }
+
+              // ২. আপনার আগের ফাংশনটি ফিচার ঠিক রাখার জন্য কল করা হলো
               _roomService.updateRoomFullData(
                 roomId: widget.roomId,
                 roomName: roomName,
                 roomImage: roomProfileImage,
                 isLocked: isRoomLocked,
                 wallpaper: roomWallpaperPath,
-                followers: followerCount,
+                followers: followerCount, // নতুন কাউন্ট যাচ্ছে
                 totalDiamonds: 0,
               );
             },
           ),
 
-          // IconButton এর ভেতর এই কোডটি আপডেট করুন
+          // ২য় বাটন (লিস্ট দেখার বাটন) আগের মতোই থাকবে
           IconButton(
-                  icon: const Icon(Icons.group, color: Colors.white70),
-                  onPressed: () async {
-                    // ১. ডাটাবেস থেকে রুমের তথ্য নিচ্ছি
-                    var roomDoc = await FirebaseFirestore.instance
-                        .collection('rooms')
-                        .doc(widget.roomId)
-                        .get();
-                
-                    if (!roomDoc.exists) return;
-                
-                    // ২. ওনার আইডি খুঁজে বের করা
-                    var data = roomDoc.data();
-                    String ownerUid = data?['ownerId'] ?? data?['owner'] ?? data?['creator'] ?? "";
-                
-                    if (!context.mounted) return;
-                
-                    // ৩. ফলোয়ার শিটে ওনার আইডি পাঠানো
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => RoomFollowerSheet(
-                        roomId: widget.roomId,
-                        ownerId: ownerUid,
-                      ),
-                    );
-                  },
+            icon: const Icon(Icons.group, color: Colors.white70),
+            onPressed: () async {
+              var roomDoc = await FirebaseFirestore.instance
+                  .collection('rooms')
+                  .doc(widget.roomId)
+                  .get();
+          
+              if (!roomDoc.exists) return;
+          
+              var data = roomDoc.data();
+              String ownerUid = data?['ownerId'] ?? data?['owner'] ?? data?['creator'] ?? "";
+          
+              if (!context.mounted) return;
+          
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => RoomFollowerSheet(
+                  roomId: widget.roomId,
+                  ownerId: ownerUid,
                 ),
+              );
+            },
+          ),
          
           IconButton(icon: const Icon(Icons.settings, color: Colors.white70), onPressed: _showSettings),
         ],
