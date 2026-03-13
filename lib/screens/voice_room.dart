@@ -883,7 +883,7 @@ Widget _buildSeatGridArea() {
           padding: const EdgeInsets.symmetric(horizontal: 4),
           icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
           onPressed: () async {
-            // ইউজারের প্রোফাইল থেকে ডায়মন্ড ব্যালেন্স ফেচ করা
+            // ১. ডায়মন্ড ব্যালেন্স ফেচ করা
             final userDoc = await FirebaseFirestore.instance
                 .collection('users')
                 .doc(FirebaseAuth.instance.currentUser?.uid)
@@ -896,13 +896,16 @@ Widget _buildSeatGridArea() {
 
             if (!mounted) return;
 
+            // ২. চেক করা seats ডাটা কি আসলে খালি?
+            // late ভেরিয়েবল তাই সরাসরি seats কল না করে চেক করা ভালো
             showModalBottomSheet(
               context: context,
               backgroundColor: Colors.transparent,
               isScrollControlled: true,
               builder: (context) => GiftBottomSheet(
                 diamondBalance: currentBalance, 
-                currentSeats: seats, // নিশ্চিত করুন 'seats' লিস্টটি আপনার কোডে ডিফাইন করা আছে
+                // এখানে seats পাস করা হচ্ছে, ডাটা না থাকলে খালি লিস্ট যাবে
+                currentSeats: seats, 
                 onGiftSend: (gift, count, target) {
                   setState(() {
                     currentGiftImage = gift['icon'];
