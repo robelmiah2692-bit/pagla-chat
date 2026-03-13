@@ -883,57 +883,81 @@ Widget _buildSeatGridArea() {
 
         // ৪. গিফট বাটন (ইউজার প্রোফাইল থেকে ডায়মন্ড ব্যালেন্স সহ)
         IconButton(
-          constraints: const BoxConstraints(),
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
-          onPressed: () async {
-            // ডায়মন্ড ব্যালেন্স ফেচ করা
-            final userDoc = await FirebaseFirestore.instance
-                .collection('users')
-                .doc(FirebaseAuth.instance.currentUser?.uid)
-                .get();
-            
-            int currentBalance = 0;
-            String senderName = "User"; // ডিফল্ট নাম
-            
-            if (userDoc.exists && userDoc.data() != null) {
-              currentBalance = userDoc.data()!['diamonds'] ?? 0;
-              senderName = userDoc.data()!['name'] ?? "User"; // ডাটাবেস থেকে ইউজারের নাম নিলাম
+  constraints: const BoxConstraints(),
+  padding: const EdgeInsets.symmetric(horizontal: 4),
+  icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
+  onPressed: () async {
+    // ১. ইউজারের ডায়মন্ড ব্যালেন্স ও নাম ফেচ করা
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(FirebaseAuth.instance.currentUser?.uid)
+        .get();
+    
+    int currentBalance = 0;
+    String senderName = "User"; 
+    
+    if (userDoc.exists && userDoc.data() != null) {
+      currentBalance = userDoc.data()!['diamonds'] ?? 0;
+      senderName = userDoc.data()!['name'] ?? "User"; 
+    }
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => GiftBottomSheet(
+        diamondBalance: currentBalance, 
+        currentSeats: List.from(seats), 
+        onGiftSend: (gift, count, target) async {
+          // ২. UI অ্যানিমেশন দেখানো শুরু
+          setState(() {
+            currentGiftImage = gift['icon'];
+            isGiftAnimating = true;
+            targetType = target; 
+            currentSenderName = senderName; 
+            currentReceiverName = target; 
+          });
+
+          // ৩. ডাটাবেসে ডায়মন্ড লেনদেনের লজিক (নতুন যোগ করা হয়েছে)
+          try {
+            bool isFree = gift['isFree'] ?? false;
+            String receiverId = gift['targetId'] ?? ""; // টার্গেট ইউজারের UID
+            int unitPrice = gift['price'] ?? 0;
+            int totalAmount = unitPrice * count;
+
+            if (receiverId.isNotEmpty) {
+              // ডায়মন্ড ভাগাভাগির হিসাব (৪০% ইউজার, ১০% মালিক)
+              final split = GiftLogicHelper.calculateSplit(totalAmount);
+
+              // ট্রানজ্যাকশন শুরু
+              await GiftTransactionHelper.processGiftTransaction(
+                senderId: FirebaseAuth.instance.currentUser!.uid,
+                receiverId: receiverId,
+                totalPrice: totalAmount,
+                split: split,
+                isFree: isFree,
+                giftName: gift['name'] ?? "Gift",
+              );
             }
+          } catch (e) {
+            debugPrint("Transaction Error: $e");
+          }
 
-            if (!mounted) return;
-
-            showModalBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              isScrollControlled: true,
-              builder: (context) => GiftBottomSheet(
-                diamondBalance: currentBalance, 
-                currentSeats: List.from(seats), 
-                onGiftSend: (gift, count, target) {
-                  setState(() {
-                    currentGiftImage = gift['icon'];
-                    isGiftAnimating = true;
-                    
-                    // --- নতুন ৩টি লাইন যা আপনার এরর ঠিক করবে ---
-                    targetType = target; 
-                    currentSenderName = senderName; 
-                    currentReceiverName = target; 
-                    // ---------------------------------------
-                  });
-                  
-                  Timer(const Duration(seconds: 3), () {
-                    if (mounted) {
-                      setState(() {
-                        isGiftAnimating = false;
-                      });
-                    }
-                  });
-                },
-              ),
-            );
-          },
-        ),
+          // ৪. ৩ সেকেন্ড পর অ্যানিমেশন বন্ধ করা
+          Timer(const Duration(seconds: 3), () {
+            if (mounted) {
+              setState(() {
+                isGiftAnimating = false;
+              });
+            }
+          });
+        },
+      ),
+    );
+  },
+),
         // ৫. গেম বাটন
         IconButton(
           constraints: const BoxConstraints(),
