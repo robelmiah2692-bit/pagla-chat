@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:pagla_chat/services/gift_logic_helper.dart';
-
+import 'package:flutter/foundation.dart';
 
 class GiftTransactionHelper {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -14,36 +13,46 @@ class GiftTransactionHelper {
     required String giftName,
   }) async {
     try {
-      // ১. যদি ফ্রি গিফট না হয়, তবেই ডায়মন্ডের হিসাব হবে
-      if (!isFree) {
-        // দাতার (Sender) ডায়মন্ড মাইনাস করা
-        await _firestore.collection('users').doc(senderId).update({
+      // যদি ফ্রি গিফট না হয় তবেই ব্যালেন্স কাটবে
+      if (!isFree && totalPrice > 0) {
+        
+        WriteBatch batch = _firestore.batch();
+
+        // ১. দাতার আইডি থেকে ডায়মন্ড মাইনাস করা
+        DocumentReference senderRef = _firestore.collection('users').doc(senderId);
+        batch.update(senderRef, {
           'diamonds': FieldValue.increment(-totalPrice),
         });
 
-        // গ্রহীতার (Receiver) ডায়মন্ড যোগ করা (৪০%)
-        await _firestore.collection('users').doc(receiverId).update({
-          'diamonds': FieldValue.increment(split['userShare']!),
+        // ২. গ্রহীতার আইডিতে ৪০% ডায়মন্ড যোগ করা
+        DocumentReference receiverRef = _firestore.collection('users').doc(receiverId);
+        batch.update(receiverRef, {
+          'diamonds': FieldValue.increment(split['userShare'] ?? 0),
         });
 
-        // মালিকের (Owner) ডায়মন্ড যোগ করা (১০%) - আপনি চাইলে এটি একটি আলাদা কালেকশনেও রাখতে পারেন
-        await _firestore.collection('admin_stats').doc('revenue').update({
-          'ownerCommission': FieldValue.increment(split['ownerShare']!),
+        // ৩. এডমিন স্ট্যাটসে ১০% কমিশন রেকর্ড করা
+        DocumentReference adminRef = _firestore.collection('admin_stats').doc('revenue');
+        batch.set(adminRef, {
+          'ownerCommission': FieldValue.increment(split['ownerShare'] ?? 0),
+          'lastUpdate': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        // ৪. গিফট লগ তৈরি করা
+        DocumentReference logRef = _firestore.collection('gift_logs').doc();
+        batch.set(logRef, {
+          'senderId': senderId,
+          'receiverId': receiverId,
+          'giftName': giftName,
+          'totalPrice': totalPrice,
+          'isFree': isFree,
+          'timestamp': FieldValue.serverTimestamp(),
         });
+
+        // সব কাজ একসাথে সাবমিট করা
+        await batch.commit();
       }
-
-      // ২. গিফট হিস্ট্রি সেভ করা (ঐচ্ছিক কিন্তু জরুরি)
-      await _firestore.collection('gift_logs').add({
-        'senderId': senderId,
-        'receiverId': receiverId,
-        'giftName': giftName,
-        'amount': totalPrice,
-        'isFree': isFree,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-
     } catch (e) {
-      print("Error in Gift Transaction: $e");
+      debugPrint("Error in Gift Transaction: $e");
     }
   }
 }
