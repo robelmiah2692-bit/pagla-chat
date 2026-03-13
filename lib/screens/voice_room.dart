@@ -716,21 +716,21 @@ List<Widget> _buildFloatingEmojiAnimations() {
               final String myUid = FirebaseAuth.instance.currentUser?.uid ?? "";
               if (myUid.isEmpty) return;
 
-              // ১. ডাটাবেসে আইডি যোগ/বিয়োগ করার লজিক
               var roomRef = FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
               
+              // আপনার স্ক্রিনশট অনুযায়ী 'adminId' ই হচ্ছে আসল ওনার
               if (isFollowing) {
-                // আনফলো করলে: লিস্ট থেকে আইডি সরাবে এবং কাউন্ট কমাবে
+                // আনফলো লজিক
                 await roomRef.update({
                   'followers': FieldValue.arrayRemove([myUid]),
-                  'followerCount': FieldValue.increment(-1),
+                  'followerCount': FieldValue.increment(-1), // এটি আপনার স্ক্রিনশটের ফিল্ড নাম অনুযায়ী
                 });
                 setState(() {
                   isFollowing = false;
                   followerCount--;
                 });
               } else {
-                // ফলো করলে: লিস্টে আইডি যোগ করবে (এক আইডি দুইবার হবে না) এবং কাউন্ট বাড়াবে
+                // ফলো লজিক (FieldValue.arrayUnion নিশ্চিত করে এক ইউজার বারবার অ্যাড হবে না)
                 await roomRef.update({
                   'followers': FieldValue.arrayUnion([myUid]),
                   'followerCount': FieldValue.increment(1),
@@ -741,14 +741,14 @@ List<Widget> _buildFloatingEmojiAnimations() {
                 });
               }
 
-              // ২. আপনার আগের ফাংশনটি ফিচার ঠিক রাখার জন্য কল করা হলো
+              // ডাটা সিঙ্ক করার জন্য আপনার আগের সার্ভিস কল (যদি প্রয়োজন হয়)
               _roomService.updateRoomFullData(
                 roomId: widget.roomId,
                 roomName: roomName,
                 roomImage: roomProfileImage,
                 isLocked: isRoomLocked,
                 wallpaper: roomWallpaperPath,
-                followers: followerCount, // নতুন কাউন্ট যাচ্ছে
+                followers: followerCount,
                 totalDiamonds: 0,
               );
             },
@@ -766,7 +766,8 @@ List<Widget> _buildFloatingEmojiAnimations() {
               if (!roomDoc.exists) return;
           
               var data = roomDoc.data();
-              String ownerUid = data?['ownerId'] ?? data?['owner'] ?? data?['creator'] ?? "";
+              // স্ক্রিনশট অনুযায়ী মালিকের আইডি 'adminId' ফিল্ডে আছে
+              String ownerUid = data?['adminId'] ?? "";
           
               if (!context.mounted) return;
           
