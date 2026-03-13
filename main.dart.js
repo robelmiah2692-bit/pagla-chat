@@ -102963,16 +102963,17 @@ $2(a,b){var s,r,q,p,o=b.b
 if(o==null)return B.cT
 if(!o.gki())return B.Gm
 s=t.P.a(J.kc(o))
+o=s.h(0,"ownerId")
+r=o==null?s.h(0,"owner"):o
+if(r==null)r=this.a.a.d
 o=s.h(0,"followers")
 if(o==null)o=[]
-r=A.dL(o,!0,t.z)
-q=s.h(0,"admins")
-if(q==null)q=[]
-o=this.a
-p=o.a.d
-if(p.length!==0&&!B.b.u(r,p))B.b.md(r,0,p)
-B.b.fV(r,new A.aH9(p,q))
-return A.ky(new A.aHa(o,r,p,q),r.length,null,!1,B.S,!1)},
+q=A.dL(o,!0,t.z)
+p=s.h(0,"admins")
+if(p==null)p=[]
+if(r.length!==0&&!B.b.u(q,r))B.b.md(q,0,r)
+B.b.fV(q,new A.aH9(r,p))
+return A.ky(new A.aHa(this.a,q,r,p),q.length,null,!1,B.S,!1)},
 $S:95}
 A.aH9.prototype={
 $2(a,b){var s,r,q,p=this.a
