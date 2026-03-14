@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:pagla_chat/services/database_service.dart';
 import 'package:pagla_chat/services/gift_logic_helper.dart';
+// এটি আপনার ভিডিও প্লে করার ইঞ্জিন (যে ফাইলটি আমরা মাস্টার ফাইল হিসেবে বানালাম)
+import 'package:pagla_chat/services/video_gift_manager.dart'; 
+
+// এটি আপনার সব ভিডিওর লিঙ্ক রাখার ডাইরেক্টরি
+import 'package:pagla_chat/data/video_links.dart';
 
 // ডাটা ফাইল ইমপোর্ট
 import 'package:pagla_chat/data/free_gifts.dart';
