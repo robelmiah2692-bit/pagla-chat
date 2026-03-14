@@ -1,4 +1,3 @@
-import 'package:pagla_chat/utils/gift_video_player.dart'; // পাথ একদম নিখুঁত
 import 'package:pagla_chat/room_follower_sheet.dart';
 import '../services/gift_transaction_helper.dart';
 import 'package:pagla_chat/inbox_page.dart'; // ফাইল পাথ অনুযায়ী এটি দিন
@@ -64,8 +63,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
  final DatabaseService _dbService = DatabaseService();
  final AgoraManager _agoraManager = AgoraManager();
 
-  String lastGiftSenderName = ""; // গিফট দাতার নাম
-  String? currentVideoUrl;        // গিফট ভিডিওর লিঙ্ক
+  
   String userProfilePic = ""; // এটি আপনার নিজের প্রোফাইল ছবি রাখার জন্য
   // --- সব ভেরিয়েবল ---
   String myPersonalAvatar = ""; // এটি ইউজারের নিজের প্রোফাইল ছবি
@@ -1051,11 +1049,6 @@ Widget _buildSeatGridArea() {
               currentSeats: List.from(seats), 
               onGiftSend: (gift, count, target) async {
                 
-                // ভিডিও গিফট প্লে
-                //if (gift['videoUrl'] != null && gift['videoUrl'] != "") {
-                   GiftVideoPlayer.show(context, gift['videoUrl']); 
-                }
-
                 setState(() {
                   currentGiftImage = gift['icon'];
                   isGiftAnimating = true;
