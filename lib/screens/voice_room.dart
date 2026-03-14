@@ -65,6 +65,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
  final DatabaseService _dbService = DatabaseService();
  final AgoraManager _agoraManager = AgoraManager();
 
+  String lastGiftSenderName = ""; // গিফট দাতার নাম
+  String? currentVideoUrl;        // গিফট ভিডিওর লিঙ্ক
   String userProfilePic = ""; // এটি আপনার নিজের প্রোফাইল ছবি রাখার জন্য
   // --- সব ভেরিয়েবল ---
   String myPersonalAvatar = ""; // এটি ইউজারের নিজের প্রোফাইল ছবি
@@ -1248,3 +1250,4 @@ Widget _buildSeatGridArea() {
           .delete();
     }
   }
+}
