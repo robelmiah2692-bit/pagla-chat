@@ -553,15 +553,14 @@ Widget build(BuildContext context) {
           isGiftAnimating: isGiftAnimating,
           currentGiftImage: currentGiftImage,
           isFullScreenBinding: isGiftAnimating, 
-          // এখানে ডাটা থেকে পাঠানো ইউজারের নাম অটো আসবে
           senderName: lastGiftSenderName, 
           receiverName: targetType, 
         ),
 
-        // ৮. ভিডিও গিফট অ্যানিমেশন (ভিডিওর জন্য নতুন অংশ)
-        if (currentVideoUrl.isNotEmpty)
+        // ৮. ভিডিও গিফট অ্যানিমেশন
+        if (currentVideoUrl != null && currentVideoUrl.isNotEmpty)
           Positioned.fill(
-            child: GiftVideoPlayerWidget(
+            child: GiftVideoPlayerWidget( // নিশ্চিত হোন আপনার উইজেট ফাইলের নাম এটাই
               url: currentVideoUrl,
               onComplete: () {
                 setState(() {
