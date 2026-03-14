@@ -3,9 +3,7 @@ import 'package:pagla_chat/services/database_service.dart';
 import 'package:pagla_chat/services/gift_logic_helper.dart';
 // এটি আপনার ভিডিও প্লে করার ইঞ্জিন (যে ফাইলটি আমরা মাস্টার ফাইল হিসেবে বানালাম)
 import 'package:pagla_chat/services/video_gift_manager.dart'; 
-
-// এটি আপনার সব ভিডিওর লিঙ্ক রাখার ডাইরেক্টরি
-import 'package:pagla_chat/data/video_links.dart';
+import 'package:pagla_chat/utils/gift_video_player.dart'; // আপনার ফাইলের সঠিক পাথ অনুযায়ী
 
 // ডাটা ফাইল ইমপোর্ট
 import 'package:pagla_chat/data/free_gifts.dart';
@@ -256,17 +254,16 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       'targetId': selectedTargetId,
     }, selectedCount, targetType);
 
-    void sendGift(Map gift) {
-      // ১. গিফটের দাম নেওয়া হচ্ছে
-     int price = gift['price']; 
+     void sendGift(Map gift) {
+    // ১. গিফটের দাম নেওয়া হচ্ছে (যেমন: ৯৯৭৮)
+    int price = gift['price']; 
   
-    // ২. আপনার গিটহাবের ডিরেক্ট (Raw) লিঙ্ক তৈরি করা হচ্ছে
-  // এখানে আমি আপনার সঠিক গিটহাব ইউজারনেম এবং পাথ বসিয়ে দিয়েছি
-  String githubLink = "https://raw.githubusercontent.com/robelmiah2692-bit/pagla-chat/main/assets/videos/$price.mp4";
+    // ২. আপনার গিটহাবের ডিরেক্ট (Raw) লিঙ্ক
+    String githubLink = "https://raw.githubusercontent.com/robelmiah2692-bit/pagla-chat/main/assets/videos/$price.mp4";
 
-  // ৩. এবার ভিডিও প্লে হবে
-  // মনে রাখবেন: গিটহাবে যদি ওই দামের (যেমন: 4870.mp4) ভিডিও থাকে তবেই এটি বাজবে
-  VideoGiftManager.playGift(context, githubLink);
+  // ৩. নতুন প্লেয়ার ব্যবহার করে ভিডিও প্লে করা হচ্ছে
+  // এখানে VideoGiftManager এর বদলে GiftVideoPlayer.show ব্যবহার হবে
+  GiftVideoPlayer.show(context, githubLink);
 }
     // ৫. ফ্রি গিফট হলে রিমুভ করা
     if (isFree) {
