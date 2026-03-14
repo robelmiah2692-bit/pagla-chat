@@ -63,7 +63,24 @@ class _VoiceRoomState extends State<VoiceRoom> {
  final RoomSyncService _syncService = RoomSyncService();
  final DatabaseService _dbService = DatabaseService();
  final AgoraManager _agoraManager = AgoraManager();
- 
+
+ void sendGift(Map gift, String senderName) {
+  // ১. সেন্ডারের নাম সেভ করা (যাতে ডায়ালগে অটো দেখায়)
+  setState(() {
+    lastGiftSenderName = senderName; 
+  });
+
+  // ২. ভিডিও গিফট নাকি ইমেজ গিফট চেক করা
+  if (gift['videoUrl'] != null && gift['videoUrl'] != "") {
+    setState(() {
+      currentVideoUrl = gift['videoUrl'];
+    });
+  } else {
+    // ইমেজ গিফট হলে আপনার আগের লজিক কল হবে
+    _startGiftAnimation(gift['icon']); 
+  }
+}
+  
   String userProfilePic = ""; // এটি আপনার নিজের প্রোফাইল ছবি রাখার জন্য
   // --- সব ভেরিয়েবল ---
   String myPersonalAvatar = ""; // এটি ইউজারের নিজের প্রোফাইল ছবি
@@ -81,7 +98,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
   bool isPKActive = false; 
   late VSPKManager pkManager;
   int pkSeconds = 300; 
-
+  String currentVideoUrl = ""; // ভিডিওর লিঙ্ক রাখার জন্য
+  String lastGiftSenderName = ""; // যে গিফট পাঠিয়েছে তার নাম রাখার জন্য
+  
   bool isRoomMusicPlaying = false; 
   Offset playerPosition = const Offset(150, 400); // পজিশন একটু নিচে ও মাঝখানে আনা হলো
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -545,16 +564,29 @@ Widget build(BuildContext context) {
 
         // ৬. ফ্লোটিং টুলস (পুরাতন ফিচার)
         FloatingRoomTools(onGiftCountStart: _startGiftCounting),
-        // ৭. গিফট অ্যানিমেশন (এখন আলাদা হ্যান্ডেলার ফাইল থেকে আসবে)
-        // ৭. গিফট অ্যানিমেশন (নতুন হ্যান্ডেলার ফাইল থেকে)
+        
+        // ৭. গিফট অ্যানিমেশন (ইমেজের জন্য - যেমন রিং, ডিনার)
         GiftOverlayHandler(
           isGiftAnimating: isGiftAnimating,
           currentGiftImage: currentGiftImage,
-          // লজিক: যদি গিফটের দাম থাকে তবে চেক করবে, নাহলে ফলস
           isFullScreenBinding: isGiftAnimating, 
-          senderName: "Hridoy", // আপাতত স্ট্যাটিক দিলাম বিল্ড চেক করার জন্য
-          receiverName: targetType, // আপনার আগের ভেরিয়েবল
+          // এখানে ডাটা থেকে পাঠানো ইউজারের নাম অটো আসবে
+          senderName: lastGiftSenderName, 
+          receiverName: targetType, 
         ),
+
+        // ৮. ভিডিও গিফট অ্যানিমেশন (ভিডিওর জন্য নতুন অংশ)
+        if (currentVideoUrl.isNotEmpty)
+          Positioned.fill(
+            child: GiftVideoPlayerWidget(
+              url: currentVideoUrl,
+              onComplete: () {
+                setState(() {
+                  currentVideoUrl = ""; // ভিডিও শেষ হলে স্ক্রিন পরিষ্কার হবে
+                });
+              },
+            ),
+          ),
         // ৮. মেইল বাটন ও ইনবক্স (আপনার দেওয়া সেই পূর্ণাঙ্গ লজিক)
         Positioned(
           bottom: 110, 
