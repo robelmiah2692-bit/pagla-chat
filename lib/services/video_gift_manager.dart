@@ -4,13 +4,15 @@ import 'dart:async';
 
 class VideoGiftManager {
   static void playGift(BuildContext context, String videoUrl) {
-    // ১. এখানে OverlayState? এর বদলে নাল হবে না এমনভাবে ডিফাইন করা ভালো
-    final OverlayState overlayState = Overlay.of(context);
-    late OverlayEntry overlayEntry;
-    
-    // ভিডিও ইউআরএল চেক
     if (videoUrl.isEmpty) return;
 
+    // ১. নাল চেকসহ ওভারলে স্টেট নেওয়া
+    final OverlayState? overlayState = Overlay.of(context);
+    if (overlayState == null) return;
+
+    late OverlayEntry overlayEntry;
+    
+    // ২. networkUrl ব্যবহার করা (Uri.parse সহ)
     VideoPlayerController controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
 
     controller.initialize().then((_) {
@@ -28,11 +30,10 @@ class VideoGiftManager {
         ),
       );
 
-      // ২. এখানে পরিবর্তন: প্রশ্নবোধক চিহ্ন (?) সরিয়ে দেওয়া হয়েছে
-      overlayState.insert(overlayEntry); 
+      // ৩. এখানে কম্পাইলারকে নিশ্চিত করা হচ্ছে overlayState নাল না
+      overlayState.insert(overlayEntry);
       controller.play();
 
-      // ৩. ভিডিও শেষ হলে রিমুভ করা
       Future.delayed(controller.value.duration, () {
         if (overlayEntry.mounted) {
           controller.dispose();
@@ -40,7 +41,7 @@ class VideoGiftManager {
         }
       });
     }).catchError((error) {
-      print("ভিডিও লোড হতে সমস্যা: $error");
+      debugPrint("ভিডিও লোড হতে সমস্যা: $error");
     });
   }
 }
