@@ -621,6 +621,7 @@ Widget build(BuildContext context) {
                             textAlign: TextAlign.center),
                         ),
                       ),
+                    ), 
                   ],
                 );
               },
