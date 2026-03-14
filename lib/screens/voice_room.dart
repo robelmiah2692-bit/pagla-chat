@@ -1,4 +1,3 @@
-
 import 'package:pagla_chat/room_follower_sheet.dart';
 import '../services/gift_transaction_helper.dart';
 import 'package:pagla_chat/inbox_page.dart'; // ফাইল পাথ অনুযায়ী এটি দিন
@@ -82,7 +81,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
   bool isPKActive = false; 
   late VSPKManager pkManager;
   int pkSeconds = 300; 
-  String lastGiftSenderName = ""; // যে গিফট পাঠিয়েছে তার নাম রাখার জন্য
   
   bool isRoomMusicPlaying = false; 
   Offset playerPosition = const Offset(150, 400); // পজিশন একটু নিচে ও মাঝখানে আনা হলো
@@ -1021,173 +1019,166 @@ Widget _buildSeatGridArea() {
         ),
 
         // ৪. গিফট বাটন (ইউজার প্রোফাইল থেকে ডায়মন্ড ব্যালেন্স সহ)
-IconButton(
-  constraints: const BoxConstraints(),
-  padding: const EdgeInsets.symmetric(horizontal: 4),
-  icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
-  onPressed: () async {
-    // ১. ইউজারের ডায়মন্ড ব্যালেন্স ও নাম ফেচ করা
-    final userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(FirebaseAuth.instance.currentUser?.uid)
-        .get();
-    
-    int currentBalance = 0;
-    String senderName = "User"; 
-    
-    if (userDoc.exists && userDoc.data() != null) {
-      currentBalance = userDoc.data()!['diamonds'] ?? 0;
-      senderName = userDoc.data()!['name'] ?? "User"; 
-    }
-
-    if (!mounted) return;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => GiftBottomSheet(
-        diamondBalance: currentBalance, 
-        currentSeats: List.from(seats), 
-        onGiftSend: (gift, count, target) async {
+         // ১. গিফট বাটন
+      IconButton(
+        constraints: const BoxConstraints(),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
+        onPressed: () async {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(FirebaseAuth.instance.currentUser?.uid)
+              .get();
           
-          // 🔥 নতুন: ভিডিও গিফট থাকলে সেটি আগে প্লে হবে
-          if (gift['videoUrl'] != null && gift['videoUrl'] != "") {
-             GiftVideoPlayer.show(context, gift['videoUrl']); 
+          int currentBalance = 0;
+          String senderName = "User"; 
+          
+          if (userDoc.exists && userDoc.data() != null) {
+            currentBalance = userDoc.data()!['diamonds'] ?? 0;
+            senderName = userDoc.data()!['name'] ?? "User"; 
           }
 
-          // ২. UI অ্যানিমেশন (ইমেজ গিফটের জন্য)
-          setState(() {
-            currentGiftImage = gift['icon'];
-            isGiftAnimating = true;
-            targetType = target; 
-            currentSenderName = senderName; 
-            currentReceiverName = target; 
-          });
+          if (!mounted) return;
 
-          // ৩. ডাটাবেসে লেনদেনের লজিক
-          try {
-            bool isFree = gift['isFree'] ?? false;
-            String receiverId = gift['targetId'] ?? ""; 
-            int unitPrice = gift['price'] ?? 0;
-            int totalAmount = unitPrice * count;
+          showModalBottomSheet(
+            context: context,
+            backgroundColor: Colors.transparent,
+            isScrollControlled: true,
+            builder: (context) => GiftBottomSheet(
+              diamondBalance: currentBalance, 
+              currentSeats: List.from(seats), 
+              onGiftSend: (gift, count, target) async {
+                
+                // ভিডিও গিফট প্লে
+                if (gift['videoUrl'] != null && gift['videoUrl'] != "") {
+                   GiftVideoPlayer.show(context, gift['videoUrl']); 
+                }
 
-            if (receiverId.isNotEmpty) {
-              await GiftTransactionHelper.processGiftTransaction(
-                senderId: FirebaseAuth.instance.currentUser!.uid,
-                receiverId: receiverId,
-                totalPrice: totalAmount,
-                isFree: isFree,
-                giftName: gift['name'] ?? "Gift",
-              );
-            }
-          } catch (e) {
-            debugPrint("Transaction Error: $e");
-          }
+                setState(() {
+                  currentGiftImage = gift['icon'];
+                  isGiftAnimating = true;
+                  targetType = target; 
+                  currentSenderName = senderName; 
+                  currentReceiverName = target; 
+                });
 
-          // ৪. ৩ সেকেন্ড পর ইমেজ অ্যানিমেশন বন্ধ করা
-          Timer(const Duration(seconds: 3), () {
-            if (mounted) {
-              setState(() {
-                isGiftAnimating = false;
-              });
-            }
-          });
+                try {
+                  bool isFree = gift['isFree'] ?? false;
+                  String receiverId = gift['targetId'] ?? ""; 
+                  int unitPrice = gift['price'] ?? 0;
+                  int totalAmount = unitPrice * count;
+
+                  if (receiverId.isNotEmpty) {
+                    await GiftTransactionHelper.processGiftTransaction(
+                      senderId: FirebaseAuth.instance.currentUser!.uid,
+                      receiverId: receiverId,
+                      totalPrice: totalAmount,
+                      isFree: isFree,
+                      giftName: gift['name'] ?? "Gift",
+                    );
+                  }
+                } catch (e) {
+                  debugPrint("Transaction Error: $e");
+                }
+
+                Timer(const Duration(seconds: 3), () {
+                  if (mounted) {
+                    setState(() {
+                      isGiftAnimating = false;
+                    });
+                  }
+                });
+              },
+            ),
+          );
         },
       ),
-    );
-  },
-),
 
-// ৫. গেম বাটন
-IconButton(
-  constraints: const BoxConstraints(),
-  padding: const EdgeInsets.symmetric(horizontal: 4),
-  icon: const Icon(Icons.videogame_asset, color: Colors.orange, size: 22), 
-  onPressed: () => showModalBottomSheet(
-    context: context, 
-    builder: (c) => const GamePanelView()
-  ),
-),
+      // ২. গেম বাটন
+      IconButton(
+        constraints: const BoxConstraints(),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        icon: const Icon(Icons.videogame_asset, color: Colors.orange, size: 22), 
+        onPressed: () => showModalBottomSheet(
+          context: context, 
+          builder: (c) => const GamePanelView(),
+        ),
+      ),
+
+  // --- হেল্পার উইজেটস (ফাংশনগুলো সব সময় ক্লাসের ভেতর থাকবে) ---
 
   Widget _buildViewerArea() { 
-  return Container(
-    height: 50, 
-    margin: const EdgeInsets.symmetric(vertical: 5),
-    padding: const EdgeInsets.symmetric(horizontal: 10),
-    decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.05), // হালকা একটা ব্যাকগ্রাউন্ড
-      borderRadius: BorderRadius.circular(10),
-    ),
-    child: Row(
-      children: [
-        const Icon(Icons.groups, color: Colors.white54, size: 18),
-        const SizedBox(width: 8),
-        const Text(
-          "আড্ডায়:", 
-          style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)
-        ),
-        const SizedBox(width: 10),
-        // 🔥 এই সেই ফাইল যেটা আমরা আলাদাভাবে তৈরি করেছি
-        Expanded(
-          child: LiveViewersList(roomId: widget.roomId), 
-        ),
-      ],
-    ),
-  ); 
-}
-
-  Widget _buildMessageRow(Map<String, String> msg) { 
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), 
-    child: RichText(
-      text: TextSpan(
+    return Container(
+      height: 50, 
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
         children: [
-          TextSpan(
-            text: "${msg['userName']}: ", 
-            style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 13)
+          const Icon(Icons.groups, color: Colors.white54, size: 18),
+          const SizedBox(width: 8),
+          const Text(
+            "আড্ডায়:", 
+            style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
           ),
-          TextSpan(
-            text: "${msg['text']}", 
-            style: const TextStyle(color: Colors.white, fontSize: 13)
+          const SizedBox(width: 10),
+          Expanded(
+            child: LiveViewersList(roomId: widget.roomId), 
           ),
         ],
       ),
-    ),
-  ); 
-}
+    ); 
+  }
+
+  Widget _buildMessageRow(Map<String, String> msg) { 
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), 
+      child: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: "${msg['userName']}: ", 
+              style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            TextSpan(
+              text: "${msg['text']}", 
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    ); 
+  }
 
   void _showSettings() {
-  RoomSettingsHandler.showSettings(
-    context: context,
-    isLocked: isRoomLocked,
-    onToggleLock: () => setState(() => isRoomLocked = !isRoomLocked),
-    onSetWallpaper: (p) => setState(() => roomWallpaperPath = p),
-    onMinimize: () => Navigator.pop(context),
-    
-    // 🔥 চ্যাট ক্লিন করার লজিক (এটি নতুন যোগ হলো)
-    onClearChat: () async {
-      // আপনার ডাটাবেস থেকে মেসেজ ডিলিট করার কমান্ড
-      await FirebaseFirestore.instance
-          .collection('rooms')
-          .doc(widget.roomId)
-          .collection('chats')
-          .get()
-          .then((snapshot) {
-            for (DocumentSnapshot ds in snapshot.docs) {
-              ds.reference.delete();
-            }
-          });
-      debugPrint("🧹 চ্যাট পরিষ্কার করা হয়েছে!");
-    },
-
-    // ✅ এক্সিট লজিক (আগের মতোই)
-    onLeave: () {
-      _agoraManager.engine.leaveChannel();
-      Navigator.pop(context);
-    },
-  );
-}
+    RoomSettingsHandler.showSettings(
+      context: context,
+      isLocked: isRoomLocked,
+      onToggleLock: () => setState(() => isRoomLocked = !isRoomLocked),
+      onSetWallpaper: (p) => setState(() => roomWallpaperPath = p),
+      onMinimize: () => Navigator.pop(context),
+      onClearChat: () async {
+        await FirebaseFirestore.instance
+            .collection('rooms')
+            .doc(widget.roomId)
+            .collection('chats')
+            .get()
+            .then((snapshot) {
+              for (DocumentSnapshot ds in snapshot.docs) {
+                ds.reference.delete();
+              }
+            });
+        debugPrint("🧹 চ্যাট পরিষ্কার করা হয়েছে!");
+      },
+      onLeave: () {
+        _agoraManager.engine.leaveChannel();
+        Navigator.pop(context);
+      },
+    );
+  }
 
   Widget _buildFloatingPlayer({required bool isDragging}) {
     return Material(
@@ -1199,13 +1190,6 @@ IconButton(
           color: Colors.black.withOpacity(0.85),
           shape: BoxShape.circle,
           border: Border.all(color: Colors.cyanAccent, width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.cyanAccent.withOpacity(0.4),
-              blurRadius: 10,
-              spreadRadius: 1,
-            )
-          ],
         ),
         child: Stack(
           alignment: Alignment.center,
@@ -1233,8 +1217,6 @@ IconButton(
       ),
     );
   }
-
-  // --- মেম্বার লিস্ট ম্যানেজমেন্ট ---
 
   void _addUserToViewers() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -1265,4 +1247,3 @@ IconButton(
           .delete();
     }
   }
-}
