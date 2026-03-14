@@ -256,17 +256,16 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       'targetId': selectedTargetId,
     }, selectedCount, targetType);
 
-    // ==========================================
-    // 🚀 ডায়নামিক ভিডিও গিফট লজিক (ফিক্সড প্রাইজ ছাড়া)
-    // ==========================================
-    // ভিডিও লিঙ্ক ফাইল থেকে এই দামের গিফটের লিঙ্কটা খুঁজি
-    String? giftVideoUrl = VideoLinks.getLinkByPrice(unitPrice);
-    
-    if (giftVideoUrl != null) {
-       // যদি লিঙ্ক পাওয়া যায় (অর্থাৎ এটি ভিডিও গিফট), তবে প্লে হবে
-       VideoGiftManager.playGift(context, giftVideoUrl); 
-    }
-    // ==========================================
+    // ইউজার যে গিফটেই ক্লিক করুক (ফ্রি, রোমান্টিক বা লাক্সারি)
+    void sendGift(Map gift) {
+      int price = gift['price']; // অ্যাপ এখান থেকে দাম নিল
+  
+     // অ্যাপ নিজে থেকেই এই লিঙ্কটা তৈরি করে নেবে
+     String githubLink = "https://github.com/your-username/repo/raw/main/assets/videos/$price.mp4";
+
+    // এবার ভিডিও প্লে হবে
+     VideoGiftManager.play(context, githubLink);
+   }
     // ৫. ফ্রি গিফট হলে রিমুভ করা
     if (isFree) {
       setState(() {
