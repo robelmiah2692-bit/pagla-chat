@@ -555,19 +555,6 @@ Widget build(BuildContext context) {
           receiverName: targetType, 
         ),
 
-        // ৮. ভিডিও গিফট অ্যানিমেশন
-        if (currentVideoUrl != null && currentVideoUrl.isNotEmpty)
-          Positioned.fill(
-            child: GiftVideoPlayerWidget(
-              url: currentVideoUrl,
-              onComplete: () {
-                setState(() {
-                  currentVideoUrl = ""; 
-                });
-              },
-            ),
-          ),
-
         // ৮. মেইল বাটন ও ইনবক্স
         Positioned(
           bottom: 110, 
