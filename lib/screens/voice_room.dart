@@ -1131,37 +1131,62 @@ Widget _buildSeatGridArea() {
     ); 
   }
 
-void _showSettings() {
+  void _showSettings() {
     RoomSettingsHandler.showSettings(
       context: context,
       isLocked: isRoomLocked,
       onToggleLock: () async {
         setState(() => isRoomLocked = !isRoomLocked);
-        // ডাটাবেসে রুম লক স্ট্যাটাস আপডেট
         await FirebaseFirestore.instance
             .collection('rooms')
             .doc(widget.roomId)
             .update({'isLocked': isRoomLocked});
       },
       onSetWallpaper: (path) async {
-        // ১. লোকাল স্ক্রিন আপডেট
-        setState(() => roomWallpaperPath = path);
-        
-        // ২. ডাটাবেসে ওয়ালপেপার পাথ সেভ করা (যাতে বের হয়ে ঢুকলেও থাকে)
         try {
+          // ১. স্টোরেজে আপলোডের জন্য একটি ইউনিক নাম তৈরি
+          String fileName = 'wallpapers/${widget.roomId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          var storageRef = FirebaseStorage.instance.ref().child(fileName);
+
+          // ২. ছবি আপলোড লজিক (ওয়েব এবং মোবাইল উভয় সাপোর্ট করবে)
+          UploadTask uploadTask;
+          if (kIsWeb) {
+            uploadTask = storageRef.putData(
+              await XFile(path).readAsBytes(),
+              SettableMetadata(contentType: 'image/jpeg'),
+            );
+          } else {
+            uploadTask = storageRef.putFile(File(path));
+          }
+
+          // ৩. আপলোড শেষ হওয়া পর্যন্ত অপেক্ষা এবং ডাউনলোড ইউআরএল সংগ্রহ
+          var snapshot = await uploadTask;
+          String downloadUrl = await snapshot.ref.getDownloadURL();
+
+          // ৪. ডাটাবেসে স্থায়ী লিঙ্কটি সেভ করা (যাতে সবাই দেখতে পায় এবং হারাবে না)
           await FirebaseFirestore.instance
               .collection('rooms')
               .doc(widget.roomId)
-              .update({'roomWallpaper': path});
-          debugPrint("🖼️ ওয়ালপেপার ডাটাবেসে সেভ হয়েছে!");
+              .update({'roomWallpaper': downloadUrl});
+
+          setState(() {
+            roomWallpaperPath = downloadUrl;
+          });
+
+          debugPrint("🖼️ স্থায়ী ওয়ালপেপার সেট করা হয়েছে!");
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Wallpaper updated for everyone!")),
+            );
+          }
         } catch (e) {
-          debugPrint("Wallpaper update error: $e");
+          debugPrint("Wallpaper Upload Error: $e");
         }
       },
       onMinimize: () => Navigator.pop(context),
       onClearChat: () async {
         try {
-          // চ্যাট ক্লিন লজিক (messages কালেকশন ব্যবহার করা হয়েছে)
           final chatDocs = await FirebaseFirestore.instance
               .collection('rooms')
               .doc(widget.roomId)
@@ -1189,7 +1214,7 @@ void _showSettings() {
       },
     );
   }
-
+  
   Widget _buildFloatingPlayer({required bool isDragging}) {
     return Material(
       color: Colors.transparent,
