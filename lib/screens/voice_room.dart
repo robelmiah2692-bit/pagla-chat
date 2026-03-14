@@ -530,7 +530,7 @@ Widget build(BuildContext context) {
             _buildBottomActionArea(),
           ],
         ),
-        // ৫. মিউজিক ভাসমান প্লেয়ার (অরিজিনাল মিউজিক ডার্টের সাথে কানেক্টেড)
+        // ৫. মিউজিক ভাসমান প্লেয়ার
         if (isRoomMusicPlaying)
           Positioned(
             left: playerPosition.dx, 
@@ -545,10 +545,10 @@ Widget build(BuildContext context) {
             ),
           ),
 
-        // ৬. ফ্লোটিং টুলস (পুরাতন ফিচার)
+        // ৬. ফ্লোটিং টুলস
         FloatingRoomTools(onGiftCountStart: _startGiftCounting),
         
-        // ৭. গিফট অ্যানিমেশন (ইমেজের জন্য - যেমন রিং, ডিনার)
+        // ৭. গিফট অ্যানিমেশন (ইমেজ)
         GiftOverlayHandler(
           isGiftAnimating: isGiftAnimating,
           currentGiftImage: currentGiftImage,
@@ -560,16 +560,17 @@ Widget build(BuildContext context) {
         // ৮. ভিডিও গিফট অ্যানিমেশন
         if (currentVideoUrl != null && currentVideoUrl.isNotEmpty)
           Positioned.fill(
-            child: GiftVideoPlayerWidget( // নিশ্চিত হোন আপনার উইজেট ফাইলের নাম এটাই
+            child: GiftVideoPlayerWidget(
               url: currentVideoUrl,
               onComplete: () {
                 setState(() {
-                  currentVideoUrl = ""; // ভিডিও শেষ হলে স্ক্রিন পরিষ্কার হবে
+                  currentVideoUrl = ""; 
                 });
               },
             ),
           ),
-        // ৮. মেইল বাটন ও ইনবক্স (আপনার দেওয়া সেই পূর্ণাঙ্গ লজিক)
+
+        // ৮. মেইল বাটন ও ইনবক্স
         Positioned(
           bottom: 110, 
           right: 15,
@@ -616,26 +617,27 @@ Widget build(BuildContext context) {
                           padding: const EdgeInsets.all(3),
                           decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
                           constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                          child: Text('$unreadCount', 
+                          child: Text(
+                            '$unreadCount', 
                             style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold), 
-                            textAlign: TextAlign.center),
+                            textAlign: TextAlign.center,
+                          ),
                         ),
                       ),
-                    ), 
-                  ],
-                );
-              },
-            ),
-          ),
-        ),
+                  ], // Stack children closed
+                ); // Stack closed
+              }, // Builder closed
+            ), // StreamBuilder closed
+          ), // GestureDetector closed
+        ), // Positioned closed
 
         // ৯. সিট ইমোজি অ্যানিমেশন
         ..._buildFloatingEmojiAnimations(), 
-      ],
-    ),
-  );
+      ], // Main Stack children closed
+    ), // Main Stack closed
+  ); // Final widget closed
 }
-
+        
 // বিল্ড এরর ফিক্স করতে এই মেথডটি আপনার _VoiceRoomState ক্লাসের ভেতরে অবশ্যই থাকতে হবে
 List<Widget> _buildFloatingEmojiAnimations() {
   // আপনার ইমোজি অ্যানিমেশনের লজিক এখানে থাকবে। 
