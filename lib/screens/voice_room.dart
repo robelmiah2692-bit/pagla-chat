@@ -42,6 +42,9 @@ import '../widgets/gift_system.dart';
 import '../widgets/music_player_widget.dart';
 import '../widgets/room_profile_handler.dart';
 import '../widgets/room_settings_handler.dart';
+import 'package:firebase_storage/firebase_storage.dart'; // এটি নেই, এটি যোগ করতে হবে
+import 'dart:io' if (dart.library.html) 'dart:html' as html; // ওয়েবে ইমেজের জন্য জরুরি
+import 'package:image_picker/image_picker.dart'; // গ্যালারি থেকে ছবি নিতে এটি লাগবে
 
 class VoiceRoom extends StatefulWidget {
   final String roomId;
