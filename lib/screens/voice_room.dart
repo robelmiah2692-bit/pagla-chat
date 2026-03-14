@@ -1139,50 +1139,61 @@ Widget _buildSeatGridArea() {
       isLocked: isRoomLocked,
       onToggleLock: () async {
         setState(() => isRoomLocked = !isRoomLocked);
-        // ১. রুম লক আপডেট
+        // ১. রুম লক ফিচার
         await FirebaseFirestore.instance
             .collection('rooms')
             .doc(widget.roomId)
             .update({'isLocked': isRoomLocked});
       },
       onSetWallpaper: (path) async {
+        if (path.isEmpty) return;
         try {
-          // ২. আপলোড লজিক (সব ফিচার অক্ষুণ্ণ রেখে)
+          // ইউজারের সুবিধার জন্য লোকালি আগে সেট করে দেখানো
+          setState(() => roomWallpaperPath = path);
+
+          // ২. স্থায়ী আপলোড লজিক
           String fileName = 'wallpapers/${widget.roomId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
           var storageRef = FirebaseStorage.instance.ref().child(fileName);
 
-          // XFile দিয়ে বাইটস পড়া (Web এর জন্য নিরাপদ)
-          final bytes = await XFile(path).readAsBytes();
+          // XFile দিয়ে বাইটস রিড করা (এটিই blob কে আসল ছবিতে রূপান্তর করবে)
+          final XFile imageFile = XFile(path);
+          final bytes = await imageFile.readAsBytes();
           
+          // ফায়ারবেস স্টোরেজে পুশ করা
           UploadTask uploadTask = storageRef.putData(
             bytes,
             SettableMetadata(contentType: 'image/jpeg'),
           );
 
-          // ৩. স্থায়ী ডাউনলোড ইউআরএল নেওয়া
+          // আপলোড শেষ হওয়া পর্যন্ত অপেক্ষা
           var snapshot = await uploadTask;
+          
+          // ৩. স্থায়ী ডাউনলোড ইউআরএল (https://...) নেওয়া
           String downloadUrl = await snapshot.ref.getDownloadURL();
 
-          // ৪. ডাটাবেসে সেভ (এখানে roomWallpaper নাম ব্যবহার করা হয়েছে)
+          // ৪. ডাটাবেসে সেভ (সব নামেই আপডেট করে দিচ্ছি যাতে ভুল না হয়)
           await FirebaseFirestore.instance
               .collection('rooms')
               .doc(widget.roomId)
-              .update({'roomWallpaper': downloadUrl});
+              .update({
+                'roomWallpaper': downloadUrl,
+                'wallpaper': downloadUrl // ব্যাকআপ ফিল্ড
+              });
 
-          // লোকাল স্টেট আপডেট যাতে সাথে সাথে দেখা যায়
+          // স্টেট আপডেট যাতে পার্মানেন্ট লিঙ্কটা সেট হয়
           setState(() {
             roomWallpaperPath = downloadUrl;
           });
 
-          debugPrint("🖼️ Wallpaper Permanent Link Saved: $downloadUrl");
+          debugPrint("🖼️ পার্মানেন্ট লিঙ্ক সেভ হয়েছে: $downloadUrl");
           
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Wallpaper updated for everyone!")),
+              const SnackBar(content: Text("Wallpaper saved permanently for everyone!")),
             );
           }
         } catch (e) {
-          debugPrint("Wallpaper Upload Error: $e");
+          debugPrint("Wallpaper Error: $e");
         }
       },
       onMinimize: () => Navigator.pop(context), // ৫. মিনিমাইজ ফিচার
