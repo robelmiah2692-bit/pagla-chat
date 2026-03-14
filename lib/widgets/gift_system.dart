@@ -256,16 +256,18 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       'targetId': selectedTargetId,
     }, selectedCount, targetType);
 
-    // ইউজার যে গিফটেই ক্লিক করুক (ফ্রি, রোমান্টিক বা লাক্সারি)
     void sendGift(Map gift) {
-      int price = gift['price']; // অ্যাপ এখান থেকে দাম নিল
+      // ১. গিফটের দাম নেওয়া হচ্ছে
+     int price = gift['price']; 
   
-     // অ্যাপ নিজে থেকেই এই লিঙ্কটা তৈরি করে নেবে
-     String githubLink = "https://github.com/your-username/repo/raw/main/assets/videos/$price.mp4";
+    // ২. আপনার গিটহাবের ডিরেক্ট (Raw) লিঙ্ক তৈরি করা হচ্ছে
+  // এখানে আমি আপনার সঠিক গিটহাব ইউজারনেম এবং পাথ বসিয়ে দিয়েছি
+  String githubLink = "https://raw.githubusercontent.com/robelmiah2692-bit/pagla-chat/main/assets/videos/$price.mp4";
 
-    // এবার ভিডিও প্লে হবে
-     VideoGiftManager.playGift(context, githubLink); // play এর জায়গায় playGift লিখে দিন
-   }
+  // ৩. এবার ভিডিও প্লে হবে
+  // মনে রাখবেন: গিটহাবে যদি ওই দামের (যেমন: 4870.mp4) ভিডিও থাকে তবেই এটি বাজবে
+  VideoGiftManager.playGift(context, githubLink);
+}
     // ৫. ফ্রি গিফট হলে রিমুভ করা
     if (isFree) {
       setState(() {
