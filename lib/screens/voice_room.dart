@@ -551,7 +551,7 @@ Widget build(BuildContext context) {
           isGiftAnimating: isGiftAnimating,
           currentGiftImage: currentGiftImage,
           isFullScreenBinding: isGiftAnimating, 
-          senderName: lastGiftSenderName, 
+          senderName: currentSenderName, 
           receiverName: targetType, 
         ),
 
