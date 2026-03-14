@@ -251,6 +251,17 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       'targetId': selectedTargetId,
     }, selectedCount, targetType);
 
+    // ==========================================
+    // 🚀 ডায়নামিক ভিডিও গিফট লজিক (ফিক্সড প্রাইজ ছাড়া)
+    // ==========================================
+    // ভিডিও লিঙ্ক ফাইল থেকে এই দামের গিফটের লিঙ্কটা খুঁজি
+    String? giftVideoUrl = VideoLinks.getLinkByPrice(unitPrice);
+    
+    if (giftVideoUrl != null) {
+       // যদি লিঙ্ক পাওয়া যায় (অর্থাৎ এটি ভিডিও গিফট), তবে প্লে হবে
+       VideoGiftManager.playGift(context, giftVideoUrl); 
+    }
+    // ==========================================
     // ৫. ফ্রি গিফট হলে রিমুভ করা
     if (isFree) {
       setState(() {
