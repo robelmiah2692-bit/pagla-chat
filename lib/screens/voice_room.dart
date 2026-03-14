@@ -1249,3 +1249,5 @@ Widget _buildSeatGridArea() {
           .delete();
     }
   }
+
+}
