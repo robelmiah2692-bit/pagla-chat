@@ -264,7 +264,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
      String githubLink = "https://github.com/your-username/repo/raw/main/assets/videos/$price.mp4";
 
     // এবার ভিডিও প্লে হবে
-     VideoGiftManager.play(context, githubLink);
+     VideoGiftManager.playGift(context, githubLink); // play এর জায়গায় playGift লিখে দিন
    }
     // ৫. ফ্রি গিফট হলে রিমুভ করা
     if (isFree) {
