@@ -64,19 +64,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
  final DatabaseService _dbService = DatabaseService();
  final AgoraManager _agoraManager = AgoraManager();
 
- void sendGift(Map gift, String senderName) {
-  // ১. সেন্ডারের নাম সেভ করা (যাতে ডায়ালগে অটো দেখায়)
+  void sendGift(Map gift, String senderName) {
+  // ১. সেন্ডারের নাম সেভ করা (ইমেজ গিফটের ডায়ালগের জন্য)
   setState(() {
     lastGiftSenderName = senderName; 
   });
 
   // ২. ভিডিও গিফট নাকি ইমেজ গিফট চেক করা
   if (gift['videoUrl'] != null && gift['videoUrl'] != "") {
-    setState(() {
-      currentVideoUrl = gift['videoUrl'];
-    });
+    // আপনার তৈরি করা ফাইলের সঠিক কল (এটি স্ট্যাটিক মেথড)
+    GiftVideoPlayer.show(context, gift['videoUrl']); 
   } else {
-    // ইমেজ গিফট হলে আপনার আগের লজিক কল হবে
+    // ইমেজ গিফট হলে আগের এনিমেশন
     _startGiftAnimation(gift['icon']); 
   }
 }
