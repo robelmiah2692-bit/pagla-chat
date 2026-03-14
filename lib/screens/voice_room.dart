@@ -903,24 +903,24 @@ Widget _buildSeatGridArea() {
 }
 
 // --- ২. অ্যাকশন বার (মাইক, গেম এবং চ্যাট ইনপুট) ---
-  Widget _buildBottomActionArea() {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
-    color: Colors.transparent,
-    child: Row(
-      children: [
-        // ১. চ্যাট ও ইমোজি
-        Expanded(
+   Widget _buildBottomActionArea() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
+      color: Colors.transparent,
+      child: Row(
+        children: [
+          // ১. চ্যাট ও ইমোজি
+          Expanded(
             child: ChatInputBar(
               controller: _messageController,
               onEmojiTap: () {
-                // ১. বর্তমান ইউজারের আইডি বের করা (যাতে myUid এরর না আসে)
+                // ১. বর্তমান ইউজারের আইডি বের করা
                 final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? "";
                 
                 // ২. ইউজার কোন সিটে আছে তা বের করা
                 int mySeatIndex = seats.indexWhere((s) => s != null && s['uid'] == currentUid);
 
-                // আপনার EmojiHandler ব্যবহার করে পিকার দেখানো
+                // EmojiHandler ব্যবহার করে পিকার দেখানো
                 EmojiHandler.showPicker(
                   context: context, 
                   seatIndex: mySeatIndex, 
@@ -928,12 +928,10 @@ Widget _buildSeatGridArea() {
                     // ৩. অ্যানিমেটেড ইমোজি সিটে দেখানোর লজিক
                     if (index != -1) {
                       setState(() { 
-                        // এখানে আপনার অ্যাপের অ্যানিমেটেড ইমোজি ভেরিয়েবলগুলো বসবে
-                        // উদাহরণস্বরূপ: currentAnimatedEmoji = url; 
-                        // এবং showEmojiAnimation = true;
+                        // অ্যানিমেটেড ইমোজি আপডেট (যদি ভেরিয়েবল থাকে)
                       });
                       
-                      // ডাটাবেসে আপডেট করুন যাতে অন্য ইউজাররাও আপনার সিটে ইমোজিটি দেখতে পায়
+                      // ডাটাবেসে আপডেট
                       FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
                         'lastEmoji': url,
                         'emojiIndex': index,
@@ -950,7 +948,7 @@ Widget _buildSeatGridArea() {
                 // সঠিক নাম নিশ্চিত করা
                 String finalName = msg['userName'] ?? user?.displayName ?? "User";
 
-                // ৪. মেসেজ ফায়ারবেসে পাঠানো (সবার জন্য লাইভ)
+                // ৪. মেসেজ ফায়ারবেসে পাঠানো
                 await FirebaseFirestore.instance
                     .collection('rooms')
                     .doc(widget.roomId)
@@ -966,131 +964,127 @@ Widget _buildSeatGridArea() {
                 // ৫. ইমোজি হলে সিটে এনিমেশন ট্রিগার করা
                 int senderSeat = seats.indexWhere((s) => s != null && s['uid'] == senderId);
                 if (senderSeat != -1) {
-                  // আপনার অ্যানিমেটেড ইমোজি দেখানোর কোড
+                  // এনিমেশন কোড এখানে থাকবে
                 }
               },
             ),
           ),
         
-        // ২. মাইক
-        IconButton(
-          constraints: const BoxConstraints(),
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          icon: Icon(
-            isMicOn ? Icons.mic : Icons.mic_off,
-            color: isMicOn ? Colors.greenAccent : Colors.redAccent,
-            size: 22,
-          ),
-          onPressed: () async {
-            if (currentSeatIndex != -1) {
-              bool newMicState = !isMicOn;
-              await _agoraManager.toggleMic(!newMicState);
-              await FirebaseDatabase.instance
-                  .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
-                  .update({'isMicOn': newMicState});
-              setState(() { isMicOn = newMicState; });
-            }
-          },
-        ),
-
-        // ৩. মিউজিক (ড্র্যাগেবল প্লেয়ার অন/অফ)
-        IconButton(
-          constraints: const BoxConstraints(),
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          icon: Icon(
-            Icons.music_note, 
-            color: isRoomMusicPlaying ? Colors.blueAccent : Colors.white70, 
-            size: 22
-          ),
-          onPressed: () => setState(() => isRoomMusicPlaying = !isRoomMusicPlaying),
-        ),
-
-        // ৪. গিফট বাটন (ইউজার প্রোফাইল থেকে ডায়মন্ড ব্যালেন্স সহ)
-         // ১. গিফট বাটন
-      IconButton(
-        constraints: const BoxConstraints(),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
-        onPressed: () async {
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(FirebaseAuth.instance.currentUser?.uid)
-              .get();
-          
-          int currentBalance = 0;
-          String senderName = "User"; 
-          
-          if (userDoc.exists && userDoc.data() != null) {
-            currentBalance = userDoc.data()!['diamonds'] ?? 0;
-            senderName = userDoc.data()!['name'] ?? "User"; 
-          }
-
-          if (!mounted) return;
-
-          showModalBottomSheet(
-            context: context,
-            backgroundColor: Colors.transparent,
-            isScrollControlled: true,
-            builder: (context) => GiftBottomSheet(
-              diamondBalance: currentBalance, 
-              currentSeats: List.from(seats), 
-              onGiftSend: (gift, count, target) async {
-                
-                setState(() {
-                  currentGiftImage = gift['icon'];
-                  isGiftAnimating = true;
-                  targetType = target; 
-                  currentSenderName = senderName; 
-                  currentReceiverName = target; 
-                });
-
-                try {
-                  bool isFree = gift['isFree'] ?? false;
-                  String receiverId = gift['targetId'] ?? ""; 
-                  int unitPrice = gift['price'] ?? 0;
-                  int totalAmount = unitPrice * count;
-
-                  if (receiverId.isNotEmpty) {
-                    await GiftTransactionHelper.processGiftTransaction(
-                      senderId: FirebaseAuth.instance.currentUser!.uid,
-                      receiverId: receiverId,
-                      totalPrice: totalAmount,
-                      isFree: isFree,
-                      giftName: gift['name'] ?? "Gift",
-                    );
-                  }
-                } catch (e) {
-                  debugPrint("Transaction Error: $e");
-                }
-
-                Timer(const Duration(seconds: 3), () {
-                  if (mounted) {
-                    setState(() {
-                      isGiftAnimating = false;
-                    });
-                  }
-                });
-              },
+          // ২. মাইক
+          IconButton(
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            icon: Icon(
+              isMicOn ? Icons.mic : Icons.mic_off,
+              color: isMicOn ? Colors.greenAccent : Colors.redAccent,
+              size: 22,
             ),
-          );
-        },
-      ),
+            onPressed: () async {
+              if (currentSeatIndex != -1) {
+                bool newMicState = !isMicOn;
+                await _agoraManager.toggleMic(!newMicState);
+                await FirebaseDatabase.instance
+                    .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
+                    .update({'isMicOn': newMicState});
+                setState(() { isMicOn = newMicState; });
+              }
+            },
+          ),
 
-       // ২. গেম বাটন
-      IconButton(
-        constraints: const BoxConstraints(),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        icon: const Icon(Icons.videogame_asset, color: Colors.orange, size: 22), 
-        onPressed: () => showModalBottomSheet(
-          context: context, 
-          builder: (c) => const GamePanelView(),
-        ),
-      ),
-    ],
+          // ৩. মিউজিক (ড্র্যাগেবল প্লেয়ার অন/অফ)
+          IconButton(
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            icon: Icon(
+              Icons.music_note, 
+              color: isRoomMusicPlaying ? Colors.blueAccent : Colors.white70, 
+              size: 22
+            ),
+            onPressed: () => setState(() => isRoomMusicPlaying = !isRoomMusicPlaying),
+          ),
+
+          // ৪. গিফট বাটন
+          IconButton(
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
+            onPressed: () async {
+              final userDoc = await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(FirebaseAuth.instance.currentUser?.uid)
+                  .get();
+              
+              int currentBalance = 0;
+              String senderName = "User"; 
+              
+              if (userDoc.exists && userDoc.data() != null) {
+                currentBalance = userDoc.data()!['diamonds'] ?? 0;
+                senderName = userDoc.data()!['name'] ?? "User"; 
+              }
+
+              if (!mounted) return;
+
+              showModalBottomSheet(
+                context: context,
+                backgroundColor: Colors.transparent,
+                isScrollControlled: true,
+                builder: (context) => GiftBottomSheet(
+                  diamondBalance: currentBalance, 
+                  currentSeats: List.from(seats), 
+                  onGiftSend: (gift, count, target) async {
+                    setState(() {
+                      currentGiftImage = gift['icon'];
+                      isGiftAnimating = true;
+                      targetType = target; 
+                      currentSenderName = senderName; 
+                      currentReceiverName = target; 
+                    });
+
+                    try {
+                      bool isFree = gift['isFree'] ?? false;
+                      String receiverId = gift['targetId'] ?? ""; 
+                      int unitPrice = gift['price'] ?? 0;
+                      int totalAmount = unitPrice * count;
+
+                      if (receiverId.isNotEmpty) {
+                        await GiftTransactionHelper.processGiftTransaction(
+                          senderId: FirebaseAuth.instance.currentUser!.uid,
+                          receiverId: receiverId,
+                          totalPrice: totalAmount,
+                          isFree: isFree,
+                          giftName: gift['name'] ?? "Gift",
+                        );
+                      }
+                    } catch (e) {
+                      debugPrint("Transaction Error: $e");
+                    }
+
+                    Timer(const Duration(seconds: 3), () {
+                      if (mounted) {
+                        setState(() { isGiftAnimating = false; });
+                      }
+                    });
+                  },
+                ),
+              );
+            },
+          ),
+
+          // ৫. গেম বাটন
+          IconButton(
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            icon: const Icon(Icons.videogame_asset, color: Colors.orange, size: 22), 
+            onPressed: () => showModalBottomSheet(
+              context: context, 
+              builder: (c) => const GamePanelView(),
+            ),
+          ),
+        ], // Row children closed
+      ), // Row closed
+    ); // Container closed
   }
-
-  // --- হেল্পার উইজেটস (ফাংশনগুলো ক্লাসের ভেতর থাকবে) ---
-
+  
   Widget _buildViewerArea() { 
     return Container(
       height: 50, 
