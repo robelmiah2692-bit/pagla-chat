@@ -1052,7 +1052,7 @@ Widget _buildSeatGridArea() {
               onGiftSend: (gift, count, target) async {
                 
                 // ভিডিও গিফট প্লে
-                if (gift['videoUrl'] != null && gift['videoUrl'] != "") {
+                //if (gift['videoUrl'] != null && gift['videoUrl'] != "") {
                    GiftVideoPlayer.show(context, gift['videoUrl']); 
                 }
 
