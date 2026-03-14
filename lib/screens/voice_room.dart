@@ -18,7 +18,6 @@ import '../services/room_service.dart';
 
 import 'package:pagla_chat/room_sync_service.dart';
 import 'package:pagla_chat/services/database_service.dart';
-import 'package:pagla_chat/widgets/live_viewers_list.dart';
 import 'package:pagla_chat/services/soulmate_animation_service.dart';
 import 'package:pagla_chat/services/agora_status_checker.dart';
 // --- নতুন আলাদা করা ফাইলগুলোর ইম্পোর্ট ---
@@ -1250,4 +1249,3 @@ Widget _buildSeatGridArea() {
           .delete();
     }
   }
-}
