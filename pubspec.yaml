@@ -14,6 +14,8 @@ dependencies:
   firebase_messaging: ^14.7.15 
   flutter_local_notifications: ^17.0.0
 
+  video_player: ^2.8.1  # এই লাইনটি যোগ করুন
+  
   # --- ভয়েস চ্যাট (Agora) ---
   agora_rtc_engine: ^6.3.2
   permission_handler: ^11.3.0
