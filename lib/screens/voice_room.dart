@@ -256,7 +256,7 @@ void initState() {
         roomProfileImage = doc.data()?['roomImage'] ?? roomProfileImage;
         followerCount = doc.data()?['followerCount'] ?? 0;
         isRoomLocked = doc.data()?['isLocked'] ?? false;
-        roomWallpaperPath = doc.data()?['wallpaper'] ?? '';
+        roomWallpaperPath = doc.data()?['roomWallpaper'] ?? doc.data()?['wallpaper'] ?? '';
       });
       
       _roomService.updateRoomFullData(
@@ -1139,7 +1139,7 @@ Widget _buildSeatGridArea() {
       isLocked: isRoomLocked,
       onToggleLock: () async {
         setState(() => isRoomLocked = !isRoomLocked);
-        // রুম লক ফিচার অক্ষুণ্ণ রাখা হলো
+        // ১. রুম লক আপডেট
         await FirebaseFirestore.instance
             .collection('rooms')
             .doc(widget.roomId)
@@ -1147,11 +1147,11 @@ Widget _buildSeatGridArea() {
       },
       onSetWallpaper: (path) async {
         try {
-          // ইউনিক নাম তৈরি
+          // ২. আপলোড লজিক (সব ফিচার অক্ষুণ্ণ রেখে)
           String fileName = 'wallpapers/${widget.roomId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
           var storageRef = FirebaseStorage.instance.ref().child(fileName);
 
-          // 🔥 এরর ফিক্স: ওয়েবের জন্য putData ব্যবহার করা হয়েছে যা নিরাপদ
+          // XFile দিয়ে বাইটস পড়া (Web এর জন্য নিরাপদ)
           final bytes = await XFile(path).readAsBytes();
           
           UploadTask uploadTask = storageRef.putData(
@@ -1159,21 +1159,22 @@ Widget _buildSeatGridArea() {
             SettableMetadata(contentType: 'image/jpeg'),
           );
 
-          // ডাউনলোড ইউআরএল সংগ্রহ
+          // ৩. স্থায়ী ডাউনলোড ইউআরএল নেওয়া
           var snapshot = await uploadTask;
           String downloadUrl = await snapshot.ref.getDownloadURL();
 
-          // ডাটাবেসে স্থায়ী লিঙ্ক সেভ
+          // ৪. ডাটাবেসে সেভ (এখানে roomWallpaper নাম ব্যবহার করা হয়েছে)
           await FirebaseFirestore.instance
               .collection('rooms')
               .doc(widget.roomId)
               .update({'roomWallpaper': downloadUrl});
 
+          // লোকাল স্টেট আপডেট যাতে সাথে সাথে দেখা যায়
           setState(() {
             roomWallpaperPath = downloadUrl;
           });
 
-          debugPrint("🖼️ স্থায়ী ওয়ালপেপার সেট হয়েছে!");
+          debugPrint("🖼️ Wallpaper Permanent Link Saved: $downloadUrl");
           
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -1184,10 +1185,10 @@ Widget _buildSeatGridArea() {
           debugPrint("Wallpaper Upload Error: $e");
         }
       },
-      onMinimize: () => Navigator.pop(context), // মিনিমাইজ ফিচার
+      onMinimize: () => Navigator.pop(context), // ৫. মিনিমাইজ ফিচার
       onClearChat: () async {
         try {
-          // চ্যাট ক্লিন ফিচার অক্ষুণ্ণ রাখা হলো
+          // ৬. চ্যাট ক্লিন লজিক
           final chatDocs = await FirebaseFirestore.instance
               .collection('rooms')
               .doc(widget.roomId)
@@ -1210,7 +1211,7 @@ Widget _buildSeatGridArea() {
         }
       },
       onLeave: () {
-        // এক্সিট বা লিভ ফিচার
+        // ৭. লিভ ফিচার
         _agoraManager.engine.leaveChannel();
         Navigator.pop(context);
       },
