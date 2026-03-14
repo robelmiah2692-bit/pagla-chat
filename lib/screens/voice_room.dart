@@ -1,3 +1,4 @@
+import 'package:pagla_chat/utils/gift_video_player.dart';
 import 'package:pagla_chat/room_follower_sheet.dart';
 import '../services/gift_transaction_helper.dart';
 import 'package:pagla_chat/inbox_page.dart'; // ফাইল পাথ অনুযায়ী এটি দিন
@@ -70,7 +71,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   });
 
   if (gift['videoUrl'] != null && gift['videoUrl'] != "") {
-    // সরাসরি ডায়ালগ ওপেন হবে
+    // ইমপোর্ট করার পর এখন এটি কাজ করবে
     GiftVideoPlayer.show(context, gift['videoUrl']); 
   } else {
     _startGiftAnimation(gift['icon']); 
