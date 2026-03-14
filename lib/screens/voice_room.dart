@@ -1089,7 +1089,7 @@ Widget _buildSeatGridArea() {
         },
       ),
 
-      // ২. গেম বাটন
+       // ২. গেম বাটন
       IconButton(
         constraints: const BoxConstraints(),
         padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1099,8 +1099,10 @@ Widget _buildSeatGridArea() {
           builder: (c) => const GamePanelView(),
         ),
       ),
+    ]; // <--- এখানে সেমিকোলনটি নিশ্চিত করুন যদি এটি কোনো লিস্টের ভেতর থাকে
+  }
 
-  // --- হেল্পার উইজেটস (ফাংশনগুলো সব সময় ক্লাসের ভেতর থাকবে) ---
+  // --- হেল্পার উইজেটস (ফাংশনগুলো ক্লাসের ভেতর থাকবে) ---
 
   Widget _buildViewerArea() { 
     return Container(
@@ -1135,11 +1137,11 @@ Widget _buildSeatGridArea() {
         text: TextSpan(
           children: [
             TextSpan(
-              text: "${msg['userName']}: ", 
+              text: "${msg['userName'] ?? 'User'}: ", 
               style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 13),
             ),
             TextSpan(
-              text: "${msg['text']}", 
+              text: "${msg['text'] ?? ''}", 
               style: const TextStyle(color: Colors.white, fontSize: 13),
             ),
           ],
@@ -1242,5 +1244,4 @@ Widget _buildSeatGridArea() {
           .delete();
     }
   }
-
-}
+} // <--- এই একটি ব্র্যাকেট দিয়ে ক্লাস শেষ করুন
