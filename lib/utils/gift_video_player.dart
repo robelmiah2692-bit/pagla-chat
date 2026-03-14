@@ -2,56 +2,72 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 class GiftVideoPlayer {
-  static void show(BuildContext context, String videoUrl) async {
+  static void show(BuildContext context, String videoUrl) {
     if (videoUrl.isEmpty) return;
 
-    // ১. কন্ট্রোলার সেটআপ
-    final VideoPlayerController controller = VideoPlayerController.networkUrl(
-      Uri.parse(videoUrl),
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    // আমরা একটি ডায়ালগ ব্যবহার করবো যাতে ভিডিওটা স্ক্রিনের সামনে আসে
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false, // ভিডিও শেষ না হওয়া পর্যন্ত বন্ধ হবে না
+      barrierColor: Colors.black.withOpacity(0.8), // ব্যাকগ্রাউন্ড অন্ধকার হবে
+      pageBuilder: (context, anim1, anim2) {
+        return _VideoPlayerContent(url: videoUrl);
+      },
     );
+  }
+}
 
-    try {
-      // ২. ভিডিও ইনিশিয়ালাইজেশন
-      await controller.initialize();
-      await controller.setVolume(1.0); // সাউন্ড ফুল করে দেওয়া
+class _VideoPlayerContent extends StatefulWidget {
+  final String url;
+  const _VideoPlayerContent({required this.url});
 
-      final OverlayState? overlayState = Overlay.of(context);
-      if (overlayState == null) return;
+  @override
+  State<_VideoPlayerContent> createState() => _VideoPlayerContentState();
+}
 
-      late OverlayEntry overlayEntry;
+class _VideoPlayerContentState extends State<_VideoPlayerContent> {
+  late VideoPlayerController _controller;
+  bool _isReady = false;
 
-      overlayEntry = OverlayEntry(
-        builder: (context) => Material(
-          color: Colors.black45, // হালকা কালো পর্দা যাতে ভিডিও পরিষ্কার দেখা যায়
-          child: Center(
-            child: SizedBox(
-              width: MediaQuery.of(context).size.width * 0.9,
-              height: MediaQuery.of(context).size.height * 0.7,
-              child: AspectRatio(
-                aspectRatio: controller.value.aspectRatio,
-                child: VideoPlayer(controller),
-              ),
-            ),
-          ),
-        ),
-      );
-
-      // ৩. স্ক্রিনে দেখানো এবং প্লে করা
-      overlayState.insert(overlayEntry);
-      await controller.play();
-
-      // ৪. ভিডিও শেষ হওয়ার পর অটো রিমুভ
-      controller.addListener(() {
-        if (controller.value.position >= controller.value.duration) {
-          controller.dispose();
-          if (overlayEntry.mounted) {
-            overlayEntry.remove();
-          }
-        }
+  @override
+  void initState() {
+    super.initState();
+    // networkUrl ব্যবহার করা হচ্ছে
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
+      ..initialize().then((_) {
+        setState(() {
+          _isReady = true;
+        });
+        _controller.play(); // অটো প্লে শুরু হবে
+        _controller.setVolume(1.0);
       });
-    } catch (error) {
-      print("ভিডিও লোডিং এরর: $error");
-    }
+
+    // ভিডিও শেষ হলে ডায়ালগটি অটো বন্ধ করে দেবে
+    _controller.addListener(() {
+      if (_controller.value.position >= _controller.value.duration) {
+        if (mounted) Navigator.pop(context);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Center(
+        child: _isReady
+            ? AspectRatio(
+                aspectRatio: _controller.value.aspectRatio,
+                child: VideoPlayer(_controller),
+              )
+            : const CircularProgressIndicator(color: Colors.pinkAccent), // ভিডিও লোড হওয়ার সময় গোল চাকা ঘুরবে
+      ),
+    );
   }
 }
