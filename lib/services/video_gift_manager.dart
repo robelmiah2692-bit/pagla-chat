@@ -4,11 +4,14 @@ import 'dart:async';
 
 class VideoGiftManager {
   static void playGift(BuildContext context, String videoUrl) {
-    OverlayState? overlayState = Overlay.of(context);
+    // ১. এখানে OverlayState? এর বদলে নাল হবে না এমনভাবে ডিফাইন করা ভালো
+    final OverlayState overlayState = Overlay.of(context);
     late OverlayEntry overlayEntry;
     
-    // ১. গিটহাবের জন্য সরাসরি network ব্যবহার করা ভালো
-    VideoPlayerController controller = VideoPlayerController.network(videoUrl);
+    // ভিডিও ইউআরএল চেক
+    if (videoUrl.isEmpty) return;
+
+    VideoPlayerController controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
 
     controller.initialize().then((_) {
       overlayEntry = OverlayEntry(
@@ -25,12 +28,11 @@ class VideoGiftManager {
         ),
       );
 
-      // ২. স্ক্রিনে ভিডিওটি দেখাও
-      overlayState?.insert(overlayEntry);
+      // ২. এখানে পরিবর্তন: প্রশ্নবোধক চিহ্ন (?) সরিয়ে দেওয়া হয়েছে
+      overlayState.insert(overlayEntry); 
       controller.play();
 
-      // ৩. ভিডিও শেষ হলে অটোমেটিক বন্ধ হবে
-      // আমরা ভিডিওর আসল ডিউরেশন শেষ হওয়া পর্যন্ত অপেক্ষা করবো
+      // ৩. ভিডিও শেষ হলে রিমুভ করা
       Future.delayed(controller.value.duration, () {
         if (overlayEntry.mounted) {
           controller.dispose();
