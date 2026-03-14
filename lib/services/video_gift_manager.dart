@@ -6,20 +6,17 @@ class VideoGiftManager {
   static void playGift(BuildContext context, String videoUrl) {
     if (videoUrl.isEmpty) return;
 
-    // ১. নাল চেকসহ ওভারলে স্টেট নেওয়া
-    final OverlayState? overlayState = Overlay.of(context);
-    if (overlayState == null) return;
-
+    final overlayState = Overlay.of(context);
     late OverlayEntry overlayEntry;
     
-    // ২. networkUrl ব্যবহার করা (Uri.parse সহ)
+    // networkUrl এবং Uri.parse ব্যবহার করা হয়েছে
     VideoPlayerController controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
 
     controller.initialize().then((_) {
       overlayEntry = OverlayEntry(
-        builder: (context) => Scaffold(
-          backgroundColor: Colors.transparent,
-          body: Center(
+        builder: (context) => Material(
+          color: Colors.transparent,
+          child: Center(
             child: IgnorePointer(
               child: AspectRatio(
                 aspectRatio: controller.value.aspectRatio,
@@ -30,7 +27,6 @@ class VideoGiftManager {
         ),
       );
 
-      // ৩. এখানে কম্পাইলারকে নিশ্চিত করা হচ্ছে overlayState নাল না
       overlayState.insert(overlayEntry);
       controller.play();
 
@@ -41,7 +37,7 @@ class VideoGiftManager {
         }
       });
     }).catchError((error) {
-      debugPrint("ভিডিও লোড হতে সমস্যা: $error");
+      debugPrint("Video Error: $error");
     });
   }
 }
