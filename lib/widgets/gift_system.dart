@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:pagla_chat/services/database_service.dart';
 import 'package:pagla_chat/services/gift_logic_helper.dart';
 // এটি আপনার ভিডিও প্লে করার ইঞ্জিন (যে ফাইলটি আমরা মাস্টার ফাইল হিসেবে বানালাম)
-import 'package:pagla_chat/utils/gift_video_player.dart'; // আপনার ফাইলের সঠিক পাথ অনুযায়ী
 
 // ডাটা ফাইল ইমপোর্ট
 import 'package:pagla_chat/data/free_gifts.dart';
@@ -253,19 +252,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       'targetId': selectedTargetId,
     }, selectedCount, targetType);
 
-     void sendGift(Map gift) {
-  // ১. সরাসরি গিফট ডাটা থেকে ভিডিও লিঙ্কটা নিন
-  String? githubLink = gift['videoUrl']; 
-
-  // ২. চেক করুন লিঙ্কটি খালি কি না
-  if (githubLink != null && githubLink.isNotEmpty) {
-    // ৩. ভিডিও প্লেয়ারকে কল করুন
-    GiftVideoPlayer.show(context, githubLink);
-  } else {
-    // যদি ভিডিও না থাকে (যেমন রিং বা ডিনার), তবে এখানে সাধারণ গিফট অ্যানিমেশন হবে
-    print("এই গিফটে কোনো ভিডিও নেই!");
-  }
-}
     // ৫. ফ্রি গিফট হলে রিমুভ করা
     if (isFree) {
       setState(() {
