@@ -65,17 +65,14 @@ class _VoiceRoomState extends State<VoiceRoom> {
  final AgoraManager _agoraManager = AgoraManager();
 
   void sendGift(Map gift, String senderName) {
-  // ১. সেন্ডারের নাম সেভ করা (ইমেজ গিফটের ডায়ালগের জন্য)
   setState(() {
     lastGiftSenderName = senderName; 
   });
 
-  // ২. ভিডিও গিফট নাকি ইমেজ গিফট চেক করা
   if (gift['videoUrl'] != null && gift['videoUrl'] != "") {
-    // আপনার তৈরি করা ফাইলের সঠিক কল (এটি স্ট্যাটিক মেথড)
+    // সরাসরি ডায়ালগ ওপেন হবে
     GiftVideoPlayer.show(context, gift['videoUrl']); 
   } else {
-    // ইমেজ গিফট হলে আগের এনিমেশন
     _startGiftAnimation(gift['icon']); 
   }
 }
@@ -97,7 +94,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
   bool isPKActive = false; 
   late VSPKManager pkManager;
   int pkSeconds = 300; 
-  String currentVideoUrl = ""; // ভিডিওর লিঙ্ক রাখার জন্য
   String lastGiftSenderName = ""; // যে গিফট পাঠিয়েছে তার নাম রাখার জন্য
   
   bool isRoomMusicPlaying = false; 
