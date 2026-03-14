@@ -65,19 +65,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
  final DatabaseService _dbService = DatabaseService();
  final AgoraManager _agoraManager = AgoraManager();
 
-  void sendGift(Map gift, String senderName) {
-  setState(() {
-    lastGiftSenderName = senderName; 
-  });
-
-  if (gift['videoUrl'] != null && gift['videoUrl'] != "") {
-    // ইমপোর্ট করার পর এখন এটি কাজ করবে
-    GiftVideoPlayer.show(context, gift['videoUrl']); 
-  } else {
-    _startGiftAnimation(gift['icon']); 
-  }
-}
-  
   String userProfilePic = ""; // এটি আপনার নিজের প্রোফাইল ছবি রাখার জন্য
   // --- সব ভেরিয়েবল ---
   String myPersonalAvatar = ""; // এটি ইউজারের নিজের প্রোফাইল ছবি
@@ -1032,7 +1019,7 @@ Widget _buildSeatGridArea() {
         ),
 
         // ৪. গিফট বাটন (ইউজার প্রোফাইল থেকে ডায়মন্ড ব্যালেন্স সহ)
-          IconButton(
+IconButton(
   constraints: const BoxConstraints(),
   padding: const EdgeInsets.symmetric(horizontal: 4),
   icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
@@ -1061,7 +1048,13 @@ Widget _buildSeatGridArea() {
         diamondBalance: currentBalance, 
         currentSeats: List.from(seats), 
         onGiftSend: (gift, count, target) async {
-          // ২. UI অ্যানিমেশন দেখানো শুরু
+          
+          // 🔥 নতুন: ভিডিও গিফট থাকলে সেটি আগে প্লে হবে
+          if (gift['videoUrl'] != null && gift['videoUrl'] != "") {
+             GiftVideoPlayer.show(context, gift['videoUrl']); 
+          }
+
+          // ২. UI অ্যানিমেশন (ইমেজ গিফটের জন্য)
           setState(() {
             currentGiftImage = gift['icon'];
             isGiftAnimating = true;
@@ -1070,7 +1063,7 @@ Widget _buildSeatGridArea() {
             currentReceiverName = target; 
           });
 
-          // ৩. ডাটাবেসে লেনদেনের লজিক (সংশোধিত)
+          // ৩. ডাটাবেসে লেনদেনের লজিক
           try {
             bool isFree = gift['isFree'] ?? false;
             String receiverId = gift['targetId'] ?? ""; 
@@ -1078,8 +1071,6 @@ Widget _buildSeatGridArea() {
             int totalAmount = unitPrice * count;
 
             if (receiverId.isNotEmpty) {
-              // আমরা সরাসরি সার্ভিস কল করছি, split হিসাব এখানে করার দরকার নেই
-              // কারণ GiftTransactionHelper নিজেই সেটা করে নেবে।
               await GiftTransactionHelper.processGiftTransaction(
                 senderId: FirebaseAuth.instance.currentUser!.uid,
                 receiverId: receiverId,
@@ -1092,7 +1083,7 @@ Widget _buildSeatGridArea() {
             debugPrint("Transaction Error: $e");
           }
 
-          // ৪. ৩ সেকেন্ড পর অ্যানিমেশন বন্ধ করা
+          // ৪. ৩ সেকেন্ড পর ইমেজ অ্যানিমেশন বন্ধ করা
           Timer(const Duration(seconds: 3), () {
             if (mounted) {
               setState(() {
@@ -1105,21 +1096,17 @@ Widget _buildSeatGridArea() {
     );
   },
 ),
-        
-        // ৫. গেম বাটন
-        IconButton(
-          constraints: const BoxConstraints(),
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          icon: const Icon(Icons.videogame_asset, color: Colors.orange, size: 22), 
-          onPressed: () => showModalBottomSheet(
-            context: context, 
-            builder: (c) => const GamePanelView()
-          ),
-        ),
-      ],
-    ),
-  );
-}
+
+// ৫. গেম বাটন
+IconButton(
+  constraints: const BoxConstraints(),
+  padding: const EdgeInsets.symmetric(horizontal: 4),
+  icon: const Icon(Icons.videogame_asset, color: Colors.orange, size: 22), 
+  onPressed: () => showModalBottomSheet(
+    context: context, 
+    builder: (c) => const GamePanelView()
+  ),
+),
 
   Widget _buildViewerArea() { 
   return Container(
