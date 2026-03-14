@@ -1131,25 +1131,57 @@ Widget _buildSeatGridArea() {
     ); 
   }
 
-  void _showSettings() {
+void _showSettings() {
     RoomSettingsHandler.showSettings(
       context: context,
       isLocked: isRoomLocked,
-      onToggleLock: () => setState(() => isRoomLocked = !isRoomLocked),
-      onSetWallpaper: (p) => setState(() => roomWallpaperPath = p),
-      onMinimize: () => Navigator.pop(context),
-      onClearChat: () async {
+      onToggleLock: () async {
+        setState(() => isRoomLocked = !isRoomLocked);
+        // ডাটাবেসে রুম লক স্ট্যাটাস আপডেট
         await FirebaseFirestore.instance
             .collection('rooms')
             .doc(widget.roomId)
-            .collection('chats')
-            .get()
-            .then((snapshot) {
-              for (DocumentSnapshot ds in snapshot.docs) {
-                ds.reference.delete();
-              }
-            });
-        debugPrint("🧹 চ্যাট পরিষ্কার করা হয়েছে!");
+            .update({'isLocked': isRoomLocked});
+      },
+      onSetWallpaper: (path) async {
+        // ১. লোকাল স্ক্রিন আপডেট
+        setState(() => roomWallpaperPath = path);
+        
+        // ২. ডাটাবেসে ওয়ালপেপার পাথ সেভ করা (যাতে বের হয়ে ঢুকলেও থাকে)
+        try {
+          await FirebaseFirestore.instance
+              .collection('rooms')
+              .doc(widget.roomId)
+              .update({'roomWallpaper': path});
+          debugPrint("🖼️ ওয়ালপেপার ডাটাবেসে সেভ হয়েছে!");
+        } catch (e) {
+          debugPrint("Wallpaper update error: $e");
+        }
+      },
+      onMinimize: () => Navigator.pop(context),
+      onClearChat: () async {
+        try {
+          // চ্যাট ক্লিন লজিক (messages কালেকশন ব্যবহার করা হয়েছে)
+          final chatDocs = await FirebaseFirestore.instance
+              .collection('rooms')
+              .doc(widget.roomId)
+              .collection('messages') 
+              .get();
+
+          for (var ds in chatDocs.docs) {
+            await ds.reference.delete();
+          }
+          
+          debugPrint("🧹 চ্যাট পরিষ্কার করা হয়েছে!");
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Chat cleared successfully!")),
+            );
+          }
+        } catch (e) {
+          debugPrint("Error clearing chat: $e");
+        }
       },
       onLeave: () {
         _agoraManager.engine.leaveChannel();
