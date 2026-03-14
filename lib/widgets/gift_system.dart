@@ -255,15 +255,17 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     }, selectedCount, targetType);
 
      void sendGift(Map gift) {
-    // ১. গিফটের দাম নেওয়া হচ্ছে (যেমন: ৯৯৭৮)
-    int price = gift['price']; 
-  
-    // ২. আপনার গিটহাবের ডিরেক্ট (Raw) লিঙ্ক
-    String githubLink = "https://raw.githubusercontent.com/robelmiah2692-bit/pagla-chat/main/assets/videos/$price.mp4";
+  // ১. সরাসরি গিফট ডাটা থেকে ভিডিও লিঙ্কটা নিন
+  String? githubLink = gift['videoUrl']; 
 
-  // ৩. নতুন প্লেয়ার ব্যবহার করে ভিডিও প্লে করা হচ্ছে
-  // এখানে VideoGiftManager এর বদলে GiftVideoPlayer.show ব্যবহার হবে
-  GiftVideoPlayer.show(context, githubLink);
+  // ২. চেক করুন লিঙ্কটি খালি কি না
+  if (githubLink != null && githubLink.isNotEmpty) {
+    // ৩. ভিডিও প্লেয়ারকে কল করুন
+    GiftVideoPlayer.show(context, githubLink);
+  } else {
+    // যদি ভিডিও না থাকে (যেমন রিং বা ডিনার), তবে এখানে সাধারণ গিফট অ্যানিমেশন হবে
+    print("এই গিফটে কোনো ভিডিও নেই!");
+  }
 }
     // ৫. ফ্রি গিফট হলে রিমুভ করা
     if (isFree) {
