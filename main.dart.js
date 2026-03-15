@@ -104114,7 +104114,7 @@ return A.m(A.b9(o,o.gaH().aw("rooms")).aK(m.a.c).aw("seats").EH(0,"userId",l).eN
 case 6:o=a0.gej(),j=o.length,i=t.N,h=t.z,g=0
 case 7:if(!(g<o.length)){s=9
 break}f=o[g].ga1J()
-e=A.U(["isOccupied",!1,"userId","","name","","profilePic","","status","empty","isMicOn",!1],i,h)
+e=A.U(["isOccupied",!1,"userId","","name","","profilePic","","status","empty","isMicOn",!1,"isTalking",!1,"userFrame",""],i,h)
 d=A.uM(!0)
 e=A.l1(e)
 e.toString
@@ -104145,7 +104145,7 @@ if(f==null)f="User"
 e=c.h(0,"profilePic")
 if(e==null)e=""
 d=c.h(0,"userFrame")
-i=A.U(["isOccupied",!0,"userId",l,"name",f,"profilePic",e,"userFrame",d==null?"":d,"status","calling","isMicOn",!0],i,h)
+i=A.U(["isOccupied",!0,"userId",l,"name",f,"profilePic",e,"userFrame",d==null?"":d,"status","calling","isMicOn",!0,"isTalking",!1],i,h)
 h=A.uM(!0)
 i=A.l1(i)
 i.toString
