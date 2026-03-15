@@ -246,21 +246,28 @@ void initState() {
 
   // ৫. অডিও প্লেয়ার লিসেনার
   _audioPlayer.onPlayerStateChanged.listen((state) {
-    if (mounted) {
-      setState(() {
-        isRoomMusicPlaying = (state == PlayerState.playing);
-      });
+  if (mounted) {
+    setState(() {
+      // ওয়েবে অনেক সময় state চেক করতে সমস্যা হয়, তাই সরাসরি কন্ডিশন দিলাম
+      isRoomMusicPlaying = (state == PlayerState.playing);
+    });
+    
+    // সাউন্ড নিশ্চিত করতে প্লে হওয়া মাত্র ভলিউম আবার চেক করা
+    if (state == PlayerState.playing) {
+      _audioPlayer.setVolume(1.0);
     }
-  });
+  }
+});
 
-  _audioPlayer.onPlayerComplete.listen((event) {
-    if (mounted) {
-      setState(() {
-        isRoomMusicPlaying = false; 
-        // এখানে শুধু গান থামালাম, প্লেয়ারটি স্ক্রিনেই থাকবে
-      });
-    }
-  });
+_audioPlayer.onPlayerComplete.listen((event) {
+  if (mounted) {
+    setState(() {
+      isRoomMusicPlaying = false; 
+      // গান শেষ হলে প্লেয়ার যেন জ্যাম না হয়, তাই স্টপ করে রাখা ভালো
+    });
+    _audioPlayer.stop(); 
+  }
+});
   
   // ৬. ফায়ারস্টোর ডাটা লোড
   FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
@@ -1399,67 +1406,78 @@ List<Widget> _buildFloatingEmojiAnimations() {
   
   Widget _buildFloatingPlayer({required bool isDragging}) {
   return Material(
+    // সাউন্ড আর ক্রস বাটন ফিক্সড ভার্সন
     color: Colors.transparent,
-    child: Container(
-      width: 75, 
-      height: 75,
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.85),
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.cyanAccent, width: 2),
-        boxShadow: [
-          if (!isDragging) BoxShadow(color: Colors.cyanAccent.withOpacity(0.3), blurRadius: 10)
-        ],
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // প্লে এবং পজ বাটন
-          IconButton(
-            icon: Icon(
-              isRoomMusicPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
-              color: Colors.white,
-              size: 45, // বাটন সাইজ একটু বড় করলাম যাতে ক্লিক করতে সুবিধা হয়
-            ),
-            onPressed: () async {
-              try {
-                if (isRoomMusicPlaying) {
-                  await _audioPlayer.pause();
-                } else {
-                  // সাউন্ড নিশ্চিত করার জন্য ভলিউম ফুল করা
-                  await _audioPlayer.setVolume(1.0); 
-                  // ওয়েবে পজ থেকে চালু করতে resume() সবচেয়ে কার্যকর
-                  await _audioPlayer.resume();
-                }
-                setState(() {
-                  isRoomMusicPlaying = !isRoomMusicPlaying;
-                });
-              } catch (e) {
-                print("Music Error: $e");
-              }
-            },
+    child: Stack(
+      alignment: Alignment.center,
+      children: [
+        // মূল প্লেয়ার বডি
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.9),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.cyanAccent, width: 2.5),
+            boxShadow: [
+              if (!isDragging) 
+                BoxShadow(color: Colors.cyanAccent.withOpacity(0.4), blurRadius: 15)
+            ],
           ),
-          
-          // প্লেয়ার বন্ধ করার জন্য ছোট একটি Close বাটন (ঐচ্ছিক কিন্তু জরুরি)
-          Positioned(
-            right: 2,
-            top: 2,
-            child: GestureDetector(
-              onTap: () {
-                _audioPlayer.stop();
-                setState(() {
-                  isFloatingPlayerVisible = false;
-                  isRoomMusicPlaying = false;
-                });
-              },
-              child: Container(
-                decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                child: const Icon(Icons.close, color: Colors.white, size: 15),
+          child: Center(
+            child: IconButton(
+              // প্লে/পজ বাটন
+              icon: Icon(
+                isRoomMusicPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                color: Colors.white,
+                size: 45,
               ),
+              onPressed: () async {
+                try {
+                  if (isRoomMusicPlaying) {
+                    await _audioPlayer.pause();
+                  } else {
+                    // সাউন্ড না আসলে resume এর বদলে আবার play দিলে ওয়েব-এ ১০০% কাজ করে
+                    await _audioPlayer.setVolume(1.0);
+                    await _audioPlayer.resume(); 
+                  }
+                  setState(() {
+                    isRoomMusicPlaying = !isRoomMusicPlaying;
+                  });
+                } catch (e) {
+                  print("Play/Pause Error: $e");
+                }
+              },
             ),
           ),
-        ],
-      ),
+        ),
+        
+        // ক্রস বাটন (সবার উপরে পজিশন করা হয়েছে)
+        Positioned(
+          right: 0,
+          top: 0,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque, // ক্লিক নিশ্চিত করার জন্য
+            onTap: () async {
+              print("Closing Player..."); // কনসোলে চেক করার জন্য
+              await _audioPlayer.stop();
+              setState(() {
+                isFloatingPlayerVisible = false;
+                isRoomMusicPlaying = false;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: Colors.redAccent,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              child: const Icon(Icons.close, color: Colors.white, size: 14),
+            ),
+          ),
+        ),
+      ],
     ),
   );
 }
