@@ -830,7 +830,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
       }
 
       return GridView.builder(
-        shrinkWrap: true, // এটি ১০টা সিট দেখানোর সমস্যার সমাধান করবে
+        shrinkWrap: true, 
         physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -843,30 +843,41 @@ List<Widget> _buildFloatingEmojiAnimations() {
           bool isOccupied = dbSeat != null ? (dbSeat['isOccupied'] ?? false) : false;
           String uName = dbSeat != null ? (dbSeat['userName'] ?? "") : "";
           String uImage = dbSeat != null ? (dbSeat['userImage'] ?? "") : "";
-          String uFrame = dbSeat != null ? (dbSeat['userFrame'] ?? "") : ""; // ফ্রেম লজিক
+          String uFrame = dbSeat != null ? (dbSeat['userFrame'] ?? "") : ""; 
           bool isMicOnLocal = dbSeat != null ? (dbSeat['isMicOn'] ?? false) : false;
           String status = dbSeat != null ? (dbSeat['status'] ?? "empty") : "empty";
           bool isTalking = dbSeat != null ? (dbSeat['isTalking'] ?? false) : false;
           
-          bool isVipSeat = index < 5; // প্রথম ৫টি সিট VIP
+          bool isVipSeat = index < 5; 
           bool hasSoulmate = dbSeat != null && (dbSeat['soulmateId'] != null); 
 
           return GestureDetector(
             onTap: () async {
-              // --- VIP বসার লজিক শুরু ---
+              // ১. আগে চেক করবে সিটটি খালি কি না
+              if (isOccupied) {
+                print("Seat already taken");
+                return;
+              }
+
+              // ২. ভিআইপি সিট চেক (০-৪ ইনডেক্স)
               if (isVipSeat) {
                 final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? "";
-                DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUid).get();
+                DocumentSnapshot userDoc = await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(currentUid)
+                    .get();
+                
                 bool isUserVip = (userDoc.data() as Map<String, dynamic>?)?['isVip'] ?? false;
 
                 if (!isUserVip) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("এই রাজকীয় সিটটি শুধুমাত্র VIP মেম্বারদের জন্য!")),
                   );
-                  return; // বসতে দেবে না
+                  return; 
                 }
               }
-              // --- VIP বসার লজিক শেষ ---
+
+              // ৩. সিট খালি থাকলে এবং শর্ত পূরণ করলে কলিং শুরু হবে ও ইউজার বসবে
               sitOnSeat(index);
             },
             child: Column(
@@ -876,7 +887,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      // ১. সিটের মেইন বর্ডার কালার (কালো বাদ দিয়ে ব্লু বা গোল্ডেন)
+                      // মেইন সিট ডিজাইন (Cyan/Amber)
                       Container(
                         width: 50,
                         height: 50,
@@ -893,28 +904,32 @@ List<Widget> _buildFloatingEmojiAnimations() {
                           backgroundColor: isVipSeat ? Colors.amber.withOpacity(0.1) : Colors.white10,
                           backgroundImage: (isOccupied && uImage.isNotEmpty) ? NetworkImage(uImage) : null,
                           child: status == "calling"
-                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                              : (isOccupied ? null : Icon(isVipSeat ? Icons.workspace_premium : Icons.chair, 
+                              ? const SizedBox(
+                                  width: 18, height: 18, 
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
+                                )
+                              : (isOccupied ? null : Icon(
+                                  isVipSeat ? Icons.workspace_premium : Icons.chair, 
                                   color: isVipSeat ? Colors.amber : Colors.white24, size: 20)),
                         ),
                       ),
 
-                      // ২. প্রোফাইল ফ্রেম (সবার উপরে বসবে)
+                      // প্রোফাইল ফ্রেম
                       if (isOccupied && uFrame.isNotEmpty)
                         SizedBox(
-                          width: 60, // ফ্রেম একটু বড় হবে
+                          width: 60,
                           height: 60,
                           child: Image.network(uFrame, fit: BoxFit.contain),
                         ),
 
-                      // ৩. সোলমেট হার্ট
+                      // সোলমেট হার্ট
                       if (isOccupied && hasSoulmate)
                         Positioned(
                           top: -2,
                           child: Icon(Icons.favorite, color: Colors.pinkAccent, size: 14),
                         ),
 
-                      // ৪. মাইক আইকন
+                      // মাইক আইকন
                       if (isOccupied && isMicOnLocal)
                         Positioned(
                           bottom: 0, right: 2,
