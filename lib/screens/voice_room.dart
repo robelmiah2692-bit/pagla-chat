@@ -451,19 +451,21 @@ Widget build(BuildContext context) {
     resizeToAvoidBottomInset: true, 
     body: Stack(
       children: [
-        // ১. ওয়ালপেপার ফিচার (পুরো স্ক্রিন জুড়ে ব্যাকগ্রাউন্ড হিসেবে থাকবে)
+        // ১. ছবি অনুযায়ী পুরো বডিতে একই ব্যাকগ্রাউন্ড বা ওয়ালপেপার (min-height: 100vh লজিক)
         if (roomWallpaperPath.isNotEmpty)
           Positioned.fill(
-            child: Image.network(roomWallpaperPath, fit: BoxFit.cover),
+            child: Image.network(
+              roomWallpaperPath, 
+              fit: BoxFit.cover, // ছবি অনুযায়ী background-size: cover
+            ),
           ),
         
-        // মেইন কন্টেন্ট লেআউট (সবকিছু এক পার্টে ওয়ালপেপারের ওপর থাকবে)
+        // ২. মেইন কন্টেন্ট যা ওয়ালপেপারের ওপর ভাসবে
         Column(
           children: [
             const SizedBox(height: 40),
             _buildTopNavBar(), 
             
-            // ২. পিকে ব্যাটল (যদি একটিভ থাকে)
             if (isPKActive)
               PKBattleView(
                 bluePoints: blueTeamPoints, 
@@ -475,14 +477,17 @@ Widget build(BuildContext context) {
             _buildViewerArea(), 
             _buildSeatGridArea(), 
 
-            // ৩. চ্যাট লিস্ট (এটি সিটের নিচেই স্বচ্ছভাবে থাকবে)
+            // ৩. সমাধান: চ্যাট বক্সকে পুরোপুরি স্বচ্ছ (Transparent) করা
             const SizedBox(height: 10), 
             SizedBox(
               height: 180, 
               width: double.infinity,
               child: Container(
                 margin: const EdgeInsets.only(left: 10, right: 90),
-                color: Colors.transparent, // স্বচ্ছ করা হয়েছে যাতে ওয়ালপেপার দেখা যায়
+                // ছবির ৩ নম্বর পয়েন্ট অনুযায়ী ব্যাকগ্রাউন্ড স্বচ্ছ করা হলো
+                decoration: const BoxDecoration(
+                  color: Colors.transparent, 
+                ),
                 child: StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('rooms')
@@ -494,7 +499,6 @@ Widget build(BuildContext context) {
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const SizedBox();
                     var docs = snapshot.data!.docs;
-
                     return ListView.builder(
                       reverse: true,
                       padding: EdgeInsets.zero,
@@ -516,10 +520,10 @@ Widget build(BuildContext context) {
               ),
             ),
 
-            // ৪. এটি সব ফিচারকে ওয়ালপেপারের ওপর উপরের দিকে ঠেলে রাখবে
-            const Spacer(), 
+            // ৪. এটি নিচের কালো ঘরকে নিচে রাখবে কিন্তু আলাদা ব্যাকগ্রাউন্ড দেবে না
+            const Expanded(child: SizedBox.shrink()), 
 
-            // ৫. টাইপিং বার এবং নিচের আইকনগুলো (এটি ওয়ালপেপারের ওপরেই থাকবে)
+            // ৫. টাইপিং বার এবং আইকন (এটিও এখন স্বচ্ছ স্ক্রিনের অংশ)
             _buildBottomActionArea(),
           ],
         ),
