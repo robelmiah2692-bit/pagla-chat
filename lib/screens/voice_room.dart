@@ -1401,8 +1401,8 @@ List<Widget> _buildFloatingEmojiAnimations() {
   return Material(
     color: Colors.transparent,
     child: Container(
-      width: 70, // আকার একটু বাড়ানো হলো যাতে বাটনগুলো ধরে
-      height: 70,
+      width: 75, 
+      height: 75,
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.85),
         shape: BoxShape.circle,
@@ -1414,41 +1414,47 @@ List<Widget> _buildFloatingEmojiAnimations() {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // মাঝখানে প্লে/পজ বাটন
+          // প্লে এবং পজ বাটন
           IconButton(
             icon: Icon(
               isRoomMusicPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
               color: Colors.white,
-              size: 35,
+              size: 45, // বাটন সাইজ একটু বড় করলাম যাতে ক্লিক করতে সুবিধা হয়
             ),
             onPressed: () async {
-              if (isRoomMusicPlaying) {
-                await _audioPlayer.pause();
-              } else {
-                await _audioPlayer.resume();
+              try {
+                if (isRoomMusicPlaying) {
+                  await _audioPlayer.pause();
+                } else {
+                  // সাউন্ড নিশ্চিত করার জন্য ভলিউম ফুল করা
+                  await _audioPlayer.setVolume(1.0); 
+                  // ওয়েবে পজ থেকে চালু করতে resume() সবচেয়ে কার্যকর
+                  await _audioPlayer.resume();
+                }
+                setState(() {
+                  isRoomMusicPlaying = !isRoomMusicPlaying;
+                });
+              } catch (e) {
+                print("Music Error: $e");
               }
-              setState(() {
-                isRoomMusicPlaying = !isRoomMusicPlaying;
-              });
             },
           ),
           
-          // কোনায় ক্রস বাটন (প্লেয়ার পুরোপুরি বন্ধের জন্য)
+          // প্লেয়ার বন্ধ করার জন্য ছোট একটি Close বাটন (ঐচ্ছিক কিন্তু জরুরি)
           Positioned(
-            right: 0,
-            top: 0,
+            right: 2,
+            top: 2,
             child: GestureDetector(
               onTap: () {
                 _audioPlayer.stop();
                 setState(() {
+                  isFloatingPlayerVisible = false;
                   isRoomMusicPlaying = false;
-                  isFloatingPlayerVisible = false; // এটি প্লেয়ারকে হাইড করবে
                 });
               },
-              child: const CircleAvatar(
-                radius: 12,
-                backgroundColor: Colors.redAccent,
-                child: Icon(Icons.close, size: 12, color: Colors.white),
+              child: Container(
+                decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                child: const Icon(Icons.close, color: Colors.white, size: 15),
               ),
             ),
           ),
