@@ -554,7 +554,7 @@ Widget build(BuildContext context) {
           receiverName: targetType, 
         ),
 
-        // ৮. গ্লোবাল গিফট লিসেনার (এটি আড়ালে থেকে অন্য সবার গিফট চেক করবে)
+        // ৮. গ্লোবাল গিফট লিসেনার (ফিক্সড কোড)
         StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
               .collection('rooms')
@@ -567,18 +567,16 @@ Widget build(BuildContext context) {
             if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
               var data = snapshot.data!.docs.first.data() as Map<String, dynamic>;
               
-              // এনিমেশন ডাটা রিয়েল টাইমে পাওয়া মাত্রই আপডেট হবে
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                // কন্ডিশন: যদি আমি নিজে সেন্ডার না হই এবং এনিমেশন এখন বন্ধ থাকে
-                if (mounted && !isGiftAnimating && data['senderName'] != senderName) {
+                // লজিক: যদি গিফটটি অন্য কেউ পাঠায় এবং এখন এনিমেশন না চলে
+                if (mounted && !isGiftAnimating && data['senderName'] != currentSenderName) {
                   setState(() {
                     currentGiftImage = data['giftIcon'];
                     currentSenderName = data['senderName'];
-                    targetType = data['receiverName']; // রিসিভার নাম আপডেট
+                    targetType = data['receiverName']; 
                     isGiftAnimating = true;
                   });
                   
-                  // ৩ সেকেন্ড পর অটো বন্ধ হবে
                   Timer(const Duration(seconds: 3), () {
                     if (mounted) {
                       setState(() { isGiftAnimating = false; });
