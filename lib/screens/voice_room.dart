@@ -84,6 +84,14 @@ class _VoiceRoomState extends State<VoiceRoom> {
   late VSPKManager pkManager;
   int pkSeconds = 300; 
   
+  // --- মিউজিক ফিচারের জন্য নতুন সংযোজন ---
+  bool isMusicBarVisible = false;      // মিউজিক সিলেকশন বার দেখানোর জন্য
+  bool isFloatingPlayerVisible = false; // ভাসমান প্লেয়ারটি স্ক্রিনে আনার জন্য
+  String currentPlayingMusicName = "";  // গানের নাম স্টোর করার জন্য
+  List<Map<String, dynamic>> userAddedMusicList = []; // ফোনের গানের লিস্ট
+  bool isMusicLoading = false;         // গান লোড হওয়ার এনিমেশনের জন্য
+  String currentMusicUrl = "";         // গানের লোকেশন/পাথ রাখার জন্য
+  Offset playerPosition = const Offset(150, 400); // প্লেয়ারটি ড্র্যাগ করে সরানোর জন্য
   bool isRoomMusicPlaying = false; 
   Offset playerPosition = const Offset(150, 400); // পজিশন একটু নিচে ও মাঝখানে আনা হলো
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -240,12 +248,19 @@ void initState() {
   // ৫. অডিও প্লেয়ার লিসেনার
   _audioPlayer.onPlayerStateChanged.listen((state) {
     if (mounted) {
-      setState(() => isRoomMusicPlaying = (state == PlayerState.playing));
+      setState(() {
+        isRoomMusicPlaying = (state == PlayerState.playing);
+      });
     }
   });
 
   _audioPlayer.onPlayerComplete.listen((event) {
-    if (mounted) setState(() => isRoomMusicPlaying = false);
+    if (mounted) {
+      setState(() {
+        isRoomMusicPlaying = false; 
+        // এখানে শুধু গান থামালাম, প্লেয়ারটি স্ক্রিনেই থাকবে
+      });
+    }
   });
   
   // ৬. ফায়ারস্টোর ডাটা লোড
@@ -528,7 +543,7 @@ Widget build(BuildContext context) {
           ],
         ),
         // ৫. মিউজিক ভাসমান প্লেয়ার
-        if (isRoomMusicPlaying)
+        if (isFloatingPlayerVisible)
           Positioned(
             left: playerPosition.dx, 
             top: playerPosition.dy,
@@ -536,7 +551,10 @@ Widget build(BuildContext context) {
               feedback: _buildFloatingPlayer(isDragging: true),
               childWhenDragging: Container(),
               onDragEnd: (details) {
-                setState(() { playerPosition = details.offset; });
+                setState(() { 
+                  // স্ক্রিনের বাউন্ডারি অনুযায়ী পজিশন সেট করা
+                  playerPosition = details.offset; 
+                });
               },
               child: _buildFloatingPlayer(isDragging: false),
             ),
@@ -1113,10 +1131,29 @@ List<Widget> _buildFloatingEmojiAnimations() {
             padding: const EdgeInsets.symmetric(horizontal: 4),
             icon: Icon(
               Icons.music_note, 
-              color: isRoomMusicPlaying ? Colors.blueAccent : Colors.white70, 
+              color: isFloatingPlayerVisible ? Colors.blueAccent : Colors.white70, 
               size: 22
             ),
-            onPressed: () => setState(() => isRoomMusicPlaying = !isRoomMusicPlaying),
+            onPressed: () {
+              // মিউজিক সিলেকশন বার (BottomSheet) ওপেন করা
+              showModalBottomSheet(
+                context: context,
+                backgroundColor: Colors.transparent,
+                isScrollControlled: true,
+                builder: (context) => MusicPlayerWidget(
+                  onMusicSelect: (path) async {
+                    setState(() {
+                      currentMusicUrl = path; 
+                      isFloatingPlayerVisible = true; // ভাসমান প্লেয়ার দেখাবে
+                      isRoomMusicPlaying = true;      // গান চালু হবে
+                    });
+                    
+                    // মোবাইল থেকে গানটি প্লে করা
+                    await _audioPlayer.play(DeviceFileSource(path));
+                  },
+                ),
+              );
+            },
           ),
 
           // ৪. গিফট বাটন
@@ -1362,42 +1399,65 @@ List<Widget> _buildFloatingEmojiAnimations() {
   }
   
   Widget _buildFloatingPlayer({required bool isDragging}) {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.85),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.cyanAccent, width: 2),
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            const Icon(Icons.music_note, color: Colors.cyanAccent, size: 30),
-            Positioned(
-              right: 0,
-              top: 0,
-              child: GestureDetector(
-                onTap: () {
-                  _audioPlayer.stop();
-                  setState(() {
-                    isRoomMusicPlaying = false;
-                  });
-                },
-                child: const CircleAvatar(
-                  radius: 10,
-                  backgroundColor: Colors.redAccent,
-                  child: Icon(Icons.close, size: 10, color: Colors.white),
-                ),
+  return Material(
+    color: Colors.transparent,
+    child: Container(
+      width: 70, // আকার একটু বাড়ানো হলো যাতে বাটনগুলো ধরে
+      height: 70,
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.85),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.cyanAccent, width: 2),
+        boxShadow: [
+          if (!isDragging) BoxShadow(color: Colors.cyanAccent.withOpacity(0.3), blurRadius: 10)
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // মাঝখানে প্লে/পজ বাটন
+          IconButton(
+            icon: Icon(
+              isRoomMusicPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+              color: Colors.white,
+              size: 35,
+            ),
+            onPressed: () async {
+              if (isRoomMusicPlaying) {
+                await _audioPlayer.pause();
+              } else {
+                await _audioPlayer.resume();
+              }
+              setState(() {
+                isRoomMusicPlaying = !isRoomMusicPlaying;
+              });
+            },
+          ),
+          
+          // কোনায় ক্রস বাটন (প্লেয়ার পুরোপুরি বন্ধের জন্য)
+          Positioned(
+            right: 0,
+            top: 0,
+            child: GestureDetector(
+              onTap: () {
+                _audioPlayer.stop();
+                setState(() {
+                  isRoomMusicPlaying = false;
+                  isFloatingPlayerVisible = false; // এটি প্লেয়ারকে হাইড করবে
+                });
+              },
+              child: const CircleAvatar(
+                radius: 12,
+                backgroundColor: Colors.redAccent,
+                child: Icon(Icons.close, size: 12, color: Colors.white),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _addUserToViewers() async {
     final user = FirebaseAuth.instance.currentUser;
