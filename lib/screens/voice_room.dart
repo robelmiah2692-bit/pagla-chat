@@ -835,6 +835,7 @@ Widget _buildSeatGridArea() {
       return SizedBox(
         height: 250, // সিট গ্রিডের উচ্চতা
         child: GridView.builder(
+          physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 5,
