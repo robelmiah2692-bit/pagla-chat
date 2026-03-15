@@ -444,84 +444,84 @@ void initState() {
     );
   }
 
- @override
+  @override
 Widget build(BuildContext context) {
   return Scaffold(
     backgroundColor: const Color(0xFF0F0F1E),
     resizeToAvoidBottomInset: true, 
     body: Stack(
       children: [
-        // ১. ওয়ালপেপার - এটি এখন পুরো স্ক্রিন জুড়ে থাকবে (কোনো ভাগ ছাড়া)
+        // ১. ওয়ালপেপার ফিচার (পুরো স্ক্রিন জুড়ে ব্যাকগ্রাউন্ড হিসেবে থাকবে)
         if (roomWallpaperPath.isNotEmpty)
           Positioned.fill(
             child: Image.network(roomWallpaperPath, fit: BoxFit.cover),
           ),
         
-        // ২. মেইন কন্টেন্ট - এখানে আমরা Positioned.fill ব্যবহার করব যাতে পুরো স্ক্রিন এক থাকে
-        Positioned.fill(
-          child: Column(
-            children: [
-              const SizedBox(height: 40),
-              _buildTopNavBar(), 
-              
-              if (isPKActive)
-                PKBattleView(
-                  bluePoints: blueTeamPoints, 
-                  redPoints: redTeamPoints, 
-                  pkSeconds: pkSeconds,
-                  pkManager: pkManager,
-                ),
-              
-              _buildViewerArea(), 
-              _buildSeatGridArea(), 
+        // মেইন কন্টেন্ট লেআউট (সবকিছু এক পার্টে ওয়ালপেপারের ওপর থাকবে)
+        Column(
+          children: [
+            const SizedBox(height: 40),
+            _buildTopNavBar(), 
+            
+            // ২. পিকে ব্যাটল (যদি একটিভ থাকে)
+            if (isPKActive)
+              PKBattleView(
+                bluePoints: blueTeamPoints, 
+                redPoints: redTeamPoints, 
+                pkSeconds: pkSeconds,
+                pkManager: pkManager,
+              ),
+            
+            _buildViewerArea(), 
+            _buildSeatGridArea(), 
 
-              // ৩. চ্যাট বক্স - এটি এখন স্বচ্ছভাবে সিটের নিচে বসবে
-              const SizedBox(height: 10), 
-              SizedBox(
-                height: 180, 
-                width: double.infinity,
-                child: Container(
-                  margin: const EdgeInsets.only(left: 10, right: 90),
-                  color: Colors.transparent, // স্বচ্ছ ব্যাকগ্রাউন্ড
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('rooms')
-                        .doc(widget.roomId)
-                        .collection('messages')
-                        .orderBy('timestamp', descending: true)
-                        .limit(30)
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) return const SizedBox();
-                      var docs = snapshot.data!.docs;
-                      return ListView.builder(
-                        reverse: true,
-                        padding: EdgeInsets.zero,
-                        itemCount: docs.length,
-                        itemBuilder: (context, index) {
-                          var data = docs[index].data() as Map<String, dynamic>;
-                          return Align(
-                            alignment: Alignment.bottomLeft,
-                            child: _buildMessageRow({
-                              'userName': data['userName'] ?? "User",
-                              'userImage': data['userImage'] ?? "",
-                              'text': data['text'] ?? "",
-                            }),
-                          );
-                        },
-                      );
-                    },
-                  ),
+            // ৩. চ্যাট লিস্ট (এটি সিটের নিচেই স্বচ্ছভাবে থাকবে)
+            const SizedBox(height: 10), 
+            SizedBox(
+              height: 180, 
+              width: double.infinity,
+              child: Container(
+                margin: const EdgeInsets.only(left: 10, right: 90),
+                color: Colors.transparent, // স্বচ্ছ করা হয়েছে যাতে ওয়ালপেপার দেখা যায়
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('rooms')
+                      .doc(widget.roomId)
+                      .collection('messages')
+                      .orderBy('timestamp', descending: true)
+                      .limit(30)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const SizedBox();
+                    var docs = snapshot.data!.docs;
+
+                    return ListView.builder(
+                      reverse: true,
+                      padding: EdgeInsets.zero,
+                      itemCount: docs.length,
+                      itemBuilder: (context, index) {
+                        var data = docs[index].data() as Map<String, dynamic>;
+                        return Align(
+                          alignment: Alignment.bottomLeft,
+                          child: _buildMessageRow({
+                            'userName': data['userName'] ?? "User",
+                            'userImage': data['userImage'] ?? "",
+                            'text': data['text'] ?? "",
+                          }),
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
+            ),
 
-              // ৪. এটি চ্যাট এবং নিচের বাটনের মাঝখানের "ভাগ" মুছে দিয়ে খালি জায়গা তৈরি করবে
-              const Spacer(), 
+            // ৪. এটি সব ফিচারকে ওয়ালপেপারের ওপর উপরের দিকে ঠেলে রাখবে
+            const Spacer(), 
 
-              // ৫. টাইপিং বার এবং নিচের আইকনগুলো (কালো ঘর)
-              _buildBottomActionArea(),
-            ],
-          ),
+            // ৫. টাইপিং বার এবং নিচের আইকনগুলো (এটি ওয়ালপেপারের ওপরেই থাকবে)
+            _buildBottomActionArea(),
+          ],
         ),
         // ৫. মিউজিক ভাসমান প্লেয়ার
         if (isRoomMusicPlaying)
