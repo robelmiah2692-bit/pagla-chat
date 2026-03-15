@@ -814,7 +814,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
   }
 
   // --- ১. মেইন সিট গ্রিড এরিয়া (যা আপনি build এ কল করেছেন) ---
-  Widget _buildSeatGridArea() {
+   Widget _buildSeatGridArea() {
   return StreamBuilder<QuerySnapshot>(
     stream: FirebaseFirestore.instance
         .collection('rooms')
@@ -855,12 +855,11 @@ List<Widget> _buildFloatingEmojiAnimations() {
 
           return GestureDetector(
             onTap: () async {
-              // ১. আগে চেক: সিটটি কি দখল করা?
               if (isOccupied) return;
 
               final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-              // ২. ভিআইপি সিট চেক
+              // ১. ভিআইপি সিট চেক
               if (isVipSeat) {
                 DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
                 bool isUserVip = (userDoc.data() as Map<String, dynamic>?)?['isVip'] ?? false;
@@ -872,7 +871,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                 }
               }
 
-              // ৩. পুরাতন সিট ক্লিন লজিক (রিয়েল-টাইম ক্লিন)
+              // ২. পুরাতন সিট ক্লিন লজিক (রিয়েল-টাইম ক্লিন)
               var myOldSeats = await FirebaseFirestore.instance
                   .collection('rooms')
                   .doc(widget.roomId)
@@ -881,22 +880,24 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   .get();
 
               for (var doc in myOldSeats.docs) {
-                await doc.reference.set({ // set with merge ব্যবহার করা হয়েছে নিশ্চিত কাজের জন্য
+                await doc.reference.set({ 
                   'isOccupied': false,
                   'userId': '',
                   'name': '',
                   'profilePic': '',
                   'status': 'empty',
                   'isMicOn': false,
+                  'isTalking': false,
+                  'userFrame': '',
                 }, SetOptions(merge: true));
               }
 
-              // ৪. নতুন সিটে বসা
+              // ৩. নতুন সিটে বসা (সব ফিচার বজায় রেখে)
               DocumentSnapshot myProfile = await FirebaseFirestore.instance.collection('users').doc(uid).get();
               var myData = myProfile.data() as Map<String, dynamic>?;
 
               if (myData != null) {
-                // এখানে update এর বদলে set(merge: true) দেওয়া হয়েছে যাতে ক্লিক কাজ না করার সমস্যা আর না হয়
+                // set with merge: true দেওয়ার কারণে সিট ডিলিট হয়ে থাকলেও এখন ক্লিক করলে কাজ করবে
                 await FirebaseFirestore.instance
                     .collection('rooms')
                     .doc(widget.roomId)
@@ -910,6 +911,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   'userFrame': myData['userFrame'] ?? "",
                   'status': 'calling',
                   'isMicOn': true,
+                  'isTalking': false,
                 }, SetOptions(merge: true));
                 
                 sitOnSeat(index); // ভয়েস কানেকশন কল
@@ -942,10 +944,13 @@ List<Widget> _buildFloatingEmojiAnimations() {
                                   color: isVipSeat ? Colors.amber : Colors.white24, size: 20)),
                         ),
                       ),
+                      // ফ্রেম ফিচার
                       if (isOccupied && uFrame.isNotEmpty)
                         SizedBox(width: 60, height: 60, child: Image.network(uFrame, fit: BoxFit.contain)),
+                      // সোলমেট ফিচার
                       if (isOccupied && hasSoulmate)
                         Positioned(top: -2, child: Icon(Icons.favorite, color: Colors.pinkAccent, size: 14)),
+                      // মাইক ফিচার
                       if (isOccupied && isMicOnLocal)
                         Positioned(
                           bottom: 0, right: 2,
@@ -977,6 +982,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
     },
   );
 }
+                
 // --- ২. অ্যাকশন বার (মাইক, গেম এবং চ্যাট ইনপুট) ---
    Widget _buildBottomActionArea() {
     return Container(
