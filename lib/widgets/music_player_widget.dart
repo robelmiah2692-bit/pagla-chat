@@ -12,7 +12,31 @@ class MusicPlayerWidget extends StatefulWidget {
 }
 
 class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
-  List<String> savedMusicNames = []; // ওয়েবে আমরা নামগুলো সেভ রাখবো
+  List<String> savedMusicNames = [];
+
+  // ১. আপনার দেওয়া ২০টি গানের লাইব্রেরি (লিঙ্কসহ)
+  final List<Map<String, String>> hridoyDefaultLibrary = [
+    {"name": "Bangla Folk Fusion", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"},
+    {"name": "Baul Soul Mix", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"},
+    {"name": "Dhaka City Beat", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"},
+    {"name": "Amar Poran Jaha Chay", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"},
+    {"name": "Lalon Giti Mix", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3"},
+    {"name": "HINDI: Bollywood Romance", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3"},
+    {"name": "HINDI: Desi Party Beat", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3"},
+    {"name": "HINDI: Sufi Night", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"},
+    {"name": "HINDI: Chill Vibes", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3"},
+    {"name": "HINDI: Emotional Sad", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3"},
+    {"name": "Midnight Melody", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3"},
+    {"name": "Morning Vibes", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3"},
+    {"name": "Evening Raga", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-13.mp3"},
+    {"name": "Rainy Day Song", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-14.mp3"},
+    {"name": "Romantic Night", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3"},
+    {"name": "Slow Rock Bangla", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3"},
+    {"name": "Acoustic Mix", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-17.mp3"},
+    {"name": "Fast EDM Mix", "url": "https://i.cloudup.com/S6pW9Oog7T.mp3"},
+    {"name": "Bengali Chill Mix", "url": "https://i.cloudup.com/qE9733Y9U1.mp3"},
+    {"name": "Adda Time Special", "url": "https://i.cloudup.com/0F7E0X3N0Y.mp3"},
+  ];
 
   @override
   void initState() {
@@ -28,8 +52,6 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
   }
 
   Future<void> pickMusic() async {
-    // ওয়েবের জন্য pickFiles এ 'withData: true' থাকা জরুরি নয়, কিন্তু ভালো।
-    // ওয়েবে পাথ পাওয়া যায় না, তাই আমরা 'name' এবং মেমোরি রেফারেন্স নিয়ে কাজ করি।
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.audio,
       allowMultiple: true,
@@ -38,93 +60,92 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
     if (result != null) {
       setState(() {
         for (var file in result.files) {
-          // ওয়েবে পাথ নাল থাকে, তাই আমরা ফাইলের নাম ব্যবহার করছি
-          String fileName = file.name;
-          if (!savedMusicNames.contains(fileName)) {
-            savedMusicNames.add(fileName);
+          if (!savedMusicNames.contains(file.name)) {
+            savedMusicNames.add(file.name);
           }
         }
       });
-
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList('my_music_names', savedMusicNames);
     }
   }
 
-  Future<void> deleteMusic(int index) async {
-    setState(() {
-      savedMusicNames.removeAt(index);
-    });
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('my_music_names', savedMusicNames);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 450,
+      height: 500,
       decoration: const BoxDecoration(
         color: Color(0xFF1A1A2E),
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
-      child: Column(
-        children: [
-          const SizedBox(height: 12),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text("Music Store", 
-                  style: TextStyle(color: Colors.greenAccent, fontSize: 20, fontWeight: FontWeight.bold)),
-                IconButton(
-                  onPressed: pickMusic,
-                  icon: const Icon(Icons.add_circle, color: Colors.greenAccent, size: 35),
-                )
+      child: DefaultTabController(
+        length: 2, // ২টা ট্যাব: লাইব্রেরি এবং ইউজারের গান
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+            
+            const TabBar(
+              tabs: [
+                Tab(text: "Hridoy's Playlist"),
+                Tab(text: "My Songs"),
               ],
+              labelColor: Colors.greenAccent,
+              indicatorColor: Colors.greenAccent,
             ),
-          ),
-          const Divider(color: Colors.white10),
-          Expanded(
-            child: savedMusicNames.isEmpty
-                ? const Center(
-                    child: Text("কোনো গান নেই, + বাটনে ক্লিক করুন", 
-                    style: TextStyle(color: Colors.white24, fontSize: 16)))
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    itemCount: savedMusicNames.length,
+
+            Expanded(
+              child: TabBarView(
+                children: [
+                  // ট্যাব ১: ২০টি ডিফল্ট গান
+                  ListView.builder(
+                    padding: const EdgeInsets.all(10),
+                    itemCount: hridoyDefaultLibrary.length,
                     itemBuilder: (context, index) => ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
                       leading: CircleAvatar(
-                        backgroundColor: Colors.white.withOpacity(0.1),
-                        child: const Icon(Icons.music_note, color: Colors.cyanAccent),
+                        backgroundColor: Colors.white10,
+                        child: Text("${index + 1}", style: const TextStyle(color: Colors.cyanAccent, fontSize: 12)),
                       ),
-                      title: Text(savedMusicNames[index], // সরাসরি নাম দেখাচ্ছি
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontSize: 14)),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 22),
-                        onPressed: () => deleteMusic(index),
-                      ),
+                      title: Text(hridoyDefaultLibrary[index]["name"]!, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                      trailing: const Icon(Icons.play_circle_fill, color: Colors.greenAccent),
                       onTap: () {
-                        // ওয়েবে পাথের বদলে আমরা নামটা পাঠাচ্ছি
-                        widget.onMusicSelect(savedMusicNames[index]);
+                        widget.onMusicSelect(hridoyDefaultLibrary[index]["url"]!);
                         Navigator.pop(context);
                       },
                     ),
                   ),
-          ),
-        ],
+
+                  // ট্যাব ২: ইউজারের নিজের গান (APK-এর জন্য)
+                  Column(
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.add_circle, color: Colors.greenAccent),
+                        title: const Text("Add Local Music", style: TextStyle(color: Colors.greenAccent)),
+                        onTap: pickMusic,
+                      ),
+                      const Divider(color: Colors.white10),
+                      Expanded(
+                        child: savedMusicNames.isEmpty
+                            ? const Center(child: Text("এখনও কোনো গান যোগ করেননি", style: TextStyle(color: Colors.white24)))
+                            : ListView.builder(
+                                itemCount: savedMusicNames.length,
+                                itemBuilder: (context, index) => ListTile(
+                                  leading: const Icon(Icons.audio_file, color: Colors.white54),
+                                  title: Text(savedMusicNames[index], style: const TextStyle(color: Colors.white, fontSize: 13)),
+                                  onTap: () {
+                                    widget.onMusicSelect(savedMusicNames[index]);
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
