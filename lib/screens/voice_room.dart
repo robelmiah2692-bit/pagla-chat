@@ -93,7 +93,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String currentMusicUrl = "";         // গানের লোকেশন/পাথ রাখার জন্য
   Offset playerPosition = const Offset(150, 400); // প্লেয়ারটি ড্র্যাগ করে সরানোর জন্য
   bool isRoomMusicPlaying = false; 
-  Offset playerPosition = const Offset(150, 400); // পজিশন একটু নিচে ও মাঝখানে আনা হলো
   final AudioPlayer _audioPlayer = AudioPlayer();
   final TextEditingController _messageController = TextEditingController();
   
