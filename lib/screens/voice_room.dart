@@ -554,6 +554,43 @@ Widget build(BuildContext context) {
           receiverName: targetType, 
         ),
 
+        // ৮. গ্লোবাল গিফট লিসেনার (এটি আড়ালে থেকে অন্য সবার গিফট চেক করবে)
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('rooms')
+              .doc(widget.roomId)
+              .collection('gift_animations')
+              .orderBy('timestamp', descending: true)
+              .limit(1)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+              var data = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+              
+              // এনিমেশন ডাটা রিয়েল টাইমে পাওয়া মাত্রই আপডেট হবে
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                // কন্ডিশন: যদি আমি নিজে সেন্ডার না হই এবং এনিমেশন এখন বন্ধ থাকে
+                if (mounted && !isGiftAnimating && data['senderName'] != senderName) {
+                  setState(() {
+                    currentGiftImage = data['giftIcon'];
+                    currentSenderName = data['senderName'];
+                    targetType = data['receiverName']; // রিসিভার নাম আপডেট
+                    isGiftAnimating = true;
+                  });
+                  
+                  // ৩ সেকেন্ড পর অটো বন্ধ হবে
+                  Timer(const Duration(seconds: 3), () {
+                    if (mounted) {
+                      setState(() { isGiftAnimating = false; });
+                    }
+                  });
+                }
+              });
+            }
+            return const SizedBox.shrink(); 
+          },
+        ),
+
         // ৮. মেইল বাটন ও ইনবক্স
         Positioned(
           bottom: 110, 
