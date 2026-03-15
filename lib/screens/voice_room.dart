@@ -814,7 +814,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
   }
 
   // --- ১. মেইন সিট গ্রিড এরিয়া (যা আপনি build এ কল করেছেন) ---
-   Widget _buildSeatGridArea() {
+  Widget _buildSeatGridArea() {
   return StreamBuilder<QuerySnapshot>(
     stream: FirebaseFirestore.instance
         .collection('rooms')
@@ -855,11 +855,12 @@ List<Widget> _buildFloatingEmojiAnimations() {
 
           return GestureDetector(
             onTap: () async {
+              // ১. আগে চেক: সিটটি কি দখল করা?
               if (isOccupied) return;
 
               final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-              // ১. ভিআইপি সিট চেক
+              // ২. ভিআইপি সিট চেক
               if (isVipSeat) {
                 DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
                 bool isUserVip = (userDoc.data() as Map<String, dynamic>?)?['isVip'] ?? false;
@@ -871,7 +872,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                 }
               }
 
-              // ২. পুরাতন সিট ক্লিন লজিক (অন্য সিটে থাকলে তা খালি করা)
+              // ৩. পুরাতন সিট ক্লিন লজিক (রিয়েল-টাইম ক্লিন)
               var myOldSeats = await FirebaseFirestore.instance
                   .collection('rooms')
                   .doc(widget.roomId)
@@ -880,27 +881,28 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   .get();
 
               for (var doc in myOldSeats.docs) {
-                await doc.reference.update({
+                await doc.reference.set({ // set with merge ব্যবহার করা হয়েছে নিশ্চিত কাজের জন্য
                   'isOccupied': false,
                   'userId': '',
                   'name': '',
                   'profilePic': '',
                   'status': 'empty',
                   'isMicOn': false,
-                });
+                }, SetOptions(merge: true));
               }
 
-              // ৩. নতুন সিটে বসা
+              // ৪. নতুন সিটে বসা
               DocumentSnapshot myProfile = await FirebaseFirestore.instance.collection('users').doc(uid).get();
               var myData = myProfile.data() as Map<String, dynamic>?;
 
               if (myData != null) {
+                // এখানে update এর বদলে set(merge: true) দেওয়া হয়েছে যাতে ক্লিক কাজ না করার সমস্যা আর না হয়
                 await FirebaseFirestore.instance
                     .collection('rooms')
                     .doc(widget.roomId)
                     .collection('seats')
                     .doc(index.toString())
-                    .update({ // update ব্যবহার করা হয়েছে যেন অন্য ডাটা ডিলিট না হয়
+                    .set({
                   'isOccupied': true,
                   'userId': uid,
                   'name': myData['name'] ?? "User", 
@@ -908,9 +910,9 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   'userFrame': myData['userFrame'] ?? "",
                   'status': 'calling',
                   'isMicOn': true,
-                });
+                }, SetOptions(merge: true));
                 
-                sitOnSeat(index); // ভয়েস কানেকশন
+                sitOnSeat(index); // ভয়েস কানেকশন কল
               }
             },
             child: Column(
