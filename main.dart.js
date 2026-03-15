@@ -104145,7 +104145,7 @@ if(f==null)f="User"
 e=c.h(0,"profilePic")
 if(e==null)e=""
 d=c.h(0,"userFrame")
-i=A.U(["isOccupied",!0,"userId",l,"name",f,"profilePic",e,"userFrame",d==null?"":d,"status","calling","isMicOn",!0,"isTalking",!1],i,h)
+i=A.U(["isOccupied",!0,"userId",l,"name",f,"profilePic",e,"userFrame",d==null?"":d,"status","occupied","isMicOn",!0,"isTalking",!1],i,h)
 h=A.uM(!0)
 i=A.l1(i)
 i.toString
