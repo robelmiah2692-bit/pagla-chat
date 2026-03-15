@@ -814,7 +814,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
   }
 
   // --- ১. মেইন সিট গ্রিড এরিয়া (যা আপনি build এ কল করেছেন) ---
-  Widget _buildSeatGridArea() {
+   Widget _buildSeatGridArea() {
   return StreamBuilder<QuerySnapshot>(
     stream: FirebaseFirestore.instance
         .collection('rooms')
@@ -841,9 +841,13 @@ List<Widget> _buildFloatingEmojiAnimations() {
         itemBuilder: (context, index) {
           var dbSeat = firestoreSeats[index.toString()];
           bool isOccupied = dbSeat != null ? (dbSeat['isOccupied'] ?? false) : false;
-          String uName = dbSeat != null ? (dbSeat['userName'] ?? "") : "";
-          String uImage = dbSeat != null ? (dbSeat['userImage'] ?? "") : "";
+          
+          // --- ডাটাবেস অনুযায়ী ফিল্ডের নাম ফিক্স করা হলো ---
+          String uName = dbSeat != null ? (dbSeat['name'] ?? "") : ""; // আপনার DB তে ফিল্ড 'name'
+          String uImage = dbSeat != null ? (dbSeat['profilePic'] ?? "") : ""; // আপনার DB তে ফিল্ড 'profilePic'
           String uFrame = dbSeat != null ? (dbSeat['userFrame'] ?? "") : ""; 
+          // -------------------------------------------
+
           bool isMicOnLocal = dbSeat != null ? (dbSeat['isMicOn'] ?? false) : false;
           String status = dbSeat != null ? (dbSeat['status'] ?? "empty") : "empty";
           bool isTalking = dbSeat != null ? (dbSeat['isTalking'] ?? false) : false;
@@ -853,20 +857,11 @@ List<Widget> _buildFloatingEmojiAnimations() {
 
           return GestureDetector(
             onTap: () async {
-              // ১. আগে চেক করবে সিটটি খালি কি না
-              if (isOccupied) {
-                print("Seat already taken");
-                return;
-              }
+              if (isOccupied) return;
 
-              // ২. ভিআইপি সিট চেক (০-৪ ইনডেক্স)
               if (isVipSeat) {
                 final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? "";
-                DocumentSnapshot userDoc = await FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(currentUid)
-                    .get();
-                
+                DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUid).get();
                 bool isUserVip = (userDoc.data() as Map<String, dynamic>?)?['isVip'] ?? false;
 
                 if (!isUserVip) {
@@ -876,9 +871,30 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   return; 
                 }
               }
+              
+              // সিটে বসার সময় ডাটাবেস অনুযায়ী সঠিক ফিল্ডে ডাটা সেভ করা
+              final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
+              DocumentSnapshot myProfile = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+              var myData = myProfile.data() as Map<String, dynamic>?;
 
-              // ৩. সিট খালি থাকলে এবং শর্ত পূরণ করলে কলিং শুরু হবে ও ইউজার বসবে
-              sitOnSeat(index);
+              if (myData != null) {
+                await FirebaseFirestore.instance
+                    .collection('rooms')
+                    .doc(widget.roomId)
+                    .collection('seats')
+                    .doc(index.toString())
+                    .set({
+                  'isOccupied': true,
+                  'userId': uid,
+                  'name': myData['name'] ?? "User", // DB অনুযায়ী 'name'
+                  'profilePic': myData['profilePic'] ?? "", // DB অনুযায়ী 'profilePic'
+                  'userFrame': myData['userFrame'] ?? "",
+                  'status': 'calling',
+                  'isMicOn': true,
+                }, SetOptions(merge: true));
+                
+                sitOnSeat(index);
+              }
             },
             child: Column(
               children: [
@@ -887,10 +903,8 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      // মেইন সিট ডিজাইন (Cyan/Amber)
                       Container(
-                        width: 50,
-                        height: 50,
+                        width: 50, height: 50,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
@@ -904,32 +918,15 @@ List<Widget> _buildFloatingEmojiAnimations() {
                           backgroundColor: isVipSeat ? Colors.amber.withOpacity(0.1) : Colors.white10,
                           backgroundImage: (isOccupied && uImage.isNotEmpty) ? NetworkImage(uImage) : null,
                           child: status == "calling"
-                              ? const SizedBox(
-                                  width: 18, height: 18, 
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
-                                )
-                              : (isOccupied ? null : Icon(
-                                  isVipSeat ? Icons.workspace_premium : Icons.chair, 
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : (isOccupied ? null : Icon(isVipSeat ? Icons.workspace_premium : Icons.chair, 
                                   color: isVipSeat ? Colors.amber : Colors.white24, size: 20)),
                         ),
                       ),
-
-                      // প্রোফাইল ফ্রেম
                       if (isOccupied && uFrame.isNotEmpty)
-                        SizedBox(
-                          width: 60,
-                          height: 60,
-                          child: Image.network(uFrame, fit: BoxFit.contain),
-                        ),
-
-                      // সোলমেট হার্ট
+                        SizedBox(width: 60, height: 60, child: Image.network(uFrame, fit: BoxFit.contain)),
                       if (isOccupied && hasSoulmate)
-                        Positioned(
-                          top: -2,
-                          child: Icon(Icons.favorite, color: Colors.pinkAccent, size: 14),
-                        ),
-
-                      // মাইক আইকন
+                        Positioned(top: -2, child: Icon(Icons.favorite, color: Colors.pinkAccent, size: 14)),
                       if (isOccupied && isMicOnLocal)
                         Positioned(
                           bottom: 0, right: 2,
