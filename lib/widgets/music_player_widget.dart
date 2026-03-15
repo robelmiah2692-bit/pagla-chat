@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:audioplayers/audioplayers.dart';
 
-class MusicPlayerPage extends StatefulWidget {
-  final AudioPlayer? audioPlayer;
-  const MusicPlayerPage({super.key, this.audioPlayer});
+class MusicPlayerWidget extends StatefulWidget {
+  final Function(String path) onMusicSelect; // গান সিলেক্ট করলে রুমে পাঠানোর জন্য
+
+  const MusicPlayerWidget({super.key, required this.onMusicSelect});
 
   @override
-  State<MusicPlayerPage> createState() => _MusicPlayerPageState();
+  State<MusicPlayerWidget> createState() => _MusicPlayerWidgetState();
 }
 
-class _MusicPlayerPageState extends State<MusicPlayerPage> {
+class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
   List<String> savedMusicPaths = [];
 
   @override
@@ -27,7 +27,6 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
     });
   }
 
-  // 🔥 আপনার পুরনো ফাইলের মতো নিখুঁত পিকিং লজিক
   Future<void> pickMusic() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.audio,
@@ -35,13 +34,10 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
     );
 
     if (result != null) {
-      // পাথগুলো ফিল্টার করে নেওয়া যাতে এরর না আসে
       List<String> newPaths = result.paths.whereType<String>().toList();
-      
       setState(() {
         savedMusicPaths.addAll(newPaths);
       });
-      
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList('my_music', savedMusicPaths);
     }
@@ -57,39 +53,56 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: const Text("Music Store", style: TextStyle(color: Colors.greenAccent)),
-        actions: [
-          IconButton(
-            onPressed: pickMusic,
-            icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent, size: 30),
-          )
-        ],
+    return Container(
+      height: 450,
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
-      body: Column(
+      child: Column(
         children: [
+          const SizedBox(height: 10),
+          // টপ বার এবং + বাটন
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Music Store", 
+                  style: TextStyle(color: Colors.greenAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+                IconButton(
+                  onPressed: pickMusic,
+                  icon: const Icon(Icons.add_circle, color: Colors.greenAccent, size: 32),
+                )
+              ],
+            ),
+          ),
+          const Divider(color: Colors.white10),
           Expanded(
             child: savedMusicPaths.isEmpty
                 ? const Center(child: Text("কোনো গান নেই, + বাটনে ক্লিক করুন", 
                     style: TextStyle(color: Colors.white24)))
                 : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
                     itemCount: savedMusicPaths.length,
                     itemBuilder: (context, index) => ListTile(
-                      leading: const Icon(Icons.music_note, color: Colors.cyanAccent),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                      leading: const CircleAvatar(
+                        backgroundColor: Colors.white05,
+                        child: Icon(Icons.music_note, color: Colors.cyanAccent),
+                      ),
                       title: Text(savedMusicPaths[index].split('/').last,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(color: Colors.white, fontSize: 14)),
                       trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
                         onPressed: () => deleteMusic(index),
                       ),
                       onTap: () {
-                        // ✅ এখান থেকে গান সিলেক্ট করলে ভয়েস রুমে ডাটা যাবে
-                        Navigator.pop(context, {
-                          'path': savedMusicPaths[index],
-                        });
+                        // গান সিলেক্ট করে রুমের প্লেয়ারে পাঠানো
+                        widget.onMusicSelect(savedMusicPaths[index]);
+                        Navigator.pop(context);
                       },
                     ),
                   ),
