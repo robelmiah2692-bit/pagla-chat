@@ -1113,6 +1113,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   diamondBalance: currentBalance, 
                   currentSeats: List.from(seats), 
                   onGiftSend: (gift, count, target) async {
+                    // ১. লোকাল ফোনে এনিমেশন আপডেট
                     setState(() {
                       currentGiftImage = gift['icon'];
                       isGiftAnimating = true;
@@ -1121,6 +1122,23 @@ List<Widget> _buildFloatingEmojiAnimations() {
                       currentReceiverName = target; 
                     });
 
+                    // ২. গ্লোবাল এনিমেশন ট্রিগার (অন্যদের দেখানোর জন্য)
+                    try {
+                      await FirebaseFirestore.instance
+                          .collection('rooms')
+                          .doc(widget.roomId)
+                          .collection('gift_animations')
+                          .add({
+                        'giftIcon': gift['icon'],
+                        'senderName': senderName,
+                        'receiverName': target,
+                        'timestamp': FieldValue.serverTimestamp(),
+                      });
+                    } catch (e) {
+                      debugPrint("Animation Trigger Error: $e");
+                    }
+
+                    // ৩. পুরাতন ট্রানজেকশন লজিক ঠিক রাখা হয়েছে
                     try {
                       bool isFree = gift['isFree'] ?? false;
                       String receiverId = gift['targetId'] ?? ""; 
@@ -1140,6 +1158,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                       debugPrint("Transaction Error: $e");
                     }
 
+                    // ৪. এনিমেশন টাইমার
                     Timer(const Duration(seconds: 3), () {
                       if (mounted) {
                         setState(() { isGiftAnimating = false; });
@@ -1150,7 +1169,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
               );
             },
           ),
-
           // ৫. গেম বাটন
           IconButton(
             constraints: const BoxConstraints(),
