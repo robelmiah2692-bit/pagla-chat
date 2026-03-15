@@ -842,11 +842,9 @@ List<Widget> _buildFloatingEmojiAnimations() {
           var dbSeat = firestoreSeats[index.toString()];
           bool isOccupied = dbSeat != null ? (dbSeat['isOccupied'] ?? false) : false;
           
-          // --- ডাটাবেস অনুযায়ী ফিল্ডের নাম ফিক্স করা হলো ---
-          String uName = dbSeat != null ? (dbSeat['name'] ?? "") : ""; // আপনার DB তে ফিল্ড 'name'
-          String uImage = dbSeat != null ? (dbSeat['profilePic'] ?? "") : ""; // আপনার DB তে ফিল্ড 'profilePic'
+          String uName = dbSeat != null ? (dbSeat['name'] ?? "") : ""; 
+          String uImage = dbSeat != null ? (dbSeat['profilePic'] ?? "") : ""; 
           String uFrame = dbSeat != null ? (dbSeat['userFrame'] ?? "") : ""; 
-          // -------------------------------------------
 
           bool isMicOnLocal = dbSeat != null ? (dbSeat['isMicOn'] ?? false) : false;
           String status = dbSeat != null ? (dbSeat['status'] ?? "empty") : "empty";
@@ -859,11 +857,12 @@ List<Widget> _buildFloatingEmojiAnimations() {
             onTap: () async {
               if (isOccupied) return;
 
-              if (isVipSeat) {
-                final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? "";
-                DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUid).get();
-                bool isUserVip = (userDoc.data() as Map<String, dynamic>?)?['isVip'] ?? false;
+              final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
 
+              // ১. ভিআইপি সিট চেক
+              if (isVipSeat) {
+                DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+                bool isUserVip = (userDoc.data() as Map<String, dynamic>?)?['isVip'] ?? false;
                 if (!isUserVip) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("এই রাজকীয় সিটটি শুধুমাত্র VIP মেম্বারদের জন্য!")),
@@ -871,9 +870,27 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   return; 
                 }
               }
-              
-              // সিটে বসার সময় ডাটাবেস অনুযায়ী সঠিক ফিল্ডে ডাটা সেভ করা
-              final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
+
+              // ২. পুরাতন সিট ক্লিন লজিক (অন্য সিটে থাকলে তা খালি করা)
+              var myOldSeats = await FirebaseFirestore.instance
+                  .collection('rooms')
+                  .doc(widget.roomId)
+                  .collection('seats')
+                  .where('userId', isEqualTo: uid)
+                  .get();
+
+              for (var doc in myOldSeats.docs) {
+                await doc.reference.update({
+                  'isOccupied': false,
+                  'userId': '',
+                  'name': '',
+                  'profilePic': '',
+                  'status': 'empty',
+                  'isMicOn': false,
+                });
+              }
+
+              // ৩. নতুন সিটে বসা
               DocumentSnapshot myProfile = await FirebaseFirestore.instance.collection('users').doc(uid).get();
               var myData = myProfile.data() as Map<String, dynamic>?;
 
@@ -883,17 +900,17 @@ List<Widget> _buildFloatingEmojiAnimations() {
                     .doc(widget.roomId)
                     .collection('seats')
                     .doc(index.toString())
-                    .set({
+                    .update({ // update ব্যবহার করা হয়েছে যেন অন্য ডাটা ডিলিট না হয়
                   'isOccupied': true,
                   'userId': uid,
-                  'name': myData['name'] ?? "User", // DB অনুযায়ী 'name'
-                  'profilePic': myData['profilePic'] ?? "", // DB অনুযায়ী 'profilePic'
+                  'name': myData['name'] ?? "User", 
+                  'profilePic': myData['profilePic'] ?? "", 
                   'userFrame': myData['userFrame'] ?? "",
                   'status': 'calling',
                   'isMicOn': true,
-                }, SetOptions(merge: true));
+                });
                 
-                sitOnSeat(index);
+                sitOnSeat(index); // ভয়েস কানেকশন
               }
             },
             child: Column(
