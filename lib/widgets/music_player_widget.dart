@@ -61,6 +61,16 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
       ),
       child: Column(
         children: [
+          const SizedBox(height: 12),
+          // ড্র্যাগ ইন্ডিকেটর
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
           const SizedBox(height: 10),
           // টপ বার এবং + বাটন
           Padding(
@@ -69,10 +79,10 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text("Music Store", 
-                  style: TextStyle(color: Colors.greenAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+                  style: TextStyle(color: Colors.greenAccent, fontSize: 20, fontWeight: FontWeight.bold)),
                 IconButton(
                   onPressed: pickMusic,
-                  icon: const Icon(Icons.add_circle, color: Colors.greenAccent, size: 32),
+                  icon: const Icon(Icons.add_circle, color: Colors.greenAccent, size: 35),
                 )
               ],
             ),
@@ -80,27 +90,27 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
           const Divider(color: Colors.white10),
           Expanded(
             child: savedMusicPaths.isEmpty
-                ? const Center(child: Text("কোনো গান নেই, + বাটনে ক্লিক করুন", 
-                    style: TextStyle(color: Colors.white24)))
+                ? const Center(
+                    child: Text("কোনো গান নেই, + বাটনে ক্লিক করুন", 
+                    style: TextStyle(color: Colors.white24, fontSize: 16)))
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     itemCount: savedMusicPaths.length,
                     itemBuilder: (context, index) => ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 15),
-                      leading: const CircleAvatar(
-                        backgroundColor: Colors.white05,
-                        child: Icon(Icons.music_note, color: Colors.cyanAccent),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.white.withOpacity(0.1), // white05 ফিক্স করা হয়েছে
+                        child: const Icon(Icons.music_note, color: Colors.cyanAccent),
                       ),
                       title: Text(savedMusicPaths[index].split('/').last,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(color: Colors.white, fontSize: 14)),
                       trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 22),
                         onPressed: () => deleteMusic(index),
                       ),
                       onTap: () {
-                        // গান সিলেক্ট করে রুমের প্লেয়ারে পাঠানো
                         widget.onMusicSelect(savedMusicPaths[index]);
                         Navigator.pop(context);
                       },
