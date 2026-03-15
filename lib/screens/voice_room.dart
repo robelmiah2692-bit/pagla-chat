@@ -909,7 +909,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   'name': myData['name'] ?? "User", 
                   'profilePic': myData['profilePic'] ?? "", 
                   'userFrame': myData['userFrame'] ?? "",
-                  'status': 'calling',
+                  'status': 'occupied',
                   'isMicOn': true,
                   'isTalking': false,
                 }, SetOptions(merge: true));
