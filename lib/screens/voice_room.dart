@@ -814,7 +814,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
   }
 
   // --- ১. মেইন সিট গ্রিড এরিয়া (যা আপনি build এ কল করেছেন) ---
-Widget _buildSeatGridArea() {
+  Widget _buildSeatGridArea() {
   return StreamBuilder<QuerySnapshot>(
     stream: FirebaseFirestore.instance
         .collection('rooms')
@@ -829,78 +829,123 @@ Widget _buildSeatGridArea() {
         }
       }
 
-      return Flexible(
-        child: GridView.builder(
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 5,
-            childAspectRatio: 0.7,
-          ),
-          itemCount: 15,
-          itemBuilder: (context, index) {
-            var dbSeat = firestoreSeats[index.toString()];
-            bool isOccupied = dbSeat != null ? (dbSeat['isOccupied'] ?? false) : seats[index]['isOccupied'];
-            String uName = dbSeat != null ? (dbSeat['userName'] ?? "") : seats[index]['userName'];
-            String uImage = dbSeat != null ? (dbSeat['userImage'] ?? "") : seats[index]['userImage'];
-            bool isMicOnLocal = dbSeat != null ? (dbSeat['isMicOn'] ?? false) : seats[index]['isMicOn'];
-            String status = dbSeat != null ? (dbSeat['status'] ?? "empty") : seats[index]['status'];
-            bool isVip = seats[index]['isVip'] ?? false; 
-            bool isTalking = dbSeat != null ? (dbSeat['isTalking'] ?? false) : (seats[index]['isTalking'] ?? false);
+      return GridView.builder(
+        shrinkWrap: true, // এটি ১০টা সিট দেখানোর সমস্যার সমাধান করবে
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 5,
+          childAspectRatio: 0.7,
+        ),
+        itemCount: 15,
+        itemBuilder: (context, index) {
+          var dbSeat = firestoreSeats[index.toString()];
+          bool isOccupied = dbSeat != null ? (dbSeat['isOccupied'] ?? false) : false;
+          String uName = dbSeat != null ? (dbSeat['userName'] ?? "") : "";
+          String uImage = dbSeat != null ? (dbSeat['userImage'] ?? "") : "";
+          String uFrame = dbSeat != null ? (dbSeat['userFrame'] ?? "") : ""; // ফ্রেম লজিক
+          bool isMicOnLocal = dbSeat != null ? (dbSeat['isMicOn'] ?? false) : false;
+          String status = dbSeat != null ? (dbSeat['status'] ?? "empty") : "empty";
+          bool isTalking = dbSeat != null ? (dbSeat['isTalking'] ?? false) : false;
+          
+          bool isVipSeat = index < 5; // প্রথম ৫টি সিট VIP
+          bool hasSoulmate = dbSeat != null && (dbSeat['soulmateId'] != null); 
 
-            return GestureDetector(
-              onTap: () => sitOnSeat(index),
-              child: Column(
-                children: [
-                  VoiceRipple(
-                    isTalking: isOccupied && isTalking, 
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        CircleAvatar(
-                          radius: 24,
-                          backgroundColor: isOccupied ? Colors.blueAccent : Colors.white10,
+          return GestureDetector(
+            onTap: () async {
+              // --- VIP বসার লজিক শুরু ---
+              if (isVipSeat) {
+                final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? "";
+                DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUid).get();
+                bool isUserVip = (userDoc.data() as Map<String, dynamic>?)?['isVip'] ?? false;
+
+                if (!isUserVip) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("এই রাজকীয় সিটটি শুধুমাত্র VIP মেম্বারদের জন্য!")),
+                  );
+                  return; // বসতে দেবে না
+                }
+              }
+              // --- VIP বসার লজিক শেষ ---
+              sitOnSeat(index);
+            },
+            child: Column(
+              children: [
+                VoiceRipple(
+                  isTalking: isOccupied && isTalking, 
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // ১. সিটের মেইন বর্ডার কালার (কালো বাদ দিয়ে ব্লু বা গোল্ডেন)
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isVipSeat ? Colors.amber : Colors.cyan.withOpacity(0.6), 
+                            width: 2,
+                          ),
+                          boxShadow: isVipSeat ? [BoxShadow(color: Colors.amber.withOpacity(0.3), blurRadius: 5)] : [],
+                        ),
+                        child: CircleAvatar(
+                          radius: 23,
+                          backgroundColor: isVipSeat ? Colors.amber.withOpacity(0.1) : Colors.white10,
                           backgroundImage: (isOccupied && uImage.isNotEmpty) ? NetworkImage(uImage) : null,
                           child: status == "calling"
-                              ? const SizedBox(
-                                  width: 20, height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : (isOccupied ? null : Icon(isVip ? Icons.stars : Icons.chair, color: Colors.white24, size: 20)),
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : (isOccupied ? null : Icon(isVipSeat ? Icons.workspace_premium : Icons.chair, 
+                                  color: isVipSeat ? Colors.amber : Colors.white24, size: 20)),
                         ),
-                        if (isOccupied && isMicOnLocal)
-                          Positioned(
-                            bottom: 0, right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(color: Colors.black87, shape: BoxShape.circle),
-                              child: const Icon(Icons.mic, size: 10, color: Colors.greenAccent),
-                            ),
+                      ),
+
+                      // ২. প্রোফাইল ফ্রেম (সবার উপরে বসবে)
+                      if (isOccupied && uFrame.isNotEmpty)
+                        SizedBox(
+                          width: 60, // ফ্রেম একটু বড় হবে
+                          height: 60,
+                          child: Image.network(uFrame, fit: BoxFit.contain),
+                        ),
+
+                      // ৩. সোলমেট হার্ট
+                      if (isOccupied && hasSoulmate)
+                        Positioned(
+                          top: -2,
+                          child: Icon(Icons.favorite, color: Colors.pinkAccent, size: 14),
+                        ),
+
+                      // ৪. মাইক আইকন
+                      if (isOccupied && isMicOnLocal)
+                        Positioned(
+                          bottom: 0, right: 2,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                            child: const Icon(Icons.mic, size: 10, color: Colors.greenAccent),
                           ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    isOccupied ? uName : "${index + 1}",
-                    style: TextStyle(
-                      color: isOccupied ? Colors.white : Colors.white54, 
-                      fontSize: 10,
-                      fontWeight: isOccupied ? FontWeight.bold : FontWeight.normal,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isOccupied ? uName : (isVipSeat ? "King ${index + 1}" : "${index + 1}"),
+                  style: TextStyle(
+                    color: isVipSeat ? Colors.amberAccent : (isOccupied ? Colors.white : Colors.white54), 
+                    fontSize: 9,
+                    fontWeight: isVipSeat || isOccupied ? FontWeight.bold : FontWeight.normal,
                   ),
-                ],
-              ),
-            );
-          },
-        ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          );
+        },
       );
     },
   );
 }
-
 // --- ২. অ্যাকশন বার (মাইক, গেম এবং চ্যাট ইনপুট) ---
    Widget _buildBottomActionArea() {
     return Container(
