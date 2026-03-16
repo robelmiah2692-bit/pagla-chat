@@ -454,36 +454,56 @@ _audioPlayer.onPlayerComplete.listen((event) {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.grey[900],
-        title: const Text("সিট ছেড়ে দিন", style: TextStyle(color: Colors.white)),
+        title: const Text("সিট ছেড়ে দিন", style: TextStyle(color: Colors.white, fontSize: 18)),
+        content: const Text("আপনি কি নিশ্চিতভাবে এই সিটটি ছেড়ে দিতে চান?", style: TextStyle(color: Colors.grey)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("না")),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("না", style: TextStyle(color: Colors.blue))),
           TextButton(
             onPressed: () async {
-              // 🔥 ১. এগোরাকে লিসেনার মোডে নেওয়া (যাতে কথা বলা বন্ধ হয়)
+              // ১. এগোরাকে লিসেনার মোডে নেওয়া এবং মাইক্রোফোন অফ করা
               try {
                 await _agoraManager.becomeListener();
-                debugPrint("🔇 এগোরা এখন লিসেনার মোডে।");
+                // ওয়াক-লক বন্ধ করা (যদি আপনি সিটে বসার সময় এটি এনাবল করে থাকেন)
+                if (kIsWeb) {
+                  await WakelockPlus.disable();
+                }
+                debugPrint("🔇 এগোরা এখন লিসেনার মোডে। মাইক বন্ধ।");
               } catch (e) {
-                debugPrint("Agora Error: $e");
+                debugPrint("Agora Error while leaving: $e");
               }
 
-              // ২. আপনার ডাটাবেস আপডেট লজিক (আগের মতোই)
-              await _roomService.updateSeatData(roomId: widget.roomId, seatIndex: index, uName: "", uImage: "", isOccupied: false);
-              await FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).collection('seats').doc(index.toString()).delete();
+              // ২. ডাটাবেস আপডেট (সিট খালি করা)
+              try {
+                // Realtime Database থেকে সিট রিমুভ করা
+                await FirebaseDatabase.instance
+                    .ref('rooms/${widget.roomId}/seats/$index')
+                    .remove();
+
+                // যদি আপনি ফায়ারস্টোরেও আলাদা করে সিট ডাটা রাখেন তবে এটি রাখুন (ঐচ্ছিক)
+                // await FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).collection('seats').doc(index.toString()).delete();
+                
+                debugPrint("🧹 ডাটাবেস থেকে সিট ক্লিয়ার করা হয়েছে।");
+              } catch (e) {
+                debugPrint("Database Update Error: $e");
+              }
               
+              // ৩. লোকাল স্টেট আপডেট
               if (mounted) {
                 setState(() {
                   seats[index]["isOccupied"] = false;
                   seats[index]["status"] = "empty";
                   seats[index]["userName"] = "";
                   seats[index]["userImage"] = "";
+                  seats[index]["userId"] = "";
+                  seats[index]["agoraUid"] = "";
                   seats[index]["isMicOn"] = false; 
-                  seats[index]["isTalking"] = false; // রিপেল অফ করা
+                  seats[index]["isTalking"] = false; // রিপেল এনিমেশন অফ করা
                   currentSeatIndex = -1;
                   isMicOn = false;
                 });
               }
-              Navigator.pop(context);
+              
+              if (mounted) Navigator.pop(context);
             }, 
             child: const Text("হ্যাঁ", style: TextStyle(color: Colors.redAccent))
           ),
