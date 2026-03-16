@@ -6,12 +6,18 @@ import 'dart:html' as html;
 import 'dart:js' as js;
 
 class AgoraManager {
-  RtcEngine? _engine; // Null safety এর জন্য পরিবর্তন
+  RtcEngine? _engine; 
   bool _isInitialized = false;
   final String appId = "855883e294ec4144b8e955451c06e3d7";
   Timer? _keepAliveTimer;
   int? _localUid;
   bool _shouldBeBroadcasting = false;
+
+  // ✅ এটি অবশ্যই লাগবে যাতে voice_room.dart এ এরর না আসে
+  RtcEngine get engine {
+    if (_engine == null) throw Exception("এগোরা ইঞ্জিন এখনো তৈরি হয়নি!");
+    return _engine!;
+  }
 
   int? get localUid => _localUid;
 
@@ -52,6 +58,14 @@ class AgoraManager {
         onUserJoined: (connection, remoteUid, elapsed) {
           debugPrint("👥 অন্য ইউজার জয়েন করেছে: $remoteUid");
           forceResumeAudio(); 
+        },
+        // ✅ কথা বলার সিগন্যাল ধরার জন্য এটি যোগ করা হলো (আগের কোড থেকে)
+        onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
+          for (var speaker in speakers) {
+            if ((speaker.volume ?? 0) > 10) {
+              debugPrint("🎤 কথা বলছে UID: ${speaker.uid}");
+            }
+          }
         },
         onError: (err, msg) {
           debugPrint("❌ এগোরা এরর: $err - $msg");
@@ -96,9 +110,9 @@ class AgoraManager {
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     await initAgora();
 
-    // 🔥 ইউআইডি ইউনিক করার জন্য র্যান্ডম লজিক আপডেট করা হয়েছে
+    // 🔥 ইউআইডি ইউনিক করার মাস্টার লজিক
     _localUid = (fireUid != null && fireUid.isNotEmpty) 
-        ? (fireUid.hashCode.abs() + Random().nextInt(1000)) 
+        ? (fireUid.hashCode.abs() + Random().nextInt(5000)) 
         : (Random().nextInt(800000) + 100000);
 
     await _engine!.joinChannel(
