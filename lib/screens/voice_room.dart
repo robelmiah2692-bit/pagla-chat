@@ -169,81 +169,81 @@ void initState() {
 
   // 🔥 ৪. এগোরা ম্যানেজার ব্যবহার করে ভয়েস ডিটেকশন (সব ফিচার নিশ্চিত)
   Future.microtask(() async {
-    try {
-      await _agoraManager.initAgora(); 
-      
-      final String myActualUid = FirebaseAuth.instance.currentUser?.uid ?? "guest_${Random().nextInt(10000)}";
-      
-      await _agoraManager.joinAsListener(widget.roomId, myActualUid);
+  try {
+    await _agoraManager.initAgora(); 
+    
+    final String myActualUid = FirebaseAuth.instance.currentUser?.uid ?? "guest_${Random().nextInt(10000)}";
+    
+    await _agoraManager.joinAsListener(widget.roomId, myActualUid);
 
-      _agoraManager.engine.registerEventHandler(
-        RtcEngineEventHandler(
-          onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
-            debugPrint("👥 Remote user joined: $remoteUid");
-            if (mounted) {
-              setState(() {
-                _addUserToViewers(); 
-              });
-            }
-          },
-
-          onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
-            debugPrint("👋 Remote user left: $remoteUid");
-            if (mounted) setState(() {});
-          },
-
-          onRemoteAudioStateChanged: (RtcConnection connection, int remoteUid, RemoteAudioState state, RemoteAudioStateReason reason, int elapsed) {
-            debugPrint("🔊 Audio State Changed for $remoteUid: $state");
-          },
-
-          onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int totalVolume, int speakerNumber) {
-            if (!mounted) return;
-            
+    _agoraManager.engine.registerEventHandler(
+      RtcEngineEventHandler(
+        onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
+          debugPrint("👥 Remote user joined: $remoteUid");
+          if (mounted) {
             setState(() {
+              _addUserToViewers(); 
+            });
+          }
+        },
+
+        onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
+          debugPrint("👋 Remote user left: $remoteUid");
+          if (mounted) setState(() {});
+        },
+
+        onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int totalVolume, int speakerNumber) {
+          if (!mounted) return;
+          
+          bool hasChanged = false;
+
+          // ১. প্রতিবার লুপে ঢোকার আগে লোকালি সবার কথা বলা বন্ধ ধরি
+          for (int i = 0; i < seats.length; i++) {
+            if (seats[i]["isTalking"] == true) {
+              seats[i]["isTalking"] = false;
+              hasChanged = true;
+            }
+          }
+
+          // ২. এগোরা থেকে আসা স্পিকারদের ডেটা চেক করি
+          for (var speaker in speakers) {
+            final int sUid = speaker.uid ?? 0;
+            final int managerUid = _agoraManager.localUid ?? 0;
+            final int currentSpeakerUid = (sUid == 0) ? managerUid : sUid;
+            final int vol = speaker.volume ?? 0;
+
+            if (vol > 10) { // যদি কেউ কথা বলে
               for (int i = 0; i < seats.length; i++) {
-                seats[i]["isTalking"] = false;
-              }
+                final String seatUserId = seats[i]["userId"]?.toString() ?? "";
+                final String seatAgoraUid = seats[i]["agoraUid"]?.toString() ?? "";
+                final String speakerUidStr = currentSpeakerUid.toString();
 
-              for (var speaker in speakers) {
-                final int sUid = speaker.uid ?? 0;
-                final int managerUid = _agoraManager.localUid ?? 0;
-                final int currentSpeakerUid = (sUid == 0) ? managerUid : sUid;
+                // নিজের জন্য বা অন্যদের জন্য আইডি ম্যাচ করানো
+                bool isMe = (sUid == 0 && seatUserId == myActualUid);
+                bool isOthers = (seatAgoraUid == speakerUidStr);
 
-                for (int i = 0; i < seats.length; i++) {
-                  final String seatUserId = seats[i]["userId"]?.toString() ?? "";
-                  final String seatAgoraUid = seats[i]["agoraUid"]?.toString() ?? "";
-                  final String speakerUidStr = currentSpeakerUid.toString();
-
-                  bool isMe = (sUid == 0 && seatUserId == myActualUid.toString());
-                  bool isOthers = (seatAgoraUid == speakerUidStr || seatUserId == speakerUidStr);
-
-                  if (isMe || isOthers) {
-                    final int vol = speaker.volume ?? 0;
-                    final bool talkingNow = vol > 10; 
-
-                    if (seats[i]["isTalking"] != talkingNow) {
-                      seats[i]["isTalking"] = talkingNow;
-
-                      FirebaseFirestore.instance
-                          .collection('rooms')
-                          .doc(widget.roomId)
-                          .collection('seats')
-                          .doc(i.toString())
-                          .update({"isTalking": talkingNow})
-                          .catchError((e) => debugPrint("Firestore Error: $e"));
-                    }
+                if (isMe || isOthers) {
+                  if (seats[i]["isTalking"] == false) {
+                    seats[i]["isTalking"] = true;
+                    hasChanged = true;
                   }
                 }
               }
-            });
-          },
-        ),
-      );
-      debugPrint("✅ সব ফিচার (ইউজার লিস্ট + অডিও + রিপেল) এখন সচল!");
-    } catch (e) {
-      debugPrint("❌ Agora Error: $e");
-    }
-  }); // মাইক্রোটাস্ক শেষ
+            }
+          }
+
+          // ৩. ফায়ারবেসে না পাঠিয়ে শুধু নিজের স্ক্রিনে আপডেট করছি
+          if (hasChanged && mounted) {
+            setState(() {});
+          }
+        },
+      ),
+    );
+    debugPrint("✅ সব সচল! ফায়ারবেস রাইট ছাড়াই রিপেল কাজ করবে।");
+  } catch (e) {
+    debugPrint("❌ Agora Error: $e");
+  }
+});
 
   // ৫. অডিও প্লেয়ার লিসেনার
   _audioPlayer.onPlayerStateChanged.listen((state) {
