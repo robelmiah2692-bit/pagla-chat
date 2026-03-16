@@ -19,45 +19,47 @@ class AgoraManager {
     if (_isInitialized) return;
     engine = createAgoraRtcEngine();
 
+    // ১. গ্লোবাল এরিয়া এবং লাইভ প্রোফাইল সেটআপ
     await engine.initialize(RtcEngineContext(
       appId: appId,
       areaCode: AreaCode.areaCodeGlob.value(),
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
-    await engine.enableAudioVolumeIndication(
-      interval: 250,
-      smooth: 3,
-      reportVad: true,
-    );
-
+    // ২. ওয়েব স্পেসিফিক অডিও বুস্ট (এটিই আসল ধাক্কা)
     if (kIsWeb) {
-      await engine.setParameters('{"rtc.web_receiver_report_interval":1000}');
-      await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
+      await engine.setParameters('{"rtc.audio.force_confirm_hello": true}');
+      await engine.setParameters('{"che.audio.web_sender_report_interval": 500}');
       await engine.setAudioProfile(
-        profile: AudioProfileType.audioProfileMusicHighQualityStereo,
+        profile: AudioProfileType.audioProfileSpeechStandard,
         scenario: AudioScenarioType.audioScenarioGameStreaming,
       );
     }
 
+    await engine.enableAudioVolumeIndication(
+      interval: 200,
+      smooth: 3,
+      reportVad: true,
+    );
+
     engine.registerEventHandler(RtcEngineEventHandler(
       onJoinChannelSuccess: (connection, elapsed) {
-        debugPrint("✅ Agora Connected. UID: ${connection.localUid}");
+        debugPrint("✅ এগোরা কানেক্টেড! UID: ${connection.localUid}");
         forceResumeAudio(); 
       },
       onUserJoined: (connection, remoteUid, elapsed) {
-        debugPrint("👥 User joined: $remoteUid");
+        debugPrint("👥 অন্য ইউজার জয়েন করেছে: $remoteUid");
+        forceResumeAudio(); // কেউ আসলে অডিও রিস্টার্ট
       },
       onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
         for (var speaker in speakers) {
-          // 🔥 বিল্ড এরর ফিক্স: volume null হলে ০ ধরা হবে
           if ((speaker.volume ?? 0) > 10) {
-            debugPrint("🎤 UID: ${speaker.uid} is speaking");
+            debugPrint("🎤 কথা বলছে UID: ${speaker.uid}");
           }
         }
       },
-      onRemoteAudioStateChanged: (connection, remoteUid, state, reason, elapsed) {
-        debugPrint("🔊 Remote Audio State: $state");
+      onError: (err, msg) {
+        debugPrint("❌ এগোরা এরর: $err - $msg");
       }
     ));
 
@@ -65,6 +67,7 @@ class AgoraManager {
     _isInitialized = true;
   }
 
+  // ৩. ব্রাউজার অডিও আনলক করার মাস্টার মেথড
   Future<void> forceResumeAudio() async {
     if (kIsWeb) {
       try {
@@ -75,18 +78,20 @@ class AgoraManager {
               [window.AudioContext, window.webkitAudioContext].forEach(function(Context) {
                 if (Context) {
                   var ctx = new Context();
-                  if (ctx.state !== 'running') ctx.resume();
+                  if (ctx.state !== 'running') {
+                    ctx.resume().then(() => console.log('Audio Context Resumed by User Action'));
+                  }
                 }
               });
             };
-            document.body.addEventListener('click', resume, {once: false});
-            document.body.addEventListener('touchstart', resume, {once: false});
+            window.addEventListener('click', resume, {once: false});
+            window.addEventListener('touchstart', resume, {once: false});
             resume();
           })();
           """
         ]);
       } catch (e) {
-        debugPrint("Force Resume Error: $e");
+        debugPrint("Resume Error: $e");
       }
     }
   }
@@ -94,11 +99,9 @@ class AgoraManager {
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
 
-    if (fireUid != null && fireUid.isNotEmpty) {
-      _localUid = fireUid.hashCode.abs();
-    } else {
-      _localUid = (Random().nextInt(899999) + 100000);
-    }
+    _localUid = (fireUid != null && fireUid.isNotEmpty) 
+        ? fireUid.hashCode.abs() 
+        : (Random().nextInt(899999) + 100000);
 
     await engine.joinChannel(
       token: "",
@@ -114,19 +117,20 @@ class AgoraManager {
     await forceResumeAudio();
   }
 
+  // ৪. ব্রডকাস্টার হওয়ার জন্য ফোর্স কমান্ড
   Future<void> becomeBroadcaster() async {
     _shouldBeBroadcasting = true;
     
     if (kIsWeb) {
       try {
         await html.window.navigator.mediaDevices?.getUserMedia({'audio': true});
-      } catch (e) {
-        debugPrint("Mic Permission Error: $e");
-      }
+      } catch (e) {}
     }
 
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
-    await forceResumeAudio();
+    await engine.enableLocalAudio(true);
+    await engine.muteLocalAudioStream(false);
+    
     await _ensureAudioPublishing();
 
     _keepAliveTimer?.cancel();
@@ -138,14 +142,14 @@ class AgoraManager {
   }
 
   Future<void> _ensureAudioPublishing() async {
+    // অডিও স্ট্রীম জোর করে সার্ভারে পাঠানো
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: true,
       autoSubscribeAudio: true,
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
     ));
-    await engine.enableLocalAudio(true);
-    await engine.muteLocalAudioStream(false);
-    await engine.adjustRecordingSignalVolume(200);
+    await engine.adjustRecordingSignalVolume(200); // গলার আওয়াজ বাড়ানো
+    await engine.adjustPlaybackSignalVolume(200);  // শোনার আওয়াজ বাড়ানো
   }
 
   Future<void> toggleMic(bool isMute) async {
@@ -163,7 +167,6 @@ class AgoraManager {
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: false,
     ));
-    await engine.enableLocalAudio(false);
   }
 
   Future<void> leaveRoom() async {
