@@ -335,7 +335,7 @@ _audioPlayer.onPlayerComplete.listen((event) {
   }
 
   // ১. সিটে বসার মেইন লজিক (আপনার দেওয়া রিয়েল টাইম সিঙ্ক সহ)
-   void sitOnSeat(int index) async {
+  void sitOnSeat(int index) async {
     // ১. বেসিক চেক
     if (currentSeatIndex == index) { 
       _showLeaveConfirmation(index); 
@@ -344,51 +344,38 @@ _audioPlayer.onPlayerComplete.listen((event) {
     
     if (seats[index]["isOccupied"] || isRoomLocked) return;
 
-    // 🔥 ২. ওয়েব-এর জন্য অডিও ও ওয়াক-লক সিকোয়েন্স (মাউস টাচ সমস্যা সমাধান)
+    // ২. অডিও এবং ব্রডকাস্টার মোড এনাবল করা
     try {
-      // ব্রাউজারকে স্লিপ মোডে যেতে বাধা দেওয়া (টাচ না করলেও কানেকশন থাকবে)
+      // ব্রাউজার স্লিপ মোড প্রতিরোধ
       if (kIsWeb) {
         await WakelockPlus.enable();
-        debugPrint("💡 Wakelock Enabled: স্ক্রিন এবং মাইক সচল থাকবে");
       }
 
-      await _agoraManager.forceResumeAudio(); 
+      // Agora Manager-এর মাধ্যমে ব্রডকাস্টিং শুরু
       await _agoraManager.becomeBroadcaster();
       
-      // ব্রাউজারকে জানানো যে এটি একটি লাইভ স্ট্রিমিং অ্যাপ
-      await _agoraManager.engine.setAudioProfile(
-        profile: AudioProfileType.audioProfileMusicHighQualityStereo,
-        scenario: AudioScenarioType.audioScenarioGameStreaming, 
-      );
-
-      await _agoraManager.engine.muteLocalAudioStream(false);
-      await _agoraManager.engine.enableLocalAudio(true); 
-
+      // গুরুত্বপূর্ণ: ভলিউম ডাটা এনাবল করা (রিপেল এর জন্য)
       await _agoraManager.engine.enableAudioVolumeIndication(
         interval: 250, 
         smooth: 3, 
         reportVad: true
       );
-      
-      debugPrint("✅ ওয়েব কলিং ইঞ্জিন ও ওয়াক-লক প্রস্তুত!");
+
+      debugPrint("✅ ওয়েব কলিং ইঞ্জিন প্রস্তুত!");
     } catch (e) {
       debugPrint("Agora Web Error: $e");
+      // মাইক পারমিশন না দিলে বা এরর হলে সিটে বসতে বাধা দেওয়া ভালো
+      return; 
     }
 
-    // ৩. পুরাতন সিট ক্লিয়ার করা
+    // ৩. পুরাতন সিট ক্লিয়ার করা (যদি আগে অন্য সিটে থাকে)
     if (currentSeatIndex != -1) {
       int oldIndex = currentSeatIndex;
       await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').remove();
-      if (mounted) {
-        setState(() {
-          seats[oldIndex]["isOccupied"] = false;
-          seats[oldIndex]["status"] = "empty";
-          seats[oldIndex]["isTalking"] = false;
-        });
-      }
+      // লোকাল স্টেট আপডেট নিচে একবারে হবে
     }
 
-    // ৪. ইউজার আইডেন্টিটি এবং ডাটাবেস আপডেট
+    // ৪. ডাটাবেস এবং স্টেট আপডেট
     try {
       final User? currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) return;
@@ -397,15 +384,16 @@ _audioPlayer.onPlayerComplete.listen((event) {
       final String myName = currentUser.displayName ?? "User";
       final String myPic = currentUser.photoURL ?? "";
 
-      // 👑 মালিক শনাক্তকরণ কোড (Hridoy identified)
+      // 👑 মালিক শনাক্তকরণ (Hridoy)
       if (myName.toLowerCase() == "hridoy") {
-        debugPrint("Owner identified: Hridoy is sitting on seat $index");
-        // মালিকের জন্য রুমে একটি বিশেষ ঘোষণা পাঠানো
         _sendOwnerJoinMessage();
       }
 
       final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
       
+      // এগোরা থেকে পাওয়া ইউনিক আইডি
+      final int myAgoraUid = _agoraManager.localUid ?? 0;
+
       await seatRef.set({
         'userName': myName,
         'userImage': myPic,
@@ -414,23 +402,32 @@ _audioPlayer.onPlayerComplete.listen((event) {
         'isMicOn': true,
         'userId': uid,
         'isTalking': false,
-        'agoraUid': _agoraManager.localUid,
+        'agoraUid': myAgoraUid, // এটি অবশ্যই দিতে হবে নাহলে রিপেল কাজ করবে না
       });
       
-      // ডিসকানেক্ট বা ট্যাব বন্ধ করলে যেন সিট খালি হয়
       seatRef.onDisconnect().remove();
 
       if (mounted) {
         setState(() {
+          // পুরাতন সিট ডাটা ক্লিন
+          if (currentSeatIndex != -1) {
+            seats[currentSeatIndex]["isOccupied"] = false;
+            seats[currentSeatIndex]["status"] = "empty";
+          }
+          
+          // নতুন সিট ডাটা সেট
           currentSeatIndex = index;
           isMicOn = true;
-          seats[index]["status"] = "occupied";
-          seats[index]["isOccupied"] = true;
-          seats[index]["userName"] = myName;
-          seats[index]["userImage"] = myPic; 
-          seats[index]["isMicOn"] = true;
-          seats[index]["userId"] = uid;
-          seats[index]["isTalking"] = false;
+          seats[index] = {
+            "status": "occupied",
+            "isOccupied": true,
+            "userName": myName,
+            "userImage": myPic,
+            "isMicOn": true,
+            "userId": uid,
+            "agoraUid": myAgoraUid,
+            "isTalking": false,
+          };
         });
       }
       
@@ -438,7 +435,7 @@ _audioPlayer.onPlayerComplete.listen((event) {
     } catch (e) {
       debugPrint("Firebase Update Error: $e");
     }
-  }
+}
 
   // মালিকের জন্য বিশেষ মেসেজ ফাংশন
   void _sendOwnerJoinMessage() {
