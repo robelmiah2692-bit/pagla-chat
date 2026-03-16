@@ -20,13 +20,12 @@ class AgoraManager {
     engine = createAgoraRtcEngine();
 
     try {
-      // ১. ইনিশিয়ালাইজেশন (এরিয়া কোড ওয়েব-এর জন্য ক্লিন করা হয়েছে)
       await engine.initialize(RtcEngineContext(
         appId: appId,
+        areaCode: AreaCode.areaCodeGlob.value(),
         channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
       ));
 
-      // ২. ওয়েব ব্রাউজারের অডিও আনলক প্যারামিটার
       if (kIsWeb) {
         await engine.setParameters('{"rtc.audio.force_confirm_hello": true}');
         await engine.setParameters('{"che.audio.specify.codec": "OPUS"}');
@@ -47,7 +46,7 @@ class AgoraManager {
           debugPrint("✅ এগোরা কানেক্টেড! UID: ${connection.localUid}");
           _localUid = connection.localUid;
           
-          // 🔥 সাকসেস পপ-আপ (আইডি নিশ্চিত করার জন্য)
+          // 🔥 সাকসেস পপ-আপ: ফোনে আইডি দেখাবে
           js.context.callMethod('alert', ["✅ কানেক্টেড!\nআপনার আইডি: ${connection.localUid}"]);
           
           forceResumeAudio(); 
@@ -56,9 +55,16 @@ class AgoraManager {
           debugPrint("👥 অন্য ইউজার জয়েন করেছে: $remoteUid");
           forceResumeAudio(); 
         },
+        onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
+          for (var speaker in speakers) {
+            if ((speaker.volume ?? 0) > 10) {
+              debugPrint("🎤 কথা বলছে UID: ${speaker.uid}");
+            }
+          }
+        },
         onError: (err, msg) {
           debugPrint("❌ এগোরা এরর: $err - $msg");
-          // 🔥 এই পপ-আপটি বলবে কেন মাইক্রোফোন চলে যাচ্ছে (টোকেন বা ব্লক এরর)
+          // 🔥 এরর পপ-আপ: কেন মাইক্রোফোন চলে যাচ্ছে তা এখানে ধরা পড়বে
           js.context.callMethod('alert', ["❌ এগোরা এরর: $err\nমেসেজ: $msg"]);
         }
       ));
@@ -70,7 +76,6 @@ class AgoraManager {
     }
   }
 
-  // ৩. ব্রাউজার অডিও সচল করার লজিক
   Future<void> forceResumeAudio() async {
     if (kIsWeb) {
       try {
@@ -82,7 +87,7 @@ class AgoraManager {
               if (AudioContext) {
                 var ctx = new AudioContext();
                 if (ctx.state !== 'running') {
-                  ctx.resume().then(() => console.log('Audio Context Resumed'));
+                  ctx.resume().then(() => console.log('Audio Context Resumed Success'));
                 }
               }
             };
@@ -101,7 +106,6 @@ class AgoraManager {
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
 
-    // ৪. UID জেনারেশন
     _localUid = (fireUid != null && fireUid.isNotEmpty) 
         ? fireUid.hashCode.abs() 
         : (Random().nextInt(899999) + 100000);
@@ -120,13 +124,11 @@ class AgoraManager {
     await forceResumeAudio();
   }
 
-  // ৫. সিটে বসার পর কলিং সচল করার কমান্ড
   Future<void> becomeBroadcaster() async {
     _shouldBeBroadcasting = true;
     
     if (kIsWeb) {
       try {
-        // হার্ডওয়্যার পারমিশন চেক
         await html.window.navigator.mediaDevices?.getUserMedia({'audio': true});
       } catch (e) {
         js.context.callMethod('alert', ["❌ মাইক পারমিশন এরর: $e"]);
@@ -145,7 +147,6 @@ class AgoraManager {
   }
 
   Future<void> _ensureAudioPublishing() async {
-    // অডিও পাবলিশিং নিশ্চিত করা
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: true,
       autoSubscribeAudio: true,
@@ -155,6 +156,26 @@ class AgoraManager {
     await engine.muteLocalAudioStream(false);
     await engine.adjustRecordingSignalVolume(200); 
     await engine.adjustPlaybackSignalVolume(200);  
+  }
+
+  // ✅ পুরাতন ফিচার (Mic Toggle) ফিরিয়ে আনা হয়েছে
+  Future<void> toggleMic(bool isMute) async {
+    if (!_isInitialized) return;
+    await engine.muteLocalAudioStream(isMute);
+    await engine.updateChannelMediaOptions(ChannelMediaOptions(
+      publishMicrophoneTrack: !isMute,
+    ));
+  }
+
+  // ✅ পুরাতন ফিচার (Become Listener) ফিরিয়ে আনা হয়েছে
+  Future<void> becomeListener() async {
+    _shouldBeBroadcasting = false;
+    _keepAliveTimer?.cancel();
+    await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
+    await engine.updateChannelMediaOptions(const ChannelMediaOptions(
+      publishMicrophoneTrack: false,
+      autoSubscribeAudio: true,
+    ));
   }
 
   Future<void> leaveRoom() async {
