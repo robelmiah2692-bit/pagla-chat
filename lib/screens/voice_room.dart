@@ -1159,27 +1159,38 @@ List<Widget> _buildFloatingEmojiAnimations() {
           ),
         
           // ২. মাইক
-          onPressed: () async {
+          IconButton(
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            icon: Icon(
+              isMicOn ? Icons.mic : Icons.mic_off,
+              color: isMicOn ? Colors.greenAccent : Colors.redAccent,
+              size: 22,
+            ),
+            onPressed: () async {
               if (currentSeatIndex != -1) {
-                HapticFeedback.lightImpact();
-                // ১. বর্তমান মাইক স্টেটের উল্টোটা নেওয়া (On থাকলে Off, Off থাকলে On)
+                // ১. মোবাইল ভাইব্রেশন (Services import না থাকলে এরর দিবে)
+                try {
+                  HapticFeedback.lightImpact();
+                } catch (e) {
+                  debugPrint("Haptic error: $e");
+                }
+
                 bool newMicState = !isMicOn;
                 
                 try {
-                  // ২. এগোরা ইঞ্জিনে অডিও পাবলিশিং অন/অফ করা
+                  // ২. এগোরা মাইক কন্ট্রোল
                   await _agoraManager.toggleMic(!newMicState); 
 
-                  // ৩. রিয়েলটাইম ডাটাবেসে আপডেট (যাতে অন্য ইউজাররা আপনার মিউট আইকন দেখতে পায়)
+                  // ৩. রিয়েলটাইম ডাটাবেস আপডেট
                   await FirebaseDatabase.instance
                       .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
                       .update({'isMicOn': newMicState});
 
-                  // ৪. লোকাল অ্যাপের ইন্টারফেস এবং রিপেল এনিমেশন কন্ট্রোল
+                  // ৪. লোকাল স্টেট আপডেট
                   if (mounted) {
                     setState(() { 
                       isMicOn = newMicState; 
-                      
-                      // মাইক অফ করলে সাথে সাথে সিটের 'isTalking' লজিক অফ করে দেওয়া
                       if (!newMicState) {
                         if (seats.length > currentSeatIndex) {
                           seats[currentSeatIndex]["isTalking"] = false;
@@ -1187,13 +1198,12 @@ List<Widget> _buildFloatingEmojiAnimations() {
                       }
                     });
                   }
-                  
-                  debugPrint("🎤 Mic state updated to: ${newMicState ? 'ON' : 'OFF'}");
                 } catch (e) {
                   debugPrint("❌ Mic Toggle Error: $e");
                 }
               }
             },
+          ),
           // ৩. মিউজিক (ড্র্যাগেবল প্লেয়ার অন/অফ)
           IconButton(
             constraints: const BoxConstraints(),
