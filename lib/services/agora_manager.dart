@@ -19,7 +19,7 @@ class AgoraManager {
     if (_isInitialized) return;
     engine = createAgoraRtcEngine();
 
-    // ১. ইনিশিয়ালাইজেশন (এরিয়া কোড গ্লোবাল রেখেছি টেস্টের জন্য)
+    // ১. ইনিশিয়ালাইজেশন
     await engine.initialize(RtcEngineContext(
       appId: appId,
       areaCode: AreaCode.areaCodeGlob.value(),
@@ -45,11 +45,14 @@ class AgoraManager {
     engine.registerEventHandler(RtcEngineEventHandler(
       onJoinChannelSuccess: (connection, elapsed) {
         debugPrint("✅ এগোরা কানেক্টেড! UID: ${connection.localUid}");
+        
+        // 🔥 এই পপ-আপটি আপনাকে ফোনে আইডি দেখাবে
+        js.context.callMethod('alert', ["আপনার ফোনের আইডি: ${connection.localUid}"]);
+        
         forceResumeAudio(); 
       },
       onUserJoined: (connection, remoteUid, elapsed) {
         debugPrint("👥 অন্য ইউজার জয়েন করেছে: $remoteUid");
-        // অন্য কেউ জয়েন করলে ব্রাউজার অডিও রিস্টার্ট করা জরুরি
         forceResumeAudio(); 
       },
       onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
@@ -61,6 +64,8 @@ class AgoraManager {
       },
       onError: (err, msg) {
         debugPrint("❌ এগোরা এরর: $err - $msg");
+        // 🔥 আইডি ব্লক বা টোকেন সমস্যা থাকলে এখানে পপ-আপ আসবে
+        js.context.callMethod('alert', ["এগোরা এরর: $err\nমেসেজ: $msg"]);
       }
     ));
 
@@ -85,7 +90,6 @@ class AgoraManager {
                 }
               });
             };
-            // ইউজারের যেকোনো টাচ বা ক্লিকে অডিও সচল হবে
             window.addEventListener('click', resume, {once: false});
             window.addEventListener('touchstart', resume, {once: false});
             resume();
@@ -108,7 +112,7 @@ class AgoraManager {
 
     await engine.joinChannel(
       token: "",
-      channelId: channelName.trim(), // স্পেস থাকলে এরর দেয়, তাই ট্রিম করা
+      channelId: channelName.trim(), 
       uid: _localUid!,
       options: const ChannelMediaOptions(
         clientRoleType: ClientRoleType.clientRoleAudience,
@@ -126,7 +130,6 @@ class AgoraManager {
     
     if (kIsWeb) {
       try {
-        // ব্রাউজারের কাছে মাইক পারমিশন চাওয়া
         await html.window.navigator.mediaDevices?.getUserMedia({'audio': true});
       } catch (e) {
         debugPrint("Mic Hardware Permission Denied: $e");
@@ -148,7 +151,6 @@ class AgoraManager {
   }
 
   Future<void> _ensureAudioPublishing() async {
-    // অডিও স্ট্রীম জোর করে সার্ভারে পাঠানো এবং ভলিউম বুস্ট
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: true,
       autoSubscribeAudio: true,
