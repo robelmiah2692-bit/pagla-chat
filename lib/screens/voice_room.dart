@@ -1141,6 +1141,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
               size: 22
             ),
             onPressed: () {
+              // মিউজিক সিলেকশন বার (BottomSheet) ওপেন করা
               showModalBottomSheet(
                 context: context,
                 backgroundColor: Colors.transparent,
@@ -1157,10 +1158,12 @@ List<Widget> _buildFloatingEmojiAnimations() {
                       // ১. আগের গান পুরোপুরি বন্ধ করা
                       await _audioPlayer.stop();
 
-                      // ২. সরাসরি কন্ডিশন দিয়ে প্লে করা (এতে বিল্ড ফেইল হবে না)
+                      // ২. সরাসরি কন্ডিশন দিয়ে প্লে করা
                       if (path.startsWith('http')) {
+                        // ইন্টারনেটের গানের জন্য
                         await _audioPlayer.play(UrlSource(path));
                       } else {
+                        // মোবাইলের লোকাল গানের জন্য
                         await _audioPlayer.play(DeviceFileSource(path));
                       }
 
@@ -1175,7 +1178,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
               );
             },
           ),
-
           // ৪. গিফট বাটন
           IconButton(
             constraints: const BoxConstraints(),
