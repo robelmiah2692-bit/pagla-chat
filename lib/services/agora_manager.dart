@@ -2,7 +2,6 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'dart:math';
-// ওয়েবের সিকিউরিটি বাধা ভাঙার জন্য এই লাইব্রেরিগুলো মাস্ট
 import 'dart:html' as html;
 import 'dart:js' as js;
 
@@ -18,52 +17,49 @@ class AgoraManager {
 
   Future<void> initAgora() async {
     if (_isInitialized) return;
-
     engine = createAgoraRtcEngine();
 
-    // ১. গ্লোবাল রিজিয়ন এবং হাই-কোয়ালিটি অডিও সেটআপ
     await engine.initialize(RtcEngineContext(
       appId: appId,
       areaCode: AreaCode.areaCodeGlob.value(),
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
-    // ২. অডিও রিপেল বা ঢেউ সচল করা
+    // অডিও ভলিউম ইন্ডিকেশন (রিপেল এর জন্য)
     await engine.enableAudioVolumeIndication(
-      interval: 200,
+      interval: 250,
       smooth: 3,
       reportVad: true,
     );
 
-    // ৩. ওয়েবের জন্য স্পেশাল অডিও প্যারামিটার (বটম-লেভেল ফিক্স)
     if (kIsWeb) {
+      // ওয়েবে সাউন্ড কোয়ালিটি এবং কানেকশন ধরে রাখার মাস্টার প্যারামিটার
       await engine.setParameters('{"rtc.web_receiver_report_interval":1000}');
       await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
-      // ইকো এবং নয়েজ ক্যান্সেলেশন বুস্ট
-      await engine.setParameters('{"che.audio.enable.aec":true}');
-      await engine.setParameters('{"che.audio.enable.ans":true}');
+      await engine.setAudioProfile(
+        profile: AudioProfileType.audioProfileMusicHighQualityStereo,
+        scenario: AudioScenarioType.audioScenarioGameStreaming,
+      );
     }
 
     engine.registerEventHandler(RtcEngineEventHandler(
-      onConnectionStateChanged: (connection, state, reason) {
-        if (state == ConnectionStateType.connectionStateConnected && _shouldBeBroadcasting) {
-          _ensureAudioPublishing();
-        }
-      },
       onJoinChannelSuccess: (connection, elapsed) {
-        debugPrint("✅ Agora Connected Successfully");
-        forceResumeAudio(); // কানেক্ট হওয়া মাত্রই অডিও সচল করা
+        debugPrint("✅ Agora Connected. UID: ${connection.localUid}");
+        forceResumeAudio(); 
       },
-      onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
-        // এখানে ভলিউম ডেটা রিয়েল টাইমে আসবে যা রিপেল তৈরি করবে
+      onUserJoined: (connection, remoteUid, elapsed) {
+        debugPrint("👥 অন্য ইউজার জয়েন করেছে: $remoteUid");
       },
+      onRemoteAudioStateChanged: (connection, remoteUid, state, reason, elapsed) {
+        debugPrint("🔊 রিমোট অডিও স্টেট: $state ইউজার: $remoteUid");
+      }
     ));
 
     await engine.enableAudio();
     _isInitialized = true;
   }
 
-  // ✅ ব্রাউজারের অডিও সিকিউরিটি (Autoplay) বাইপাস করার মাস্টার লজিক
+  // ব্রাউজার অডিও রেজুউম (মাস্টার ফিক্স)
   Future<void> forceResumeAudio() async {
     if (kIsWeb) {
       try {
@@ -71,16 +67,12 @@ class AgoraManager {
           """
           (function() {
             var resume = function() {
-              var contexts = [];
-              if (window.AudioContext) contexts.push(new AudioContext());
-              if (window.webkitAudioContext) contexts.push(new webkitAudioContext());
-              contexts.forEach(function(ctx) {
-                if (ctx.state !== 'running') ctx.resume();
+              [window.AudioContext, window.webkitAudioContext].forEach(function(Context) {
+                if (Context) {
+                  var ctx = new Context();
+                  if (ctx.state !== 'running') ctx.resume();
+                }
               });
-              // ব্রাউজারকে জানানো যে মাইক সচল করতে হবে
-              navigator.mediaDevices.getUserMedia({ audio: true }).then(function(s) {
-                 s.getTracks().forEach(t => t.stop()); 
-              }).catch(e => console.log('Mic Init Error'));
             };
             document.body.addEventListener('click', resume, {once: false});
             document.body.addEventListener('touchstart', resume, {once: false});
@@ -97,12 +89,9 @@ class AgoraManager {
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
 
+    // UID জেনারেশন লজিক (Collision এড়ানোর জন্য আরও ইউনিক করা হয়েছে)
     if (fireUid != null && fireUid.isNotEmpty) {
-      int hash = 0;
-      for (int i = 0; i < fireUid.length; i++) {
-        hash = fireUid.codeUnitAt(i) + ((hash << 5) - hash);
-      }
-      _localUid = hash.abs() % 1000000;
+      _localUid = fireUid.hashCode.abs();
     } else {
       _localUid = (Random().nextInt(899999) + 100000);
     }
@@ -112,7 +101,7 @@ class AgoraManager {
       channelId: channelName,
       uid: _localUid!,
       options: const ChannelMediaOptions(
-        clientRoleType: ClientRoleType.clientRoleBroadcaster, 
+        clientRoleType: ClientRoleType.clientRoleAudience, // শুরুতে শ্রোতা
         publishMicrophoneTrack: false,
         autoSubscribeAudio: true,
       ),
@@ -121,25 +110,21 @@ class AgoraManager {
     await forceResumeAudio();
   }
 
-  // ✅ সিটে বসার পর মাইক ওপেন করার কমপ্লিট লজিক
   Future<void> becomeBroadcaster() async {
     _shouldBeBroadcasting = true;
-
-    if (kIsWeb) {
-      try {
-        // ব্রাউজারকে বাধ্য করা মাইক পারমিশন পপ-আপ দেখানোর জন্য
-        await html.window.navigator.getUserMedia(audio: true);
-      } catch (e) {
-        debugPrint("Mic Permission Error: $e");
-      }
-    }
-
-    await forceResumeAudio();
+    
+    // ১. রোলে পরিবর্তন
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+    
+    // ২. ওয়েব পারমিশন এবং অডিও রেজুউম
+    await forceResumeAudio();
+    
+    // ৩. মাইক্রোফোন পাবলিশ করা
     await _ensureAudioPublishing();
 
+    // ৪. কিপ-অ্যালাইভ টাইমার (যাতে ব্রাউজার অডিও ড্রপ না করে)
     _keepAliveTimer?.cancel();
-    _keepAliveTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _keepAliveTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (_isInitialized && _shouldBeBroadcasting) {
         _ensureAudioPublishing();
       }
@@ -158,20 +143,15 @@ class AgoraManager {
 
   Future<void> toggleMic(bool isMute) async {
     if (!_isInitialized) return;
-    if (isMute) {
-      await engine.muteLocalAudioStream(true);
-      await engine.updateChannelMediaOptions(const ChannelMediaOptions(publishMicrophoneTrack: false));
-    } else {
-      await forceResumeAudio();
-      await _ensureAudioPublishing();
-    }
+    await engine.muteLocalAudioStream(isMute);
+    await engine.updateChannelMediaOptions(ChannelMediaOptions(publishMicrophoneTrack: !isMute));
   }
 
   Future<void> becomeListener() async {
     _shouldBeBroadcasting = false;
     _keepAliveTimer?.cancel();
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
-    await engine.muteLocalAudioStream(true);
+    await engine.updateChannelMediaOptions(const ChannelMediaOptions(publishMicrophoneTrack: false));
     await engine.enableLocalAudio(false);
   }
 
