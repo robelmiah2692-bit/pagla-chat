@@ -19,17 +19,17 @@ class AgoraManager {
     if (_isInitialized) return;
     engine = createAgoraRtcEngine();
 
-    // ১. গ্লোবাল এরিয়া এবং লাইভ প্রোফাইল সেটআপ
+    // ১. ইনিশিয়ালাইজেশন (এরিয়া কোড গ্লোবাল রেখেছি টেস্টের জন্য)
     await engine.initialize(RtcEngineContext(
       appId: appId,
       areaCode: AreaCode.areaCodeGlob.value(),
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
-    // ২. ওয়েব স্পেসিফিক অডিও বুস্ট (এটিই আসল ধাক্কা)
+    // ২. ওয়েব ব্রাউজারের অডিও গেটওয়ে আনলক করা (মাস্টার ফিক্স)
     if (kIsWeb) {
       await engine.setParameters('{"rtc.audio.force_confirm_hello": true}');
-      await engine.setParameters('{"che.audio.web_sender_report_interval": 500}');
+      await engine.setParameters('{"che.audio.specify.codec": "OPUS"}');
       await engine.setAudioProfile(
         profile: AudioProfileType.audioProfileSpeechStandard,
         scenario: AudioScenarioType.audioScenarioGameStreaming,
@@ -37,7 +37,7 @@ class AgoraManager {
     }
 
     await engine.enableAudioVolumeIndication(
-      interval: 200,
+      interval: 250,
       smooth: 3,
       reportVad: true,
     );
@@ -49,7 +49,8 @@ class AgoraManager {
       },
       onUserJoined: (connection, remoteUid, elapsed) {
         debugPrint("👥 অন্য ইউজার জয়েন করেছে: $remoteUid");
-        forceResumeAudio(); // কেউ আসলে অডিও রিস্টার্ট
+        // অন্য কেউ জয়েন করলে ব্রাউজার অডিও রিস্টার্ট করা জরুরি
+        forceResumeAudio(); 
       },
       onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
         for (var speaker in speakers) {
@@ -79,11 +80,12 @@ class AgoraManager {
                 if (Context) {
                   var ctx = new Context();
                   if (ctx.state !== 'running') {
-                    ctx.resume().then(() => console.log('Audio Context Resumed by User Action'));
+                    ctx.resume().then(() => console.log('Audio Context Resumed Success'));
                   }
                 }
               });
             };
+            // ইউজারের যেকোনো টাচ বা ক্লিকে অডিও সচল হবে
             window.addEventListener('click', resume, {once: false});
             window.addEventListener('touchstart', resume, {once: false});
             resume();
@@ -99,13 +101,14 @@ class AgoraManager {
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
 
+    // ৪. ইউআইডি (UID) অবশ্যই পজিটিভ হতে হবে
     _localUid = (fireUid != null && fireUid.isNotEmpty) 
         ? fireUid.hashCode.abs() 
         : (Random().nextInt(899999) + 100000);
 
     await engine.joinChannel(
       token: "",
-      channelId: channelName,
+      channelId: channelName.trim(), // স্পেস থাকলে এরর দেয়, তাই ট্রিম করা
       uid: _localUid!,
       options: const ChannelMediaOptions(
         clientRoleType: ClientRoleType.clientRoleAudience,
@@ -117,14 +120,17 @@ class AgoraManager {
     await forceResumeAudio();
   }
 
-  // ৪. ব্রডকাস্টার হওয়ার জন্য ফোর্স কমান্ড
+  // ৫. ব্রডকাস্টার হওয়ার জন্য পাওয়ারফুল কমান্ড
   Future<void> becomeBroadcaster() async {
     _shouldBeBroadcasting = true;
     
     if (kIsWeb) {
       try {
+        // ব্রাউজারের কাছে মাইক পারমিশন চাওয়া
         await html.window.navigator.mediaDevices?.getUserMedia({'audio': true});
-      } catch (e) {}
+      } catch (e) {
+        debugPrint("Mic Hardware Permission Denied: $e");
+      }
     }
 
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
@@ -134,7 +140,7 @@ class AgoraManager {
     await _ensureAudioPublishing();
 
     _keepAliveTimer?.cancel();
-    _keepAliveTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+    _keepAliveTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
       if (_isInitialized && _shouldBeBroadcasting) {
         _ensureAudioPublishing();
       }
@@ -142,14 +148,14 @@ class AgoraManager {
   }
 
   Future<void> _ensureAudioPublishing() async {
-    // অডিও স্ট্রীম জোর করে সার্ভারে পাঠানো
+    // অডিও স্ট্রীম জোর করে সার্ভারে পাঠানো এবং ভলিউম বুস্ট
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: true,
       autoSubscribeAudio: true,
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
     ));
-    await engine.adjustRecordingSignalVolume(200); // গলার আওয়াজ বাড়ানো
-    await engine.adjustPlaybackSignalVolume(200);  // শোনার আওয়াজ বাড়ানো
+    await engine.adjustRecordingSignalVolume(200); 
+    await engine.adjustPlaybackSignalVolume(200);  
   }
 
   Future<void> toggleMic(bool isMute) async {
@@ -166,6 +172,7 @@ class AgoraManager {
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: false,
+      autoSubscribeAudio: true,
     ));
   }
 
