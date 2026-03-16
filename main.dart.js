@@ -105789,7 +105789,7 @@ break
 case 3:q=2
 k=p.pop()
 n=A.a6(k)
-A.js("\u0997\u09be\u09a8\u09c7\u09b0 \u09aa\u09cd\u09b2\u09c7-\u09ac\u09cd\u09af\u09be\u0995 \u098f\u09b0\u09b0: "+A.l(n))
+A.js("Error: "+A.l(n))
 s=5
 break
 case 2:s=1
