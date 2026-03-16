@@ -14,6 +14,7 @@ import 'package:flutter/foundation.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:lottie/lottie.dart';
 import '../services/room_service.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'package:pagla_chat/room_sync_service.dart';
 import 'package:pagla_chat/services/database_service.dart';
@@ -343,27 +344,38 @@ _audioPlayer.onPlayerComplete.listen((event) {
     
     if (seats[index]["isOccupied"] || isRoomLocked) return;
 
-    // 🔥 ২. ওয়েব-এর জন্য অডিও সিকোয়েন্স (এরর ফিক্সড)
+    // 🔥 ২. ওয়েব-এর জন্য অডিও ও ওয়াক-লক সিকোয়েন্স (মাউস টাচ সমস্যা সমাধান)
     try {
-      // আমরা সরাসরি ম্যানেজার থেকে forceResumeAudio কল করবো যা আপনি অলরেডি লিখে রেখেছেন
+      // ব্রাউজারকে স্লিপ মোডে যেতে বাধা দেওয়া (টাচ না করলেও কানেকশন থাকবে)
+      if (kIsWeb) {
+        await WakelockPlus.enable();
+        debugPrint("💡 Wakelock Enabled: স্ক্রিন এবং মাইক সচল থাকবে");
+      }
+
       await _agoraManager.forceResumeAudio(); 
-      
       await _agoraManager.becomeBroadcaster();
       
+      // ব্রাউজারকে জানানো যে এটি একটি লাইভ স্ট্রিমিং অ্যাপ
+      await _agoraManager.engine.setAudioProfile(
+        profile: AudioProfileType.audioProfileMusicHighQualityStereo,
+        scenario: AudioScenarioType.audioScenarioGameStreaming, 
+      );
+
       await _agoraManager.engine.muteLocalAudioStream(false);
-      
+      await _agoraManager.engine.enableLocalAudio(true); 
+
       await _agoraManager.engine.enableAudioVolumeIndication(
         interval: 250, 
         smooth: 3, 
         reportVad: true
       );
       
-      debugPrint("✅ ওয়েব কলিং ইঞ্জিন প্রস্তুত!");
+      debugPrint("✅ ওয়েব কলিং ইঞ্জিন ও ওয়াক-লক প্রস্তুত!");
     } catch (e) {
       debugPrint("Agora Web Error: $e");
     }
 
-    // ৩. পুরাতন সিট ক্লিয়ার করা
+    // ৩. পুরাতন সিট ক্লিয়ার করা
     if (currentSeatIndex != -1) {
       int oldIndex = currentSeatIndex;
       await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').remove();
@@ -385,10 +397,11 @@ _audioPlayer.onPlayerComplete.listen((event) {
       final String myName = currentUser.displayName ?? "User";
       final String myPic = currentUser.photoURL ?? "";
 
-      // মালিক শনাক্তকরণ (Hridoy identifying)
+      // 👑 মালিক শনাক্তকরণ কোড (Hridoy identified)
       if (myName.toLowerCase() == "hridoy") {
         debugPrint("Owner identified: Hridoy is sitting on seat $index");
-        // আপনি চাইলে এখানে মালিকের জন্য বিশেষ কোনো এনিমেশন ট্রিগার করতে পারেন
+        // মালিকের জন্য রুমে একটি বিশেষ ঘোষণা পাঠানো
+        _sendOwnerJoinMessage();
       }
 
       final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
@@ -404,6 +417,7 @@ _audioPlayer.onPlayerComplete.listen((event) {
         'agoraUid': _agoraManager.localUid,
       });
       
+      // ডিসকানেক্ট বা ট্যাব বন্ধ করলে যেন সিট খালি হয়
       seatRef.onDisconnect().remove();
 
       if (mounted) {
@@ -425,6 +439,18 @@ _audioPlayer.onPlayerComplete.listen((event) {
       debugPrint("Firebase Update Error: $e");
     }
   }
+
+  // মালিকের জন্য বিশেষ মেসেজ ফাংশন
+  void _sendOwnerJoinMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("সম্মানিত মালিক Hridoy ভাই সিটে বসেছেন!"),
+        backgroundColor: Colors.blueAccent,
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+    
   // ২. সিট ছাড়ার লজিক
   void _showLeaveConfirmation(int index) {
     showDialog(
