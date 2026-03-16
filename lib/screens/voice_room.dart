@@ -1147,7 +1147,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
                 isScrollControlled: true,
                 builder: (context) => MusicPlayerWidget(
                   onMusicSelect: (path) async {
-                    // ১. আগে স্টেট আপডেট করে প্লেয়ার দেখাই
                     setState(() {
                       currentMusicUrl = path; 
                       isFloatingPlayerVisible = true;
@@ -1155,22 +1154,28 @@ List<Widget> _buildFloatingEmojiAnimations() {
                     });
                     
                     try {
-                      // ২. প্লেয়ার রিসেট করা
+                      // ১. আগের সোর্স পুরোপুরি মুছে ফেলা
                       await _audioPlayer.stop();
-                      await _audioPlayer.setReleaseMode(ReleaseMode.stop);
+                      await _audioPlayer.release(); 
 
-                      // ৩. একটা ছোট বিরতি দেওয়া যাতে ব্রাউজার সোর্সটি ধরতে পারে
-                      await Future.delayed(const Duration(milliseconds: 500));
+                      // ২. ওয়েবের জন্য বিশেষ সোর্স কনফিগারেশন
+                      Source source = path.startsWith('http') 
+                          ? UrlSource(path) 
+                          : DeviceFileSource(path);
 
-                      // ৪. সোর্স অনুযায়ী প্লে করা
-                      if (path.startsWith('http')) {
-                        await _audioPlayer.play(UrlSource(path), volume: 1.0);
-                      } else {
-                        await _audioPlayer.play(DeviceFileSource(path), volume: 1.0);
-                      }
+                      // ৩. গানটি প্লে করা এবং ভলিউম ফিক্স করা
+                      await _audioPlayer.play(source);
+                      await _audioPlayer.setVolume(1.0);
                       
+                      // ৪. ওয়েবে অনেক সময় সাথে সাথে প্লে হয় না, তাই ৩ সেকেন্ড পর আবার চেক করা
+                      Future.delayed(const Duration(seconds: 2), () async {
+                        if (isRoomMusicPlaying) {
+                          await _audioPlayer.resume();
+                        }
+                      });
+
                     } catch (e) {
-                      print("গানের প্লে-ব্যাক এরর: $e");
+                      print("প্লে-ব্যাক এরর: $e");
                     }
                   },
                 ),
