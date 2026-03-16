@@ -15,6 +15,7 @@ class AgoraManager {
 
   int? get localUid => _localUid;
 
+  // ১. এগোরা ইঞ্জিন সেটআপ (মাস্টার কনফিগ)
   Future<void> initAgora() async {
     if (_isInitialized) return;
     engine = createAgoraRtcEngine();
@@ -25,15 +26,15 @@ class AgoraManager {
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
-    // অডিও ভলিউম ইন্ডিকেশন (রিপেল বা ঢেউ এনিমেশনের জন্য)
+    // অডিও রিপেল বা ঢেউ এনিমেশনের জন্য ভলিউম ডিটেকশন সচল করা
     await engine.enableAudioVolumeIndication(
-      interval: 250,
+      interval: 200, // আরও ফাস্ট ডিটেকশন
       smooth: 3,
       reportVad: true,
     );
 
     if (kIsWeb) {
-      // ওয়েব অডিও প্যারামিটার বুস্ট
+      // ওয়েবে সাউন্ড কোয়ালিটি বুস্ট করার প্যারামিটার
       await engine.setParameters('{"rtc.web_receiver_report_interval":1000}');
       await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
       await engine.setAudioProfile(
@@ -50,8 +51,16 @@ class AgoraManager {
       onUserJoined: (connection, remoteUid, elapsed) {
         debugPrint("👥 অন্য ইউজার জয়েন করেছে: $remoteUid");
       },
+      onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
+        // এখানে রিয়েল টাইম ভলিউম আসবে যা দিয়ে রিপেল নাচবে
+        for (var speaker in speakers) {
+          if (speaker.volume > 10) {
+             // কথা বলার সময় ডাটা এখানে পাওয়া যাবে
+          }
+        }
+      },
       onRemoteAudioStateChanged: (connection, remoteUid, state, reason, elapsed) {
-        debugPrint("🔊 রিমোট অডিও স্টেট পরিবর্তন: $state");
+        debugPrint("🔊 রিমোট অডিও স্টেট: $state");
       }
     ));
 
@@ -59,7 +68,7 @@ class AgoraManager {
     _isInitialized = true;
   }
 
-  // মাস্টার অডিও রেজুউম (ব্রাউজার সিকিউরিটি বাইপাস)
+  // ২. ব্রাউজার অডিও সিকিউরিটি বাইপাস (Autoplay Fix)
   Future<void> forceResumeAudio() async {
     if (kIsWeb) {
       try {
@@ -86,6 +95,7 @@ class AgoraManager {
     }
   }
 
+  // ৩. রুমে শ্রোতা হিসেবে জয়েন করা
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
 
@@ -109,31 +119,25 @@ class AgoraManager {
     await forceResumeAudio();
   }
 
-  // 🔥 এই ফাংশনটি এখন সরাসরি ব্রাউজার থেকে মাইক পারমিশন চাইবে
+  // ৪. সিটে বসলে মাইক সচল করা (Web Fix Included)
   Future<void> becomeBroadcaster() async {
     _shouldBeBroadcasting = true;
     
     if (kIsWeb) {
       try {
-        // ১. ব্রাউজার নেটিভ API দিয়ে জোর করে পারমিশন পপ-আপ আনা
+        // ব্রাউজারকে বাধ্য করা মাইক পারমিশন পপ-আপ দেখানোর জন্য
         await html.window.navigator.mediaDevices?.getUserMedia({'audio': true});
-        debugPrint("🎤 ব্রাউজার মাইক পারমিশন দিয়েছে");
+        debugPrint("🎤 Mic Permission Granted");
       } catch (e) {
-        debugPrint("❌ পারমিশন এরর: $e");
-        // যদি ইউজার পারমিশন না দেয়, তবে কথা বলা সম্ভব নয়
+        debugPrint("❌ Mic Permission Denied: $e");
       }
     }
 
-    // ২. রোলে পরিবর্তন
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
-    
-    // ৩. অডিও ইঞ্জিন এবং পারমিশন সিকোয়েন্স
     await forceResumeAudio();
-    
-    // ৪. মাইক্রোফোন পাবলিশ করা
     await _ensureAudioPublishing();
 
-    // ৫. কিপ-অ্যালাইভ (যাতে ব্রাউজার অডিও চ্যানেল বন্ধ না করে)
+    // কিপ-অ্যালাইভ টাইমার যাতে ব্রাউজার কানেকশন না কাটে
     _keepAliveTimer?.cancel();
     _keepAliveTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (_isInitialized && _shouldBeBroadcasting) {
@@ -142,6 +146,7 @@ class AgoraManager {
     });
   }
 
+  // ৫. মাইক পাবলিশ করার কোর মেথড
   Future<void> _ensureAudioPublishing() async {
     await engine.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: true,
@@ -151,10 +156,11 @@ class AgoraManager {
     await engine.enableLocalAudio(true);
     await engine.muteLocalAudioStream(false);
     
-    // ভলিউম একটু বুস্ট করে দেওয়া হলো যাতে কথা ক্লিয়ার শোনা যায়
+    // ভলিউম ২০০% বুস্ট যাতে আওয়াজ ক্লিয়ার হয়
     await engine.adjustRecordingSignalVolume(200);
   }
 
+  // ৬. মাইক মিউট/আনমিউট
   Future<void> toggleMic(bool isMute) async {
     if (!_isInitialized) return;
     await engine.muteLocalAudioStream(isMute);
@@ -163,6 +169,7 @@ class AgoraManager {
     ));
   }
 
+  // ৭. সিট থেকে নামলে শ্রোতা হয়ে যাওয়া
   Future<void> becomeListener() async {
     _shouldBeBroadcasting = false;
     _keepAliveTimer?.cancel();
@@ -173,6 +180,7 @@ class AgoraManager {
     await engine.enableLocalAudio(false);
   }
 
+  // ৮. রুম থেকে বের হওয়া
   Future<void> leaveRoom() async {
     _shouldBeBroadcasting = false;
     _keepAliveTimer?.cancel();
