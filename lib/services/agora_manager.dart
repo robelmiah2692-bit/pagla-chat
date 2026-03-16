@@ -6,7 +6,7 @@ import 'dart:html' as html;
 import 'dart:js' as js;
 
 class AgoraManager {
-  late RtcEngine engine;
+  RtcEngine? _engine; // Null safety এর জন্য পরিবর্তন
   bool _isInitialized = false;
   final String appId = "855883e294ec4144b8e955451c06e3d7";
   Timer? _keepAliveTimer;
@@ -16,60 +16,50 @@ class AgoraManager {
   int? get localUid => _localUid;
 
   Future<void> initAgora() async {
-    if (_isInitialized) return;
-    engine = createAgoraRtcEngine();
-
+    if (_isInitialized && _engine != null) return;
+    
     try {
-      await engine.initialize(RtcEngineContext(
+      _engine = createAgoraRtcEngine();
+
+      await _engine!.initialize(RtcEngineContext(
         appId: appId,
         areaCode: AreaCode.areaCodeGlob.value(),
         channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
       ));
 
       if (kIsWeb) {
-        await engine.setParameters('{"rtc.audio.force_confirm_hello": true}');
-        await engine.setParameters('{"che.audio.specify.codec": "OPUS"}');
-        await engine.setAudioProfile(
+        await _engine!.setParameters('{"rtc.audio.force_confirm_hello": true}');
+        await _engine!.setParameters('{"che.audio.specify.codec": "OPUS"}');
+        await _engine!.setAudioProfile(
           profile: AudioProfileType.audioProfileSpeechStandard,
           scenario: AudioScenarioType.audioScenarioGameStreaming,
         );
       }
 
-      await engine.enableAudioVolumeIndication(
+      await _engine!.enableAudioVolumeIndication(
         interval: 250,
         smooth: 3,
         reportVad: true,
       );
 
-      engine.registerEventHandler(RtcEngineEventHandler(
+      _engine!.registerEventHandler(RtcEngineEventHandler(
         onJoinChannelSuccess: (connection, elapsed) {
           debugPrint("✅ এগোরা কানেক্টেড! UID: ${connection.localUid}");
           _localUid = connection.localUid;
-          
-          // 🔥 সাকসেস পপ-আপ: ফোনে আইডি দেখাবে
           js.context.callMethod('alert', ["✅ কানেক্টেড!\nআপনার আইডি: ${connection.localUid}"]);
-          
           forceResumeAudio(); 
         },
         onUserJoined: (connection, remoteUid, elapsed) {
           debugPrint("👥 অন্য ইউজার জয়েন করেছে: $remoteUid");
           forceResumeAudio(); 
         },
-        onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
-          for (var speaker in speakers) {
-            if ((speaker.volume ?? 0) > 10) {
-              debugPrint("🎤 কথা বলছে UID: ${speaker.uid}");
-            }
-          }
-        },
         onError: (err, msg) {
           debugPrint("❌ এগোরা এরর: $err - $msg");
-          // 🔥 এরর পপ-আপ: কেন মাইক্রোফোন চলে যাচ্ছে তা এখানে ধরা পড়বে
           js.context.callMethod('alert', ["❌ এগোরা এরর: $err\nমেসেজ: $msg"]);
         }
       ));
 
-      await engine.enableAudio();
+      await _engine!.enableAudio();
       _isInitialized = true;
     } catch (e) {
       js.context.callMethod('alert', ["❌ ইনিশিয়ালাইজ ফেল: $e"]);
@@ -104,13 +94,14 @@ class AgoraManager {
   }
 
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
-    if (!_isInitialized) await initAgora();
+    await initAgora();
 
+    // 🔥 ইউআইডি ইউনিক করার জন্য র্যান্ডম লজিক আপডেট করা হয়েছে
     _localUid = (fireUid != null && fireUid.isNotEmpty) 
-        ? fireUid.hashCode.abs() 
-        : (Random().nextInt(899999) + 100000);
+        ? (fireUid.hashCode.abs() + Random().nextInt(1000)) 
+        : (Random().nextInt(800000) + 100000);
 
-    await engine.joinChannel(
+    await _engine!.joinChannel(
       token: "",
       channelId: channelName.trim(), 
       uid: _localUid!,
@@ -125,6 +116,7 @@ class AgoraManager {
   }
 
   Future<void> becomeBroadcaster() async {
+    if (_engine == null) return;
     _shouldBeBroadcasting = true;
     
     if (kIsWeb) {
@@ -135,7 +127,7 @@ class AgoraManager {
       }
     }
 
-    await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+    await _engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     await _ensureAudioPublishing();
 
     _keepAliveTimer?.cancel();
@@ -147,32 +139,32 @@ class AgoraManager {
   }
 
   Future<void> _ensureAudioPublishing() async {
-    await engine.updateChannelMediaOptions(const ChannelMediaOptions(
+    if (_engine == null) return;
+    await _engine!.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: true,
       autoSubscribeAudio: true,
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
     ));
-    await engine.enableLocalAudio(true);
-    await engine.muteLocalAudioStream(false);
-    await engine.adjustRecordingSignalVolume(200); 
-    await engine.adjustPlaybackSignalVolume(200);  
+    await _engine!.enableLocalAudio(true);
+    await _engine!.muteLocalAudioStream(false);
+    await _engine!.adjustRecordingSignalVolume(200); 
+    await _engine!.adjustPlaybackSignalVolume(200);  
   }
 
-  // ✅ পুরাতন ফিচার (Mic Toggle) ফিরিয়ে আনা হয়েছে
   Future<void> toggleMic(bool isMute) async {
-    if (!_isInitialized) return;
-    await engine.muteLocalAudioStream(isMute);
-    await engine.updateChannelMediaOptions(ChannelMediaOptions(
+    if (_engine == null) return;
+    await _engine!.muteLocalAudioStream(isMute);
+    await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
       publishMicrophoneTrack: !isMute,
     ));
   }
 
-  // ✅ পুরাতন ফিচার (Become Listener) ফিরিয়ে আনা হয়েছে
   Future<void> becomeListener() async {
+    if (_engine == null) return;
     _shouldBeBroadcasting = false;
     _keepAliveTimer?.cancel();
-    await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
-    await engine.updateChannelMediaOptions(const ChannelMediaOptions(
+    await _engine!.setClientRole(role: ClientRoleType.clientRoleAudience);
+    await _engine!.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: false,
       autoSubscribeAudio: true,
     ));
@@ -182,7 +174,7 @@ class AgoraManager {
     _shouldBeBroadcasting = false;
     _keepAliveTimer?.cancel();
     try {
-      await engine.leaveChannel();
+      if (_engine != null) await _engine!.leaveChannel();
       _localUid = null;
     } catch (e) {}
   }
