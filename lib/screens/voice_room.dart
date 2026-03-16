@@ -334,28 +334,24 @@ _audioPlayer.onPlayerComplete.listen((event) {
   }
 
   // ১. সিটে বসার মেইন লজিক (আপনার দেওয়া রিয়েল টাইম সিঙ্ক সহ)
-  void sitOnSeat(int index) async {
+   void sitOnSeat(int index) async {
     // ১. বেসিক চেক
     if (currentSeatIndex == index) { 
       _showLeaveConfirmation(index); 
       return; 
     }
     
-    // সিট খালি না থাকলে সাথে সাথে রিটার্ন করা
     if (seats[index]["isOccupied"] || isRoomLocked) return;
 
-    // 🔥 ২. ওয়েব-এর জন্য এগোরা সিকোয়েন্স (অডিও ফিক্স)
+    // 🔥 ২. ওয়েব-এর জন্য অডিও সিকোয়েন্স (এরর ফিক্সড)
     try {
-      // ব্রাউজারে অডিও ইঞ্জিন লক হয়ে থাকলে তা মুক্ত করা
-      await _agoraManager.engine.resumeAudioRouting(); 
+      // আমরা সরাসরি ম্যানেজার থেকে forceResumeAudio কল করবো যা আপনি অলরেডি লিখে রেখেছেন
+      await _agoraManager.forceResumeAudio(); 
       
-      // ব্রডকাস্টার রোল সেট করা যাতে কথা বলা যায়
       await _agoraManager.becomeBroadcaster();
       
-      // মাইক্রোফোন সচল করা
       await _agoraManager.engine.muteLocalAudioStream(false);
       
-      // অডিও লেভেল ডিটেকশন চালু (পানির ঢেউ এনিমেশনের জন্য)
       await _agoraManager.engine.enableAudioVolumeIndication(
         interval: 250, 
         smooth: 3, 
@@ -367,7 +363,7 @@ _audioPlayer.onPlayerComplete.listen((event) {
       debugPrint("Agora Web Error: $e");
     }
 
-    // ৩. পুরাতন সিট ক্লিয়ার করা (সুইচ করার সময় জরুরি)
+    // ৩. পুরাতন সিট ক্লিয়ার করা
     if (currentSeatIndex != -1) {
       int oldIndex = currentSeatIndex;
       await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').remove();
@@ -389,14 +385,14 @@ _audioPlayer.onPlayerComplete.listen((event) {
       final String myName = currentUser.displayName ?? "User";
       final String myPic = currentUser.photoURL ?? "";
 
-      // 🔥 মালিক শনাক্তকরণ কোড (Hridoy check)
+      // মালিক শনাক্তকরণ (Hridoy identifying)
       if (myName.toLowerCase() == "hridoy") {
         debugPrint("Owner identified: Hridoy is sitting on seat $index");
+        // আপনি চাইলে এখানে মালিকের জন্য বিশেষ কোনো এনিমেশন ট্রিগার করতে পারেন
       }
 
       final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
       
-      // ৫. ডাটাবেসে তথ্য পাঠানো (সেট করার সময় অন-ডিসকানেক্ট সেট করা)
       await seatRef.set({
         'userName': myName,
         'userImage': myPic,
@@ -405,10 +401,9 @@ _audioPlayer.onPlayerComplete.listen((event) {
         'isMicOn': true,
         'userId': uid,
         'isTalking': false,
-        'agoraUid': _agoraManager.localUid, // এগোরা আইডি সিঙ্ক করা
+        'agoraUid': _agoraManager.localUid,
       });
       
-      // ব্রাউজার ট্যাব বন্ধ করলে যেন সিট অটো খালি হয়
       seatRef.onDisconnect().remove();
 
       if (mounted) {
