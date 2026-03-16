@@ -335,92 +335,101 @@ _audioPlayer.onPlayerComplete.listen((event) {
 
   // ১. সিটে বসার মেইন লজিক (আপনার দেওয়া রিয়েল টাইম সিঙ্ক সহ)
   void sitOnSeat(int index) async {
-  // ১. বেসিক চেক (আগের মতোই ঠিক আছে)
-  if (currentSeatIndex == index) { 
-    _showLeaveConfirmation(index); 
-    return; 
-  }
-  if (seats[index]["isOccupied"] || isRoomLocked) return;
-
-  // 🔥 ২. এগোরা এবং অডিও সিকোয়েন্স (আঠার মতো লেগে থাকার জন্য)
-  try {
-    // অডিও ইঞ্জিন রেজুউম করা
-    await _agoraManager.forceResumeAudio(); 
-    
-    // ব্রডকাস্টার রোল সেট করা (যাতে কথা বলতে পারে)
-    await _agoraManager.becomeBroadcaster();
-    
-    // ম্যানুয়ালি ভলিউম ২০০% করা এবং আনমিউট করা
-    await _agoraManager.engine.muteLocalAudioStream(false);
-    await _agoraManager.engine.adjustRecordingSignalVolume(200);
-    
-    // 🎤 অডিও ভলিউম ইন্ডিকেশন চালু করা (পানির ঢেউ এনিমেশনের জন্য)
-    await _agoraManager.engine.enableAudioVolumeIndication(
-      interval: 250, 
-      smooth: 3, 
-      reportVad: true
-    );
-    
-    debugPrint("✅ কলিং এবং ভয়েস এনিমেশন লজিক সফল!");
-  } catch (e) {
-    debugPrint("Agora Error: $e");
-  }
-
-  // ৩. পুরাতন সিট ক্লিয়ার করা (অন্য ফিচার বাদ পড়েনি)
-  if (currentSeatIndex != -1) {
-    int oldIndex = currentSeatIndex;
-    FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').remove();
-    setState(() {
-      seats[oldIndex]["isOccupied"] = false;
-      seats[oldIndex]["status"] = "empty";
-      seats[oldIndex]["isTalking"] = false; // এনিমেশন অফ
-    });
-  }
-
-  // ৪. ফায়ারবেস আপডেট এবং আপনার আইডি শনাক্তকরণ
-  try {
-    final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
-    
-    // মালিক শনাক্তকরণ এবং ডাটা আনা
-    final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-    String myName = userDoc.data()?['name'] ?? "User"; 
-    String myPic = userDoc.data()?['profilePic'] ?? "";
-
-    final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
-    
-    // সব ফিচার ডাটাবেসে পাঠানো হচ্ছে
-    await seatRef.set({
-      'userName': myName,
-      'userImage': myPic,
-      'isOccupied': true,
-      'status': 'occupied',
-      'isMicOn': true,
-      'userId': uid,
-      'isTalking': false, // ডিফল্ট সাইলেন্ট
-    });
-    
-    // ৫. ডিসকানেক্ট হলে অটো সিট খালি হওয়া
-    await seatRef.onDisconnect().remove();
-
-    if (mounted) {
-      setState(() {
-        currentSeatIndex = index;
-        isMicOn = true;
-        seats[index]["status"] = "occupied";
-        seats[index]["isOccupied"] = true;
-        seats[index]["userName"] = myName;
-        seats[index]["userImage"] = myPic; 
-        seats[index]["isMicOn"] = true;
-        seats[index]["userId"] = uid;
-        seats[index]["isTalking"] = false;
-      });
+    // ১. বেসিক চেক
+    if (currentSeatIndex == index) { 
+      _showLeaveConfirmation(index); 
+      return; 
     }
     
-    debugPrint("👑 সিট সফলভাবে দখল হয়েছে!");
-  } catch (e) {
-    debugPrint("Database Update Error: $e");
+    // সিট খালি না থাকলে সাথে সাথে রিটার্ন করা
+    if (seats[index]["isOccupied"] || isRoomLocked) return;
+
+    // 🔥 ২. ওয়েব-এর জন্য এগোরা সিকোয়েন্স (অডিও ফিক্স)
+    try {
+      // ব্রাউজারে অডিও ইঞ্জিন লক হয়ে থাকলে তা মুক্ত করা
+      await _agoraManager.engine.resumeAudioRouting(); 
+      
+      // ব্রডকাস্টার রোল সেট করা যাতে কথা বলা যায়
+      await _agoraManager.becomeBroadcaster();
+      
+      // মাইক্রোফোন সচল করা
+      await _agoraManager.engine.muteLocalAudioStream(false);
+      
+      // অডিও লেভেল ডিটেকশন চালু (পানির ঢেউ এনিমেশনের জন্য)
+      await _agoraManager.engine.enableAudioVolumeIndication(
+        interval: 250, 
+        smooth: 3, 
+        reportVad: true
+      );
+      
+      debugPrint("✅ ওয়েব কলিং ইঞ্জিন প্রস্তুত!");
+    } catch (e) {
+      debugPrint("Agora Web Error: $e");
+    }
+
+    // ৩. পুরাতন সিট ক্লিয়ার করা (সুইচ করার সময় জরুরি)
+    if (currentSeatIndex != -1) {
+      int oldIndex = currentSeatIndex;
+      await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').remove();
+      if (mounted) {
+        setState(() {
+          seats[oldIndex]["isOccupied"] = false;
+          seats[oldIndex]["status"] = "empty";
+          seats[oldIndex]["isTalking"] = false;
+        });
+      }
+    }
+
+    // ৪. ইউজার আইডেন্টিটি এবং ডাটাবেস আপডেট
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return;
+
+      final String uid = currentUser.uid;
+      final String myName = currentUser.displayName ?? "User";
+      final String myPic = currentUser.photoURL ?? "";
+
+      // 🔥 মালিক শনাক্তকরণ কোড (Hridoy check)
+      if (myName.toLowerCase() == "hridoy") {
+        debugPrint("Owner identified: Hridoy is sitting on seat $index");
+      }
+
+      final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
+      
+      // ৫. ডাটাবেসে তথ্য পাঠানো (সেট করার সময় অন-ডিসকানেক্ট সেট করা)
+      await seatRef.set({
+        'userName': myName,
+        'userImage': myPic,
+        'isOccupied': true,
+        'status': 'occupied',
+        'isMicOn': true,
+        'userId': uid,
+        'isTalking': false,
+        'agoraUid': _agoraManager.localUid, // এগোরা আইডি সিঙ্ক করা
+      });
+      
+      // ব্রাউজার ট্যাব বন্ধ করলে যেন সিট অটো খালি হয়
+      seatRef.onDisconnect().remove();
+
+      if (mounted) {
+        setState(() {
+          currentSeatIndex = index;
+          isMicOn = true;
+          seats[index]["status"] = "occupied";
+          seats[index]["isOccupied"] = true;
+          seats[index]["userName"] = myName;
+          seats[index]["userImage"] = myPic; 
+          seats[index]["isMicOn"] = true;
+          seats[index]["userId"] = uid;
+          seats[index]["isTalking"] = false;
+        });
+      }
+      
+      debugPrint("👑 সিট এখন আপনার দখলে!");
+    } catch (e) {
+      debugPrint("Firebase Update Error: $e");
+    }
   }
-}
   // ২. সিট ছাড়ার লজিক
   void _showLeaveConfirmation(int index) {
     showDialog(
