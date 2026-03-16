@@ -1141,7 +1141,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
               size: 22
             ),
             onPressed: () {
-              // মিউজিক সিলেকশন বার (BottomSheet) ওপেন করা
               showModalBottomSheet(
                 context: context,
                 backgroundColor: Colors.transparent,
@@ -1150,26 +1149,20 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   onMusicSelect: (path) async {
                     setState(() {
                       currentMusicUrl = path; 
-                      isFloatingPlayerVisible = true; // ভাসমান প্লেয়ার দেখাবে
-                      isRoomMusicPlaying = true;      // গান চালু হবে
+                      isFloatingPlayerVisible = true;
+                      isRoomMusicPlaying = true;
                     });
                     
                     try {
-                      // ১. আগের গান পুরোপুরি বন্ধ করা
                       await _audioPlayer.stop();
-
-                      // ২. ওয়েব/অনলাইন লিঙ্কের জন্য UrlSource এবং লোকাল ফাইলের জন্য DeviceFileSource
                       if (path.startsWith('http')) {
                         await _audioPlayer.play(UrlSource(path));
                       } else {
                         await _audioPlayer.play(DeviceFileSource(path));
                       }
-
-                      // ৩. ভলিউম নিশ্চিত করা যাতে শোনা যায়
                       await _audioPlayer.setVolume(1.0);
-                      
                     } catch (e) {
-                      print("গানের প্লে-ব্যাক এরর: $e");
+                      print("Error: $e");
                     }
                   },
                 ),
