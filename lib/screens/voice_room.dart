@@ -1147,6 +1147,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                 isScrollControlled: true,
                 builder: (context) => MusicPlayerWidget(
                   onMusicSelect: (path) async {
+                    // ১. আগে স্টেট আপডেট করে প্লেয়ার দেখাই
                     setState(() {
                       currentMusicUrl = path; 
                       isFloatingPlayerVisible = true;
@@ -1154,15 +1155,22 @@ List<Widget> _buildFloatingEmojiAnimations() {
                     });
                     
                     try {
+                      // ২. প্লেয়ার রিসেট করা
                       await _audioPlayer.stop();
+                      await _audioPlayer.setReleaseMode(ReleaseMode.stop);
+
+                      // ৩. একটা ছোট বিরতি দেওয়া যাতে ব্রাউজার সোর্সটি ধরতে পারে
+                      await Future.delayed(const Duration(milliseconds: 500));
+
+                      // ৪. সোর্স অনুযায়ী প্লে করা
                       if (path.startsWith('http')) {
-                        await _audioPlayer.play(UrlSource(path));
+                        await _audioPlayer.play(UrlSource(path), volume: 1.0);
                       } else {
-                        await _audioPlayer.play(DeviceFileSource(path));
+                        await _audioPlayer.play(DeviceFileSource(path), volume: 1.0);
                       }
-                      await _audioPlayer.setVolume(1.0);
+                      
                     } catch (e) {
-                      print("Error: $e");
+                      print("গানের প্লে-ব্যাক এরর: $e");
                     }
                   },
                 ),
@@ -1414,12 +1422,11 @@ List<Widget> _buildFloatingEmojiAnimations() {
   
   Widget _buildFloatingPlayer({required bool isDragging}) {
   return Material(
-    // সাউন্ড আর ক্রস বাটন ফিক্সড ভার্সন
     color: Colors.transparent,
     child: Stack(
       alignment: Alignment.center,
       children: [
-        // মূল প্লেয়ার বডি
+        // মূল প্লেয়ার বডি
         Container(
           width: 80,
           height: 80,
@@ -1434,7 +1441,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
           ),
           child: Center(
             child: IconButton(
-              // প্লে/পজ বাটন
               icon: Icon(
                 isRoomMusicPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
                 color: Colors.white,
@@ -1445,9 +1451,16 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   if (isRoomMusicPlaying) {
                     await _audioPlayer.pause();
                   } else {
-                    // সাউন্ড না আসলে resume এর বদলে আবার play দিলে ওয়েব-এ ১০০% কাজ করে
                     await _audioPlayer.setVolume(1.0);
-                    await _audioPlayer.resume(); 
+                    
+                    // 🔥 সংশোধন: ওয়েবে শুধু resume কাজ না করলে play(Source) দিতে হয়
+                    if (currentMusicUrl.isNotEmpty) {
+                      if (currentMusicUrl.startsWith('http')) {
+                        await _audioPlayer.play(UrlSource(currentMusicUrl));
+                      } else {
+                        await _audioPlayer.play(DeviceFileSource(currentMusicUrl));
+                      }
+                    }
                   }
                   setState(() {
                     isRoomMusicPlaying = !isRoomMusicPlaying;
@@ -1460,14 +1473,13 @@ List<Widget> _buildFloatingEmojiAnimations() {
           ),
         ),
         
-        // ক্রস বাটন (সবার উপরে পজিশন করা হয়েছে)
+        // ক্রস বাটন
         Positioned(
           right: 0,
           top: 0,
           child: GestureDetector(
-            behavior: HitTestBehavior.opaque, // ক্লিক নিশ্চিত করার জন্য
+            behavior: HitTestBehavior.opaque,
             onTap: () async {
-              print("Closing Player..."); // কনসোলে চেক করার জন্য
               await _audioPlayer.stop();
               setState(() {
                 isFloatingPlayerVisible = false;
