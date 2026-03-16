@@ -1154,28 +1154,21 @@ List<Widget> _buildFloatingEmojiAnimations() {
                     });
                     
                     try {
-                      // ১. আগের সোর্স পুরোপুরি মুছে ফেলা
+                      // ১. আগের গান পুরোপুরি বন্ধ করা
                       await _audioPlayer.stop();
-                      await _audioPlayer.release(); 
 
-                      // ২. ওয়েবের জন্য বিশেষ সোর্স কনফিগারেশন
-                      Source source = path.startsWith('http') 
-                          ? UrlSource(path) 
-                          : DeviceFileSource(path);
+                      // ২. সরাসরি কন্ডিশন দিয়ে প্লে করা (এতে বিল্ড ফেইল হবে না)
+                      if (path.startsWith('http')) {
+                        await _audioPlayer.play(UrlSource(path));
+                      } else {
+                        await _audioPlayer.play(DeviceFileSource(path));
+                      }
 
-                      // ৩. গানটি প্লে করা এবং ভলিউম ফিক্স করা
-                      await _audioPlayer.play(source);
+                      // ৩. ভলিউম নিশ্চিত করা
                       await _audioPlayer.setVolume(1.0);
                       
-                      // ৪. ওয়েবে অনেক সময় সাথে সাথে প্লে হয় না, তাই ৩ সেকেন্ড পর আবার চেক করা
-                      Future.delayed(const Duration(seconds: 2), () async {
-                        if (isRoomMusicPlaying) {
-                          await _audioPlayer.resume();
-                        }
-                      });
-
                     } catch (e) {
-                      print("প্লে-ব্যাক এরর: $e");
+                      print("Error: $e");
                     }
                   },
                 ),
