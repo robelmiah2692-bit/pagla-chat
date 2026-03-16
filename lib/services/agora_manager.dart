@@ -25,7 +25,7 @@ class AgoraManager {
       channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
     ));
 
-    // অডিও ভলিউম ইন্ডিকেশন (রিপেল এর জন্য)
+    // অডিও ভলিউম ইন্ডিকেশন (রিপেল বা ঢেউ এনিমেশনের জন্য)
     await engine.enableAudioVolumeIndication(
       interval: 250,
       smooth: 3,
@@ -33,7 +33,7 @@ class AgoraManager {
     );
 
     if (kIsWeb) {
-      // ওয়েবে সাউন্ড কোয়ালিটি এবং কানেকশন ধরে রাখার মাস্টার প্যারামিটার
+      // ওয়েব অডিও প্যারামিটার বুস্ট
       await engine.setParameters('{"rtc.web_receiver_report_interval":1000}');
       await engine.setParameters('{"che.audio.specify.codec":"OPUS"}');
       await engine.setAudioProfile(
@@ -51,7 +51,7 @@ class AgoraManager {
         debugPrint("👥 অন্য ইউজার জয়েন করেছে: $remoteUid");
       },
       onRemoteAudioStateChanged: (connection, remoteUid, state, reason, elapsed) {
-        debugPrint("🔊 রিমোট অডিও স্টেট: $state ইউজার: $remoteUid");
+        debugPrint("🔊 রিমোট অডিও স্টেট পরিবর্তন: $state");
       }
     ));
 
@@ -59,7 +59,7 @@ class AgoraManager {
     _isInitialized = true;
   }
 
-  // ব্রাউজার অডিও রেজুউম (মাস্টার ফিক্স)
+  // মাস্টার অডিও রেজুউম (ব্রাউজার সিকিউরিটি বাইপাস)
   Future<void> forceResumeAudio() async {
     if (kIsWeb) {
       try {
@@ -89,7 +89,6 @@ class AgoraManager {
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized) await initAgora();
 
-    // UID জেনারেশন লজিক (Collision এড়ানোর জন্য আরও ইউনিক করা হয়েছে)
     if (fireUid != null && fireUid.isNotEmpty) {
       _localUid = fireUid.hashCode.abs();
     } else {
@@ -101,7 +100,7 @@ class AgoraManager {
       channelId: channelName,
       uid: _localUid!,
       options: const ChannelMediaOptions(
-        clientRoleType: ClientRoleType.clientRoleAudience, // শুরুতে শ্রোতা
+        clientRoleType: ClientRoleType.clientRoleAudience,
         publishMicrophoneTrack: false,
         autoSubscribeAudio: true,
       ),
@@ -110,19 +109,31 @@ class AgoraManager {
     await forceResumeAudio();
   }
 
+  // 🔥 এই ফাংশনটি এখন সরাসরি ব্রাউজার থেকে মাইক পারমিশন চাইবে
   Future<void> becomeBroadcaster() async {
     _shouldBeBroadcasting = true;
     
-    // ১. রোলে পরিবর্তন
+    if (kIsWeb) {
+      try {
+        // ১. ব্রাউজার নেটিভ API দিয়ে জোর করে পারমিশন পপ-আপ আনা
+        await html.window.navigator.mediaDevices?.getUserMedia({'audio': true});
+        debugPrint("🎤 ব্রাউজার মাইক পারমিশন দিয়েছে");
+      } catch (e) {
+        debugPrint("❌ পারমিশন এরর: $e");
+        // যদি ইউজার পারমিশন না দেয়, তবে কথা বলা সম্ভব নয়
+      }
+    }
+
+    // ২. রোলে পরিবর্তন
     await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     
-    // ২. ওয়েব পারমিশন এবং অডিও রেজুউম
+    // ৩. অডিও ইঞ্জিন এবং পারমিশন সিকোয়েন্স
     await forceResumeAudio();
     
-    // ৩. মাইক্রোফোন পাবলিশ করা
+    // ৪. মাইক্রোফোন পাবলিশ করা
     await _ensureAudioPublishing();
 
-    // ৪. কিপ-অ্যালাইভ টাইমার (যাতে ব্রাউজার অডিও ড্রপ না করে)
+    // ৫. কিপ-অ্যালাইভ (যাতে ব্রাউজার অডিও চ্যানেল বন্ধ না করে)
     _keepAliveTimer?.cancel();
     _keepAliveTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (_isInitialized && _shouldBeBroadcasting) {
@@ -139,19 +150,26 @@ class AgoraManager {
     ));
     await engine.enableLocalAudio(true);
     await engine.muteLocalAudioStream(false);
+    
+    // ভলিউম একটু বুস্ট করে দেওয়া হলো যাতে কথা ক্লিয়ার শোনা যায়
+    await engine.adjustRecordingSignalVolume(200);
   }
 
   Future<void> toggleMic(bool isMute) async {
     if (!_isInitialized) return;
     await engine.muteLocalAudioStream(isMute);
-    await engine.updateChannelMediaOptions(ChannelMediaOptions(publishMicrophoneTrack: !isMute));
+    await engine.updateChannelMediaOptions(ChannelMediaOptions(
+      publishMicrophoneTrack: !isMute,
+    ));
   }
 
   Future<void> becomeListener() async {
     _shouldBeBroadcasting = false;
     _keepAliveTimer?.cancel();
     await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
-    await engine.updateChannelMediaOptions(const ChannelMediaOptions(publishMicrophoneTrack: false));
+    await engine.updateChannelMediaOptions(const ChannelMediaOptions(
+      publishMicrophoneTrack: false,
+    ));
     await engine.enableLocalAudio(false);
   }
 
