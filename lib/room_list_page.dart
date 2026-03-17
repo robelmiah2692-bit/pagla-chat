@@ -33,7 +33,8 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
       backgroundColor: const Color(0xFF0F0F1E),
       appBar: AppBar(
         backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text("Rooms", style: TextStyle(color: Colors.white)),
+        elevation: 0,
+        title: const Text("Rooms", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.pinkAccent,
@@ -56,13 +57,8 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
             child: TabBarView(
               controller: _tabController,
               children: [
-                // ১. লাইভ রুম (const নেই, এরর হবে না)
                 LiveRoomGrid(), 
-
-                // ২. ফলোয়িং রুম (const নেই, এরর হবে nez)
                 FollowingRoomGrid(), 
-
-                // ৩. মাই রুম সেকশন
                 _buildRoomGrid("my_room"), 
               ],
             ),
@@ -72,14 +68,14 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     );
   }
 
-  // --- প্রিমিয়াম ব্যানার ফিচার ---
+  // --- প্রিমিয়াম ব্যানার ফিচার ---
   Widget _buildBanner() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
       width: double.infinity,
-      height: 140,
+      height: 120,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -87,25 +83,25 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
+            color: Colors.blue.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
+      child: const Padding(
+        padding: EdgeInsets.all(20.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               "পাগলা আড্ডায় জয়েন হও",
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            const Text(
+            Text(
               "আড্ডা দাও মন খুলে",
-              style: TextStyle(color: Colors.white70, fontSize: 16),
+              style: TextStyle(color: Colors.white70, fontSize: 14),
             ),
           ],
         ),
@@ -124,18 +120,18 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
         ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 100,
+          height: 90,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             itemCount: 5,
             itemBuilder: (context, index) {
               return Container(
-                width: 100,
+                width: 90,
                 margin: const EdgeInsets.only(right: 10),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(15),
-                  color: Colors.white12,
+                  color: Colors.white10,
                   image: const DecorationImage(
                     image: NetworkImage("https://picsum.photos/200"),
                     fit: BoxFit.cover,
@@ -149,7 +145,7 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     );
   }
 
-  // --- রুম গ্রিড ও আইডি জেনারেশন লজিক ---
+  // --- রুম গ্রিড ও আইডি জেনারেশন লজিক (সম্পূর্ণ ফিক্সড) ---
   Widget _buildRoomGrid(String type) {
     return GridView.builder(
       padding: const EdgeInsets.all(10),
@@ -157,31 +153,48 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
         crossAxisCount: 2,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        childAspectRatio: 1.0,
+        childAspectRatio: 1.1,
       ),
       itemCount: (type == "my_room") ? 1 : 10,
       itemBuilder: (context, index) {
         return GestureDetector(
           onTap: () async {
             String finalRoomId = "";
+            
             if (type == "my_room") {
               final user = FirebaseAuth.instance.currentUser;
-              if (user == null) return;
+              if (user == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("দয়া করে আগে লগইন করুন।"))
+                );
+                return;
+              }
               
-              final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-              if (userDoc.exists && userDoc.data()?.containsKey('myRoomId') == true) {
-                finalRoomId = userDoc.data()!['myRoomId'].toString();
-              } else {
-                finalRoomId = (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString();
-                await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-                  'myRoomId': finalRoomId,
-                }, SetOptions(merge: true));
+              try {
+                // ডাটাবেস চেক (নিরাপদ পদ্ধতি)
+                final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+                final userData = userDoc.data();
+
+                if (userDoc.exists && userData != null && userData.containsKey('myRoomId')) {
+                  finalRoomId = userData['myRoomId'].toString();
+                } else {
+                  // নতুন রুম আইডি তৈরি
+                  finalRoomId = (100000 + (DateTime.now().millisecondsSinceEpoch % 899999)).toString();
+                  await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+                    'myRoomId': finalRoomId,
+                    'lastLogin': FieldValue.serverTimestamp(),
+                  }, SetOptions(merge: true));
+                }
+              } catch (e) {
+                debugPrint("Firestore Error: $e");
+                finalRoomId = "temp_${user.uid.substring(0, 5)}";
               }
             } else {
               finalRoomId = "public_room_$index";
             }
 
-            if (!context.mounted) return;
+            if (!mounted) return;
+            
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => VoiceRoom(roomId: finalRoomId)),
@@ -196,15 +209,24 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
   Widget _buildRoomCard(int index, String type) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white10,
+        color: const Color(0xFF1A1A2E),
         borderRadius: BorderRadius.circular(15),
-        border: type == "my_room" ? Border.all(color: Colors.amber, width: 1) : null,
+        border: type == "my_room" ? Border.all(color: Colors.pinkAccent.withOpacity(0.5), width: 1.5) : null,
       ),
-      child: Center(
-        child: Text(
-          type == "my_room" ? "My Room" : "Room ${index + 1}",
-          style: const TextStyle(color: Colors.white),
-        ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            type == "my_room" ? Icons.stars : Icons.meeting_room,
+            color: type == "my_room" ? Colors.amber : Colors.pinkAccent,
+            size: 30,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            type == "my_room" ? "My Room" : "Public Room ${index + 1}",
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+          ),
+        ],
       ),
     );
   }
