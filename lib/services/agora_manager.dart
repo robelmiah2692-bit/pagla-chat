@@ -6,7 +6,7 @@ import 'dart:html' as html;
 import 'dart:js' as js;
 
 class AgoraManager {
-  // ১. late এর বদলে এখানে ? (Optional) ব্যবহার করেছি আপনার ফিক্সের জন্য
+  // ১. পুরাতন কোডের 'engine' কে নিরাপদ করার জন্য এই গেট-সেট পদ্ধতি
   RtcEngine? _engine; 
   bool _isInitialized = false;
   final String appId = "855883e294ec4144b8e955451c06e3d7";
@@ -14,7 +14,7 @@ class AgoraManager {
   int? _localUid;
   bool _shouldBeBroadcasting = false;
 
-  // ২. আপনার পুরাতন কোডের 'engine' নামটা এখানে গেটার হিসেবে রাখলাম যাতে বিল্ডে এরর না আসে
+  // ২. আপনার অন্যান্য ফাইলে যেখানে 'engine' লেখা আছে সেখানে এটি কাজ করবে
   RtcEngine get engine {
     if (_engine == null) {
       debugPrint("⚠️ এগোরা ইঞ্জিন এখনো তৈরি হয়নি!");
@@ -110,7 +110,6 @@ class AgoraManager {
   }
 
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
-    // রুমে জয়েন করার আগে ইঞ্জিন রেডি কি না চেক করা হচ্ছে
     if (!_isInitialized || _engine == null) await initAgora();
 
     _localUid = (fireUid != null && fireUid.isNotEmpty) 
