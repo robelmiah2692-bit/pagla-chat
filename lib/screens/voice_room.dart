@@ -1184,52 +1184,60 @@ List<Widget> _buildFloatingEmojiAnimations() {
             ),
           ),
         
-          // ২. মাইক
-          IconButton(
-            constraints: const BoxConstraints(),
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            icon: Icon(
-              isMicOn ? Icons.mic : Icons.mic_off,
-              color: isMicOn ? Colors.greenAccent : Colors.redAccent,
-              size: 22,
-            ),
-            onPressed: () async {
-              if (currentSeatIndex != -1) {
-                // ১. মোবাইল ভাইব্রেশন (Services import না থাকলে এরর দিবে)
-                try {
-                  HapticFeedback.lightImpact();
-                } catch (e) {
-                  debugPrint("Haptic error: $e");
-                }
-
-                bool newMicState = !isMicOn;
-                
-                try {
-                  // ২. এগোরা মাইক কন্ট্রোল
-                  await _agoraManager.toggleMic(!newMicState); 
-
-                  // ৩. রিয়েলটাইম ডাটাবেস আপডেট
-                  await FirebaseDatabase.instance
-                      .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
-                      .update({'isMicOn': newMicState});
-
-                  // ৪. লোকাল স্টেট আপডেট
-                  if (mounted) {
-                    setState(() { 
-                      isMicOn = newMicState; 
-                      if (!newMicState) {
-                        if (seats.length > currentSeatIndex) {
-                          seats[currentSeatIndex]["isTalking"] = false;
-                        }
-                      }
-                    });
-                  }
-                } catch (e) {
-                  debugPrint("❌ Mic Toggle Error: $e");
-                }
-              }
-            },
+           // --- মাইক কন্ট্রোল বাটন শুরু ---
+        IconButton(
+          constraints: const BoxConstraints(),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          icon: Icon(
+            isMicOn ? Icons.mic : Icons.mic_off,
+            color: isMicOn ? Colors.greenAccent : Colors.redAccent,
+            size: 22,
           ),
+          onPressed: () async {
+            // ১. চেক: ইউজার কোনো সিটে বসে আছে কি না
+            if (currentSeatIndex == -1) return;
+
+            // ২. ভাইব্রেশন ফিডব্যাক
+            try {
+              HapticFeedback.lightImpact();
+            } catch (_) {}
+
+            bool newMicState = !isMicOn;
+
+            try {
+              // ৩. এগোরা মাইক হার্ডওয়্যার কন্ট্রোল
+              // engine নাল কি না চেক করে toggle করা হচ্ছে যাতে ক্রাশ না করে
+              if (_agoraManager.engine != null) {
+                await _agoraManager.toggleMic(!newMicState); 
+              }
+
+              // ৪. ফায়ারবেস রিয়েলটাইম ডাটাবেস আপডেট (যাতে অন্যরা আপনার মিউট স্ট্যাটাস দেখে)
+              FirebaseDatabase.instance
+                  .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
+                  .update({'isMicOn': newMicState});
+
+              // ৫. লোকাল অ্যাপের চেহারা (UI) পরিবর্তন
+              if (mounted) {
+                setState(() {
+                  isMicOn = newMicState;
+                  
+                  // মাইক অফ করলে ভয়েস রিপেল এনিমেশন সাথে সাথে বন্ধ করে দেওয়া
+                  if (!newMicState) {
+                    if (currentSeatIndex >= 0 && currentSeatIndex < seats.length) {
+                      seats[currentSeatIndex]["isTalking"] = false;
+                    }
+                  }
+                });
+              }
+              
+              debugPrint("🎤 মাইক স্ট্যাটাস: ${newMicState ? "চালু" : "বন্ধ"}");
+              
+            } catch (e) {
+              debugPrint("❌ Mic Toggle Error: $e");
+            }
+          },
+        ),
+        // --- মাইক কন্ট্রোল বাটন শেষ ---
           // ৩. মিউজিক (ড্র্যাগেবল প্লেয়ার অন/অফ)
           IconButton(
             constraints: const BoxConstraints(),
