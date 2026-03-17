@@ -1,9 +1,8 @@
 import 'dart:math';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; // kIsWeb চেক করার জন্য
+import 'package:flutter/foundation.dart'; 
 import 'auth_service.dart';
-// আগে যা ছিল তা কেটে এটা লিখুন
 import 'package:pagla_chat/services/notification_service.dart';
 
 // ফায়ারবেস প্যাকেজ
@@ -42,24 +41,19 @@ void main() async {
       ),
     );
 
-    // ২. নোটিফিকেশন সার্ভিস চালু করা (শুধু মোবাইলের জন্য)
+    // ২. নোটিফিকেশন সার্ভিস (ওয়েব ছাড়া বাকি সব প্লাটফর্মের জন্য)
     if (!kIsWeb) {
       try {
-        // ব্যাকগ্রাউন্ড মেসেজ হ্যান্ডলার সেট করা
         FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-        
-        // 🔥 আমাদের তৈরি করা আলাদা সার্ভিসটি এখানে কল করতে হবে
-        // এটি না করা পর্যন্ত নোটিফিকেশন পারমিশন চাইবে না এবং কাজও করবে না
         await NotificationService().initNotification(); 
-        
       } catch (e) {
         debugPrint("Notification init failed: $e");
       }
     }
 
-    debugPrint("পাগলা চ্যাট কানেক্ট হয়েছে!");
+    debugPrint("✅ পাগলা চ্যাট কানেক্ট হয়েছে!");
   } catch (e) {
-    debugPrint("কানেকশন এরর: $e");
+    debugPrint("❌ কানেকশন এরর: $e");
   }
   
   runApp(const PaglaChatApp());
@@ -231,4 +225,4 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-} // <-- এই ব্র্যাকেটগুলো মিসিং ছিল ক্লাসের জন্য
+}
