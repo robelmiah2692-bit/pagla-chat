@@ -470,42 +470,43 @@ void _sendOwnerJoinMessage() {
   void _showLeaveConfirmation(int index) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog( // context-এর নাম পরিবর্তন করলাম বোঝার সুবিধার্থে
         backgroundColor: Colors.grey[900],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         title: const Text("সিট ছেড়ে দিন", style: TextStyle(color: Colors.white, fontSize: 18)),
-        content: const Text("আপনি কি নিশ্চিতভাবে এই সিটটি ছেড়ে দিতে চান?", style: TextStyle(color: Colors.grey)),
+        content: const Text("আপনি কি নিশ্চিতভাবে এই সিটটি ছেড়ে দিতে চান?", style: TextStyle(color: Colors.grey)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("না", style: TextStyle(color: Colors.blue))),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext), 
+            child: const Text("না", style: TextStyle(color: Colors.blue))
+          ),
           TextButton(
             onPressed: () async {
-              // ১. এগোরাকে লিসেনার মোডে নেওয়া এবং মাইক্রোফোন অফ করা
+              // ১. এগোরা লজিক (নিরাপদ ভার্সন)
               try {
+                // আপনার ১৯২ লাইনের ম্যানেজারের অরিজিনাল মেথড
                 await _agoraManager.becomeListener();
-                // ওয়াক-লক বন্ধ করা (যদি আপনি সিটে বসার সময় এটি এনাবল করে থাকেন)
+                
                 if (kIsWeb) {
-                  await WakelockPlus.disable();
+                  // WakelockPlus সরাসরি কল না করে ট্রাই-ক্যাচে রাখা ভালো
+                  try { await WakelockPlus.disable(); } catch (_) {}
                 }
-                debugPrint("🔇 এগোরা এখন লিসেনার মোডে। মাইক বন্ধ।");
+                debugPrint("🔇 এগোরা লিসেনার মোডে।");
               } catch (e) {
-                debugPrint("Agora Error while leaving: $e");
+                debugPrint("Agora Leaving Error: $e");
               }
 
-              // ২. ডাটাবেস আপডেট (সিট খালি করা)
+              // ২. ফায়ারবেস ডাটাবেস আপডেট (সিট খালি করা)
               try {
-                // Realtime Database থেকে সিট রিমুভ করা
                 await FirebaseDatabase.instance
                     .ref('rooms/${widget.roomId}/seats/$index')
                     .remove();
-
-                // যদি আপনি ফায়ারস্টোরেও আলাদা করে সিট ডাটা রাখেন তবে এটি রাখুন (ঐচ্ছিক)
-                // await FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).collection('seats').doc(index.toString()).delete();
-                
-                debugPrint("🧹 ডাটাবেস থেকে সিট ক্লিয়ার করা হয়েছে।");
+                debugPrint("🧹 ফায়ারবেস ক্লিয়ার।");
               } catch (e) {
-                debugPrint("Database Update Error: $e");
+                debugPrint("Firebase Update Error: $e");
               }
               
-              // ৩. লোকাল স্টেট আপডেট
+              // ৩. লোকাল স্টেট আপডেট (রিপেল এবং মাইক বন্ধ করা)
               if (mounted) {
                 setState(() {
                   seats[index]["isOccupied"] = false;
@@ -513,15 +514,23 @@ void _sendOwnerJoinMessage() {
                   seats[index]["userName"] = "";
                   seats[index]["userImage"] = "";
                   seats[index]["userId"] = "";
-                  seats[index]["agoraUid"] = "";
+                  
+                  // গুরুত্বপূর্ণ: আপনার রিপেল লজিকের সাথে মিল রেখে ০ সেট করা
+                  seats[index]["agoraUid"] = 0; 
+                  
                   seats[index]["isMicOn"] = false; 
-                  seats[index]["isTalking"] = false; // রিপেল এনিমেশন অফ করা
+                  seats[index]["isTalking"] = false; 
+                  
+                  // গ্লোবাল ভেরিয়েবল রিসেট
                   currentSeatIndex = -1;
                   isMicOn = false;
                 });
               }
               
-              if (mounted) Navigator.pop(context);
+              // ৪. ডায়ালগ বন্ধ করা (নিরাপদভাবে)
+              if (mounted) {
+                Navigator.of(dialogContext).pop();
+              }
             }, 
             child: const Text("হ্যাঁ", style: TextStyle(color: Colors.redAccent))
           ),
