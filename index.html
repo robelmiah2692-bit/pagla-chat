@@ -22,20 +22,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyA9KMdtIBNVYSASc5C2w5JGVTL-NISXFog",
-      authDomain: "paglachat.firebaseapp.com",
-      databaseURL: "https://paglachat-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "paglachat",
-      storageBucket: "paglachat.firebasestorage.app",
-      messagingSenderId: "25052070011",
-      appId: "1:25052070011:web:7c447f8d011fbdf3d662de",
-      measurementId: "G-946LX0V0Q9"
-    };
-    firebase.initializeApp(firebaseConfig);
-  </script>
-
   <style>
     .flutter-loader, #flutter-loader, picture, #splash, [id*="splash"], flutter-loading {
       display: none !important;
@@ -70,6 +56,7 @@
   </div>
 
   <script>
+    // ফ্লাটার রেন্ডারার মোড সেটআপ
     window.flutterWebRenderer = "html"; 
   </script>
 
@@ -84,25 +71,30 @@
         setTimeout(function() {
           loader.style.display = 'none';
         }, 1000);
-      }, 5000);
+      }, 3000); // লোডিং টাইম একটু কমানো হয়েছে ৩ সেকেন্ডে
     });
 
-    // 🔴 মাস্টার মাইক আনলকার লজিক (হৃদয় ভাইয়ের জন্য স্পেশাল)
+    // 🔴 অডিও আনলকার ও এগোরা স্ট্যাবিলিটি লজিক
     async function unlockAudio() {
-        if (window.AudioContext || window.webkitAudioContext) {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (!window.myAudioCtx) window.myAudioCtx = new AudioContext();
-            
-            if (window.myAudioCtx.state === 'suspended') {
-                await window.myAudioCtx.resume();
+        try {
+            if (window.AudioContext || window.webkitAudioContext) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!window.myAudioCtx) window.myAudioCtx = new AudioContext();
+                
+                if (window.myAudioCtx.state === 'suspended') {
+                    await window.myAudioCtx.resume();
+                    console.log("🔊 Audio Context Resumed!");
+                }
             }
-        }
-        
-        // এগোরা এসডিকে-কে ব্রাউজারের অডিও লেয়ারের সাথে কানেক্ট করা
-        if (window.AgoraRTC) {
-            AgoraRTC.onAudioAutoplayFailed = () => {
-                console.log("Autoplay failed, waiting for user click...");
-            };
+            
+            // এগোরা এসডিকে অটো-প্লে ফেইল হ্যান্ডলার
+            if (typeof AgoraRTC !== 'undefined') {
+                AgoraRTC.onAudioAutoplayFailed = () => {
+                    console.warn("Autoplay failed, waiting for user interaction...");
+                };
+            }
+        } catch (e) {
+            console.error("Audio unlock failed:", e);
         }
     }
 
@@ -110,20 +102,20 @@
     window.addEventListener('click', unlockAudio);
     window.addEventListener('touchstart', unlockAudio);
 
-    // ট্যাব সুইচ করলে মাইক যেন মরে না যায়
+    // ট্যাব সুইচ করলে মাইক অটো-রিসুমে
     document.addEventListener("visibilitychange", function() {
       if (!document.hidden && window.myAudioCtx) {
         window.myAudioCtx.resume();
       }
     });
 
-    // ব্রাউজারকে সরাসরি বলা যে মাইক পারমিশন দরকার
-    navigator.mediaDevices.enumerateDevices().then(devices => {
-      const hasMic = devices.some(d => d.kind === 'audioinput');
-      if (hasMic) {
-        console.log("🎤 Microphone detected on this device.");
-      }
-    });
+    // ব্রাউজার কনসোলে মাইক ডিটেকশন লগ
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        navigator.mediaDevices.enumerateDevices().then(devices => {
+          const hasMic = devices.some(d => d.kind === 'audioinput');
+          if (hasMic) console.log("🎤 Microphone detected.");
+        }).catch(err => console.error("Mic detection error:", err));
+    }
   </script>
 </body>
 </html>
