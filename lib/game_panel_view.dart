@@ -17,7 +17,7 @@ class _GamePanelViewState extends State<GamePanelView> {
   StreamSubscription? _subscription;
 
   // গেম স্টেট
-  String activeGame = "LUDO"; // LUDO or LUCKY
+  String activeGame = "LUDO"; 
   bool isSpinning = false;
   int diceNumber = 1;
   int turnIndex = 0;
@@ -25,12 +25,20 @@ class _GamePanelViewState extends State<GamePanelView> {
   List<Map<dynamic, dynamic>> luckyBets = [];
   List<Map<dynamic, dynamic>> topWinners = [];
   
-  // টাইমার লজিক
+  // টাইমার ও এনিমেশন লজিক
   Timer? _spinTimer;
   int _countdown = 15;
   double _rotationAngle = 0;
 
-  final List<String> luckySlots = ["1X", "2X", "3X", "4X", "5X", "777"];
+  // আপনার ডিজাইনের ৬টি ঘর এবং তাদের গুণিতক
+  final List<Map<String, dynamic>> wheelSegments = [
+    {"label": "777", "mult": 25, "deg": 0},          
+    {"label": "Grapes", "mult": 2, "deg": 60},      
+    {"label": "Apple", "mult": 3, "deg": 120},      
+    {"label": "Plum", "mult": 4, "deg": 180},       
+    {"label": "Strawberry", "mult": 5, "deg": 240}, 
+    {"label": "Watermelon", "mult": 1, "deg": 300}, 
+  ];
 
   @override
   void initState() {
@@ -50,7 +58,6 @@ class _GamePanelViewState extends State<GamePanelView> {
           turnIndex = data['turnIndex'] ?? 0;
           diceNumber = data['diceNumber'] ?? 1;
           
-          // প্লেয়ার এবং বেট লিস্ট আপডেট
           if (data['players'] != null) {
             players = (data['players'] as Map).values.map((e) => e as Map).toList();
           }
@@ -66,10 +73,9 @@ class _GamePanelViewState extends State<GamePanelView> {
     });
   }
 
-  // লাকি স্পিন টাইমার (১৫ সেকেন্ড)
   void _startLuckyTimer() {
     _spinTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (activeGame == "LUCKY") {
+      if (activeGame == "LUCKY" && !isSpinning) {
         if (_countdown > 0) {
           setState(() => _countdown--);
         } else {
@@ -80,40 +86,39 @@ class _GamePanelViewState extends State<GamePanelView> {
     });
   }
 
-  // স্পিন লজিক এবং ডাইমন্ড ডিস্ট্রিবিউশন
   Future<void> _performSpin() async {
     if (isSpinning) return;
     setState(() => isSpinning = true);
 
-    int winIndex = Random().nextInt(luckySlots.length);
-    String winSlot = luckySlots[winIndex];
+    // রেন্ডম উইনার ঘর সিলেক্ট
+    int randomIndex = Random().nextInt(wheelSegments.length);
+    var winResult = wheelSegments[randomIndex];
 
-    // এনিমেশন এর জন্য রোটেশন
-    setState(() => _rotationAngle += (2 * pi * 5) + (winIndex * (2 * pi / 6)));
+    // রোটেশন ক্যালকুলেশন (৫ বার ঘুরে নির্দিষ্ট ডিগ্রিতে থামবে)
+    double targetRotation = (2 * pi * 5) + (winResult['deg'] * pi / 180);
+    setState(() => _rotationAngle += targetRotation);
 
     Future.delayed(const Duration(seconds: 3), () async {
-      // উইনারদের ডাইমন্ড দেওয়া এবং অন্যদের কাটা (যাদের বেট অমিল)
+      // উইনার লজিক: যাদের বেট মিলেছে তাদের ডাইমন্ড দেওয়া
       for (var bet in luckyBets) {
-        if (bet['slot'] == winSlot) {
-          int multiplier = winSlot == "777" ? 25 : int.parse(winSlot.replaceAll("X", ""));
-          int winAmount = (bet['amount'] as int) * multiplier;
+        if (bet['slot'] == winResult['label']) {
+          int winAmount = (bet['amount'] as int) * (winResult['mult'] as int);
           _updateUserBalance(bet['id'], winAmount);
           _addToWinnerList(bet['name'], bet['photo'], winAmount);
         }
       }
       
-      await _gameRef.child("luckyBets").remove(); // বেট রিসেট
+      await _gameRef.child("luckyBets").remove(); 
       setState(() => isSpinning = false);
     });
   }
 
-  // ডাইমন্ড কাটার লজিক (জয়েন করার সময়)
   Future<void> _placeLuckyBet(String slot, int amount) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // ১. এখান থেকেই ইউজারের মেইন ব্যালেন্স থেকে ডাইমন্ড কেটে নিন (আপনার API অনুযায়ী)
-    // subtractDiamonds(user.uid, amount); 
+    // জয়েন করার সাথে সাথে ডাইমন্ড কেটে নেওয়ার লজিক এখানে কল হবে
+    // _deductDiamonds(user.uid, amount);
 
     await _gameRef.child("luckyBets").child(user.uid).set({
       "id": user.uid,
@@ -127,7 +132,7 @@ class _GamePanelViewState extends State<GamePanelView> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 500,
+      height: 550,
       decoration: const BoxDecoration(
         color: Color(0xFF0F0F1E),
         borderRadius: BorderRadius.vertical(top: Radius.circular(40)),
@@ -144,21 +149,23 @@ class _GamePanelViewState extends State<GamePanelView> {
   }
 
   Widget _buildGameSelector() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+    return Container(
+      margin: const EdgeInsets.only(top: 15),
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(30)),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: ["LUDO", "LUCKY"].map((game) {
+          bool isSelected = activeGame == game;
           return GestureDetector(
             onTap: () => _gameRef.update({"type": game}),
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 8),
               decoration: BoxDecoration(
-                color: activeGame == game ? Colors.cyanAccent : Colors.white10,
-                borderRadius: BorderRadius.circular(20),
+                color: isSelected ? Colors.cyanAccent : Colors.transparent,
+                borderRadius: BorderRadius.circular(25),
               ),
-              child: Text(game, style: TextStyle(color: activeGame == game ? Colors.black : Colors.white)),
+              child: Text(game, style: TextStyle(color: isSelected ? Colors.black : Colors.white, fontWeight: FontWeight.bold)),
             ),
           );
         }).toList(),
@@ -166,80 +173,90 @@ class _GamePanelViewState extends State<GamePanelView> {
     );
   }
 
-  // --- লাকি স্পিন ভিউ (ইউনিক ডিজাইন) ---
   Widget _buildLuckyView() {
-    return Column(
-      children: [
-        _buildTopWinnersRow(),
-        const SizedBox(height: 10),
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            AnimatedRotation(
-              turns: _rotationAngle / (2 * pi),
-              duration: const Duration(seconds: 3),
-              curve: Curves.easeOutCubic,
-              child: Image.asset("assets/custom_spinner.png", width: 200), // আপনার ইউনিক স্পিনার ইমেজ
-            ),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
-              child: Text("$_countdown", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        _buildBettingGrid(),
-      ],
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _buildTopWinnersRow(),
+          const SizedBox(height: 20),
+          Stack(
+            alignment: Alignment.topCenter,
+            children: [
+              // আপনার ডিজাইন করা হুইল
+              AnimatedRotation(
+                turns: _rotationAngle / (2 * pi),
+                duration: const Duration(seconds: 3),
+                curve: Curves.easeOutCubic,
+                child: Image.asset("assets/images/lucky_wheel.png", width: 220),
+              ),
+              // পিন বা নিডল
+              const Icon(Icons.location_on, color: Colors.redAccent, size: 40),
+              // মাঝখানে টাইমার
+              Positioned(
+                top: 90,
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                  child: Text("$_countdown", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _buildBettingGrid(),
+        ],
+      ),
     );
   }
 
   Widget _buildBettingGrid() {
-    return GridView.builder(
-      shrinkWrap: true,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 2),
-      itemCount: luckySlots.length,
-      itemBuilder: (context, index) {
-        String slot = luckySlots[index];
-        int betCount = luckyBets.where((b) => b['slot'] == slot).length;
-        return GestureDetector(
-          onTap: () => _placeLuckyBet(slot, 100), // ১০০ ডাইমন্ড বেট
-          child: Container(
-            margin: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [Colors.purple, Colors.blue.shade900]),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white24),
+    return Padding(
+      padding: const EdgeInsets.all(10),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 2.2, crossAxisSpacing: 8, mainAxisSpacing: 8),
+        itemCount: wheelSegments.length,
+        itemBuilder: (context, index) {
+          var segment = wheelSegments[index];
+          int totalBets = luckyBets.where((b) => b['slot'] == segment['label']).length;
+          return GestureDetector(
+            onTap: () => _placeLuckyBet(segment['label'], 100),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [Colors.blueGrey.shade900, Colors.black]),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text("${segment['label']} (${segment['mult']}x)", style: const TextStyle(color: Colors.cyanAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text("Users: $totalBets", style: const TextStyle(color: Colors.white60, fontSize: 10)),
+                ],
+              ),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(slot, style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
-                Text("Bets: $betCount", style: const TextStyle(color: Colors.white70, fontSize: 10)),
-              ],
-            ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
   Widget _buildTopWinnersRow() {
     return Container(
-      height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      height: 70,
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: topWinners.length,
         itemBuilder: (context, index) {
           var winner = topWinners[index];
-          return Padding(
-            padding: const EdgeInsets.only(right: 15),
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 10),
             child: Column(
               children: [
-                CircleAvatar(radius: 18, backgroundImage: NetworkImage(winner['photo'] ?? "")),
-                Text(winner['name'].split(" ")[0], style: const TextStyle(color: Colors.white, fontSize: 8)),
-                Text("💎${winner['amount']}", style: const TextStyle(color: Colors.amber, fontSize: 8, fontWeight: FontWeight.bold)),
+                CircleAvatar(radius: 20, backgroundImage: NetworkImage(winner['photo'] ?? "")),
+                Text("💎 ${winner['amount']}", style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
               ],
             ),
           );
@@ -248,23 +265,37 @@ class _GamePanelViewState extends State<GamePanelView> {
     );
   }
 
-  // হেল্পার ফাংশনস
+  // --- লুডু ভিউ (আগের লজিক ঠিক রেখে) ---
+  Widget _buildLudoView() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text("LUDO MULTIPLAYER", style: TextStyle(color: Colors.white70)),
+        const SizedBox(height: 20),
+        GestureDetector(
+          onTap: () {
+            // লুডু রোল ডাইস লজিক
+          },
+          child: Container(
+            width: 80, height: 80,
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
+            child: Icon(diceIcons[diceNumber-1], size: 50, color: Colors.black),
+          ),
+        ),
+      ],
+    );
+  }
+
+  final List<IconData> diceIcons = [Icons.looks_one, Icons.looks_two, Icons.looks_3, Icons.looks_4, Icons.looks_5, Icons.looks_6];
+
   void _updateUserBalance(String uid, int amount) {
-    // আপনার ফায়ারবেস ইউজার ব্যালেন্স নোড আপডেট করার কোড এখানে লিখুন
+    // এখানে উইনারের একাউন্টে ডাইমন্ড যোগ করার API কল করবেন
   }
 
   void _addToWinnerList(String name, String photo, int amount) {
     _gameRef.child("winners").push().set({
-      "name": name,
-      "photo": photo,
-      "amount": amount,
-      "time": ServerValue.timestamp,
+      "name": name, "photo": photo, "amount": amount, "time": ServerValue.timestamp,
     });
-  }
-
-  Widget _buildLudoView() {
-    // আপনার আগের লুডু কোডটি এখানে থাকবে, শুধু জয়েনিং এ ডাইমন্ড কাটার লজিক অ্যাড করা হয়েছে
-    return const Center(child: Text("Ludo Game Active", style: TextStyle(color: Colors.white)));
   }
 
   @override
