@@ -3,10 +3,12 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class GamePanelView extends StatefulWidget {
   final String roomId;
-  const GamePanelView({super.key, required this.roomId});
+  final bool isAdmin; // রুম ওনার বা এডমিন কি না
+  const GamePanelView({super.key, required this.roomId, this.isAdmin = false});
 
   @override
   State<GamePanelView> createState() => _GamePanelViewState();
@@ -14,38 +16,51 @@ class GamePanelView extends StatefulWidget {
 
 class _GamePanelViewState extends State<GamePanelView> {
   late DatabaseReference _gameRef;
+  late DatabaseReference _userRef;
   StreamSubscription? _subscription;
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   // গেম স্টেট
-  String activeGame = "LUDO"; 
+  String activeGame = "LUDO";
   bool isSpinning = false;
+  bool isFullScreen = false;
   int diceNumber = 1;
-  int turnIndex = 0;
+  int userBalance = 0; // ইউজারের আসল ডাইমন্ড
+  int betAmount = 100; // ডিফল্ট বেট ১০০
+  String resultMessage = ""; // Win/Lose টেক্সট
+
   List<Map<dynamic, dynamic>> players = [];
   List<Map<dynamic, dynamic>> luckyBets = [];
-  List<Map<dynamic, dynamic>> topWinners = [];
-  
-  // টাইমার ও এনিমেশন লজিক
-  Timer? _spinTimer;
-  int _countdown = 15;
   double _rotationAngle = 0;
+  int _countdown = 15;
+  Timer? _spinTimer;
 
-  // আপনার ডিজাইনের ৬টি ঘর এবং তাদের গুণিতক
   final List<Map<String, dynamic>> wheelSegments = [
-    {"label": "777", "mult": 25, "deg": 0},          
-    {"label": "Grapes", "mult": 2, "deg": 60},      
-    {"label": "Apple", "mult": 3, "deg": 120},      
-    {"label": "Plum", "mult": 4, "deg": 180},       
-    {"label": "Strawberry", "mult": 5, "deg": 240}, 
-    {"label": "Watermelon", "mult": 1, "deg": 300}, 
+    {"label": "777", "mult": 25, "deg": 0},
+    {"label": "Grapes", "mult": 2, "deg": 60},
+    {"label": "Apple", "mult": 3, "deg": 120},
+    {"label": "Plum", "mult": 4, "deg": 180},
+    {"label": "Strawberry", "mult": 5, "deg": 240},
+    {"label": "Watermelon", "mult": 1, "deg": 300},
   ];
 
   @override
   void initState() {
     super.initState();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     _gameRef = FirebaseDatabase.instance.ref("games/${widget.roomId}");
+    _userRef = FirebaseDatabase.instance.ref("users/$uid");
+    
     _listenToData();
+    _fetchUserBalance();
     _startLuckyTimer();
+  }
+
+  // রিয়েল টাইম ব্যালেন্স আপডেট
+  void _fetchUserBalance() {
+    _userRef.child("diamonds").onValue.listen((event) {
+      if (mounted) setState(() => userBalance = (event.snapshot.value as int? ?? 0));
+    });
   }
 
   void _listenToData() {
@@ -55,24 +70,24 @@ class _GamePanelViewState extends State<GamePanelView> {
       if (mounted) {
         setState(() {
           activeGame = data['type'] ?? "LUDO";
-          turnIndex = data['turnIndex'] ?? 0;
           diceNumber = data['diceNumber'] ?? 1;
-          
           if (data['players'] != null) {
             players = (data['players'] as Map).values.map((e) => e as Map).toList();
           }
           if (data['luckyBets'] != null) {
             luckyBets = (data['luckyBets'] as Map).values.map((e) => e as Map).toList();
           }
-          if (data['winners'] != null) {
-            topWinners = (data['winners'] as Map).values.map((e) => e as Map).toList();
-            topWinners.sort((a, b) => (b['amount'] as int).compareTo(a['amount'] as int));
-          }
         });
       }
     });
   }
 
+  // সাউন্ড সিস্টেম
+  void _playSound(String soundPath) async {
+    await _audioPlayer.play(AssetSource('sounds/$soundPath'));
+  }
+
+  // লাকি স্পিন টাইমার
   void _startLuckyTimer() {
     _spinTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (activeGame == "LUCKY" && !isSpinning) {
@@ -86,222 +101,221 @@ class _GamePanelViewState extends State<GamePanelView> {
     });
   }
 
+  // স্পিন লজিক
   Future<void> _performSpin() async {
     if (isSpinning) return;
-    setState(() => isSpinning = true);
+    _playSound("spin_start.mp3");
+    setState(() {
+      isSpinning = true;
+      resultMessage = "";
+    });
 
-    // রেন্ডম উইনার ঘর সিলেক্ট
-    int randomIndex = Random().nextInt(wheelSegments.length);
-    var winResult = wheelSegments[randomIndex];
-
-    // রোটেশন ক্যালকুলেশন (৫ বার ঘুরে নির্দিষ্ট ডিগ্রিতে থামবে)
-    double targetRotation = (2 * pi * 5) + (winResult['deg'] * pi / 180);
-    setState(() => _rotationAngle += targetRotation);
+    int winIdx = Random().nextInt(wheelSegments.length);
+    var winResult = wheelSegments[winIdx];
+    double targetRot = (2 * pi * 5) + (winResult['deg'] * pi / 180);
+    setState(() => _rotationAngle += targetRot);
 
     Future.delayed(const Duration(seconds: 3), () async {
-      // উইনার লজিক: যাদের বেট মিলেছে তাদের ডাইমন্ড দেওয়া
+      final myId = FirebaseAuth.instance.currentUser?.uid;
+      int totalWin = 0;
+      bool won = false;
+
+      // ইউজার একাধিক ঘরে বেট ধরলে চেক করা
       for (var bet in luckyBets) {
-        if (bet['slot'] == winResult['label']) {
-          int winAmount = (bet['amount'] as int) * (winResult['mult'] as int);
-          _updateUserBalance(bet['id'], winAmount);
-          _addToWinnerList(bet['name'], bet['photo'], winAmount);
+        if (bet['id'] == myId && bet['slot'] == winResult['label']) {
+          won = true;
+          totalWin += (bet['amount'] as int) * (winResult['mult'] as int);
         }
       }
-      
-      await _gameRef.child("luckyBets").remove(); 
+
+      if (won) {
+        _playSound("win_sound.mp3");
+        setState(() => resultMessage = "WINNER! 💎$totalWin");
+        await _userRef.update({"diamonds": userBalance + totalWin}); // টাকা যোগ
+      } else if (luckyBets.any((b) => b['id'] == myId)) {
+        _playSound("lose_sound.mp3");
+        setState(() => resultMessage = "LOST!");
+      }
+
+      await _gameRef.child("luckyBets").remove();
       setState(() => isSpinning = false);
-    });
-  }
-
-  Future<void> _placeLuckyBet(String slot, int amount) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    // জয়েন করার সাথে সাথে ডাইমন্ড কেটে নেওয়ার লজিক এখানে কল হবে
-    // _deductDiamonds(user.uid, amount);
-
-    await _gameRef.child("luckyBets").child(user.uid).set({
-      "id": user.uid,
-      "name": user.displayName,
-      "photo": user.photoURL,
-      "slot": slot,
-      "amount": amount,
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 550,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 500),
+      height: isFullScreen ? MediaQuery.of(context).size.height : 550,
       decoration: const BoxDecoration(
         color: Color(0xFF0F0F1E),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(40)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(35)),
       ),
-      child: Column(
+      child: Stack(
         children: [
-          _buildGameSelector(),
-          Expanded(
-            child: activeGame == "LUDO" ? _buildLudoView() : _buildLuckyView(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGameSelector() {
-    return Container(
-      margin: const EdgeInsets.only(top: 15),
-      padding: const EdgeInsets.all(5),
-      decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(30)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: ["LUDO", "LUCKY"].map((game) {
-          bool isSelected = activeGame == game;
-          return GestureDetector(
-            onTap: () => _gameRef.update({"type": game}),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? Colors.cyanAccent : Colors.transparent,
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: Text(game, style: TextStyle(color: isSelected ? Colors.black : Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildLuckyView() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          _buildTopWinnersRow(),
-          const SizedBox(height: 20),
-          Stack(
-            alignment: Alignment.topCenter,
+          Column(
             children: [
-              // আপনার ডিজাইন করা হুইল
-              AnimatedRotation(
-                turns: _rotationAngle / (2 * pi),
-                duration: const Duration(seconds: 3),
-                curve: Curves.easeOutCubic,
-                child: Image.asset("assets/images/lucky_wheel.png", width: 220),
-              ),
-              // পিন বা নিডল
-              const Icon(Icons.location_on, color: Colors.redAccent, size: 40),
-              // মাঝখানে টাইমার
-              Positioned(
-                top: 90,
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                  child: Text("$_countdown", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
-              ),
+              _buildTopBar(),
+              _buildGameSelector(),
+              Expanded(child: activeGame == "LUDO" ? _buildLudoView() : _buildLuckyView()),
             ],
           ),
-          const SizedBox(height: 20),
-          _buildBettingGrid(),
+          // ক্লোজ বাটন
+          Positioned(
+            top: 15, right: 15,
+            child: IconButton(
+              icon: const Icon(Icons.cancel, color: Colors.white70, size: 30),
+              onPressed: () {
+                if (activeGame == "LUDO" && players.length > 0) {
+                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("গেম শেষ না হওয়া পর্যন্ত বন্ধ করা যাবে না!")));
+                   return;
+                }
+                Navigator.pop(context);
+              },
+            ),
+          )
         ],
       ),
     );
   }
 
-  Widget _buildBettingGrid() {
+  Widget _buildTopBar() {
     return Padding(
-      padding: const EdgeInsets.all(10),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 2.2, crossAxisSpacing: 8, mainAxisSpacing: 8),
-        itemCount: wheelSegments.length,
-        itemBuilder: (context, index) {
-          var segment = wheelSegments[index];
-          int totalBets = luckyBets.where((b) => b['slot'] == segment['label']).length;
-          return GestureDetector(
-            onTap: () => _placeLuckyBet(segment['label'], 100),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [Colors.blueGrey.shade900, Colors.black]),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text("${segment['label']} (${segment['mult']}x)", style: const TextStyle(color: Colors.cyanAccent, fontSize: 12, fontWeight: FontWeight.bold)),
-                  Text("Users: $totalBets", style: const TextStyle(color: Colors.white60, fontSize: 10)),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildTopWinnersRow() {
-    return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: topWinners.length,
-        itemBuilder: (context, index) {
-          var winner = topWinners[index];
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 10),
-            child: Column(
+      padding: const EdgeInsets.all(15.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+            decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20)),
+            child: Row(
               children: [
-                CircleAvatar(radius: 20, backgroundImage: NetworkImage(winner['photo'] ?? "")),
-                Text("💎 ${winner['amount']}", style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
+                const Icon(Icons.diamond, color: Colors.cyanAccent, size: 20),
+                const SizedBox(width: 5),
+                Text("$userBalance", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ],
             ),
-          );
-        },
+          ),
+          const SizedBox(width: 20),
+          if (activeGame == "LUCKY") _buildBetController(),
+        ],
       ),
     );
   }
 
-  // --- লুডু ভিউ (আগের লজিক ঠিক রেখে) ---
-  Widget _buildLudoView() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildBetController() {
+    return Row(
       children: [
-        const Text("LUDO MULTIPLAYER", style: TextStyle(color: Colors.white70)),
-        const SizedBox(height: 20),
-        GestureDetector(
-          onTap: () {
-            // লুডু রোল ডাইস লজিক
-          },
-          child: Container(
-            width: 80, height: 80,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
-            child: Icon(diceIcons[diceNumber-1], size: 50, color: Colors.black),
-          ),
-        ),
+        IconButton(onPressed: () => setState(() => betAmount = max(100, betAmount - 100)), icon: const Icon(Icons.remove_circle, color: Colors.red)),
+        Text("$betAmount", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        IconButton(onPressed: () => setState(() => betAmount += 100), icon: const Icon(Icons.add_circle, color: Colors.green)),
       ],
     );
   }
 
+  Widget _buildLuckyView() {
+    return Column(
+      children: [
+        if (resultMessage.isNotEmpty)
+          Text(resultMessage, style: TextStyle(color: resultMessage.contains("WIN") ? Colors.green : Colors.red, fontSize: 28, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            AnimatedRotation(
+              turns: _rotationAngle / (2 * pi),
+              duration: const Duration(seconds: 3),
+              curve: Curves.easeOutCubic,
+              child: Image.asset("assets/images/lucky_wheel.png", width: 200),
+            ),
+            const Icon(Icons.arrow_drop_down, color: Colors.red, size: 40),
+            CircleAvatar(backgroundColor: Colors.black54, radius: 20, child: Text("$_countdown", style: const TextStyle(color: Colors.white))),
+          ],
+        ),
+        _buildLuckyBetGrid(),
+      ],
+    );
+  }
+
+  Widget _buildLuckyBetGrid() {
+    return GridView.builder(
+      shrinkWrap: true,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 2.5),
+      itemCount: wheelSegments.length,
+      itemBuilder: (context, index) {
+        String slot = wheelSegments[index]['label'];
+        return GestureDetector(
+          onTap: () async {
+            if (userBalance < betAmount) return;
+            _playSound("bet_click.mp3");
+            await _userRef.update({"diamonds": userBalance - betAmount}); // রিয়েল টাইম মাইনাস
+            await _gameRef.child("luckyBets").push().set({
+              "id": FirebaseAuth.instance.currentUser?.uid,
+              "name": FirebaseAuth.instance.currentUser?.displayName,
+              "slot": slot,
+              "amount": betAmount
+            });
+          },
+          child: Container(
+            margin: const EdgeInsets.all(4),
+            decoration: BoxDecoration(border: Border.all(color: Colors.cyanAccent), borderRadius: BorderRadius.circular(10)),
+            child: Center(child: Text(slot, style: const TextStyle(color: Colors.white))),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLudoView() {
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: () => setState(() => isFullScreen = true),
+          child: Container(
+            width: isFullScreen ? 350 : 220,
+            height: isFullScreen ? 350 : 220,
+            decoration: const BoxDecoration(image: DecorationImage(image: AssetImage("assets/images/ludo_preview.png"))),
+            child: _buildLudoBoardDesign(),
+          ),
+        ),
+        const SizedBox(height: 20),
+        if (widget.isAdmin) _buildDiceButton(),
+      ],
+    );
+  }
+
+  Widget _buildLudoBoardDesign() {
+     // ৪ কোণায় প্লেয়ারদের ছবি বসানোর লজিক
+     return Stack(
+       children: List.generate(players.length, (i) {
+         double t = (i == 0 || i == 1) ? 30.0 : 250.0;
+         double l = (i == 0 || i == 2) ? 30.0 : 250.0;
+         return Positioned(
+           top: isFullScreen ? t * 1.5 : t,
+           left: isFullScreen ? l * 1.5 : l,
+           child: CircleAvatar(backgroundImage: NetworkImage(players[i]['photo'] ?? ""), radius: 25),
+         );
+       }),
+     );
+  }
+
+  Widget _buildDiceButton() {
+     return InkWell(
+       onTap: () {
+         _playSound("dice_roll.mp3");
+         int nextDice = Random().nextInt(6) + 1;
+         _gameRef.update({"diceNumber": nextDice});
+       },
+       child: Icon(diceIcons[diceNumber - 1], size: 80, color: Colors.white),
+     );
+  }
+
   final List<IconData> diceIcons = [Icons.looks_one, Icons.looks_two, Icons.looks_3, Icons.looks_4, Icons.looks_5, Icons.looks_6];
 
-  void _updateUserBalance(String uid, int amount) {
-    // এখানে উইনারের একাউন্টে ডাইমন্ড যোগ করার API কল করবেন
-  }
-
-  void _addToWinnerList(String name, String photo, int amount) {
-    _gameRef.child("winners").push().set({
-      "name": name, "photo": photo, "amount": amount, "time": ServerValue.timestamp,
-    });
-  }
-
-  @override
-  void dispose() {
-    _spinTimer?.cancel();
-    _subscription?.cancel();
-    super.dispose();
+  Widget _buildGameSelector() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: ["LUDO", "LUCKY"].map((g) => TextButton(onPressed: () => _gameRef.update({"type": g}), child: Text(g))).toList(),
+    );
   }
 }
