@@ -1377,7 +1377,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
             icon: const Icon(Icons.videogame_asset, color: Colors.orange, size: 22), 
             onPressed: () => showModalBottomSheet(
               context: context, 
-              builder: (c) => const GamePanelView(),
+              builder: (c) => GamePanelView(roomId: widget.roomId),
             ),
           ),
         ], // Row children closed
