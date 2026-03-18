@@ -5,7 +5,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class GamePanelView extends StatefulWidget {
-  final String roomId; // আপনার ভয়েস রুমের আইডি এখানে পাস করবেন
+  final String roomId;
   const GamePanelView({super.key, required this.roomId});
 
   @override
@@ -13,284 +13,264 @@ class GamePanelView extends StatefulWidget {
 }
 
 class _GamePanelViewState extends State<GamePanelView> {
-  // ফায়ারবেস রেফারেন্স
   late DatabaseReference _gameRef;
   StreamSubscription? _subscription;
 
-  // গেম স্টেট ভেরিয়েবল
-  int diamondBet = 100;
-  bool isGameStarted = false;
-  List<Map<dynamic, dynamic>> players = [];
-  int turnIndex = 0;
+  // গেম স্টেট
+  String activeGame = "LUDO"; // LUDO or LUCKY
+  bool isSpinning = false;
   int diceNumber = 1;
-  bool isRolling = false;
+  int turnIndex = 0;
+  List<Map<dynamic, dynamic>> players = [];
+  List<Map<dynamic, dynamic>> luckyBets = [];
+  List<Map<dynamic, dynamic>> topWinners = [];
   
-  // অটো চালের টাইমার
-  Timer? _autoTimer;
-  int _secondsLeft = 4;
+  // টাইমার লজিক
+  Timer? _spinTimer;
+  int _countdown = 15;
+  double _rotationAngle = 0;
+
+  final List<String> luckySlots = ["1X", "2X", "3X", "4X", "5X", "777"];
 
   @override
   void initState() {
     super.initState();
-    // রুম আইডি অনুযায়ী পাথ সেটআপ
-    _gameRef = FirebaseDatabase.instance.ref("ludo_games/${widget.roomId}");
-    _listenToGame();
+    _gameRef = FirebaseDatabase.instance.ref("games/${widget.roomId}");
+    _listenToData();
+    _startLuckyTimer();
   }
 
-  // ফায়ারবেস থেকে লাইভ আপডেট শোনা
-  void _listenToGame() {
+  void _listenToData() {
     _subscription = _gameRef.onValue.listen((event) {
       final data = event.snapshot.value as Map?;
       if (data == null) return;
-
       if (mounted) {
         setState(() {
-          isGameStarted = data['isStarted'] ?? false;
+          activeGame = data['type'] ?? "LUDO";
           turnIndex = data['turnIndex'] ?? 0;
           diceNumber = data['diceNumber'] ?? 1;
-          diamondBet = data['bet'] ?? 100;
-
+          
+          // প্লেয়ার এবং বেট লিস্ট আপডেট
           if (data['players'] != null) {
-            Map pMap = data['players'];
-            players = pMap.values.map((e) => e as Map).toList();
-            // জয়েনিং টাইম অনুযায়ী সর্ট করা যাতে সবার স্ক্রিনে প্লেয়ার পজিশন এক থাকে
-            players.sort((a, b) => (a['joinedAt'] ?? 0).compareTo(b['joinedAt'] ?? 0));
+            players = (data['players'] as Map).values.map((e) => e as Map).toList();
+          }
+          if (data['luckyBets'] != null) {
+            luckyBets = (data['luckyBets'] as Map).values.map((e) => e as Map).toList();
+          }
+          if (data['winners'] != null) {
+            topWinners = (data['winners'] as Map).values.map((e) => e as Map).toList();
+            topWinners.sort((a, b) => (b['amount'] as int).compareTo(a['amount'] as int));
           }
         });
+      }
+    });
+  }
 
-        // যদি গেম চলে এবং আপনার চাল হয়, তবে টাইমার শুরু হবে
-        if (isGameStarted) {
-          _startTimer();
+  // লাকি স্পিন টাইমার (১৫ সেকেন্ড)
+  void _startLuckyTimer() {
+    _spinTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (activeGame == "LUCKY") {
+        if (_countdown > 0) {
+          setState(() => _countdown--);
+        } else {
+          _performSpin();
+          setState(() => _countdown = 15);
         }
       }
     });
   }
 
-  void _startTimer() {
-    _autoTimer?.cancel();
-    _secondsLeft = 4;
-    
-    // চেক করা হচ্ছে এটা কি বর্তমান ইউজারের চাল কি না
-    final myId = FirebaseAuth.instance.currentUser?.uid;
-    if (players.isNotEmpty && players[turnIndex]['id'] == myId) {
-      _autoTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (_secondsLeft > 0) {
-          setState(() => _secondsLeft--);
-        } else {
-          timer.cancel();
-          _rollDice(); // ৪ সেকেন্ড শেষ হলে অটোমেটিক চাল
+  // স্পিন লজিক এবং ডাইমন্ড ডিস্ট্রিবিউশন
+  Future<void> _performSpin() async {
+    if (isSpinning) return;
+    setState(() => isSpinning = true);
+
+    int winIndex = Random().nextInt(luckySlots.length);
+    String winSlot = luckySlots[winIndex];
+
+    // এনিমেশন এর জন্য রোটেশন
+    setState(() => _rotationAngle += (2 * pi * 5) + (winIndex * (2 * pi / 6)));
+
+    Future.delayed(const Duration(seconds: 3), () async {
+      // উইনারদের ডাইমন্ড দেওয়া এবং অন্যদের কাটা (যাদের বেট অমিল)
+      for (var bet in luckyBets) {
+        if (bet['slot'] == winSlot) {
+          int multiplier = winSlot == "777" ? 25 : int.parse(winSlot.replaceAll("X", ""));
+          int winAmount = (bet['amount'] as int) * multiplier;
+          _updateUserBalance(bet['id'], winAmount);
+          _addToWinnerList(bet['name'], bet['photo'], winAmount);
         }
-      });
-    }
+      }
+      
+      await _gameRef.child("luckyBets").remove(); // বেট রিসেট
+      setState(() => isSpinning = false);
+    });
   }
 
-  // জয়েন করার ফাংশন
-  Future<void> _joinGame() async {
+  // ডাইমন্ড কাটার লজিক (জয়েন করার সময়)
+  Future<void> _placeLuckyBet(String slot, int amount) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null || players.length >= 4) return;
+    if (user == null) return;
 
-    // অলরেডি জয়েন করা আছে কি না চেক
-    if (players.any((p) => p['id'] == user.uid)) return;
+    // ১. এখান থেকেই ইউজারের মেইন ব্যালেন্স থেকে ডাইমন্ড কেটে নিন (আপনার API অনুযায়ী)
+    // subtractDiamonds(user.uid, amount); 
 
-    await _gameRef.child("players").child(user.uid).set({
+    await _gameRef.child("luckyBets").child(user.uid).set({
       "id": user.uid,
-      "name": user.displayName ?? "User ${players.length + 1}",
-      "photo": user.photoURL ?? "",
-      "joinedAt": ServerValue.timestamp,
+      "name": user.displayName,
+      "photo": user.photoURL,
+      "slot": slot,
+      "amount": amount,
     });
-  }
-
-  // ডাইস রোল করা
-  Future<void> _rollDice() async {
-    if (isRolling) return;
-    _autoTimer?.cancel();
-    setState(() => isRolling = true);
-
-    int result = Random().nextInt(6) + 1;
-
-    // গেমের রেজাল্ট আপডেট (এখানে লজিক: ৬ পেলে উইন)
-    if (result == 6) {
-      await _handleWin();
-    } else {
-      await _gameRef.update({
-        "diceNumber": result,
-        "turnIndex": (turnIndex + 1) % players.length,
-      });
-    }
-    setState(() => isRolling = false);
-  }
-
-  Future<void> _handleWin() async {
-    int totalPot = diamondBet * players.length;
-    int winnerShare = (totalPot * 0.8).toInt(); // ৮০% উইনার পাবে
-
-    // এখানে আপনার ডায়মন্ড ট্রানজ্যাকশন লজিক কল করবেন
-    
-    await _gameRef.update({
-      "isStarted": false,
-      "lastWinner": players[turnIndex]['name'],
-    });
-
-    _showResult(players[turnIndex]['name'], winnerShare);
-    // গেম ডেটা রিসেট
-    Future.delayed(const Duration(seconds: 3), () => _gameRef.remove());
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+      height: 500,
+      decoration: const BoxDecoration(
+        color: Color(0xFF0F0F1E),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(40)),
       ),
-      child: isGameStarted ? _buildGameUI() : _buildLobbyUI(),
-    );
-  }
-
-  // গেম বোর্ড ডিজাইন
-  Widget _buildGameUI() {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text("💎 Pot: ${diamondBet * players.length}", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
-              child: Text("Auto: $_secondsLeft", style: const TextStyle(color: Colors.white, fontSize: 12)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Expanded(
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // ৪ কোণার ৪ প্লেয়ার (ছবি সহ)
-              for (int i = 0; i < players.length; i++) _buildPlayerSpot(i),
-              
-              // মাঝখানে ডাইস
-              GestureDetector(
-                onTap: () {
-                  final myId = FirebaseAuth.instance.currentUser?.uid;
-                  if (players[turnIndex]['id'] == myId) _rollDice();
-                },
-                child: _buildDice(),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPlayerSpot(int i) {
-    final alignments = [Alignment.topLeft, Alignment.topRight, Alignment.bottomLeft, Alignment.bottomRight];
-    bool isMyTurn = turnIndex == i;
-    
-    return Align(
-      alignment: alignments[i],
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: isMyTurn ? Colors.cyanAccent : Colors.transparent, width: 3),
-              boxShadow: isMyTurn ? [BoxShadow(color: Colors.cyanAccent.withOpacity(0.5), blurRadius: 10)] : [],
-            ),
-            child: CircleAvatar(
-              radius: 25,
-              backgroundImage: NetworkImage(players[i]['photo'] ?? ""),
-              child: players[i]['photo'] == "" ? const Icon(Icons.person) : null,
-            ),
+          _buildGameSelector(),
+          Expanded(
+            child: activeGame == "LUDO" ? _buildLudoView() : _buildLuckyView(),
           ),
-          const SizedBox(height: 5),
-          Text(players[i]['name'], style: const TextStyle(color: Colors.white, fontSize: 10)),
         ],
       ),
     );
   }
 
-  Widget _buildDice() {
-    return Container(
-      width: 70, height: 70,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.white.withOpacity(0.3), blurRadius: 15)],
+  Widget _buildGameSelector() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: ["LUDO", "LUCKY"].map((game) {
+          return GestureDetector(
+            onTap: () => _gameRef.update({"type": game}),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              decoration: BoxDecoration(
+                color: activeGame == game ? Colors.cyanAccent : Colors.white10,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(game, style: TextStyle(color: activeGame == game ? Colors.black : Colors.white)),
+            ),
+          );
+        }).toList(),
       ),
-      child: Icon(_getDiceIcon(diceNumber), size: 45, color: Colors.black87),
     );
   }
 
-  // লবি ডিজাইন (জয়েন এবং স্টার্ট)
-  Widget _buildLobbyUI() {
+  // --- লাকি স্পিন ভিউ (ইউনিক ডিজাইন) ---
+  Widget _buildLuckyView() {
     return Column(
       children: [
-        const Text("LUDO MATCH", style: TextStyle(color: Colors.cyanAccent, fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 30),
-        Wrap(
-          spacing: 20,
-          children: List.generate(4, (index) => _buildLobbySlot(index)),
+        _buildTopWinnersRow(),
+        const SizedBox(height: 10),
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            AnimatedRotation(
+              turns: _rotationAngle / (2 * pi),
+              duration: const Duration(seconds: 3),
+              curve: Curves.easeOutCubic,
+              child: Image.asset("assets/custom_spinner.png", width: 200), // আপনার ইউনিক স্পিনার ইমেজ
+            ),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+              child: Text("$_countdown", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+            ),
+          ],
         ),
-        const Spacer(),
-        _betControl(),
         const SizedBox(height: 20),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.green, minimumSize: const Size(double.infinity, 50)),
-          onPressed: players.length == 4 ? () => _gameRef.update({"isStarted": true}) : _joinGame,
-          child: Text(players.length == 4 ? "START GAME" : "JOIN GAME (${players.length}/4)"),
-        ),
+        _buildBettingGrid(),
       ],
     );
   }
 
-  Widget _buildLobbySlot(int index) {
-    bool occupied = index < players.length;
-    return Column(
-      children: [
-        CircleAvatar(
-          radius: 30,
-          backgroundColor: Colors.white12,
-          backgroundImage: occupied ? NetworkImage(players[index]['photo'] ?? "") : null,
-          child: !occupied ? const Icon(Icons.add, color: Colors.white24) : null,
-        ),
-        const SizedBox(height: 5),
-        Text(occupied ? players[index]['name'] : "Waiting...", style: const TextStyle(color: Colors.white54, fontSize: 10)),
-      ],
+  Widget _buildBettingGrid() {
+    return GridView.builder(
+      shrinkWrap: true,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 2),
+      itemCount: luckySlots.length,
+      itemBuilder: (context, index) {
+        String slot = luckySlots[index];
+        int betCount = luckyBets.where((b) => b['slot'] == slot).length;
+        return GestureDetector(
+          onTap: () => _placeLuckyBet(slot, 100), // ১০০ ডাইমন্ড বেট
+          child: Container(
+            margin: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [Colors.purple, Colors.blue.shade900]),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(slot, style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
+                Text("Bets: $betCount", style: const TextStyle(color: Colors.white70, fontSize: 10)),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _betControl() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        IconButton(icon: const Icon(Icons.remove_circle, color: Colors.red), onPressed: () => _gameRef.update({"bet": diamondBet - 50})),
-        Text("💎 $diamondBet", style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-        IconButton(icon: const Icon(Icons.add_circle, color: Colors.green), onPressed: () => _gameRef.update({"bet": diamondBet + 50})),
-      ],
+  Widget _buildTopWinnersRow() {
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: topWinners.length,
+        itemBuilder: (context, index) {
+          var winner = topWinners[index];
+          return Padding(
+            padding: const EdgeInsets.only(right: 15),
+            child: Column(
+              children: [
+                CircleAvatar(radius: 18, backgroundImage: NetworkImage(winner['photo'] ?? "")),
+                Text(winner['name'].split(" ")[0], style: const TextStyle(color: Colors.white, fontSize: 8)),
+                Text("💎${winner['amount']}", style: const TextStyle(color: Colors.amber, fontSize: 8, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
-  IconData _getDiceIcon(int n) => [Icons.looks_one, Icons.looks_two, Icons.looks_3, Icons.looks_4, Icons.looks_5, Icons.looks_6][n-1];
+  // হেল্পার ফাংশনস
+  void _updateUserBalance(String uid, int amount) {
+    // আপনার ফায়ারবেস ইউজার ব্যালেন্স নোড আপডেট করার কোড এখানে লিখুন
+  }
 
-  void _showResult(String name, int amount) {
-    showDialog(context: context, builder: (c) => AlertDialog(
-      backgroundColor: const Color(0xFF1A1A2E),
-      title: const Text("Winner!", style: TextStyle(color: Colors.cyanAccent)),
-      content: Text("$name জিতেছেন 💎 $amount ডায়মন্ড!"),
-      actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text("OK"))],
-    ));
+  void _addToWinnerList(String name, String photo, int amount) {
+    _gameRef.child("winners").push().set({
+      "name": name,
+      "photo": photo,
+      "amount": amount,
+      "time": ServerValue.timestamp,
+    });
+  }
+
+  Widget _buildLudoView() {
+    // আপনার আগের লুডু কোডটি এখানে থাকবে, শুধু জয়েনিং এ ডাইমন্ড কাটার লজিক অ্যাড করা হয়েছে
+    return const Center(child: Text("Ludo Game Active", style: TextStyle(color: Colors.white)));
   }
 
   @override
   void dispose() {
+    _spinTimer?.cancel();
     _subscription?.cancel();
-    _autoTimer?.cancel();
     super.dispose();
   }
 }
