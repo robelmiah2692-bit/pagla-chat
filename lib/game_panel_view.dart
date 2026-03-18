@@ -7,7 +7,7 @@ import 'package:audioplayers/audioplayers.dart';
 
 class GamePanelView extends StatefulWidget {
   final String roomId;
-  final bool isAdmin; // রুম ওনার বা এডমিন কি না
+  final bool isAdmin; 
   const GamePanelView({super.key, required this.roomId, this.isAdmin = false});
 
   @override
@@ -20,14 +20,19 @@ class _GamePanelViewState extends State<GamePanelView> {
   StreamSubscription? _subscription;
   final AudioPlayer _audioPlayer = AudioPlayer();
 
-  // গেম স্টেট
+  // সাউন্ড লিংক (অনলাইন থেকে সরাসরি বাজবে)
+  final String spinSound = "https://www.soundjay.com/misc/sounds/bell-ringing-01.mp3";
+  final String winSound = "https://www.soundjay.com/human/sounds/applause-01.mp3";
+  final String loseSound = "https://www.soundjay.com/buttons/sounds/button-10.mp3";
+  final String diceSound = "https://www.soundjay.com/misc/sounds/dice-roll-01.mp3";
+
   String activeGame = "LUDO";
   bool isSpinning = false;
   bool isFullScreen = false;
   int diceNumber = 1;
-  int userBalance = 0; // ইউজারের আসল ডাইমন্ড
-  int betAmount = 100; // ডিফল্ট বেট ১০০
-  String resultMessage = ""; // Win/Lose টেক্সট
+  int userBalance = 0;
+  int betAmount = 100; 
+  String winLoseStatus = ""; 
 
   List<Map<dynamic, dynamic>> players = [];
   List<Map<dynamic, dynamic>> luckyBets = [];
@@ -56,7 +61,6 @@ class _GamePanelViewState extends State<GamePanelView> {
     _startLuckyTimer();
   }
 
-  // রিয়েল টাইম ব্যালেন্স আপডেট
   void _fetchUserBalance() {
     _userRef.child("diamonds").onValue.listen((event) {
       if (mounted) setState(() => userBalance = (event.snapshot.value as int? ?? 0));
@@ -82,12 +86,10 @@ class _GamePanelViewState extends State<GamePanelView> {
     });
   }
 
-  // সাউন্ড সিস্টেম
-  void _playSound(String soundPath) async {
-    await _audioPlayer.play(AssetSource('sounds/$soundPath'));
+  void _playGameSound(String url) async {
+    await _audioPlayer.play(UrlSource(url));
   }
 
-  // লাকি স্পিন টাইমার
   void _startLuckyTimer() {
     _spinTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (activeGame == "LUCKY" && !isSpinning) {
@@ -101,13 +103,12 @@ class _GamePanelViewState extends State<GamePanelView> {
     });
   }
 
-  // স্পিন লজিক
   Future<void> _performSpin() async {
     if (isSpinning) return;
-    _playSound("spin_start.mp3");
+    _playGameSound(spinSound);
     setState(() {
       isSpinning = true;
-      resultMessage = "";
+      winLoseStatus = "";
     });
 
     int winIdx = Random().nextInt(wheelSegments.length);
@@ -120,7 +121,6 @@ class _GamePanelViewState extends State<GamePanelView> {
       int totalWin = 0;
       bool won = false;
 
-      // ইউজার একাধিক ঘরে বেট ধরলে চেক করা
       for (var bet in luckyBets) {
         if (bet['id'] == myId && bet['slot'] == winResult['label']) {
           won = true;
@@ -129,12 +129,12 @@ class _GamePanelViewState extends State<GamePanelView> {
       }
 
       if (won) {
-        _playSound("win_sound.mp3");
-        setState(() => resultMessage = "WINNER! 💎$totalWin");
-        await _userRef.update({"diamonds": userBalance + totalWin}); // টাকা যোগ
+        _playGameSound(winSound);
+        setState(() => winLoseStatus = "WIN! +💎$totalWin");
+        await _userRef.update({"diamonds": userBalance + totalWin});
       } else if (luckyBets.any((b) => b['id'] == myId)) {
-        _playSound("lose_sound.mp3");
-        setState(() => resultMessage = "LOST!");
+        _playGameSound(loseSound);
+        setState(() => winLoseStatus = "LOSE!");
       }
 
       await _gameRef.child("luckyBets").remove();
@@ -155,22 +155,21 @@ class _GamePanelViewState extends State<GamePanelView> {
         children: [
           Column(
             children: [
-              _buildTopBar(),
+              _buildTopDiamondBar(),
               _buildGameSelector(),
               Expanded(child: activeGame == "LUDO" ? _buildLudoView() : _buildLuckyView()),
             ],
           ),
-          // ক্লোজ বাটন
           Positioned(
             top: 15, right: 15,
             child: IconButton(
-              icon: const Icon(Icons.cancel, color: Colors.white70, size: 30),
+              icon: const Icon(Icons.close_fullscreen, color: Colors.white, size: 28),
               onPressed: () {
-                if (activeGame == "LUDO" && players.length > 0) {
-                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("গেম শেষ না হওয়া পর্যন্ত বন্ধ করা যাবে না!")));
-                   return;
+                if (isFullScreen) {
+                  setState(() => isFullScreen = false);
+                } else {
+                  Navigator.pop(context);
                 }
-                Navigator.pop(context);
               },
             ),
           )
@@ -179,45 +178,41 @@ class _GamePanelViewState extends State<GamePanelView> {
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildTopDiamondBar() {
     return Padding(
-      padding: const EdgeInsets.all(15.0),
+      padding: const EdgeInsets.only(top: 20, left: 20, right: 20),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
             decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20)),
             child: Row(
               children: [
-                const Icon(Icons.diamond, color: Colors.cyanAccent, size: 20),
+                const Icon(Icons.diamond, color: Colors.cyanAccent, size: 18),
                 const SizedBox(width: 5),
                 Text("$userBalance", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
-          const SizedBox(width: 20),
-          if (activeGame == "LUCKY") _buildBetController(),
+          if (activeGame == "LUCKY") 
+            Row(
+              children: [
+                IconButton(onPressed: () => setState(() => betAmount = max(100, betAmount - 100)), icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent)),
+                Text("$betAmount", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                IconButton(onPressed: () => setState(() => betAmount += 100), icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent)),
+              ],
+            ),
         ],
       ),
-    );
-  }
-
-  Widget _buildBetController() {
-    return Row(
-      children: [
-        IconButton(onPressed: () => setState(() => betAmount = max(100, betAmount - 100)), icon: const Icon(Icons.remove_circle, color: Colors.red)),
-        Text("$betAmount", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-        IconButton(onPressed: () => setState(() => betAmount += 100), icon: const Icon(Icons.add_circle, color: Colors.green)),
-      ],
     );
   }
 
   Widget _buildLuckyView() {
     return Column(
       children: [
-        if (resultMessage.isNotEmpty)
-          Text(resultMessage, style: TextStyle(color: resultMessage.contains("WIN") ? Colors.green : Colors.red, fontSize: 28, fontWeight: FontWeight.bold)),
+        if (winLoseStatus.isNotEmpty)
+          Text(winLoseStatus, style: TextStyle(color: winLoseStatus.contains("WIN") ? Colors.greenAccent : Colors.redAccent, fontSize: 26, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
         Stack(
           alignment: Alignment.center,
@@ -226,10 +221,10 @@ class _GamePanelViewState extends State<GamePanelView> {
               turns: _rotationAngle / (2 * pi),
               duration: const Duration(seconds: 3),
               curve: Curves.easeOutCubic,
-              child: Image.asset("assets/images/lucky_wheel.png", width: 200),
+              child: Image.asset("assets/images/lucky_wheel.png", width: 180),
             ),
             const Icon(Icons.arrow_drop_down, color: Colors.red, size: 40),
-            CircleAvatar(backgroundColor: Colors.black54, radius: 20, child: Text("$_countdown", style: const TextStyle(color: Colors.white))),
+            Text("$_countdown", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ],
         ),
         _buildLuckyBetGrid(),
@@ -247,8 +242,8 @@ class _GamePanelViewState extends State<GamePanelView> {
         return GestureDetector(
           onTap: () async {
             if (userBalance < betAmount) return;
-            _playSound("bet_click.mp3");
-            await _userRef.update({"diamonds": userBalance - betAmount}); // রিয়েল টাইম মাইনাস
+            _playGameSound(spinSound); // ক্লিক সাউন্ড হিসেবে
+            await _userRef.update({"diamonds": userBalance - betAmount});
             await _gameRef.child("luckyBets").push().set({
               "id": FirebaseAuth.instance.currentUser?.uid,
               "name": FirebaseAuth.instance.currentUser?.displayName,
@@ -257,9 +252,9 @@ class _GamePanelViewState extends State<GamePanelView> {
             });
           },
           child: Container(
-            margin: const EdgeInsets.all(4),
-            decoration: BoxDecoration(border: Border.all(color: Colors.cyanAccent), borderRadius: BorderRadius.circular(10)),
-            child: Center(child: Text(slot, style: const TextStyle(color: Colors.white))),
+            margin: const EdgeInsets.all(5),
+            decoration: BoxDecoration(color: Colors.white10, border: Border.all(color: Colors.cyanAccent.withOpacity(0.5)), borderRadius: BorderRadius.circular(12)),
+            child: Center(child: Text("$slot\n${wheelSegments[index]['mult']}x", textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 10))),
           ),
         );
       },
@@ -267,55 +262,76 @@ class _GamePanelViewState extends State<GamePanelView> {
   }
 
   Widget _buildLudoView() {
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: () => setState(() => isFullScreen = true),
-          child: Container(
-            width: isFullScreen ? 350 : 220,
-            height: isFullScreen ? 350 : 220,
-            decoration: const BoxDecoration(image: DecorationImage(image: AssetImage("assets/images/ludo_preview.png"))),
-            child: _buildLudoBoardDesign(),
+    return InkWell(
+      onTap: () => setState(() => isFullScreen = true),
+      child: Column(
+        children: [
+          const SizedBox(height: 20),
+          Container(
+            width: isFullScreen ? 340 : 220,
+            height: isFullScreen ? 340 : 220,
+            decoration: const BoxDecoration(image: DecorationImage(image: AssetImage("assets/images/ludo_preview.png"), fit: BoxFit.contain)),
+            child: _buildLudoPlayersDesign(),
           ),
-        ),
-        const SizedBox(height: 20),
-        if (widget.isAdmin) _buildDiceButton(),
+          const SizedBox(height: 20),
+          if (widget.isAdmin) 
+            GestureDetector(
+              onTap: () {
+                _playGameSound(diceSound);
+                _gameRef.update({"diceNumber": Random().nextInt(6) + 1});
+              },
+              child: Icon(_getDiceIcon(diceNumber), size: 70, color: Colors.white),
+            )
+          else 
+            const Text("Waiting for Admin...", style: TextStyle(color: Colors.white54)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLudoPlayersDesign() {
+    return Stack(
+      children: [
+        for (int i = 0; i < players.length; i++)
+          _buildAvatarPositioned(i, players[i]['photo']),
       ],
     );
   }
 
-  Widget _buildLudoBoardDesign() {
-     // ৪ কোণায় প্লেয়ারদের ছবি বসানোর লজিক
-     return Stack(
-       children: List.generate(players.length, (i) {
-         double t = (i == 0 || i == 1) ? 30.0 : 250.0;
-         double l = (i == 0 || i == 2) ? 30.0 : 250.0;
-         return Positioned(
-           top: isFullScreen ? t * 1.5 : t,
-           left: isFullScreen ? l * 1.5 : l,
-           child: CircleAvatar(backgroundImage: NetworkImage(players[i]['photo'] ?? ""), radius: 25),
-         );
-       }),
-     );
+  Widget _buildAvatarPositioned(int index, String? photo) {
+    List<Alignment> alignments = [Alignment.topLeft, Alignment.topRight, Alignment.bottomLeft, Alignment.bottomRight];
+    return Align(
+      alignment: alignments[index % 4],
+      child: Padding(
+        padding: const EdgeInsets.all(25.0),
+        child: CircleAvatar(backgroundImage: NetworkImage(photo ?? ""), radius: isFullScreen ? 28 : 20),
+      ),
+    );
   }
 
-  Widget _buildDiceButton() {
-     return InkWell(
-       onTap: () {
-         _playSound("dice_roll.mp3");
-         int nextDice = Random().nextInt(6) + 1;
-         _gameRef.update({"diceNumber": nextDice});
-       },
-       child: Icon(diceIcons[diceNumber - 1], size: 80, color: Colors.white),
-     );
+  IconData _getDiceIcon(int num) {
+    List<IconData> icons = [Icons.looks_one, Icons.looks_two, Icons.looks_3, Icons.looks_4, Icons.looks_5, Icons.looks_6];
+    return icons[num - 1];
   }
-
-  final List<IconData> diceIcons = [Icons.looks_one, Icons.looks_two, Icons.looks_3, Icons.looks_4, Icons.looks_5, Icons.looks_6];
 
   Widget _buildGameSelector() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: ["LUDO", "LUCKY"].map((g) => TextButton(onPressed: () => _gameRef.update({"type": g}), child: Text(g))).toList(),
+      children: ["LUDO", "LUCKY"].map((g) {
+        bool active = activeGame == g;
+        return TextButton(
+          onPressed: () => _gameRef.update({"type": g}),
+          child: Text(g, style: TextStyle(color: active ? Colors.cyanAccent : Colors.white54, fontWeight: active ? FontWeight.bold : FontWeight.normal)),
+        );
+      }).toList(),
     );
+  }
+
+  @override
+  void dispose() {
+    _spinTimer?.cancel();
+    _subscription?.cancel();
+    _audioPlayer.dispose();
+    super.dispose();
   }
 }
