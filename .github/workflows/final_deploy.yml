@@ -19,7 +19,6 @@ jobs:
       - name: 🚀 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          # এখানে 'stable' এর বদলে নির্দিষ্ট এই ভার্সনটি দিন
           flutter-version: '3.22.0' 
           cache: true
 
@@ -45,10 +44,13 @@ jobs:
         run: |
           keytool -list -v -keystore android/app/upload-keystore.jks -alias pagla_alias -storepass pagla123 -keypass pagla123
 
+      # --- ৩. ডিপেন্ডেন্সি ক্লিন এবং গেট ---
       - name: 🛠️ Install Dependencies
-        run: flutter pub get
+        run: |
+          flutter clean
+          flutter pub get
 
-      # --- ৩. Web Build & Deploy ---
+      # --- ৪. Web Build & Deploy ---
       - name: 🌐 Build Web Release
         run: flutter build web --release --no-tree-shake-icons
 
@@ -66,11 +68,11 @@ jobs:
           folder: build/web
           branch: gh-pages
 
-      # --- ৪. Android APK Build ---
+      # --- ৫. Android APK Build ---
       - name: 🤖 Build Android APK
         run: flutter build apk --release --no-tree-shake-icons
 
-      # --- ৫. APK ফাইলটি স্টোর করা (ডাউনলোড করার জন্য) ---
+      # --- ৬. APK ফাইলটি স্টোর করা (ডাউনলোড করার জন্য) ---
       - name: 📤 Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
