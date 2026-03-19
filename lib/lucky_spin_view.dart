@@ -6,7 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class LuckySpinView extends StatefulWidget {
   final DatabaseReference gameRef;
-  final DatabaseReference userRef;
+  final DatabaseReference userRef; // এটি সরাসরি ইউজারের ডায়মন্ড পাথ হওয়া উচিত
   final int userBalance;
   final int betAmount;
   final List<Map<dynamic, dynamic>> luckyBets;
@@ -32,7 +32,7 @@ class _LuckySpinViewState extends State<LuckySpinView> {
   bool isSpinning = false;
   String winLoseStatus = "";
   Timer? _timer;
-  List<Map<dynamic, dynamic>> topWinners = [];
+  List<Map<dynamic, dynamic>> topWinnersList = [];
 
   final List<Map<String, dynamic>> wheelSegments = [
     {"label": "777", "mult": 25, "deg": 0, "color": Colors.amber},
@@ -50,22 +50,27 @@ class _LuckySpinViewState extends State<LuckySpinView> {
     _listenToWinners();
   }
 
-  // রিয়েল টাইম উইনার লিস্ট লোড
+  // রিয়েল টাইম উইনার লিস্ট লিসেনার (ফিক্সড)
   void _listenToWinners() {
-    widget.gameRef.child("luckyWinners").limitToLast(10).onValue.listen((event) {
-      if (event.snapshot.value != null) {
-        Map<dynamic, dynamic> data = event.snapshot.value as Map;
+    widget.gameRef.child("luckyWinners").onValue.listen((event) {
+      if (event.snapshot.value != null && mounted) {
+        final data = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
         List<Map<dynamic, dynamic>> tempList = [];
-        data.forEach((key, value) => tempList.add(value));
-        tempList.sort((a, b) => (b['amount'] as int).compareTo(a['amount'] as int));
-        setState(() => topWinners = tempList);
+        data.forEach((key, value) {
+          tempList.add(Map<dynamic, dynamic>.from(value));
+        });
+        // লেটেস্ট উইনার আগে দেখাবে
+        tempList.sort((a, b) => (b['time'] ?? 0).compareTo(a['time'] ?? 0));
+        setState(() {
+          topWinnersList = tempList.take(10).toList();
+        });
       }
     });
   }
 
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!isSpinning) {
+      if (!isSpinning && mounted) {
         if (_countdown > 0) {
           setState(() => _countdown--);
         } else {
@@ -79,102 +84,89 @@ class _LuckySpinViewState extends State<LuckySpinView> {
   Future<void> _performSpin() async {
     if (isSpinning) return;
     
-    // স্পিন শুরু সাউন্ড
     widget.playSound("https://www.soundjay.com/misc/sounds/mechanical-clanking-1.mp3");
-    
     setState(() { isSpinning = true; winLoseStatus = ""; });
 
     int winIdx = Random().nextInt(wheelSegments.length);
     var winResult = wheelSegments[winIdx];
+    
     double targetRot = (2 * pi * 8) + ((360 - winResult['deg']) * pi / 180);
     setState(() => _rotationAngle += targetRot);
 
-    Future.delayed(const Duration(seconds: 4), () async {
-      final user = FirebaseAuth.instance.currentUser;
-      final myId = user?.uid;
-      final myName = user?.displayName ?? "User";
-      int totalWin = 0;
-      bool won = false;
+    await Future.delayed(const Duration(seconds: 4));
+    if (!mounted) return;
 
-      for (var bet in widget.luckyBets) {
-        if (bet['id'] == myId && bet['slot'] == winResult['label']) {
-          won = true;
-          totalWin += (int.parse(bet['amount'].toString())) * (winResult['mult'] as int);
-        }
+    final myId = FirebaseAuth.instance.currentUser?.uid;
+    final myName = FirebaseAuth.instance.currentUser?.displayName ?? "User";
+    int totalWin = 0;
+    bool hasWon = false;
+
+    // বেইট চেক
+    for (var bet in widget.luckyBets) {
+      if (bet['id'] == myId && bet['slot'] == winResult['label']) {
+        hasWon = true;
+        int amt = int.tryParse(bet['amount'].toString()) ?? 0;
+        totalWin += amt * (winResult['mult'] as int);
       }
+    }
 
-      if (won) {
-        // উইন সাউন্ড
-        widget.playSound("https://www.soundjay.com/human/sounds/applause-01.mp3");
-        setState(() => winLoseStatus = "🎉 WIN! +💎$totalWin");
-        await widget.userRef.update({"diamonds": widget.userBalance + totalWin});
-        
-        // উইনার লিডবোর্ড আপডেট
-        await widget.gameRef.child("luckyWinners").push().set({
-          "name": myName,
-          "amount": totalWin,
-        });
-      } else if (widget.luckyBets.any((b) => b['id'] == myId)) {
-        // লস সাউন্ড
-        widget.playSound("https://www.soundjay.com/buttons/sounds/button-10.mp3");
-        setState(() => winLoseStatus = "❌ LOSE!");
+    if (hasWon) {
+      widget.playSound("https://www.soundjay.com/human/sounds/applause-01.mp3");
+      setState(() => winLoseStatus = "🎉 WIN! +💎$totalWin");
+      
+      // রিয়েল টাইম ডায়মন্ড যোগ (Realtime DB increment)
+      await widget.userRef.child("diamonds").set(ServerValue.increment(totalWin));
+      
+      // উইনার লিস্টে নাম সেভ
+      await widget.gameRef.child("luckyWinners").push().set({
+        "name": myName,
+        "amount": totalWin,
+        "time": ServerValue.timestamp,
+      });
+    } else if (widget.luckyBets.any((b) => b['id'] == myId)) {
+      widget.playSound("https://www.soundjay.com/buttons/sounds/button-10.mp3");
+      setState(() => winLoseStatus = "❌ LOSE!");
+    }
+
+    Future.delayed(const Duration(seconds: 2), () async {
+      if (mounted) {
+        await widget.gameRef.child("luckyBets").remove();
+        setState(() => isSpinning = false);
       }
-
-      await widget.gameRef.child("luckyBets").remove();
-      if (mounted) setState(() => isSpinning = false);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    double wheelSize = MediaQuery.of(context).size.width * 0.7; // স্কিন বড় করা হয়েছে
-
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          if (winLoseStatus.isNotEmpty)
-            Text(winLoseStatus, style: const TextStyle(color: Colors.yellowAccent, fontSize: 22, fontWeight: FontWeight.bold)),
-          
-          const SizedBox(height: 10),
-          
-          // হুইল সেকশন
-          Stack(
-            alignment: Alignment.topCenter,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 25),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    AnimatedRotation(
-                      turns: _rotationAngle / (2 * pi),
-                      duration: const Duration(seconds: 4),
-                      curve: Curves.easeOutCubic,
-                      child: Image.asset("assets/images/lucky_wheel.png", width: wheelSize),
-                    ),
-                    CircleAvatar(
-                      radius: 28, 
-                      backgroundColor: Colors.black, 
-                      child: Text("$_countdown", style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))
-                    ),
-                  ],
-                ),
+    return Column(
+      children: [
+        const SizedBox(height: 10),
+        Text(winLoseStatus.isEmpty ? "Spinning in: $_countdown" : winLoseStatus,
+            style: const TextStyle(color: Colors.yellowAccent, fontSize: 20, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        
+        // হুইল ডিজাইন
+        Stack(
+          alignment: Alignment.topCenter,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 25),
+              child: AnimatedRotation(
+                turns: _rotationAngle / (2 * pi),
+                duration: const Duration(seconds: 4),
+                curve: Curves.easeOutCubic,
+                child: Image.asset("assets/images/lucky_wheel.png", width: 230),
               ),
-              const Icon(Icons.arrow_drop_down, color: Colors.red, size: 55), 
-            ],
-          ),
+            ),
+            const Icon(Icons.arrow_drop_down, color: Colors.red, size: 60), 
+          ],
+        ),
 
-          const SizedBox(height: 20),
-          
-          // ৬টি টপিক বেইট গ্রিড
-          _buildBetGrid(),
-
-          const SizedBox(height: 25),
-
-          // টপ ১০ উইনার লিস্ট
-          _buildTopWinners(),
-        ],
-      ),
+        const SizedBox(height: 20),
+        _buildBetGrid(),
+        const SizedBox(height: 20),
+        _buildTopWinners(),
+      ],
     );
   }
 
@@ -184,57 +176,45 @@ class _LuckySpinViewState extends State<LuckySpinView> {
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 10),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3, 
-        childAspectRatio: 1.8, 
-        crossAxisSpacing: 10, 
-        mainAxisSpacing: 10
-      ),
+        crossAxisCount: 3, childAspectRatio: 1.8, crossAxisSpacing: 8, mainAxisSpacing: 8),
       itemCount: wheelSegments.length,
       itemBuilder: (context, index) {
         String slot = wheelSegments[index]['label'];
-        
-        // রিয়েল টাইম এই স্লটে কতজন বেইট ধরেছে
-        int betCount = widget.luckyBets.where((b) => b['slot'] == slot).length;
+        int myBetOnThis = 0;
+        for (var b in widget.luckyBets) {
+          if (b['id'] == FirebaseAuth.instance.currentUser?.uid && b['slot'] == slot) {
+            myBetOnThis += int.tryParse(b['amount'].toString()) ?? 0;
+          }
+        }
 
         return GestureDetector(
           onTap: () async {
             if (widget.userBalance < widget.betAmount || isSpinning || _countdown < 2) return;
-            
-            // বেইট সাউন্ড
             widget.playSound("https://www.soundjay.com/buttons/sounds/button-3.mp3");
 
-            // রিয়েল টাইম ডায়মন্ড কাটা
-            await widget.userRef.update({"diamonds": widget.userBalance - widget.betAmount});
-            
+            // ১. রিয়েল টাইম ডায়মন্ড কাটা (সবচেয়ে গুরুত্বপূর্ণ)
+            await widget.userRef.child("diamonds").set(ServerValue.increment(-widget.betAmount));
+
+            // ২. বেইট পুশ করা
             await widget.gameRef.child("luckyBets").push().set({
               "id": FirebaseAuth.instance.currentUser?.uid,
-              "name": FirebaseAuth.instance.currentUser?.displayName ?? "User",
               "slot": slot,
-              "amount": widget.betAmount
+              "amount": widget.betAmount,
             });
           },
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white10, 
-              border: Border.all(color: wheelSegments[index]['color'], width: 1.5), 
-              borderRadius: BorderRadius.circular(12)
+              color: myBetOnThis > 0 ? Colors.blue.withOpacity(0.2) : Colors.white10,
+              border: Border.all(color: wheelSegments[index]['color']),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Stack(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Center(
-                  child: Text("$slot\n${wheelSegments[index]['mult']}x", 
-                    textAlign: TextAlign.center, 
-                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                ),
-                // কতজন ইউজার এইটাতে বেইট ধরেছে
-                Positioned(
-                  top: 4, right: 4,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(8)),
-                    child: Text("$betCount", style: const TextStyle(color: Colors.white, fontSize: 9)),
-                  ),
-                )
+                Text(slot, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                Text("${wheelSegments[index]['mult']}x", style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                if (myBetOnThis > 0)
+                  Text("💎$myBetOnThis", style: const TextStyle(color: Colors.cyanAccent, fontSize: 10)),
               ],
             ),
           ),
@@ -245,21 +225,21 @@ class _LuckySpinViewState extends State<LuckySpinView> {
 
   Widget _buildTopWinners() {
     return Container(
-      padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.symmetric(horizontal: 15),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(15)),
       child: Column(
         children: [
-          const Text("🏆 TOP 10 WINNERS", style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
-          const Divider(color: Colors.white24),
-          if (topWinners.isEmpty) const Text("No winners yet", style: TextStyle(color: Colors.white54, fontSize: 12)),
-          ...topWinners.map((winner) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
+          const Text("🏆 TOP 10 WINNERS", style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+          const Divider(color: Colors.white12),
+          if (topWinnersList.isEmpty) const Text("No winners yet", style: TextStyle(color: Colors.white30, fontSize: 12)),
+          ...topWinnersList.map((w) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(winner['name'] ?? "User", style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                Text("+💎${winner['amount']}", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+                Text(w['name'] ?? "User", style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                Text("+💎${w['amount']}", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
               ],
             ),
           )),
