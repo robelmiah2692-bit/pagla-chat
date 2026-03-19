@@ -18,9 +18,22 @@ import 'inbox_page.dart';
 import 'profile_page.dart';
 import 'room_list_page.dart';
 
+// ফায়ারবেস কনফিগারেশন (এক জায়গায় রাখা ভালো)
+const firebaseOptions = FirebaseOptions(
+  apiKey: "AIzaSyA9KMdtIBNVYSASc5C2w5JGVTL-NISXFog",
+  authDomain: "paglachat.firebaseapp.com",
+  databaseURL: "https://paglachat-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "paglachat",
+  storageBucket: "paglachat.firebasestorage.app",
+  messagingSenderId: "25052070011",
+  appId: "1:25052070011:web:7c447f8d011fbdf3d662de",
+  measurementId: "G-946LX0V0Q9",
+);
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
+  // ব্যাকগ্রাউন্ডে অপশন সহ ইনিশিয়ালাইজ করা জরুরি
+  await Firebase.initializeApp(options: firebaseOptions);
 }
 
 void main() async {
@@ -28,23 +41,12 @@ void main() async {
   
   try {
     // ১. ফায়ারবেস ইনিশিয়ালাইজেশন
-    await Firebase.initializeApp(
-      options: const FirebaseOptions(
-        apiKey: "AIzaSyA9KMdtIBNVYSASc5C2w5JGVTL-NISXFog",
-        authDomain: "paglachat.firebaseapp.com",
-        databaseURL: "https://paglachat-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "paglachat",
-        storageBucket: "paglachat.firebasestorage.app",
-        messagingSenderId: "25052070011",
-        appId: "1:25052070011:web:7c447f8d011fbdf3d662de",
-        measurementId: "G-946LX0V0Q9",
-      ),
-    );
+    await Firebase.initializeApp(options: firebaseOptions);
 
-    // ২. নোটিফিকেশন সার্ভিস (ওয়েব ছাড়া বাকি সব প্লাটফর্মের জন্য)
+    // ২. নোটিফিকেশন সার্ভিস (ওয়েব ছাড়া বাকি সব প্লাটফর্মের জন্য)
     if (!kIsWeb) {
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
       try {
-        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
         await NotificationService().initNotification(); 
       } catch (e) {
         debugPrint("Notification init failed: $e");
@@ -89,6 +91,8 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     Timer(const Duration(seconds: 3), () {
+      if (!mounted) return; // স্ক্রিন বন্ধ হয়ে গেলে যেন নেভিগেট না করে
+      
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
@@ -137,7 +141,10 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_currentIndex],
+      body: IndexedStack( // পেজ পাল্টানোর সময় ডেটা যেন মুছে না যায়
+        index: _currentIndex,
+        children: _pages,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
@@ -171,55 +178,57 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(25.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text("LOGIN", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _emailController, 
-                decoration: const InputDecoration(labelText: "Email"),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _passwordController, 
-                decoration: const InputDecoration(labelText: "Password"), 
-                obscureText: true,
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () async {
-                  if (_emailController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("লগইন হচ্ছে, দয়া করে অপেক্ষা করুন...")),
-                    );
-
-                    var user = await AuthService().loginOrRegister(
-                      _emailController.text.trim(), 
-                      _passwordController.text.trim()
-                    );
-
-                    if (user != null && mounted) {
-                      Navigator.pushReplacement(
-                        context, 
-                        MaterialPageRoute(builder: (context) => const MainNavigation())
+        child: SingleChildScrollView( // কিবোর্ড আসলে যেন এরর না দেয়
+          child: Padding(
+            padding: const EdgeInsets.all(25.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text("LOGIN", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _emailController, 
+                  decoration: const InputDecoration(labelText: "Email"),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _passwordController, 
+                  decoration: const InputDecoration(labelText: "Password"), 
+                  obscureText: true,
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (_emailController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("লগইন হচ্ছে, দয়া করে অপেক্ষা করুন...")),
                       );
+
+                      var user = await AuthService().loginOrRegister(
+                        _emailController.text.trim(), 
+                        _passwordController.text.trim()
+                      );
+
+                      if (user != null && mounted) {
+                        Navigator.pushReplacement(
+                          context, 
+                          MaterialPageRoute(builder: (context) => const MainNavigation())
+                        );
+                      } else if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("লগইন ব্যর্থ! ইমেইল বা পাসওয়ার্ড ভুল।")),
+                        );
+                      }
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("লগইন ব্যর্থ! ইমেইল বা পাসওয়ার্ড ভুল।")),
+                        const SnackBar(content: Text("ইমেইল ও পাসওয়ার্ড লিখে চেষ্টা করুন।")),
                       );
                     }
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("ইমেইল ও পাসওয়ার্ড লিখে চেষ্টা করুন।")),
-                    );
-                  }
-                }, 
-                child: const Text("Login"),
-              )
-            ],
+                  }, 
+                  child: const Text("Login"),
+                )
+              ],
+            ),
           ),
         ),
       ),
