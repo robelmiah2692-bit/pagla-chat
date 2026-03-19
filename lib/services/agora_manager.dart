@@ -3,9 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'dart:math';
 
-// ইউনিভার্সাল ইমপোর্ট লজিক
-import 'dart:js' as js;
-import 'dart:html' as html;
+// 🛠️ এটি অ্যান্ড্রয়েড এবং ওয়েব দুই জায়গাতেই এরর ছাড়া চলে
+import 'package:universal_html/html.dart' as html;
+import 'package:universal_html/js.dart' as js;
 
 class AgoraManager {
   RtcEngine? _engine; 
@@ -83,6 +83,7 @@ class AgoraManager {
   }
 
   Future<void> forceResumeAudio() async {
+    // 🌍 শুধু ওয়েব প্লাটফর্মের জন্য এই লজিক চলবে
     if (kIsWeb) {
       try {
         js.context.callMethod('eval', [
@@ -136,6 +137,7 @@ class AgoraManager {
     
     if (kIsWeb) {
       try {
+        // 🛠️ universal_html ব্যবহার করায় এটি এখন APK বিল্ডে বাধা দিবে না
         await html.window.navigator.mediaDevices?.getUserMedia({'audio': true});
       } catch (e) {
         debugPrint("❌ মাইক পারমিশন এরর: $e");
