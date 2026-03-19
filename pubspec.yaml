@@ -67,4 +67,7 @@ flutter:
 
   assets:
     - assets/logo.png
-    - assets/images/          # এই এক লাইনে images ফোল্ডারের সব ডিজাইন পেয়ে যাবেন
+    - assets/images/          # এই ফোল্ডারের সব ছবি অটোমেটিক পেয়ে যাবেন
+    # আপনার যদি আরও অডিও বা লটি ফাইল থাকে তবে এভাবে যোগ করতে পারেন:
+    # - assets/audio/
+    # - assets/lottie/
