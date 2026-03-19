@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'dart:math';
 
-// ইউনিভার্সাল ইমপোর্ট লজিক যাতে বিল্ড ফেইল না হয়
+// ইউনিভার্সাল ইমপোর্ট লজিক
 import 'dart:js' as js;
 import 'dart:html' as html;
 
@@ -15,7 +15,6 @@ class AgoraManager {
   int? _localUid;
   bool _shouldBeBroadcasting = false;
 
-  // আপনার রুম ডারট ফাইল থেকে এই 'engine' গেটারটিই কল করা হয়
   RtcEngine get engine {
     if (_engine == null) {
       debugPrint("⚠️ এগোরা ইঞ্জিন এখনো তৈরি হয়নি!");
@@ -38,9 +37,8 @@ class AgoraManager {
       ));
 
       if (kIsWeb) {
-        // 🔥 কলিং সমস্যা সমাধানের জন্য যোগ করা হয়েছে:
         await _engine!.setParameters('{"rtc.audio.force_confirm_hello": true}');
-        await _engine!.setParameters('{"che.audio.opensl": true}'); // সাউন্ড ইঞ্জিন বুস্ট
+        await _engine!.setParameters('{"che.audio.opensl": true}'); 
         await _engine!.setParameters('{"che.audio.specify.codec": "OPUS"}');
         
         await _engine!.setAudioProfile(
@@ -59,9 +57,6 @@ class AgoraManager {
         onJoinChannelSuccess: (connection, elapsed) {
           debugPrint("✅ এগোরা কানেক্টেড! UID: ${connection.localUid}");
           _localUid = connection.localUid;
-          if (kIsWeb) {
-            js.context.callMethod('alert', ["✅ কানেক্টেড!\nআপনার আইডি: ${connection.localUid}"]);
-          }
           forceResumeAudio(); 
         },
         onUserJoined: (connection, remoteUid, elapsed) {
@@ -83,9 +78,7 @@ class AgoraManager {
       await _engine!.enableAudio();
       _isInitialized = true;
     } catch (e) {
-      if (kIsWeb) {
-        js.context.callMethod('alert', ["❌ ইনিশিয়ালাইজ ফেল: $e"]);
-      }
+      debugPrint("❌ ইনিশিয়ালাইজ ফেল: $e");
     }
   }
 
@@ -120,7 +113,7 @@ class AgoraManager {
     if (!_isInitialized || _engine == null) await initAgora();
 
     _localUid = (fireUid != null && fireUid.isNotEmpty) 
-        ? (fireUid.hashCode.abs() % 1000000) // UID লিমিট করা হয়েছে
+        ? (fireUid.hashCode.abs() % 1000000) 
         : (Random().nextInt(899999) + 100000);
 
     await _engine!.joinChannel(
@@ -145,7 +138,7 @@ class AgoraManager {
       try {
         await html.window.navigator.mediaDevices?.getUserMedia({'audio': true});
       } catch (e) {
-        js.context.callMethod('alert', ["❌ মাইক পারমিশন এরর: $e"]);
+        debugPrint("❌ মাইক পারমিশন এরর: $e");
       }
     }
 
@@ -170,7 +163,6 @@ class AgoraManager {
     await _engine!.enableLocalAudio(true);
     await _engine!.muteLocalAudioStream(false);
     
-    // কথা পরিষ্কার যাওয়ার জন্য ভলিউম ২০০% করা হয়েছে
     await _engine!.adjustRecordingSignalVolume(200); 
     await _engine!.adjustPlaybackSignalVolume(200);  
   }
