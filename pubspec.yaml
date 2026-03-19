@@ -42,7 +42,7 @@ dependencies:
 
   # --- অন্যান্য দরকারি প্যাকেজ ---
   cached_network_image: ^3.3.0
-  file_picker: 8.0.0
+  file_picker: ^8.0.0
   audioplayers: ^5.2.1
   image_picker: ^1.0.7
   shared_preferences: ^2.2.2
