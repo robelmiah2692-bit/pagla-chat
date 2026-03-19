@@ -1377,7 +1377,13 @@ List<Widget> _buildFloatingEmojiAnimations() {
             icon: const Icon(Icons.videogame_asset, color: Colors.orange, size: 22), 
             onPressed: () => showModalBottomSheet(
               context: context, 
-              builder: (c) => GamePanelView(roomId: widget.roomId),
+              isScrollControlled: true, // ফুল স্ক্রিন করার জন্য প্রথম শর্ত
+              useSafeArea: false,       // নচ বা স্ট্যাটাস বারের ওপর দিয়ে যাওয়ার জন্য
+              backgroundColor: Colors.transparent, // ব্যাকগ্রাউন্ড ক্লিয়ার রাখার জন্য
+              builder: (c) => SizedBox(
+                height: MediaQuery.of(context).size.height, // পুরো স্ক্রিনের হাইট
+                child: GamePanelView(roomId: widget.roomId),
+              ),
             ),
           ),
         ], // Row children closed
