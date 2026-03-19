@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:math'; // math লাইব্রেরি যোগ করা হয়েছে
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -27,6 +27,7 @@ class _GamePanelViewState extends State<GamePanelView> {
   int betAmount = 100;
   int diceNumber = 1;
   bool isFullScreen = false;
+  String gameState = "WAITING"; // WAITING, RUNNING
   List<Map<dynamic, dynamic>> players = [];
   List<Map<dynamic, dynamic>> luckyBets = [];
 
@@ -40,12 +41,9 @@ class _GamePanelViewState extends State<GamePanelView> {
   }
 
   void _listenToData() {
-    // ডাইমন্ড ডাটাবেজ লিসেনার (String বা Int যেটাই আসুক হ্যান্ডেল করবে)
     _userRef.child("diamonds").onValue.listen((e) {
       if (e.snapshot.value != null && mounted) {
-        setState(() {
-          userBalance = int.tryParse(e.snapshot.value.toString()) ?? 0;
-        });
+        setState(() => userBalance = int.tryParse(e.snapshot.value.toString()) ?? 0);
       }
     });
 
@@ -53,6 +51,7 @@ class _GamePanelViewState extends State<GamePanelView> {
       final data = event.snapshot.value as Map?;
       if (data == null || !mounted) return;
       setState(() {
+        gameState = data['gameState'] ?? "WAITING";
         diceNumber = data['diceNumber'] ?? 1;
         if (data['players'] != null) {
           players = (data['players'] as Map).values.map((e) => e as Map).toList();
@@ -62,6 +61,42 @@ class _GamePanelViewState extends State<GamePanelView> {
         }
       });
     });
+  }
+
+  // জয়েন হওয়ার লজিক
+  void _joinLudo() async {
+    if (gameState == "RUNNING") {
+      _showError("গেম চলছে! এই রাউন্ড শেষ হওয়া পর্যন্ত অপেক্ষা করুন।");
+      return;
+    }
+    if (players.length >= 4) {
+      _showError("রুম ফুল হয়ে গেছে!");
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    bool alreadyJoined = players.any((p) => p['id'] == user?.uid);
+
+    if (!alreadyJoined && user != null) {
+      await _gameRef.child("players").child(user.uid).set({
+        "id": user.uid,
+        "name": user.displayName ?? "Player",
+        "photo": user.photoURL ?? "",
+      });
+    }
+  }
+
+  // গেম শুরু করার লজিক (শুধুমাত্র এডমিন পারবে)
+  void _startLudo() {
+    if (players.length < 2) {
+      _showError("কমপক্ষে ২ জন প্লেয়ার লাগবে!");
+      return;
+    }
+    _gameRef.update({"gameState": "RUNNING"});
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.redAccent));
   }
 
   void _playSound(String url) async => await _audioPlayer.play(UrlSource(url));
@@ -81,6 +116,33 @@ class _GamePanelViewState extends State<GamePanelView> {
             children: [
               _buildTopBar(),
               const SizedBox(height: 10),
+              
+              // গেমের জয়েন/স্টার্ট কন্ট্রোল বাটন
+              if (selectedGame == "LUDO" && gameState == "WAITING")
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 15),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _joinLudo,
+                        icon: const Icon(Icons.login),
+                        label: const Text("JOIN"),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+                      ),
+                      if (widget.isAdmin) ...[
+                        const SizedBox(width: 15),
+                        ElevatedButton.icon(
+                          onPressed: _startLudo,
+                          icon: const Icon(Icons.play_arrow),
+                          label: const Text("START"),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                        ),
+                      ]
+                    ],
+                  ),
+                ),
+
               Expanded(
                 child: selectedGame == null 
                   ? _buildGameLobby() 
@@ -91,19 +153,33 @@ class _GamePanelViewState extends State<GamePanelView> {
               ),
             ],
           ),
+          
           if (selectedGame != null)
             Positioned(
               top: 15, left: 15,
               child: IconButton(
                 icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 25),
-                onPressed: () => setState(() => selectedGame = null),
+                onPressed: () {
+                  // এডমিন ছাড়া গেম চলাকালীন বের হতে পারবে না এমন করতে চাইলে এখানে চেক বসাতে পারেন
+                  setState(() => selectedGame = null);
+                },
               ),
             ),
           Positioned(
             top: 15, right: 15,
             child: IconButton(
               icon: Icon(isFullScreen ? Icons.close_fullscreen : Icons.cancel, color: Colors.white, size: 30),
-              onPressed: () => isFullScreen ? setState(() => isFullScreen = false) : Navigator.pop(context),
+              onPressed: () {
+                if (isFullScreen) {
+                  setState(() => isFullScreen = false);
+                } else {
+                  if (widget.isAdmin || gameState == "WAITING") {
+                    Navigator.pop(context);
+                  } else {
+                    _showError("গেম চলাকালীন রুম থেকে বের হওয়া যাবে না!");
+                  }
+                }
+              },
             ),
           )
         ],
@@ -129,15 +205,13 @@ class _GamePanelViewState extends State<GamePanelView> {
     );
   }
 
-  // গেম আইকন ফিক্স (ইমেজ এখন বর্ডার জুড়ে থাকবে)
   Widget _gameIcon(String name, String asset, Color color) {
     return GestureDetector(
       onTap: () => setState(() => selectedGame = name),
       child: Column(
         children: [
           Container(
-            width: 105, 
-            height: 105,
+            width: 105, height: 105,
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.05),
               borderRadius: BorderRadius.circular(22),
@@ -145,14 +219,11 @@ class _GamePanelViewState extends State<GamePanelView> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: Image.asset(
-                asset,
-                fit: BoxFit.cover, // ইমেজটি পুরো বক্সে ভরে যাবে
-              ),
+              child: Image.asset(asset, fit: BoxFit.cover),
             ),
           ),
           const SizedBox(height: 10),
-          Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+          Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -167,11 +238,7 @@ class _GamePanelViewState extends State<GamePanelView> {
           const SizedBox(width: 40), 
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white10, 
-              borderRadius: BorderRadius.circular(20), 
-              border: Border.all(color: Colors.cyanAccent.withOpacity(0.3))
-            ),
+            decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.cyanAccent.withOpacity(0.3))),
             child: Row(
               children: [
                 const Icon(Icons.diamond, color: Colors.cyanAccent, size: 20),
@@ -192,9 +259,5 @@ class _GamePanelViewState extends State<GamePanelView> {
   }
 
   @override
-  void dispose() { 
-    _subscription?.cancel(); 
-    _audioPlayer.dispose(); 
-    super.dispose(); 
-  }
+  void dispose() { _subscription?.cancel(); _audioPlayer.dispose(); super.dispose(); }
 }
