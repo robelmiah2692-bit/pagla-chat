@@ -56,12 +56,11 @@ class _LudoViewState extends State<LudoView> {
     }
   }
 
-  // গেম শেষ হলে উইনারকে ডায়মন্ড দেওয়ার জন্য এই ফাংশনটি কল করবেন
   void _distributeWinnings(String winnerId) {
     int totalPool = entryFee * widget.players.length;
     int winnerAmount = (totalPool * 0.8).toInt();
     FirebaseDatabase.instance.ref("users/$winnerId/diamonds").set(ServerValue.increment(winnerAmount));
-    _showFlashMsg("বিজয়ী 💎$winnerAmount ডায়মন্ড পেয়েছেন!");
+    _showFlashMsg("বিজয়ী 💎$winnerAmount ডায়মন্ড পেয়েছেন!");
   }
 
   void rollDice() async {
@@ -83,13 +82,11 @@ class _LudoViewState extends State<LudoView> {
   void _finalizeDice() {
     int finalNumber = rollingNumber;
     setState(() => isRolling = false);
-
     if (finalNumber == 6) {
       sixCounter++;
       if (sixCounter >= 3) {
         sixCounter = 0;
         _showFlashMsg("৩ বার ৬! চাল বাতিল।");
-        // এখানে টার্ন পাস করার লজিক দিতে পারেন
         return;
       }
     } else {
@@ -105,55 +102,66 @@ class _LudoViewState extends State<LudoView> {
 
   @override
   Widget build(BuildContext context) {
-    double boardSize = MediaQuery.of(context).size.width * 0.92;
+    // স্ক্রিনের হাইট এবং উইডথ চেক করা
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        double screenHeight = constraints.maxHeight;
+        double screenWidth = constraints.maxWidth;
+        // বোর্ড সাইজ স্ক্রিনের উইডথ এর ৯০% এর বেশি হবে না
+        double boardSize = screenWidth * 0.92;
+        if (boardSize > screenHeight * 0.45) {
+          boardSize = screenHeight * 0.45; // লম্বা স্ক্রিনে বোর্ড ছোট রাখা যেন বাকি অংশ দেখা যায়
+        }
 
-    return Column(
-      children: [
-        // ডায়মন্ড এবং উইন প্রাইস ডিসপ্লে
-        _buildDiamondControl(),
-
-        const SizedBox(height: 15),
-
-        // লুডু বোর্ড
-        Container(
-          width: boardSize,
-          height: boardSize,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: const [BoxShadow(color: Colors.black87, blurRadius: 15, spreadRadius: 2)],
-            image: const DecorationImage(
-              image: AssetImage("assets/images/ludo_preview.png"),
-              fit: BoxFit.cover,
-            ),
-          ),
-          child: Stack(
+        return Container(
+          height: screenHeight,
+          width: screenWidth,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly, // সমান দূরত্বে আইটেম রাখা
             children: [
-              for (int i = 0; i < widget.players.length; i++)
-                ..._buildUserTokens(i, widget.players[i]['photo'], boardSize),
+              // ১. ডায়মন্ড কন্ট্রোল (টপ সেকশন)
+              _buildDiamondControl(),
+
+              // ২. লুডু বোর্ড সেকশন (মাঝের সেকশন)
+              Container(
+                width: boardSize,
+                height: boardSize,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: const [BoxShadow(color: Colors.black87, blurRadius: 15, spreadRadius: 2)],
+                  image: const DecorationImage(
+                    image: AssetImage("assets/images/ludo_preview.png"),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    for (int i = 0; i < widget.players.length; i++)
+                      ..._buildUserTokens(i, widget.players[i]['photo'], boardSize),
+                  ],
+                ),
+              ),
+
+              // ৩. ছক্কা UI সেকশন
+              _buildDiceUI(),
+
+              // ৪. বর্তমান প্লেয়ার লিস্ট (বটম সেকশন)
+              _buildPlayerList(),
             ],
           ),
-        ),
-
-        const SizedBox(height: 30),
-
-        // ছক্কা UI
-        _buildDiceUI(),
-
-        const SizedBox(height: 20),
-        
-        // বর্তমান প্লেয়ার লিস্ট
-        _buildPlayerList(),
-      ],
+        );
+      }
     );
   }
 
   Widget _buildDiamondControl() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-      margin: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 15),
       decoration: BoxDecoration(
-        color: Colors.blueGrey.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(15),
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white10),
       ),
       child: Row(
@@ -161,21 +169,21 @@ class _LudoViewState extends State<LudoView> {
         children: [
           Row(
             children: [
-              const Icon(Icons.diamond, color: Colors.cyanAccent, size: 28),
-              const SizedBox(width: 8),
+              const Icon(Icons.diamond, color: Colors.cyanAccent, size: 24),
+              const SizedBox(width: 5),
               if (widget.isAdmin) 
-                IconButton(onPressed: () => _updateEntryFee(-10), icon: const Icon(Icons.do_not_disturb_on, color: Colors.redAccent)),
-              Text("$entryFee", style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                IconButton(onPressed: () => _updateEntryFee(-10), icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 20)),
+              Text("$entryFee", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
               if (widget.isAdmin) 
-                IconButton(onPressed: () => _updateEntryFee(10), icon: const Icon(Icons.add_circle, color: Colors.greenAccent)),
+                IconButton(onPressed: () => _updateEntryFee(10), icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent, size: 20)),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text("WIN PRIZE", style: TextStyle(color: Colors.white54, fontSize: 10)),
+              const Text("WIN PRIZE", style: TextStyle(color: Colors.white54, fontSize: 9)),
               Text("💎 ${(entryFee * widget.players.length * 0.8).toInt()}", 
-                style: const TextStyle(color: Colors.yellowAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+                style: const TextStyle(color: Colors.yellowAccent, fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
         ],
@@ -188,50 +196,41 @@ class _LudoViewState extends State<LudoView> {
     return GestureDetector(
       onTap: rollDice,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            height: 85, width: 85,
+            height: 70, width: 70, // সাইজ সামান্য কমানো হয়েছে ফিট করার জন্য
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(15),
               boxShadow: [
-                BoxShadow(
-                  color: _getDiceColor(displayNum).withOpacity(0.4), 
-                  blurRadius: 20, 
-                  spreadRadius: 5
-                )
+                BoxShadow(color: _getDiceColor(displayNum).withOpacity(0.3), blurRadius: 15, spreadRadius: 2)
               ],
             ),
             child: Center(child: _buildDiceDots(displayNum)),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
-            isRolling ? "ROLLING..." : (widget.isAdmin ? "TAP TO ROLL" : "WAITING FOR TURN"),
-            style: TextStyle(
-              color: isRolling ? Colors.orangeAccent : Colors.white70,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2
-            ),
+            isRolling ? "ROLLING..." : (widget.isAdmin ? "TAP TO ROLL" : "WAITING..."),
+            style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
           ),
         ],
       ),
     );
   }
 
-  // গুটির পজিশন এবং ডিজাইন
   List<Widget> _buildUserTokens(int pIdx, String? photo, double boardSize) {
-    // ঘরগুলোর এলাইনমেন্ট (লুডু বোর্ডের হোম বেস অনুযায়ী)
     List<Alignment> baseAlignments = [
-      const Alignment(-0.73, -0.73), // Red
-      const Alignment(0.73, -0.73),  // Green
-      const Alignment(0.73, 0.73),   // Yellow
-      const Alignment(-0.73, 0.73),  // Blue
+      const Alignment(-0.73, -0.73), const Alignment(0.73, -0.73),
+      const Alignment(0.73, 0.73), const Alignment(-0.73, 0.73),
     ];
-    
-    // ৪টি গুটির আলাদা আলাদা অফসেট
+    // বোর্ড সাইজ অনুযায়ী টোকেন সাইজ এবং অফসেট অ্যাডজাস্ট করা হয়েছে
+    double tokenSize = boardSize * 0.08; 
+    double offsetVal = boardSize * 0.045;
+
     List<Offset> tokenOffsets = [
-      const Offset(-16, -16), const Offset(16, -16),
-      const Offset(-16, 16), const Offset(16, 16),
+      Offset(-offsetVal, -offsetVal), Offset(offsetVal, -offsetVal),
+      Offset(-offsetVal, offsetVal), Offset(offsetVal, offsetVal),
     ];
     
     List<Color> pColors = [Colors.red, Colors.green, Colors.yellow, Colors.blue];
@@ -242,16 +241,16 @@ class _LudoViewState extends State<LudoView> {
         child: Transform.translate(
           offset: tokenOffsets[i],
           child: Container(
-            width: 28, height: 28,
+            width: tokenSize, height: tokenSize,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: pColors[pIdx % 4],
-              border: Border.all(color: Colors.white, width: 2.5),
-              boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 4, offset: Offset(1, 2))],
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 3)],
             ),
-            child: photo != null 
+            child: photo != null && photo.isNotEmpty
               ? ClipOval(child: Image.network(photo, fit: BoxFit.cover))
-              : const Icon(Icons.person, size: 14, color: Colors.white),
+              : const Icon(Icons.person, size: 12, color: Colors.white),
           ),
         ),
       );
@@ -260,7 +259,7 @@ class _LudoViewState extends State<LudoView> {
 
   Widget _buildDiceDots(int n) {
     return GridView.count(
-      crossAxisCount: 3, padding: const EdgeInsets.all(15),
+      crossAxisCount: 3, padding: const EdgeInsets.all(12),
       shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
       children: List.generate(9, (index) {
         bool showDot = false;
@@ -272,7 +271,7 @@ class _LudoViewState extends State<LudoView> {
         if (n == 6 && (index == 0 || index == 2 || index == 3 || index == 5 || index == 6 || index == 8)) showDot = true;
         return Center(
           child: Container(
-            width: 9, height: 9, 
+            width: 7, height: 7, 
             decoration: BoxDecoration(shape: BoxShape.circle, color: showDot ? Colors.black87 : Colors.transparent)
           )
         );
@@ -286,26 +285,29 @@ class _LudoViewState extends State<LudoView> {
   }
 
   Widget _buildPlayerList() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Wrap(
-        spacing: 20,
-        runSpacing: 10,
-        alignment: WrapAlignment.center,
-        children: widget.players.map((p) => Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.cyanAccent, width: 1.5)),
-              child: CircleAvatar(radius: 20, backgroundImage: NetworkImage(p['photo'] ?? "")),
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 80),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: widget.players.map((p) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 18, 
+                  backgroundColor: Colors.cyanAccent,
+                  child: CircleAvatar(radius: 16, backgroundImage: NetworkImage(p['photo'] ?? "")),
+                ),
+                const SizedBox(height: 4),
+                Text(p['name']?.split(' ')[0] ?? "Player", 
+                  style: const TextStyle(color: Colors.white70, fontSize: 10)),
+              ],
             ),
-            const SizedBox(height: 5),
-            Text(
-              p['name']?.split(' ')[0] ?? "Player", 
-              style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500)
-            ),
-          ],
-        )).toList(),
+          )).toList(),
+        ),
       ),
     );
   }
