@@ -1,9 +1,12 @@
-import 'dart:io' if (dart.library.html) 'dart:html';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; 
+import 'package:flutter/foundation.dart'; // 🔥 kIsWeb ব্যবহারের জন্য
 import 'package:universal_html/html.dart' as html;
-import 'package:flutter/foundation.dart'; // 🔥 kIsWeb ব্যবহারের জন্য লাগবে
+
+// 🔥 অ্যান্ড্রয়েড ও ওয়েব কনফ্লিক্ট এড়ানোর জন্য io প্রিফিক্স ব্যবহার করা হয়েছে
+import 'dart:io' as io; 
+
 import 'story_section.dart'; 
 import 'stories_service.dart'; 
 import 'app_config.dart';
@@ -19,7 +22,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final ImagePicker _picker = ImagePicker();
   XFile? _pickedImage;
-  Uint8List? _webImageBytes; // 🔥 ওয়েবের ছবির ডাটা রাখার জন্য
+  Uint8List? _webImageBytes; // 🔥 ওয়েবের ছবির ডাটা রাখার জন্য
   final TextEditingController _captionController = TextEditingController();
 
   // গ্যালারি থেকে ছবি সিলেক্ট করার ফাংশন
@@ -28,7 +31,7 @@ class _HomePageState extends State<HomePage> {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image != null) {
         if (kIsWeb) {
-          // 🔥 ওয়েবের জন্য ছবির বাইটস রিড করা
+          // 🔥 ওয়েবের জন্য ছবির বাইটস রিড করা
           final bytes = await image.readAsBytes();
           setModalState(() {
             _webImageBytes = bytes;
@@ -103,8 +106,9 @@ class _HomePageState extends State<HomePage> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: kIsWeb 
-                          ? Image.memory(_webImageBytes!, fit: BoxFit.cover) // ওয়েবের প্রিভিউ
-                          : Image.file(File(_pickedImage!.path), fit: BoxFit.cover), // মোবাইলের প্রিভিউ
+                          ? Image.memory(_webImageBytes!, fit: BoxFit.cover) // ওয়েবের প্রিভিউ
+                          // ✅ io.File ব্যবহার করা হয়েছে যাতে বিল্ড এরর না আসে
+                          : Image.file(io.File(_pickedImage!.path), fit: BoxFit.cover), 
                       ),
                     ),
                     Positioned(
@@ -152,7 +156,7 @@ class _HomePageState extends State<HomePage> {
                       builder: (c) => const Center(child: CircularProgressIndicator(color: Colors.pinkAccent))
                     );
                     
-                    // 🔥 ওয়েব বাইটস সহ আপলোড
+                    // 🔥 ওয়েব বাইটস সহ আপলোড
                     await StoriesService().uploadStory(
                       _pickedImage?.path ?? "",
                       text,
