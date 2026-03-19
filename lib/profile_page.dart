@@ -1,3 +1,4 @@
+import 'dart:io' if (dart.library.html) 'dart:html';
 import 'package:universal_html/html.dart' as html;
 import 'package:flutter/foundation.dart'; 
 import 'package:flutter/material.dart';
