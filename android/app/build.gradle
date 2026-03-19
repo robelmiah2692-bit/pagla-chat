@@ -1,32 +1,19 @@
-def localProperties = new Properties()
-def localPropertiesFile = rootProject.file('local.properties')
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.withReader('UTF-8') { reader ->
-        localProperties.load(reader)
-    }
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    // নতুন নিয়ম অনুযায়ী ফ্লাটার প্লাগইন
+    id "dev.flutter.flutter-gradle-plugin"
+    // ফায়ারবেস গুগল সার্ভিস
+    id "com.google.gms.google-services"
 }
-
-def flutterRoot = localProperties.getProperty('flutter.sdk')
-if (flutterRoot == null) {
-    flutterRoot = System.getenv('FLUTTER_ROOT') ?: System.getenv('FLUTTER_HOME')
-}
-
-// গিটহাব অ্যাকশন এবং মোবাইল ইউজারদের জন্য ফিক্স
-if (flutterRoot == null) {
-    flutterRoot = '/opt/hostedtoolcache/flutter/stable-3.19.0-x64'
-}
-
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
-apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
-apply plugin: 'com.google.gms.google-services' 
 
 android {
-    namespace "com.pagla.chat" 
-    compileSdkVersion 34 
+    namespace "com.pagla.chat"
+    compileSdk 34 // এখানেSdkVersion কেটে শুধু Sdk দিলে ভালো
 
     signingConfigs {
         release {
+            // গিটহাব অ্যাকশন যেন ফাইলটি খুঁজে পায়
             storeFile file("upload-keystore.jks") 
             storePassword "pagla123" 
             keyAlias "pagla_alias" 
@@ -35,15 +22,15 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.pagla.chat" 
-        minSdkVersion 23 
-        targetSdkVersion 34    
+        applicationId "com.pagla.chat"
+        minSdk 23
+        targetSdk 34    
         versionCode 1
         versionName "1.0"
         multiDexEnabled true 
     }
 
-    // --- অ্যাগোরা এবং লাইব্রেরি কনফ্লিক্ট ফিক্স ---
+    // --- অ্যাগোরা এবং লাইব্রেরি কনফ্লিক্ট ফিক্স (আগের মতোই থাকল) ---
     packagingOptions {
         pickFirst 'lib/x86/libc++_shared.so'
         pickFirst 'lib/x86_64/libc++_shared.so'
@@ -78,13 +65,13 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation 'androidx.multidex:multidex:2.0.1'
     
-    // Firebase
+    // Firebase (আগের মতোই থাকল)
     implementation platform('com.google.firebase:firebase-bom:33.1.0')
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.firebase:firebase-auth'
     implementation 'com.google.firebase:firebase-firestore'
     implementation 'com.google.firebase:firebase-database'
-    implementation 'com.google.firebase:firebase-messaging' // নোটিফিকেশনের জন্য এটি যোগ করা হয়েছে
+    implementation 'com.google.firebase:firebase-messaging'
     
     // Android 15 & UI Stability
     implementation 'androidx.window:window:1.2.0'
