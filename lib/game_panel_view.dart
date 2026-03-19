@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Firestore ইম্পোর্ট নিশ্চিত করুন
 import 'package:audioplayers/audioplayers.dart';
 import 'ludo_view.dart';
 import 'lucky_spin_view.dart';
@@ -18,7 +19,6 @@ class GamePanelView extends StatefulWidget {
 
 class _GamePanelViewState extends State<GamePanelView> {
   late DatabaseReference _gameRef;
-  late DatabaseReference _userRef;
   StreamSubscription? _subscription;
   final AudioPlayer _audioPlayer = AudioPlayer();
 
@@ -34,19 +34,30 @@ class _GamePanelViewState extends State<GamePanelView> {
   @override
   void initState() {
     super.initState();
-    final uid = FirebaseAuth.instance.currentUser?.uid;
     _gameRef = FirebaseDatabase.instance.ref("games/${widget.roomId}");
-    _userRef = FirebaseDatabase.instance.ref("users/$uid");
     _listenToData();
   }
 
   void _listenToData() {
-    _userRef.child("diamonds").onValue.listen((e) {
-      if (e.snapshot.value != null && mounted) {
-        setState(() => userBalance = int.tryParse(e.snapshot.value.toString()) ?? 0);
-      }
-    });
+    final uid = FirebaseAuth.instance.currentUser?.uid;
 
+    // ১. ডাইমন্ড রিড করা হচ্ছে Firestore থেকে (আপনার স্ক্রিনশট অনুযায়ী ফিক্স)
+    if (uid != null) {
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .snapshots()
+          .listen((snapshot) {
+        if (snapshot.exists && mounted) {
+          setState(() {
+            // Firestore এ আপনার ফিল্ডের নাম 'diamonds'
+            userBalance = int.tryParse(snapshot.data()?['diamonds'].toString() ?? "0") ?? 0;
+          });
+        }
+      });
+    }
+
+    // ২. রিয়েল-টাইম ডাটাবেজ লিসেনার (গেম লজিক)
     _subscription = _gameRef.onValue.listen((event) {
       final data = event.snapshot.value as Map?;
       if (data == null || !mounted) return;
@@ -63,7 +74,6 @@ class _GamePanelViewState extends State<GamePanelView> {
     });
   }
 
-  // জয়েন হওয়ার লজিক
   void _joinLudo() async {
     if (gameState == "RUNNING") {
       _showError("গেম চলছে! এই রাউন্ড শেষ হওয়া পর্যন্ত অপেক্ষা করুন।");
@@ -86,7 +96,6 @@ class _GamePanelViewState extends State<GamePanelView> {
     }
   }
 
-  // গেম শুরু করার লজিক (শুধুমাত্র এডমিন পারবে)
   void _startLudo() {
     if (players.length < 2) {
       _showError("কমপক্ষে ২ জন প্লেয়ার লাগবে!");
@@ -117,7 +126,6 @@ class _GamePanelViewState extends State<GamePanelView> {
               _buildTopBar(),
               const SizedBox(height: 10),
               
-              // গেমের জয়েন/স্টার্ট কন্ট্রোল বাটন
               if (selectedGame == "LUDO" && gameState == "WAITING")
                 Padding(
                   padding: const EdgeInsets.only(bottom: 15),
@@ -148,7 +156,7 @@ class _GamePanelViewState extends State<GamePanelView> {
                   ? _buildGameLobby() 
                   : (selectedGame == "LUDO" 
                       ? LudoView(gameRef: _gameRef, players: players, diceNumber: diceNumber, isAdmin: widget.isAdmin, isFullScreen: isFullScreen, playSound: _playSound)
-                      : LuckySpinView(gameRef: _gameRef, userRef: _userRef, userBalance: userBalance, betAmount: betAmount, luckyBets: luckyBets, playSound: _playSound)
+                      : LuckySpinView(gameRef: _gameRef, userRef: FirebaseDatabase.instance.ref("users/${FirebaseAuth.instance.currentUser?.uid}"), userBalance: userBalance, betAmount: betAmount, luckyBets: luckyBets, playSound: _playSound)
                     ),
               ),
             ],
@@ -159,10 +167,7 @@ class _GamePanelViewState extends State<GamePanelView> {
               top: 15, left: 15,
               child: IconButton(
                 icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 25),
-                onPressed: () {
-                  // এডমিন ছাড়া গেম চলাকালীন বের হতে পারবে না এমন করতে চাইলে এখানে চেক বসাতে পারেন
-                  setState(() => selectedGame = null);
-                },
+                onPressed: () => setState(() => selectedGame = null),
               ),
             ),
           Positioned(
