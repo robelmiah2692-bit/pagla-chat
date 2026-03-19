@@ -10,7 +10,7 @@ class LudoView extends StatefulWidget {
   final bool isAdmin;
   final bool isFullScreen;
   final Function(String) playSound;
-  final String currentUserId; // ডায়মন্ড কাটার জন্য ইউজারের আইডি
+  final String currentUserId;
 
   const LudoView({
     super.key,
@@ -31,14 +31,17 @@ class _LudoViewState extends State<LudoView> {
   bool isRolling = false;
   int rollingNumber = 1;
   int sixCounter = 0;
-  int entryFee = 100; // ডিফল্ট ডায়মন্ড এন্ট্রি ফি
+  int entryFee = 100;
 
   @override
   void initState() {
     super.initState();
-    // ডাটাবেজ থেকে এন্ট্রি ফি রিয়েল-টাইমে দেখা
+    _listenToEntryFee();
+  }
+
+  void _listenToEntryFee() {
     widget.gameRef.child("entryFee").onValue.listen((event) {
-      if (event.snapshot.value != null) {
+      if (event.snapshot.value != null && mounted) {
         setState(() {
           entryFee = int.parse(event.snapshot.value.toString());
         });
@@ -46,7 +49,6 @@ class _LudoViewState extends State<LudoView> {
     });
   }
 
-  // এডমিন ডায়মন্ড প্লাস/মাইনাস করতে পারবে
   void _updateEntryFee(int amount) {
     if (widget.isAdmin) {
       int newFee = (entryFee + amount).clamp(10, 10000);
@@ -54,26 +56,12 @@ class _LudoViewState extends State<LudoView> {
     }
   }
 
-  // ডায়মন্ড কাটার ফাংশন (জয়েন করার সময় কল হবে)
-  void _deductDiamondForJoin() async {
-    final userRef = FirebaseDatabase.instance.ref("users/${widget.currentUserId}");
-    final snapshot = await userRef.child("diamonds").get();
-    if (snapshot.exists) {
-      int currentBalance = int.parse(snapshot.value.toString());
-      if (currentBalance >= entryFee) {
-        await userRef.update({"diamonds": currentBalance - entryFee});
-        _showFlashMsg("$entryFee ডায়মন্ড কাটা হয়েছে।");
-      } else {
-        _showFlashMsg("পর্যাপ্ত ডায়মন্ড নেই!");
-      }
-    }
-  }
-
-  // উইনারকে ৮০% ডায়মন্ড দেওয়া
+  // গেম শেষ হলে উইনারকে ডায়মন্ড দেওয়ার জন্য এই ফাংশনটি কল করবেন
   void _distributeWinnings(String winnerId) {
     int totalPool = entryFee * widget.players.length;
     int winnerAmount = (totalPool * 0.8).toInt();
     FirebaseDatabase.instance.ref("users/$winnerId/diamonds").set(ServerValue.increment(winnerAmount));
+    _showFlashMsg("বিজয়ী 💎$winnerAmount ডায়মন্ড পেয়েছেন!");
   }
 
   void rollDice() async {
@@ -101,42 +89,41 @@ class _LudoViewState extends State<LudoView> {
       if (sixCounter >= 3) {
         sixCounter = 0;
         _showFlashMsg("৩ বার ৬! চাল বাতিল।");
-        _passTurn();
+        // এখানে টার্ন পাস করার লজিক দিতে পারেন
         return;
       }
-    } else { sixCounter = 0; }
-
+    } else {
+      sixCounter = 0;
+    }
     widget.gameRef.update({"diceNumber": finalNumber});
   }
 
-  void _passTurn() { /* turnIndex logic */ }
-
   void _showFlashMsg(String msg) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 1)));
   }
 
   @override
   Widget build(BuildContext context) {
-    // বোর্ড সাইজ বড় করা হয়েছে (স্ক্রিনের চওড়া অনুযায়ী)
-    double boardSize = MediaQuery.of(context).size.width * 0.95;
+    double boardSize = MediaQuery.of(context).size.width * 0.92;
 
     return Column(
       children: [
-        // ডায়মন্ড +/- কন্ট্রোলার (শুধুমাত্র জয়েন করার আগে এডমিন দেখবে)
+        // ডায়মন্ড এবং উইন প্রাইস ডিসপ্লে
         _buildDiamondControl(),
 
         const SizedBox(height: 15),
 
-        // লুডু বোর্ড এরিয়া
+        // লুডু বোর্ড
         Container(
           width: boardSize,
           height: boardSize,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(15),
-            boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 20)],
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: const [BoxShadow(color: Colors.black87, blurRadius: 15, spreadRadius: 2)],
             image: const DecorationImage(
               image: AssetImage("assets/images/ludo_preview.png"),
-              fit: BoxFit.fill,
+              fit: BoxFit.cover,
             ),
           ),
           child: Stack(
@@ -147,12 +134,14 @@ class _LudoViewState extends State<LudoView> {
           ),
         ),
 
-        const SizedBox(height: 25),
+        const SizedBox(height: 30),
 
-        // ছক্কা সেকশন (ডিজাইন ও লজিক ঠিক রাখা হয়েছে)
+        // ছক্কা UI
         _buildDiceUI(),
 
         const SizedBox(height: 20),
+        
+        // বর্তমান প্লেয়ার লিস্ট
         _buildPlayerList(),
       ],
     );
@@ -160,73 +149,109 @@ class _LudoViewState extends State<LudoView> {
 
   Widget _buildDiamondControl() {
     return Container(
-      padding: const EdgeInsets.all(10),
-      margin: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(12)),
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.blueGrey.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.white10),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
-              const Icon(Icons.diamond, color: Colors.cyanAccent),
-              if (widget.isAdmin) IconButton(onPressed: () => _updateEntryFee(-10), icon: const Icon(Icons.remove_circle, color: Colors.redAccent)),
-              Text("$entryFee", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              if (widget.isAdmin) IconButton(onPressed: () => _updateEntryFee(10), icon: const Icon(Icons.add_circle, color: Colors.greenAccent)),
+              const Icon(Icons.diamond, color: Colors.cyanAccent, size: 28),
+              const SizedBox(width: 8),
+              if (widget.isAdmin) 
+                IconButton(onPressed: () => _updateEntryFee(-10), icon: const Icon(Icons.do_not_disturb_on, color: Colors.redAccent)),
+              Text("$entryFee", style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              if (widget.isAdmin) 
+                IconButton(onPressed: () => _updateEntryFee(10), icon: const Icon(Icons.add_circle, color: Colors.greenAccent)),
             ],
           ),
-          Text("Win: ${(entryFee * widget.players.length * 0.8).toInt()}", style: const TextStyle(color: Colors.yellowAccent, fontWeight: FontWeight.bold)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const Text("WIN PRIZE", style: TextStyle(color: Colors.white54, fontSize: 10)),
+              Text("💎 ${(entryFee * widget.players.length * 0.8).toInt()}", 
+                style: const TextStyle(color: Colors.yellowAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
         ],
       ),
     );
   }
 
   Widget _buildDiceUI() {
+    int displayNum = isRolling ? rollingNumber : widget.diceNumber;
     return GestureDetector(
       onTap: rollDice,
       child: Column(
         children: [
           Container(
-            height: 90, width: 90,
+            height: 85, width: 85,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [BoxShadow(color: _getDiceColor(isRolling ? rollingNumber : widget.diceNumber).withOpacity(0.5), blurRadius: 15)],
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: _getDiceColor(displayNum).withOpacity(0.4), 
+                  blurRadius: 20, 
+                  spreadRadius: 5
+                )
+              ],
             ),
-            child: Center(child: _buildDiceDots(isRolling ? rollingNumber : widget.diceNumber)),
+            child: Center(child: _buildDiceDots(displayNum)),
           ),
-          const SizedBox(height: 10),
-          Text(isRolling ? "ROLLING..." : (widget.isAdmin ? "ROLL DICE" : "WAITING..."),
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          Text(
+            isRolling ? "ROLLING..." : (widget.isAdmin ? "TAP TO ROLL" : "WAITING FOR TURN"),
+            style: TextStyle(
+              color: isRolling ? Colors.orangeAccent : Colors.white70,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2
+            ),
+          ),
         ],
       ),
     );
   }
 
-  List<Widget> _buildUserTokens(int pIdx, String? photo, double size) {
+  // গুটির পজিশন এবং ডিজাইন
+  List<Widget> _buildUserTokens(int pIdx, String? photo, double boardSize) {
+    // ঘরগুলোর এলাইনমেন্ট (লুডু বোর্ডের হোম বেস অনুযায়ী)
     List<Alignment> baseAlignments = [
-      const Alignment(-0.76, -0.76), const Alignment(0.76, -0.76),
-      const Alignment(-0.76, 0.76), const Alignment(0.76, 0.76),
+      const Alignment(-0.73, -0.73), // Red
+      const Alignment(0.73, -0.73),  // Green
+      const Alignment(0.73, 0.73),   // Yellow
+      const Alignment(-0.73, 0.73),  // Blue
     ];
-    List<Offset> offsets = [
-      const Offset(-18, -18), const Offset(18, -18),
-      const Offset(-18, 18), const Offset(18, 18),
+    
+    // ৪টি গুটির আলাদা আলাদা অফসেট
+    List<Offset> tokenOffsets = [
+      const Offset(-16, -16), const Offset(16, -16),
+      const Offset(-16, 16), const Offset(16, 16),
     ];
-    List<Color> pColors = [Colors.red, Colors.green, Colors.blue, Colors.orange];
+    
+    List<Color> pColors = [Colors.red, Colors.green, Colors.yellow, Colors.blue];
 
     return List.generate(4, (i) {
       return Align(
         alignment: baseAlignments[pIdx % 4],
         child: Transform.translate(
-          offset: offsets[i],
+          offset: tokenOffsets[i],
           child: Container(
-            width: 30, height: 30, // গুটি বড় করা হয়েছে
+            width: 28, height: 28,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: pColors[pIdx % 4],
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 4)],
+              border: Border.all(color: Colors.white, width: 2.5),
+              boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 4, offset: Offset(1, 2))],
             ),
-            child: ClipOval(child: photo != null ? Image.network(photo, fit: BoxFit.cover) : const Icon(Icons.person, size: 14, color: Colors.white)),
+            child: photo != null 
+              ? ClipOval(child: Image.network(photo, fit: BoxFit.cover))
+              : const Icon(Icons.person, size: 14, color: Colors.white),
           ),
         ),
       );
@@ -235,33 +260,53 @@ class _LudoViewState extends State<LudoView> {
 
   Widget _buildDiceDots(int n) {
     return GridView.count(
-      crossAxisCount: 3, padding: const EdgeInsets.all(12),
+      crossAxisCount: 3, padding: const EdgeInsets.all(15),
       shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
       children: List.generate(9, (index) {
         bool showDot = false;
         if (n == 1 && index == 4) showDot = true;
-        if (n == 2 && (index == 0 || index == 8)) showDot = true;
-        if (n == 3 && (index == 0 || index == 4 || index == 8)) showDot = true;
+        if (n == 2 && (index == 2 || index == 6)) showDot = true;
+        if (n == 3 && (index == 2 || index == 4 || index == 6)) showDot = true;
         if (n == 4 && (index == 0 || index == 2 || index == 6 || index == 8)) showDot = true;
         if (n == 5 && (index == 0 || index == 2 || index == 4 || index == 6 || index == 8)) showDot = true;
         if (n == 6 && (index == 0 || index == 2 || index == 3 || index == 5 || index == 6 || index == 8)) showDot = true;
-        return Center(child: Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: showDot ? Colors.black : Colors.transparent)));
+        return Center(
+          child: Container(
+            width: 9, height: 9, 
+            decoration: BoxDecoration(shape: BoxShape.circle, color: showDot ? Colors.black87 : Colors.transparent)
+          )
+        );
       }),
     );
   }
 
-  Color _getDiceColor(int n) => [Colors.red, Colors.green, Colors.blue, Colors.orange, Colors.purple, Colors.pink][n - 1];
+  Color _getDiceColor(int n) {
+    List<Color> colors = [Colors.red, Colors.green, Colors.blue, Colors.orange, Colors.purple, Colors.pink];
+    return colors[(n - 1) % colors.length];
+  }
 
   Widget _buildPlayerList() {
-    return Wrap(
-      spacing: 15,
-      children: widget.players.map((p) => Column(
-        children: [
-          CircleAvatar(radius: 22, backgroundImage: NetworkImage(p['photo'] ?? "")),
-          const SizedBox(height: 4),
-          Text(p['name']?.split(' ')[0] ?? "P", style: const TextStyle(color: Colors.white, fontSize: 10)),
-        ],
-      )).toList(),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Wrap(
+        spacing: 20,
+        runSpacing: 10,
+        alignment: WrapAlignment.center,
+        children: widget.players.map((p) => Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.cyanAccent, width: 1.5)),
+              child: CircleAvatar(radius: 20, backgroundImage: NetworkImage(p['photo'] ?? "")),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              p['name']?.split(' ')[0] ?? "Player", 
+              style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500)
+            ),
+          ],
+        )).toList(),
+      ),
     );
   }
 }
