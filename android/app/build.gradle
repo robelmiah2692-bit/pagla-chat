@@ -49,7 +49,7 @@ android {
         pickFirst 'lib/arm64-v8a/libc++_shared.so'
         pickFirst '**/libc++_shared.so'
         
-        // ডুপ্লিকেট ফাইল এরর ফিক্স করার জন্য নিচের লাইনগুলো যোগ করা হয়েছে
+        // ডুপ্লিকেট ফাইল এরর ফিক্স করার জন্য নিচের লাইনগুলো যোগ করা হয়েছে
         exclude 'META-INF/proguard/androidx-annotations.pro'
         exclude 'META-INF/LICENSE'
         exclude 'META-INF/NOTICE'
@@ -78,7 +78,7 @@ android {
 }
 
 dependencies {
-    // সরাসরি কোটলিন ভার্সন বসানো হয়েছে
+    // সরাসরি কোটলিন ভার্সন বসানো হয়েছে
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10"
     implementation 'androidx.multidex:multidex:2.0.1'
     
