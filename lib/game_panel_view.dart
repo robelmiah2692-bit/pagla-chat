@@ -107,26 +107,27 @@ class _GamePanelViewState extends State<GamePanelView> {
   Widget build(BuildContext context) {
     final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
     
-    return Container(
-      // এটি অ্যাপের এভেইলএবল পুরো সাইজ নিবে
-      width: double.infinity,
-      height: double.infinity,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F0F1E),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      child: SafeArea(
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        width: MediaQuery.of(context).size.width,
+        height: MediaQuery.of(context).size.height,
+        decoration: const BoxDecoration(
+          color: Color(0xFF0F0F1E),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
         child: Stack(
           children: [
             Column(
               children: [
-                _buildTopBar(), // এখানে ডায়মন্ড এবং বেট বাটন আছে
+                const SizedBox(height: 50), // স্ট্যাটাস বারের গ্যাপ
                 
-                // লুডু জয়েন বাটন (যখন গেম সিলেকশন থাকবে না)
-                if (selectedGame == "LUDO" && gameState == "WAITING")
-                  _buildJoinSection(),
+                // ডায়মন্ড এবং বেট কন্ট্রোল এরিয়া
+                _buildGameHeader(), 
 
-                const SizedBox(height: 5),
+                // লুডু জয়েন/স্টার্ট বাটন (গেম সিলেক্ট থাকলে এবং ওয়েটিং এ থাকলে)
+                if (selectedGame == "LUDO" && gameState == "WAITING")
+                  _buildLudoActionButtons(),
 
                 Expanded(
                   child: selectedGame == null 
@@ -154,72 +155,82 @@ class _GamePanelViewState extends State<GamePanelView> {
               ],
             ),
             
-            // ব্যাক এবং ক্লোজ বাটন
-            _buildNavigationButtons(),
+            // নেভিগেশন বাটন (ব্যাক এবং ক্লোজ)
+            _buildFloatingNavButtons(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildGameHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(15, 10, 70, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // ডায়মন্ড ব্যালেন্স
+          // ডায়মন্ড সেকশন
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.cyanAccent.withOpacity(0.3))),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)),
+            ),
             child: Row(
               children: [
                 const Icon(Icons.diamond, color: Colors.cyanAccent, size: 20),
-                const SizedBox(width: 8),
+                const SizedBox(width: 5),
                 Text("$userBalance", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
 
-          // বেট +/- বাটন (লুডু বা স্পিন সিলেক্ট থাকলে দেখাবে)
-          if (selectedGame != null) 
-            Row(
-              children: [
-                IconButton(
-                  onPressed: () => setState(() => betAmount = max(100, betAmount - 100)), 
-                  icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 28)
-                ),
-                Text("$betAmount", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                IconButton(
-                  onPressed: () => setState(() => betAmount += 100), 
-                  icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent, size: 28)
-                ),
-              ],
+          // বেট কন্ট্রোল সেকশন (গেম সিলেক্ট থাকলে দেখাবে)
+          if (selectedGame != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5),
+              decoration: BoxDecoration(
+                color: Colors.black26,
+                borderRadius: BorderRadius.circular(25),
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => setState(() => betAmount = max(100, betAmount - 100)),
+                    icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 26),
+                  ),
+                  Text("$betAmount", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    onPressed: () => setState(() => betAmount += 100),
+                    icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent, size: 26),
+                  ),
+                ],
+              ),
             ),
+          const SizedBox(width: 50), // ক্লোজ বাটনের জন্য স্পেস
         ],
       ),
     );
   }
 
-  Widget _buildJoinSection() {
+  Widget _buildLudoActionButtons() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          ElevatedButton.icon(
+          ElevatedButton(
             onPressed: _joinLudo,
-            icon: const Icon(Icons.login),
-            label: const Text("JOIN"),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+            child: const Text("JOIN GAME", style: TextStyle(color: Colors.white)),
           ),
           if (widget.isAdmin) ...[
             const SizedBox(width: 15),
-            ElevatedButton.icon(
+            ElevatedButton(
               onPressed: _startLudo,
-              icon: const Icon(Icons.play_arrow),
-              label: const Text("START"),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+              child: const Text("START GAME", style: TextStyle(color: Colors.white)),
             ),
           ]
         ],
@@ -227,21 +238,21 @@ class _GamePanelViewState extends State<GamePanelView> {
     );
   }
 
-  Widget _buildNavigationButtons() {
+  Widget _buildFloatingNavButtons() {
     return Stack(
       children: [
         if (selectedGame != null)
           Positioned(
-            top: 5, left: 10,
+            top: 45, left: 10,
             child: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 22),
+              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 24),
               onPressed: () => setState(() => selectedGame = null),
             ),
           ),
         Positioned(
-          top: 5, right: 10,
+          top: 45, right: 10,
           child: IconButton(
-            icon: const Icon(Icons.cancel, color: Colors.white, size: 30),
+            icon: const Icon(Icons.close_rounded, color: Colors.white, size: 32),
             onPressed: () {
               if (widget.isAdmin || gameState == "WAITING") {
                 Navigator.pop(context);
@@ -250,28 +261,26 @@ class _GamePanelViewState extends State<GamePanelView> {
               }
             },
           ),
-        )
+        ),
       ],
     );
   }
 
   Widget _buildGameLobby() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text("SELECT A GAME", style: TextStyle(color: Colors.white54, letterSpacing: 2, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 30),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _gameIcon("LUDO", "assets/images/ludo_logo.png", Colors.blueAccent),
-              const SizedBox(width: 30),
-              _gameIcon("LUCKY", "assets/images/spin_logo.png", Colors.orangeAccent),
-            ],
-          ),
-        ],
-      ),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text("SELECT A GAME", style: TextStyle(color: Colors.white54, letterSpacing: 2, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 40),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _gameIcon("LUDO", "assets/images/ludo_logo.png", Colors.blueAccent),
+            const SizedBox(width: 40),
+            _gameIcon("LUCKY", "assets/images/spin_logo.png", Colors.orangeAccent),
+          ],
+        ),
+      ],
     );
   }
 
@@ -283,7 +292,6 @@ class _GamePanelViewState extends State<GamePanelView> {
           Container(
             width: 105, height: 105,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
               borderRadius: BorderRadius.circular(22),
               border: Border.all(color: color.withOpacity(0.6), width: 2),
             ),
