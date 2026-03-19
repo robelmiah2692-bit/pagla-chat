@@ -4,7 +4,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        // এটি গ্র্যাডল ভার্সন ৮.২ এর এররটি ফিক্স করবে
+        // গ্র্যাডল ভার্সন ৮.২ এর সাথে সামঞ্জস্যতা
         classpath 'com.android.tools.build:gradle:8.2.1'
     }
 }
@@ -41,16 +41,21 @@ android {
         multiDexEnabled true 
     }
 
-    // --- অ্যাগোরা এবং লাইব্রেরি কনফ্লিক্ট ফিক্স ---
+    // --- মেমোরি এবং লাইব্রেরি কনফ্লিক্ট ফিক্স ---
     packagingOptions {
         pickFirst 'lib/x86/libc++_shared.so'
         pickFirst 'lib/x86_64/libc++_shared.so'
         pickFirst 'lib/armeabi-v7a/libc++_shared.so'
         pickFirst 'lib/arm64-v8a/libc++_shared.so'
         pickFirst '**/libc++_shared.so'
+        
+        // ডুপ্লিকেট ফাইল এরর ফিক্স করার জন্য নিচের লাইনগুলো যোগ করা হয়েছে
         exclude 'META-INF/proguard/androidx-annotations.pro'
         exclude 'META-INF/LICENSE'
         exclude 'META-INF/NOTICE'
+        exclude 'META-INF/kotlin-stdlib.kotlin_module'
+        exclude 'META-INF/kotlin-stdlib-jdk8.kotlin_module'
+        exclude 'META-INF/kotlin-stdlib-jdk7.kotlin_module'
     }
 
     buildTypes {
@@ -73,11 +78,11 @@ android {
 }
 
 dependencies {
-    // এখানে $kotlin_version এর বদলে সরাসরি ভার্সন দেওয়া হলো
+    // সরাসরি কোটলিন ভার্সন বসানো হয়েছে
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10"
     implementation 'androidx.multidex:multidex:2.0.1'
     
-    // Firebase
+    // Firebase (Bom version 33.1.0)
     implementation platform('com.google.firebase:firebase-bom:33.1.0')
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.firebase:firebase-auth'
@@ -85,7 +90,7 @@ dependencies {
     implementation 'com.google.firebase:firebase-database'
     implementation 'com.google.firebase:firebase-messaging'
     
-    // Android 15 & UI Stability
+    // UI Stability and Android 15 support
     implementation 'androidx.window:window:1.2.0'
     implementation 'androidx.window:window-java:1.2.0'
     implementation 'androidx.activity:activity-ktx:1.8.2'
