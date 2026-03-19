@@ -1,20 +1,24 @@
-include ':app'
+pluginManagement {
+    def flutterSdkPath = {
+        def properties = new Properties()
+        file("local.properties").withInputStream { properties.load(it) }
+        def flutterSdkPath = properties.getProperty("flutter.sdk")
+        assert flutterSdkPath != null, "flutter.sdk not set in local.properties"
+        return flutterSdkPath
+    }()
 
-def localPropertiesFile = new File(rootProject.projectDir, "local.properties")
-def properties = new Properties()
+    includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
 
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.withReader("UTF-8") { reader -> properties.load(reader) }
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
 }
 
-def flutterSdkPath = properties.getProperty("flutter.sdk")
-if (flutterSdkPath == null) {
-    // গিটহাব বা লোকাল এনভায়রনমেন্ট ফিক্স
-    flutterSdkPath = System.getenv("FLUTTER_ROOT") ?: "/opt/hostedtoolcache/flutter/stable-3.19.0-x64"
+plugins {
+    id "dev.flutter.flutter-gradle-plugin" version "1.0.0" apply false
+    id "com.google.gms.google-services" version "4.4.1" apply false
 }
 
-// এটি আপনার সব ফ্লাটার প্লাগইন (Agora, Firebase, etc.) লোড করবে
-apply from: "$flutterSdkPath/packages/flutter_tools/gradle/app_plugin_loader.gradle"
-
-// --- এই লাইনটি নিশ্চিত করবে যে আপনার প্লাগইনগুলো সঠিকভাবে কানেক্ট হয়েছে ---
-rootProject.name = 'pagla_chat'
+include ":app"
