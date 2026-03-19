@@ -9,8 +9,12 @@ if (localPropertiesFile.exists()) {
 
 def flutterSdkPath = properties.getProperty("flutter.sdk")
 if (flutterSdkPath == null) {
+    // গিটহাব বা লোকাল এনভায়রনমেন্ট ফিক্স
     flutterSdkPath = System.getenv("FLUTTER_ROOT") ?: "/opt/hostedtoolcache/flutter/stable-3.19.0-x64"
 }
 
-// এই লাইনটিই আপনার সব প্লাগইন (Firebase, Agora) কানেক্ট করবে
+// এটি আপনার সব ফ্লাটার প্লাগইন (Agora, Firebase, etc.) লোড করবে
 apply from: "$flutterSdkPath/packages/flutter_tools/gradle/app_plugin_loader.gradle"
+
+// --- এই লাইনটি নিশ্চিত করবে যে আপনার প্লাগইনগুলো সঠিকভাবে কানেক্ট হয়েছে ---
+rootProject.name = 'pagla_chat'
