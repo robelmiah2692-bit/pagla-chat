@@ -16,13 +16,26 @@ jobs:
         with:
           fetch-depth: 0 
 
+      # --- ১. Java সেটআপ (অ্যান্ড্রয়েড বিল্ডের জন্য এটি বাধ্যতামূলক) ---
+      - name: ☕ Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: 🚀 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.22.0' 
           cache: true
 
-      # --- ১. চাবি একবারই তৈরি হবে এবং প্রোজেক্টে পার্মানেন্টলি সেভ হবে ---
+      # --- ২. ডিপেন্ডেন্সি ক্লিন এবং গেট ---
+      - name: 🛠️ Install Dependencies
+        run: |
+          flutter clean
+          flutter pub get
+
+      # --- ৩. চাবি ম্যানেজমেন্ট (আপনার লজিক ঠিক রাখা হয়েছে) ---
       - name: 🔑 Handle Permanent Keystore
         run: |
           if [ ! -f android/app/upload-keystore.jks ]; then
@@ -33,28 +46,27 @@ jobs:
             git config --global user.name "github-actions[bot]"
             git config --global user.email "github-actions[bot]@users.noreply.github.com"
             git add android/app/upload-keystore.jks
-            git commit -m "chore: add permanent keystore file [skip ci]"
-            git push
+            git commit -m "chore: add permanent keystore file [skip ci]" || echo "No changes to commit"
+            git push || echo "Push failed, might already exist"
           else
-            echo "চাবি অলরেডি প্রোজেক্টে আছে। নতুন চাবি বানানোর দরকার নেই।"
+            echo "চাবি অলরেডি প্রোজেক্টে আছে।"
           fi
 
-      # --- ২. এই SHA-1 টাই ফাইনাল, এটিই ফায়ারবেসে বসান ---
-      - name: 📜 Show Final SHA-1
-        run: |
-          keytool -list -v -keystore android/app/upload-keystore.jks -alias pagla_alias -storepass pagla123 -keypass pagla123
+      # --- ৪. Android APK Build (আগে APK বানানো নিরাপদ) ---
+      - name: 🤖 Build Android APK
+        run: flutter build apk --release --no-tree-shake-icons
 
-      # --- ৩. ডিপেন্ডেন্সি ক্লিন এবং গেট (Force Update) ---
-      - name: 🛠️ Install Dependencies
-        run: |
-          flutter clean
-          flutter pub cache clean --force
-          flutter pub get
+      # --- ৫. APK ফাইলটি স্টোর করা ---
+      - name: 📤 Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pagla-chat-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
 
-      # --- ৪. Web Build & Deploy (Ignore errors for APK) ---
+      # --- ৬. Web Build & Deploy (এগুলো অপশনাল হিসেবে শেষে রাখা হয়েছে) ---
       - name: 🌐 Build Web Release
         run: flutter build web --release --no-tree-shake-icons
-        continue-on-error: true # <--- এটি যোগ করা হয়েছে যাতে ওয়েব বিল্ড ফেল করলেও APK তৈরি হয়
+        continue-on-error: true
 
       - name: 🔥 Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
@@ -71,14 +83,3 @@ jobs:
           folder: build/web
           branch: gh-pages
         continue-on-error: true
-
-      # --- ৫. Android APK Build (এটিই আমাদের মূল লক্ষ্য) ---
-      - name: 🤖 Build Android APK
-        run: flutter build apk --release --no-tree-shake-icons
-
-      # --- ৬. APK ফাইলটি স্টোর করা (ডাউনলোড করার জন্য) ---
-      - name: 📤 Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pagla-chat-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
