@@ -26,8 +26,6 @@ class _GamePanelViewState extends State<GamePanelView> {
   int userBalance = 0;
   int betAmount = 100;
   int diceNumber = 1;
-  // ডিফল্টভাবে এটাকে true করে দিচ্ছি যেন গেম ওপেন হলেই ফুল স্ক্রিন হয়
-  bool isFullScreen = true; 
   String gameState = "WAITING"; 
   List<Map<dynamic, dynamic>> players = [];
   List<Map<dynamic, dynamic>> luckyBets = [];
@@ -109,107 +107,151 @@ class _GamePanelViewState extends State<GamePanelView> {
   Widget build(BuildContext context) {
     final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
     
-    // স্ক্রিনের পুরো হাইট নেওয়া হচ্ছে
-    double fullHeight = MediaQuery.of(context).size.height;
-
     return Container(
-      // কন্টেইনার সবসময় ফুল স্ক্রিন হাইট নিবে
-      height: fullHeight,
+      // এটি অ্যাপের এভেইলএবল পুরো সাইজ নিবে
       width: double.infinity,
+      height: double.infinity,
       decoration: const BoxDecoration(
         color: Color(0xFF0F0F1E),
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
-      child: SafeArea( // ফোনের ওপরের নচ যেন কভার না করে
-        bottom: false,
+      child: SafeArea(
         child: Stack(
           children: [
             Column(
               children: [
-                _buildTopBar(),
-                const SizedBox(height: 10),
+                _buildTopBar(), // এখানে ডায়মন্ড এবং বেট বাটন আছে
                 
+                // লুডু জয়েন বাটন (যখন গেম সিলেকশন থাকবে না)
                 if (selectedGame == "LUDO" && gameState == "WAITING")
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 15),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: _joinLudo,
-                          icon: const Icon(Icons.login),
-                          label: const Text("JOIN"),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
-                        ),
-                        if (widget.isAdmin) ...[
-                          const SizedBox(width: 15),
-                          ElevatedButton.icon(
-                            onPressed: _startLudo,
-                            icon: const Icon(Icons.play_arrow),
-                            label: const Text("START"),
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                          ),
-                        ]
-                      ],
-                    ),
-                  ),
+                  _buildJoinSection(),
+
+                const SizedBox(height: 5),
 
                 Expanded(
                   child: selectedGame == null 
                     ? _buildGameLobby() 
-                    : SingleChildScrollView( // যেন স্ক্রিন ছোট হলেও ওভারফ্লো না হয়
-                        physics: const BouncingScrollPhysics(),
-                        child: (selectedGame == "LUDO" 
-                          ? LudoView(
-                              gameRef: _gameRef, 
-                              players: players, 
-                              diceNumber: diceNumber, 
-                              isAdmin: widget.isAdmin, 
-                              isFullScreen: true, 
-                              playSound: _playSound,
-                              currentUserId: currentUserId,
-                            )
-                          : LuckySpinView(
-                              gameRef: _gameRef, 
-                              userRef: FirebaseDatabase.instance.ref("users/$currentUserId"), 
-                              userBalance: userBalance, 
-                              betAmount: betAmount, 
-                              luckyBets: luckyBets, 
-                              playSound: _playSound
-                            )
-                        ),
+                    : (selectedGame == "LUDO" 
+                        ? LudoView(
+                            gameRef: _gameRef, 
+                            players: players, 
+                            diceNumber: diceNumber, 
+                            isAdmin: widget.isAdmin, 
+                            isFullScreen: true, 
+                            playSound: _playSound,
+                            currentUserId: currentUserId,
+                          )
+                        : LuckySpinView(
+                            gameRef: _gameRef, 
+                            userRef: FirebaseDatabase.instance.ref("users/$currentUserId"), 
+                            userBalance: userBalance, 
+                            betAmount: betAmount, 
+                            luckyBets: luckyBets, 
+                            playSound: _playSound
+                          )
                       ),
                 ),
               ],
             ),
             
-            // ব্যাক বাটন
-            if (selectedGame != null)
-              Positioned(
-                top: 10, left: 10,
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 22),
-                  onPressed: () => setState(() => selectedGame = null),
-                ),
-              ),
-            
-            // ক্লোজ বাটন
-            Positioned(
-              top: 10, right: 10,
-              child: IconButton(
-                icon: const Icon(Icons.cancel, color: Colors.white, size: 28),
-                onPressed: () {
-                  if (widget.isAdmin || gameState == "WAITING") {
-                    Navigator.pop(context);
-                  } else {
-                    _showError("গেম চলাকালীন রুম থেকে বের হওয়া যাবে না!");
-                  }
-                },
-              ),
-            )
+            // ব্যাক এবং ক্লোজ বাটন
+            _buildNavigationButtons(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(15, 10, 70, 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // ডায়মন্ড ব্যালেন্স
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.cyanAccent.withOpacity(0.3))),
+            child: Row(
+              children: [
+                const Icon(Icons.diamond, color: Colors.cyanAccent, size: 20),
+                const SizedBox(width: 8),
+                Text("$userBalance", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+
+          // বেট +/- বাটন (লুডু বা স্পিন সিলেক্ট থাকলে দেখাবে)
+          if (selectedGame != null) 
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () => setState(() => betAmount = max(100, betAmount - 100)), 
+                  icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 28)
+                ),
+                Text("$betAmount", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                IconButton(
+                  onPressed: () => setState(() => betAmount += 100), 
+                  icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent, size: 28)
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJoinSection() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ElevatedButton.icon(
+            onPressed: _joinLudo,
+            icon: const Icon(Icons.login),
+            label: const Text("JOIN"),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+          ),
+          if (widget.isAdmin) ...[
+            const SizedBox(width: 15),
+            ElevatedButton.icon(
+              onPressed: _startLudo,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text("START"),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavigationButtons() {
+    return Stack(
+      children: [
+        if (selectedGame != null)
+          Positioned(
+            top: 5, left: 10,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 22),
+              onPressed: () => setState(() => selectedGame = null),
+            ),
+          ),
+        Positioned(
+          top: 5, right: 10,
+          child: IconButton(
+            icon: const Icon(Icons.cancel, color: Colors.white, size: 30),
+            onPressed: () {
+              if (widget.isAdmin || gameState == "WAITING") {
+                Navigator.pop(context);
+              } else {
+                _showError("গেম চলাকালীন রুম থেকে বের হওয়া যাবে না!");
+              }
+            },
+          ),
+        )
+      ],
     );
   }
 
@@ -219,7 +261,7 @@ class _GamePanelViewState extends State<GamePanelView> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Text("SELECT A GAME", style: TextStyle(color: Colors.white54, letterSpacing: 2, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 40),
+          const SizedBox(height: 30),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -252,32 +294,6 @@ class _GamePanelViewState extends State<GamePanelView> {
           ),
           const SizedBox(height: 10),
           Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 15, 70, 5),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center, // ডায়মন্ড মাঝখানে রাখার জন্য
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white10, 
-              borderRadius: BorderRadius.circular(25), 
-              border: Border.all(color: Colors.cyanAccent.withOpacity(0.3))
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.diamond, color: Colors.cyanAccent, size: 22),
-                const SizedBox(width: 8),
-                Text("$userBalance", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
         ],
       ),
     );
