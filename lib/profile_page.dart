@@ -562,7 +562,7 @@ ImageProvider _getProfileImage() {
   if (userImageURL.startsWith('http') || kIsWeb) {
     return NetworkImage(userImageURL);
   }
-  // লোকাল ফাইলের জন্য (অ্যান্ড্রয়েড বিল্ড ফিক্সড)
+  // লোকাল ফাইলের জন্য (অ্যান্ড্রয়েড বিল্ড ফিক্সড)
   return FileImage(io.File(userImageURL));
 }
 
