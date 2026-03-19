@@ -1,19 +1,30 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // এটি গ্র্যাডল ভার্সন ৮.২ এর এররটি ফিক্স করবে
+        classpath 'com.android.tools.build:gradle:8.2.1'
+    }
+}
+
 plugins {
     id "com.android.application"
     id "kotlin-android"
-    // নতুন নিয়ম অনুযায়ী ফ্লাটার প্লাগইন
+    // নতুন নিয়ম অনুযায়ী ফ্লাটার প্লাগইন
     id "dev.flutter.flutter-gradle-plugin"
-    // ফায়ারবেস গুগল সার্ভিস
+    // ফায়ারবেস গুগল সার্ভিস
     id "com.google.gms.google-services"
 }
 
 android {
     namespace "com.pagla.chat"
-    compileSdk 34 // এখানেSdkVersion কেটে শুধু Sdk দিলে ভালো
+    compileSdk 34 
 
     signingConfigs {
         release {
-            // গিটহাব অ্যাকশন যেন ফাইলটি খুঁজে পায়
+            // গিটহাব অ্যাকশন যেন ফাইলটি খুঁজে পায়
             storeFile file("upload-keystore.jks") 
             storePassword "pagla123" 
             keyAlias "pagla_alias" 
@@ -30,7 +41,7 @@ android {
         multiDexEnabled true 
     }
 
-    // --- অ্যাগোরা এবং লাইব্রেরি কনফ্লিক্ট ফিক্স (আগের মতোই থাকল) ---
+    // --- অ্যাগোরা এবং লাইব্রেরি কনফ্লিক্ট ফিক্স ---
     packagingOptions {
         pickFirst 'lib/x86/libc++_shared.so'
         pickFirst 'lib/x86_64/libc++_shared.so'
@@ -65,7 +76,7 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation 'androidx.multidex:multidex:2.0.1'
     
-    // Firebase (আগের মতোই থাকল)
+    // Firebase
     implementation platform('com.google.firebase:firebase-bom:33.1.0')
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.firebase:firebase-auth'
