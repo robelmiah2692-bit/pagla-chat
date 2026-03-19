@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Firestore ইম্পোর্ট নিশ্চিত করুন
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'ludo_view.dart';
 import 'lucky_spin_view.dart';
@@ -41,7 +41,6 @@ class _GamePanelViewState extends State<GamePanelView> {
   void _listenToData() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
-    // ১. ডাইমন্ড রিড করা হচ্ছে Firestore থেকে (আপনার স্ক্রিনশট অনুযায়ী ফিক্স)
     if (uid != null) {
       FirebaseFirestore.instance
           .collection('users')
@@ -50,14 +49,12 @@ class _GamePanelViewState extends State<GamePanelView> {
           .listen((snapshot) {
         if (snapshot.exists && mounted) {
           setState(() {
-            // Firestore এ আপনার ফিল্ডের নাম 'diamonds'
             userBalance = int.tryParse(snapshot.data()?['diamonds'].toString() ?? "0") ?? 0;
           });
         }
       });
     }
 
-    // ২. রিয়েল-টাইম ডাটাবেজ লিসেনার (গেম লজিক)
     _subscription = _gameRef.onValue.listen((event) {
       final data = event.snapshot.value as Map?;
       if (data == null || !mounted) return;
@@ -76,11 +73,11 @@ class _GamePanelViewState extends State<GamePanelView> {
 
   void _joinLudo() async {
     if (gameState == "RUNNING") {
-      _showError("গেম চলছে! এই রাউন্ড শেষ হওয়া পর্যন্ত অপেক্ষা করুন।");
+      _showError("গেম চলছে! এই রাউন্ড শেষ হওয়া পর্যন্ত অপেক্ষা করুন।");
       return;
     }
     if (players.length >= 4) {
-      _showError("রুম ফুল হয়ে গেছে!");
+      _showError("রুম ফুল হয়ে গেছে!");
       return;
     }
 
@@ -98,7 +95,7 @@ class _GamePanelViewState extends State<GamePanelView> {
 
   void _startLudo() {
     if (players.length < 2) {
-      _showError("কমপক্ষে ২ জন প্লেয়ার লাগবে!");
+      _showError("কমপক্ষে ২ জন প্লেয়ার লাগবে!");
       return;
     }
     _gameRef.update({"gameState": "RUNNING"});
@@ -112,6 +109,9 @@ class _GamePanelViewState extends State<GamePanelView> {
 
   @override
   Widget build(BuildContext context) {
+    // বর্তমান ইউজারের আইডি বের করা
+    final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 400),
       height: isFullScreen ? MediaQuery.of(context).size.height : 600,
@@ -155,8 +155,23 @@ class _GamePanelViewState extends State<GamePanelView> {
                 child: selectedGame == null 
                   ? _buildGameLobby() 
                   : (selectedGame == "LUDO" 
-                      ? LudoView(gameRef: _gameRef, players: players, diceNumber: diceNumber, isAdmin: widget.isAdmin, isFullScreen: isFullScreen, playSound: _playSound)
-                      : LuckySpinView(gameRef: _gameRef, userRef: FirebaseDatabase.instance.ref("users/${FirebaseAuth.instance.currentUser?.uid}"), userBalance: userBalance, betAmount: betAmount, luckyBets: luckyBets, playSound: _playSound)
+                      ? LudoView(
+                          gameRef: _gameRef, 
+                          players: players, 
+                          diceNumber: diceNumber, 
+                          isAdmin: widget.isAdmin, 
+                          isFullScreen: isFullScreen, 
+                          playSound: _playSound,
+                          currentUserId: currentUserId, // এখানে আইডি পাস করা হয়েছে
+                        )
+                      : LuckySpinView(
+                          gameRef: _gameRef, 
+                          userRef: FirebaseDatabase.instance.ref("users/$currentUserId"), 
+                          userBalance: userBalance, 
+                          betAmount: betAmount, 
+                          luckyBets: luckyBets, 
+                          playSound: _playSound
+                        )
                     ),
               ),
             ],
@@ -181,7 +196,7 @@ class _GamePanelViewState extends State<GamePanelView> {
                   if (widget.isAdmin || gameState == "WAITING") {
                     Navigator.pop(context);
                   } else {
-                    _showError("গেম চলাকালীন রুম থেকে বের হওয়া যাবে না!");
+                    _showError("গেম চলাকালীন রুম থেকে বের হওয়া যাবে না!");
                   }
                 }
               },
