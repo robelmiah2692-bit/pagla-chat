@@ -1,5 +1,5 @@
-import 'dart:math'; // এই লাইনটি যোগ করুন
 import 'dart:async';
+import 'dart:math'; // math লাইব্রেরি যোগ করা হয়েছে
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -22,7 +22,7 @@ class _GamePanelViewState extends State<GamePanelView> {
   StreamSubscription? _subscription;
   final AudioPlayer _audioPlayer = AudioPlayer();
 
-  String? selectedGame; // শুরুতে কোনো গেম সিলেক্ট থাকবে না (মেনু দেখাবে)
+  String? selectedGame; 
   int userBalance = 0;
   int betAmount = 100;
   int diceNumber = 1;
@@ -40,16 +40,26 @@ class _GamePanelViewState extends State<GamePanelView> {
   }
 
   void _listenToData() {
+    // ডাইমন্ড ডাটাবেজ লিসেনার (String বা Int যেটাই আসুক হ্যান্ডেল করবে)
     _userRef.child("diamonds").onValue.listen((e) {
-      if(mounted) setState(() => userBalance = int.tryParse(e.snapshot.value.toString()) ?? 0);
+      if (e.snapshot.value != null && mounted) {
+        setState(() {
+          userBalance = int.tryParse(e.snapshot.value.toString()) ?? 0;
+        });
+      }
     });
+
     _subscription = _gameRef.onValue.listen((event) {
       final data = event.snapshot.value as Map?;
       if (data == null || !mounted) return;
       setState(() {
         diceNumber = data['diceNumber'] ?? 1;
-        if (data['players'] != null) players = (data['players'] as Map).values.map((e) => e as Map).toList();
-        if (data['luckyBets'] != null) luckyBets = (data['luckyBets'] as Map).values.map((e) => e as Map).toList();
+        if (data['players'] != null) {
+          players = (data['players'] as Map).values.map((e) => e as Map).toList();
+        }
+        if (data['luckyBets'] != null) {
+          luckyBets = (data['luckyBets'] as Map).values.map((e) => e as Map).toList();
+        }
       });
     });
   }
@@ -73,7 +83,7 @@ class _GamePanelViewState extends State<GamePanelView> {
               const SizedBox(height: 10),
               Expanded(
                 child: selectedGame == null 
-                  ? _buildGameLobby() // গেম সিলেক্ট না করলে মেনু দেখাবে
+                  ? _buildGameLobby() 
                   : (selectedGame == "LUDO" 
                       ? LudoView(gameRef: _gameRef, players: players, diceNumber: diceNumber, isAdmin: widget.isAdmin, isFullScreen: isFullScreen, playSound: _playSound)
                       : LuckySpinView(gameRef: _gameRef, userRef: _userRef, userBalance: userBalance, betAmount: betAmount, luckyBets: luckyBets, playSound: _playSound)
@@ -81,7 +91,6 @@ class _GamePanelViewState extends State<GamePanelView> {
               ),
             ],
           ),
-          // ব্যাক বাটন (গেম থেকে মেনুতে ফেরার জন্য)
           if (selectedGame != null)
             Positioned(
               top: 15, left: 15,
@@ -102,7 +111,6 @@ class _GamePanelViewState extends State<GamePanelView> {
     );
   }
 
-  // গেম লবি (আইকন মেনু)
   Widget _buildGameLobby() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -121,23 +129,30 @@ class _GamePanelViewState extends State<GamePanelView> {
     );
   }
 
+  // গেম আইকন ফিক্স (ইমেজ এখন বর্ডার জুড়ে থাকবে)
   Widget _gameIcon(String name, String asset, Color color) {
     return GestureDetector(
       onTap: () => setState(() => selectedGame = name),
       child: Column(
         children: [
           Container(
-            width: 100, height: 100,
-            padding: const EdgeInsets.all(15),
+            width: 105, 
+            height: 105,
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(25),
-              border: Border.all(color: color.withOpacity(0.5), width: 2),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: color.withOpacity(0.6), width: 2),
             ),
-            child: Image.asset(asset), // আপনার লোগো এখানে বসবে
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Image.asset(
+                asset,
+                fit: BoxFit.cover, // ইমেজটি পুরো বক্সে ভরে যাবে
+              ),
+            ),
           ),
           const SizedBox(height: 10),
-          Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
         ],
       ),
     );
@@ -149,10 +164,14 @@ class _GamePanelViewState extends State<GamePanelView> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const SizedBox(width: 40), // ব্যাক বাটনের জন্য জায়গা খালি রাখা
+          const SizedBox(width: 40), 
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.cyanAccent.withOpacity(0.3))),
+            decoration: BoxDecoration(
+              color: Colors.white10, 
+              borderRadius: BorderRadius.circular(20), 
+              border: Border.all(color: Colors.cyanAccent.withOpacity(0.3))
+            ),
             child: Row(
               children: [
                 const Icon(Icons.diamond, color: Colors.cyanAccent, size: 20),
@@ -173,5 +192,9 @@ class _GamePanelViewState extends State<GamePanelView> {
   }
 
   @override
-  void dispose() { _subscription?.cancel(); _audioPlayer.dispose(); super.dispose(); }
+  void dispose() { 
+    _subscription?.cancel(); 
+    _audioPlayer.dispose(); 
+    super.dispose(); 
+  }
 }
