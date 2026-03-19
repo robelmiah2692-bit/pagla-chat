@@ -1,9 +1,11 @@
-import 'dart:io' if (dart.library.html) 'dart:html';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:universal_html/html.dart' as html;
+
+// 🔥 এটি অ্যান্ড্রয়েড ও ওয়েব দুইটাই সামলাবে
+import 'dart:io' as io; 
 
 class StoriesService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -18,30 +20,30 @@ class StoriesService {
     String downloadUrl = "";
 
     try {
-      // ১. ছবি আপলোড লজিক (নিশ্চিত করা হচ্ছে যেন URL জেনারেট হয়)
+      // ১. ছবি আপলোড লজিক
       if (webImageBytes != null || imagePath.isNotEmpty) {
         String fileName = 'stories/${DateTime.now().millisecondsSinceEpoch}.jpg';
         Reference ref = _storage.ref().child(fileName);
 
         if (kIsWeb) {
           if (webImageBytes != null) {
-            // ওয়েবের জন্য বাইটস আপলোড
+            // ওয়েবের জন্য বাইটস আপলোড
             TaskSnapshot task = await ref.putData(webImageBytes);
             downloadUrl = await task.ref.getDownloadURL();
           }
         } else {
-          // মোবাইলের জন্য পাথ থেকে ফাইল আপলোড
-          File file = File(imagePath);
+          // ✅ মোবাইলের জন্য io.File ব্যবহার করা হয়েছে (এটাই সমাধান)
+          io.File file = io.File(imagePath);
           if (await file.exists()) {
             TaskSnapshot task = await ref.putFile(file);
             downloadUrl = await task.ref.getDownloadURL();
           } else {
-            print("Error: File does not exist at path: $imagePath");
+            debugPrint("Error: File does not exist at path: $imagePath");
           }
         }
       }
 
-      // ২. 🔥 প্রোফাইল ডাটা আনা (আপনার রিয়েল অবতার ও সেভ করা নাম)
+      // ২. প্রোফাইল ডাটা আনা (রিয়েল অবতার ও সেভ করা নাম)
       DocumentSnapshot userDoc = await _firestore.collection('users').doc(user.uid).get();
       
       String actualName = "ইউজার";
@@ -53,24 +55,24 @@ class StoriesService {
         actualProfilePic = data['profilePic'] ?? (user.photoURL ?? "");
       }
 
-      // ৩. ডাটাবেসে স্টোরি সেভ (সব ফিচার এখানে অ্যাক্টিভ)
+      // ৩. ডাটাবেসে স্টোরি সেভ
       await _firestore.collection('stories').add({
         'userId': user.uid,
         'userName': actualName, 
         'userImage': actualProfilePic, 
-        'storyImage': downloadUrl, // এখন এখানে সঠিক URL যাবে
+        'storyImage': downloadUrl,
         'caption': text,
         'timestamp': FieldValue.serverTimestamp(),
-        'likes': [], // লাইক ফিচার সচল রাখার জন্য ডিফল্ট খালি লিস্ট
+        'likes': [], 
       });
 
-      print("Story Uploaded Successfully! ✅ URL: $downloadUrl");
+      debugPrint("Story Uploaded Successfully! ✅ URL: $downloadUrl");
     } catch (e) {
-      print("Upload Error: $e");
+      debugPrint("Upload Error: $e");
     }
   }
 
-  // রিয়েল টাইম স্টোরি গেট করা
+  // রিয়েল টাইম স্টোরি গেট করা
   Stream<QuerySnapshot> getStories() {
     return _firestore
         .collection('stories')
