@@ -43,13 +43,16 @@ android {
         multiDexEnabled true 
     }
 
-    // --- এই অংশটুকু বাদ ছিল (অ্যাগোরা এবং লাইব্রেরি কনফ্লিক্ট ফিক্স) ---
+    // --- অ্যাগোরা এবং লাইব্রেরি কনফ্লিক্ট ফিক্স ---
     packagingOptions {
         pickFirst 'lib/x86/libc++_shared.so'
         pickFirst 'lib/x86_64/libc++_shared.so'
         pickFirst 'lib/armeabi-v7a/libc++_shared.so'
         pickFirst 'lib/arm64-v8a/libc++_shared.so'
+        pickFirst '**/libc++_shared.so'
         exclude 'META-INF/proguard/androidx-annotations.pro'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/NOTICE'
     }
 
     buildTypes {
@@ -81,8 +84,9 @@ dependencies {
     implementation 'com.google.firebase:firebase-auth'
     implementation 'com.google.firebase:firebase-firestore'
     implementation 'com.google.firebase:firebase-database'
+    implementation 'com.google.firebase:firebase-messaging' // নোটিফিকেশনের জন্য এটি যোগ করা হয়েছে
     
-    // Android 15 & UI Stability (এগুলো বাদ ছিল)
+    // Android 15 & UI Stability
     implementation 'androidx.window:window:1.2.0'
     implementation 'androidx.window:window-java:1.2.0'
     implementation 'androidx.activity:activity-ktx:1.8.2'
