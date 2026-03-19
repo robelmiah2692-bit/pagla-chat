@@ -1,4 +1,4 @@
-import 'dart:io' if (dart.library.html) 'dart:html';
+import 'dart:io' as io;
 import 'package:universal_html/html.dart' as html;
 import 'package:flutter/foundation.dart'; 
 import 'package:flutter/material.dart';
@@ -262,13 +262,17 @@ class _ProfilePageState extends State<ProfilePage> {
         ListTile(leading: const Icon(Icons.face, color: Colors.blueAccent), title: const Text("২০টি রিয়েল অবতার (Free)", style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _showFreeAvatars(); }),
         ListTile(leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), title: const Text("গ্যালারি থেকে ছবি", style: TextStyle(color: Colors.white)), onTap: () async {
           if (hasPremiumCard || getVipLevel() >= 1) {
-             final ImagePicker picker = ImagePicker();
-             final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-             if (image != null) setState(() => userImageURL = image.path);
-             Navigator.pop(context);
+             try {
+               final ImagePicker picker = ImagePicker();
+               final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+               if (image != null) setState(() => userImageURL = image.path);
+               if (mounted) Navigator.pop(context);
+             } catch (e) {
+               debugPrint("Error: $e");
+             }
           } else {
              Navigator.pop(context);
-             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("প্রিমিয়াম কার্ড বা VIP 1 প্রয়োজন!")));
+             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("প্রিমিয়াম কার্ড বা VIP 1 প্রয়োজন!"), backgroundColor: Colors.redAccent));
           }
         }),
       ]));
@@ -554,12 +558,12 @@ ImageProvider _getProfileImage() {
   if (userImageURL.isEmpty) {
     return NetworkImage(maleAvatars[0]);
   }
-  // ওয়েব এবং ইউআরএল এর জন্য
+  // ওয়েব এবং ইউআরএল এর জন্য
   if (userImageURL.startsWith('http') || kIsWeb) {
     return NetworkImage(userImageURL);
   }
-  // লোকাল ফাইলের জন্য
-  return FileImage(File(userImageURL));
+  // লোকাল ফাইলের জন্য (অ্যান্ড্রয়েড বিল্ড ফিক্সড)
+  return FileImage(io.File(userImageURL));
 }
 
 // ৪. আপনার নতুন "প্রিয়জন" সেকশনটি এখানে বসবে (যা আমি আগের মেসেজে দিয়েছিলাম)
