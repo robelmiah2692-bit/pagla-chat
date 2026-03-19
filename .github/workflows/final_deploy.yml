@@ -44,10 +44,11 @@ jobs:
         run: |
           keytool -list -v -keystore android/app/upload-keystore.jks -alias pagla_alias -storepass pagla123 -keypass pagla123
 
-      # --- ৩. ডিপেন্ডেন্সি ক্লিন এবং গেট ---
+      # --- ৩. ডিপেন্ডেন্সি ক্লিন এবং গেট (Force Update) ---
       - name: 🛠️ Install Dependencies
         run: |
           flutter clean
+          flutter pub cache clean --force
           flutter pub get
 
       # --- ৪. Web Build & Deploy ---
