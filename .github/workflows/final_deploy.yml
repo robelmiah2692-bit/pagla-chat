@@ -51,9 +51,10 @@ jobs:
           flutter pub cache clean --force
           flutter pub get
 
-      # --- ৪. Web Build & Deploy ---
+      # --- ৪. Web Build & Deploy (Ignore errors for APK) ---
       - name: 🌐 Build Web Release
         run: flutter build web --release --no-tree-shake-icons
+        continue-on-error: true # <--- এটি যোগ করা হয়েছে যাতে ওয়েব বিল্ড ফেল করলেও APK তৈরি হয়
 
       - name: 🔥 Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
@@ -62,14 +63,16 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PAGLA_CHAT }}'
           projectId: paglachat
           channelId: live
+        continue-on-error: true
 
       - name: 🐙 Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: build/web
           branch: gh-pages
+        continue-on-error: true
 
-      # --- ৫. Android APK Build ---
+      # --- ৫. Android APK Build (এটিই আমাদের মূল লক্ষ্য) ---
       - name: 🤖 Build Android APK
         run: flutter build apk --release --no-tree-shake-icons
 
