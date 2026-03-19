@@ -1,15 +1,15 @@
 buildscript {
-    ext.kotlin_version = '1.9.10' // এটি ১.৯.১০ করলে আপনার নতুন প্যাকেজগুলো ভালো কাজ করবে
+    ext.kotlin_version = '1.9.10' 
     repositories {
         google()
         mavenCentral()
     }
 
     dependencies {
-        // ফ্লাটার ৩.১৯.০ এবং গ্র্যাডল ৮.২.১ এর জন্য এটি পারফেক্ট
+        // ফ্লাটার ৩.১৯.০ এবং গ্র্যাডল ৮.২.১ এর জন্য পারফেক্ট কম্বিনেশন
         classpath 'com.android.tools.build:gradle:8.2.1'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        // গুগল সার্ভিস ৪.৪.০ ব্যবহার করা ভালো (বেশি স্টাবল)
+        // গুগল সার্ভিস ৪.৪.০ (বেশি স্টাবল এবং এপিকে-তে নোটিফিকেশন ফিক্স করে)
         classpath 'com.google.gms:google-services:4.4.0' 
     }
 }
@@ -18,6 +18,8 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // নিচের লাইনটি যোগ করা হলো যাতে কোনো থার্ড পার্টি লাইব্রেরি মিস না হয়
+        maven { url 'https://www.jitpack.io' }
     }
 }
 
