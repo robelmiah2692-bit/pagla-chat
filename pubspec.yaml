@@ -57,7 +57,7 @@ dev_dependencies:
 # --- আইকন সেটআপ ---
 flutter_launcher_icons:
   android: true 
-  ios: true
+  ios: false
   image_path: "assets/logo.png"
   adaptive_icon_background: "#0F0F1E"
   min_sdk_android: 21
