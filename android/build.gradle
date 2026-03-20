@@ -1,4 +1,5 @@
 buildscript {
+    // কোটলিন ভার্সন সবার উপরে ডিফাইন করা ভালো
     ext.kotlin_version = '1.9.10'
     repositories {
         google()
@@ -6,10 +7,10 @@ buildscript {
     }
 
     dependencies {
-        // এই লাইনগুলোই কোটলিনকে ফ্লাটারের সাথে পরিচয় করিয়ে দেবে
         classpath 'com.android.tools.build:gradle:8.2.1'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath 'com.google.gms:google-services:4.4.1'
+        // ফায়ারবেস ভার্সন কিছুটা আপডেট করা হলো স্ট্যাবিলিটির জন্য
+        classpath 'com.google.gms:google-services:4.4.0'
     }
 }
 
@@ -17,17 +18,24 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        // জিতপ্যাক আপনার অডিও/ভিডিও লাইব্রেরির জন্য নিচে দেওয়া হলো
+        // জিতপ্যাক আপনার অডিও/ভিডিও লাইব্রেরির জন্য জরুরি
         maven { url 'https://www.jitpack.io' }
     }
 }
 
+// বিল্ড ডিরেক্টরি সেটআপ
 rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
+
+// ইভ্যালুয়েশন ডিপেন্ডেন্সি এক জায়গায় রাখা হলো
 subprojects {
-    project.evaluationDependsOn(':app')
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.evaluationDependsOn(':app')
+        }
+    }
 }
 
 tasks.register("clean", Delete) {
