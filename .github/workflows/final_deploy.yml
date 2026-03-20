@@ -34,7 +34,6 @@ jobs:
           flutter pub get
 
       - name: 📝 Create local.properties
-        # এখানে অ্যান্ড্রয়েড এবং ফ্লাটার উভয় SDK পাথ নিশ্চিত করা হয়েছে
         run: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
@@ -56,12 +55,9 @@ jobs:
           fi
 
       - name: 🤖 Build Android APK
-        # বিল্ডের আগে অ্যান্ড্রয়েড ক্লিন এবং পারমিশন ঠিক করা হয়েছে
+        # এখানে সরাসরি 'flutter build' ব্যবহার করা হয়েছে যাতে হারানো gradlew ফাইল নিয়ে ঝামেলা না হয়
         run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew clean
-          cd ..
+          flutter pub get
           flutter build apk --release --no-tree-shake-icons
 
       - name: 📤 Upload APK Artifact
