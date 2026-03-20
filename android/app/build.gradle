@@ -1,12 +1,11 @@
-// ১. নিয়ম অনুযায়ী plugins ব্লক সবার আগে থাকতে হবে
 plugins {
     id "com.android.application"
     id "kotlin-android"
+    // নতুন নিয়ম অনুযায়ী ফ্লাটার প্লাগইন
     id "dev.flutter.flutter-gradle-plugin"
     id "com.google.gms.google-services"
 }
 
-// ২. এরপর আপনি প্রোপার্টিজ লোড করার কোড রাখতে পারবেন
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file('local.properties')
 if (localPropertiesFile.exists()) {
@@ -93,5 +92,5 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
 }
 
-// এই লাইনটি ফাইলের একদম শেষে থাকবে
-apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
+// গুরুত্বপূর্ণ: নিচে থাকা 'apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"' 
+// লাইনটি সরিয়ে ফেলা হয়েছে কারণ আমরা উপরে নতুন 'dev.flutter.flutter-gradle-plugin' ব্যবহার করছি।
