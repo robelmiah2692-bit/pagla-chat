@@ -10,51 +10,50 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # --- নোটিফিকেশন ---
-  firebase_messaging: ^14.7.15 
-  flutter_local_notifications: ^17.0.0
-
-  # --- ভয়েস চ্যাট (Agora) ---
-  agora_rtc_engine: ^6.3.2
-  permission_handler: ^11.3.0
-  wakelock_plus: ^1.2.8
-  universal_html: ^2.2.4
-  
-  # --- ফায়ারবেস (Firebase) ---
-  firebase_core: ^2.27.0
-  firebase_auth: ^4.17.8
-  cloud_firestore: ^4.15.8
-  firebase_database: ^10.4.9
-  firebase_remote_config: ^4.3.8
-  firebase_storage: ^11.6.0
+  # --- ফায়ারবেস (Firebase) - ভার্সনগুলো লেটেস্ট করা হয়েছে ---
+  firebase_core: ^2.32.0
+  firebase_auth: ^4.20.0
+  cloud_firestore: ^4.17.5
+  firebase_database: ^10.5.2
+  firebase_messaging: ^14.9.4
+  firebase_storage: ^11.7.7
+  firebase_remote_config: ^4.4.10
   
   # --- গুগল লগইন ---
   google_sign_in: ^6.2.1
 
-  # --- ইউটিউব ও ওয়েব ---
-  webview_flutter: ^4.4.2
-  http: ^1.2.0
+  # --- নোটিফিকেশন ---
+  flutter_local_notifications: ^17.1.2
 
-  # --- ব্যাকগ্রাউন্ড সার্ভিস ও আইডি ---
+  # --- ভয়েস চ্যাট ও মিডিয়া (Agora) ---
+  agora_rtc_engine: ^6.3.2
+  permission_handler: ^11.3.1 # এটি আপডেট করা জরুরি ছিল
+  wakelock_plus: ^1.2.8
+  universal_html: ^2.2.4
+  audioplayers: ^5.2.1
+  
+  # --- ইউটিউব ও ওয়েব ---
+  webview_flutter: ^4.7.0 # ভার্সন ৪.৪.২ থেকে ৪.৭.০ তে আনা হয়েছে
+  http: ^1.2.1
+
+  # --- ব্যাকগ্রাউন্ড ও ডিভাইস ইনফো ---
   flutter_background_service: ^5.0.10
   device_info_plus: ^9.1.2
   package_info_plus: ^8.0.2
   uuid: ^4.3.3
 
-  # --- অন্যান্য দরকারি প্যাকেজ ---
-  cached_network_image: ^3.3.0
-  file_picker: ^8.0.0
-  audioplayers: ^5.2.1
-  image_picker: ^1.0.7
-  shared_preferences: ^2.2.2
-  lottie: ^3.1.0
+  # --- ইউটিলিটি ও ডিজাইন ---
+  cached_network_image: ^3.3.1
+  file_picker: ^8.0.3
+  image_picker: ^1.1.1
+  shared_preferences: ^2.2.3
+  lottie: ^3.1.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: "^0.13.1"
 
-# --- আইকন সেটআপ ---
 flutter_launcher_icons:
   android: true 
   ios: false
@@ -62,13 +61,8 @@ flutter_launcher_icons:
   adaptive_icon_background: "#0F0F1E"
   min_sdk_android: 21
 
-# --- ফ্লাটার এসেট কনফিগারেশন ---
 flutter:
   uses-material-design: true
-
   assets:
     - assets/logo.png
-    - assets/images/          # এই ফোল্ডারের সব ছবি অটোমেটিক পেয়ে যাবেন
-    # আপনার যদি আরও অডিও বা লটি ফাইল থাকে তবে এভাবে যোগ করতে পারেন:
-    # - assets/audio/
-    # - assets/lottie/
+    - assets/images/
