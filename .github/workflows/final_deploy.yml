@@ -55,9 +55,14 @@ jobs:
           fi
 
       - name: 🤖 Build Android APK
-        # এখানে সরাসরি 'flutter build' ব্যবহার করা হয়েছে যাতে হারানো gradlew ফাইল নিয়ে ঝামেলা না হয়
+        # এখানে ক্যাশ রিপেয়ার এবং গ্র্যাডল ক্লিন যোগ করা হয়েছে
         run: |
+          flutter pub cache repair
           flutter pub get
+          cd android
+          chmod +x gradlew
+          ./gradlew clean
+          cd ..
           flutter build apk --release --no-tree-shake-icons
 
       - name: 📤 Upload APK Artifact
