@@ -4,18 +4,30 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        // গ্র্যাডল ভার্সন ৮.২ এর সাথে সামঞ্জস্যতা
         classpath 'com.android.tools.build:gradle:8.2.1'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"
     }
 }
 
+// --- ফ্লাটার প্লাগইন লোড করার জন্য এই অংশটি বসানো হলো ---
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withInputStream { stream ->
+        localProperties.load(stream)
+    }
+}
+
+def flutterRoot = localProperties.getProperty('flutter.sdk')
+if (flutterRoot == null) {
+    throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in local.properties file.")
+}
+// ------------------------------------------------------
+
 plugins {
     id "com.android.application"
     id "kotlin-android"
-    // নতুন নিয়ম অনুযায়ী ফ্লাটার প্লাগইন
     id "dev.flutter.flutter-gradle-plugin"
-    // ফায়ারবেস গুগল সার্ভিস
     id "com.google.gms.google-services"
 }
 
@@ -25,7 +37,6 @@ android {
 
     signingConfigs {
         release {
-            // গিটহাব অ্যাকশন যেন ফাইলটি খুঁজে পায়
             storeFile file("upload-keystore.jks") 
             storePassword "pagla123" 
             keyAlias "pagla_alias" 
@@ -42,7 +53,6 @@ android {
         multiDexEnabled true 
     }
 
-    // --- মেমোরি এবং লাইব্রেরি কনফ্লিক্ট ফিক্স ---
     packagingOptions {
         pickFirst 'lib/x86/libc++_shared.so'
         pickFirst 'lib/x86_64/libc++_shared.so'
@@ -78,11 +88,9 @@ android {
 }
 
 dependencies {
-    // সরাসরি কোটলিন ভার্সন বসানো হয়েছে
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.10"
     implementation 'androidx.multidex:multidex:2.0.1'
     
-    // Firebase (Bom version 33.1.0)
     implementation platform('com.google.firebase:firebase-bom:33.1.0')
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.firebase:firebase-auth'
@@ -90,9 +98,11 @@ dependencies {
     implementation 'com.google.firebase:firebase-database'
     implementation 'com.google.firebase:firebase-messaging'
     
-    // UI Stability and Android 15 support
     implementation 'androidx.window:window:1.2.0'
     implementation 'androidx.window:window-java:1.2.0'
     implementation 'androidx.activity:activity-ktx:1.8.2'
     implementation 'androidx.appcompat:appcompat:1.6.1'
 }
+
+// এই লাইনটি ফাইলের একদম শেষে থাকতে হবে
+apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
