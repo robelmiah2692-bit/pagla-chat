@@ -33,7 +33,6 @@ jobs:
           flutter clean
           flutter pub get
 
-      # --- এই ধাপটি settings.gradle এর জন্য বাধ্যতামূলক ---
       - name: 📝 Create local.properties
         run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
 
@@ -43,7 +42,6 @@ jobs:
       - name: 🔑 Handle Permanent Keystore
         run: |
           if [ ! -f android/app/upload-keystore.jks ]; then
-            echo "স্থায়ী চাবি পাওয়া যায়নি, নতুন করে তৈরি করা হচ্ছে..."
             mkdir -p android/app
             keytool -genkey -v -keystore android/app/upload-keystore.jks -alias pagla_alias -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=PaglaChat, OU=Dev, O=Pagla, L=Dhaka, S=Dhaka, C=BD" -storepass pagla123 -keypass pagla123
             
@@ -51,13 +49,14 @@ jobs:
             git config --global user.email "github-actions[bot]@users.noreply.github.com"
             git add android/app/upload-keystore.jks
             git commit -m "chore: add permanent keystore file [skip ci]" || echo "No changes to commit"
-            git push || echo "Push failed, might already exist"
-          else
-            echo "চাবি অলরেডি প্রোজেক্টে আছে।"
+            git push || echo "Push failed"
           fi
 
+      # --- এই নতুন ধাপটি আপনার ৫৩টি প্লাগইন এরর দূর করবে ---
       - name: 🤖 Build Android APK
-        run: flutter build apk --release --no-tree-shake-icons
+        run: |
+          flutter pub get
+          flutter build apk --release --no-tree-shake-icons
 
       - name: 📤 Upload APK Artifact
         uses: actions/upload-artifact@v4
