@@ -6,6 +6,7 @@ buildscript {
     dependencies {
         // গ্র্যাডল ভার্সন ৮.২ এর সাথে সামঞ্জস্যতা
         classpath 'com.android.tools.build:gradle:8.2.1'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"
     }
 }
 
@@ -49,7 +50,6 @@ android {
         pickFirst 'lib/arm64-v8a/libc++_shared.so'
         pickFirst '**/libc++_shared.so'
         
-        // ডুপ্লিকেট ফাইল এরর ফিক্স করার জন্য নিচের লাইনগুলো যোগ করা হয়েছে
         exclude 'META-INF/proguard/androidx-annotations.pro'
         exclude 'META-INF/LICENSE'
         exclude 'META-INF/NOTICE'
@@ -68,18 +68,18 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '17'
     }
 }
 
 dependencies {
     // সরাসরি কোটলিন ভার্সন বসানো হয়েছে
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.10"
     implementation 'androidx.multidex:multidex:2.0.1'
     
     // Firebase (Bom version 33.1.0)
