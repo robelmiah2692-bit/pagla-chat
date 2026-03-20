@@ -55,9 +55,13 @@ jobs:
           fi
 
       - name: 🤖 Build Android APK
-        # আমরা সরাসরি ফ্লাটারকে দায়িত্ব দিচ্ছি, এতে 'gradlew' না থাকলেও সমস্যা হবে না
+        # মোবাইল ফ্রেন্ডলি 'মাস্টার ট্রিক' এখানে যোগ করা হয়েছে
         run: |
+          flutter pub cache repair
           flutter pub get
+          # অ্যান্ড্রয়েড প্রোজেক্ট রি-জেনারেট করা যাতে প্লাগইন পাথ ঠিক হয়
+          flutter create . --platforms=android
+          # বিল্ড শুরু
           flutter build apk --release --no-tree-shake-icons
 
       - name: 📤 Upload APK Artifact
