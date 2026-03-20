@@ -10,14 +10,14 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # --- ফায়ারবেস (Firebase) - ভার্সনগুলো লেটেস্ট করা হয়েছে ---
+  # --- ফায়ারবেস (Firebase) ---
   firebase_core: ^2.32.0
   firebase_auth: ^4.20.0
   cloud_firestore: ^4.17.5
   firebase_database: ^10.5.2
   firebase_messaging: ^14.9.4
   firebase_storage: ^11.7.7
-  firebase_remote_config: ^4.4.10
+  firebase_remote_config: ^4.4.7  # এখানে পরিবর্তন করা হয়েছে
   
   # --- গুগল লগইন ---
   google_sign_in: ^6.2.1
@@ -27,13 +27,13 @@ dependencies:
 
   # --- ভয়েস চ্যাট ও মিডিয়া (Agora) ---
   agora_rtc_engine: ^6.3.2
-  permission_handler: ^11.3.1 # এটি আপডেট করা জরুরি ছিল
+  permission_handler: ^11.3.1 
   wakelock_plus: ^1.2.8
   universal_html: ^2.2.4
   audioplayers: ^5.2.1
   
   # --- ইউটিউব ও ওয়েব ---
-  webview_flutter: ^4.7.0 # ভার্সন ৪.৪.২ থেকে ৪.৭.০ তে আনা হয়েছে
+  webview_flutter: ^4.7.0 
   http: ^1.2.1
 
   # --- ব্যাকগ্রাউন্ড ও ডিভাইস ইনফো ---
