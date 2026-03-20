@@ -1,8 +1,23 @@
+buildscript {
+    ext.kotlin_version = '1.9.10'
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        // এই লাইনগুলোই কোটলিনকে ফ্লাটারের সাথে পরিচয় করিয়ে দেবে
+        classpath 'com.android.tools.build:gradle:8.2.1'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath 'com.google.gms:google-services:4.4.1'
+    }
+}
+
 allprojects {
     repositories {
         google()
         mavenCentral()
-        // জিতপ্যাক আপনার অনেক অডিও/ভিডিও লাইব্রেরির জন্য লাগে, তাই এটি রাখলাম
+        // জিতপ্যাক আপনার অডিও/ভিডিও লাইব্রেরির জন্য নিচে দেওয়া হলো
         maven { url 'https://www.jitpack.io' }
     }
 }
