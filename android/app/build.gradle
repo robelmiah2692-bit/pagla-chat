@@ -1,7 +1,6 @@
 plugins {
     id "com.android.application"
     id "kotlin-android"
-    // নতুন নিয়ম অনুযায়ী ফ্লাটার প্লাগইন
     id "dev.flutter.flutter-gradle-plugin"
     id "com.google.gms.google-services"
 }
@@ -92,5 +91,5 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
 }
 
-// গুরুত্বপূর্ণ: নিচে থাকা 'apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"' 
-// লাইনটি সরিয়ে ফেলা হয়েছে কারণ আমরা উপরে নতুন 'dev.flutter.flutter-gradle-plugin' ব্যবহার করছি।
+// এই লাইনটি ফেরত আনা হলো কারণ এটি ছাড়া ফ্লাটার এম্বেডিং লোড হয় না
+apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
