@@ -1,5 +1,4 @@
 buildscript {
-    // কোটলিন ভার্সন সবার উপরে ডিফাইন করা ভালো
     ext.kotlin_version = '1.9.10'
     repositories {
         google()
@@ -9,7 +8,6 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:8.2.1'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        // ফায়ারবেস ভার্সন কিছুটা আপডেট করা হলো স্ট্যাবিলিটির জন্য
         classpath 'com.google.gms:google-services:4.4.0'
     }
 }
@@ -18,25 +16,17 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        // জিতপ্যাক আপনার অডিও/ভিডিও লাইব্রেরির জন্য জরুরি
         maven { url 'https://www.jitpack.io' }
     }
 }
 
-// বিল্ড ডিরেক্টরি সেটআপ
 rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
 
-// ইভ্যালুয়েশন ডিপেন্ডেন্সি এক জায়গায় রাখা হলো
-subprojects {
-    afterEvaluate { project ->
-        if (project.hasProperty('android')) {
-            project.evaluationDependsOn(':app')
-        }
-    }
-}
+// গোলমেলে 'evaluationDependsOn' অংশটুকু এখান থেকে চিরতরে ডিলিট করা হলো।
+// আধুনিক ফ্লাটারে এটার আর কোনো প্রয়োজন নেই।
 
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
