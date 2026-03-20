@@ -34,10 +34,13 @@ jobs:
           flutter pub get
 
       - name: 📝 Create local.properties
-        run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
+        # এখানে অ্যান্ড্রয়েড এবং ফ্লাটার উভয় SDK পাথ নিশ্চিত করা হয়েছে
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+          echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
 
       - name: 🎨 Generate App Icons
-        run: flutter pub run flutter_launcher_icons
+        run: flutter pub run flutter_launcher_icons || echo "Icon generation failed, skipping..."
 
       - name: 🔑 Handle Permanent Keystore
         run: |
@@ -49,13 +52,16 @@ jobs:
             git config --global user.email "github-actions[bot]@users.noreply.github.com"
             git add android/app/upload-keystore.jks
             git commit -m "chore: add permanent keystore file [skip ci]" || echo "No changes to commit"
-            git push || echo "Push failed"
+            git push origin main || echo "Push failed"
           fi
 
-      # --- এই নতুন ধাপটি আপনার ৫৩টি প্লাগইন এরর দূর করবে ---
       - name: 🤖 Build Android APK
+        # বিল্ডের আগে অ্যান্ড্রয়েড ক্লিন এবং পারমিশন ঠিক করা হয়েছে
         run: |
-          flutter pub get
+          cd android
+          chmod +x gradlew
+          ./gradlew clean
+          cd ..
           flutter build apk --release --no-tree-shake-icons
 
       - name: 📤 Upload APK Artifact
