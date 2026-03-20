@@ -56,18 +56,24 @@ jobs:
 
       - name: 🤖 Build Android APK
         run: |
-          flutter pub get
-          # ১. ঝামেলার সব কোটলিন ফাইল ডিলিট করা
+          # ১. প্লাগইন এরর দূর করতে পুরনো জেনারেটেড ফাইল মুছে ফেলা
+          rm -rf android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+          
+          # ২. ঝামেলার সব কোটলিন ফাইল ডিলিট করা
           rm -rf android/app/src/main/kotlin
           
-          # ২. আপনার পুরাতন জাভা ফাইলটি সঠিক পাথে নতুন করে তৈরি করা
+          # ৩. পাব ক্যাশ মেরামত এবং নতুন করে প্যাকেজ নেওয়া
+          flutter pub cache repair
+          flutter pub get
+          
+          # ৪. আপনার পুরাতন জাভা ফাইলটি সঠিক পাথে নিশ্চিত করা
           mkdir -p android/app/src/main/java/com/pagla/chat
           echo 'package com.pagla.chat;
           import io.flutter.embedding.android.FlutterActivity;
           public class MainActivity extends FlutterActivity {
           }' > android/app/src/main/java/com/pagla/chat/MainActivity.java
           
-          # ৩. বিল্ড শুরু
+          # ৫. বিল্ড শুরু
           flutter build apk --release --no-tree-shake-icons
 
       - name: 📤 Upload APK Artifact
