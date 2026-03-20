@@ -1,15 +1,12 @@
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.2.1'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"
-    }
+// ১. নিয়ম অনুযায়ী plugins ব্লক সবার আগে থাকতে হবে
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+    id "com.google.gms.google-services"
 }
 
-// --- ফ্লাটার প্লাগইন লোড করার জন্য এই অংশটি বসানো হলো ---
+// ২. এরপর আপনি প্রোপার্টিজ লোড করার কোড রাখতে পারবেন
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file('local.properties')
 if (localPropertiesFile.exists()) {
@@ -21,14 +18,6 @@ if (localPropertiesFile.exists()) {
 def flutterRoot = localProperties.getProperty('flutter.sdk')
 if (flutterRoot == null) {
     throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in local.properties file.")
-}
-// ------------------------------------------------------
-
-plugins {
-    id "com.android.application"
-    id "kotlin-android"
-    id "dev.flutter.flutter-gradle-plugin"
-    id "com.google.gms.google-services"
 }
 
 android {
@@ -104,5 +93,5 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
 }
 
-// এই লাইনটি ফাইলের একদম শেষে থাকতে হবে
+// এই লাইনটি ফাইলের একদম শেষে থাকবে
 apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
