@@ -56,24 +56,23 @@ jobs:
 
       - name: 🤖 Build Android APK
         run: |
-          # ১. সব ধরনের পুরনো জাভা এবং জেনারেটেড ফাইল মুছে ফেলা
+          # ১. পুরনো সব জটলা পরিষ্কার করা
           rm -rf android/app/src/main/java/com/pagla
-          rm -rf android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+          rm -rf android/app/src/main/kotlin
+          rm -f android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
           
-          # ২. কোটলিনের সঠিক পাথ তৈরি করা (java এর বদলে kotlin)
+          # ২. অ্যান্ড্রয়েড কনফিগারেশন আপডেট করা (এটি এরর দূর করবে)
+          flutter create . --project-name=pagla_chat --platforms=android
+          
+          # ৩. কোটলিনের সঠিক পাথ তৈরি ও ফাইল বসানো
           mkdir -p android/app/src/main/kotlin/com/pagla/chat
-          
-          # ৩. কোটলিন MainActivity ফাইল তৈরি করা
           echo 'package com.pagla.chat
           import io.flutter.embedding.android.FlutterActivity
           class MainActivity: FlutterActivity() {
           }' > android/app/src/main/kotlin/com/pagla/chat/MainActivity.kt
           
-          # ৪. ডিপেন্ডেন্সি রি-চেক করা
+          # ৪. বিল্ড শুরু
           flutter pub get
-          
-          # ৫. অ্যান্ড্রয়েড বিল্ড ক্যাশ পরিষ্কার করে ফাইনাল বিল্ড শুরু
-          cd android && ./gradlew clean && cd ..
           flutter build apk --release --no-tree-shake-icons
 
       - name: 📤 Upload APK Artifact
@@ -84,15 +83,6 @@ jobs:
 
       - name: 🌐 Build Web Release
         run: flutter build web --release --no-tree-shake-icons
-        continue-on-error: true
-
-      - name: 🔥 Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PAGLA_CHAT }}'
-          projectId: paglachat
-          channelId: live
         continue-on-error: true
 
       - name: 🐙 Deploy to GitHub Pages
