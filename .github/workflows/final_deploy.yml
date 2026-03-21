@@ -35,7 +35,7 @@ jobs:
       - name: 📦 Install dependencies
         run: flutter pub get
 
-      # 🎨 Generate App Icons (🔥 IMPORTANT FIX)
+      # 🎨 Generate App Icons
       - name: 🎨 Generate App Icons
         run: flutter pub run flutter_launcher_icons
 
@@ -58,11 +58,6 @@ jobs:
             -dname "CN=PaglaChat, OU=Dev, O=Pagla, L=Dhaka, S=Dhaka, C=BD" \
             -storepass pagla123 \
             -keypass pagla123
-
-            echo "storeFile=upload-keystore.jks" > android/key.properties
-            echo "storePassword=pagla123" >> android/key.properties
-            echo "keyAlias=pagla_alias" >> android/key.properties
-            echo "keyPassword=pagla123" >> android/key.properties
           fi
 
       # 🤖 Build Android APK
