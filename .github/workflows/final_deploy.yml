@@ -1,4 +1,5 @@
 name: Master Build and Deploy
+
 on:
   push:
     branches:
@@ -10,82 +11,78 @@ permissions:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
+      # 📂 Checkout Code
       - name: 📂 Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 
 
+      # ☕ Setup Java
       - name: ☕ Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
+      # 🚀 Setup Flutter
       - name: 🚀 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0' 
+          flutter-version: '3.22.0'
           cache: true
 
-      - name: 📝 Create local.properties (Step 1)
+      # 📦 Get Dependencies
+      - name: 📦 Install dependencies
+        run: flutter pub get
+
+      # 🧹 Clean Project
+      - name: 🧹 Clean project
+        run: flutter clean
+
+      # 📝 Create local.properties
+      - name: 📝 Create local.properties
         run: |
-          # settings.gradle যাতে ক্রাশ না করে সেজন্য আগেই পাথ সেট করা
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
 
-      - name: 🛠️ Force Repair MainActivity & Sync
-        run: |
-          flutter clean
-          
-          # ১. পুরনো জটলা মুছে ফেলা
-          rm -rf android/app/src/main/kotlin
-          rm -rf android/app/src/main/java
-          
-          # ২. আপনার প্যাকেজ (com.pagla.chat) অনুযায়ী ডিরেক্টরি তৈরি
-          mkdir -p android/app/src/main/kotlin/com/pagla/chat
-          
-          # ৩. সঠিক MainActivity.kt ইনজেক্ট করা
-          cat <<EOF > android/app/src/main/kotlin/com/pagla/chat/MainActivity.kt
-          package com.pagla.chat
-          import io.flutter.embedding.android.FlutterActivity
-          class MainActivity: FlutterActivity()
-          EOF
-          
-          flutter pub get
-
-      - name: 🎨 Generate App Icons
-        run: |
-          # রিসোর্স এরর ঠেকাতে আইকন জেনারেশন
-          flutter pub run flutter_launcher_icons || echo "Using existing icons"
-
+      # 🔑 Handle Keystore (Optional but safe)
       - name: 🔑 Handle Keystore
         run: |
-          # আপনার app/build.gradle অনুযায়ী কি-স্টোর হ্যান্ডলিং
           if [ ! -f android/app/upload-keystore.jks ]; then
-            keytool -genkey -v -keystore android/app/upload-keystore.jks -alias pagla_alias -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=PaglaChat, OU=Dev, O=Pagla, L=Dhaka, S=Dhaka, C=BD" -storepass pagla123 -keypass pagla123
-            
-            git config --global user.name "github-actions[bot]"
-            git config --global user.email "github-actions[bot]@users.noreply.github.com"
-            git add android/app/upload-keystore.jks
-            git commit -m "chore: permanent keystore added [skip ci]" || echo "No changes"
-            git push origin main || echo "Push skipped"
+            keytool -genkey -v \
+            -keystore android/app/upload-keystore.jks \
+            -alias pagla_alias \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=PaglaChat, OU=Dev, O=Pagla, L=Dhaka, S=Dhaka, C=BD" \
+            -storepass pagla123 \
+            -keypass pagla123
+
+            echo "storeFile=upload-keystore.jks" > android/key.properties
+            echo "storePassword=pagla123" >> android/key.properties
+            echo "keyAlias=pagla_alias" >> android/key.properties
+            echo "keyPassword=pagla123" >> android/key.properties
           fi
 
+      # 🤖 Build APK
       - name: 🤖 Build Android APK
-        run: |
-          # এবার সব গ্রেডল ফাইল (Root, App, Settings) সিঙ্ক হয়ে বিল্ড হবে
-          flutter build apk --release --no-tree-shake-icons
+        run: flutter build apk --release
 
+      # 📤 Upload APK
       - name: 📤 Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: pagla-chat-apk
           path: build/app/outputs/flutter-apk/app-release.apk
 
-      - name: 🐙 Deploy to GitHub Pages
+      # 🌐 Build Web (optional but recommended)
+      - name: 🌐 Build Web
+        run: flutter build web
+
+      # 🚀 Deploy Web to GitHub Pages
+      - name: 🚀 Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: build/web
           branch: gh-pages
-        continue-on-error: true
