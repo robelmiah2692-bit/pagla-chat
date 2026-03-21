@@ -31,7 +31,7 @@ jobs:
           flutter-version: '3.22.0'
           cache: true
 
-      # 🧹 Clean Flutter (IMPORTANT FIX)
+      # 🧹 Clean Flutter
       - name: 🧹 Clean Flutter
         run: flutter clean
 
@@ -43,9 +43,12 @@ jobs:
       - name: 🎨 Generate App Icons
         run: flutter pub run flutter_launcher_icons
 
-      # 🧹 Clean Android Gradle (IMPORTANT FIX)
+      # 🧹 Clean Android Gradle (FIXED)
       - name: 🧹 Clean Android
-        run: cd android && ./gradlew clean
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew clean
 
       # 📝 Create local.properties
       - name: 📝 Create local.properties
