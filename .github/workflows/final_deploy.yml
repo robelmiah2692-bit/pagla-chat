@@ -31,13 +31,13 @@ jobs:
           flutter-version: '3.22.0'
           cache: true
 
-      # 📦 Get Dependencies
+      # 📦 Install dependencies
       - name: 📦 Install dependencies
         run: flutter pub get
 
-      # 🧹 Clean Project
-      - name: 🧹 Clean project
-        run: flutter clean
+      # 🎨 Generate App Icons (🔥 IMPORTANT FIX)
+      - name: 🎨 Generate App Icons
+        run: flutter pub run flutter_launcher_icons
 
       # 📝 Create local.properties
       - name: 📝 Create local.properties
@@ -45,7 +45,7 @@ jobs:
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
 
-      # 🔑 Handle Keystore (Optional but safe)
+      # 🔑 Handle Keystore
       - name: 🔑 Handle Keystore
         run: |
           if [ ! -f android/app/upload-keystore.jks ]; then
@@ -65,9 +65,9 @@ jobs:
             echo "keyPassword=pagla123" >> android/key.properties
           fi
 
-      # 🤖 Build APK
+      # 🤖 Build Android APK
       - name: 🤖 Build Android APK
-        run: flutter build apk --release
+        run: flutter build apk --release --no-tree-shake-icons
 
       # 📤 Upload APK
       - name: 📤 Upload APK Artifact
@@ -76,7 +76,7 @@ jobs:
           name: pagla-chat-apk
           path: build/app/outputs/flutter-apk/app-release.apk
 
-      # 🌐 Build Web (optional but recommended)
+      # 🌐 Build Web
       - name: 🌐 Build Web
         run: flutter build web
 
