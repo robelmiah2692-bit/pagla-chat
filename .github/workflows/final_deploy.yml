@@ -28,17 +28,23 @@ jobs:
           flutter-version: '3.22.0' 
           cache: true
 
-      - name: 🛠️ Hard Reset Android Configuration
+      - name: 🛠️ Clean & Fix Android Project
         run: |
-          # সব পুরনো কোড ও ক্যাশ মুছে ফেলা
+          # ১. সব পুরনো ফাইল পরিষ্কার করা
           flutter clean
           rm -rf android/app/src/main/java
           rm -rf android/app/src/main/kotlin
-          rm -rf .dart_tool
           
-          # ফ্লাটারকে দিয়ে ফ্রেশ অ্যান্ড্রয়েড সেটআপ করানো (এটিই আসল ফিক্স)
-          # আমরা কোনো ম্যানুয়াল ফাইল বানাবো না, ফ্লাটার অটোমেটিক তার প্রয়োজনীয় পাথ বানিয়ে নেবে
-          flutter create . --platforms=android
+          # ২. সঠিক নামে অ্যান্ড্রয়েড প্রজেক্ট রি-জেনারেট করা (আন্ডারস্কোর ব্যবহার করে)
+          # এটি করলে "invalid package name" এরর আর আসবে না
+          flutter create . --project-name=pagla_chat --platforms=android
+          
+          # ৩. আপনার প্যাকেজ নাম অনুযায়ী কোটলিন ফাইলটি সঠিক জায়গায় সেট করা
+          mkdir -p android/app/src/main/kotlin/com/pagla/chat
+          echo 'package com.pagla.chat
+          import io.flutter.embedding.android.FlutterActivity
+          class MainActivity: FlutterActivity() {
+          }' > android/app/src/main/kotlin/com/pagla/chat/MainActivity.kt
           
           flutter pub get
 
@@ -62,7 +68,6 @@ jobs:
 
       - name: 🤖 Build Android APK
         run: |
-          # ফ্লাটার ৩.২২ এ অনেক সময় জাভা এরর দেয়, তাই আমরা একটু সাবধানী থাকব
           flutter build apk --release --no-tree-shake-icons
 
       - name: 📤 Upload APK Artifact
@@ -70,10 +75,6 @@ jobs:
         with:
           name: pagla-chat-apk
           path: build/app/outputs/flutter-apk/app-release.apk
-
-      - name: 🌐 Build Web Release
-        run: flutter build web --release --no-tree-shake-icons
-        continue-on-error: true
 
       - name: 🐙 Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
