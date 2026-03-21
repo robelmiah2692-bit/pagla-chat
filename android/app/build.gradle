@@ -1,16 +1,8 @@
 plugins {
     id "com.android.application"
     id "kotlin-android"
-    id "dev.flutter.flutter-gradle-plugin" // এটিই মেইন বস
+    id "dev.flutter.flutter-gradle-plugin" 
     id "com.google.gms.google-services"
-}
-
-def localProperties = new Properties()
-def localPropertiesFile = rootProject.file('local.properties')
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.withInputStream { stream ->
-        localProperties.load(stream)
-    }
 }
 
 android {
@@ -19,7 +11,6 @@ android {
 
     signingConfigs {
         release {
-            // আপনার গিটহাব অ্যাকশনে এই ফাইলটি জেনারেট হচ্ছে, তাই পাথ ঠিক আছে
             storeFile file("upload-keystore.jks") 
             storePassword "pagla123" 
             keyAlias "pagla_alias" 
@@ -29,7 +20,7 @@ android {
 
     defaultConfig {
         applicationId "com.pagla.chat"
-        minSdk 23 // নোটিফিকেশনের জন্য ২৩ থাকা ভালো
+        minSdk 23 
         targetSdk 34    
         versionCode 1
         versionName "1.0"
@@ -52,7 +43,7 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.release 
-            minifyEnabled false // বিল্ড ফেইল করলে এটি আপাতত false রাখুন
+            minifyEnabled false 
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
@@ -68,8 +59,12 @@ android {
     }
 }
 
+// এই অংশটি ফ্লাটারের জন্য মাস্ট, এটি না থাকলে io.flutter খুঁজে পায় না
+flutter {
+    source '../..'
+}
+
 dependencies {
-    // এখানে শুধু নিচের ৩টি লাইন রাখুন, বাকি সব ফ্লাটার অটোমেটিক ম্যানেজ করবে
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.10"
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'androidx.window:window:1.2.0'
