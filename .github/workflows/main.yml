@@ -28,8 +28,13 @@ jobs:
 
       - name: 🛠️ Repair & Create Android Folder
         run: |
+          # ফ্রেশ অ্যান্ড্রয়েড ফোল্ডার তৈরি
           flutter create . --platforms=android,web --project-name pagla_chat
           
+          # অটোমেটিক পারমিশন ইনজেক্ট করা (আগোরা ও নোটিফিকেশনের জন্য)
+          # এটি মূল ফাইলে কোনো ক্ষতি না করে শুধু পারমিশন লাইনগুলো যোগ করবে
+          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />' android/app/src/main/AndroidManifest.xml
+
       - name: 📝 Create local.properties
         run: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
@@ -38,20 +43,17 @@ jobs:
       - name: 🔑 Handle Permanent Keystore & SHA-1
         run: |
           mkdir -p android/app
-          # কি-স্টোর না থাকলে নতুন জেনারেট হবে
           if [ ! -f android/app/upload-keystore.jks ]; then
             keytool -genkey -v -keystore android/app/upload-keystore.jks -alias pagla_alias -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=PaglaChat, OU=Dev, O=Pagla, L=Dhaka, S=Dhaka, C=BD" -storepass pagla123 -keypass pagla123
             
             git config --global user.name "github-actions[bot]"
             git config --global user.email "github-actions[bot]@users.noreply.github.com"
             
-            # -f ব্যবহার করা হয়েছে যাতে .gitignore ফাইলটিকে আটকাতে না পারে
             git add -f android/app/upload-keystore.jks
             git commit -m "chore: add permanent release keystore [skip ci]" || echo "No changes"
-            git push origin main || echo "Push failed"
+            git push origin main || echo "Push skipped"
           fi
           
-          # আপনার SHA-1 দেখার কমান্ড
           echo "------- YOUR PERMANENT SHA-1 KEY BELOW -------"
           keytool -list -v -keystore android/app/upload-keystore.jks -alias pagla_alias -storepass pagla123 | grep SHA1
           echo "----------------------------------------------"
