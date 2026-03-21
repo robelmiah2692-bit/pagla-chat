@@ -28,19 +28,17 @@ jobs:
           flutter-version: '3.22.0' 
           cache: true
 
-      - name: 🛠️ Clean & Fix Android Project
+      - name: 🛠️ Clean & Force Kotlin Path
         run: |
-          # ১. সব পুরনো ফাইল পরিষ্কার করা
+          # ১. পুরনো সব জটলা পরিষ্কার করা
           flutter clean
-          rm -rf android/app/src/main/java
-          rm -rf android/app/src/main/kotlin
+          rm -rf android/app/src/main/java/com/pagla
+          rm -rf android/app/src/main/kotlin/com/pagla
           
-          # ২. সঠিক নামে অ্যান্ড্রয়েড প্রজেক্ট রি-জেনারেট করা (আন্ডারস্কোর ব্যবহার করে)
-          # এটি করলে "invalid package name" এরর আর আসবে না
-          flutter create . --project-name=pagla_chat --platforms=android
-          
-          # ৩. আপনার প্যাকেজ নাম অনুযায়ী কোটলিন ফাইলটি সঠিক জায়গায় সেট করা
+          # ২. আপনার ম্যানিফেস্টের প্যাকেজ (com.pagla.chat) অনুযায়ী ফোল্ডার বানানো
           mkdir -p android/app/src/main/kotlin/com/pagla/chat
+          
+          # ৩. সঠিক প্যাকেজ নাম দিয়ে কোটলিন ফাইল তৈরি
           echo 'package com.pagla.chat
           import io.flutter.embedding.android.FlutterActivity
           class MainActivity: FlutterActivity() {
@@ -53,7 +51,7 @@ jobs:
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
 
-      - name: 🔑 Handle Permanent Keystore
+      - name: 🔑 Handle Keystore
         run: |
           if [ ! -f android/app/upload-keystore.jks ]; then
             mkdir -p android/app
@@ -68,6 +66,7 @@ jobs:
 
       - name: 🤖 Build Android APK
         run: |
+          # সরাসরি বিল্ড, এবার ইনশাআল্লাহ আর এরর আসবে না
           flutter build apk --release --no-tree-shake-icons
 
       - name: 📤 Upload APK Artifact
