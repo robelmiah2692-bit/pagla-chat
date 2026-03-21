@@ -23,12 +23,11 @@ jobs:
 
       - name: 🛠️ Repair & Create Android Folder
         run: |
-          # আপনার মুছে ফেলা অ্যান্ড্রয়েড ফোল্ডারটি এখানে নতুন করে তৈরি হবে
-          flutter create . --platforms=android,web
+          # ড্যাশ (-) এর বদলে আন্ডারস্কোর (_) দিয়ে প্রজেক্ট রিক্রিয়েট করা
+          flutter create . --platforms=android,web --project-name pagla_chat
           
       - name: 📝 Create local.properties
         run: |
-          # এখন অ্যান্ড্রয়েড ফোল্ডার তৈরি হয়েছে, তাই এই কমান্ডটি আর এরর দিবে না
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
 
