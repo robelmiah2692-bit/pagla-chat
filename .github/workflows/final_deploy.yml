@@ -28,16 +28,19 @@ jobs:
           flutter-version: '3.22.0' 
           cache: true
 
-      - name: 🛠️ Clean & Sync (The Safe Way)
+      - name: 🛠️ Clean & Sync
         run: |
-          # কোনো ম্যানুয়াল ফাইল ডিলিট বা ইকো করার দরকার নেই
-          # আপনার রিপোজিটরির ফাইলগুলোই এখন লেটেস্ট গ্রেডল ফ্রেন্ডলি
           flutter clean
           flutter pub get
 
+      - name: 🎨 Generate App Icons (The AAPT Fix)
+        run: |
+          # আপনার assets/logo.png থেকে অ্যান্ড্রয়েডের সব আইকন জেনারেট করা হচ্ছে
+          # এটি না করলে বিল্ড টুল mipmap/ic_launcher খুঁজে পায় না
+          flutter pub run flutter_launcher_icons
+
       - name: 📝 Create local.properties
         run: |
-          # এটি settings.gradle এর পাথ এরর দূর করবে
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
 
@@ -56,7 +59,7 @@ jobs:
 
       - name: 🤖 Build Android APK
         run: |
-          # সরাসরি রিলিজ বিল্ড, ফ্লাটার প্লাগইন নিজেই সব ফাইল লিঙ্ক করে নেবে
+          # আইকন জেনারেট হওয়ার পর এবার বিল্ড সফল হবে
           flutter build apk --release --no-tree-shake-icons
 
       - name: 📤 Upload APK Artifact
