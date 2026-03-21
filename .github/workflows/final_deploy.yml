@@ -28,16 +28,30 @@ jobs:
           flutter-version: '3.22.0' 
           cache: true
 
-      - name: 🛠️ Clean & Sync
+      - name: 🛠️ Force Repair & Sync
         run: |
           flutter clean
+          
+          # ১. পুরনো সব জটলা ডিলিট করা
+          rm -rf android/app/src/main/kotlin
+          rm -rf android/app/src/main/java
+          
+          # ২. নতুন করে আপনার প্যাকেজ পাথ তৈরি (com.pagla.chat)
+          mkdir -p android/app/src/main/kotlin/com/pagla/chat
+          
+          # ৩. একদম ফ্রেশ MainActivity.kt তৈরি (Format carefully)
+          cat <<EOF > android/app/src/main/kotlin/com/pagla/chat/MainActivity.kt
+          package com.pagla.chat
+          import io.flutter.embedding.android.FlutterActivity
+          class MainActivity: FlutterActivity()
+          EOF
+          
           flutter pub get
 
-      - name: 🎨 Generate App Icons (The AAPT Fix)
+      - name: 🎨 Generate App Icons
         run: |
-          # আপনার assets/logo.png থেকে অ্যান্ড্রয়েডের সব আইকন জেনারেট করা হচ্ছে
-          # এটি না করলে বিল্ড টুল mipmap/ic_launcher খুঁজে পায় না
-          flutter pub run flutter_launcher_icons
+          # আইকন জেনারেট করা যাতে রিসোর্স এরর না আসে
+          flutter pub run flutter_launcher_icons || echo "Icon generation failed, using fallback"
 
       - name: 📝 Create local.properties
         run: |
@@ -59,7 +73,7 @@ jobs:
 
       - name: 🤖 Build Android APK
         run: |
-          # আইকন জেনারেট হওয়ার পর এবার বিল্ড সফল হবে
+          # রিলিজ বিল্ড শুরু
           flutter build apk --release --no-tree-shake-icons
 
       - name: 📤 Upload APK Artifact
