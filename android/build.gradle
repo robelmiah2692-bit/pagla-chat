@@ -1,14 +1,15 @@
 buildscript {
-    ext.kotlin_version = '1.9.10'
+    ext.kotlin_version = '1.9.10' // এটি ঠিক আছে
     repositories {
         google()
         mavenCentral()
     }
 
     dependencies {
+        // Gradle version ৮.২.১ এর সাথে কোটলিন ১.৯.১০ এর মিল থাকতে হবে
         classpath 'com.android.tools.build:gradle:8.2.1'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath 'com.google.gms:google-services:4.4.0'
+        classpath 'com.google.gms:google-services:4.4.1' // ৪.৪.০ থেকে ৪.৪.১ এ আপডেট করলাম
     }
 }
 
@@ -25,8 +26,10 @@ subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
 
-// গোলমেলে 'evaluationDependsOn' অংশটুকু এখান থেকে চিরতরে ডিলিট করা হলো।
-// আধুনিক ফ্লাটারে এটার আর কোনো প্রয়োজন নেই।
+// এটি নিশ্চিত করে যে সব সাব-প্রজেক্ট (প্লাগইন) সঠিকভাবে লোড হবে
+subprojects {
+    project.evaluationDependsOn(':app')
+}
 
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
