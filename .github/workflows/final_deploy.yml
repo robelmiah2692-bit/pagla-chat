@@ -30,23 +30,27 @@ jobs:
 
       - name: 🛠️ Clean & Force Kotlin Path
         run: |
+          # ১. পুরনো সব জটলা পরিষ্কার করা
           flutter clean
-          rm -rf android/app/src/main/java/com/pagla
-          rm -rf android/app/src/main/kotlin/com/pagla
+          rm -rf android/app/src/main/java
+          rm -rf android/app/src/main/kotlin
           
-          # আপনার ম্যানিফেস্টের প্যাকেজ অনুযায়ী পাথ তৈরি
+          # ২. আপনার ম্যানিফেস্টের প্যাকেজ (com.pagla.chat) অনুযায়ী সঠিক পাথ তৈরি
           mkdir -p android/app/src/main/kotlin/com/pagla/chat
           
-          echo 'package com.pagla.chat
+          # ৩. সঠিক ফরম্যাটে কোটলিন ফাইল তৈরি (cat <<EOF ব্যবহার করা হয়েছে যাতে ফরম্যাট ঠিক থাকে)
+          cat <<EOF > android/app/src/main/kotlin/com/pagla/chat/MainActivity.kt
+          package com.pagla.chat
           import io.flutter.embedding.android.FlutterActivity
           class MainActivity: FlutterActivity() {
-          }' > android/app/src/main/kotlin/com/pagla/chat/MainActivity.kt
+          }
+          EOF
           
           flutter pub get
 
       - name: 🎨 Create Missing Icons (The "AAPT" Fix)
         run: |
-          # বিল্ড ফেইল হওয়া ঠেকাতে আইকন ফোল্ডারগুলো আগে থেকেই তৈরি করে রাখা হচ্ছে
+          # বিল্ড ফেইল হওয়া ঠেকাতে আইকন ফোল্ডারগুলো নিশ্চিত করা
           mkdir -p android/app/src/main/res/mipmap-hdpi
           mkdir -p android/app/src/main/res/mipmap-mdpi
           mkdir -p android/app/src/main/res/mipmap-xhdpi
@@ -54,7 +58,7 @@ jobs:
           mkdir -p android/app/src/main/res/mipmap-xxxhdpi
           
           # আইকন জেনারেট করার কমান্ড
-          flutter pub run flutter_launcher_icons || echo "Icon generation failed, using default fallback..."
+          flutter pub run flutter_launcher_icons || echo "Icon generation failed, using fallback"
 
       - name: 📝 Create local.properties
         run: |
@@ -76,6 +80,7 @@ jobs:
 
       - name: 🤖 Build Android APK
         run: |
+          # সরাসরি রিলিজ বিল্ড শুরু
           flutter build apk --release --no-tree-shake-icons
 
       - name: 📤 Upload APK Artifact
