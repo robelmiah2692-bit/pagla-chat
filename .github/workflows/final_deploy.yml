@@ -28,44 +28,20 @@ jobs:
           flutter-version: '3.22.0' 
           cache: true
 
-      - name: 🛠️ Clean & Force Kotlin Path
+      - name: 🛠️ Clean & Sync (The Safe Way)
         run: |
-          # ১. পুরনো সব জটলা পরিষ্কার করা
+          # কোনো ম্যানুয়াল ফাইল ডিলিট বা ইকো করার দরকার নেই
+          # আপনার রিপোজিটরির ফাইলগুলোই এখন লেটেস্ট গ্রেডল ফ্রেন্ডলি
           flutter clean
-          rm -rf android/app/src/main/java
-          rm -rf android/app/src/main/kotlin
-          
-          # ২. আপনার ম্যানিফেস্টের প্যাকেজ (com.pagla.chat) অনুযায়ী সঠিক পাথ তৈরি
-          mkdir -p android/app/src/main/kotlin/com/pagla/chat
-          
-          # ৩. সঠিক ফরম্যাটে কোটলিন ফাইল তৈরি (cat <<EOF ব্যবহার করা হয়েছে যাতে ফরম্যাট ঠিক থাকে)
-          cat <<EOF > android/app/src/main/kotlin/com/pagla/chat/MainActivity.kt
-          package com.pagla.chat
-          import io.flutter.embedding.android.FlutterActivity
-          class MainActivity: FlutterActivity() {
-          }
-          EOF
-          
           flutter pub get
-
-      - name: 🎨 Create Missing Icons (The "AAPT" Fix)
-        run: |
-          # বিল্ড ফেইল হওয়া ঠেকাতে আইকন ফোল্ডারগুলো নিশ্চিত করা
-          mkdir -p android/app/src/main/res/mipmap-hdpi
-          mkdir -p android/app/src/main/res/mipmap-mdpi
-          mkdir -p android/app/src/main/res/mipmap-xhdpi
-          mkdir -p android/app/src/main/res/mipmap-xxhdpi
-          mkdir -p android/app/src/main/res/mipmap-xxxhdpi
-          
-          # আইকন জেনারেট করার কমান্ড
-          flutter pub run flutter_launcher_icons || echo "Icon generation failed, using fallback"
 
       - name: 📝 Create local.properties
         run: |
+          # এটি settings.gradle এর পাথ এরর দূর করবে
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
 
-      - name: 🔑 Handle Keystore
+      - name: 🔑 Handle Permanent Keystore
         run: |
           if [ ! -f android/app/upload-keystore.jks ]; then
             mkdir -p android/app
@@ -80,7 +56,7 @@ jobs:
 
       - name: 🤖 Build Android APK
         run: |
-          # সরাসরি রিলিজ বিল্ড শুরু
+          # সরাসরি রিলিজ বিল্ড, ফ্লাটার প্লাগইন নিজেই সব ফাইল লিঙ্ক করে নেবে
           flutter build apk --release --no-tree-shake-icons
 
       - name: 📤 Upload APK Artifact
