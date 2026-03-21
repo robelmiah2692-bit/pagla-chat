@@ -1,0 +1,44 @@
+name: Master Build and Deploy
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build_all:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+      
+      - name: Create local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+          echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
+
+      - name: Build APK (Android Release)
+        run: |
+          flutter pub get
+          flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pagla-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Build Flutter Web
+        run: |
+          # রেন্ডারিং এরর ঠেকাতে canvaskit সহ বিল্ড করা
+          flutter build web --web-renderer canvaskit
+
+      - name: Upload Web Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pagla-web
+          path: build/web
