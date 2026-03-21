@@ -28,18 +28,24 @@ jobs:
           flutter-version: '3.22.0' 
           cache: true
 
-      - name: 🛠️ Force Repair & Sync
+      - name: 📝 Create local.properties (Step 1)
+        run: |
+          # settings.gradle যাতে ক্রাশ না করে সেজন্য আগেই পাথ সেট করা
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+          echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
+
+      - name: 🛠️ Force Repair MainActivity & Sync
         run: |
           flutter clean
           
-          # ১. পুরনো সব জটলা ডিলিট করা
+          # ১. পুরনো জটলা মুছে ফেলা
           rm -rf android/app/src/main/kotlin
           rm -rf android/app/src/main/java
           
-          # ২. নতুন করে আপনার প্যাকেজ পাথ তৈরি (com.pagla.chat)
+          # ২. আপনার প্যাকেজ (com.pagla.chat) অনুযায়ী ডিরেক্টরি তৈরি
           mkdir -p android/app/src/main/kotlin/com/pagla/chat
           
-          # ৩. একদম ফ্রেশ MainActivity.kt তৈরি (Format carefully)
+          # ৩. সঠিক MainActivity.kt ইনজেক্ট করা
           cat <<EOF > android/app/src/main/kotlin/com/pagla/chat/MainActivity.kt
           package com.pagla.chat
           import io.flutter.embedding.android.FlutterActivity
@@ -50,30 +56,25 @@ jobs:
 
       - name: 🎨 Generate App Icons
         run: |
-          # আইকন জেনারেট করা যাতে রিসোর্স এরর না আসে
-          flutter pub run flutter_launcher_icons || echo "Icon generation failed, using fallback"
+          # রিসোর্স এরর ঠেকাতে আইকন জেনারেশন
+          flutter pub run flutter_launcher_icons || echo "Using existing icons"
 
-      - name: 📝 Create local.properties
+      - name: 🔑 Handle Keystore
         run: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
-          echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
-
-      - name: 🔑 Handle Permanent Keystore
-        run: |
+          # আপনার app/build.gradle অনুযায়ী কি-স্টোর হ্যান্ডলিং
           if [ ! -f android/app/upload-keystore.jks ]; then
-            mkdir -p android/app
             keytool -genkey -v -keystore android/app/upload-keystore.jks -alias pagla_alias -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=PaglaChat, OU=Dev, O=Pagla, L=Dhaka, S=Dhaka, C=BD" -storepass pagla123 -keypass pagla123
             
             git config --global user.name "github-actions[bot]"
             git config --global user.email "github-actions[bot]@users.noreply.github.com"
             git add android/app/upload-keystore.jks
-            git commit -m "chore: add permanent keystore file [skip ci]" || echo "No changes to commit"
-            git push origin main || echo "Push failed"
+            git commit -m "chore: permanent keystore added [skip ci]" || echo "No changes"
+            git push origin main || echo "Push skipped"
           fi
 
       - name: 🤖 Build Android APK
         run: |
-          # রিলিজ বিল্ড শুরু
+          # এবার সব গ্রেডল ফাইল (Root, App, Settings) সিঙ্ক হয়ে বিল্ড হবে
           flutter build apk --release --no-tree-shake-icons
 
       - name: 📤 Upload APK Artifact
