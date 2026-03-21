@@ -3,12 +3,17 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: write
+
 jobs:
   build_all:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+        with:
+          fetch-depth: 0
+
       - name: ☕ Setup Java
         uses: actions/setup-java@v4
         with:
@@ -23,7 +28,6 @@ jobs:
 
       - name: 🛠️ Repair & Create Android Folder
         run: |
-          # ড্যাশ (-) এর বদলে আন্ডারস্কোর (_) দিয়ে প্রজেক্ট রিক্রিয়েট করা
           flutter create . --platforms=android,web --project-name pagla_chat
           
       - name: 📝 Create local.properties
@@ -31,23 +35,40 @@ jobs:
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
 
+      - name: 🔑 Handle Permanent Keystore & SHA-1
+        run: |
+          mkdir -p android/app
+          # যদি কি-স্টোর না থাকে তবেই নতুন বানাবে (আজীবনের জন্য একবার)
+          if [ ! -f android/app/upload-keystore.jks ]; then
+            keytool -genkey -v -keystore android/app/upload-keystore.jks -alias pagla_alias -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=PaglaChat, OU=Dev, O=Pagla, L=Dhaka, S=Dhaka, C=BD" -storepass pagla123 -keypass pagla123
+            
+            # গিটহাবে ফাইলটি পারমানেন্টলি সেভ করে রাখা
+            git config --global user.name "github-actions[bot]"
+            git config --global user.email "github-actions[bot]@users.noreply.github.com"
+            git add android/app/upload-keystore.jks
+            git commit -m "chore: add permanent release keystore [skip ci]" || echo "No changes"
+            git push origin main || echo "Push failed"
+          fi
+          
+          # আপনার জন্য SHA-1 কি বের করা (এটি অ্যাকশন লগে দেখতে পাবেন)
+          echo "------- YOUR SHA-1 KEY BELOW -------"
+          keytool -list -v -keystore android/app/upload-keystore.jks -alias pagla_alias -storepass pagla123 | grep SHA1
+          echo "------------------------------------"
+
       - name: 📦 Build APK
         run: |
           flutter pub get
+          # আমরা এখন কি-স্টোর দিয়ে সাইন করছি না, শুধু জেনারেট করছি
           flutter build apk --release --no-tree-shake-icons
 
       - name: 🌐 Build Web
         run: |
           flutter build web --web-renderer canvaskit
 
-      - name: 📤 Upload APK
+      - name: 📤 Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pagla-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-
-      - name: 📤 Upload Web
-        uses: actions/upload-artifact@v4
-        with:
-          name: pagla-web
-          path: build/web
+          name: pagla-builds
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/web
