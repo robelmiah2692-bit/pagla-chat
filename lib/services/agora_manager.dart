@@ -3,7 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'dart:math';
 
-// 🛠️ এটি অ্যান্ড্রয়েড এবং ওয়েব দুই জায়গাতেই এরর ছাড়া চলে
+// 🛡️ পারমিশন হ্যান্ডলার ইমপোর্ট
+import 'package:permission_handler/permission_handler.dart';
+
+// 🛠️ এটি অ্যান্ড্রয়েড এবং ওয়েব দুই জায়গাতেই এরর ছাড়া চলে
 import 'package:universal_html/html.dart' as html;
 import 'package:universal_html/js.dart' as js;
 
@@ -83,7 +86,6 @@ class AgoraManager {
   }
 
   Future<void> forceResumeAudio() async {
-    // 🌍 শুধু ওয়েব প্লাটফর্মের জন্য এই লজিক চলবে
     if (kIsWeb) {
       try {
         js.context.callMethod('eval', [
@@ -135,12 +137,23 @@ class AgoraManager {
     if (_engine == null) await initAgora();
     _shouldBeBroadcasting = true;
     
+    // 🛡️ অ্যান্ড্রয়েড ও আইওএস এর জন্য মাইক পারমিশন চেক ও পপআপ
+    if (!kIsWeb) {
+      var status = await Permission.microphone.status;
+      if (!status.isGranted) {
+        var result = await Permission.microphone.request();
+        if (!result.isGranted) {
+          debugPrint("❌ মাইক পারমিশন না দেওয়ায় ব্রডকাস্টিং সম্ভব নয়");
+          return;
+        }
+      }
+    }
+
     if (kIsWeb) {
       try {
-        // 🛠️ universal_html ব্যবহার করায় এটি এখন APK বিল্ডে বাধা দিবে না
         await html.window.navigator.mediaDevices?.getUserMedia({'audio': true});
       } catch (e) {
-        debugPrint("❌ মাইক পারমিশন এরর: $e");
+        debugPrint("❌ ওয়েব মাইক পারমিশন এরর: $e");
       }
     }
 
