@@ -18,6 +18,7 @@ class AgoraManager {
   int? _localUid;
   bool _shouldBeBroadcasting = false;
   bool _isMicMutedLocal = false; // মাইকের বর্তমান অবস্থা ট্র্যাকিং
+  bool _isMusicPlaying = false; // মিউজিক বাজছে কি না ট্র্যাকিং
 
   RtcEngine get engine {
     if (_engine == null) {
@@ -40,15 +41,16 @@ class AgoraManager {
         channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
       ));
 
+      // মিউজিক এবং ভয়েস কোয়ালিটি উন্নত করার প্রোফাইল
+      await _engine!.setAudioProfile(
+        profile: AudioProfileType.audioProfileMusicHighQualityStereo,
+        scenario: AudioScenarioType.audioScenarioGameStreaming,
+      );
+
       if (kIsWeb) {
         await _engine!.setParameters('{"rtc.audio.force_confirm_hello": true}');
         await _engine!.setParameters('{"che.audio.opensl": true}'); 
         await _engine!.setParameters('{"che.audio.specify.codec": "OPUS"}');
-        
-        await _engine!.setAudioProfile(
-          profile: AudioProfileType.audioProfileSpeechStandard,
-          scenario: AudioScenarioType.audioScenarioGameStreaming,
-        );
       }
 
       await _engine!.enableAudioVolumeIndication(
@@ -63,9 +65,12 @@ class AgoraManager {
           _localUid = connection.localUid;
           forceResumeAudio(); 
         },
-        onUserJoined: (connection, remoteUid, elapsed) {
-          debugPrint("👥 অন্য ইউজার জয়েন করেছে: $remoteUid");
-          forceResumeAudio(); 
+        onAudioMixingStateChanged: (AudioMixingStateType state, AudioMixingReasonType reason) {
+          if (state == AudioMixingStateType.audioMixingStatePlaying) {
+            _isMusicPlaying = true;
+          } else if (state == AudioMixingStateType.audioMixingStateStopped) {
+            _isMusicPlaying = false;
+          }
         },
         onError: (err, msg) {
           debugPrint("❌ এগোরা এরর: $err - $msg");
@@ -78,6 +83,40 @@ class AgoraManager {
       debugPrint("❌ ইনিশিয়ালাইজ ফেল: $e");
     }
   }
+
+  // --- মিউজিক ফিচারসমূহ ---
+
+  // ১. গান শুরু করা (গ্যালারি বা স্টোরেজ থেকে)
+  Future<void> startMusic(String filePath) async {
+    if (_engine == null) return;
+    try {
+      await _engine!.startAudioMixing(
+        filePath: filePath,
+        loopback: true, // নিজে শোনার জন্য
+        replaceMic: false, // যেন গানের সাথে কথাও বলা যায়
+        cycle: -1, // আনলিমিটেড লুপ
+      );
+      _isMusicPlaying = true;
+      debugPrint("🎵 মিউজিক মিক্সিং শুরু: $filePath");
+    } catch (e) {
+      debugPrint("❌ মিউজিক প্লে এরর: $e");
+    }
+  }
+
+  // ২. গান বন্ধ করা
+  Future<void> stopMusic() async {
+    if (_engine == null) return;
+    await _engine!.stopAudioMixing();
+    _isMusicPlaying = false;
+  }
+
+  // ৩. গানের ভলিউম সেট করা
+  Future<void> setMusicVolume(int volume) async {
+    if (_engine == null) return;
+    await _engine!.adjustAudioMixingVolume(volume);
+  }
+
+  // --- এন্ড অফ মিউজিক ফিচার ---
 
   Future<void> forceResumeAudio() async {
     if (kIsWeb) {
@@ -130,24 +169,12 @@ class AgoraManager {
   Future<void> becomeBroadcaster() async {
     if (_engine == null) await initAgora();
     _shouldBeBroadcasting = true;
-    _isMicMutedLocal = false; // শুরুতে মাইক অন থাকবে
+    _isMicMutedLocal = false; 
     
     if (!kIsWeb) {
       var status = await Permission.microphone.status;
       if (!status.isGranted) {
-        var result = await Permission.microphone.request();
-        if (!result.isGranted) {
-          debugPrint("❌ মাইক পারমিশন না দেওয়ায় ব্রডকাস্টিং সম্ভব নয়");
-          return;
-        }
-      }
-    }
-
-    if (kIsWeb) {
-      try {
-        await html.window.navigator.mediaDevices?.getUserMedia({'audio': true});
-      } catch (e) {
-        debugPrint("❌ ওয়েব মাইক পারমিশন এরর: $e");
+        await Permission.microphone.request();
       }
     }
 
@@ -165,45 +192,44 @@ class AgoraManager {
   Future<void> _ensureAudioPublishing() async {
     if (_engine == null) return;
     
-    // যদি ইউজার ম্যানুয়ালি মাইক অফ করে থাকে, তবে পাবলিশ বন্ধ রাখতে হবে
-    bool shouldPublish = _shouldBeBroadcasting && !_isMicMutedLocal;
-
+    // মাইক এবং মিউজিক ট্র্যাক আলাদাভাবে হ্যান্ডেল করা হচ্ছে
     await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
-      publishMicrophoneTrack: shouldPublish,
+      publishMicrophoneTrack: !_isMicMutedLocal, // মাইক স্ট্যাটাস অনুযায়ী
+      publishAudioMixingTrack: true, // গান সব সময় পাবলিশ হবে যদি চলতে থাকে
       autoSubscribeAudio: true,
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
     ));
 
-    await _engine!.enableLocalAudio(shouldPublish);
-    await _engine!.muteLocalAudioStream(!shouldPublish);
+    // হার্ডওয়্যার লেভেলে মাইক কন্ট্রোল
+    await _engine!.enableLocalAudio(!_isMicMutedLocal);
     
-    if (shouldPublish) {
-      await _engine!.adjustRecordingSignalVolume(200); 
-      await _engine!.adjustPlaybackSignalVolume(200);  
+    if (!_isMicMutedLocal) {
+      await _engine!.adjustRecordingSignalVolume(150); 
     }
   }
 
   Future<void> toggleMic(bool isMute) async {
     if (_engine == null) return;
-    _isMicMutedLocal = isMute; // লোকাল স্টেট আপডেট
-    
-    await _engine!.muteLocalAudioStream(isMute);
-    await _engine!.enableLocalAudio(!isMute);
+    _isMicMutedLocal = isMute; 
     
     await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
       publishMicrophoneTrack: !isMute,
+      publishAudioMixingTrack: true, // গান অফ হবে না
     ));
     
-    debugPrint("🎤 Mic Hardware Status: ${isMute ? "MUTED" : "UNMUTED"}");
+    await _engine!.enableLocalAudio(!isMute);
+    debugPrint("🎤 Mic: ${isMute ? "OFF" : "ON"}, Music: Still Playing");
   }
 
   Future<void> becomeListener() async {
     if (_engine == null) return;
     _shouldBeBroadcasting = false;
     _keepAliveTimer?.cancel();
+    await stopMusic(); // লিসেনার হয়ে গেলে গান বন্ধ
     await _engine!.setClientRole(role: ClientRoleType.clientRoleAudience);
     await _engine!.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: false,
+      publishAudioMixingTrack: false,
       autoSubscribeAudio: true,
     ));
   }
@@ -212,6 +238,7 @@ class AgoraManager {
     _shouldBeBroadcasting = false;
     _keepAliveTimer?.cancel();
     try {
+      await stopMusic();
       if (_engine != null) await _engine!.leaveChannel();
       _localUid = null;
     } catch (e) {}
