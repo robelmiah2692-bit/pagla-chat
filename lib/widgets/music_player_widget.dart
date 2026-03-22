@@ -4,8 +4,13 @@ import 'package:file_picker/file_picker.dart';
 
 class MusicPlayerWidget extends StatefulWidget {
   final Function(String path) onMusicSelect; 
+  final Function(double volume) onVolumeChange; // ভলিউম পরিবর্তনের জন্য নতুন ফাংশন
 
-  const MusicPlayerWidget({super.key, required this.onMusicSelect});
+  const MusicPlayerWidget({
+    super.key, 
+    required this.onMusicSelect, 
+    required this.onVolumeChange, // এটি অ্যাড করা হয়েছে
+  });
 
   @override
   State<MusicPlayerWidget> createState() => _MusicPlayerWidgetState();
@@ -13,8 +18,9 @@ class MusicPlayerWidget extends StatefulWidget {
 
 class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
   List<String> savedMusicNames = [];
+  List<String> savedMusicPaths = [];
+  double _currentVolume = 0.5; // ডিফল্ট ভলিউম ৫০%
 
-  // ১. আপনার দেওয়া ২০টি গানের লাইব্রেরি (লিঙ্কসহ)
   final List<Map<String, String>> hridoyDefaultLibrary = [
     {"name": "Bangla Folk Fusion", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"},
     {"name": "Baul Soul Mix", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"},
@@ -48,6 +54,7 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       savedMusicNames = prefs.getStringList('my_music_names') ?? [];
+      savedMusicPaths = prefs.getStringList('my_music_paths') ?? [];
     });
   }
 
@@ -58,37 +65,73 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
     );
 
     if (result != null) {
+      final prefs = await SharedPreferences.getInstance();
       setState(() {
         for (var file in result.files) {
-          if (!savedMusicNames.contains(file.name)) {
+          if (file.path != null && !savedMusicPaths.contains(file.path)) {
             savedMusicNames.add(file.name);
+            savedMusicPaths.add(file.path!);
           }
         }
       });
-      final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList('my_music_names', savedMusicNames);
+      await prefs.setStringList('my_music_paths', savedMusicPaths);
     }
+  }
+
+  Future<void> deleteMusic(int index) async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      savedMusicNames.removeAt(index);
+      savedMusicPaths.removeAt(index);
+    });
+    await prefs.setStringList('my_music_names', savedMusicNames);
+    await prefs.setStringList('my_music_paths', savedMusicPaths);
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 500,
+      height: 550, // স্লাইডারের জন্য উচ্চতা বাড়ানো হয়েছে
       decoration: const BoxDecoration(
         color: Color(0xFF1A1A2E),
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
       child: DefaultTabController(
-        length: 2, // ২টা ট্যাব: লাইব্রেরি এবং ইউজারের গান
+        length: 2,
         child: Column(
           children: [
             const SizedBox(height: 12),
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
             
+            // --- নতুন ভলিউম কন্ট্রোল সেকশন (স্লাইডার) ---
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.volume_down, color: Colors.white54, size: 20),
+                  Expanded(
+                    child: Slider(
+                      value: _currentVolume,
+                      activeColor: Colors.greenAccent,
+                      inactiveColor: Colors.white10,
+                      onChanged: (value) {
+                        setState(() {
+                          _currentVolume = value;
+                        });
+                        widget.onVolumeChange(value * 100); // ১০০ এর স্কেলে কনভার্ট করে পাঠানো হচ্ছে
+                      },
+                    ),
+                  ),
+                  const Icon(Icons.volume_up, color: Colors.white54, size: 20),
+                ],
+              ),
+            ),
+
             const TabBar(
               tabs: [
-                Tab(text: "Hridoy's Playlist"),
-                Tab(text: "My Songs"),
+                Tab(text: "Hridoy's Library"),
+                Tab(text: "My Gallery"),
               ],
               labelColor: Colors.greenAccent,
               indicatorColor: Colors.greenAccent,
@@ -97,7 +140,7 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
             Expanded(
               child: TabBarView(
                 children: [
-                  // ট্যাব ১: ২০টি ডিফল্ট গান
+                  // ট্যাব ১: ডিফল্ট গান
                   ListView.builder(
                     padding: const EdgeInsets.all(10),
                     itemCount: hridoyDefaultLibrary.length,
@@ -115,7 +158,7 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                     ),
                   ),
 
-                  // ট্যাব ২: ইউজারের নিজের গান (APK-এর জন্য)
+                  // ট্যাব ২: গ্যালারির গান (ডিলিটসহ)
                   Column(
                     children: [
                       ListTile(
@@ -126,14 +169,18 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                       const Divider(color: Colors.white10),
                       Expanded(
                         child: savedMusicNames.isEmpty
-                            ? const Center(child: Text("এখনও কোনো গান যোগ করেননি", style: TextStyle(color: Colors.white24)))
+                            ? const Center(child: Text("খালি", style: TextStyle(color: Colors.white24)))
                             : ListView.builder(
                                 itemCount: savedMusicNames.length,
                                 itemBuilder: (context, index) => ListTile(
                                   leading: const Icon(Icons.audio_file, color: Colors.white54),
-                                  title: Text(savedMusicNames[index], style: const TextStyle(color: Colors.white, fontSize: 13)),
+                                  title: Text(savedMusicNames[index], maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                    onPressed: () => deleteMusic(index),
+                                  ),
                                   onTap: () {
-                                    widget.onMusicSelect(savedMusicNames[index]);
+                                    widget.onMusicSelect(savedMusicPaths[index]);
                                     Navigator.pop(context);
                                   },
                                 ),
