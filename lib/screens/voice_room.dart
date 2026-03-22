@@ -1263,10 +1263,10 @@ List<Widget> _buildFloatingEmojiAnimations() {
 
                     try {
                       // আগোরাতে আগে কোনো গান চললে তা বন্ধ করা
-                      await _engine.stopAudioMixing();
+                      await _agoraManager.engine.stopAudioMixing();
 
                       // নতুন গান আগোরার মাধ্যমে চালানো (যাতে সবাই শোনে)
-                      await _engine.startAudioMixing(
+                      await _agoraManager.engine.startAudioMixing(
                         filePath: path,
                         loopback: false, // নিজের আওয়াজ ইকো হবে না
                         replace: false,  // মাইক এবং গান একসাথে চলবে
@@ -1274,7 +1274,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                       );
 
                       // ডিফল্ট ভলিউম সেট করা
-                      await _engine.adjustAudioMixingVolume(100);
+                      await _agoraManager.engine.adjustAudioMixingVolume(100);
 
                     } catch (e) {
                       debugPrint("Agora Audio Mixing Error: $e");
@@ -1283,7 +1283,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   // ২. ভলিউম স্লাইডার নাড়ালে যা হবে
                   onVolumeChange: (volume) {
                     // আগোরার মিউজিক ভলিউম সেট করা
-                    _engine.adjustAudioMixingVolume(volume.toInt());
+                    _agoraManager.engine.adjustAudioMixingVolume(volume.toInt());
                   },
                 ),
               );
