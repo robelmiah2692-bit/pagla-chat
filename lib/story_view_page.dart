@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class StoryViewPage extends StatelessWidget {
-  final String image; // এই 'image' ভেরিয়েবলে 'storyImage' এর লিংক পাঠাতে হবে
+  final String image; 
   final String name;
   final String caption;
 
@@ -14,72 +14,124 @@ class StoryViewPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ইমেজ আছে কি না তা চেক করা
+    bool hasImage = image.isNotEmpty && image.startsWith('http');
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // ১. স্টোরি ইমেজ সেকশন (ফুল স্ক্রিন)
-          Center(
-            child: image.isNotEmpty 
-              ? Image.network(
-                  image, 
-                  fit: BoxFit.contain,
-                  width: double.infinity,
-                  // ছবি লোড হওয়ার সময় একটি লোডার দেখাবে
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return const Center(child: CircularProgressIndicator(color: Colors.white24));
-                  },
-                  // যদি ইমেজের লিংকে ভুল থাকে তবে এরর দেখাবে না, শুধু টেক্সট দেখাবে
-                  errorBuilder: (context, error, stackTrace) => _buildTextStory(),
-                )
-              : _buildTextStory(),
+          // ১. ব্যাকগ্রাউন্ড সেকশন (ছবি অথবা সুন্দর গ্রেডিয়েন্ট)
+          Positioned.fill(
+            child: hasImage
+                ? Image.network(
+                    image,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(
+                        child: CircularProgressIndicator(color: Colors.white24),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) => _buildTextStoryBackground(),
+                  )
+                : _buildTextStoryBackground(),
           ),
 
-          // ২. উপরে ইউজারের প্রোফাইল ও নাম
+          // ২. হালকা কালো শ্যাডো (যাতে উপরের নাম এবং নিচের ক্যাপশন পরিষ্কার বোঝা যায়)
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.7),
+                    Colors.transparent,
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.7),
+                  ],
+                  stops: const [0.0, 0.2, 0.8, 1.0],
+                ),
+              ),
+            ),
+          ),
+
+          // ৩. ছবি না থাকলে মাঝখানে বড় করে ক্যাপশন দেখানো
+          if (!hasImage)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(30.0),
+                child: Text(
+                  caption,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+
+          // ৪. উপরে ইউজারের প্রোফাইল ও নাম
           Positioned(
             top: 50,
             left: 20,
-            right: 20,
+            right: 10,
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: Colors.white24, 
-                  child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white)),
+                  radius: 20,
+                  backgroundColor: Colors.blueAccent,
+                  child: Text(
+                    name.isNotEmpty ? name[0].toUpperCase() : "?",
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                    const Text("Just now", style: TextStyle(color: Colors.white54, fontSize: 12)),
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const Text(
+                      "Just now",
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
                   ],
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
           ),
 
-          // ৩. নিচে ক্যাপশন (যদি থাকে)
-          if (caption.isNotEmpty && image.isNotEmpty)
+          // ৫. নিচে ক্যাপশন (যদি ছবি থাকে তবেই নিচে ছোট করে দেখাবে)
+          if (hasImage && caption.isNotEmpty)
             Positioned(
-              bottom: 40,
+              bottom: 50,
               left: 20,
               right: 20,
               child: Container(
-                padding: const EdgeInsets.all(15),
+                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(15),
+                  color: Colors.black45,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   caption,
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -89,14 +141,15 @@ class StoryViewPage extends StatelessWidget {
     );
   }
 
-  // ছবি না থাকলে শুধু লেখা দেখানোর জন্য ছোট উইজেট
-  Widget _buildTextStory() {
-    return Padding(
-      padding: const EdgeInsets.all(30.0),
-      child: Text(
-        caption, 
-        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500), 
-        textAlign: TextAlign.center
+  // ছবি না থাকলে সুন্দর একটি রঙিন ব্যাকগ্রাউন্ড তৈরির জন্য উইজেট
+  Widget _buildTextStoryBackground() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF833ab4), Color(0xFFfd1d1d), Color(0xFFfcb045)], // ইন্সটাগ্রাম/ফেসবুক স্টাইল গ্রেডিয়েন্ট
+        ),
       ),
     );
   }
