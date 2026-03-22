@@ -26,7 +26,7 @@ class _HomePageState extends State<HomePage> {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 70, // পারফরম্যান্সের জন্য ছবির কোয়ালিটি একটু কমানো হয়েছে
+        imageQuality: 70, 
       );
       
       if (image != null) {
@@ -48,7 +48,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showPostModal() {
-    // পোস্ট করার সময় ভেরিয়েবল রিসেট করে নেওয়া
     _captionController.clear();
     _pickedImage = null;
     _webImageBytes = null;
@@ -93,7 +92,6 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 15),
 
-              // ইমেজ প্রিভিউ
               if (_pickedImage != null)
                 Stack(
                   children: [
@@ -152,8 +150,6 @@ class _HomePageState extends State<HomePage> {
                 onPressed: () async {
                   String text = _captionController.text.trim();
                   if (_pickedImage != null || text.isNotEmpty) {
-                    
-                    // লোডিং ডায়ালগ
                     showDialog(
                       context: context, 
                       barrierDismissible: false,
@@ -226,10 +222,8 @@ class _HomePageState extends State<HomePage> {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            // স্টোরি সেকশন
             const SliverToBoxAdapter(child: StorySection()),
             
-            // পোস্ট ফিড
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('stories')
@@ -239,7 +233,7 @@ class _HomePageState extends State<HomePage> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.top(50),
+                      padding: EdgeInsets.only(top: 50), // ✅ ফিক্স করা হয়েছে (EdgeInsets.only)
                       child: Center(child: CircularProgressIndicator(color: Colors.white24)),
                     ),
                   );
@@ -248,7 +242,7 @@ class _HomePageState extends State<HomePage> {
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return const SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.top(100),
+                      padding: EdgeInsets.only(top: 100), // ✅ ফিক্স করা হয়েছে (EdgeInsets.only)
                       child: Center(
                         child: Text("এখনও কোনো পোস্ট নেই!", style: TextStyle(color: Colors.white24)),
                       ),
@@ -271,7 +265,7 @@ class _HomePageState extends State<HomePage> {
                 );
               },
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 80)), // নিচে ফাঁকা জায়গা
+            const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
         ),
       ),
