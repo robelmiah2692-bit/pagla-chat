@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; 
-import 'package:flutter/foundation.dart'; // 🔥 kIsWeb ব্যবহারের জন্য
-import 'package:universal_html/html.dart' as html;
-
-// 🔥 অ্যান্ড্রয়েড ও ওয়েব কনফ্লিক্ট এড়ানোর জন্য io প্রিফিক্স ব্যবহার করা হয়েছে
+import 'package:flutter/foundation.dart'; 
 import 'dart:io' as io; 
 
 import 'story_section.dart'; 
 import 'stories_service.dart'; 
-import 'app_config.dart';
 import 'post_card.dart'; 
 
 class HomePage extends StatefulWidget {
@@ -22,28 +18,29 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final ImagePicker _picker = ImagePicker();
   XFile? _pickedImage;
-  Uint8List? _webImageBytes; // 🔥 ওয়েবের ছবির ডাটা রাখার জন্য
+  Uint8List? _webImageBytes; 
   final TextEditingController _captionController = TextEditingController();
 
   // গ্যালারি থেকে ছবি সিলেক্ট করার ফাংশন
   Future<void> _pickImage(Function setModalState) async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70, // পারফরম্যান্সের জন্য ছবির কোয়ালিটি একটু কমানো হয়েছে
+      );
+      
       if (image != null) {
         if (kIsWeb) {
-          // 🔥 ওয়েবের জন্য ছবির বাইটস রিড করা
           final bytes = await image.readAsBytes();
           setModalState(() {
             _webImageBytes = bytes;
             _pickedImage = image;
           });
         } else {
-          // মোবাইলের জন্য শুধু পাথ
           setModalState(() {
             _pickedImage = image;
           });
         }
-        setState(() {}); 
       }
     } catch (e) {
       debugPrint("Error picking image: $e");
@@ -51,6 +48,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showPostModal() {
+    // পোস্ট করার সময় ভেরিয়েবল রিসেট করে নেওয়া
+    _captionController.clear();
+    _pickedImage = null;
+    _webImageBytes = null;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -80,7 +82,7 @@ class _HomePageState extends State<HomePage> {
               TextField(
                 controller: _captionController,
                 style: const TextStyle(color: Colors.white),
-                maxLines: 2,
+                maxLines: 3,
                 decoration: InputDecoration(
                   hintText: "আপনার মনের কথা লিখুন...",
                   hintStyle: const TextStyle(color: Colors.white24, fontSize: 14),
@@ -91,12 +93,12 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 15),
 
-              // ২. 🔥 ইমেজ প্রিভিউ সেকশন (Web & Mobile Fixed)
+              // ইমেজ প্রিভিউ
               if (_pickedImage != null)
                 Stack(
                   children: [
                     Container(
-                      height: 200,
+                      height: 180,
                       width: double.infinity,
                       margin: const EdgeInsets.only(bottom: 10),
                       decoration: BoxDecoration(
@@ -106,8 +108,7 @@ class _HomePageState extends State<HomePage> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: kIsWeb 
-                          ? Image.memory(_webImageBytes!, fit: BoxFit.cover) // ওয়েবের প্রিভিউ
-                          // ✅ io.File ব্যবহার করা হয়েছে যাতে বিল্ড এরর না আসে
+                          ? Image.memory(_webImageBytes!, fit: BoxFit.cover) 
                           : Image.file(io.File(_pickedImage!.path), fit: BoxFit.cover), 
                       ),
                     ),
@@ -119,8 +120,9 @@ class _HomePageState extends State<HomePage> {
                           _webImageBytes = null;
                         }),
                         child: Container(
-                          decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                          child: const Icon(Icons.close, color: Colors.white, size: 20),
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(color: Colors.black87, shape: BoxShape.circle),
+                          child: const Icon(Icons.close, color: Colors.white, size: 18),
                         ),
                       ),
                     )
@@ -134,7 +136,7 @@ class _HomePageState extends State<HomePage> {
                   decoration: const BoxDecoration(color: Colors.white10, shape: BoxShape.circle),
                   child: const Icon(Icons.photo_library, color: Colors.greenAccent),
                 ),
-                title: const Text("গ্যালারি থেকে ছবি নিন", style: TextStyle(color: Colors.white, fontSize: 14)),
+                title: const Text("ফটো যোগ করুন", style: TextStyle(color: Colors.white, fontSize: 14)),
                 onTap: () => _pickImage(setModalState),
               ),
 
@@ -145,38 +147,42 @@ class _HomePageState extends State<HomePage> {
                   backgroundColor: Colors.pinkAccent,
                   minimumSize: const Size(double.infinity, 50),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 5,
                 ),
                 onPressed: () async {
                   String text = _captionController.text.trim();
                   if (_pickedImage != null || text.isNotEmpty) {
                     
+                    // লোডিং ডায়ালগ
                     showDialog(
                       context: context, 
                       barrierDismissible: false,
                       builder: (c) => const Center(child: CircularProgressIndicator(color: Colors.pinkAccent))
                     );
                     
-                    // 🔥 ওয়েব বাইটস সহ আপলোড
-                    await StoriesService().uploadStory(
-                      _pickedImage?.path ?? "",
-                      text,
-                      webImageBytes: _webImageBytes, 
-                    );
+                    try {
+                      await StoriesService().uploadStory(
+                        _pickedImage?.path ?? "",
+                        text,
+                        webImageBytes: _webImageBytes, 
+                      );
 
-                    _captionController.clear();
-                    setState(() {
-                      _pickedImage = null;
-                      _webImageBytes = null;
-                    });
-
-                    if (mounted) {
-                      Navigator.pop(context); // ক্লোজ লোডিং
-                      Navigator.pop(context); // ক্লোজ মডেল
+                      if (mounted) {
+                        Navigator.pop(context); // ক্লোজ লোডিং
+                        Navigator.pop(context); // ক্লোজ মডেল
+                        
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("পোস্ট সফলভাবে লাইভ হয়েছে! 🔥"), 
+                            backgroundColor: Colors.green,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) Navigator.pop(context);
+                      debugPrint("Upload Error: $e");
                     }
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("পোস্ট সফলভাবে লাইভ হয়েছে! 🔥"), backgroundColor: Colors.green),
-                    );
                   }
                 },
                 child: const Text("পোস্ট করুন", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
@@ -194,47 +200,80 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
       appBar: AppBar(
-        title: const Text("PAGLA CHAT", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        backgroundColor: Colors.transparent,
+        title: const Text(
+          "PAGLA CHAT", 
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.2)
+        ),
+        centerTitle: true,
+        backgroundColor: const Color(0xFF0F0F1E),
         elevation: 0,
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none, color: Colors.white)),
+          IconButton(
+            onPressed: () {}, 
+            icon: const Icon(Icons.notifications_none, color: Colors.white)
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showPostModal,
         backgroundColor: Colors.pinkAccent,
+        elevation: 10,
         child: const Icon(Icons.add, size: 30, color: Colors.white),
       ),
-      body: CustomScrollView(
-        slivers: [
-          const SliverToBoxAdapter(child: StorySection()),
-          StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('stories')
-                .orderBy('timestamp', descending: true)
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
-              
-              final docs = snapshot.data!.docs;
-              if (docs.isEmpty) {
-                return const SliverToBoxAdapter(
-                  child: Center(child: Text("কোনো পোস্ট নেই", style: TextStyle(color: Colors.white24))),
-                );
-              }
-              return SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => PostCard(
-                    data: docs[index].data() as Map<String, dynamic>, 
-                    postId: docs[index].id
+      body: RefreshIndicator(
+        onRefresh: () async => setState(() {}),
+        color: Colors.pinkAccent,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            // স্টোরি সেকশন
+            const SliverToBoxAdapter(child: StorySection()),
+            
+            // পোস্ট ফিড
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('stories')
+                  .orderBy('timestamp', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.top(50),
+                      child: Center(child: CircularProgressIndicator(color: Colors.white24)),
+                    ),
+                  );
+                }
+                
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.top(100),
+                      child: Center(
+                        child: Text("এখনও কোনো পোস্ট নেই!", style: TextStyle(color: Colors.white24)),
+                      ),
+                    ),
+                  );
+                }
+
+                final docs = snapshot.data!.docs;
+                return SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final data = docs[index].data() as Map<String, dynamic>;
+                      return PostCard(
+                        data: data, 
+                        postId: docs[index].id,
+                      );
+                    },
+                    childCount: docs.length,
                   ),
-                  childCount: docs.length,
-                ),
-              );
-            },
-          ),
-        ],
+                );
+              },
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 80)), // নিচে ফাঁকা জায়গা
+          ],
+        ),
       ),
     );
   }
