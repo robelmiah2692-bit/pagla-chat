@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'stories_service.dart';
 import 'story_view_page.dart';
 
 class StorySection extends StatelessWidget {
@@ -9,14 +8,17 @@ class StorySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 190, // উচ্চতা বাড়িয়ে বড় কার্ড করা হয়েছে
+      height: 190, 
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('stories').snapshots(), 
+        // ✅ লেটেস্ট স্টোরি সবার আগে দেখাবে
+        stream: FirebaseFirestore.instance
+            .collection('stories')
+            .orderBy('timestamp', descending: true)
+            .snapshots(), 
         builder: (context, snapshot) {
-          
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+            return const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.pinkAccent));
           }
 
           final docs = snapshot.data?.docs ?? [];
@@ -42,7 +44,7 @@ class StorySection extends StatelessWidget {
     final String userImg = data['userImage'] ?? "";
     final String name = data['userName'] ?? "User";
     final String storyImg = data['storyImage'] ?? "";
-    final String caption = data['caption'] ?? "";
+    final String caption = data['caption'] ?? ""; // আপনার সার্ভিস ফাইল অনুযায়ী 'caption'
 
     return GestureDetector(
       onTap: () {
@@ -61,16 +63,19 @@ class StorySection extends StatelessWidget {
         width: 110,
         margin: const EdgeInsets.symmetric(horizontal: 5),
         decoration: BoxDecoration(
+          color: const Color(0xFF242526), // ছবি না থাকলে এই ডার্ক কালার দেখাবে
           borderRadius: BorderRadius.circular(15),
-          // স্টোরির মেইন ছবিটা কার্ডের ব্যাকগ্রাউন্ডে থাকবে
-          image: DecorationImage(
-            image: NetworkImage(storyImg.isNotEmpty ? storyImg : "https://via.placeholder.com/150"),
-            fit: BoxFit.cover,
-          ),
+          border: Border.all(color: Colors.white10, width: 0.5),
+          image: storyImg.isNotEmpty 
+              ? DecorationImage(
+                  image: NetworkImage(storyImg),
+                  fit: BoxFit.cover,
+                )
+              : null,
         ),
         child: Stack(
           children: [
-            // নিচের নাম ফুটে ওঠার জন্য হালকা কালো শেড
+            // নিচের নাম ফুটে ওঠার জন্য গ্রেডিয়েন্ট
             Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(15),
@@ -81,7 +86,23 @@ class StorySection extends StatelessWidget {
                 ),
               ),
             ),
-            // ২. কার্ডের ওপরের কোণায় ছোট গোল প্রোফাইল পিকচার (আপনার প্রোফাইল ফটো)
+
+            // ✅ যদি ছবি না থাকে, তবে কার্ডের মাঝখানে টেক্সট দেখাবে
+            if (storyImg.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(10.0),
+                  child: Text(
+                    caption,
+                    textAlign: TextAlign.center,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white70, fontSize: 10),
+                  ),
+                ),
+              ),
+
+            // ২. গোল প্রোফাইল পিকচার
             Positioned(
               top: 8,
               left: 8,
@@ -92,15 +113,16 @@ class StorySection extends StatelessWidget {
                   border: Border.all(color: Colors.blueAccent, width: 2),
                 ),
                 child: CircleAvatar(
-                  radius: 16,
+                  radius: 15,
                   backgroundColor: Colors.grey[800],
                   backgroundImage: (userImg.isNotEmpty && userImg.startsWith('http'))
                       ? NetworkImage(userImg)
-                      : const NetworkImage("https://www.w3schools.com/howto/img_avatar.png"),
+                      : const NetworkImage("https://via.placeholder.com/150"),
                 ),
               ),
             ),
-            // ৩. কার্ডের একদম নিচে ইউজারের নাম
+
+            // ৩. ইউজারের নাম
             Positioned(
               bottom: 10,
               left: 8,
@@ -109,9 +131,9 @@ class StorySection extends StatelessWidget {
                 name,
                 style: const TextStyle(
                   color: Colors.white, 
-                  fontSize: 11, 
+                  fontSize: 10, 
                   fontWeight: FontWeight.bold,
-                  shadows: [Shadow(blurRadius: 2, color: Colors.black)],
+                  shadows: [Shadow(blurRadius: 3, color: Colors.black)],
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -123,13 +145,13 @@ class StorySection extends StatelessWidget {
     );
   }
 
-  // ৪. স্টোরি যোগ করার জন্য ফেসবুক স্টাইল বাটন কার্ড
+  // ৪. স্টোরি যোগ করার বাটন কার্ড
   Widget _buildAddStoryCard(BuildContext context) {
     return Container(
       width: 110,
       margin: const EdgeInsets.symmetric(horizontal: 5),
       decoration: BoxDecoration(
-        color: Colors.grey[900],
+        color: const Color(0xFF1E1E2F),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: Colors.white10),
       ),
@@ -139,8 +161,9 @@ class StorySection extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: const BoxDecoration(
-              color: Colors.blueAccent,
+              color: Colors.pinkAccent, 
               shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 5)],
             ),
             child: const Icon(Icons.add, color: Colors.white, size: 25),
           ),
