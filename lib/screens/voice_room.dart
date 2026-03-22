@@ -127,6 +127,7 @@ void initState() {
     "isMicOn": false,
     "isTalking": false, 
     "userId": "",
+    "agoraUid": "", // এটি নিশ্চিত করার জন্য যোগ করা হলো
   });
 
   // ২. রিয়েলটাইম ডাটাবেস লিসেনার (আগের মতোই + Talking রিসেট)
@@ -156,32 +157,38 @@ void initState() {
             seats[index]["userImage"] = value["userImage"] ?? "";
             seats[index]["isMicOn"] = value["isMicOn"] ?? false;
             seats[index]["userId"] = value["userId"] ?? "";
+            // আগোরা ইউআইডি স্টোর করা যাতে রিপেল সঠিক সিটে দেখায়
+            seats[index]["agoraUid"] = value["agoraUid"]?.toString() ?? "";
           }
         });
       }
     });
   });
 
-  // ৩. পিকে ম্যানেজার (আপনার অরিজিনাল)
+  // ৩. পিকে ম্যানেজার
   pkManager = VSPKManager(
     onTick: (seconds) => setState(() => pkSeconds = seconds),
     onFinished: () => _endPKBattle(),
   );
 
-  // 🔥 ৪. এগোরা ম্যানেজার ব্যবহার করে ভয়েস ডিটেকশন (সব ফিচার নিশ্চিত)
+  // ৪. এগোরা ম্যানেজার ব্যবহার করে ভয়েস ডিটেকশন ও মিউজিক রিপেল
   Future.microtask(() async {
     try {
       await _agoraManager.initAgora(); 
       
       final String myActualUid = FirebaseAuth.instance.currentUser?.uid ?? "guest_${Random().nextInt(10000)}";
-      
       await _agoraManager.joinAsListener(widget.roomId, myActualUid);
 
-      // সমাধান: এখানে .engine এর আগে একটা প্রশ্নবোধক (?) দিতে হবে 
-      // এবং registerEventHandler এর আগে নাল চেক করতে হবে।
       final engine = _agoraManager.engine;
       
       if (engine != null) {
+        // ✅ রিপেল ইফেক্টের জন্য ভলিউম ইন্ডিকেশন ইনাবল করা
+        await engine.enableAudioVolumeIndication(
+          interval: 250, 
+          smooth: 3, 
+          reportVad: true
+        );
+
         engine.registerEventHandler(
           RtcEngineEventHandler(
             onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
@@ -198,12 +205,21 @@ void initState() {
               if (mounted) setState(() {});
             },
 
+            // ✅ গান শেষ হলে বা পজ হলে বাটন স্টেট আপডেট করার জন্য
+            onAudioMixingStateChanged: (AudioMixingStateType state, AudioMixingReasonType reason) {
+              if (mounted) {
+                setState(() {
+                  isRoomMusicPlaying = (state == AudioMixingStateType.audioMixingStatePlaying);
+                });
+              }
+            },
+
             onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int totalVolume, int speakerNumber) {
               if (!mounted) return;
               
               bool hasChanged = false;
 
-              // ১. লোকালি সবার কথা বলা বন্ধ ধরি
+              // লোকালি সবার কথা বলা বন্ধ ধরি শুরুতে
               for (int i = 0; i < seats.length; i++) {
                 if (seats[i]["isTalking"] == true) {
                   seats[i]["isTalking"] = false;
@@ -211,21 +227,21 @@ void initState() {
                 }
               }
 
-              // ২. এগোরা থেকে আসা স্পিকারদের ডেটা চেক
+              // এগোরা থেকে আসা স্পিকারদের ডেটা চেক (গান বা ভয়েস দুইটাই এখানে আসবে)
               for (var speaker in speakers) {
                 final int sUid = speaker.uid ?? 0;
                 final int managerUid = _agoraManager.localUid ?? 0;
                 final int currentSpeakerUid = (sUid == 0) ? managerUid : sUid;
                 final int vol = speaker.volume ?? 0;
 
-                if (vol > 10) { 
+                // ভলিউম ৫ এর বেশি হলে রিপেল দেখাবে (গান বাজলে এটা কাজ করবে)
+                if (vol > 5) { 
                   for (int i = 0; i < seats.length; i++) {
                     final String seatUserId = seats[i]["userId"]?.toString() ?? "";
                     final String seatAgoraUid = seats[i]["agoraUid"]?.toString() ?? "";
-                    final String speakerUidStr = currentSpeakerUid.toString();
 
                     bool isMe = (sUid == 0 && seatUserId == myActualUid);
-                    bool isOthers = (seatAgoraUid == speakerUidStr);
+                    bool isOthers = (seatAgoraUid == currentSpeakerUid.toString());
 
                     if (isMe || isOthers) {
                       if (seats[i]["isTalking"] == false) {
@@ -237,46 +253,22 @@ void initState() {
                 }
               }
 
-              // ৩. ফায়ারবেসে না পাঠিয়ে লোকাল আপডেট
               if (hasChanged && mounted) {
                 setState(() {});
               }
             },
           ),
         );
-        debugPrint("✅ সব সচল! EventHandler রেজিস্টার্ড হয়েছে।");
-      } else {
-        debugPrint("⚠️ ইঞ্জিন এখনো নাল,EventHandler রেজিস্টার করা যায়নি।");
+        debugPrint("✅ সব সচল! EventHandler রেজিস্টার্ড হয়েছে।");
       }
     } catch (e) {
       debugPrint("❌ Agora Error: $e");
     }
   });
-  // ৫. অডিও প্লেয়ার লিসেনার
-  _audioPlayer.onPlayerStateChanged.listen((state) {
-  if (mounted) {
-    setState(() {
-      // ওয়েবে অনেক সময় state চেক করতে সমস্যা হয়, তাই সরাসরি কন্ডিশন দিলাম
-      isRoomMusicPlaying = (state == PlayerState.playing);
-    });
-    
-    // সাউন্ড নিশ্চিত করতে প্লে হওয়া মাত্র ভলিউম আবার চেক করা
-    if (state == PlayerState.playing) {
-      _audioPlayer.setVolume(1.0);
-    }
-  }
-});
 
-_audioPlayer.onPlayerComplete.listen((event) {
-  if (mounted) {
-    setState(() {
-      isRoomMusicPlaying = false; 
-      // গান শেষ হলে প্লেয়ার যেন জ্যাম না হয়, তাই স্টপ করে রাখা ভালো
-    });
-    _audioPlayer.stop(); 
-  }
-});
-  
+  // ৫. পুরাতন অডিও প্লেয়ার লিসেনার সরিয়ে আগোরার সাথে সিঙ্ক (দরকার হলে রাখা হয়েছে)
+  // তবে গান এখন সরাসরি আগোরার EventHandler থেকেই কন্ট্রোল হচ্ছে।
+
   // ৬. ফায়ারস্টোর ডাটা লোড
   FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
     if (doc.exists && mounted) {
@@ -300,7 +292,8 @@ _audioPlayer.onPlayerComplete.listen((event) {
       _addUserToViewers();
     }
   });
-} // initState পুরোপুরি শেষ
+}
+   
   // --- গিফট লজিক ---
   void _startGiftCounting() {
     if (isCountingGifts) return;
