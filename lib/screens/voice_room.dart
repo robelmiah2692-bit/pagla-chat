@@ -1237,14 +1237,14 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   },
                 ),
                 // --- মাইক কন্ট্রোল বাটন শেষ ---
-          // ৩. মিউজিক (ড্র্যাগেবল প্লেয়ার অন/অফ)
+           // ৩. মিউজিক (ড্র্যাগেবল প্লেয়ার অন/অফ)
           IconButton(
             constraints: const BoxConstraints(),
             padding: const EdgeInsets.symmetric(horizontal: 4),
             icon: Icon(
               Icons.music_note, 
               color: isFloatingPlayerVisible ? Colors.blueAccent : Colors.white70, 
-              size: 22
+              size: 22,
             ),
             onPressed: () {
               // মিউজিক সিলেকশন বার (BottomSheet) ওপেন করা
@@ -1253,32 +1253,37 @@ List<Widget> _buildFloatingEmojiAnimations() {
                 backgroundColor: Colors.transparent,
                 isScrollControlled: true,
                 builder: (context) => MusicPlayerWidget(
+                  // ১. গান সিলেক্ট করলে যা হবে
                   onMusicSelect: (path) async {
                     setState(() {
                       currentMusicUrl = path; 
                       isFloatingPlayerVisible = true;
                       isRoomMusicPlaying = true;
                     });
-                    
+
                     try {
-                      // ১. আগের গান পুরোপুরি বন্ধ করা
-                      await _audioPlayer.stop();
+                      // আগোরাতে আগে কোনো গান চললে তা বন্ধ করা
+                      await _engine.stopAudioMixing();
 
-                      // ২. সরাসরি কন্ডিশন দিয়ে প্লে করা
-                      if (path.startsWith('http')) {
-                        // ইন্টারনেটের গানের জন্য
-                        await _audioPlayer.play(UrlSource(path));
-                      } else {
-                        // মোবাইলের লোকাল গানের জন্য
-                        await _audioPlayer.play(DeviceFileSource(path));
-                      }
+                      // নতুন গান আগোরার মাধ্যমে চালানো (যাতে সবাই শোনে)
+                      await _engine.startAudioMixing(
+                        filePath: path,
+                        loopback: false, // নিজের আওয়াজ ইকো হবে না
+                        replace: false,  // মাইক এবং গান একসাথে চলবে
+                        cycle: 1,        // একবার বাজবে
+                      );
 
-                      // ৩. ভলিউম নিশ্চিত করা
-                      await _audioPlayer.setVolume(1.0);
-                      
+                      // ডিফল্ট ভলিউম সেট করা
+                      await _engine.adjustAudioMixingVolume(100);
+
                     } catch (e) {
-                      print("Error: $e");
+                      debugPrint("Agora Audio Mixing Error: $e");
                     }
+                  },
+                  // ২. ভলিউম স্লাইডার নাড়ালে যা হবে
+                  onVolumeChange: (volume) {
+                    // আগোরার মিউজিক ভলিউম সেট করা
+                    _engine.adjustAudioMixingVolume(volume.toInt());
                   },
                 ),
               );
