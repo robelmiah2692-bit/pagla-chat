@@ -1552,7 +1552,10 @@ List<Widget> _buildFloatingEmojiAnimations() {
             border: Border.all(color: Colors.cyanAccent, width: 2.5),
             boxShadow: [
               if (!isDragging) 
-                BoxShadow(color: Colors.cyanAccent.withOpacity(0.4), blurRadius: 15)
+                BoxShadow(
+                  color: Colors.cyanAccent.withOpacity(0.4), 
+                  blurRadius: 15,
+                )
             ],
           ),
           child: Center(
@@ -1565,38 +1568,38 @@ List<Widget> _buildFloatingEmojiAnimations() {
               onPressed: () async {
                 try {
                   if (isRoomMusicPlaying) {
-                    await _audioPlayer.pause();
+                    // ✅ আগোরার মিউজিক পজ করা (সবার জন্য থামবে)
+                    await _agoraManager.engine.pauseAudioMixing();
                   } else {
-                    await _audioPlayer.setVolume(1.0);
-                    
-                    // 🔥 সংশোধন: ওয়েবে শুধু resume কাজ না করলে play(Source) দিতে হয়
-                    if (currentMusicUrl.isNotEmpty) {
-                      if (currentMusicUrl.startsWith('http')) {
-                        await _audioPlayer.play(UrlSource(currentMusicUrl));
-                      } else {
-                        await _audioPlayer.play(DeviceFileSource(currentMusicUrl));
-                      }
-                    }
+                    // ✅ আগোরার মিউজিক রিজুম করা (সবার জন্য চলবে)
+                    await _agoraManager.engine.resumeAudioMixing();
                   }
+                  
                   setState(() {
                     isRoomMusicPlaying = !isRoomMusicPlaying;
                   });
                 } catch (e) {
-                  print("Play/Pause Error: $e");
+                  debugPrint("Play/Pause Error: $e");
                 }
               },
             ),
           ),
         ),
         
-        // ক্রস বাটন
+        // ক্রস বাটন (প্লেয়ার বন্ধ করা)
         Positioned(
           right: 0,
           top: 0,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () async {
-              await _audioPlayer.stop();
+              try {
+                // ✅ আগোরার মিউজিক পুরোপুরি স্টপ করা
+                await _agoraManager.engine.stopAudioMixing();
+              } catch (e) {
+                debugPrint("Stop Error: $e");
+              }
+              
               setState(() {
                 isFloatingPlayerVisible = false;
                 isRoomMusicPlaying = false;
