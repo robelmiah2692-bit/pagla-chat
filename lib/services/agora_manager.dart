@@ -41,7 +41,7 @@ class AgoraManager {
         channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
       ));
 
-      // মিউজিক এবং ভয়েস কোয়ালিটি উন্নত করার প্রোফাইল
+      // মিউজিক এবং ভয়েস কোয়ালিটি উন্নত করার প্রোফাইল
       await _engine!.setAudioProfile(
         profile: AudioProfileType.audioProfileMusicHighQualityStereo,
         scenario: AudioScenarioType.audioScenarioGameStreaming,
@@ -93,7 +93,7 @@ class AgoraManager {
       await _engine!.startAudioMixing(
         filePath: filePath,
         loopback: true, // নিজে শোনার জন্য
-        replaceMic: false, // যেন গানের সাথে কথাও বলা যায়
+        // replaceMic: false, // 👈 আপনার ভার্সনে এটি নেই, তাই এটি রিমুভ করা হলো
         cycle: -1, // আনলিমিটেড লুপ
       );
       _isMusicPlaying = true;
@@ -192,15 +192,14 @@ class AgoraManager {
   Future<void> _ensureAudioPublishing() async {
     if (_engine == null) return;
     
-    // মাইক এবং মিউজিক ট্র্যাক আলাদাভাবে হ্যান্ডেল করা হচ্ছে
+    // ৬.৫.৩ ভার্সনে 'publishAudioMixingTrack' নেই, তাই এটি রিমুভ করা হলো
     await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
-      publishMicrophoneTrack: !_isMicMutedLocal, // মাইক স্ট্যাটাস অনুযায়ী
-      publishAudioMixingTrack: true, // গান সব সময় পাবলিশ হবে যদি চলতে থাকে
+      publishMicrophoneTrack: !_isMicMutedLocal, // মাইক স্ট্যাটাস অনুযায়ী
       autoSubscribeAudio: true,
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
     ));
 
-    // হার্ডওয়্যার লেভেলে মাইক কন্ট্রোল
+    // হার্ডওয়্যার লেভেলে মাইক কন্ট্রোল
     await _engine!.enableLocalAudio(!_isMicMutedLocal);
     
     if (!_isMicMutedLocal) {
@@ -214,7 +213,7 @@ class AgoraManager {
     
     await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
       publishMicrophoneTrack: !isMute,
-      publishAudioMixingTrack: true, // গান অফ হবে না
+      // publishAudioMixingTrack: true, // 👈 এরর রিমুভ করা হলো
     ));
     
     await _engine!.enableLocalAudio(!isMute);
@@ -225,11 +224,11 @@ class AgoraManager {
     if (_engine == null) return;
     _shouldBeBroadcasting = false;
     _keepAliveTimer?.cancel();
-    await stopMusic(); // লিসেনার হয়ে গেলে গান বন্ধ
+    await stopMusic(); // লিসেনার হয়ে গেলে গান বন্ধ
     await _engine!.setClientRole(role: ClientRoleType.clientRoleAudience);
     await _engine!.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: false,
-      publishAudioMixingTrack: false,
+      // publishAudioMixingTrack: false, // 👈 এরর রিমুভ করা হলো
       autoSubscribeAudio: true,
     ));
   }
