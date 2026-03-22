@@ -15,8 +15,9 @@ class PostCard extends StatelessWidget {
     final List likes = data['likes'] ?? [];
     final bool isLiked = likes.contains(uid);
 
-    // 🔥 মালিক শনাক্তকরণ (Hridoy ভাইয়ের জন্য বিশেষ কোড)
-    bool isOwner = (data['userId'] == "আপনার_ইউজার_আইডি" || data['userName'] == "King.Hridoy");
+    // 🔥 মালিক শনাক্তকরণ (সহজ ও সঠিক লজিক)
+    // পোস্টের 'userId' যদি আপনার বর্তমান লগইন করা 'uid' এর সমান হয়, তবেই আপনি মালিক।
+    bool isOwner = (data['userId'] == uid);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -28,7 +29,11 @@ class PostCard extends StatelessWidget {
           ListTile(
             leading: CircleAvatar(
               backgroundColor: Colors.grey[800],
-              backgroundImage: NetworkImage(data['userImage'] ?? "https://www.w3schools.com/howto/img_avatar.png"),
+              backgroundImage: NetworkImage(
+                (data['userImage'] != null && data['userImage'].toString().isNotEmpty)
+                    ? data['userImage']
+                    : "https://www.w3schools.com/howto/img_avatar.png",
+              ),
             ),
             title: Row(
               children: [
@@ -37,7 +42,7 @@ class PostCard extends StatelessWidget {
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(width: 5),
-                // মালিক হলে ভেরিফাইড ব্যাজ দেখাবে
+                // ✅ মালিক হলে ভেরিফাইড ব্যাজ দেখাবে
                 if (isOwner)
                   const Icon(Icons.verified, color: Colors.blueAccent, size: 16),
               ],
@@ -56,23 +61,23 @@ class PostCard extends StatelessWidget {
               ),
             ),
 
-          // --- 🔥 ফিক্সড ইমেজ ফ্রেম (আপনার মূল সমস্যা এখানেই ছিল) ---
+          // --- ইমেজ সেকশন (যদি ইমেজ থাকে) ---
           if (data['storyImage'] != null && data['storyImage'].toString().isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Container(
                 width: double.infinity,
                 constraints: const BoxConstraints(
-                  minHeight: 200, // ছবি আসার আগে অন্তত ২০০ পিক্সেল জায়গা নিয়ে থাকবে
-                  maxHeight: 500, // খুব বড় ছবি হলে অটো অ্যাডজাস্ট করবে
+                  minHeight: 200,
+                  maxHeight: 500,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05), // জায়গাটা বোঝানোর জন্য হালকা কালার
+                  color: Colors.white.withOpacity(0.05),
                 ),
                 child: Image.network(
                   data['storyImage'],
                   width: double.infinity,
-                  fit: BoxFit.contain, // ছবি কাটবে না, পুরোটা দেখাবে
+                  fit: BoxFit.contain,
                   loadingBuilder: (context, child, loadingProgress) {
                     if (loadingProgress == null) return child;
                     return Container(
@@ -87,17 +92,11 @@ class PostCard extends StatelessWidget {
                     );
                   },
                   errorBuilder: (context, error, stackTrace) {
-                    // ছবি লোড না হলে জায়গাটি খালি না রেখে একটি আইকন দেখাবে
                     return Container(
-                      height: 200,
+                      height: 100,
                       color: Colors.white10,
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.broken_image, color: Colors.white24, size: 40),
-                          SizedBox(height: 8),
-                          Text("ছবিটি লোড করা যাচ্ছে না", style: TextStyle(color: Colors.white24)),
-                        ],
+                      child: const Center(
+                        child: Icon(Icons.broken_image, color: Colors.white24, size: 40),
                       ),
                     );
                   },
@@ -105,7 +104,7 @@ class PostCard extends StatelessWidget {
               ),
             ),
 
-          // --- লাইক কাউন্ট ---
+          // --- লাইক কাউন্ট ও ইন্টারঅ্যাকশন ---
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -175,15 +174,26 @@ class PostCard extends StatelessWidget {
             SizedBox(
               height: 300,
               child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance.collection('stories').doc(pId).collection('comments').orderBy('timestamp').snapshots(),
+                stream: FirebaseFirestore.instance
+                    .collection('stories')
+                    .doc(pId)
+                    .collection('comments')
+                    .orderBy('timestamp', descending: false)
+                    .snapshots(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                   return ListView(
-                    children: snapshot.data!.docs.map((doc) => ListTile(
-                      leading: CircleAvatar(radius: 15, backgroundImage: NetworkImage(doc['userImage'] ?? "")),
-                      title: Text(doc['userName'], style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                      subtitle: Text(doc['text'], style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                    )).toList(),
+                    children: snapshot.data!.docs.map((doc) {
+                      Map<String, dynamic> cData = doc.data() as Map<String, dynamic>;
+                      return ListTile(
+                        leading: CircleAvatar(
+                          radius: 15, 
+                          backgroundImage: NetworkImage(cData['userImage'] ?? "https://www.w3schools.com/howto/img_avatar.png")
+                        ),
+                        title: Text(cData['userName'] ?? "User", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                        subtitle: Text(cData['text'] ?? "", style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                      );
+                    }).toList(),
                   );
                 },
               ),
@@ -196,7 +206,9 @@ class PostCard extends StatelessWidget {
                 hintStyle: const TextStyle(color: Colors.white38),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.send, color: Colors.blueAccent),
-                  onPressed: () => _submitComment(pId, _commentController.text, _commentController),
+                  onPressed: () {
+                    _submitComment(pId, _commentController.text, _commentController);
+                  },
                 ),
               ),
             ),
@@ -208,14 +220,17 @@ class PostCard extends StatelessWidget {
   }
 
   void _submitComment(String pId, String text, TextEditingController controller) async {
-    if (text.isEmpty) return;
+    if (text.trim().isEmpty) return;
     final user = FirebaseAuth.instance.currentUser;
-    DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user!.uid).get();
+    if (user == null) return;
+    
+    // ইউজারের লেটেস্ট প্রোফাইল ডাটা নিয়ে কমেন্ট সেভ করা
+    DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
     
     await FirebaseFirestore.instance.collection('stories').doc(pId).collection('comments').add({
-      'text': text,
-      'userName': userDoc.exists ? userDoc['name'] : "User",
-      'userImage': userDoc.exists ? userDoc['profilePic'] : "",
+      'text': text.trim(),
+      'userName': userDoc.exists ? (userDoc.data() as Map<String, dynamic>)['name'] : "User",
+      'userImage': userDoc.exists ? (userDoc.data() as Map<String, dynamic>)['profilePic'] : "",
       'timestamp': FieldValue.serverTimestamp(),
     });
     controller.clear();
