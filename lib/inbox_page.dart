@@ -56,10 +56,9 @@ class _InboxPageState extends State<InboxPage> {
                 }
                 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text("ইউজার পাওয়া যায়নি!", style: TextStyle(color: Colors.white54)));
+                  return const Center(child: Text("ইউজার পাওয়া যায়নি!", style: TextStyle(color: Colors.white54)));
                 }
 
-                // ক্লায়েন্ট সাইড ফিল্টারিং (যাতে আইডি বা নাম যাই লিখুন কাজ করে)
                 var users = snapshot.data!.docs.where((doc) {
                   var data = doc.data() as Map<String, dynamic>;
                   String name = (data['name'] ?? "").toString().toLowerCase();
@@ -72,7 +71,7 @@ class _InboxPageState extends State<InboxPage> {
                 }).toList();
 
                 if (users.isEmpty) {
-                   return const Center(child: Text("ইউজার খুঁজে পাওয়া যায়নি", style: TextStyle(color: Colors.white54)));
+                   return const Center(child: Text("ইউজার খুঁজে পাওয়া যায়নি", style: TextStyle(color: Colors.white54)));
                 }
 
                 return ListView.builder(
@@ -83,7 +82,6 @@ class _InboxPageState extends State<InboxPage> {
 
                     if (userId == currentUserId) return const SizedBox.shrink();
 
-                    // ছবির জন্য মাল্টিপল কী চেক করা হচ্ছে যাতে 'U' না আসে
                     String imageUrl = userData['imageURL'] ?? 
                                      userData['profilePic'] ?? 
                                      userData['userImageURL'] ?? 
@@ -94,6 +92,7 @@ class _InboxPageState extends State<InboxPage> {
                       id: userId,
                       name: userData['name'] ?? "User",
                       image: imageUrl,
+                      // রিয়েল টাইম অনলাইন স্ট্যাটাস
                       isOnline: userData['isOnline'] ?? false,
                     );
                   },
@@ -107,16 +106,36 @@ class _InboxPageState extends State<InboxPage> {
   }
 
   Widget _buildPremiumInboxTile(BuildContext context, {required String id, required String name, required String image, required bool isOnline}) {
+    // চ্যাট আইডি জেনারেশন লজিক
+    List<String> ids = [currentUserId, id];
+    ids.sort();
+    String chatId = ids.join("_");
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
       child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ChatScreen(receiverId: id, receiverName: name),
-            ),
-          );
+        onTap: () async {
+          // চ্যাটে ঢোকার সময় আনরিড মেসেজগুলো 'Read' করে দেওয়া
+          var unreadMessages = await FirebaseFirestore.instance
+              .collection('chats')
+              .doc(chatId)
+              .collection('messages')
+              .where('receiverId', isEqualTo: currentUserId)
+              .where('isRead', isEqualTo: false)
+              .get();
+
+          for (var doc in unreadMessages.docs) {
+            doc.reference.update({'isRead': true});
+          }
+
+          if (context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChatScreen(receiverId: id, receiverName: name),
+              ),
+            );
+          }
         },
         borderRadius: BorderRadius.circular(20),
         child: Container(
@@ -142,13 +161,14 @@ class _InboxPageState extends State<InboxPage> {
                         : null,
                     ),
                   ),
+                  // ১. ইউজার অনলাইন থাকলে সবুজ ডট
                   if (isOnline)
                     Positioned(
-                      right: 2,
-                      bottom: 2,
+                      right: 1,
+                      bottom: 1,
                       child: Container(
-                        height: 12,
-                        width: 12,
+                        height: 14,
+                        width: 14,
                         decoration: BoxDecoration(
                           color: Colors.green,
                           shape: BoxShape.circle,
@@ -163,13 +183,48 @@ class _InboxPageState extends State<InboxPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                    // অফিসিয়াল আইডি হলে টেক্সট কালার আলাদা করা (ঐচ্ছিক)
+                    Text(
+                      name, 
+                      style: TextStyle(
+                        color: (id == "paglachat_official" || id == "gemini_ai_support") ? Colors.pinkAccent : Colors.white, 
+                        fontSize: 16, 
+                        fontWeight: FontWeight.bold
+                      )
+                    ),
                     const SizedBox(height: 5),
-                    const Text("চ্যাট করতে ক্লিক করুন...", style: TextStyle(color: Colors.white38, fontSize: 13)),
+                    const Text("মেসেজ দেখতে ক্লিক করুন...", style: TextStyle(color: Colors.white38, fontSize: 13)),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, color: Colors.white10, size: 16),
+              
+              // ২. রিয়েল টাইম মেসেজ কাউন্টার (লাল ডট)
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('chats')
+                    .doc(chatId)
+                    .collection('messages')
+                    .where('receiverId', isEqualTo: currentUserId)
+                    .where('isRead', isEqualTo: false)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                    int count = snapshot.data!.docs.length;
+                    return Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        "$count",
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    );
+                  }
+                  return const Icon(Icons.arrow_forward_ios, color: Colors.white10, size: 16);
+                },
+              ),
             ],
           ),
         ),
