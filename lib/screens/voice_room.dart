@@ -1269,8 +1269,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                       await _agoraManager.engine.startAudioMixing(
                         filePath: path,
                         loopback: false, // নিজের আওয়াজ ইকো হবে না
-                        replace: false,  // মাইক এবং গান একসাথে চলবে
-                        cycle: 1,        // একবার বাজবে
+                        cycle: 1,        // একবার বাজবে (replace: false মুছে দেওয়া হয়েছে)
                       );
 
                       // ডিফল্ট ভলিউম সেট করা
