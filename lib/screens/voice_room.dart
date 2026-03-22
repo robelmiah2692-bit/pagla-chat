@@ -353,7 +353,7 @@ _audioPlayer.onPlayerComplete.listen((event) {
 
   // ২. অডিও এবং ব্রডকাস্টার মোড এনাবল করা
   try {
-    // ব্রাউজার স্লিপ মোড প্রতিরোধ (শুধু ওয়েবের জন্য)
+    // ব্রাউজার স্লিপ মোড প্রতিরোধ (শুধু ওয়েবের জন্য)
     if (kIsWeb) {
       await WakelockPlus.enable();
     }
@@ -361,8 +361,7 @@ _audioPlayer.onPlayerComplete.listen((event) {
     // এগোরা ম্যানেজারের মাধ্যমে ব্রডকাস্টিং শুরু
     await _agoraManager.becomeBroadcaster();
     
-    // 🛡️ সমাধান: ইঞ্জিন নাল কিনা চেক করে ভলিউম ইন্ডিকেশন চালু করা
-    // এখানে '!' এর জায়গায় '?' ব্যবহার করা হয়েছে যাতে ক্রাশ না হয়
+    // 🛡️ সমাধান: ভলিউম ইন্ডিকেশন চালু করা (রিপেল এনিমেশনের জন্য এটি মাস্ট)
     await _agoraManager.engine?.enableAudioVolumeIndication(
       interval: 250, 
       smooth: 3, 
@@ -375,7 +374,7 @@ _audioPlayer.onPlayerComplete.listen((event) {
     return; 
   }
 
-  // ৩. পুরাতন সিট ক্লিয়ার করা (যদি ইউজার অন্য সিট থেকে মুভ করে)
+  // ৩. পুরাতন সিট ক্লিয়ার করা (যদি ইউজার অন্য সিট থেকে মুভ করে)
   if (currentSeatIndex != -1) {
     int oldIndex = currentSeatIndex;
     try {
@@ -401,10 +400,10 @@ _audioPlayer.onPlayerComplete.listen((event) {
 
     final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
     
-    // এগোরা থেকে পাওয়া ইউনিক আইডি (রিপেল এর জন্য মাস্ট)
+    // 🛡️ এগোরা থেকে পাওয়া ইউনিক আইডি (এটি ছাড়া রিপেল কাজ করবে না)
     final int myAgoraUid = _agoraManager.localUid ?? 0;
 
-    // ৫. ফায়ারবেসে সিট ডেটা পুশ
+    // ৫. ফায়ারবেসে সিট ডেটা পুশ
     await seatRef.set({
       'userName': myName,
       'userImage': myPic,
@@ -413,7 +412,7 @@ _audioPlayer.onPlayerComplete.listen((event) {
       'isMicOn': true,
       'userId': uid,
       'isTalking': false,
-      'agoraUid': myAgoraUid, 
+      'agoraUid': myAgoraUid, // রিপেল ফিক্স করার জন্য এটি খুব জরুরি
     });
     
     seatRef.onDisconnect().remove();
@@ -443,7 +442,7 @@ _audioPlayer.onPlayerComplete.listen((event) {
       });
     }
     
-    debugPrint("👑 সিট সফলভাবে দখল হয়েছে!");
+    debugPrint("👑 সিট সফলভাবে দখল হয়েছে!");
   } catch (e) {
     debugPrint("❌ Firebase Update Error: $e");
   }
@@ -453,7 +452,7 @@ _audioPlayer.onPlayerComplete.listen((event) {
 void _sendOwnerJoinMessage() {
   if (!mounted) return;
   
-  // আগের স্নাকবার থাকলে তা সরিয়ে নতুনটা দেখানো
+  // আগের স্নাকবার থাকলে তা সরিয়ে নতুনটা দেখানো
   ScaffoldMessenger.of(context).hideCurrentSnackBar();
   ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(
