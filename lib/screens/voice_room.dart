@@ -1124,7 +1124,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                 final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? "";
                 
                 // ২. ইউজার কোন সিটে আছে তা বের করা
-                int mySeatIndex = seats.indexWhere((s) => s != null && s['uid'] == currentUid);
+                int mySeatIndex = seats.indexWhere((s) => s != null && (s['uid'] == currentUid || s['userId'] == currentUid));
 
                 // EmojiHandler ব্যবহার করে পিকার দেখানো
                 EmojiHandler.showPicker(
@@ -1134,10 +1134,16 @@ List<Widget> _buildFloatingEmojiAnimations() {
                     // ৩. অ্যানিমেটেড ইমোজি সিটে দেখানোর লজিক
                     if (index != -1) {
                       setState(() { 
-                        // অ্যানিমেটেড ইমোজি আপডেট (যদি ভেরিয়েবল থাকে)
+                        // অ্যানিমেটেড ইমোজি আপডেট (যদি ভেরিয়েবল থাকে)
                       });
                       
-                      // ডাটাবেসে আপডেট
+                      // 🔥 ইমোজি যেন সিটে দেখা যায় সেজন্য রিয়েলটাইম ডাটাবেসে আপডেট
+                      FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index').update({
+                        'currentEmoji': url,
+                        'emojiTime': ServerValue.timestamp,
+                      });
+
+                      // ডাটাবেসে আপডেট (আপনার অরিজিনাল ফায়ারস্টোর কোড)
                       FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
                         'lastEmoji': url,
                         'emojiIndex': index,
@@ -1168,7 +1174,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                 });
 
                 // ৫. ইমোজি হলে সিটে এনিমেশন ট্রিগার করা
-                int senderSeat = seats.indexWhere((s) => s != null && s['uid'] == senderId);
+                int senderSeat = seats.indexWhere((s) => s != null && (s['uid'] == senderId || s['userId'] == senderId));
                 if (senderSeat != -1) {
                   // এনিমেশন কোড এখানে থাকবে
                 }
