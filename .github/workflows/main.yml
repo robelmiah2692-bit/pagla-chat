@@ -32,7 +32,6 @@ jobs:
           flutter create . --platforms=android,web --project-name pagla_chat
           
           # অটোমেটিক পারমিশন ইনজেক্ট করা (আগোরা ও নোটিফিকেশনের জন্য)
-          # এটি মূল ফাইলে কোনো ক্ষতি না করে শুধু পারমিশন লাইনগুলো যোগ করবে
           sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />' android/app/src/main/AndroidManifest.xml
 
       - name: 📝 Create local.properties
@@ -61,6 +60,10 @@ jobs:
       - name: 📦 Build APK
         run: |
           flutter pub get
+          # ✅ লোগো এবং স্প্ল্যাশ স্ক্রিন তৈরির জন্য নিচের লাইনগুলো যোগ করা হয়েছে
+          dart run flutter_launcher_icons
+          dart run flutter_native_splash:create
+          # বিল্ড কমান্ড
           flutter build apk --release --no-tree-shake-icons
 
       - name: 🌐 Build Web
