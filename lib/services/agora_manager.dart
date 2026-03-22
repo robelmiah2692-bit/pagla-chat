@@ -17,6 +17,7 @@ class AgoraManager {
   Timer? _keepAliveTimer;
   int? _localUid;
   bool _shouldBeBroadcasting = false;
+  bool _isMicMutedLocal = false; // মাইকের বর্তমান অবস্থা ট্র্যাকিং
 
   RtcEngine get engine {
     if (_engine == null) {
@@ -65,13 +66,6 @@ class AgoraManager {
         onUserJoined: (connection, remoteUid, elapsed) {
           debugPrint("👥 অন্য ইউজার জয়েন করেছে: $remoteUid");
           forceResumeAudio(); 
-        },
-        onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
-          for (var speaker in speakers) {
-            if ((speaker.volume ?? 0) > 10) {
-              debugPrint("🎤 কথা বলছে UID: ${speaker.uid}");
-            }
-          }
         },
         onError: (err, msg) {
           debugPrint("❌ এগোরা এরর: $err - $msg");
@@ -136,8 +130,8 @@ class AgoraManager {
   Future<void> becomeBroadcaster() async {
     if (_engine == null) await initAgora();
     _shouldBeBroadcasting = true;
+    _isMicMutedLocal = false; // শুরুতে মাইক অন থাকবে
     
-    // 🛡️ অ্যান্ড্রয়েড ও আইওএস এর জন্য মাইক পারমিশন চেক ও পপআপ
     if (!kIsWeb) {
       var status = await Permission.microphone.status;
       if (!status.isGranted) {
@@ -170,24 +164,37 @@ class AgoraManager {
 
   Future<void> _ensureAudioPublishing() async {
     if (_engine == null) return;
-    await _engine!.updateChannelMediaOptions(const ChannelMediaOptions(
-      publishMicrophoneTrack: true,
+    
+    // যদি ইউজার ম্যানুয়ালি মাইক অফ করে থাকে, তবে পাবলিশ বন্ধ রাখতে হবে
+    bool shouldPublish = _shouldBeBroadcasting && !_isMicMutedLocal;
+
+    await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
+      publishMicrophoneTrack: shouldPublish,
       autoSubscribeAudio: true,
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
     ));
-    await _engine!.enableLocalAudio(true);
-    await _engine!.muteLocalAudioStream(false);
+
+    await _engine!.enableLocalAudio(shouldPublish);
+    await _engine!.muteLocalAudioStream(!shouldPublish);
     
-    await _engine!.adjustRecordingSignalVolume(200); 
-    await _engine!.adjustPlaybackSignalVolume(200);  
+    if (shouldPublish) {
+      await _engine!.adjustRecordingSignalVolume(200); 
+      await _engine!.adjustPlaybackSignalVolume(200);  
+    }
   }
 
   Future<void> toggleMic(bool isMute) async {
     if (_engine == null) return;
+    _isMicMutedLocal = isMute; // লোকাল স্টেট আপডেট
+    
     await _engine!.muteLocalAudioStream(isMute);
+    await _engine!.enableLocalAudio(!isMute);
+    
     await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
       publishMicrophoneTrack: !isMute,
     ));
+    
+    debugPrint("🎤 Mic Hardware Status: ${isMute ? "MUTED" : "UNMUTED"}");
   }
 
   Future<void> becomeListener() async {
