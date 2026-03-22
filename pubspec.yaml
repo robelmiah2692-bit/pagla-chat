@@ -17,7 +17,7 @@ dependencies:
   firebase_database: ^10.5.2
   firebase_messaging: ^14.9.4
   firebase_storage: ^11.7.7
-  firebase_remote_config: ^4.4.7  # এখানে পরিবর্তন করা হয়েছে
+  firebase_remote_config: ^4.4.7
   
   # --- গুগল লগইন ---
   google_sign_in: ^6.2.1
@@ -49,17 +49,30 @@ dependencies:
   shared_preferences: ^2.2.3
   lottie: ^3.1.2
 
+  # ✅ ১. এই প্যাকেজটি এখানে অবশ্যই লাগবে (স্প্ল্যাশ স্ক্রিনের জন্য)
+  flutter_native_splash: ^2.4.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: "^0.13.1"
 
+# --- ফোনের মেনু আইকন ---
 flutter_launcher_icons:
   android: true 
   ios: false
   image_path: "assets/logo.png"
   adaptive_icon_background: "#0F0F1E"
+  adaptive_icon_foreground: "assets/logo.png"
   min_sdk_android: 21
+
+# ✅ ২. এই কনফিগারেশনটুকু এখানে অবশ্যই লাগবে
+flutter_native_splash:
+  color: "#0F0F1E"
+  image: assets/logo.png
+  android_12:
+    image: assets/logo.png
+    color: "#0F0F1E"
 
 flutter:
   uses-material-design: true
