@@ -1184,59 +1184,59 @@ List<Widget> _buildFloatingEmojiAnimations() {
           ),
         
            // --- মাইক কন্ট্রোল বাটন শুরু ---
-        IconButton(
-          constraints: const BoxConstraints(),
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          icon: Icon(
-            isMicOn ? Icons.mic : Icons.mic_off,
-            color: isMicOn ? Colors.greenAccent : Colors.redAccent,
-            size: 22,
-          ),
-          onPressed: () async {
-            // ১. চেক: ইউজার কোনো সিটে বসে আছে কি না
-            if (currentSeatIndex == -1) return;
+                IconButton(
+                  constraints: const BoxConstraints(),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  icon: Icon(
+                    isMicOn ? Icons.mic : Icons.mic_off,
+                    color: isMicOn ? Colors.greenAccent : Colors.redAccent,
+                    size: 22,
+                  ),
+                  onPressed: () async {
+                    // ১. চেক: ইউজার কোনো সিটে বসে আছে কি না
+                    if (currentSeatIndex == -1) return;
 
-            // ২. ভাইব্রেশন ফিডব্যাক
-            try {
-              HapticFeedback.lightImpact();
-            } catch (_) {}
+                    // ২. ভাইব্রেশন ফিডব্যাক
+                    try {
+                      HapticFeedback.lightImpact();
+                    } catch (_) {}
 
-            bool newMicState = !isMicOn;
+                    bool newMicState = !isMicOn;
 
-            try {
-              // ৩. এগোরা মাইক হার্ডওয়্যার কন্ট্রোল
-              // engine নাল কি না চেক করে toggle করা হচ্ছে যাতে ক্রাশ না করে
-              if (_agoraManager.engine != null) {
-                await _agoraManager.toggleMic(!newMicState); 
-              }
+                    try {
+                      // ৩. এগোরা মাইক কন্ট্রোল
+                      // নতুন ম্যানেজার অনুযায়ী: মাইক অফ করলেও গান (Mixing) বন্ধ হবে না
+                      if (_agoraManager.engine != null) {
+                        await _agoraManager.toggleMic(!newMicState); 
+                      }
 
-              // ৪. ফায়ারবেস রিয়েলটাইম ডাটাবেস আপডেট (যাতে অন্যরা আপনার মিউট স্ট্যাটাস দেখে)
-              FirebaseDatabase.instance
-                  .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
-                  .update({'isMicOn': newMicState});
+                      // ৪. ফায়ারবেস রিয়েলটাইম ডাটাবেস আপডেট
+                      FirebaseDatabase.instance
+                          .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
+                          .update({'isMicOn': newMicState});
 
-              // ৫. লোকাল অ্যাপের চেহারা (UI) পরিবর্তন
-              if (mounted) {
-                setState(() {
-                  isMicOn = newMicState;
-                  
-                  // মাইক অফ করলে ভয়েস রিপেল এনিমেশন সাথে সাথে বন্ধ করে দেওয়া
-                  if (!newMicState) {
-                    if (currentSeatIndex >= 0 && currentSeatIndex < seats.length) {
-                      seats[currentSeatIndex]["isTalking"] = false;
+                      // ৫. লোকাল ইউআই (UI) পরিবর্তন
+                      if (mounted) {
+                        setState(() {
+                          isMicOn = newMicState;
+                          
+                          // মাইক অফ করলে রিপেল এনিমেশন সাথে সাথে বন্ধ করে দেওয়া
+                          if (!newMicState) {
+                            if (currentSeatIndex >= 0 && currentSeatIndex < seats.length) {
+                              seats[currentSeatIndex]["isTalking"] = false;
+                            }
+                          }
+                        });
+                      }
+                      
+                      debugPrint("🎤 মাইক স্ট্যাটাস: ${newMicState ? "চালু" : "বন্ধ"}");
+                      
+                    } catch (e) {
+                      debugPrint("❌ Mic Toggle Error: $e");
                     }
-                  }
-                });
-              }
-              
-              debugPrint("🎤 মাইক স্ট্যাটাস: ${newMicState ? "চালু" : "বন্ধ"}");
-              
-            } catch (e) {
-              debugPrint("❌ Mic Toggle Error: $e");
-            }
-          },
-        ),
-        // --- মাইক কন্ট্রোল বাটন শেষ ---
+                  },
+                ),
+                // --- মাইক কন্ট্রোল বাটন শেষ ---
           // ৩. মিউজিক (ড্র্যাগেবল প্লেয়ার অন/অফ)
           IconButton(
             constraints: const BoxConstraints(),
