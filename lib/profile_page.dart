@@ -463,7 +463,6 @@ class _ProfilePageState extends State<ProfilePage> {
  @override
 Widget build(BuildContext context) {
   final String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
-  // যদি এই পেজটি অন্য কারো আইডির জন্য ওপেন করা হয়, তবে 'userId' ব্যবহার হবে, নাহলে নিজের 'myId'
   final String targetUserId = widget.userId ?? myId; 
   final bool isMe = myId == targetUserId;
 
@@ -478,24 +477,28 @@ Widget build(BuildContext context) {
         );
       }
 
-      // ডাটা রিয়েল-টাইম রিড করা হচ্ছে
       Map<String, dynamic> userData = {};
       if (snapshot.hasData && snapshot.data!.exists) {
         userData = snapshot.data!.data() as Map<String, dynamic>;
         
-        // স্টেট ভ্যারিয়েবল আপডেট (সরাসরি এসাইন করা হয়েছে এরর এড়াতে)
         userName = userData['name'] ?? "User";
-        uIDValue = userData['userId']?.toString() ?? "N/A"; // আপনার ফিল্ড নাম userId হলে সেটা দিন
+        
+        // 🔥 ফিক্স ১: ফায়ারবেসে নাম 'uID', তাই এখানে 'uID' ব্যবহার করতে হবে
+        uIDValue = userData['uID']?.toString() ?? "N/A"; 
+        
         diamonds = userData['diamonds']?.toInt() ?? 0;
         xp = userData['xp']?.toInt() ?? 0; 
-        userImageURL = userData['imageURL'] ?? ""; // আপনার ফিল্ড অনুযায়ী imageURL/profilePic দিন
+        
+        // 🔥 ফিক্স ২: ফায়ারবেসে নাম 'profilePic', তাই এখানে 'profilePic' ব্যবহার করতে হবে
+        userImageURL = userData['profilePic'] ?? ""; 
+        
         gender = userData['gender'] ?? "অনির্ধারিত";
         hasPremiumCard = userData['hasPremium'] ?? false;
         followers = userData['followers']?.toInt() ?? 0;
         following = userData['following']?.toInt() ?? 0;
       }
 
-      int vipLevel = getVipLevel(); // আপনার তৈরি করা ফাংশন
+      int vipLevel = getVipLevel();
 
       return Scaffold(
         backgroundColor: const Color(0xFF0D0D1A),
@@ -545,8 +548,9 @@ Widget build(BuildContext context) {
                 child: CircleAvatar(
                   radius: 50, 
                   backgroundColor: Colors.grey[900], 
-                  backgroundImage: (userImageURL != "") ? NetworkImage(userImageURL) : null,
-                  child: (userImageURL == "") ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
+                  // 🔥 ফিক্স ৩: এখানে userImageURL ব্যবহার করা হয়েছে যা এখন সঠিক ডাটা পাবে
+                  backgroundImage: (userImageURL.isNotEmpty) ? NetworkImage(userImageURL) : null,
+                  child: (userImageURL.isEmpty) ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
                 )
               ),
             ])),
@@ -606,13 +610,12 @@ Widget build(BuildContext context) {
             // মেইন অ্যাকশন বক্স: শুধু নিজের জন্য
             if (isMe) ...[
               Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                // এখানে ফাংশনগুলোকে সঠিকভাবে কল করা হয়েছে
                 _buildActionBox("Diamond", Icons.diamond, Colors.cyan, () => _openDiamondStore(userData)),
                 _buildActionBox("Premium", Icons.card_membership, Colors.purple, _openPremiumStore),
                 _buildActionBox("Backpack", Icons.backpack, Colors.orange, _openBackpack),
               ]),
 
-              // 🔥 এজেন্সি ওয়ালেট (শুধু এজেন্টের জন্য)
+              // 🔥 এজেন্সি ওয়ালেট (সবসময় userData থেকে ডাটা নেবে)
               if (userData['isAgent'] == true) ...[
                 const SizedBox(height: 25),
                 _buildAgencyWalletCard(userData), 
