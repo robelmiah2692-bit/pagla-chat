@@ -12,9 +12,9 @@ class AgentTransferPage extends StatefulWidget {
 class _AgentTransferPageState extends State<AgentTransferPage> {
   final TextEditingController _idController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
-  
-  Map<String, dynamic>? foundUser; 
-  String? receiverFirestoreId; 
+
+  Map<String, dynamic>? foundUser;
+  String? receiverFirestoreId;
   bool isLoading = false;
 
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
@@ -22,12 +22,12 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
   // ১. ইউজার সার্চ লজিক (এজেন্ট চেকসহ)
   void searchUser(String userId) async {
     if (userId.isEmpty) return;
-    
+
     setState(() {
       isLoading = true;
       foundUser = null;
     });
-    
+
     try {
       var userDoc = await FirebaseFirestore.instance
           .collection('users')
@@ -36,8 +36,16 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
 
       if (userDoc.docs.isNotEmpty) {
         var userData = userDoc.docs.first.data();
-        
-        // চেক: টার্গেট ইউজার কি একজন এজেন্ট?
+        receiverFirestoreId = userDoc.docs.first.id;
+
+        // চেক ১: টার্গেট ইউজার কি নিজে?
+        if (receiverFirestoreId == currentUserId) {
+          setState(() => isLoading = false);
+          _showSnackBar("আপনি নিজেকে ডায়মন্ড পাঠাতে পারবেন না!", isError: true);
+          return;
+        }
+
+        // চেক ২: টার্গেট ইউজার কি একজন এজেন্ট?
         bool isTargetAgent = userData['isAgent'] ?? false;
 
         if (isTargetAgent) {
@@ -46,7 +54,6 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
         } else {
           setState(() {
             foundUser = userData;
-            receiverFirestoreId = userDoc.docs.first.id;
             isLoading = false;
           });
         }
@@ -60,16 +67,16 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
     }
   }
 
-  // ২. চূড়ান্ত ডায়মন্ড ট্রান্সফার লজিক (Transaction)
+  // ২. চূড়ান্ত ডায়মন্ড ট্রান্সফার লজিক (Transaction)
   Future<void> confirmTransfer() async {
-    if (foundUser == null || _amountController.text.isEmpty) return;
+    if (foundUser == null || _amountController.text.isEmpty || receiverFirestoreId == null) return;
 
-    int amount = int.parse(_amountController.text);
+    int amount = int.tryParse(_amountController.text) ?? 0;
     if (amount <= 0) {
       _showSnackBar("সঠিক পরিমাণ লিখুন", isError: true);
       return;
     }
-    
+
     setState(() => isLoading = true);
 
     try {
@@ -79,14 +86,17 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
 
         DocumentSnapshot senderSnap = await transaction.get(senderRef);
         
-        // 🔥 লজিক: এজেন্সি ওয়ালেট থেকে ডায়মন্ড চেক
-        int currentAgencyWallet = senderSnap['agency_wallet'] ?? 0;
+        if (!senderSnap.exists) throw Exception("এজেন্ট ডাটা পাওয়া যায়নি!");
+
+        // লজিক: এজেন্সি ওয়ালেট থেকে ডায়মন্ড চেক (Type Safety নিশ্চিত করা হয়েছে)
+        Map<String, dynamic> senderData = senderSnap.data() as Map<String, dynamic>;
+        int currentAgencyWallet = senderData['agency_wallet']?.toInt() ?? 0;
 
         if (currentAgencyWallet < amount) {
-          throw Exception("আপনার এজেন্সি ওয়ালেটে পর্যাপ্ত ডায়মন্ড নেই!");
+          throw Exception("আপনার এজেন্সি ওয়ালেটে পর্যাপ্ত ডায়মন্ড নেই!");
         }
 
-        // ৩. এজেন্টের 'agency_wallet' থেকে ডায়মন্ড কমানো (পারসোনাল 'diamonds' নিরাপদ থাকবে)
+        // ৩. এজেন্টের 'agency_wallet' থেকে কমানো
         transaction.update(senderRef, {
           'agency_wallet': currentAgencyWallet - amount
         });
@@ -94,44 +104,45 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
         // ৪. ইউজারের পারসোনাল ডায়মন্ড এবং XP বাড়ানো
         transaction.update(receiverRef, {
           'diamonds': FieldValue.increment(amount),
-          'xp': FieldValue.increment(amount), // ইউজারের লেভেল বাড়বে
+          'xp': FieldValue.increment(amount),
         });
 
         // ৫. PaglaChat Official থেকে ইউজারকে নোটিফিকেশন মেসেজ
-        String chatId = "paglachat_official_$receiverFirestoreId"; 
-        transaction.set(
-          FirebaseFirestore.instance.collection('chats').doc(chatId).collection('messages').doc(),
-          {
-            'senderId': 'paglachat_official',
-            'receiverId': receiverFirestoreId,
-            'text': "পাগলাচ্যাট অফিসিয়াল: আপনি সফলভাবে $amount ডায়মন্ড এবং $amount এক্সপি পেয়েছেন।",
-            'timestamp': FieldValue.serverTimestamp(),
-            'isRead': false,
-          }
-        );
+        String chatId = "paglachat_official_$receiverFirestoreId";
+        DocumentReference msgRef = FirebaseFirestore.instance
+            .collection('chats')
+            .doc(chatId)
+            .collection('messages')
+            .doc();
 
-        // ৬. ট্রানজেকশন হিস্ট্রি (রেকর্ড রাখা)
-        transaction.set(
-          FirebaseFirestore.instance.collection('diamond_history').doc(),
-          {
-            'senderId': currentUserId,
-            'receiverId': receiverFirestoreId,
-            'amount': amount,
-            'type': 'agency_transfer',
-            'timestamp': FieldValue.serverTimestamp(),
-          }
-        );
+        transaction.set(msgRef, {
+          'senderId': 'paglachat_official',
+          'receiverId': receiverFirestoreId,
+          'text': "আপনি সফলভাবে $amount ডায়মন্ড এবং $amount এক্সপি বোনাস পেয়েছেন।",
+          'timestamp': FieldValue.serverTimestamp(),
+          'isRead': false,
+          'type': 'system_msg'
+        });
+
+        // ৬. ট্রানজেকশন হিস্ট্রি
+        transaction.set(FirebaseFirestore.instance.collection('diamond_history').doc(), {
+          'senderId': currentUserId,
+          'receiverId': receiverFirestoreId,
+          'amount': amount,
+          'type': 'agency_transfer',
+          'timestamp': FieldValue.serverTimestamp(),
+        });
       });
 
-      _showSnackBar("অভিনন্দন! এজেন্সি ওয়ালেট থেকে ডায়মন্ড পাঠানো হয়েছে।");
-      
+      _showSnackBar("অভিনন্দন! ডায়মন্ড পাঠানো হয়েছে।");
+
       setState(() {
         foundUser = null;
+        receiverFirestoreId = null;
         _idController.clear();
         _amountController.clear();
         isLoading = false;
       });
-
     } catch (e) {
       setState(() => isLoading = false);
       _showSnackBar(e.toString().replaceAll("Exception:", ""), isError: true);
@@ -139,9 +150,10 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message), 
+        content: Text(message),
         backgroundColor: isError ? Colors.redAccent : Colors.green,
         duration: const Duration(seconds: 2),
       ),
@@ -174,7 +186,7 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
                 style: const TextStyle(color: Colors.white),
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  hintText: "ইউজার আইডি দিয়ে খুঁজুন...",
+                  hintText: "ইউজার আইডি দিয়ে খুঁজুন...",
                   hintStyle: const TextStyle(color: Colors.white24),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.search, color: Colors.pinkAccent),
@@ -185,11 +197,15 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
               ),
             ),
             const SizedBox(height: 25),
-            
-            if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.pinkAccent)),
+
+            if (isLoading) 
+              const Padding(
+                padding: EdgeInsets.only(top: 20),
+                child: Center(child: CircularProgressIndicator(color: Colors.pinkAccent)),
+              ),
 
             // ইউজার কার্ড
-            if (foundUser != null)
+            if (foundUser != null && !isLoading)
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -202,18 +218,18 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
                     CircleAvatar(
                       radius: 45,
                       backgroundColor: Colors.pinkAccent,
-                      backgroundImage: (foundUser!['imageURL'] != null && foundUser!['imageURL'] != "") 
-                          ? NetworkImage(foundUser!['imageURL']) 
+                      backgroundImage: (foundUser!['imageURL'] != null && foundUser!['imageURL'] != "")
+                          ? NetworkImage(foundUser!['imageURL'])
                           : null,
-                      child: (foundUser!['imageURL'] == null || foundUser!['imageURL'] == "") 
-                          ? const Icon(Icons.person, size: 50, color: Colors.white) 
+                      child: (foundUser!['imageURL'] == null || foundUser!['imageURL'] == "")
+                          ? const Icon(Icons.person, size: 50, color: Colors.white)
                           : null,
                     ),
                     const SizedBox(height: 15),
-                    Text(foundUser!['name'] ?? "ইউজার", style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text(foundUser!['name'] ?? "ইউজার",
+                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                     Text("ID: ${foundUser!['userId']}", style: const TextStyle(color: Colors.white54)),
                     const Divider(color: Colors.white10, height: 30),
-                    
                     TextField(
                       controller: _amountController,
                       style: const TextStyle(color: Colors.white, fontSize: 22),
@@ -223,10 +239,10 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
                         hintText: "ডায়মন্ড পরিমাণ",
                         hintStyle: TextStyle(color: Colors.white10),
                         enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.pinkAccent)),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.cyanAccent)),
                       ),
                     ),
                     const SizedBox(height: 30),
-                    
                     SizedBox(
                       width: double.infinity,
                       height: 55,
@@ -236,7 +252,8 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
                           backgroundColor: Colors.pinkAccent,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                         ),
-                        child: const Text("ডায়মন্ড সেন্ড করুন", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                        child: const Text("ডায়মন্ড সেন্ড করুন",
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                       ),
                     ),
                   ],
