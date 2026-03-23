@@ -481,12 +481,18 @@ Widget build(BuildContext context) {
       if (snapshot.hasData && snapshot.data!.exists) {
         userData = snapshot.data!.data() as Map<String, dynamic>;
         
-        // 🔥 আপনার পুরাতন ডাটাবেস পাথগুলো এখানে হুবহু রাখা হলো
+        // 🚨 আপনার স্ক্রিনশট অনুযায়ী ডাটা পাথ ফিক্স করা হলো
         userName = userData['name'] ?? "User";
+        
+        // আপনার ডাটাবেসে uID আছে (বড় হাতের ID), তাই এটি পরিবর্তন করবেন না
         uIDValue = userData['uID']?.toString() ?? "N/A"; 
+        
         diamonds = userData['diamonds'] ?? 0;
         xp = userData['xp'] ?? 0; 
+        
+        // প্রোফাইল পিকচার পাথ
         userImageURL = userData['profilePic'] ?? ""; 
+        
         gender = userData['gender'] ?? "অনির্ধারিত";
         hasPremiumCard = userData['hasPremium'] ?? false;
         followers = userData['followers'] ?? 0;
@@ -543,8 +549,9 @@ Widget build(BuildContext context) {
                 child: CircleAvatar(
                   radius: 50, 
                   backgroundColor: Colors.grey[900], 
-                  backgroundImage: (userImageURL.isNotEmpty) ? NetworkImage(userImageURL) : null,
-                  child: (userImageURL.isEmpty) ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
+                  // ছবি লোড করার লজিক
+                  backgroundImage: (userImageURL != null && userImageURL.isNotEmpty) ? NetworkImage(userImageURL) : null,
+                  child: (userImageURL == null || userImageURL.isEmpty) ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
                 )
               ),
             ])),
@@ -565,7 +572,7 @@ Widget build(BuildContext context) {
               Expanded(child: Column(children: [
                 Text("VIP Level $vipLevel (XP: $xp / 25000)", style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
-                LinearProgressIndicator(value: (xp / 25000).clamp(0, 1), valueColor: const AlwaysStoppedAnimation(Colors.amber), backgroundColor: Colors.white10),
+                LinearProgressIndicator(value: (xp / 25000.0).clamp(0, 1), valueColor: const AlwaysStoppedAnimation(Colors.amber), backgroundColor: Colors.white10),
               ])),
               const SizedBox(width: 12),
               if (hasPremiumCard) Image.network(premiumBadgeUrl, width: 45, height: 45) else const SizedBox(width: 45),
@@ -573,7 +580,7 @@ Widget build(BuildContext context) {
 
             const SizedBox(height: 25),
 
-            // ফলোয়ার ও ফলোয়িং
+            // ফলোয়ার ও ফলোয়িং
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               _buildStat("Followers", followers, targetUserId, context), 
               const SizedBox(width: 25),
@@ -601,7 +608,7 @@ Widget build(BuildContext context) {
 
             const SizedBox(height: 35),
 
-            // মেইন অ্যাকশন বক্স: শুধু নিজের জন্য
+            // মেইন অ্যাকশন বক্স
             if (isMe) ...[
               Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
                 _buildActionBox("Diamond", Icons.diamond, Colors.cyan, () => _openDiamondStore(userData)),
@@ -609,7 +616,7 @@ Widget build(BuildContext context) {
                 _buildActionBox("Backpack", Icons.backpack, Colors.orange, _openBackpack),
               ]),
 
-              // 🔥 এজেন্সি ওয়ালেট (সবসময় userData থেকে লাইভ ডাটা নেবে)
+              // 🔥 এজেন্সি ওয়ালেট (লাইভ ডাটাবেস ব্যালেন্স)
               if (userData['isAgent'] == true) ...[
                 const SizedBox(height: 25),
                 _buildAgencyWalletCard(userData), 
@@ -626,7 +633,6 @@ Widget build(BuildContext context) {
     },
   );
 }
-
 // ✅ ১. ফলোয়ার/ফলোয়িং লিস্ট দেখার উইজেট (প্যারামিটারে context যোগ করা হয়েছে)
 Widget _buildStat(String label, int value, String uID, BuildContext context) {
   final String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
