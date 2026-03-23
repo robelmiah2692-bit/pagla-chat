@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pagla_chat/services/database_service.dart';
+import 'dart:async'; // টাইমারের জন্য
 import 'package:pagla_chat/services/gift_logic_helper.dart';
 
 // ডাটা ফাইল ইমপোর্ট
@@ -29,14 +29,46 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   int selectedCount = 1;
   String targetType = "Target"; 
   String? selectedTargetId; 
-  String? selectedTargetImage; // ছবির জন্য নতুন ভেরিয়েবল (ফিচার প্লাস)
-
+  
   late List<Map<String, dynamic>> dynamicFreeGifts;
+  Timer? _timer; 
 
   @override
   void initState() {
     super.initState();
-    dynamicFreeGifts = List.from(freeGifts);
+    // প্রতিটি ফ্রি গিফটের জন্য ৩ দিনের মেয়াদ সেট করা
+    DateTime expiryDate = DateTime.now().add(const Duration(days: 3));
+    dynamicFreeGifts = freeGifts.map((g) {
+      var map = Map<String, dynamic>.from(g);
+      map['expiry'] = expiryDate; 
+      return map;
+    }).toList();
+
+    // প্রতি মিনিটে UI আপডেট করবে টাইমার দেখানোর জন্য
+    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  // সময় গণনার লজিক
+  String _getRemainingTime(DateTime expiry) {
+    final now = DateTime.now();
+    final difference = expiry.difference(now);
+    if (difference.isNegative) return "Expired";
+    
+    int days = difference.inDays;
+    int hours = difference.inHours % 24;
+    int minutes = difference.inMinutes % 60;
+
+    if (days > 0) return "${days}d ${hours}h";
+    if (hours > 0) return "${hours}h ${minutes}m";
+    return "${minutes}m left";
   }
 
   @override
@@ -65,7 +97,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
             Expanded(
               child: TabBarView(
                 children: [
-                  _buildGrid(dynamicFreeGifts),
+                  _buildGrid(dynamicFreeGifts, isFreeTab: true),
                   _buildGrid(classicGifts),
                   _buildGrid(romanticGifts),
                   _buildGrid(luxuryGifts),
@@ -109,7 +141,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
 
   Widget _targetChip(String label, IconData icon) {
     bool isSelected = (label == "Target" && targetType != "All Room" && targetType != "All Mic") || targetType == label;
-    
     return GestureDetector(
       onTap: () {
         if (label == "Target") {
@@ -117,11 +148,10 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
           GiftLogicHelper.showTargetSelector(
             context: context,
             micUsers: micUsers,
-            onSelected: (uid, name, image) { // নাম, আইডি ও ছবি রিসিভ করছে
+            onSelected: (uid, name) {
               setState(() {
                 targetType = name;
                 selectedTargetId = uid;
-                selectedTargetImage = image;
               });
             },
           );
@@ -129,7 +159,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
           setState(() {
             targetType = label;
             selectedTargetId = "ALL";
-            selectedTargetImage = null;
           });
         }
       },
@@ -142,15 +171,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
         ),
         child: Row(
           children: [
-            // ছবি থাকলে ছবি দেখাবে, না থাকলে আইকন
-            if (isSelected && selectedTargetImage != null && label == "Target")
-               Padding(
-                 padding: const EdgeInsets.only(right: 5),
-                 child: CircleAvatar(radius: 8, backgroundImage: NetworkImage(selectedTargetImage!)),
-               )
-            else
-               Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.white54),
-            
+            Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.white54),
             const SizedBox(width: 5),
             Text(isSelected ? targetType : label, 
               style: TextStyle(color: isSelected ? Colors.white : Colors.white54, fontSize: 12)),
@@ -160,12 +181,12 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     );
   }
 
-  Widget _buildGrid(List gifts) {
+  Widget _buildGrid(List gifts, {bool isFreeTab = false}) {
     return GridView.builder(
       padding: const EdgeInsets.all(15),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4, 
-        childAspectRatio: 0.85
+        childAspectRatio: 0.75 
       ),
       itemCount: gifts.length,
       itemBuilder: (context, index) {
@@ -184,7 +205,12 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Image.network(gift["icon"], height: 40, errorBuilder: (c, e, s) => const Icon(Icons.card_giftcard, color: Colors.white24)),
-                Text("💎 ${gift["price"]}", style: const TextStyle(color: Colors.amber, fontSize: 10)),
+                const SizedBox(height: 5),
+                if (isFreeTab) 
+                  Text(_getRemainingTime(gift['expiry']), 
+                    style: const TextStyle(color: Colors.greenAccent, fontSize: 8, fontWeight: FontWeight.bold))
+                else
+                  Text("💎 ${gift["price"]}", style: const TextStyle(color: Colors.amber, fontSize: 10)),
               ],
             ),
           ),
@@ -213,10 +239,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
           )),
           const Spacer(),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.pinkAccent, 
-              shape: const StadiumBorder()
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, shape: const StadiumBorder()),
             onPressed: selectedGift == null ? null : _handleSendAction,
             child: const Text("SEND", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
@@ -231,16 +254,12 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     bool isFree = selectedGift!['type'] == 'free' || unitPrice == 0;
 
     if (selectedTargetId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("কাকে গিফট পাঠাবেন সিলেক্ট করুন!"), backgroundColor: Colors.orange)
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Target সিলেক্ট করুন!")));
       return;
     }
 
     if (!isFree && widget.diamondBalance < totalPrice) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Insufficient Diamonds!"), backgroundColor: Colors.redAccent)
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Insufficient Diamonds!")));
       return;
     }
 
@@ -260,7 +279,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
         selectedGift = null;
       });
     }
-
     Navigator.pop(context);
   }
 }
