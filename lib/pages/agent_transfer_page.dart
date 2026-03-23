@@ -19,36 +19,40 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
 
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-  // ১. ইউজার সার্চ লজিক (এজেন্ট চেকসহ)
+  // ১. ইউজার সার্চ লজিক (নিজেও ডায়মন্ড নিতে পারবে এমন আপডেট করা হয়েছে)
   void searchUser(String userId) async {
     if (userId.isEmpty) return;
 
     setState(() {
       isLoading = true;
       foundUser = null;
+      receiverFirestoreId = null;
     });
 
     try {
+      // প্রথমে String হিসেবে আইডি খোঁজা
       var userDoc = await FirebaseFirestore.instance
           .collection('users')
           .where('userId', isEqualTo: userId)
           .get();
 
+      // যদি String হিসেবে না পায়, তবে Number হিসেবে আবার চেক করা
+      if (userDoc.docs.isEmpty && int.tryParse(userId) != null) {
+        userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .where('userId', isEqualTo: int.parse(userId))
+            .get();
+      }
+
       if (userDoc.docs.isNotEmpty) {
         var userData = userDoc.docs.first.data();
         receiverFirestoreId = userDoc.docs.first.id;
 
-        // চেক ১: টার্গেট ইউজার কি নিজে?
-        if (receiverFirestoreId == currentUserId) {
-          setState(() => isLoading = false);
-          _showSnackBar("আপনি নিজেকে ডায়মন্ড পাঠাতে পারবেন না!", isError: true);
-          return;
-        }
-
-        // চেক ২: টার্গেট ইউজার কি একজন এজেন্ট?
+        // চেক: টার্গেট ইউজার কি অন্য কোন এজেন্ট? 
+        // (যদি নিজের আইডি হয় অর্থাৎ receiverFirestoreId == currentUserId, তবে ট্রান্সফার করা যাবে)
         bool isTargetAgent = userData['isAgent'] ?? false;
 
-        if (isTargetAgent) {
+        if (isTargetAgent && receiverFirestoreId != currentUserId) {
           setState(() => isLoading = false);
           _showSnackBar("আপনি অন্য কোন এজেন্টকে ডায়মন্ড পাঠাতে পারবেন না!", isError: true);
         } else {
@@ -67,7 +71,7 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
     }
   }
 
-  // ২. চূড়ান্ত ডায়মন্ড ট্রান্সফার লজিক (Transaction)
+  // ২. ডায়মন্ড ট্রান্সফার লজিক (Transaction)
   Future<void> confirmTransfer() async {
     if (foundUser == null || _amountController.text.isEmpty || receiverFirestoreId == null) return;
 
@@ -86,9 +90,8 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
 
         DocumentSnapshot senderSnap = await transaction.get(senderRef);
         
-        if (!senderSnap.exists) throw Exception("এজেন্ট ডাটা পাওয়া যায়নি!");
+        if (!senderSnap.exists) throw Exception("এজেন্ট ডাটা পাওয়া যায়নি!");
 
-        // লজিক: এজেন্সি ওয়ালেট থেকে ডায়মন্ড চেক (Type Safety নিশ্চিত করা হয়েছে)
         Map<String, dynamic> senderData = senderSnap.data() as Map<String, dynamic>;
         int currentAgencyWallet = senderData['agency_wallet']?.toInt() ?? 0;
 
@@ -107,7 +110,7 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
           'xp': FieldValue.increment(amount),
         });
 
-        // ৫. PaglaChat Official থেকে ইউজারকে নোটিফিকেশন মেসেজ
+        // ৫. সিস্টেম নোটিফিকেশন (PaglaChat Official)
         String chatId = "paglachat_official_$receiverFirestoreId";
         DocumentReference msgRef = FirebaseFirestore.instance
             .collection('chats')
@@ -118,13 +121,13 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
         transaction.set(msgRef, {
           'senderId': 'paglachat_official',
           'receiverId': receiverFirestoreId,
-          'text': "আপনি সফলভাবে $amount ডায়মন্ড এবং $amount এক্সপি বোনাস পেয়েছেন।",
+          'text': "আপনি সফলভাবে $amount ডায়মন্ড এবং $amount এক্সপি বোনাস পেয়েছেন।",
           'timestamp': FieldValue.serverTimestamp(),
           'isRead': false,
           'type': 'system_msg'
         });
 
-        // ৬. ট্রানজেকশন হিস্ট্রি
+        // ৬. ট্রানজেকশন হিস্ট্রি সেভ
         transaction.set(FirebaseFirestore.instance.collection('diamond_history').doc(), {
           'senderId': currentUserId,
           'receiverId': receiverFirestoreId,
@@ -165,10 +168,12 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D1A),
       appBar: AppBar(
-        title: const Text("এজেন্সি ডায়মন্ড ওয়ালেট", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        title: const Text("এজেন্সি ডায়মন্ড ওয়ালেট", 
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: const Color(0xFF1E1E2F),
         centerTitle: true,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -204,7 +209,7 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
                 child: Center(child: CircularProgressIndicator(color: Colors.pinkAccent)),
               ),
 
-            // ইউজার কার্ড
+            // ইউজার কার্ড (সার্চ রেজাল্ট)
             if (foundUser != null && !isLoading)
               Container(
                 padding: const EdgeInsets.all(20),
