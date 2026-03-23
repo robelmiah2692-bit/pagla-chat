@@ -40,88 +40,86 @@ class _ProfilePageState extends State<ProfilePage> {
   DateTime premiumExpiryDate = DateTime.now().add(const Duration(days: 30));
   DateTime lastLevelUpDate = DateTime.now(); 
 
-  @override
+   @override
   void initState() {
     super.initState();
     setupUserAccount(); 
   }
 
-  // ৩. ডাইনামিক আইডি জেনারেশন এবং অ্যাকাউন্ট সেটআপ লজিক
+  // ৩. ডাইনামিক আইডি জেনারেশন এবং অ্যাকাউন্ট সেটআপ লজিক (সংশোধিত)
   void setupUserAccount() async {
-  String? uid = FirebaseAuth.instance.currentUser?.uid;
-  if (uid == null) return;
+    String? uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
 
-  // 🔥 হৃদয় ভাই, এখানে আপনার অরিজিনাল ফায়ারবেস UID টা বসাবেন
-  const String ownerUID = "YOUR_ACTUAL_FIREBASE_UID_HERE"; 
+    // 🔥 হৃদয় ভাই, এখানে আপনার অরিজিনাল ফায়ারবেস UID টা অবশ্যই বসাবেন
+    const String ownerUID = "YOUR_ACTUAL_FIREBASE_UID_HERE"; 
 
-  try {
-    DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(uid);
-    
-    // সার্ভার এবং ক্যাশ দুই জায়গা থেকেই ডাটা চেক করবে যাতে স্পিড বাড়ে
-    DocumentSnapshot userDoc = await userRef.get(const GetOptions(source: Source.serverAndCache));
-
-    if (userDoc.exists && userDoc.data() != null) {
-      var data = userDoc.data() as Map<String, dynamic>;
+    try {
+      DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(uid);
       
-      if (mounted) {
-        setState(() {
-          // আইডি যদি ডাটাবেসে না থাকে বা ফাঁকা থাকে, তবে সাথে সাথে তৈরি করবে
-          String? serverID = data['uID']?.toString();
-          if (serverID == null || serverID.isEmpty) {
-            uIDValue = (100000 + (uid.hashCode.abs() % 899999)).toString();
-            userRef.update({'uID': uIDValue}); // ডাটাবেসে আপডেট করে দিবে
-          } else {
-            uIDValue = serverID;
-          }
-          
-          // আপনার ওনার আইডি চেক
-          if (uid == ownerUID) {
-            userName = "Hridoy (Owner) 😎";
-          } else {
-            userName = data['name'] ?? "পাগলা ইউজার";
-          }
-          
-          gender = data['gender'] ?? "অনির্ধারিত";
-          diamonds = data['diamonds'] ?? 0;
-          xp = data['xp'] ?? 0;
-          userImageURL = data['profilePic'] ?? "";
-          age = data['age'] ?? 22;
-        });
-      }
-    } else {
-      // যদি ইউজার একদম নতুন হয়, তবে সাথে সাথে আইডি জেনারেট হবে
-      String newUserID = (100000 + (uid.hashCode.abs() % 899999)).toString();
-      
-      if (mounted) {
-        setState(() {
-          uIDValue = newUserID;
-          userName = (uid == ownerUID) ? "Hridoy (Owner) 😎" : "পাগলা ইউজার";
-        });
-      }
+      // সার্ভার এবং ক্যাশ দুই জায়গা থেকেই ডাটা চেক করবে
+      DocumentSnapshot userDoc = await userRef.get(const GetOptions(source: Source.serverAndCache));
 
-      // নতুন ইউজারের ডাটাবেস এন্ট্রি
-      await userRef.set({
-        'uID': newUserID,
-        'name': (uid == ownerUID) ? "Hridoy (Owner) 😎" : "পাগলা ইউজার",
-        'gender': "অনির্ধারিত",
-        'diamonds': 200, 
-        'xp': 0,
-        'profilePic': "",
-        'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    }
-  } catch (e) {
-    debugPrint("Firebase Error: $e");
-    // যদি ইন্টারনেটের কারণে এরর হয়, তবুও যাতে আইডি ফাঁকা না থাকে
-    if (mounted && uIDValue.isEmpty) {
-      setState(() {
-        uIDValue = (100000 + (uid.hashCode.abs() % 899999)).toString();
-      });
+      if (userDoc.exists && userDoc.data() != null) {
+        var data = userDoc.data() as Map<String, dynamic>;
+        
+        if (mounted) {
+          setState(() {
+            // ১. আইডি রিড (ছোট বা বড় হাতের যাই হোক)
+            uIDValue = (data['uID'] ?? data['uid'] ?? "").toString();
+            if (uIDValue.isEmpty || uIDValue == "null") {
+              uIDValue = (100000 + (uid.hashCode.abs() % 899999)).toString();
+              userRef.update({'uID': uIDValue}); 
+            }
+            
+            // ২. ওনার চেক ও নাম সেটআপ
+            if (uid == ownerUID) {
+              userName = "Hridoy (Owner) 😎";
+            } else {
+              userName = data['name'] ?? "পাগলা ইউজার";
+            }
+            
+            // ৩. গুরুত্বপূর্ণ: XP এবং VIP মেয়াদের ডাটা রিড
+            diamonds = data['diamonds'] ?? 0;
+            xp = data['xp'] ?? 0;
+            vipExpiry = data['vipExpiry'] ?? 0; // মেয়াদের মাইল্ডিসেকেন্ড
+            
+            gender = data['gender'] ?? "অনির্ধারিত";
+            userImageURL = data['profilePic'] ?? "";
+            age = data['age'] ?? 22;
+          });
+        }
+      } else {
+        // নতুন ইউজারের ডাটাবেস এন্ট্রি
+        String newUserID = (100000 + (uid.hashCode.abs() % 899999)).toString();
+        String initialName = (uid == ownerUID) ? "Hridoy (Owner) 😎" : "পাগলা ইউজার";
+        
+        await userRef.set({
+          'uID': newUserID,
+          'name': initialName,
+          'gender': "অনির্ধারিত",
+          'diamonds': 200, 
+          'xp': 0,
+          'vipExpiry': 0, // শুরুতে মেয়াদ থাকবে না
+          'profilePic': "",
+          'createdAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        if (mounted) {
+          setState(() {
+            uIDValue = newUserID;
+            userName = initialName;
+            xp = 0;
+            vipExpiry = 0;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Firebase Error: $e");
     }
   }
-}
 
-  // আপনার ২০টি রিয়েল অবতার লিস্ট
+  // ২০টি রিয়েল অবতার লিস্ট
   final List<String> maleAvatars = [
     "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=200&v=1",
     "https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=200&v=2",
@@ -148,7 +146,9 @@ class _ProfilePageState extends State<ProfilePage> {
     "https://images.pexels.com/photos/1310522/pexels-photo-1310522.jpeg?auto=compress&cs=tinysrgb&w=200&v=20",
   ];
 
+  // VIP বেইজ লিংকের ফাংশন
   String getVipBadge(int level) {
+    if (level == 0) return ""; 
     switch (level) {
       case 1: return "https://i.ibb.co/6P0f9pX/vip1.png";
       case 2: return "https://i.ibb.co/YyYfD6B/vip2.png";
@@ -164,7 +164,15 @@ class _ProfilePageState extends State<ProfilePage> {
 
   String premiumBadgeUrl = "https://i.ibb.co/3ykC7mP/premium-gold.png";
 
+  // VIP লেভেল ক্যালকুলেশন (মেয়াদসহ)
   int getVipLevel() {
+    int currentTime = DateTime.now().millisecondsSinceEpoch;
+    
+    // যদি মেয়াদ শেষ হয়ে যায়, তবে VIP ০ (লেভেল নেই)
+    if (vipExpiry != 0 && currentTime > vipExpiry) {
+      return 0; 
+    }
+
     if (xp >= 35000) return 8;
     if (xp >= 30000) return 7;
     if (xp >= 25000) return 6;
