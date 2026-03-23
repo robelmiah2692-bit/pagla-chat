@@ -460,7 +460,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  @override
+ @override
 Widget build(BuildContext context) {
   final String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
   // যদি এই পেজটি অন্য কারো আইডির জন্য ওপেন করা হয়, তবে 'userId' ব্যবহার হবে, নাহলে নিজের 'myId'
@@ -472,25 +472,30 @@ Widget build(BuildContext context) {
     builder: (context, snapshot) {
       if (snapshot.hasError) return const Scaffold(body: Center(child: Text("Error!")));
       if (snapshot.connectionState == ConnectionState.waiting) {
-        return const Scaffold(backgroundColor: Color(0xFF0D0D1A), body: Center(child: CircularProgressIndicator(color: Colors.pinkAccent)));
+        return const Scaffold(
+          backgroundColor: Color(0xFF0D0D1A), 
+          body: Center(child: CircularProgressIndicator(color: Colors.pinkAccent))
+        );
       }
 
-      // ডাটা রিয়েল-টাইম রিড করা হচ্ছে
+      // ডাটা রিয়েল-টাইম রিড করা হচ্ছে
       Map<String, dynamic> userData = {};
       if (snapshot.hasData && snapshot.data!.exists) {
         userData = snapshot.data!.data() as Map<String, dynamic>;
+        
+        // স্টেট ভ্যারিয়েবল আপডেট (সরাসরি এসাইন করা হয়েছে এরর এড়াতে)
         userName = userData['name'] ?? "User";
-        uIDValue = userData['uID']?.toString() ?? "N/A";
-        diamonds = userData['diamonds'] ?? 0;
-        xp = userData['xp'] ?? 0; // রিয়েল-টাইম XP
-        userImageURL = userData['profilePic'] ?? "";
+        uIDValue = userData['userId']?.toString() ?? "N/A"; // আপনার ফিল্ড নাম userId হলে সেটা দিন
+        diamonds = userData['diamonds']?.toInt() ?? 0;
+        xp = userData['xp']?.toInt() ?? 0; 
+        userImageURL = userData['imageURL'] ?? ""; // আপনার ফিল্ড অনুযায়ী imageURL/profilePic দিন
         gender = userData['gender'] ?? "অনির্ধারিত";
         hasPremiumCard = userData['hasPremium'] ?? false;
-        followers = userData['followers'] ?? 0;
-        following = userData['following'] ?? 0;
+        followers = userData['followers']?.toInt() ?? 0;
+        following = userData['following']?.toInt() ?? 0;
       }
 
-      int vipLevel = getVipLevel();
+      int vipLevel = getVipLevel(); // আপনার তৈরি করা ফাংশন
 
       return Scaffold(
         backgroundColor: const Color(0xFF0D0D1A),
@@ -530,14 +535,22 @@ Widget build(BuildContext context) {
             ),
             
             const SizedBox(height: 20),
+            
             // প্রোফাইল পিকচার ও ফ্রেম
             Center(child: Stack(alignment: Alignment.center, children: [
-              if (vipLevel > 0) Image.network("https://png.pngtree.com/png-clipart/20230501/original/pngtree-golden-vip-frame-png-image_9128509.png", width: 130, height: 130),
+              if (vipLevel > 0) 
+                Image.network("https://png.pngtree.com/png-clipart/20230501/original/pngtree-golden-vip-frame-png-image_9128509.png", width: 130, height: 130),
               GestureDetector(
                 onTap: isMe ? _pickProfileImage : null, 
-                child: CircleAvatar(radius: 50, backgroundColor: Colors.grey[900], backgroundImage: _getProfileImage())
+                child: CircleAvatar(
+                  radius: 50, 
+                  backgroundColor: Colors.grey[900], 
+                  backgroundImage: (userImageURL != "") ? NetworkImage(userImageURL) : null,
+                  child: (userImageURL == "") ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
+                )
               ),
             ])),
+            
             const SizedBox(height: 10),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               Text(userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
@@ -547,7 +560,7 @@ Widget build(BuildContext context) {
             Text("User ID: $uIDValue", style: const TextStyle(color: Colors.pinkAccent, fontSize: 13, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
 
-            // VIP এবং XP সেকশন (রিয়েল-টাইম XP আপডেট হবে)
+            // VIP এবং XP সেকশন
             Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               if (vipLevel > 0) Image.network(getVipBadge(vipLevel), width: 45, height: 45) else const SizedBox(width: 45),
               const SizedBox(width: 12),
@@ -562,14 +575,17 @@ Widget build(BuildContext context) {
 
             const SizedBox(height: 25),
 
-            // ফলোয়ার ও ফলোয়িং
+            // ফলোয়ার ও ফলোয়িং
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               _buildStat("Followers", followers, targetUserId, context), 
               const SizedBox(width: 25),
               if (!isMe) ...[
                 ElevatedButton(
                   onPressed: _toggleFollow,
-                  style: ElevatedButton.styleFrom(backgroundColor: isFollowing ? Colors.blueGrey : Colors.pinkAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isFollowing ? Colors.blueGrey : Colors.pinkAccent, 
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
+                  ),
                   child: Text(isFollowing ? "Friend" : "Follow", style: const TextStyle(color: Colors.white)),
                 ),
                 const SizedBox(width: 10),
@@ -590,12 +606,13 @@ Widget build(BuildContext context) {
             // মেইন অ্যাকশন বক্স: শুধু নিজের জন্য
             if (isMe) ...[
               Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                _buildActionBox("Diamond", Icons.diamond, Colors.cyan, _openDiamondStore),
+                // এখানে ফাংশনগুলোকে সঠিকভাবে কল করা হয়েছে
+                _buildActionBox("Diamond", Icons.diamond, Colors.cyan, () => _openDiamondStore(userData)),
                 _buildActionBox("Premium", Icons.card_membership, Colors.purple, _openPremiumStore),
                 _buildActionBox("Backpack", Icons.backpack, Colors.orange, _openBackpack),
               ]),
 
-              // 🔥 নতুন ফিচার: এজেন্সি ওয়ালেট (শুধু এজেন্টের জন্য)
+              // 🔥 এজেন্সি ওয়ালেট (শুধু এজেন্টের জন্য)
               if (userData['isAgent'] == true) ...[
                 const SizedBox(height: 25),
                 _buildAgencyWalletCard(userData), 
