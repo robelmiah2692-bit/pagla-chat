@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pagla_chat/services/database_service.dart';
 import 'package:pagla_chat/services/gift_logic_helper.dart';
-// এটি আপনার ভিডিও প্লে করার ইঞ্জিন (যে ফাইলটি আমরা মাস্টার ফাইল হিসেবে বানালাম)
 
 // ডাটা ফাইল ইমপোর্ট
 import 'package:pagla_chat/data/free_gifts.dart';
@@ -11,7 +10,7 @@ import 'package:pagla_chat/data/luxury_gifts.dart';
 
 class GiftBottomSheet extends StatefulWidget {
   final int diamondBalance;
-  final List<dynamic> currentSeats; // সিটের ইউজারদের জন্য
+  final List<dynamic> currentSeats; 
   final Function(Map<String, dynamic> gift, int count, String target) onGiftSend;
 
   const GiftBottomSheet({
@@ -29,7 +28,8 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   Map<String, dynamic>? selectedGift;
   int selectedCount = 1;
   String targetType = "Target"; 
-  String? selectedTargetId; // টার্গেট ইউজারের আইডি রাখার জন্য
+  String? selectedTargetId; 
+  String? selectedTargetImage; // ছবির জন্য নতুন ভেরিয়েবল (ফিচার প্লাস)
 
   late List<Map<String, dynamic>> dynamicFreeGifts;
 
@@ -41,10 +41,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final classicList = classicGifts;
-    final romanticList = romanticGifts;
-    final luxuryList = luxuryGifts;
-
     return DefaultTabController(
       length: 4,
       child: Container(
@@ -70,9 +66,9 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
               child: TabBarView(
                 children: [
                   _buildGrid(dynamicFreeGifts),
-                  _buildGrid(classicList),
-                  _buildGrid(romanticList),
-                  _buildGrid(luxuryList),
+                  _buildGrid(classicGifts),
+                  _buildGrid(romanticGifts),
+                  _buildGrid(luxuryGifts),
                 ],
               ),
             ),
@@ -121,17 +117,19 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
           GiftLogicHelper.showTargetSelector(
             context: context,
             micUsers: micUsers,
-            onSelected: (uid, name) {
+            onSelected: (uid, name, image) { // নাম, আইডি ও ছবি রিসিভ করছে
               setState(() {
                 targetType = name;
                 selectedTargetId = uid;
+                selectedTargetImage = image;
               });
             },
           );
         } else {
           setState(() {
             targetType = label;
-            selectedTargetId = "ALL"; // All Room/Mic এর জন্য
+            selectedTargetId = "ALL";
+            selectedTargetImage = null;
           });
         }
       },
@@ -144,7 +142,15 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
         ),
         child: Row(
           children: [
-            Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.white54),
+            // ছবি থাকলে ছবি দেখাবে, না থাকলে আইকন
+            if (isSelected && selectedTargetImage != null && label == "Target")
+               Padding(
+                 padding: const EdgeInsets.only(right: 5),
+                 child: CircleAvatar(radius: 8, backgroundImage: NetworkImage(selectedTargetImage!)),
+               )
+            else
+               Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.white54),
+            
             const SizedBox(width: 5),
             Text(isSelected ? targetType : label, 
               style: TextStyle(color: isSelected ? Colors.white : Colors.white54, fontSize: 12)),
@@ -224,7 +230,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     int totalPrice = unitPrice * selectedCount;
     bool isFree = selectedGift!['type'] == 'free' || unitPrice == 0;
 
-    // ১. টার্গেট ইউজার চেক
     if (selectedTargetId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("কাকে গিফট পাঠাবেন সিলেক্ট করুন!"), backgroundColor: Colors.orange)
@@ -232,7 +237,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       return;
     }
 
-    // ২. ব্যালেন্স চেক
     if (!isFree && widget.diamondBalance < totalPrice) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Insufficient Diamonds!"), backgroundColor: Colors.redAccent)
@@ -240,10 +244,8 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       return;
     }
 
-    // ৩. ভাগাভাগির হিসাব
     final split = GiftLogicHelper.calculateSplit(totalPrice);
 
-    // ৪. মেইন ফাংশনে ডাটা পাঠানো
     widget.onGiftSend({
       ...selectedGift!,
       'userShare': split['userShare'],
@@ -252,7 +254,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       'targetId': selectedTargetId,
     }, selectedCount, targetType);
 
-    // ৫. ফ্রি গিফট হলে রিমুভ করা
     if (isFree) {
       setState(() {
         dynamicFreeGifts.removeWhere((g) => g['id'] == selectedGift!['id']);
