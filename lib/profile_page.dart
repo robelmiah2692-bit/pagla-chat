@@ -481,21 +481,16 @@ Widget build(BuildContext context) {
       if (snapshot.hasData && snapshot.data!.exists) {
         userData = snapshot.data!.data() as Map<String, dynamic>;
         
+        // 🔥 আপনার পুরাতন ডাটাবেস পাথগুলো এখানে হুবহু রাখা হলো
         userName = userData['name'] ?? "User";
-        
-        // 🔥 ফিক্স ১: ফায়ারবেসে নাম 'uID', তাই এখানে 'uID' ব্যবহার করতে হবে
         uIDValue = userData['uID']?.toString() ?? "N/A"; 
-        
-        diamonds = userData['diamonds']?.toInt() ?? 0;
-        xp = userData['xp']?.toInt() ?? 0; 
-        
-        // 🔥 ফিক্স ২: ফায়ারবেসে নাম 'profilePic', তাই এখানে 'profilePic' ব্যবহার করতে হবে
+        diamonds = userData['diamonds'] ?? 0;
+        xp = userData['xp'] ?? 0; 
         userImageURL = userData['profilePic'] ?? ""; 
-        
         gender = userData['gender'] ?? "অনির্ধারিত";
         hasPremiumCard = userData['hasPremium'] ?? false;
-        followers = userData['followers']?.toInt() ?? 0;
-        following = userData['following']?.toInt() ?? 0;
+        followers = userData['followers'] ?? 0;
+        following = userData['following'] ?? 0;
       }
 
       int vipLevel = getVipLevel();
@@ -519,7 +514,7 @@ Widget build(BuildContext context) {
         body: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Column(children: [
-            // ম্যারেজ সেকশন
+            // ম্যারেজ সেকশন (রিয়েল-টাইম)
             StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance.collection('marriages').doc(targetUserId).snapshots(),
               builder: (context, mSnapshot) {
@@ -548,7 +543,6 @@ Widget build(BuildContext context) {
                 child: CircleAvatar(
                   radius: 50, 
                   backgroundColor: Colors.grey[900], 
-                  // 🔥 ফিক্স ৩: এখানে userImageURL ব্যবহার করা হয়েছে যা এখন সঠিক ডাটা পাবে
                   backgroundImage: (userImageURL.isNotEmpty) ? NetworkImage(userImageURL) : null,
                   child: (userImageURL.isEmpty) ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
                 )
@@ -579,7 +573,7 @@ Widget build(BuildContext context) {
 
             const SizedBox(height: 25),
 
-            // ফলোয়ার ও ফলোয়িং
+            // ফলোয়ার ও ফলোয়িং
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               _buildStat("Followers", followers, targetUserId, context), 
               const SizedBox(width: 25),
@@ -615,7 +609,7 @@ Widget build(BuildContext context) {
                 _buildActionBox("Backpack", Icons.backpack, Colors.orange, _openBackpack),
               ]),
 
-              // 🔥 এজেন্সি ওয়ালেট (সবসময় userData থেকে ডাটা নেবে)
+              // 🔥 এজেন্সি ওয়ালেট (সবসময় userData থেকে লাইভ ডাটা নেবে)
               if (userData['isAgent'] == true) ...[
                 const SizedBox(height: 25),
                 _buildAgencyWalletCard(userData), 
