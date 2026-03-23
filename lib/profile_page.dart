@@ -1,3 +1,4 @@
+import 'vip_service.dart'; // ফাইলের নাম অনুযায়ী
 import 'dart:io' as io;
 import 'package:universal_html/html.dart' as html;
 import 'package:flutter/foundation.dart'; 
@@ -474,6 +475,18 @@ Widget build(BuildContext context) {
   final String targetUserId = widget.userId ?? myId; 
   final bool isMe = myId == targetUserId;
 
+  // পরবর্তী লেভেলের টার্গেট বের করার লজিক
+  int getNextLevelTarget(int currentXP) {
+    if (currentXP < 2500) return 2500;
+    if (currentXP < 5000) return 5000;
+    if (currentXP < 9000) return 9000;
+    if (currentXP < 13000) return 13000;
+    if (currentXP < 20000) return 20000;
+    if (currentXP < 25000) return 25000;
+    if (currentXP < 30000) return 30000;
+    return 35000; // VIP 8 এর টার্গেট
+  }
+
   return StreamBuilder<DocumentSnapshot>(
     stream: FirebaseFirestore.instance.collection('users').doc(targetUserId).snapshots(),
     builder: (context, snapshot) {
@@ -489,15 +502,11 @@ Widget build(BuildContext context) {
       if (snapshot.hasData && snapshot.data!.exists) {
         userData = snapshot.data!.data() as Map<String, dynamic>;
         
-        // 🔥 এই অংশটুকু খুব ভালো করে দেখুন (আপনার ডাটাবেস অনুযায়ী ফিক্সড)
         userName = userData['name'] ?? "User";
-        
-        // আপনার রুম এবং পোস্টের লজিক এই uIDValue এর ওপর চলে। 
-        // ডাটাবেসে ছোট হাতের 'uid' থাকলে এখানেও তাই দিতে হবে।
         uIDValue = (userData['uid'] ?? userData['uID'] ?? "N/A").toString(); 
-
         diamonds = userData['diamonds'] ?? 0;
         xp = userData['xp'] ?? 0; 
+        vipExpiry = userData['vipExpiry'] ?? 0; // এক্সপায়ারি রিড করা হচ্ছে
         userImageURL = userData['profilePic'] ?? ""; 
         gender = userData['gender'] ?? "অনির্ধারিত";
         hasPremiumCard = userData['hasPremium'] ?? false;
@@ -505,7 +514,10 @@ Widget build(BuildContext context) {
         following = userData['following'] ?? 0;
       }
 
-      int vipLevel = getVipLevel();
+      // ভিআইপি লেভেল এবং পরবর্তী টার্গেট ক্যালকুলেশন
+      int vipLevel = getVipLevel(); 
+      int nextTarget = getNextLevelTarget(xp);
+      double progressValue = (xp / nextTarget).clamp(0.0, 1.0);
 
       return Scaffold(
         backgroundColor: const Color(0xFF0D0D1A),
@@ -526,7 +538,7 @@ Widget build(BuildContext context) {
         body: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Column(children: [
-            // ম্যারেজ সেকশন
+            // ম্যারেজ সেকশন (আপনার আগের কোড ঠিক আছে)
             StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance.collection('marriages').doc(targetUserId).snapshots(),
               builder: (context, mSnapshot) {
@@ -546,7 +558,7 @@ Widget build(BuildContext context) {
             
             const SizedBox(height: 20),
             
-            // প্রোফাইল পিকচার ও ফ্রেম
+            // প্রোফাইল পিকচার ও গোল্ডেন ফ্রেম
             Center(child: Stack(alignment: Alignment.center, children: [
               if (vipLevel > 0) 
                 Image.network("https://png.pngtree.com/png-clipart/20230501/original/pngtree-golden-vip-frame-png-image_9128509.png", width: 130, height: 130),
@@ -570,22 +582,59 @@ Widget build(BuildContext context) {
             Text("User ID: $uIDValue", style: const TextStyle(color: Colors.pinkAccent, fontSize: 13, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
 
-            // VIP এবং XP সেকশন
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              if (vipLevel > 0) Image.network(getVipBadge(vipLevel), width: 45, height: 45) else const SizedBox(width: 45),
-              const SizedBox(width: 12),
-              Expanded(child: Column(children: [
-                Text("VIP Level $vipLevel (XP: $xp / 25000)", style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                LinearProgressIndicator(value: (xp / 25000.0).clamp(0, 1), valueColor: const AlwaysStoppedAnimation(Colors.amber), backgroundColor: Colors.white10),
-              ])),
-              const SizedBox(width: 12),
-              if (hasPremiumCard) Image.network(premiumBadgeUrl, width: 45, height: 45) else const SizedBox(width: 45),
-            ])),
+            // 🔥 VIP এবং ডাইনামিক XP প্রগ্রেস বার সেকশন
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 25), 
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center, 
+                children: [
+                  // VIP ব্যাজ - লেভেল ০ হলে স্টার দেখাবে, ১-৮ হলে ব্যাজ দেখাবে
+                  if (vipLevel > 0) 
+                    Image.network(getVipBadge(vipLevel), width: 45, height: 45) 
+                  else 
+                    const Icon(Icons.stars_rounded, color: Colors.white24, size: 40),
+                  
+                  const SizedBox(width: 15),
+                  
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // লেভেল এবং টার্গেট টেক্সট
+                        Text(
+                          vipLevel == 0 
+                              ? "Target VIP 1 (XP: $xp / $nextTarget)" 
+                              : "VIP Level $vipLevel (XP: $xp / $nextTarget)", 
+                          style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)
+                        ),
+                        const SizedBox(height: 8),
+                        // হলুদ রঙের প্রগ্রেস বার যা রিচার্জের সাথে সাথে বাড়বে
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: LinearProgressIndicator(
+                            value: progressValue, 
+                            minHeight: 8,
+                            valueColor: const AlwaysStoppedAnimation(Colors.amber), 
+                            backgroundColor: Colors.white10,
+                          ),
+                        ),
+                      ],
+                    )
+                  ),
+                  
+                  const SizedBox(width: 15),
+                  // প্রিমিয়াম ব্যাজ
+                  if (hasPremiumCard) 
+                    Image.network(premiumBadgeUrl, width: 45, height: 45) 
+                  else 
+                    const SizedBox(width: 45),
+                ]
+              )
+            ),
 
             const SizedBox(height: 25),
 
-            // ফলোয়ার ও ফলোয়িং
+            // ফলোয়ার ও ফলোয়িং (অন্যান্য ফিচার অপরিবর্তিত)
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               _buildStat("Followers", followers, targetUserId, context), 
               const SizedBox(width: 25),
@@ -613,7 +662,6 @@ Widget build(BuildContext context) {
 
             const SizedBox(height: 35),
 
-            // মেইন অ্যাকশন বক্স: শুধু নিজের জন্য
             if (isMe) ...[
               Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
                 _buildActionBox("Diamond", Icons.diamond, Colors.cyan, () => _openDiamondStore(userData)),
@@ -621,7 +669,6 @@ Widget build(BuildContext context) {
                 _buildActionBox("Backpack", Icons.backpack, Colors.orange, _openBackpack),
               ]),
 
-              // 🔥 এজেন্সি ওয়ালেট (লাইভ ডাটাবেস ব্যালেন্স)
               if (userData['isAgent'] == true) ...[
                 const SizedBox(height: 25),
                 _buildAgencyWalletCard(userData), 
