@@ -19,7 +19,7 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
 
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-  // ১. ইউজার সার্চ লজিক (সাথে এজেন্ট চেক)
+  // ১. ইউজার সার্চ লজিক (এজেন্ট চেকসহ)
   void searchUser(String userId) async {
     if (userId.isEmpty) return;
     
@@ -37,12 +37,12 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
       if (userDoc.docs.isNotEmpty) {
         var userData = userDoc.docs.first.data();
         
-        // 🔥 লজিক: যদি টার্গেট ইউজার একজন এজেন্ট হয়, তবে তাকে ব্লক করা হবে
+        // চেক: টার্গেট ইউজার কি একজন এজেন্ট?
         bool isTargetAgent = userData['isAgent'] ?? false;
 
         if (isTargetAgent) {
           setState(() => isLoading = false);
-          _showSnackBar("আপনি অন্য কোন এজেন্টকে ডায়মন্ড পাঠাতে পারবেন না!");
+          _showSnackBar("আপনি অন্য কোন এজেন্টকে ডায়মন্ড পাঠাতে পারবেন না!", isError: true);
         } else {
           setState(() {
             foundUser = userData;
@@ -52,21 +52,21 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
         }
       } else {
         setState(() => isLoading = false);
-        _showSnackBar("ইউজার খুঁজে পাওয়া যায়নি!");
+        _showSnackBar("ইউজার খুঁজে পাওয়া যায়নি!", isError: true);
       }
     } catch (e) {
       setState(() => isLoading = false);
-      _showSnackBar("সার্চ করতে সমস্যা হয়েছে");
+      _showSnackBar("সার্চ করতে সমস্যা হয়েছে");
     }
   }
 
-  // ২. ডায়মন্ড ট্রান্সফার লজিক (ট্রানজেকশন)
+  // ২. চূড়ান্ত ডায়মন্ড ট্রান্সফার লজিক (Transaction)
   Future<void> confirmTransfer() async {
     if (foundUser == null || _amountController.text.isEmpty) return;
 
     int amount = int.parse(_amountController.text);
     if (amount <= 0) {
-      _showSnackBar("সঠিক পরিমাণ লিখুন");
+      _showSnackBar("সঠিক পরিমাণ লিখুন", isError: true);
       return;
     }
     
@@ -78,32 +78,39 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
         DocumentReference receiverRef = FirebaseFirestore.instance.collection('users').doc(receiverFirestoreId!);
 
         DocumentSnapshot senderSnap = await transaction.get(senderRef);
-        int currentDiamonds = senderSnap['diamonds'] ?? 0;
+        
+        // 🔥 লজিক: এজেন্সি ওয়ালেট থেকে ডায়মন্ড চেক
+        int currentAgencyWallet = senderSnap['agency_wallet'] ?? 0;
 
-        if (currentDiamonds < amount) {
-          throw Exception("আপনার অ্যাকাউন্টে পর্যাপ্ত ডায়মন্ড নেই!");
+        if (currentAgencyWallet < amount) {
+          throw Exception("আপনার এজেন্সি ওয়ালেটে পর্যাপ্ত ডায়মন্ড নেই!");
         }
 
-        // এজেন্টের ডায়মন্ড কমানো
-        transaction.update(senderRef, {'diamonds': currentDiamonds - amount});
+        // ৩. এজেন্টের 'agency_wallet' থেকে ডায়মন্ড কমানো (পারসোনাল 'diamonds' নিরাপদ থাকবে)
+        transaction.update(senderRef, {
+          'agency_wallet': currentAgencyWallet - amount
+        });
 
-        // ইউজারের ডায়মন্ড বাড়ানো
-        transaction.update(receiverRef, {'diamonds': FieldValue.increment(amount)});
+        // ৪. ইউজারের পারসোনাল ডায়মন্ড এবং XP বাড়ানো
+        transaction.update(receiverRef, {
+          'diamonds': FieldValue.increment(amount),
+          'xp': FieldValue.increment(amount), // ইউজারের লেভেল বাড়বে
+        });
 
-        // ৩. PaglaChat Official থেকে ইউজারকে নোটিফিকেশন মেসেজ
+        // ৫. PaglaChat Official থেকে ইউজারকে নোটিফিকেশন মেসেজ
         String chatId = "paglachat_official_$receiverFirestoreId"; 
         transaction.set(
           FirebaseFirestore.instance.collection('chats').doc(chatId).collection('messages').doc(),
           {
             'senderId': 'paglachat_official',
             'receiverId': receiverFirestoreId,
-            'text': "পাগলাচ্যাট অফিসিয়াল: আপনি সফলভাবে $amount ডায়মন্ড রিচার্জ পেয়েছেন।",
+            'text': "পাগলাচ্যাট অফিসিয়াল: আপনি সফলভাবে $amount ডায়মন্ড এবং $amount এক্সপি পেয়েছেন।",
             'timestamp': FieldValue.serverTimestamp(),
             'isRead': false,
           }
         );
 
-        // ৪. ট্রানজেকশন হিস্ট্রি (রেকর্ড রাখা)
+        // ৬. ট্রানজেকশন হিস্ট্রি (রেকর্ড রাখা)
         transaction.set(
           FirebaseFirestore.instance.collection('diamond_history').doc(),
           {
@@ -111,13 +118,12 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
             'receiverId': receiverFirestoreId,
             'amount': amount,
             'type': 'agency_transfer',
-            'date': DateTime.now().toString(),
             'timestamp': FieldValue.serverTimestamp(),
           }
         );
       });
 
-      _showSnackBar("অভিনন্দন! ডায়মন্ড সফলভাবে পাঠানো হয়েছে।");
+      _showSnackBar("অভিনন্দন! এজেন্সি ওয়ালেট থেকে ডায়মন্ড পাঠানো হয়েছে।");
       
       setState(() {
         foundUser = null;
@@ -128,13 +134,17 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
 
     } catch (e) {
       setState(() => isLoading = false);
-      _showSnackBar(e.toString().replaceAll("Exception:", ""));
+      _showSnackBar(e.toString().replaceAll("Exception:", ""), isError: true);
     }
   }
 
-  void _showSnackBar(String message) {
+  void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.pinkAccent),
+      SnackBar(
+        content: Text(message), 
+        backgroundColor: isError ? Colors.redAccent : Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 
@@ -143,7 +153,7 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D1A),
       appBar: AppBar(
-        title: const Text("এজেন্সি ডায়মন্ড ট্রান্সফার", style: TextStyle(fontSize: 18)),
+        title: const Text("এজেন্সি ডায়মন্ড ওয়ালেট", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1E1E2F),
         centerTitle: true,
         elevation: 0,
@@ -152,8 +162,9 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // সার্চ বার ডিজাইন
+            // সার্চ বার
             Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
                 color: const Color(0xFF1E1E2F),
                 borderRadius: BorderRadius.circular(30),
@@ -163,54 +174,53 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
                 style: const TextStyle(color: Colors.white),
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  hintText: "ইউজার আইডি (ID) দিয়ে খুঁজুন...",
+                  hintText: "ইউজার আইডি দিয়ে খুঁজুন...",
                   hintStyle: const TextStyle(color: Colors.white24),
-                  prefixIcon: const Icon(Icons.search, color: Colors.pinkAccent),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.search, color: Colors.pinkAccent),
+                    onPressed: () => searchUser(_idController.text.trim()),
+                  ),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 15),
                 ),
-                onSubmitted: (val) => searchUser(val.trim()),
               ),
             ),
             const SizedBox(height: 25),
             
             if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.pinkAccent)),
 
-            // ইউজার পাওয়া গেলে এই কার্ডটি শো করবে
+            // ইউজার কার্ড
             if (foundUser != null)
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E1E2F),
                   borderRadius: BorderRadius.circular(25),
-                  border: Border.all(color: Colors.white10),
+                  border: Border.all(color: Colors.pinkAccent.withOpacity(0.2)),
                 ),
                 child: Column(
                   children: [
                     CircleAvatar(
                       radius: 45,
-                      backgroundColor: Colors.pinkAccent.withOpacity(0.1),
+                      backgroundColor: Colors.pinkAccent,
                       backgroundImage: (foundUser!['imageURL'] != null && foundUser!['imageURL'] != "") 
                           ? NetworkImage(foundUser!['imageURL']) 
                           : null,
                       child: (foundUser!['imageURL'] == null || foundUser!['imageURL'] == "") 
-                          ? const Icon(Icons.person, size: 50, color: Colors.white54) 
+                          ? const Icon(Icons.person, size: 50, color: Colors.white) 
                           : null,
                     ),
                     const SizedBox(height: 15),
-                    Text(foundUser!['name'] ?? "User", style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                    Text("UID: ${foundUser!['userId']}", style: const TextStyle(color: Colors.white54, fontSize: 14)),
-                    const SizedBox(height: 20),
-                    const Divider(color: Colors.white10),
-                    const SizedBox(height: 10),
+                    Text(foundUser!['name'] ?? "ইউজার", style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text("ID: ${foundUser!['userId']}", style: const TextStyle(color: Colors.white54)),
+                    const Divider(color: Colors.white10, height: 30),
                     
                     TextField(
                       controller: _amountController,
-                      style: const TextStyle(color: Colors.white, fontSize: 18),
+                      style: const TextStyle(color: Colors.white, fontSize: 22),
                       keyboardType: TextInputType.number,
                       textAlign: TextAlign.center,
                       decoration: const InputDecoration(
-                        hintText: "ডায়মন্ডের পরিমাণ লিখুন",
+                        hintText: "ডায়মন্ড পরিমাণ",
                         hintStyle: TextStyle(color: Colors.white10),
                         enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.pinkAccent)),
                       ),
@@ -219,14 +229,14 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
                     
                     SizedBox(
                       width: double.infinity,
-                      height: 50,
+                      height: 55,
                       child: ElevatedButton(
                         onPressed: confirmTransfer,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.pinkAccent,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                         ),
-                        child: const Text("নিশ্চিত করুন", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                        child: const Text("ডায়মন্ড সেন্ড করুন", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                       ),
                     ),
                   ],
