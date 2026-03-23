@@ -481,18 +481,16 @@ Widget build(BuildContext context) {
       if (snapshot.hasData && snapshot.data!.exists) {
         userData = snapshot.data!.data() as Map<String, dynamic>;
         
-        // 🚨 আপনার স্ক্রিনশট অনুযায়ী ডাটা পাথ ফিক্স করা হলো
+        // 🔥 এই অংশটুকু খুব ভালো করে দেখুন (আপনার ডাটাবেস অনুযায়ী ফিক্সড)
         userName = userData['name'] ?? "User";
         
-        // আপনার ডাটাবেসে uID আছে (বড় হাতের ID), তাই এটি পরিবর্তন করবেন না
-        uIDValue = userData['uID']?.toString() ?? "N/A"; 
-        
+        // আপনার রুম এবং পোস্টের লজিক এই uIDValue এর ওপর চলে। 
+        // ডাটাবেসে ছোট হাতের 'uid' থাকলে এখানেও তাই দিতে হবে।
+        uIDValue = (userData['uid'] ?? userData['uID'] ?? "N/A").toString(); 
+
         diamonds = userData['diamonds'] ?? 0;
         xp = userData['xp'] ?? 0; 
-        
-        // প্রোফাইল পিকচার পাথ
         userImageURL = userData['profilePic'] ?? ""; 
-        
         gender = userData['gender'] ?? "অনির্ধারিত";
         hasPremiumCard = userData['hasPremium'] ?? false;
         followers = userData['followers'] ?? 0;
@@ -520,7 +518,7 @@ Widget build(BuildContext context) {
         body: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Column(children: [
-            // ম্যারেজ সেকশন (রিয়েল-টাইম)
+            // ম্যারেজ সেকশন
             StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance.collection('marriages').doc(targetUserId).snapshots(),
               builder: (context, mSnapshot) {
@@ -549,9 +547,8 @@ Widget build(BuildContext context) {
                 child: CircleAvatar(
                   radius: 50, 
                   backgroundColor: Colors.grey[900], 
-                  // ছবি লোড করার লজিক
-                  backgroundImage: (userImageURL != null && userImageURL.isNotEmpty) ? NetworkImage(userImageURL) : null,
-                  child: (userImageURL == null || userImageURL.isEmpty) ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
+                  backgroundImage: (userImageURL.isNotEmpty) ? NetworkImage(userImageURL) : null,
+                  child: (userImageURL.isEmpty) ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
                 )
               ),
             ])),
@@ -608,7 +605,7 @@ Widget build(BuildContext context) {
 
             const SizedBox(height: 35),
 
-            // মেইন অ্যাকশন বক্স
+            // মেইন অ্যাকশন বক্স: শুধু নিজের জন্য
             if (isMe) ...[
               Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
                 _buildActionBox("Diamond", Icons.diamond, Colors.cyan, () => _openDiamondStore(userData)),
@@ -633,6 +630,7 @@ Widget build(BuildContext context) {
     },
   );
 }
+
 // ✅ ১. ফলোয়ার/ফলোয়িং লিস্ট দেখার উইজেট (প্যারামিটারে context যোগ করা হয়েছে)
 Widget _buildStat(String label, int value, String uID, BuildContext context) {
   final String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
