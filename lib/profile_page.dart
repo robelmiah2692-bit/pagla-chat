@@ -25,7 +25,6 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final DatabaseService _dbService = DatabaseService();
   // ... বাকি ভেরিয়েবলগুলো এখানে থাকবে
-  // ১. ভেরিয়েবল সেকশন
   String userImageURL = ""; 
   String userName = "পাগলা ইউজার";
   String uIDValue = ""; 
@@ -33,13 +32,14 @@ class _ProfilePageState extends State<ProfilePage> {
   int age = 22; 
   int diamonds = 200; 
   int xp = 0; 
+  int vipExpiry = 0; // 🔥 এই লাইনটিই মিসিং ছিল, এখন যোগ করে দিলাম
   int followers = 0; 
   int following = 0;
   bool isFollowing = false;
   bool hasPremiumCard = false; 
   bool isVIP = false; 
   DateTime premiumExpiryDate = DateTime.now().add(const Duration(days: 30));
-  DateTime lastLevelUpDate = DateTime.now(); 
+  DateTime lastLevelUpDate = DateTime.now();
 
    @override
   void initState() {
