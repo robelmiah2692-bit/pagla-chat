@@ -280,8 +280,8 @@ class _ProfilePageState extends State<ProfilePage> {
       ]));
   }
 
-  // ১. ডায়মন্ড স্টোর ওপেন করার মেইন ফাংশন
-  void _openDiamondStore() {
+  // ১. ডায়মন্ড স্টোর ওপেন করার ফাংশন (Fix: userData প্যারামিটার যোগ করা হয়েছে)
+  void _openDiamondStore(Map<String, dynamic> userData) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -392,7 +392,6 @@ class _ProfilePageState extends State<ProfilePage> {
             leading: const Icon(Icons.account_balance_wallet, color: Colors.pink),
             title: const Text("Bkash", style: TextStyle(color: Colors.white)),
             onTap: () {
-              // এখানে বিকাশের পেমেন্ট লজিক বা মেসেজ দিতে পারেন
               Navigator.pop(context);
             },
           ),
