@@ -1,313 +1,292 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; 
-import 'package:firebase_auth/firebase_auth.dart'; // ✅FirebaseAuth যোগ করা হয়েছে
-import 'package:flutter/foundation.dart'; 
-import 'dart:io' as io; 
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'story_section.dart'; 
-import 'stories_service.dart'; 
-import 'post_card.dart'; 
+class PostCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final String? postId;
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const PostCard({super.key, required this.data, this.postId});
 
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
+  // --- পোস্ট ডিলিট করার ফাংশন ---
+  void _deletePost(BuildContext context) async {
+    if (postId == null) return;
 
-// ✅ WidgetsBindingObserver যোগ করা হয়েছে অনলাইন স্ট্যাটাস ট্র্যাক করার জন্য
-class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
-  final ImagePicker _picker = ImagePicker();
-  XFile? _pickedImage;
-  Uint8List? _webImageBytes; 
-  final TextEditingController _captionController = TextEditingController();
-  final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
-
-  @override
-  void initState() {
-    super.initState();
-    // ✅ অ্যাপের লাইফসাইকেল পর্যবেক্ষণ শুরু
-    WidgetsBinding.instance.addObserver(this);
-    _updateStatus(true); // অ্যাপে ঢুকলেই অনলাইন
-  }
-
-  @override
-  void dispose() {
-    // ✅ পর্যবেক্ষণ বন্ধ করা
-    WidgetsBinding.instance.removeObserver(this);
-    _captionController.dispose();
-    super.dispose();
-  }
-
-  // ✅ অ্যাপ মিনিমাইজ বা ক্লোজ করলে অনলাইন/অফলাইন হ্যান্ডেল করা
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _updateStatus(true); // অ্যাপে ফিরে আসলে অনলাইন
-    } else {
-      _updateStatus(false); // অ্যাপ থেকে বের হয়ে গেলে বা মিনিমাইজ করলে অফলাইন
-    }
-  }
-
-  // ✅ ফায়ারস্টোরে অনলাইন স্ট্যাটাস আপডেট করার ফাংশন
-  void _updateStatus(bool status) {
-    if (currentUserId.isNotEmpty) {
-      FirebaseFirestore.instance.collection('users').doc(currentUserId).update({
-        'isOnline': status,
-        'lastSeen': FieldValue.serverTimestamp(),
-      }).catchError((e) => debugPrint("Status Update Error: $e"));
-    }
-  }
-
-  // গ্যালারি থেকে ছবি সিলেক্ট করার ফাংশন (আপনার আগের কোড)
-  Future<void> _pickImage(Function setModalState) async {
-    try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 70, 
-      );
-      
-      if (image != null) {
-        if (kIsWeb) {
-          final bytes = await image.readAsBytes();
-          setModalState(() {
-            _webImageBytes = bytes;
-            _pickedImage = image;
-          });
-        } else {
-          setModalState(() {
-            _pickedImage = image;
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint("Error picking image: $e");
-    }
-  }
-
-  void _showPostModal() {
-    _captionController.clear();
-    _pickedImage = null;
-    _webImageBytes = null;
-
-    showModalBottomSheet(
+    // ডিলিট করার আগে একবার কনফার্মেশন ডায়ালগ দেখানো ভালো
+    bool confirm = await showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E1E2F),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 20,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF242526),
+        title: const Text("পোস্ট ডিলিট", style: TextStyle(color: Colors.white)),
+        content: const Text("আপনি কি নিশ্চিতভাবে এই পোস্টটি মুছে ফেলতে চান?", style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("না")),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true), 
+            child: const Text("হ্যাঁ, ডিলিট করুন", style: TextStyle(color: Colors.red))
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(10))),
-              const SizedBox(height: 15),
-              const Text(
-                "নতুন পোস্ট দিন",
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 15),
-              
-              TextField(
-                controller: _captionController,
-                style: const TextStyle(color: Colors.white),
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: "আপনার মনের কথা লিখুন...",
-                  hintStyle: const TextStyle(color: Colors.white24, fontSize: 14),
-                  filled: true,
-                  fillColor: Colors.white10,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                ),
-              ),
-              const SizedBox(height: 15),
-
-              if (_pickedImage != null)
-                Stack(
-                  children: [
-                    Container(
-                      height: 180,
-                      width: double.infinity,
-                      margin: const EdgeInsets.only(bottom: 10),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.pinkAccent.withOpacity(0.3)),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: kIsWeb 
-                          ? Image.memory(_webImageBytes!, fit: BoxFit.cover) 
-                          : Image.file(io.File(_pickedImage!.path), fit: BoxFit.cover), 
-                      ),
-                    ),
-                    Positioned(
-                      right: 8, top: 8,
-                      child: GestureDetector(
-                        onTap: () => setModalState(() {
-                          _pickedImage = null;
-                          _webImageBytes = null;
-                        }),
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(color: Colors.black87, shape: BoxShape.circle),
-                          child: const Icon(Icons.close, color: Colors.white, size: 18),
-                        ),
-                      ),
-                    )
-                  ],
-                ),
-
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(color: Colors.white10, shape: BoxShape.circle),
-                  child: const Icon(Icons.photo_library, color: Colors.greenAccent),
-                ),
-                title: const Text("ফটো যোগ করুন", style: TextStyle(color: Colors.white, fontSize: 14)),
-                onTap: () => _pickImage(setModalState),
-              ),
-
-              const SizedBox(height: 15),
-
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.pinkAccent,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 5,
-                ),
-                onPressed: () async {
-                  String text = _captionController.text.trim();
-                  if (_pickedImage != null || text.isNotEmpty) {
-                    showDialog(
-                      context: context, 
-                      barrierDismissible: false,
-                      builder: (c) => const Center(child: CircularProgressIndicator(color: Colors.pinkAccent))
-                    );
-                    
-                    try {
-                      await StoriesService().uploadStory(
-                        _pickedImage?.path ?? "",
-                        text,
-                        webImageBytes: _webImageBytes, 
-                      );
-
-                      if (mounted) {
-                        Navigator.pop(context); // ক্লোজ লোডিং
-                        Navigator.pop(context); // ক্লোজ মডেল
-                        
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("পোস্ট সফলভাবে লাইভ হয়েছে! 🔥"), 
-                            backgroundColor: Colors.green,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (mounted) Navigator.pop(context);
-                      debugPrint("Upload Error: $e");
-                    }
-                  }
-                },
-                child: const Text("পোস্ট করুন", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-              ),
-              const SizedBox(height: 30),
-            ],
-          ),
-        ),
+        ],
       ),
-    );
+    ) ?? false;
+
+    if (confirm) {
+      try {
+        await FirebaseFirestore.instance.collection('stories').doc(postId).delete();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("পোস্টটি সফলভাবে মুছে ফেলা হয়েছে"), backgroundColor: Colors.red),
+          );
+        }
+      } catch (e) {
+        debugPrint("Delete Error: $e");
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1E),
-      appBar: AppBar(
-        title: const Text(
-          "PAGLA CHAT", 
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.2)
-        ),
-        centerTitle: true,
-        backgroundColor: const Color(0xFF0F0F1E),
-        elevation: 0,
-        actions: [
-          IconButton(
-            onPressed: () {}, 
-            icon: const Icon(Icons.notifications_none, color: Colors.white)
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showPostModal,
-        backgroundColor: Colors.pinkAccent,
-        elevation: 10,
-        child: const Icon(Icons.add, size: 30, color: Colors.white),
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async => setState(() {}),
-        color: Colors.pinkAccent,
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            const SliverToBoxAdapter(child: StorySection()),
+    final user = FirebaseAuth.instance.currentUser;
+    final String uid = user?.uid ?? "";
+    final List likes = data['likes'] ?? [];
+    final bool isLiked = likes.contains(uid);
+
+    // মালিক শনাক্তকরণ
+    bool isOwner = (data['userId'] == uid);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      color: const Color(0xFF18191A), 
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // --- প্রোফাইল সেকশন ---
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: Colors.grey[800],
+              backgroundImage: NetworkImage(
+                (data['userImage'] != null && data['userImage'].toString().isNotEmpty)
+                    ? data['userImage']
+                    : "https://www.w3schools.com/howto/img_avatar.png",
+              ),
+            ),
+            title: Row(
+              children: [
+                Text(
+                  data['userName'] ?? "User",
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 5),
+                if (isOwner)
+                  const Icon(Icons.verified, color: Colors.blueAccent, size: 16),
+              ],
+            ),
+            subtitle: const Text("Just now", style: TextStyle(color: Colors.white54, fontSize: 11)),
             
-            StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('stories')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 50),
-                      child: Center(child: CircularProgressIndicator(color: Colors.white24)),
-                    ),
-                  );
-                }
-                
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 100),
-                      child: Center(
-                        child: Text("এখনও কোনো পোস্ট নেই!", style: TextStyle(color: Colors.white24)),
+            // --- থ্রি ডট মেনু (এখানে ডিলিট অপশন যোগ করা হয়েছে) ---
+            trailing: IconButton(
+              icon: const Icon(Icons.more_vert, color: Colors.white54),
+              onPressed: () {
+                if (isOwner) {
+                  showModalBottomSheet(
+                    context: context,
+                    backgroundColor: const Color(0xFF242526),
+                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                    builder: (context) => SafeArea(
+                      child: Wrap(
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                            title: const Text("পোস্ট ডিলিট করুন", style: TextStyle(color: Colors.white)),
+                            onTap: () {
+                              Navigator.pop(context); // বটম শিট বন্ধ
+                              _deletePost(context); // ডিলিট ফাংশন কল
+                            },
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.close, color: Colors.white54),
+                            title: const Text("বাতিল", style: TextStyle(color: Colors.white54)),
+                            onTap: () => Navigator.pop(context),
+                          ),
+                        ],
                       ),
                     ),
                   );
+                } else {
+                  // যদি নিজের পোস্ট না হয়
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("আপনি শুধু নিজের পোস্ট ডিলিট করতে পারবেন")),
+                  );
                 }
-
-                final docs = snapshot.data!.docs;
-                return SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final data = docs[index].data() as Map<String, dynamic>;
-                      return PostCard(
-                        data: data, 
-                        postId: docs[index].id,
-                      );
-                    },
-                    childCount: docs.length,
-                  ),
-                );
               },
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 80)),
+          ),
+
+          // --- ক্যাপশন সেকশন ---
+          if (data['caption'] != null && data['caption'].toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+              child: Text(
+                data['caption'],
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+              ),
+            ),
+
+          // --- ইমেজ সেকশন ---
+          if (data['storyImage'] != null && data['storyImage'].toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(minHeight: 200, maxHeight: 500),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.05)),
+                child: Image.network(
+                  data['storyImage'],
+                  width: double.infinity,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      height: 200,
+                      alignment: Alignment.center,
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                            : null,
+                        color: Colors.blueAccent,
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    height: 100,
+                    color: Colors.white10,
+                    child: const Center(child: Icon(Icons.broken_image, color: Colors.white24, size: 40)),
+                  ),
+                ),
+              ),
+            ),
+
+          // --- লাইক কাউন্ট ---
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                const Icon(Icons.favorite, color: Colors.red, size: 16),
+                const SizedBox(width: 5),
+                Text("${likes.length}", style: const TextStyle(color: Colors.white54)),
+              ],
+            ),
+          ),
+
+          const Divider(color: Colors.white10, height: 1),
+
+          // --- বাটন সেকশন ---
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildBtn(isLiked ? Icons.favorite : Icons.favorite_border, isLiked ? Colors.red : Colors.white70, "লাইক", () {
+                if (postId != null) _toggleLike(postId!, uid, likes);
+              }),
+              _buildBtn(Icons.mode_comment_outlined, Colors.white70, "কমেন্ট", () {
+                if (postId != null) _showCommentSheet(context, postId!);
+              }),
+              _buildBtn(Icons.share_outlined, Colors.white70, "শেয়ার", () {}),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBtn(IconData icon, Color color, String text, VoidCallback onTap) {
+    return TextButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, color: color, size: 20),
+      label: Text(text, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+    );
+  }
+
+  void _toggleLike(String pId, String uId, List currentLikes) {
+    DocumentReference ref = FirebaseFirestore.instance.collection('stories').doc(pId);
+    if (currentLikes.contains(uId)) {
+      ref.update({'likes': FieldValue.arrayRemove([uId])});
+    } else {
+      ref.update({'likes': FieldValue.arrayUnion([uId])});
+    }
+  }
+
+  void _showCommentSheet(BuildContext context, String pId) {
+    final TextEditingController _commentController = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF242526),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, top: 20, left: 15, right: 15),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("কমেন্ট করুন", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 300,
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('stories')
+                    .doc(pId)
+                    .collection('comments')
+                    .orderBy('timestamp', descending: false)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                  return ListView(
+                    children: snapshot.data!.docs.map((doc) {
+                      Map<String, dynamic> cData = doc.data() as Map<String, dynamic>;
+                      return ListTile(
+                        leading: CircleAvatar(
+                          radius: 15, 
+                          backgroundImage: NetworkImage(cData['userImage'] ?? "https://www.w3schools.com/howto/img_avatar.png")
+                        ),
+                        title: Text(cData['userName'] ?? "User", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                        subtitle: Text(cData['text'] ?? "", style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+            ),
+            TextField(
+              controller: _commentController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: "আপনার মতামত লিখুন...",
+                hintStyle: const TextStyle(color: Colors.white38),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.send, color: Colors.blueAccent),
+                  onPressed: () {
+                    _submitComment(pId, _commentController.text, _commentController);
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
           ],
         ),
       ),
     );
+  }
+
+  void _submitComment(String pId, String text, TextEditingController controller) async {
+    if (text.trim().isEmpty) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    await FirebaseFirestore.instance.collection('stories').doc(pId).collection('comments').add({
+      'text': text.trim(),
+      'userName': userDoc.exists ? (userDoc.data() as Map<String, dynamic>)['name'] : "User",
+      'userImage': userDoc.exists ? (userDoc.data() as Map<String, dynamic>)['profilePic'] : "",
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+    controller.clear();
   }
 }
