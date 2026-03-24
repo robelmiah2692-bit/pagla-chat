@@ -335,130 +335,135 @@ void initState() {
   }
 
   // ১. সিটে বসার মেইন লজিক (আপনার দেওয়া রিয়েল টাইম সিঙ্ক সহ)
-   void sitOnSeat(int index) async {
-  // ১. বেসিক চেক (সিট খালি আছে কিনা এবং ইউজার অলরেডি সেখানে আছে কিনা)
-  if (currentSeatIndex == index) { 
-    _showLeaveConfirmation(index); 
-    return; 
-  }
-  
-  if (seats[index]["isOccupied"] || isRoomLocked) return;
-
-  // ২. অডিও এবং ব্রডকাস্টার মোড এনাবল করা
-  try {
-    // ব্রাউজার স্লিপ মোড প্রতিরোধ (শুধু ওয়েবের জন্য)
-    if (kIsWeb) {
-      await WakelockPlus.enable();
+             
+  // ১. সিটে বসার মেইন লজিক (আপনার দেওয়া রিয়েল টাইম সিঙ্ক সহ)
+  void sitOnSeat(int index) async {
+    // ১. বেসিক চেক (সিট খালি আছে কিনা এবং ইউজার অলরেডি সেখানে আছে কিনা)
+    if (currentSeatIndex == index) { 
+      _showLeaveConfirmation(index); 
+      return; 
     }
-
-    // এগোরা ম্যানেজারের মাধ্যমে ব্রডকাস্টিং শুরু
-    await _agoraManager.becomeBroadcaster();
     
-    // 🛡️ সমাধান: ভলিউম ইন্ডিকেশন চালু করা (রিপেল এনিমেশনের জন্য এটি মাস্ট)
-    await _agoraManager.engine?.enableAudioVolumeIndication(
-      interval: 250, 
-      smooth: 3, 
-      reportVad: true
-    );
+    if (seats[index]["isOccupied"] || isRoomLocked) return;
 
-    debugPrint("✅ কলিং ইঞ্জিন প্রস্তুত এবং ভলিউম ডিটেকশন সচল!");
-  } catch (e) {
-    debugPrint("⚠️ Agora Setup Error: $e");
-    return; 
-  }
-
-  // ৩. পুরাতন সিট ক্লিয়ার করা (যদি ইউজার অন্য সিট থেকে মুভ করে)
-  if (currentSeatIndex != -1) {
-    int oldIndex = currentSeatIndex;
+    // ২. অডিও এবং ব্রডকাস্টার মোড এনাবল করা
     try {
-      await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').remove();
+      // ব্রাউজার স্লিপ মোড প্রতিরোধ (শুধু ওয়েবের জন্য)
+      if (kIsWeb) {
+        await WakelockPlus.enable();
+      }
+
+      // এগোরা ম্যানেজারের মাধ্যমে ব্রডকাস্টিং শুরু
+      await _agoraManager.becomeBroadcaster();
+      
+      // 🛡️ সমাধান: ভলিউম ইন্ডিকেশন চালু করা (রিপেল এনিমেশনের জন্য এটি মাস্ট)
+      await _agoraManager.engine?.enableAudioVolumeIndication(
+        interval: 200, // রিপেল আরও স্মুথ করতে ২০০ করলাম
+        smooth: 3, 
+        reportVad: true
+      );
+
+      debugPrint("✅ কলিং ইঞ্জিন প্রস্তুত এবং ভলিউম ডিটেকশন সচল!");
     } catch (e) {
-      debugPrint("Old seat clear error: $e");
-    }
-  }
-
-  // ৪. ডাটাবেস এবং স্টেট আপডেট
-  try {
-    final User? currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return;
-
-    final String uid = currentUser.uid;
-    final String myName = currentUser.displayName ?? "User";
-    final String myPic = currentUser.photoURL ?? "";
-
-    // 👑 মালিক শনাক্তকরণ এবং স্নাকবার দেখানো (Hridoy)
-    if (myName.toLowerCase() == "hridoy" && mounted) {
-      _sendOwnerJoinMessage();
+      debugPrint("⚠️ Agora Setup Error: $e");
+      return; 
     }
 
-    final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
-    
-    // 🛡️ এগোরা থেকে পাওয়া ইউনিক আইডি (এটি ছাড়া রিপেল কাজ করবে না)
-    final int myAgoraUid = _agoraManager.localUid ?? 0;
+    // ৩. পুরাতন সিট ক্লিয়ার করা (যদি ইউজার অন্য সিট থেকে মুভ করে)
+    if (currentSeatIndex != -1) {
+      int oldIndex = currentSeatIndex;
+      try {
+        // 🛡️ ফিক্স: মুভ করার সময় আগের সিটের onDisconnect ক্যানসেল করা জরুরি
+        await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').onDisconnect().cancel();
+        await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').remove();
+      } catch (e) {
+        debugPrint("Old seat clear error: $e");
+      }
+    }
 
-    // ৫. ফায়ারবেসে সিট ডেটা পুশ
-    await seatRef.set({
-      'userName': myName,
-      'userImage': myPic,
-      'isOccupied': true,
-      'status': 'occupied',
-      'isMicOn': true,
-      'userId': uid,
-      'isTalking': false,
-      'agoraUid': myAgoraUid, // রিপেল ফিক্স করার জন্য এটি খুব জরুরি
-    });
-    
-    seatRef.onDisconnect().remove();
+    // ৪. ডাটাবেস এবং স্টেট আপডেট
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return;
 
-    // ৬. লোকাল ইউজার ইন্টারফেস (UI) আপডেট
-    if (mounted) {
-      setState(() {
-        // পুরাতন সিট ডাটা লোকালি ক্লিন
-        if (currentSeatIndex != -1) {
-          seats[currentSeatIndex]["isOccupied"] = false;
-          seats[currentSeatIndex]["status"] = "empty";
-        }
-        
-        // নতুন সিট ডাটা লোকালি সেট
-        currentSeatIndex = index;
-        isMicOn = true;
-        seats[index] = {
-          "status": "occupied",
-          "isOccupied": true,
-          "userName": myName,
-          "userImage": myPic,
-          "isMicOn": true,
-          "userId": uid,
-          "agoraUid": myAgoraUid,
-          "isTalking": false,
-        };
+      final String uid = currentUser.uid;
+      final String myName = currentUser.displayName ?? "User";
+      final String myPic = currentUser.photoURL ?? "";
+
+      // 👑 মালিক শনাক্তকরণ এবং স্নাকবার দেখানো (Hridoy)
+      if (myName.toLowerCase() == "hridoy" && mounted) {
+        _sendOwnerJoinMessage();
+      }
+
+      final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
+      
+      // 🛡️ এগোরা থেকে পাওয়া ইউনিক আইডি (এটি ছাড়া রিপেল কাজ করবে না)
+      final int myAgoraUid = _agoraManager.localUid ?? 0;
+
+      // 🛡️ ফিক্স: ডাটা সেভ করার আগেই onDisconnect সেট করা (নেট গেলে ডাটা মুছবে)
+      await seatRef.onDisconnect().remove();
+
+      // ৫. ফায়ারবেসে সিট ডেটা পুশ
+      await seatRef.set({
+        'userName': myName,
+        'userImage': myPic,
+        'isOccupied': true,
+        'status': 'occupied',
+        'isMicOn': true,
+        'userId': uid,
+        'isTalking': false,
+        'agoraUid': myAgoraUid, // রিপেল ফিক্স করার জন্য এটি খুব জরুরি
       });
+      
+      // ৬. লোকাল ইউজার ইন্টারফেস (UI) আপডেট
+      if (mounted) {
+        setState(() {
+          // পুরাতন সিট ডাটা লোকালি ক্লিন
+          if (currentSeatIndex != -1) {
+            seats[currentSeatIndex]["isOccupied"] = false;
+            seats[currentSeatIndex]["status"] = "empty";
+          }
+          
+          // নতুন সিট ডাটা লোকালি সেট
+          currentSeatIndex = index;
+          isMicOn = true;
+          seats[index] = {
+            "status": "occupied",
+            "isOccupied": true,
+            "userName": myName,
+            "userImage": myPic,
+            "isMicOn": true,
+            "userId": uid,
+            "agoraUid": myAgoraUid,
+            "isTalking": false,
+          };
+        });
+      }
+      
+      debugPrint("👑 সিট সফলভাবে দখল হয়েছে!");
+    } catch (e) {
+      debugPrint("❌ Firebase Update Error: $e");
     }
-    
-    debugPrint("👑 সিট সফলভাবে দখল হয়েছে!");
-  } catch (e) {
-    debugPrint("❌ Firebase Update Error: $e");
   }
-}
 
-// মালিকের জন্য বিশেষ মেসেজ ফাংশন (নিরাপদ ভার্সন)
-void _sendOwnerJoinMessage() {
-  if (!mounted) return;
-  
-  // আগের স্নাকবার থাকলে তা সরিয়ে নতুনটা দেখানো
-  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text("সম্মানিত মালিক Hridoy ভাই সিটে বসেছেন!", 
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      backgroundColor: Colors.blueAccent,
-      duration: Duration(seconds: 3),
-      behavior: SnackBarBehavior.floating,
-    ),
-  );
-}
-  
-  // ২. সিট ছাড়ার লজিক
+  // মালিকের জন্য বিশেষ মেসেজ ফাংশন (নিরাপদ ভার্সন)
+  void _sendOwnerJoinMessage() {
+    if (!mounted) return;
+    
+    // আগের স্নাকবার থাকলে তা সরিয়ে নতুনটা দেখানো
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("সম্মানিত মালিক Hridoy ভাই সিটে বসেছেন!", 
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.blueAccent,
+        duration: Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  // ২. সিট ছাড়ার লজিক
   void _showLeaveConfirmation(int index) {
     showDialog(
       context: context,
@@ -490,9 +495,12 @@ void _sendOwnerJoinMessage() {
 
               // ২. ফায়ারবেস ডাটাবেস আপডেট (সিট খালি করা)
               try {
-                await FirebaseDatabase.instance
-                    .ref('rooms/${widget.roomId}/seats/$index')
-                    .remove();
+                final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
+                
+                // 🛡️ ফিক্স: সিট ছাড়ার সময় ডিসকানেক্ট লজিক বাতিল করা জরুরি
+                await seatRef.onDisconnect().cancel();
+                await seatRef.remove();
+                
                 debugPrint("🧹 ফায়ারবেস ক্লিয়ার।");
               } catch (e) {
                 debugPrint("Firebase Update Error: $e");
