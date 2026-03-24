@@ -29,6 +29,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
           children: [
             const TabBar(
               indicatorColor: Colors.pinkAccent,
+              labelStyle: TextStyle(fontWeight: FontWeight.bold),
               tabs: [
                 Tab(text: "Followers"),
                 Tab(text: "Kick List"),
@@ -52,29 +53,32 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
         if (!snapshot.data!.exists) return const Center(child: Text("রুম পাওয়া যায়নি", style: TextStyle(color: Colors.white54)));
 
         var roomData = snapshot.data!.data() as Map<String, dynamic>;
         
-        // ১. স্ক্রিনশট অনুযায়ী 'adminId' ফিল্ড থেকে মালিকের আইডি নেওয়া হচ্ছে
+        // ১. ওনার আইডি নির্ধারণ (ডাটাবেস থেকে অথবা উইজেট প্যারামিটার থেকে)
         String actualOwnerId = roomData['adminId'] ?? widget.ownerId;
         
         List<dynamic> followers = List.from(roomData['followers'] ?? []);
         List<dynamic> admins = List.from(roomData['admins'] ?? []);
 
-        // ২. ওনারকে লিস্টে যুক্ত করা এবং সবার উপরে (👑) নিয়ে আসা
+        // ২. গুরুত্বপূর্ণ: ওনার যদি বর্তমানে রুমে (ফলোয়ার লিস্টে) না থাকে, তবুও তাকে লিস্টে যুক্ত করা
         if (actualOwnerId.isNotEmpty && !followers.contains(actualOwnerId)) {
           followers.add(actualOwnerId);
         }
 
+        // ৩. সর্টিং লজিক: ওনার সবসময় Index 0 (সবার উপরে) থাকবে
         followers.sort((a, b) {
           if (a == actualOwnerId) return -1;
           if (b == actualOwnerId) return 1;
+          
           bool aIsAdmin = admins.contains(a);
           bool bIsAdmin = admins.contains(b);
           if (aIsAdmin && !bIsAdmin) return -1;
           if (!aIsAdmin && bIsAdmin) return 1;
+          
           return 0;
         });
 
@@ -95,13 +99,30 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
                 String photo = userData?['photoUrl'] ?? "";
 
                 return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.grey[800],
-                    backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null,
-                    child: photo.isEmpty ? const Icon(Icons.person, color: Colors.white54) : null,
+                  leading: Stack(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: Colors.grey[800],
+                        backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null,
+                        child: photo.isEmpty ? const Icon(Icons.person, color: Colors.white54) : null,
+                      ),
+                      if (isOwner)
+                        const Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: Icon(Icons.stars, color: Colors.amber, size: 18),
+                        ),
+                    ],
                   ),
-                  title: Text(name, style: const TextStyle(color: Colors.white)),
+                  title: Text(
+                    name, 
+                    style: TextStyle(
+                      color: isOwner ? Colors.amber : Colors.white,
+                      fontWeight: isOwner ? FontWeight.bold : FontWeight.normal
+                    )
+                  ),
                   subtitle: _buildBadge(isOwner, isAdmin),
+                  // ওনারের জন্য ট্রেইলিং মেনু হাইড করা এবং ওনার ছাড়া অন্য কেউ যাতে মেনু না পায়
                   trailing: (myUid == actualOwnerId && uid != myUid) 
                       ? IconButton(
                           icon: const Icon(Icons.more_vert, color: Colors.white54),
@@ -127,9 +148,11 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF16213E),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          const SizedBox(height: 10),
           ListTile(
             leading: Icon(isAdmin ? Icons.remove_moderator : Icons.add_moderator, color: Colors.blue),
             title: Text(isAdmin ? "Remove Admin" : "Make Admin", style: const TextStyle(color: Colors.white)),
@@ -146,6 +169,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
               _kickUser(targetUid);
             },
           ),
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -158,7 +182,6 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         var data = snapshot.data!.data() as Map<String, dynamic>?;
         
-        // স্ক্রিনশট অনুযায়ী adminId চেক
         String actualOwnerId = data?['adminId'] ?? widget.ownerId;
         List kickedUsers = data?['kickedUsers'] ?? [];
 
@@ -183,15 +206,15 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
                     child: photo.isEmpty ? const Icon(Icons.person, color: Colors.white54, size: 15) : null,
                   ),
                   title: Text(name, style: const TextStyle(color: Colors.white, fontSize: 13)),
-                  trailing: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent, 
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    onPressed: (myUid == actualOwnerId || (data?['admins'] ?? []).contains(myUid)) 
-                      ? () => _unKickUser(uid) : null,
-                    child: const Text("Unkick", style: TextStyle(color: Colors.white, fontSize: 11)),
-                  ),
+                  trailing: (myUid == actualOwnerId || (data?['admins'] ?? []).contains(myUid)) 
+                    ? ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent, 
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () => _unKickUser(uid),
+                        child: const Text("Unkick", style: TextStyle(color: Colors.white, fontSize: 11)),
+                      ) : null,
                 );
               },
             );
