@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_database/firebase_database.dart'; // রিয়েল-টাইম ডাটার জন্য
 import 'screens/voice_room.dart'; 
 
-// গ্লোবাল ভেরিয়েবল যাতে রুমের বাইরে আসলেও ভাসমান বাবল দেখানো যায়
+// গ্লোবাল ভেরিয়েবল যাতে রুমের বাইরে আসলেও ভাসমান বাবল দেখানো যায়
 String? activeRoomId;
 String? activeRoomName;
 
@@ -54,7 +54,7 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
         children: [
           Column(
             children: [
-              _buildBanner(), // আপনার অরিজিনাল বড় ব্যানার
+              _buildBanner(), // আপনার অরিজিনাল বড় ব্যানার
               const SizedBox(height: 15),
               _buildFeaturedRooms(), // আপনার অরিজিনাল ফিচারড রুম
               const SizedBox(height: 15),
@@ -62,22 +62,22 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildLiveRoomList(), // ১. শুধু একটিভ ইউজার থাকা রুম
-                    _buildFollowingRoomList(), // ২. ফলো করা রুম + কাউন্ট
-                    _buildMyRoomList(), // ৩. নিজের রুম + এডমিন রুম
+                    _buildLiveRoomList(), // ১. লাইভ রুম গ্রিড
+                    _buildFollowingRoomList(), // ২. ফলো করা রুম
+                    _buildMyRoomList(), // ৩. নিজের রুম
                   ],
                 ),
               ),
             ],
           ),
-          // 🛡️ ভাসমান লাইভ ইন্ডিকেটর (যদি ইউজার কোন রুমে থাকে)
+          // 🛡️ ভাসমান লাইভ ইন্ডিকেটর
           if (activeRoomId != null) _buildFloatingLiveStatus(),
         ],
       ),
     );
   }
 
-  // --- প্রিমিয়াম ব্যানার ফিচার (আপনার অরিজিনাল কোড) ---
+  // --- প্রিমিয়াম ব্যানার ফিচার (অক্ষত রাখা হয়েছে) ---
   Widget _buildBanner() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
@@ -118,7 +118,7 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     );
   }
 
-  // --- ফিচারড রুম সেকশন (আপনার অরিজিনাল কোড) ---
+  // --- ফিচারড রুম সেকশন (অক্ষত রাখা হয়েছে) ---
   Widget _buildFeaturedRooms() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,58 +154,62 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     );
   }
 
-  // --- ১. লাইভ রুম গ্রিড (শুধু একটিভ রুমগুলো দেখাবে) ---
+  // --- ১. লাইভ রুম গ্রিড (সচল করা হয়েছে) ---
   Widget _buildLiveRoomList() {
-    return StreamBuilder(
-      stream: FirebaseDatabase.instance.ref('rooms').onValue,
+    return StreamBuilder<QuerySnapshot>(
+      // Firestore থেকে সরাসরি রুমগুলো লোড করা হচ্ছে
+      stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data?.snapshot.value == null) {
-          return const Center(child: Text("No Live Rooms", style: TextStyle(color: Colors.white54)));
-        }
-        Map<dynamic, dynamic> rooms = snapshot.data!.snapshot.value as Map;
-        List<Map<String, dynamic>> activeRooms = [];
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        
+        var docs = snapshot.data!.docs;
+        if (docs.isEmpty) return const Center(child: Text("সব রুম খালি", style: TextStyle(color: Colors.white54)));
 
-        rooms.forEach((key, value) {
-          var seats = value['seats'] as Map?;
-          if (seats != null) {
-            activeRooms.add({
-              'id': key,
-              'name': value['roomName'] ?? "Public Room",
-              'count': seats.length,
-            });
-          }
-        });
-
-        if (activeRooms.isEmpty) return const Center(child: Text("সব রুম খালি", style: TextStyle(color: Colors.white54)));
+        List<Map<String, dynamic>> activeRooms = docs.map((doc) {
+          var data = doc.data() as Map<String, dynamic>;
+          return {
+            'id': doc.id,
+            'name': data['roomName'] ?? "Public Room",
+            'count': data['userCount'] ?? 0,
+          };
+        }).toList();
 
         return _buildGenericGrid(activeRooms, "live");
       },
     );
   }
 
-  // --- ২. ফলোয়িং রুম লিস্ট (রিয়েল টাইম কাউন্ট সহ) ---
+  // --- ২. ফলোয়িং রুম লিস্ট (সচল করা হয়েছে) ---
   Widget _buildFollowingRoomList() {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? "";
-    return StreamBuilder(
+    return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox();
-        List followedIds = (snapshot.data?.data()?['following'] ?? []);
+        var userData = snapshot.data?.data() as Map<String, dynamic>?;
+        List followedIds = userData?['following'] ?? [];
         
-        return StreamBuilder(
-          stream: FirebaseDatabase.instance.ref('rooms').onValue,
-          builder: (context, dbSnapshot) {
-            Map rooms = (dbSnapshot.data?.snapshot.value as Map?) ?? {};
-            List<Map<String, dynamic>> followedRooms = [];
+        if (followedIds.isEmpty) {
+          return const Center(child: Text("কাউকে ফলো করা নেই", style: TextStyle(color: Colors.white54)));
+        }
 
-            for (var id in followedIds) {
-              var data = rooms[id.toString()];
-              followedRooms.add({
-                'id': id,
-                'name': data?['roomName'] ?? "Room $id",
-                'count': (data?['seats'] as Map?)?.length ?? 0,
-              });
-            }
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('rooms')
+              .where(FieldPath.documentId, whereIn: followedIds)
+              .snapshots(),
+          builder: (context, roomSnapshot) {
+            if (!roomSnapshot.hasData) return const SizedBox();
+            
+            List<Map<String, dynamic>> followedRooms = roomSnapshot.data!.docs.map((doc) {
+              var data = doc.data() as Map<String, dynamic>;
+              return {
+                'id': doc.id,
+                'name': data['roomName'] ?? "Room",
+                'count': data['userCount'] ?? 0,
+              };
+            }).toList();
+
             return _buildGenericGrid(followedRooms, "following");
           },
         );
@@ -213,25 +217,26 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     );
   }
 
-  // --- ৩. মাই রুম এবং এডমিন রুম লজিক ---
+  // --- ৩. মাই রুম লিস্ট (অক্ষত রাখা হয়েছে) ---
   Widget _buildMyRoomList() {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? "";
-    return FutureBuilder(
+    return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
       builder: (context, snapshot) {
-        String? myRoomId = snapshot.data?.data()?['myRoomId'];
+        if (!snapshot.hasData) return const SizedBox();
+        var userData = snapshot.data?.data() as Map<String, dynamic>?;
+        String? myRoomId = userData?['myRoomId'];
         List<Map<String, dynamic>> myRooms = [];
         
         if (myRoomId != null) {
           myRooms.add({'id': myRoomId, 'name': "My Room", 'count': 0});
         }
-        // এখানে আপনি চাইলে আপনার এডমিন রুমগুলোও কুয়েরি করে অ্যাড করতে পারেন
         return _buildGenericGrid(myRooms, "my_room");
       },
     );
   }
 
-  // --- কমন গ্রিড বিল্ডার (আপনার অরিজিনাল কার্ড ডিজাইন বজায় রেখে) ---
+  // --- কমন গ্রিড বিল্ডার (ডিজাইন অক্ষত রাখা হয়েছে) ---
   Widget _buildGenericGrid(List<Map<String, dynamic>> roomList, String type) {
     return GridView.builder(
       padding: const EdgeInsets.all(10),
@@ -255,7 +260,7 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     );
   }
 
-  // --- আপনার অরিজিনাল কার্ড ডিজাইনে কাউন্ট যুক্ত করা ---
+  // --- কার্ড ডিজাইন (অক্ষত রাখা হয়েছে) ---
   Widget _buildRoomCardWithCount(String name, int count, String type) {
     return Container(
       decoration: BoxDecoration(
@@ -279,7 +284,6 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
               ],
             ),
           ),
-          // রিয়েল টাইম মেম্বার কাউন্ট ব্যাজ
           if (type != "my_room")
             Positioned(
               top: 10, right: 10,
@@ -299,7 +303,7 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
     );
   }
 
-  // --- ভাসমান লাইভ বাবল (Floating UI) ---
+  // --- ভাসমান বাবল (অক্ষত রাখা হয়েছে) ---
   Widget _buildFloatingLiveStatus() {
     return Positioned(
       bottom: 20, right: 20,
