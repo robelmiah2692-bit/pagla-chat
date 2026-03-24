@@ -18,7 +18,7 @@ import 'inbox_page.dart';
 import 'profile_page.dart';
 import 'room_list_page.dart';
 
-// ফায়ারবেস কনফিগারেশন (এক জায়গায় রাখা ভালো)
+// ফায়ারবেস কনফিগারেশন
 const firebaseOptions = FirebaseOptions(
   apiKey: "AIzaSyA9KMdtIBNVYSASc5C2w5JGVTL-NISXFog",
   authDomain: "paglachat.firebaseapp.com",
@@ -32,7 +32,7 @@ const firebaseOptions = FirebaseOptions(
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // ব্যাকগ্রাউন্ডে অপশন সহ ইনিশিয়ালাইজ করা জরুরি
+  // ব্যাকগ্রাউন্ডে নোটিফিকেশন হ্যান্ডেল করার জন্য ফায়ারবেস ইনিশিয়ালাইজ
   await Firebase.initializeApp(options: firebaseOptions);
 }
 
@@ -47,6 +47,7 @@ void main() async {
     if (!kIsWeb) {
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
       try {
+        // নোটিফিকেশন সার্ভিস কল করা
         await NotificationService().initNotification(); 
       } catch (e) {
         debugPrint("Notification init failed: $e");
@@ -91,10 +92,11 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     Timer(const Duration(seconds: 3), () {
-      if (!mounted) return; // স্ক্রিন বন্ধ হয়ে গেলে যেন নেভিগেট না করে
+      if (!mounted) return;
       
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
+        // লগইন করা থাকলে সরাসরি মেইন নেভিগেশনে যাবে
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
       } else {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
@@ -139,9 +141,28 @@ class _MainNavigationState extends State<MainNavigation> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // অ্যাপ ওপেন হওয়ার পর যদি ইউজার লগইন থাকে, তবে তার টোকেন রিফ্রেশ করা
+    _updateFCMToken();
+  }
+
+  void _updateFCMToken() async {
+    // ইউজারের লেটেস্ট টোকেন আপডেট নিশ্চিত করা
+    String? token = await FirebaseMessaging.instance.getToken();
+    User? user = FirebaseAuth.instance.currentUser;
+    if (token != null && user != null) {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+        'fcmToken': token,
+        'lastActive': FieldValue.serverTimestamp(),
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack( // পেজ পাল্টানোর সময় ডেটা যেন মুছে না যায়
+      body: IndexedStack(
         index: _currentIndex,
         children: _pages,
       ),
@@ -178,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: SingleChildScrollView( // কিবোর্ড আসলে যেন এরর না দেয়
+        child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(25.0),
             child: Column(
@@ -210,6 +231,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       );
 
                       if (user != null && mounted) {
+                        // লগইন সফল হলে টোকেন আপডেট করা হবে মেইন নেভিগেশনে
                         Navigator.pushReplacement(
                           context, 
                           MaterialPageRoute(builder: (context) => const MainNavigation())
