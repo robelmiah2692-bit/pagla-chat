@@ -32,7 +32,6 @@ const firebaseOptions = FirebaseOptions(
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // ব্যাকগ্রাউন্ডে নোটিফিকেশন হ্যান্ডেল করার জন্য ফায়ারবেস ইনিশিয়ালাইজ
   await Firebase.initializeApp(options: firebaseOptions);
 }
 
@@ -40,14 +39,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   try {
-    // ১. ফায়ারবেস ইনিশিয়ালাইজেশন
     await Firebase.initializeApp(options: firebaseOptions);
 
-    // ২. নোটিফিকেশন সার্ভিস (ওয়েব ছাড়া বাকি সব প্লাটফর্মের জন্য)
     if (!kIsWeb) {
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
       try {
-        // নোটিফিকেশন সার্ভিস কল করা
         await NotificationService().initNotification(); 
       } catch (e) {
         debugPrint("Notification init failed: $e");
@@ -74,6 +70,11 @@ class PaglaChatApp extends StatelessWidget {
         brightness: Brightness.dark, 
         primaryColor: Colors.pinkAccent,
         scaffoldBackgroundColor: const Color(0xFF0F0F1E),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFF1E1E2F),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+        ),
       ),
       home: const SplashScreen(),
     );
@@ -96,7 +97,6 @@ class _SplashScreenState extends State<SplashScreen> {
       
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        // লগইন করা থাকলে সরাসরি মেইন নেভিগেশনে যাবে
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
       } else {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
@@ -143,12 +143,10 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   void initState() {
     super.initState();
-    // অ্যাপ ওপেন হওয়ার পর যদি ইউজার লগইন থাকে, তবে তার টোকেন রিফ্রেশ করা
     _updateFCMToken();
   }
 
   void _updateFCMToken() async {
-    // ইউজারের লেটেস্ট টোকেন আপডেট নিশ্চিত করা
     String? token = await FirebaseMessaging.instance.getToken();
     User? user = FirebaseAuth.instance.currentUser;
     if (token != null && user != null) {
@@ -184,7 +182,7 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- লগইন স্ক্রিন ---
+// --- লগইন স্ক্রিন (আপডেটেড) ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
   @override
@@ -194,6 +192,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _isObscure = true; // পাসওয়ার্ড লুকানোর জন্য
+  String _selectedGender = "পুরুষ"; // ডিফল্ট জেন্ডার
 
   @override
   Widget build(BuildContext context) {
@@ -205,49 +205,123 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text("LOGIN", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                const Icon(Icons.lock_person, size: 80, color: Colors.pinkAccent),
                 const SizedBox(height: 20),
+                const Text("WELCOME BACK", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 30),
+                
+                // ইমেইল ফিল্ড
                 TextField(
                   controller: _emailController, 
-                  decoration: const InputDecoration(labelText: "Email"),
+                  decoration: const InputDecoration(
+                    labelText: "Email",
+                    prefixIcon: Icon(Icons.email, color: Colors.pinkAccent),
+                  ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 15),
+                
+                // পাসওয়ার্ড ফিল্ড (চোখের আইকন সহ)
                 TextField(
                   controller: _passwordController, 
-                  decoration: const InputDecoration(labelText: "Password"), 
-                  obscureText: true,
+                  obscureText: _isObscure,
+                  decoration: InputDecoration(
+                    labelText: "Password",
+                    prefixIcon: const Icon(Icons.lock, color: Colors.pinkAccent),
+                    suffixIcon: IconButton(
+                      icon: Icon(_isObscure ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
+                      onPressed: () => setState(() => _isObscure = !_isObscure),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 20),
+
+                // জেন্ডার সিলেকশন
+                const SizedBox(height: 15),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("জেন্ডার: "),
+                    Radio(
+                      value: "পুরুষ",
+                      groupValue: _selectedGender,
+                      activeColor: Colors.pinkAccent,
+                      onChanged: (val) => setState(() => _selectedGender = val.toString()),
+                    ),
+                    const Text("পুরুষ"),
+                    Radio(
+                      value: "মহিলা",
+                      groupValue: _selectedGender,
+                      activeColor: Colors.pinkAccent,
+                      onChanged: (val) => setState(() => _selectedGender = val.toString()),
+                    ),
+                    const Text("মহিলা"),
+                  ],
+                ),
+
+                // Forget Password বাটন
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () async {
+                      if (_emailController.text.isNotEmpty) {
+                        try {
+                          await AuthService().sendPasswordReset(_emailController.text.trim());
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("আপনার জিমেইল চেক করুন, রিসেট লিঙ্ক পাঠানো হয়েছে।"), backgroundColor: Colors.green),
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("এরর: ${e.toString()}"), backgroundColor: Colors.red),
+                          );
+                        }
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("অনুগ্রহ করে আগে ইমেইলটি লিখুন।"), backgroundColor: Colors.orange),
+                        );
+                      }
+                    },
+                    child: const Text("Forget Password?", style: TextStyle(color: Colors.pinkAccent)),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+                
+                // লগইন বাটন
                 ElevatedButton(
                   onPressed: () async {
                     if (_emailController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("লগইন হচ্ছে, দয়া করে অপেক্ষা করুন...")),
+                        const SnackBar(content: Text("প্রসেসিং হচ্ছে...")),
                       );
 
+                      // জেন্ডার সহ কল করা হচ্ছে
                       var user = await AuthService().loginOrRegister(
                         _emailController.text.trim(), 
-                        _passwordController.text.trim()
+                        _passwordController.text.trim(),
+                        _selectedGender
                       );
 
                       if (user != null && mounted) {
-                        // লগইন সফল হলে টোকেন আপডেট করা হবে মেইন নেভিগেশনে
                         Navigator.pushReplacement(
                           context, 
                           MaterialPageRoute(builder: (context) => const MainNavigation())
                         );
                       } else if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("লগইন ব্যর্থ! ইমেইল বা পাসওয়ার্ড ভুল।")),
+                          const SnackBar(content: Text("লগইন ব্যর্থ! তথ্য চেক করুন।")),
                         );
                       }
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("ইমেইল ও পাসওয়ার্ড লিখে চেষ্টা করুন।")),
+                        const SnackBar(content: Text("সবগুলো ঘর পূরণ করুন।")),
                       );
                     }
                   }, 
-                  child: const Text("Login"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.pinkAccent,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                  child: const Text("LOGIN / SIGNUP", style: TextStyle(color: Colors.white, fontSize: 16)),
                 )
               ],
             ),
