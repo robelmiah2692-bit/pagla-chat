@@ -19,9 +19,9 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
 
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-  // ১. ইউজার সার্চ লজিক (নিজেও ডায়মন্ড নিতে পারবে এমন আপডেট করা হয়েছে)
-  void searchUser(String userId) async {
-    if (userId.isEmpty) return;
+  // ১. ইউজার সার্চ লজিক (uID ফিল্ড ব্যবহার করা হয়েছে)
+  void searchUser(String inputId) async {
+    if (inputId.isEmpty) return;
 
     setState(() {
       isLoading = true;
@@ -30,17 +30,17 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
     });
 
     try {
-      // প্রথমে String হিসেবে আইডি খোঁজা
+      // ডাটাবেসে ফিল্ডের নাম 'uID', তাই এখানে 'uID' দিয়ে সার্চ করা হচ্ছে
       var userDoc = await FirebaseFirestore.instance
           .collection('users')
-          .where('userId', isEqualTo: userId)
+          .where('uID', isEqualTo: inputId)
           .get();
 
-      // যদি String হিসেবে না পায়, তবে Number হিসেবে আবার চেক করা
-      if (userDoc.docs.isEmpty && int.tryParse(userId) != null) {
+      // যদি String হিসেবে না পায়, তবে নাম্বার (int) হিসেবেও একবার চেষ্টা করবে
+      if (userDoc.docs.isEmpty && int.tryParse(inputId) != null) {
         userDoc = await FirebaseFirestore.instance
             .collection('users')
-            .where('userId', isEqualTo: int.parse(userId))
+            .where('uID', isEqualTo: int.parse(inputId))
             .get();
       }
 
@@ -49,9 +49,9 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
         receiverFirestoreId = userDoc.docs.first.id;
 
         // চেক: টার্গেট ইউজার কি অন্য কোন এজেন্ট? 
-        // (যদি নিজের আইডি হয় অর্থাৎ receiverFirestoreId == currentUserId, তবে ট্রান্সফার করা যাবে)
         bool isTargetAgent = userData['isAgent'] ?? false;
 
+        // আপনি নিজে নিজের আইডিতে ডায়মন্ড পাঠাতে পারবেন (টেস্টিং এর জন্য)
         if (isTargetAgent && receiverFirestoreId != currentUserId) {
           setState(() => isLoading = false);
           _showSnackBar("আপনি অন্য কোন এজেন্টকে ডায়মন্ড পাঠাতে পারবেন না!", isError: true);
@@ -63,7 +63,7 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
         }
       } else {
         setState(() => isLoading = false);
-        _showSnackBar("ইউজার খুঁজে পাওয়া যায়নি!", isError: true);
+        _showSnackBar("ইউজার খুঁজে পাওয়া যায়নি! (ID: $inputId)", isError: true);
       }
     } catch (e) {
       setState(() => isLoading = false);
@@ -93,7 +93,10 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
         if (!senderSnap.exists) throw Exception("এজেন্ট ডাটা পাওয়া যায়নি!");
 
         Map<String, dynamic> senderData = senderSnap.data() as Map<String, dynamic>;
-        int currentAgencyWallet = senderData['agency_wallet']?.toInt() ?? 0;
+        
+        // আপনার ডাটাবেসে ফিল্ডের নাম 'agency_wallet' নাকি 'agencyDiamonds' তা চেক করবেন
+        // আমি এখানে agency_wallet ই রেখেছি আপনার আগের কোড অনুযায়ী
+        int currentAgencyWallet = (senderData['agency_wallet'] ?? 0).toInt();
 
         if (currentAgencyWallet < amount) {
           throw Exception("আপনার এজেন্সি ওয়ালেটে পর্যাপ্ত ডায়মন্ড নেই!");
@@ -110,7 +113,7 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
           'xp': FieldValue.increment(amount),
         });
 
-        // ৫. সিস্টেম নোটিফিকেশন (PaglaChat Official)
+        // ৫. সিস্টেম নোটিফিকেশন মেসেজ
         String chatId = "paglachat_official_$receiverFirestoreId";
         DocumentReference msgRef = FirebaseFirestore.instance
             .collection('chats')
@@ -191,7 +194,7 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
                 style: const TextStyle(color: Colors.white),
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  hintText: "ইউজার আইডি দিয়ে খুঁজুন...",
+                  hintText: "ইউজার আইডি (uID) দিয়ে খুঁজুন...",
                   hintStyle: const TextStyle(color: Colors.white24),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.search, color: Colors.pinkAccent),
@@ -233,7 +236,8 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
                     const SizedBox(height: 15),
                     Text(foundUser!['name'] ?? "ইউজার",
                         style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                    Text("ID: ${foundUser!['userId']}", style: const TextStyle(color: Colors.white54)),
+                    // এখানেও 'uID' দেখানো হচ্ছে
+                    Text("ID: ${foundUser!['uID'] ?? 'N/A'}", style: const TextStyle(color: Colors.white54)),
                     const Divider(color: Colors.white10, height: 30),
                     TextField(
                       controller: _amountController,
