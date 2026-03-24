@@ -1,24 +1,25 @@
-final List<Map<String, dynamic>> premiumGifts = [
+// এই নামটাই আপনার gift_system.dart ফাইলে ডাকা হয়েছে
+final List<Map<String, dynamic>> luxuryGifts = [
   // --- ৫৯৯ থেকে ৮৯৯ (কালারফুল পরী ও ডানা মেলা পাখি) ---
   {
     'id': 'p1',
     'name': 'Neon Fairy Queen',
     'price': 599,
-    'image': 'assets/gifts/neon_fairy.json', // রঙিন পরীর এনিমেশন
+    'image': 'assets/gifts/neon_fairy.json',
     'type': 'lighting',
   },
   {
     'id': 'p2',
     'name': 'Rainbow Phoenix',
     'price': 599,
-    'image': 'assets/gifts/rainbow_bird.json', // রঙধনু পাখি
+    'image': 'assets/gifts/rainbow_bird.json',
     'type': 'animation',
   },
   {
     'id': 'p3',
     'name': 'Magic Love Birds',
     'price': 899,
-    'image': 'assets/gifts/couple_birds.json', // ছেলে-মেয়ে পাখির জোড়া
+    'image': 'assets/gifts/couple_birds.json',
     'type': 'lighting',
   },
   {
@@ -34,28 +35,28 @@ final List<Map<String, dynamic>> premiumGifts = [
     'id': 'p5',
     'name': 'Deluxe Royal Car',
     'price': 1599,
-    'image': 'assets/gifts/deluxe_car.json', // সুপার ডিলাক্স গাড়ি
+    'image': 'assets/gifts/deluxe_car.json',
     'type': 'full_screen',
   },
   {
     'id': 'p6',
     'name': 'Golden King Throne',
     'price': 1599,
-    'image': 'assets/gifts/king_chair.json', // রাজার জিলমিল করা চেয়ার
+    'image': 'assets/gifts/king_chair.json',
     'type': 'lighting',
   },
   {
     'id': 'p7',
     'name': 'Queen Crystal Chair',
     'price': 2199,
-    'image': 'assets/gifts/queen_chair.json', // রানীর ডায়মন্ড চেয়ার
+    'image': 'assets/gifts/queen_chair.json',
     'type': 'lighting',
   },
   {
     'id': 'p8',
     'name': 'Royal Flower Boat',
     'price': 2199,
-    'image': 'assets/gifts/flower_boat.json', // ফুলের সাজানো নৌকা
+    'image': 'assets/gifts/flower_boat.json',
     'type': 'animation',
   },
 
@@ -64,14 +65,14 @@ final List<Map<String, dynamic>> premiumGifts = [
     'id': 'p9',
     'name': 'Imperial Cruise Ship',
     'price': 2799,
-    'image': 'assets/gifts/royal_ship.json', // রাজকীয় জাহাজ (লাইটিং করা)
+    'image': 'assets/gifts/royal_ship.json',
     'type': 'full_screen',
   },
   {
     'id': 'p10',
     'name': 'Galaxy Couple Dance',
     'price': 2799,
-    'image': 'assets/gifts/couple_dance.json', // ছেলে-মেয়ের রাজকীয় নাচ
+    'image': 'assets/gifts/couple_dance.json',
     'type': 'lighting',
   },
   {
@@ -94,21 +95,21 @@ final List<Map<String, dynamic>> premiumGifts = [
     'id': 'p13',
     'name': 'Eternal Kingdom',
     'price': 4999,
-    'image': 'assets/gifts/kingdom_glow.json', // পুরো রুম জিলমিল করবে
+    'image': 'assets/gifts/kingdom_glow.json',
     'type': 'full_screen',
   },
   {
     'id': 'p14',
     'name': 'Magic Carpet Ride',
     'price': 4999,
-    'image': 'assets/gifts/magic_carpet.json', // জাদুকরী কার্পেট
+    'image': 'assets/gifts/magic_carpet.json',
     'type': 'full_screen',
   },
   {
     'id': 'p15',
     'name': 'Fireworks Festival',
     'price': 4999,
-    'image': 'assets/gifts/fireworks.json', // লাইটিং ও আতশবাজি
+    'image': 'assets/gifts/fireworks.json',
     'type': 'full_screen',
   },
   {
@@ -119,7 +120,7 @@ final List<Map<String, dynamic>> premiumGifts = [
     'type': 'full_screen',
   },
 
-  // --- মিক্সড প্রিমিয়াম থিম ---
+  // --- মিক্সড প্রিমিয়াম থিম ---
   {
     'id': 'p17',
     'name': 'Flying Cupid Boy',
