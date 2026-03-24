@@ -14,6 +14,30 @@ class _InboxPageState extends State<InboxPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
 
+  // কাস্টমার সাপোর্ট ডায়ালগ (৩ দিনের ওয়েটিং মেসেজ)
+  void _showSupportNotice(BuildContext context) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "Support",
+      pageBuilder: (context, anim1, anim2) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E2F),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Gemini AI Support", style: TextStyle(color: Colors.pinkAccent)),
+        content: const Text(
+          "আপনার সমস্যাটি আইডি সহ নোট করা হয়েছে। অনুগ্রহ করে ৩ দিন অপেক্ষা করুন। সমাধান হলে Paglachat Officials থেকে আপনাকে মেসেজ পাঠানো হবে।",
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("ঠিক আছে", style: TextStyle(color: Colors.pinkAccent)),
+          )
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -25,7 +49,7 @@ class _InboxPageState extends State<InboxPage> {
       ),
       body: Column(
         children: [
-          // আইডি নাম্বার দিয়ে সার্চ বার
+          // সার্চ বার (নাম এবং আইডি দিয়ে সার্চ ফিক্সড)
           Padding(
             padding: const EdgeInsets.all(15),
             child: TextField(
@@ -56,13 +80,14 @@ class _InboxPageState extends State<InboxPage> {
                 }
                 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text("ইউজার পাওয়া যায়নি!", style: TextStyle(color: Colors.white54)));
+                  return const Center(child: Text("ইউজার পাওয়া যায়নি!", style: TextStyle(color: Colors.white54)));
                 }
 
                 var users = snapshot.data!.docs.where((doc) {
                   var data = doc.data() as Map<String, dynamic>;
                   String name = (data['name'] ?? "").toString().toLowerCase();
-                  String customId = (data['userId'] ?? "").toString().toLowerCase();
+                  // আইডি সার্চের জন্য 'userId' বা 'myRoomId' চেক করা হচ্ছে
+                  String customId = (data['userId'] ?? data['myRoomId'] ?? "").toString().toLowerCase();
                   String fireId = doc.id.toLowerCase();
                   
                   return name.contains(_searchQuery.toLowerCase()) || 
@@ -71,7 +96,7 @@ class _InboxPageState extends State<InboxPage> {
                 }).toList();
 
                 if (users.isEmpty) {
-                   return const Center(child: Text("ইউজার খুঁজে পাওয়া যায়নি", style: TextStyle(color: Colors.white54)));
+                   return const Center(child: Text("ইউজার খুঁজে পাওয়া যায়নি", style: TextStyle(color: Colors.white54)));
                 }
 
                 return ListView.builder(
@@ -92,8 +117,8 @@ class _InboxPageState extends State<InboxPage> {
                       id: userId,
                       name: userData['name'] ?? "User",
                       image: imageUrl,
-                      // রিয়েল টাইম অনলাইন স্ট্যাটাস
-                      isOnline: userData['isOnline'] ?? false,
+                      isOnline: userData['isOnline'] ?? false, // রিয়েল টাইম গ্রিন ডট
+                      customId: (userData['userId'] ?? userData['myRoomId'] ?? "N/A").toString(),
                     );
                   },
                 );
@@ -105,8 +130,7 @@ class _InboxPageState extends State<InboxPage> {
     );
   }
 
-  Widget _buildPremiumInboxTile(BuildContext context, {required String id, required String name, required String image, required bool isOnline}) {
-    // চ্যাট আইডি জেনারেশন লজিক
+  Widget _buildPremiumInboxTile(BuildContext context, {required String id, required String name, required String image, required bool isOnline, required String customId}) {
     List<String> ids = [currentUserId, id];
     ids.sort();
     String chatId = ids.join("_");
@@ -115,7 +139,12 @@ class _InboxPageState extends State<InboxPage> {
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
       child: InkWell(
         onTap: () async {
-          // চ্যাটে ঢোকার সময় আনরিড মেসেজগুলো 'Read' করে দেওয়া
+          // Gemini AI সাপোর্ট চেক
+          if (id == "gemini_ai_support" || name.contains("Gemini AI")) {
+            _showSupportNotice(context);
+          }
+
+          // আনরিড মেসেজ Read করা
           var unreadMessages = await FirebaseFirestore.instance
               .collection('chats')
               .doc(chatId)
@@ -161,7 +190,7 @@ class _InboxPageState extends State<InboxPage> {
                         : null,
                     ),
                   ),
-                  // ১. ইউজার অনলাইন থাকলে সবুজ ডট
+                  // গ্রিন ডট লজিক (অনলাইন থাকলে দেখাবে)
                   if (isOnline)
                     Positioned(
                       right: 1,
@@ -183,7 +212,6 @@ class _InboxPageState extends State<InboxPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // অফিসিয়াল আইডি হলে টেক্সট কালার আলাদা করা (ঐচ্ছিক)
                     Text(
                       name, 
                       style: TextStyle(
@@ -193,12 +221,12 @@ class _InboxPageState extends State<InboxPage> {
                       )
                     ),
                     const SizedBox(height: 5),
-                    const Text("মেসেজ দেখতে ক্লিক করুন...", style: TextStyle(color: Colors.white38, fontSize: 13)),
+                    Text("ID: $customId", style: const TextStyle(color: Colors.white24, fontSize: 12)),
                   ],
                 ),
               ),
               
-              // ২. রিয়েল টাইম মেসেজ কাউন্টার (লাল ডট)
+              // মেসেজ নোটিফিকেশন কাউন্টার (লাল ডট)
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('chats')
