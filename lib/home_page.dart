@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; 
+import 'package:firebase_auth/firebase_auth.dart'; // ✅FirebaseAuth যোগ করা হয়েছে
 import 'package:flutter/foundation.dart'; 
 import 'dart:io' as io; 
 
@@ -15,13 +16,51 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+// ✅ WidgetsBindingObserver যোগ করা হয়েছে অনলাইন স্ট্যাটাস ট্র্যাক করার জন্য
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final ImagePicker _picker = ImagePicker();
   XFile? _pickedImage;
   Uint8List? _webImageBytes; 
   final TextEditingController _captionController = TextEditingController();
+  final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-  // গ্যালারি থেকে ছবি সিলেক্ট করার ফাংশন
+  @override
+  void initState() {
+    super.initState();
+    // ✅ অ্যাপের লাইফসাইকেল পর্যবেক্ষণ শুরু
+    WidgetsBinding.instance.addObserver(this);
+    _updateStatus(true); // অ্যাপে ঢুকলেই অনলাইন
+  }
+
+  @override
+  void dispose() {
+    // ✅ পর্যবেক্ষণ বন্ধ করা
+    WidgetsBinding.instance.removeObserver(this);
+    _captionController.dispose();
+    super.dispose();
+  }
+
+  // ✅ অ্যাপ মিনিমাইজ বা ক্লোজ করলে অনলাইন/অফলাইন হ্যান্ডেল করা
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _updateStatus(true); // অ্যাপে ফিরে আসলে অনলাইন
+    } else {
+      _updateStatus(false); // অ্যাপ থেকে বের হয়ে গেলে বা মিনিমাইজ করলে অফলাইন
+    }
+  }
+
+  // ✅ ফায়ারস্টোরে অনলাইন স্ট্যাটাস আপডেট করার ফাংশন
+  void _updateStatus(bool status) {
+    if (currentUserId.isNotEmpty) {
+      FirebaseFirestore.instance.collection('users').doc(currentUserId).update({
+        'isOnline': status,
+        'lastSeen': FieldValue.serverTimestamp(),
+      }).catchError((e) => debugPrint("Status Update Error: $e"));
+    }
+  }
+
+  // গ্যালারি থেকে ছবি সিলেক্ট করার ফাংশন (আপনার আগের কোড)
   Future<void> _pickImage(Function setModalState) async {
     try {
       final XFile? image = await _picker.pickImage(
@@ -233,7 +272,7 @@ class _HomePageState extends State<HomePage> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.only(top: 50), // ✅ ফিক্স করা হয়েছে (EdgeInsets.only)
+                      padding: EdgeInsets.only(top: 50),
                       child: Center(child: CircularProgressIndicator(color: Colors.white24)),
                     ),
                   );
@@ -242,7 +281,7 @@ class _HomePageState extends State<HomePage> {
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return const SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.only(top: 100), // ✅ ফিক্স করা হয়েছে (EdgeInsets.only)
+                      padding: EdgeInsets.only(top: 100),
                       child: Center(
                         child: Text("এখনও কোনো পোস্ট নেই!", style: TextStyle(color: Colors.white24)),
                       ),
