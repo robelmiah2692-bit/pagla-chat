@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:lottie/lottie.dart'; // লটি এনিমেশন ইমপোর্ট
 import 'package:pagla_chat/services/gift_logic_helper.dart';
 
 // ডাটা ফাইল ইমপোর্ট
@@ -36,7 +37,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   @override
   void initState() {
     super.initState();
-    // ফ্রি গিফট সেটআপ (এখানে ৩ দিন মেয়াদ দেওয়া হয়েছে)
+    // ফ্রি গিফট সেটআপ (টাইম আটকে থাকবে না, প্রতি সেকেন্ডে আপডেট হবে)
     DateTime expiryDate = DateTime.now().add(const Duration(hours: 2, minutes: 23));
     dynamicFreeGifts = freeGifts.map((g) {
       var map = Map<String, dynamic>.from(g);
@@ -44,11 +45,10 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       return map;
     }).toList();
 
-    // টাইমার প্রতি সেকেন্ডে রিফ্রেশ হবে যাতে টাইম কমে
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
-          // মেয়াদ শেষ হয়ে গেলে ফ্রি গিফট লিস্ট থেকে রিমুভ হবে
+          // সময় শেষ হলে ফ্রি গিফট অটোমেটিক রিমুভ হবে
           dynamicFreeGifts.removeWhere((g) => 
             (g['expiry'] as DateTime).difference(DateTime.now()).isNegative
           );
@@ -65,7 +65,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
 
   // --- রুমে থাকা ইউজার লিস্ট দেখানোর ডায়ালগ ---
   void _showUserSelectionList() {
-    // শুধু যাদের UID আছে তাদের ফিল্টার করা হচ্ছে
+    // শুধু যাদের UID আছে এবং যারা একটিভ তাদের লিস্ট
     List activeUsers = widget.currentSeats.where((s) => s != null && s['uid'] != null).toList();
 
     showModalBottomSheet(
@@ -93,7 +93,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                         var seat = activeUsers[index];
                         return ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: Colors.white10,
                             backgroundImage: NetworkImage(seat['image'] ?? seat['profilePic'] ?? "https://via.placeholder.com/150"),
                           ),
                           title: Text(seat['name'] ?? "User", style: const TextStyle(color: Colors.white)),
@@ -134,7 +133,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
             const TabBar(
               isScrollable: true,
               indicatorColor: Colors.pinkAccent,
-              labelStyle: TextStyle(fontWeight: FontWeight.bold),
               tabs: [
                 Tab(text: "Free"), Tab(text: "Classic"),
                 Tab(text: "Romantic"), Tab(text: "Luxury"),
@@ -218,19 +216,25 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   Widget _buildGrid(List gifts, {bool isFreeTab = false}) {
     return GridView.builder(
       padding: const EdgeInsets.all(15),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, childAspectRatio: 0.75),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4, 
+        childAspectRatio: 0.75,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+      ),
       itemCount: gifts.length,
       itemBuilder: (context, index) {
         var gift = gifts[index];
         bool isSelected = selectedGift?['id'] == gift['id'];
         
-        // ইমেজ বা আইকন যাই থাকুক লোড হবে
-        String imageUrl = gift["icon"] ?? gift["image"] ?? gift["png"] ?? gift["url"] ?? "";
+        // ইমেজ হ্যান্ডলিং: JSON (Lottie), Network, অথবা Asset
+        String giftPath = (gift["image"] ?? gift["icon"] ?? gift["url"] ?? gift["png"] ?? "").toString();
+        bool isJson = giftPath.toLowerCase().endsWith('.json');
+        bool isNetwork = giftPath.startsWith('http');
 
         return GestureDetector(
           onTap: () => setState(() => selectedGift = gift),
           child: Container(
-            margin: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: isSelected ? Colors.pinkAccent.withOpacity(0.2) : Colors.white.withOpacity(0.05),
               borderRadius: BorderRadius.circular(15),
@@ -239,9 +243,16 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                imageUrl.isNotEmpty 
-                  ? Image.network(imageUrl, height: 45, width: 45, errorBuilder: (c, e, s) => const Icon(Icons.card_giftcard, color: Colors.white24))
-                  : const Icon(Icons.card_giftcard, color: Colors.white24),
+                SizedBox(
+                  height: 45, width: 45,
+                  child: giftPath.isEmpty 
+                    ? const Icon(Icons.card_giftcard, color: Colors.white24)
+                    : isJson 
+                      ? Lottie.asset(giftPath, repeat: true, fit: BoxFit.contain, errorBuilder: (c,e,s) => const Icon(Icons.error))
+                      : isNetwork 
+                        ? Image.network(giftPath, fit: BoxFit.contain, errorBuilder: (c,e,s) => const Icon(Icons.broken_image))
+                        : Image.asset(giftPath, fit: BoxFit.contain, errorBuilder: (c,e,s) => const Icon(Icons.broken_image)),
+                ),
                 const SizedBox(height: 5),
                 if (isFreeTab) 
                   Text(_getRemainingTime(gift['expiry']), style: const TextStyle(color: Colors.greenAccent, fontSize: 8, fontWeight: FontWeight.bold))
@@ -294,6 +305,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       return;
     }
 
+    // সার্ভারে বা মেইন পেজে ডাটা পাঠানো (সেখানে ৫ সেকেন্ডের টাইমার সেট করতে হবে)
     widget.onGiftSend(selectedGift!, selectedCount, selectedTargetId ?? targetType);
 
     if (isFree) {
