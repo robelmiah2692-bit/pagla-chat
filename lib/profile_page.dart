@@ -205,7 +205,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 Navigator.pop(context);
               }
             }, 
-            child: const Text("সেভ", style: TextStyle(color: Colors.pinkAccent))
+            child: const Text("Save", style: TextStyle(color: Colors.pinkAccent))
           ),
         ],
       ),
@@ -229,7 +229,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void _showAgePicker() {
     showDialog(context: context, builder: (ctx) => AlertDialog(
       backgroundColor: const Color(0xFF1E1E2F),
-      title: const Text("আপনার বয়স কত?", style: TextStyle(color: Colors.white)),
+      title: const Text("Your age?", style: TextStyle(color: Colors.white)),
       content: SizedBox(height: 200, width: double.maxFinite, child: ListView.builder(itemCount: 40, itemBuilder: (context, index) => ListTile(title: Text("${index + 15} বছর", style: const TextStyle(color: Colors.white)), onTap: () async {
         String uid = FirebaseAuth.instance.currentUser!.uid;
         await FirebaseFirestore.instance.collection('users').doc(uid).update({'age': index + 15});
@@ -242,22 +242,22 @@ class _ProfilePageState extends State<ProfilePage> {
   void _openSettings() {
     showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1E1E2F), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Column(mainAxisSize: MainAxisSize.min, children: [
-        const Padding(padding: EdgeInsets.all(15), child: Text("সেটিংস", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
-        ListTile(leading: const Icon(Icons.wc, color: Colors.pinkAccent), title: Text("লিঙ্গ পরিবর্তন (বর্তমান: $gender)", style: const TextStyle(color: Colors.white)),
+        const Padding(padding: EdgeInsets.all(15), child: Text("Settings", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
+        ListTile(leading: const Icon(Icons.wc, color: Colors.pinkAccent), title: Text("Gender (Now: $gender)", style: const TextStyle(color: Colors.white)),
           trailing: PopupMenuButton<String>(color: const Color(0xFF1E1E2F), onSelected: (val) async {
             String uid = FirebaseAuth.instance.currentUser!.uid;
             await FirebaseFirestore.instance.collection('users').doc(uid).update({'gender': val});
             setState(() => gender = val);
-          }, itemBuilder: (ctx) => [const PopupMenuItem(value: "পুরুষ", child: Text("পুরুষ", style: TextStyle(color: Colors.white))), const PopupMenuItem(value: "নারী", child: Text("নারী", style: TextStyle(color: Colors.white)))]),
+          }, itemBuilder: (ctx) => [const PopupMenuItem(value: "Male", child: Text("Male", style: TextStyle(color: Colors.white))), const PopupMenuItem(value: "Female", child: Text("Female", style: TextStyle(color: Colors.white)))]),
         ),
-        ListTile(leading: const Icon(Icons.cake, color: Colors.orangeAccent), title: Text("বয়স পরিবর্তন (বর্তমান: $age)", style: const TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _showAgePicker(); }),
-        ListTile(leading: const Icon(Icons.logout, color: Colors.redAccent), title: const Text("লগ আউট", style: TextStyle(color: Colors.redAccent)), onTap: () { FirebaseAuth.instance.signOut(); Navigator.pop(context); }),
+        ListTile(leading: const Icon(Icons.cake, color: Colors.orangeAccent), title: Text("Age change (Now: $age)", style: const TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _showAgePicker(); }),
+        ListTile(leading: const Icon(Icons.logout, color: Colors.redAccent), title: const Text("Logout", style: TextStyle(color: Colors.redAccent)), onTap: () { FirebaseAuth.instance.signOut(); Navigator.pop(context); }),
         const SizedBox(height: 20),
       ]));
   }
 
   void _showFreeAvatars() {
-    List<String> avatars = (gender == "পুরুষ") ? maleAvatars : femaleAvatars;
+    List<String> avatars = (gender == "Male") ? maleAvatars : femaleAvatars;
     showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => GridView.builder(padding: const EdgeInsets.all(15), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 10, crossAxisSpacing: 10),
         itemCount: avatars.length, itemBuilder: (context, index) => GestureDetector(onTap: () async {
@@ -270,8 +270,8 @@ class _ProfilePageState extends State<ProfilePage> {
   void _pickProfileImage() {
     showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Wrap(children: [
-        ListTile(leading: const Icon(Icons.face, color: Colors.blueAccent), title: const Text("২০টি রিয়েল অবতার (Free)", style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _showFreeAvatars(); }),
-        ListTile(leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), title: const Text("গ্যালারি থেকে ছবি", style: TextStyle(color: Colors.white)), onTap: () async {
+        ListTile(leading: const Icon(Icons.face, color: Colors.blueAccent), title: const Text("Real avtar (Free)", style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _showFreeAvatars(); }),
+        ListTile(leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), title: const Text("Gallery photo avtar", style: TextStyle(color: Colors.white)), onTap: () async {
           if (hasPremiumCard || getVipLevel() >= 1) {
              try {
                final ImagePicker picker = ImagePicker();
@@ -283,7 +283,7 @@ class _ProfilePageState extends State<ProfilePage> {
              }
           } else {
              Navigator.pop(context);
-             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("প্রিমিয়াম কার্ড বা VIP 1 প্রয়োজন!"), backgroundColor: Colors.redAccent));
+             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Premium card ya VIP 1 Need !"), backgroundColor: Colors.redAccent));
           }
         }),
       ]));
@@ -343,7 +343,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   builder: (context) => const AgentTransferPage()));
                         },
                         icon: const Icon(Icons.send, size: 16, color: Colors.white),
-                        label: const Text("ডায়মন্ড বিক্রি করুন",
+                        label: const Text("Diamond Selling",
                             style: TextStyle(color: Colors.white)),
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
                       ),
@@ -354,13 +354,15 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
 
           // রিচার্জ অপশনগুলো
-          _buildDiamondOption("৬,০০০ ডায়মন্ড", "১৫০ টাকা"),
-          _buildDiamondOption("১২,০০০ ডায়মন্ড", "৩০০ টাকা"),
-          _buildDiamondOption("২৫,০০০ ডায়মন্ড", "৬০০ টাকা"),
-          _buildDiamondOption("৬০,০০০ ডায়মন্ড", "১,৫০০ টাকা"),
-          _buildDiamondOption("১,২০,০০০ ডায়মন্ড", "৩,০০০ টাকা"),
-          _buildDiamondOption("৫,০০,০০০ ডায়মন্ড", "১২,০০০ টাকা"),
-
+          _buildDiamondOption("6k   💎", "100 Tk"),
+          _buildDiamondOption("12k  💎", "150 Tk"),
+          _buildDiamondOption("30k  💎", "350 Tk"),
+          _buildDiamondOption("60k  💎", "650 Tk"),
+          _buildDiamondOption("120k 💎", "1200 Tk"),
+          _buildDiamondOption("240k 💎", "2300 Tk"),
+          _buildDiamondOption("500k 💎", "4500 Tk"),
+          _buildDiamondOption("1M   💎", "8500 Tk"),
+          _buildDiamondOption("2M   💎", "17500 Tk"),
           const SizedBox(height: 15),
         ],
       ),
@@ -393,7 +395,7 @@ class _ProfilePageState extends State<ProfilePage> {
           const Padding(
             padding: EdgeInsets.all(15.0),
             child: Center(
-              child: Text("পেমেন্ট মেথড সিলেক্ট করুন",
+              child: Text("Select Pay",
                   style: TextStyle(color: Colors.white70, fontSize: 14)),
             ),
           ),
@@ -438,14 +440,14 @@ class _ProfilePageState extends State<ProfilePage> {
       ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.network("https://i.ibb.co/3ykC7mP/premium-card.jpg", height: 150, width: 220, fit: BoxFit.cover)),
       const SizedBox(height: 10),
       const Text("Pagla Premium Card", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-      const Text("মুল্য: ৬,০০০ ডায়মন্ড", style: TextStyle(color: Colors.cyanAccent)),
+      const Text("6k 💎", style: TextStyle(color: Colors.cyanAccent)),
       const SizedBox(height: 15),
       ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent), onPressed: () {
         if (diamonds >= 6000) {
           setState(() { diamonds -= 6000; hasPremiumCard = true; });
           Navigator.pop(context);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("পর্যাপ্ত ডায়মন্ড নেই!")));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("No have minimum balance !")));
         }
       }, child: const Text("BUY NOW")),
     ]);
@@ -456,12 +458,12 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (context) => DefaultTabController(length: 4, child: Container(height: MediaQuery.of(context).size.height * 0.7, padding: const EdgeInsets.all(10),
         child: Column(children: [
           const TabBar(isScrollable: true, indicatorColor: Colors.pinkAccent, tabs: [Tab(text: "My Cards"), Tab(text: "My Frames"), Tab(text: "Effects"), Tab(text: "Others")]),
-          Expanded(child: TabBarView(children: [_buildMyCardsTab(), const Center(child: Text("খালি", style: TextStyle(color: Colors.white))), const Center(child: Text("খালি", style: TextStyle(color: Colors.white))), const Center(child: Text("খালি", style: TextStyle(color: Colors.white)))]))
+          Expanded(child: TabBarView(children: [_buildMyCardsTab(), const Center(child: Text("Empty", style: TextStyle(color: Colors.white))), const Center(child: Text("Empty", style: TextStyle(color: Colors.white))), const Center(child: Text("খালি", style: TextStyle(color: Colors.white)))]))
         ]))));
   }
 
   Widget _buildMyCardsTab() {
-    if (!hasPremiumCard) return const Center(child: Text("আপনার কাছে কোনো কার্ড নেই", style: TextStyle(color: Colors.white54)));
+    if (!hasPremiumCard) return const Center(child: Text("You Don't have any card", style: TextStyle(color: Colors.white54)));
     return ListTile(
       leading: const Icon(Icons.card_membership, color: Colors.amber, size: 40),
       title: const Text("Pagla Chat Premium", style: TextStyle(color: Colors.white)),
@@ -847,7 +849,7 @@ Widget _buildSoulmateSection() {
         title: const Text("সম্পর্ক ছিন্ন করবেন?", style: TextStyle(color: Colors.white, fontSize: 16)),
         content: const Text("এটি করতে আপনার অ্যাকাউন্ট থেকে ১০০০ ডায়মন্ড কেটে নেওয়া হবে।", style: TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("বাতিল")),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
