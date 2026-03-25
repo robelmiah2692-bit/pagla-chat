@@ -11,7 +11,6 @@ import 'package:pagla_chat/data/luxury_gifts.dart';
 class GiftBottomSheet extends StatefulWidget {
   final int diamondBalance;
   final List<dynamic> currentSeats; 
-  // এখানে ৩টি প্যারামিটারই রাখা হয়েছে আগের মতো
   final Function(Map<String, dynamic> gift, int count, String target) onGiftSend;
 
   const GiftBottomSheet({
@@ -37,15 +36,24 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   @override
   void initState() {
     super.initState();
-    DateTime expiryDate = DateTime.now().add(const Duration(days: 3));
+    // ফ্রি গিফট সেটআপ (এখানে ৩ দিন মেয়াদ দেওয়া হয়েছে)
+    DateTime expiryDate = DateTime.now().add(const Duration(hours: 2, minutes: 23));
     dynamicFreeGifts = freeGifts.map((g) {
       var map = Map<String, dynamic>.from(g);
       map['expiry'] = expiryDate; 
       return map;
     }).toList();
 
-    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (mounted) setState(() {});
+    // টাইমার প্রতি সেকেন্ডে রিফ্রেশ হবে যাতে টাইম কমে
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          // মেয়াদ শেষ হয়ে গেলে ফ্রি গিফট লিস্ট থেকে রিমুভ হবে
+          dynamicFreeGifts.removeWhere((g) => 
+            (g['expiry'] as DateTime).difference(DateTime.now()).isNegative
+          );
+        });
+      }
     });
   }
 
@@ -57,6 +65,9 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
 
   // --- রুমে থাকা ইউজার লিস্ট দেখানোর ডায়ালগ ---
   void _showUserSelectionList() {
+    // শুধু যাদের UID আছে তাদের ফিল্টার করা হচ্ছে
+    List activeUsers = widget.currentSeats.where((s) => s != null && s['uid'] != null).toList();
+
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
@@ -69,32 +80,35 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
             children: [
               const Text("Select User", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
               const Divider(color: Colors.white10),
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: widget.currentSeats.length,
-                  itemBuilder: (context, index) {
-                    var seat = widget.currentSeats[index];
-                    if (seat['uid'] == null) return const SizedBox.shrink();
-
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundImage: NetworkImage(seat['image'] ?? "https://via.placeholder.com/150"),
-                      ),
-                      title: Text(seat['name'] ?? "User", style: const TextStyle(color: Colors.white)),
-                      subtitle: Text("ID: ${seat['uID'] ?? 'N/A'}", style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                      onTap: () {
-                        setState(() {
-                          // এখানে আমরা Target এর বদলে ইউজারের UID সেট করছি যাতে লজিক কাজ করে
-                          selectedTargetId = seat['uid'];
-                          targetType = "Target"; // ডিসপ্লেতে Target ই লেখা থাকবে
-                        });
-                        Navigator.pop(context);
+              activeUsers.isEmpty 
+                ? const Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Text("No users on seats", style: TextStyle(color: Colors.white54)),
+                  )
+                : Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: activeUsers.length,
+                      itemBuilder: (context, index) {
+                        var seat = activeUsers[index];
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.white10,
+                            backgroundImage: NetworkImage(seat['image'] ?? seat['profilePic'] ?? "https://via.placeholder.com/150"),
+                          ),
+                          title: Text(seat['name'] ?? "User", style: const TextStyle(color: Colors.white)),
+                          subtitle: Text("ID: ${seat['uID'] ?? seat['uid'] ?? 'N/A'}", style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                          onTap: () {
+                            setState(() {
+                              selectedTargetId = seat['uid'];
+                              targetType = "Target"; 
+                            });
+                            Navigator.pop(context);
+                          },
+                        );
                       },
-                    );
-                  },
-                ),
-              ),
+                    ),
+                  ),
             ],
           ),
         );
@@ -120,6 +134,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
             const TabBar(
               isScrollable: true,
               indicatorColor: Colors.pinkAccent,
+              labelStyle: TextStyle(fontWeight: FontWeight.bold),
               tabs: [
                 Tab(text: "Free"), Tab(text: "Classic"),
                 Tab(text: "Romantic"), Tab(text: "Luxury"),
@@ -149,7 +164,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text("💎 Balance: ${widget.diamondBalance}", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-          const Text("Select Gift", style: TextStyle(color: Colors.white, fontSize: 16)),
+          const Text("Send Gift", style: TextStyle(color: Colors.white, fontSize: 16)),
           const Icon(Icons.history, color: Colors.white38),
         ],
       ),
@@ -174,7 +189,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     return GestureDetector(
       onTap: () {
         if (label == "Target") {
-          _showUserSelectionList(); // ক্লিক করলে লিস্ট দেখাবে
+          _showUserSelectionList();
         } else {
           setState(() {
             targetType = label;
@@ -208,6 +223,10 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       itemBuilder: (context, index) {
         var gift = gifts[index];
         bool isSelected = selectedGift?['id'] == gift['id'];
+        
+        // ইমেজ বা আইকন যাই থাকুক লোড হবে
+        String imageUrl = gift["icon"] ?? gift["image"] ?? gift["png"] ?? gift["url"] ?? "";
+
         return GestureDetector(
           onTap: () => setState(() => selectedGift = gift),
           child: Container(
@@ -220,12 +239,14 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.network(gift["icon"], height: 40, errorBuilder: (c, e, s) => const Icon(Icons.card_giftcard, color: Colors.white24)),
+                imageUrl.isNotEmpty 
+                  ? Image.network(imageUrl, height: 45, width: 45, errorBuilder: (c, e, s) => const Icon(Icons.card_giftcard, color: Colors.white24))
+                  : const Icon(Icons.card_giftcard, color: Colors.white24),
                 const SizedBox(height: 5),
                 if (isFreeTab) 
                   Text(_getRemainingTime(gift['expiry']), style: const TextStyle(color: Colors.greenAccent, fontSize: 8, fontWeight: FontWeight.bold))
                 else
-                  Text("💎 ${gift["price"]}", style: const TextStyle(color: Colors.amber, fontSize: 10)),
+                  Text("💎 ${gift["price"]}", style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -237,7 +258,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   Widget _buildBottomBar() {
     return Container(
       padding: const EdgeInsets.all(15),
-      color: Colors.white.withOpacity(0.02),
+      color: Colors.white10,
       child: Row(
         children: [
           ...[1, 10, 88, 100].map((count) => GestureDetector(
@@ -249,7 +270,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                 color: selectedCount == count ? Colors.pinkAccent : Colors.white10,
                 shape: BoxShape.circle,
               ),
-              child: Text("x$count", style: const TextStyle(color: Colors.white, fontSize: 10)),
+              child: Text("x$count", style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
             ),
           )),
           const Spacer(),
@@ -266,15 +287,13 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   void _handleSendAction() {
     int unitPrice = (selectedGift!['price'] ?? 0) as int;
     int totalPrice = unitPrice * selectedCount;
-    bool isFree = selectedGift!['type'] == 'free' || unitPrice == 0;
+    bool isFree = selectedGift!['expiry'] != null;
 
     if (!isFree && widget.diamondBalance < totalPrice) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Insufficient Diamonds!")));
       return;
     }
 
-    // এখানে আগের মতো ৩টি ভ্যালুই পাস করা হচ্ছে (gift, count, target)
-    // target হিসেবে ইউজারের UID চলে যাবে যাতে সার্ভার চিনতে পারে কাকে পাঠানো হচ্ছে
     widget.onGiftSend(selectedGift!, selectedCount, selectedTargetId ?? targetType);
 
     if (isFree) {
@@ -290,11 +309,11 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     final now = DateTime.now();
     final difference = expiry.difference(now);
     if (difference.isNegative) return "Expired";
-    int days = difference.inDays;
-    int hours = difference.inHours % 24;
+    
+    int hours = difference.inHours;
     int minutes = difference.inMinutes % 60;
-    if (days > 0) return "${days}d ${hours}h";
-    if (hours > 0) return "${hours}h ${minutes}m";
-    return "${minutes}m left";
+    int seconds = difference.inSeconds % 60;
+    
+    return "${hours}h ${minutes}m ${seconds}s";
   }
 }
