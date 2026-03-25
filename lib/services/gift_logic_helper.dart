@@ -11,7 +11,7 @@ class GiftLogicHelper {
     };
   }
 
-  // ২. গিফট প্রসেসিং (ডায়মন্ড আপডেট + টপ চার্মিং/বস লজিক)
+  // ২. গিফট প্রসেসিং (ডায়মন্ড আপডেট + টপ চার্মিং/বস লজিক)
   static Future<void> processGift({
     required String senderId,
     required String targetId, // 'All Room', 'All Mic' অথবা নির্দিষ্ট UID
@@ -23,23 +23,22 @@ class GiftLogicHelper {
   }) async {
     final int unitPrice = (gift['price'] ?? 0) as int;
     final int totalPrice = unitPrice * count;
-    final split = calculateSplit(totalPrice);
+    final Map<String, int> split = calculateSplit(totalPrice);
     
     WriteBatch batch = FirebaseFirestore.instance.batch();
 
-    // ক. সেন্ডারের ডায়মন্ড কাটা এবং 'Top Contributor' (বস) এক্সপি বাড়ানো
+    // ক. সেন্ডারের ডায়মন্ড কাটা এবং 'Top Contributor' (বস) এক্সপি বাড়ানো
     if (unitPrice > 0) {
       DocumentReference senderRef = FirebaseFirestore.instance.collection('users').doc(senderId);
       batch.update(senderRef, {
         'diamonds': FieldValue.increment(-totalPrice),
-        'totalSpent': FieldValue.increment(totalPrice), // বস হওয়ার জন্য
+        'totalSpent': FieldValue.increment(totalPrice), // বস হওয়ার জন্য
       });
     }
 
     // খ. রুমের ভেতর ব্যানার এবং চার্মিং ডাটা আপডেট
     DocumentReference roomRef = FirebaseFirestore.instance.collection('rooms').doc(roomId);
     
-    // ব্যানার ডাটা (যাতে ইউজার পোস্ট/স্টোরি করতে পারে)
     Map<String, dynamic> giftBanner = {
       'id': gift['id'],
       'name': gift['name'],
@@ -53,30 +52,32 @@ class GiftLogicHelper {
     };
 
     batch.update(roomRef, {
+      'last_gift': giftBanner, // আগের লজিক ঠিক রাখতে
       'last_gift_banner': giftBanner,
-      // রুমের টপ চার্মিং লিস্টে যোগ করা (রুমের জন্য আলাদা কালেকশন হতে পারে, এখানে ফিল্ডে রাখা হলো)
       'room_total_diamonds': FieldValue.increment(totalPrice),
     });
 
-    // গ. রিসিভারের একাউন্টে ৪০% যোগ করা এবং 'Charming' (বসিনি) স্কোর বাড়ানো
+    // গ. রিসিভারের একাউন্টে ৪০% যোগ করা (Null Safety Fix সহ)
     if (targetId != 'All Room' && targetId != 'All Mic') {
       DocumentReference targetRef = FirebaseFirestore.instance.collection('users').doc(targetId);
+      int userAmount = split['userShare'] ?? 0;
       batch.update(targetRef, {
-        'diamonds': FieldValue.increment(split['userShare']),
-        'charmingScore': FieldValue.increment(totalPrice), // চার্মিং হওয়ার জন্য
+        'diamonds': FieldValue.increment(userAmount),
+        'charmingScore': FieldValue.increment(totalPrice), // চার্মিং হওয়ার জন্য
       });
     }
 
-    // ঘ. রুম ওনারের একাউন্টে ১০% যোগ করা
+    // ঘ. রুম ওনারের একাউন্টে ১০% যোগ করা (Null Safety Fix সহ)
     if (roomOwnerId != null && roomOwnerId.isNotEmpty && unitPrice > 0) {
       DocumentReference ownerRef = FirebaseFirestore.instance.collection('users').doc(roomOwnerId);
-      batch.update(ownerRef, {'diamonds': FieldValue.increment(split['ownerShare'])});
+      int ownerAmount = split['ownerShare'] ?? 0;
+      batch.update(ownerRef, {'diamonds': FieldValue.increment(ownerAmount)});
     }
 
     await batch.commit();
   }
 
-  // ৩. সিটে থাকা ইউজারদের ফিল্টার (আপনার অরিজিনাল লজিক যা আপনি চেয়েছিলেন)
+  // ৩. সিটে থাকা ইউজারদের ফিল্টার
   static List<Map<String, dynamic>> getAllMicUsers(List<dynamic> currentSeats) {
     List<Map<String, dynamic>> micUsers = [];
     for (var seat in currentSeats) {
@@ -98,7 +99,7 @@ class GiftLogicHelper {
     return micUsers;
   }
 
-  // ৪. টপ চার্মিং ব্যানার ডিজাইন (যা ইউজার শেয়ার করতে পারবে)
+  // ৪. টপ চার্মিং ব্যানার ডিজাইন
   static Widget buildGiftSuccessBanner({
     required BuildContext context,
     required Map<String, dynamic> bannerData,
@@ -124,10 +125,13 @@ class GiftLogicHelper {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _bannerUserCircle(bannerData['senderName'], "SENDER"),
+              _bannerUserCircle(bannerData['senderName'] ?? "Sender", "SENDER"),
               Column(
                 children: [
-                  Image.network(bannerData['image'], width: 60, height: 60),
+                  if (bannerData['image'] != null)
+                    Image.network(bannerData['image'], width: 60, height: 60)
+                  else
+                    const Icon(Icons.card_giftcard, size: 50, color: Colors.white),
                   Text("x${bannerData['count']}", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -151,13 +155,13 @@ class GiftLogicHelper {
       children: [
         const CircleAvatar(radius: 25, backgroundColor: Colors.white24, child: Icon(Icons.person, color: Colors.white)),
         const SizedBox(height: 5),
-        Text(name, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+        Text(name, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
         Text(label, style: const TextStyle(color: Colors.white54, fontSize: 9)),
       ],
     );
   }
 
-  // ৫. টার্গেট সিলেক্টর পপআপ (সার্চসহ)
+  // ৫. টার্গেট সিলেক্টর পপআপ
   static void showTargetSelector({
     required BuildContext context,
     required List<Map<String, dynamic>> micUsers,
@@ -202,8 +206,15 @@ class GiftLogicHelper {
                   itemBuilder: (context, index) {
                     final user = micUsers[index];
                     return ListTile(
-                      leading: CircleAvatar(backgroundImage: NetworkImage(user['photoUrl'])),
-                      title: Text(user['name'], style: const TextStyle(color: Colors.white)),
+                      leading: CircleAvatar(
+                        backgroundImage: (user['photoUrl'] != null && user['photoUrl'].toString().isNotEmpty) 
+                          ? NetworkImage(user['photoUrl']) 
+                          : null,
+                        child: (user['photoUrl'] == null || user['photoUrl'].toString().isEmpty) 
+                          ? const Icon(Icons.person) 
+                          : null,
+                      ),
+                      title: Text(user['name'] ?? "Unknown", style: const TextStyle(color: Colors.white)),
                       subtitle: Text("ID: ${user['uID']}", style: const TextStyle(color: Colors.white24, fontSize: 10)),
                       onTap: () {
                         onSelected(user['uid'], user['name']);
