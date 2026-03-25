@@ -85,7 +85,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   bool isPKActive = false; 
   late VSPKManager pkManager;
   int pkSeconds = 300; 
-  
+  int currentGiftCount = 0;
   // --- মিউজিক ফিচারের জন্য নতুন সংযোজন ---
   bool isMusicBarVisible = false;      // মিউজিক সিলেকশন বার দেখানোর জন্য
   bool isFloatingPlayerVisible = false; // ভাসমান প্লেয়ারটি স্ক্রিনে আনার জন্য
