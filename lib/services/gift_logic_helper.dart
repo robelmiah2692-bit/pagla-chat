@@ -2,7 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class GiftLogicHelper {
-  // ১. পুরাতন ডায়মন্ড ভাগাভাগি ঠিক করা হলো (৪০% ইউজার, ১০% মালিক)
+  
+  // ১. ডায়মন্ড ভাগাভাগি লজিক (৪০% ইউজার, ১০% মালিক)
   static Map<String, int> calculateSplit(int totalPrice) {
     return {
       'userShare': (totalPrice * 0.40).floor(),
@@ -10,21 +11,68 @@ class GiftLogicHelper {
     };
   }
 
-  // ২. সিটে থাকা ইউজারদের ফিল্টার (আপনার অরিজিনাল লজিক)
+  // ২. গিফট প্রসেসিং (এটি ডাটাবেজে এক্সট্রা ডকুমেন্ট তৈরি করবে না, শুধু ডায়মন্ড আপডেট করবে)
+  static Future<void> processGift({
+    required String senderId,
+    required String targetType, // 'All Room', 'All Mic' অথবা নির্দিষ্ট UID
+    required Map<String, dynamic> gift,
+    required int count,
+    required String roomId,
+    required String senderName,
+  }) async {
+    final int unitPrice = (gift['price'] ?? 0) as int;
+    final int totalPrice = unitPrice * count;
+    final split = calculateSplit(totalPrice);
+    
+    WriteBatch batch = FirebaseFirestore.instance.batch();
+
+    // ক. সেন্ডারের ডায়মন্ড কাটা (যদি ফ্রি গিফট না হয়)
+    if (unitPrice > 0) {
+      DocumentReference senderRef = FirebaseFirestore.instance.collection('users').doc(senderId);
+      batch.update(senderRef, {'diamonds': FieldValue.increment(-totalPrice)});
+    }
+
+    // খ. রুমের ভেতর 'last_gift' আপডেট (এটিই সবাই ৫ সেকেন্ডের জন্য দেখবে)
+    // এটি ফায়ারবেসের স্টোরেজ খাবে না কারণ এটি বারবার ওভাররাইট হবে
+    DocumentReference roomRef = FirebaseFirestore.instance.collection('rooms').doc(roomId);
+    batch.update(roomRef, {
+      'last_gift': {
+        'id': gift['id'],
+        'name': gift['name'],
+        'image': gift['image'] ?? gift['icon'] ?? gift['url'],
+        'senderId': senderId,
+        'senderName': senderName,
+        'target': targetType,
+        'count': count,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      }
+    });
+
+    // গ. ডায়মন্ড ভাগ করে দেওয়া (রিসিভারের একাউন্টে ৪০% যোগ করা)
+    // যদি টার্গেট নির্দিষ্ট একজন ইউজার হয়
+    if (targetType != 'All Room' && targetType != 'All Mic') {
+      DocumentReference targetRef = FirebaseFirestore.instance.collection('users').doc(targetType);
+      batch.update(targetRef, {'diamonds': FieldValue.increment(split['userShare'])});
+    }
+
+    await batch.commit();
+  }
+
+  // ৩. সিটে থাকা ইউজারদের ফিল্টার (আপনার অরিজিনাল লজিক)
   static List<Map<String, dynamic>> getAllMicUsers(List<dynamic> currentSeats) {
     List<Map<String, dynamic>> micUsers = [];
     for (var seat in currentSeats) {
       if (seat != null) {
         String? uid = seat['uid']?.toString() ?? 
-                      seat['userId']?.toString() ?? 
-                      seat['id']?.toString();
+                     seat['userId']?.toString() ?? 
+                     seat['id']?.toString();
         
         if (uid != null && uid.isNotEmpty) {
           micUsers.add({
             'uid': uid,
             'name': seat['userName'] ?? seat['name'] ?? 'Unknown',
             'photoUrl': seat['userAvatar'] ?? seat['avatar'] ?? '',
-            'uID': seat['uID']?.toString() ?? '0', // সার্চ করার জন্য আইডি
+            'uID': seat['uID']?.toString() ?? '0',
           });
         }
       }
@@ -32,7 +80,7 @@ class GiftLogicHelper {
     return micUsers;
   }
 
-  // ৩. টার্গেট সিলেক্টর পপআপ (সার্চ অপশন সহ পুরাতন UI ঠিক রেখে)
+  // ৪. টার্গেট সিলেক্টর পপআপ (সার্চ অপশন সহ পুরাতন UI ঠিক রেখে)
   static void showTargetSelector({
     required BuildContext context,
     required List<Map<String, dynamic>> micUsers,
@@ -58,7 +106,6 @@ class GiftLogicHelper {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(height: 15),
-                // সার্চ ফিল্ড যোগ করা হলো
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 15),
                   child: TextField(
@@ -75,7 +122,6 @@ class GiftLogicHelper {
                           String input = searchController.text.trim();
                           if (input.isEmpty) return;
 
-                          // ডাটাবেস থেকে আইডি দিয়ে খোঁজা
                           var query = await FirebaseFirestore.instance.collection('users')
                               .where('uID', isEqualTo: input).get();
                           
@@ -90,7 +136,7 @@ class GiftLogicHelper {
                             Navigator.pop(context);
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("ইউজার পাওয়া যায়নি!"))
+                              const SnackBar(content: Text("ইউজার পাওয়া যায়নি!"))
                             );
                           }
                         },
