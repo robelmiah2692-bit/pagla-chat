@@ -652,36 +652,45 @@ Widget build(BuildContext context) {
           receiverName: targetType, 
         ),
 
-        // ৮. গ্লোবাল গিফট লিসেনার (ফিক্সড কোড)
-        StreamBuilder<QuerySnapshot>(
+        // ৮. গ্লোবাল গিফট লিসেনার (নতুন লজিক - কাউন্টিং ও ৫ সেকেন্ড অটো-ভ্যানিশ)
+        StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance
               .collection('rooms')
               .doc(widget.roomId)
-              .collection('gift_animations')
-              .orderBy('timestamp', descending: true)
-              .limit(1)
               .snapshots(),
           builder: (context, snapshot) {
-            if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-              var data = snapshot.data!.docs.first.data() as Map<String, dynamic>;
-              
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                // লজিক: যদি গিফটটি অন্য কেউ পাঠায় এবং এখন এনিমেশন না চলে
-                if (mounted && !isGiftAnimating && data['senderName'] != currentSenderName) {
-                  setState(() {
-                    currentGiftImage = data['giftIcon'];
-                    currentSenderName = data['senderName'];
-                    targetType = data['receiverName']; 
-                    isGiftAnimating = true;
-                  });
-                  
-                  Timer(const Duration(seconds: 3), () {
-                    if (mounted) {
-                      setState(() { isGiftAnimating = false; });
+            if (snapshot.hasData && snapshot.data!.exists) {
+              var data = snapshot.data!.data() as Map<String, dynamic>;
+              var lastGift = data['last_gift'];
+
+              if (lastGift != null) {
+                int giftTime = lastGift['timestamp'] ?? 0;
+                int now = DateTime.now().millisecondsSinceEpoch;
+
+                // যদি গিফটটি ৫ সেকেন্ডের কম সময়ের মধ্যে পাঠানো হয়ে থাকে
+                if (now - giftTime < 5000) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && !isGiftAnimating) {
+                      setState(() {
+                        currentGiftImage = lastGift['image'] ?? '';
+                        currentSenderName = lastGift['senderName'] ?? 'Someone';
+                        targetType = lastGift['target'] ?? ''; 
+                        currentGiftCount = lastGift['count'] ?? 1; // কাউন্টিং আপডেট
+                        isGiftAnimating = true;
+                      });
+
+                      // ঠিক ৫ সেকেন্ড পর এনিমেশনটি বন্ধ হবে
+                      Timer(const Duration(seconds: 5), () {
+                        if (mounted) {
+                          setState(() { 
+                            isGiftAnimating = false; 
+                          });
+                        }
+                      });
                     }
                   });
                 }
-              });
+              }
             }
             return const SizedBox.shrink(); 
           },
