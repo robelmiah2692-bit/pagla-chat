@@ -50,9 +50,9 @@ void main() async {
       }
     }
 
-    debugPrint("✅ পাগলা চ্যাট কানেক্ট হয়েছে!");
+    debugPrint("✅ Pagla Chat connected successfully.");
   } catch (e) {
-    debugPrint("❌ কানেকশন এরর: $e");
+    debugPrint("❌ Connection Error: $e");
   }
   
   runApp(const PaglaChatApp());
@@ -172,10 +172,10 @@ class _MainNavigationState extends State<MainNavigation> {
         unselectedItemColor: Colors.grey,
         backgroundColor: const Color(0xFF151525),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "হোম"),
-          BottomNavigationBarItem(icon: Icon(Icons.mic), label: "রুম"),
-          BottomNavigationBarItem(icon: Icon(Icons.mail), label: "ইনবক্স"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "প্রোফাইল"),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+          BottomNavigationBarItem(icon: Icon(Icons.mic), label: "Rooms"),
+          BottomNavigationBarItem(icon: Icon(Icons.mail), label: "Inbox"),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
         ],
       ),
     );
@@ -193,7 +193,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isObscure = true; // পাসওয়ার্ড লুকানোর জন্য
-  String _selectedGender = "পুরুষ"; // ডিফল্ট জেন্ডার
+  String _selectedGender = "Male"; // ডিফল্ট জেন্ডার
 
   @override
   Widget build(BuildContext context) {
@@ -239,21 +239,21 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text("জেন্ডার: "),
+                    const Text("Gender: "),
                     Radio(
-                      value: "পুরুষ",
+                      value: "Male",
                       groupValue: _selectedGender,
                       activeColor: Colors.pinkAccent,
                       onChanged: (val) => setState(() => _selectedGender = val.toString()),
                     ),
-                    const Text("পুরুষ"),
+                    const Text("Male"),
                     Radio(
-                      value: "মহিলা",
+                      value: "Female",
                       groupValue: _selectedGender,
                       activeColor: Colors.pinkAccent,
                       onChanged: (val) => setState(() => _selectedGender = val.toString()),
                     ),
-                    const Text("মহিলা"),
+                    const Text("Female"),
                   ],
                 ),
 
@@ -266,16 +266,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         try {
                           await AuthService().sendPasswordReset(_emailController.text.trim());
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("আপনার জিমেইল চেক করুন, রিসেট লিঙ্ক পাঠানো হয়েছে।"), backgroundColor: Colors.green),
+                            const SnackBar(content: Text("Please check your Gmail, a reset link has been sent."), backgroundColor: Colors.green),
                           );
                         } catch (e) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("এরর: ${e.toString()}"), backgroundColor: Colors.red),
+                            SnackBar(content: Text("Error: ${e.toString()}"), backgroundColor: Colors.red),
                           );
                         }
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("অনুগ্রহ করে আগে ইমেইলটি লিখুন।"), backgroundColor: Colors.orange),
+                          const SnackBar(content: Text("Please enter your email first."), backgroundColor: Colors.orange),
                         );
                       }
                     },
@@ -290,7 +290,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: () async {
                     if (_emailController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("প্রসেসিং হচ্ছে...")),
+                        const SnackBar(content: Text("Processing...")),
                       );
 
                       // জেন্ডার সহ কল করা হচ্ছে
@@ -307,12 +307,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         );
                       } else if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("লগইন ব্যর্থ! তথ্য চেক করুন।")),
+                          const SnackBar(content: Text("Login failed! Please check your credentials.")),
                         );
                       }
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("সবগুলো ঘর পূরণ করুন।")),
+                        const SnackBar(content: Text("Please fill all the fields.")),
                       );
                     }
                   }, 
