@@ -8,11 +8,22 @@ class PostCard extends StatelessWidget {
 
   const PostCard({super.key, required this.data, this.postId});
 
-  // --- পোস্ট ডিলিট করার ফাংশন ---
+  // --- টাইম ক্যালকুলেশন ফাংশন (টাইমার ঠিক করার জন্য) ---
+  String _getTimeAgo(dynamic timestamp) {
+    if (timestamp == null || timestamp is! Timestamp) return "Just now";
+    DateTime postTime = timestamp.toDate();
+    Duration diff = DateTime.now().difference(postTime);
+
+    if (diff.inMinutes < 1) return "Just now";
+    if (diff.inMinutes < 60) return "${diff.inMinutes}m ago";
+    if (diff.inHours < 24) return "${diff.inHours}h ago";
+    if (diff.inDays < 7) return "${diff.inDays}d ago";
+    return "${postTime.day}/${postTime.month}/${postTime.year}";
+  }
+
+  // --- পোস্ট ডিলিট লজিক (অপরিবর্তিত) ---
   void _deletePost(BuildContext context) async {
     if (postId == null) return;
-
-    // ডিলিট করার আগে একবার কনফার্মেশন ডায়ালগ দেখানো ভালো
     bool confirm = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -49,17 +60,19 @@ class PostCard extends StatelessWidget {
     final String uid = user?.uid ?? "";
     final List likes = data['likes'] ?? [];
     final bool isLiked = likes.contains(uid);
-
-    // মালিক শনাক্তকরণ
     bool isOwner = (data['userId'] == uid);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      color: const Color(0xFF18191A), 
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      // --- গ্লাস ডিজাইন পোস্ট বক্স ---
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08), 
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- প্রোফাইল সেকশন ---
           ListTile(
             leading: CircleAvatar(
               backgroundColor: Colors.grey[800],
@@ -80,9 +93,11 @@ class PostCard extends StatelessWidget {
                   const Icon(Icons.verified, color: Colors.blueAccent, size: 16),
               ],
             ),
-            subtitle: const Text("Just now", style: TextStyle(color: Colors.white54, fontSize: 11)),
-            
-            // --- থ্রি ডট মেনু (এখানে ডিলিট অপশন যোগ করা হয়েছে) ---
+            // --- এখানে টাইমার সেট করা হয়েছে ---
+            subtitle: Text(
+              _getTimeAgo(data['timestamp']), 
+              style: const TextStyle(color: Colors.white54, fontSize: 11)
+            ),
             trailing: IconButton(
               icon: const Icon(Icons.more_vert, color: Colors.white54),
               onPressed: () {
@@ -98,8 +113,8 @@ class PostCard extends StatelessWidget {
                             leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
                             title: const Text("Delete post", style: TextStyle(color: Colors.white)),
                             onTap: () {
-                              Navigator.pop(context); // বটম শিট বন্ধ
-                              _deletePost(context); // ডিলিট ফাংশন কল
+                              Navigator.pop(context);
+                              _deletePost(context);
                             },
                           ),
                           ListTile(
@@ -112,7 +127,6 @@ class PostCard extends StatelessWidget {
                     ),
                   );
                 } else {
-                  // যদি নিজের পোস্ট না হয়
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("Deleted Only post owner")),
                   );
@@ -121,7 +135,7 @@ class PostCard extends StatelessWidget {
             ),
           ),
 
-          // --- ক্যাপশন সেকশন ---
+          // --- ক্যাপশন ---
           if (data['caption'] != null && data['caption'].toString().isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
@@ -131,43 +145,37 @@ class PostCard extends StatelessWidget {
               ),
             ),
 
-          // --- ইমেজ সেকশন ---
+          // --- ইমেজ সেকশন (গ্লাস ডিজাইন বর্ডারসহ) ---
           if (data['storyImage'] != null && data['storyImage'].toString().isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Container(
-                width: double.infinity,
-                constraints: const BoxConstraints(minHeight: 200, maxHeight: 500),
-                decoration: BoxDecoration(color: Colors.white.withOpacity(0.05)),
-                child: Image.network(
-                  data['storyImage'],
+              padding: const EdgeInsets.all(8.0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
                   width: double.infinity,
-                  fit: BoxFit.contain,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      height: 200,
-                      alignment: Alignment.center,
-                      child: CircularProgressIndicator(
-                        value: loadingProgress.expectedTotalBytes != null
-                            ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                            : null,
-                        color: Colors.blueAccent,
-                      ),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    height: 100,
-                    color: Colors.white10,
-                    child: const Center(child: Icon(Icons.broken_image, color: Colors.white24, size: 40)),
+                  constraints: const BoxConstraints(minHeight: 200, maxHeight: 500),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.05)),
+                  child: Image.network(
+                    data['storyImage'],
+                    width: double.infinity,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return SizedBox(height: 200, child: Center(child: CircularProgressIndicator(color: Colors.blueAccent)));
+                    },
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 100,
+                      color: Colors.white10,
+                      child: const Center(child: Icon(Icons.broken_image, color: Colors.white24, size: 40)),
+                    ),
                   ),
                 ),
               ),
             ),
 
-          // --- লাইক কাউন্ট ---
+          // --- লাইক ও বাটন সেকশন ---
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
                 const Icon(Icons.favorite, color: Colors.red, size: 16),
@@ -176,10 +184,7 @@ class PostCard extends StatelessWidget {
               ],
             ),
           ),
-
           const Divider(color: Colors.white10, height: 1),
-
-          // --- বাটন সেকশন ---
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -192,6 +197,7 @@ class PostCard extends StatelessWidget {
               _buildBtn(Icons.share_outlined, Colors.white70, "Share", () {}),
             ],
           ),
+          const SizedBox(height: 5),
         ],
       ),
     );
@@ -214,6 +220,7 @@ class PostCard extends StatelessWidget {
     }
   }
 
+  // --- কমেন্ট শিট লজিক (অপরিবর্তিত) ---
   void _showCommentSheet(BuildContext context, String pId) {
     final TextEditingController _commentController = TextEditingController();
     showModalBottomSheet(
@@ -263,9 +270,7 @@ class PostCard extends StatelessWidget {
                 hintStyle: const TextStyle(color: Colors.white38),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.send, color: Colors.blueAccent),
-                  onPressed: () {
-                    _submitComment(pId, _commentController.text, _commentController);
-                  },
+                  onPressed: () => _submitComment(pId, _commentController.text, _commentController),
                 ),
               ),
             ),
