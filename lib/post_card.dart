@@ -17,13 +17,13 @@ class PostCard extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF242526),
-        title: const Text("পোস্ট ডিলিট", style: TextStyle(color: Colors.white)),
-        content: const Text("আপনি কি নিশ্চিতভাবে এই পোস্টটি মুছে ফেলতে চান?", style: TextStyle(color: Colors.white70)),
+        title: const Text("Delete post", style: TextStyle(color: Colors.white)),
+        content: const Text("Are you sure delete this post?", style: TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("না")),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("No")),
           TextButton(
             onPressed: () => Navigator.pop(context, true), 
-            child: const Text("হ্যাঁ, ডিলিট করুন", style: TextStyle(color: Colors.red))
+            child: const Text("Yes", style: TextStyle(color: Colors.red))
           ),
         ],
       ),
@@ -34,7 +34,7 @@ class PostCard extends StatelessWidget {
         await FirebaseFirestore.instance.collection('stories').doc(postId).delete();
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("পোস্টটি সফলভাবে মুছে ফেলা হয়েছে"), backgroundColor: Colors.red),
+            const SnackBar(content: Text("Post deleted successfully"), backgroundColor: Colors.red),
           );
         }
       } catch (e) {
@@ -96,7 +96,7 @@ class PostCard extends StatelessWidget {
                         children: [
                           ListTile(
                             leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                            title: const Text("পোস্ট ডিলিট করুন", style: TextStyle(color: Colors.white)),
+                            title: const Text("Delete post", style: TextStyle(color: Colors.white)),
                             onTap: () {
                               Navigator.pop(context); // বটম শিট বন্ধ
                               _deletePost(context); // ডিলিট ফাংশন কল
@@ -104,7 +104,7 @@ class PostCard extends StatelessWidget {
                           ),
                           ListTile(
                             leading: const Icon(Icons.close, color: Colors.white54),
-                            title: const Text("বাতিল", style: TextStyle(color: Colors.white54)),
+                            title: const Text("Cancel", style: TextStyle(color: Colors.white54)),
                             onTap: () => Navigator.pop(context),
                           ),
                         ],
@@ -114,7 +114,7 @@ class PostCard extends StatelessWidget {
                 } else {
                   // যদি নিজের পোস্ট না হয়
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("আপনি শুধু নিজের পোস্ট ডিলিট করতে পারবেন")),
+                    const SnackBar(content: Text("Deleted Only post owner")),
                   );
                 }
               },
@@ -183,13 +183,13 @@ class PostCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildBtn(isLiked ? Icons.favorite : Icons.favorite_border, isLiked ? Colors.red : Colors.white70, "লাইক", () {
+              _buildBtn(isLiked ? Icons.favorite : Icons.favorite_border, isLiked ? Colors.red : Colors.white70, "Like", () {
                 if (postId != null) _toggleLike(postId!, uid, likes);
               }),
-              _buildBtn(Icons.mode_comment_outlined, Colors.white70, "কমেন্ট", () {
+              _buildBtn(Icons.mode_comment_outlined, Colors.white70, "Comments", () {
                 if (postId != null) _showCommentSheet(context, postId!);
               }),
-              _buildBtn(Icons.share_outlined, Colors.white70, "শেয়ার", () {}),
+              _buildBtn(Icons.share_outlined, Colors.white70, "Share", () {}),
             ],
           ),
         ],
@@ -226,7 +226,7 @@ class PostCard extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("কমেন্ট করুন", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const Text("comment", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             SizedBox(
               height: 300,
@@ -259,7 +259,7 @@ class PostCard extends StatelessWidget {
               controller: _commentController,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: "আপনার মতামত লিখুন...",
+                hintText: "type anything ...",
                 hintStyle: const TextStyle(color: Colors.white38),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.send, color: Colors.blueAccent),
