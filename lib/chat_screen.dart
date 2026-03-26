@@ -5,8 +5,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 class ChatScreen extends StatefulWidget {
   final String receiverId;
   final String receiverName;
+  final Map<String, dynamic>? receiverData; // ইনবক্স থেকে আসা ডাটা
 
-  const ChatScreen({super.key, required this.receiverId, required this.receiverName});
+  const ChatScreen({
+    super.key, 
+    required this.receiverId, 
+    required this.receiverName, 
+    this.receiverData
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -16,13 +22,14 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
+  // চ্যাট রুম আইডি জেনারেট করা
   String getChatRoomId() {
     List<String> ids = [currentUserId, widget.receiverId];
     ids.sort(); 
     return ids.join("_"); 
   }
 
-  // মেসেজ পাঠানোর সময় সঠিক ছবি ও নাম পাঠানো
+  // মেসেজ পাঠানোর সময় প্রোফাইল ইনফো সহ পাঠানো
   void _sendMessage() async {
     if (_messageController.text.trim().isEmpty || currentUserId.isEmpty) return;
     String message = _messageController.text.trim();
@@ -32,7 +39,6 @@ class _ChatScreenState extends State<ChatScreen> {
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUserId).get();
       var userData = userDoc.data();
       
-      // মাল্টিপল কী চেক করা হচ্ছে যাতে সঠিক ছবি পাওয়া যায়
       final String myPic = userData?['imageURL'] ?? userData?['profilePic'] ?? userData?['userImageURL'] ?? ''; 
       final String myName = userData?['name'] ?? 'User';
 
@@ -46,14 +52,53 @@ class _ChatScreenState extends State<ChatScreen> {
         'senderImage': myPic, 
         'receiverId': widget.receiverId,
         'message': message,
+        'isRead': false, // আনরিড কাউন্টের জন্য
         'timestamp': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print("Send Error: $e");
+      debugPrint("Send Error: $e");
     }
   }
 
-  // প্রোফাইল দেখানোর সময় রিয়েল ডাটা লোড করা
+  // লাইভ রুম বার (যদি ইউজার লাইভে থাকে)
+  Widget _buildLiveRoomBar(Map<String, dynamic> data) {
+    if (data['currentRoomId'] == null) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Colors.pinkAccent, Colors.deepPurple]),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.live_tv, color: Colors.white, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "${data['name']} is Live in: ${data['currentRoomName'] ?? 'Voice Room'}",
+              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white, 
+              foregroundColor: Colors.pinkAccent, 
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: const StadiumBorder()
+            ),
+            onPressed: () {
+               // ভয়েস রুমে জয়েন করার লজিক এখানে হবে
+            }, 
+            child: const Text("Join", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          )
+        ],
+      ),
+    );
+  }
+
+  // প্রোফাইল বটম শিট
   void _showProfile(BuildContext context, String userId) {
     showModalBottomSheet(
       context: context,
@@ -152,13 +197,17 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D1A),
       appBar: AppBar(
-        title: Text(widget.receiverName, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(widget.receiverName, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: const Color(0xFF1E1E2F),
         centerTitle: true,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Column(
         children: [
+          // লাইভ বার ফিচার
+          if (widget.receiverData != null) _buildLiveRoomBar(widget.receiverData!),
+          
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
