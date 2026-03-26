@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_database/firebase_database.dart'; // রিয়েল-টাইম ডাটার জন্য
-import 'screens/voice_room.dart'; 
+import 'dart:ui';
+import 'screens/voice_room.dart';
 
-// গ্লোবাল ভেরিয়েবল যাতে রুমের বাইরে আসলেও ভাসমান বাবল দেখানো যায়
+// গ্লোবাল ভেরিয়েবল
 String? activeRoomId;
 String? activeRoomName;
+String? activeRoomImage;
 
 class RoomListPage extends StatefulWidget {
   const RoomListPage({super.key});
@@ -15,34 +16,48 @@ class RoomListPage extends StatefulWidget {
   State<RoomListPage> createState() => _RoomListPageState();
 }
 
-class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderStateMixin {
+class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMixin {
   late TabController _tabController;
-  
+  late AnimationController _bubbleController;
+
+  // কপিরাইট ফ্রি রিয়েল টাইপ ডিফল্ট ছবি
+  final List<String> defaultRoomImages = [
+    "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500",
+    "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500",
+    "https://images.unsplash.com/photo-1493225255756-d9584f8606e9?w=500",
+    "https://images.unsplash.com/photo-1514525253361-bee87187046c?w=500",
+  ];
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _bubbleController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _bubbleController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1E),
+      backgroundColor: const Color(0xFF050510),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: const Color(0xFF0A0A1A),
         elevation: 0,
-        title: const Text("Rooms", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text("Pagla Chat", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.pinkAccent,
           labelColor: Colors.pinkAccent,
-          unselectedLabelColor: Colors.white54,
+          unselectedLabelColor: Colors.white38,
           tabs: const [
             Tab(text: "Live Room"),
             Tab(text: "Following"),
@@ -54,143 +69,126 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
         children: [
           Column(
             children: [
-              _buildBanner(), // আপনার অরিজিনাল বড় ব্যানার
-              const SizedBox(height: 15),
-              _buildFeaturedRooms(), // আপনার অরিজিনাল ফিচারড রুম
-              const SizedBox(height: 15),
+              _buildBanner(),
+              _buildGamesSection(),
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildLiveRoomList(), // ১. লাইভ রুম গ্রিড
-                    _buildFollowingRoomList(), // ২. ফলো করা রুম
-                    _buildMyRoomList(), // ৩. নিজের রুম
+                    _buildLiveRoomList(),
+                    _buildFollowingRoomList(),
+                    _buildMyRoomList(),
                   ],
                 ),
               ),
             ],
           ),
-          // 🛡️ ভাসমান লাইভ ইন্ডিকেটর
-          if (activeRoomId != null) _buildFloatingLiveStatus(),
+          if (activeRoomId != null) _buildFloatingHeartbeatBubble(),
         ],
       ),
     );
   }
 
-  // --- প্রিমিয়াম ব্যানার ফিচার (অক্ষত রাখা হয়েছে) ---
+  // --- প্রিমিয়াম ব্যানার ---
   Widget _buildBanner() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+      margin: const EdgeInsets.all(15),
+      height: 110,
       width: double.infinity,
-      height: 120,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        gradient: const LinearGradient(colors: [Color(0xFF6A11CB), Color(0xFF2575FC)]),
+        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 10)],
       ),
       child: const Padding(
-        padding: EdgeInsets.all(20.0),
+        padding: EdgeInsets.all(20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              "পাগলা আড্ডায় জয়েন হও",
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              "আড্ডা দাও মন খুলে",
-              style: TextStyle(color: Colors.white70, fontSize: 14),
-            ),
+            Text("পাগলা আড্ডায় জয়েন হও", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text("আড্ডা দাও মন খুলে", style: TextStyle(color: Colors.white70, fontSize: 13)),
           ],
         ),
       ),
     );
   }
 
-  // --- ফিচারড রুম সেকশন (অক্ষত রাখা হয়েছে) ---
-  Widget _buildFeaturedRooms() {
+  // --- গেমস সেকশন (৪টি ঘর) ---
+  Widget _buildGamesSection() {
+    final List<Map<String, dynamic>> games = [
+      {"name": "Ludo", "icon": Icons.casino, "color": Colors.orange},
+      {"name": "Spin", "icon": Icons.ads_click, "color": Colors.blue},
+      {"name": "Lucky Fruit", "icon": Icons.apple, "color": Colors.redAccent},
+      {"name": "Crazy Super", "icon": Icons.bolt, "color": Colors.yellow},
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 15),
-          child: Text("Featured Rooms", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          child: Text("Games", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 90,
+          height: 85,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            itemCount: 5,
+            itemCount: games.length,
             itemBuilder: (context, index) {
               return Container(
-                width: 90,
+                width: 85,
                 margin: const EdgeInsets.only(right: 10),
                 decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
                   borderRadius: BorderRadius.circular(15),
-                  color: Colors.white10,
-                  image: const DecorationImage(
-                    image: NetworkImage("https://picsum.photos/200"),
-                    fit: BoxFit.cover,
-                  ),
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(games[index]['icon'], color: games[index]['color'], size: 28),
+                    const SizedBox(height: 5),
+                    Text(games[index]['name'], style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                  ],
                 ),
               );
             },
           ),
         ),
+        const SizedBox(height: 15),
       ],
     );
   }
 
-  // --- ১. লাইভ রুম গ্রিড (সচল করা হয়েছে) ---
+  // --- ১. লাইভ রুম গ্রিড (রিয়েল টাইম) ---
   Widget _buildLiveRoomList() {
     return StreamBuilder<QuerySnapshot>(
-      // Firestore থেকে সরাসরি রুমগুলো লোড করা হচ্ছে
       stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        
         var docs = snapshot.data!.docs;
-        if (docs.isEmpty) return const Center(child: Text("সব রুম খালি", style: TextStyle(color: Colors.white54)));
-
-        List<Map<String, dynamic>> activeRooms = docs.map((doc) {
-          var data = doc.data() as Map<String, dynamic>;
-          return {
-            'id': doc.id,
-            'name': data['roomName'] ?? "Public Room",
-            'count': data['userCount'] ?? 0,
-          };
-        }).toList();
-
-        return _buildGenericGrid(activeRooms, "live");
+        return _buildGrid(docs);
       },
     );
   }
 
-  // --- ২. ফলোয়িং রুম লিস্ট (সচল করা হয়েছে) ---
+  // --- ২. ফলোয়িং রুম লিস্ট (ফিক্সড) ---
   Widget _buildFollowingRoomList() {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? "";
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return const SizedBox();
+
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox();
-        var userData = snapshot.data?.data() as Map<String, dynamic>?;
+      builder: (context, userSnapshot) {
+        if (!userSnapshot.hasData) return const SizedBox();
+        var userData = userSnapshot.data?.data() as Map<String, dynamic>?;
         List followedIds = userData?['following'] ?? [];
-        
+
         if (followedIds.isEmpty) {
-          return const Center(child: Text("কাউকে ফলো করা নেই", style: TextStyle(color: Colors.white54)));
+          return const Center(child: Text("কাউকে ফলো করা নেই", style: TextStyle(color: Colors.white38)));
         }
 
         return StreamBuilder<QuerySnapshot>(
@@ -200,123 +198,129 @@ class _RoomListPageState extends State<RoomListPage> with SingleTickerProviderSt
               .snapshots(),
           builder: (context, roomSnapshot) {
             if (!roomSnapshot.hasData) return const SizedBox();
-            
-            List<Map<String, dynamic>> followedRooms = roomSnapshot.data!.docs.map((doc) {
-              var data = doc.data() as Map<String, dynamic>;
-              return {
-                'id': doc.id,
-                'name': data['roomName'] ?? "Room",
-                'count': data['userCount'] ?? 0,
-              };
-            }).toList();
-
-            return _buildGenericGrid(followedRooms, "following");
+            return _buildGrid(roomSnapshot.data!.docs);
           },
         );
       },
     );
   }
 
-  // --- ৩. মাই রুম লিস্ট (অক্ষত রাখা হয়েছে) ---
+  // --- ৩. মাই রুম লিস্ট ---
   Widget _buildMyRoomList() {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? "";
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('rooms').where('ownerId', isEqualTo: uid).snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox();
-        var userData = snapshot.data?.data() as Map<String, dynamic>?;
-        String? myRoomId = userData?['myRoomId'];
-        List<Map<String, dynamic>> myRooms = [];
-        
-        if (myRoomId != null) {
-          myRooms.add({'id': myRoomId, 'name': "My Room", 'count': 0});
-        }
-        return _buildGenericGrid(myRooms, "my_room");
+        return _buildGrid(snapshot.data!.docs);
       },
     );
   }
 
-  // --- কমন গ্রিড বিল্ডার (ডিজাইন অক্ষত রাখা হয়েছে) ---
-  Widget _buildGenericGrid(List<Map<String, dynamic>> roomList, String type) {
+  // --- কমন গ্রিড বিল্ডার ---
+  Widget _buildGrid(List<DocumentSnapshot> docs) {
     return GridView.builder(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1.1,
+        crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1.1,
       ),
-      itemCount: roomList.length,
+      itemCount: docs.length,
       itemBuilder: (context, index) {
-        var room = roomList[index];
-        return GestureDetector(
-          onTap: () {
-            setState(() {
-              activeRoomId = room['id'];
-              activeRoomName = room['name'];
-            });
-            Navigator.push(context, MaterialPageRoute(builder: (context) => VoiceRoom(roomId: room['id'])));
-          },
-          child: _buildRoomCardWithCount(room['name'], room['count'], type),
-        );
+        var data = docs[index].data() as Map<String, dynamic>;
+        String roomId = docs[index].id;
+        String name = data['roomName'] ?? "Public Room";
+        int count = data['userCount'] ?? 0;
+        String? image = data['roomImage'];
+
+        return _buildPremiumGlassCard(roomId, name, count, image);
       },
     );
   }
 
-  // --- কার্ড ডিজাইন (অক্ষত রাখা হয়েছে) ---
-  Widget _buildRoomCardWithCount(String name, int count, String type) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(15),
-        border: type == "my_room" ? Border.all(color: Colors.pinkAccent.withOpacity(0.5), width: 1.5) : null,
-      ),
-      child: Stack(
-        children: [
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  type == "my_room" ? Icons.stars : Icons.meeting_room,
-                  color: type == "my_room" ? Colors.amber : Colors.pinkAccent,
-                  size: 30,
-                ),
-                const SizedBox(height: 10),
-                Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
-              ],
-            ),
+  // --- প্রিমিয়াম গ্লাস কার্ড ডিজাইন ---
+  Widget _buildPremiumGlassCard(String id, String name, int count, String? image) {
+    String finalImage = (image != null && image.isNotEmpty) ? image : defaultRoomImages[id.hashCode % defaultRoomImages.length];
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          activeRoomId = id;
+          activeRoomName = name;
+          activeRoomImage = finalImage;
+        });
+        Navigator.push(context, MaterialPageRoute(builder: (context) => VoiceRoom(roomId: id)));
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.white.withOpacity(0.1), width: 1.5),
+            image: DecorationImage(image: NetworkImage(finalImage), fit: BoxFit.cover, opacity: 0.5),
           ),
-          if (type != "my_room")
-            Positioned(
-              top: 10, right: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: Colors.greenAccent.withOpacity(0.2), borderRadius: BorderRadius.circular(10)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.person, size: 12, color: Colors.greenAccent),
-                    Text(" $count", style: const TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold)),
-                  ],
-                ),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Container(
+              color: Colors.black.withOpacity(0.3),
+              padding: const EdgeInsets.all(12),
+              child: Stack(
+                children: [
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, 
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 2),
+                      const Text("Live Now", style: TextStyle(color: Colors.pinkAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  Positioned(
+                    top: 0, right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(10)),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.person, size: 12, color: Colors.greenAccent),
+                          Text(" $count", style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-        ],
+          ),
+        ),
       ),
     );
   }
 
-  // --- ভাসমান বাবল (অক্ষত রাখা হয়েছে) ---
-  Widget _buildFloatingLiveStatus() {
+  // --- হার্টবিট ভাসমান বাবল ---
+  Widget _buildFloatingHeartbeatBubble() {
     return Positioned(
-      bottom: 20, right: 20,
-      child: GestureDetector(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => VoiceRoom(roomId: activeRoomId!))),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.pinkAccent,
-            shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: Colors.black45, blurRadius: 10)],
+      bottom: 30, right: 20,
+      child: ScaleTransition(
+        scale: Tween(begin: 1.0, end: 1.2).animate(_bubbleController),
+        child: GestureDetector(
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => VoiceRoom(roomId: activeRoomId!))),
+          child: Container(
+            width: 65, height: 65,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.pinkAccent, width: 2),
+              boxShadow: [BoxShadow(color: Colors.pinkAccent.withOpacity(0.3), blurRadius: 10, spreadRadius: 2)],
+              image: DecorationImage(image: NetworkImage(activeRoomImage ?? defaultRoomImages[0]), fit: BoxFit.cover),
+            ),
+            child: Align(
+              alignment: Alignment.bottomRight,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
+                child: const Icon(Icons.multitrack_audio, size: 12, color: Colors.white),
+              ),
+            ),
           ),
-          child: const Icon(Icons.multitrack_audio_sharp, color: Colors.white, size: 28),
         ),
       ),
     );
