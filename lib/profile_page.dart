@@ -53,7 +53,7 @@ class _ProfilePageState extends State<ProfilePage> {
     if (uid == null) return;
 
     // 🔥 হৃদয় ভাই, এখানে আপনার অরিজিনাল ফায়ারবেস UID টা অবশ্যই বসাবেন
-    const String ownerUID = "YOUR_ACTUAL_FIREBASE_UID_HERE"; 
+    const String ownerUID = "InvA1lNPokgfxj20SyxiPv5J5s83"; 
 
     try {
       DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(uid);
@@ -191,10 +191,10 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context, 
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E2F),
-        title: const Text("নাম পরিবর্তন", style: TextStyle(color: Colors.white)),
+        title: const Text("Name Change", style: TextStyle(color: Colors.white)),
         content: TextField(controller: _nameController, style: const TextStyle(color: Colors.white)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("বাতিল")),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           TextButton(
             onPressed: () async {
               String newName = _nameController.text.trim(); 
