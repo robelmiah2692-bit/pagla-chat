@@ -112,7 +112,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(10))),
               const SizedBox(height: 15),
               const Text(
-                "নতুন পোস্ট দিন",
+                "Create Your new post",
                 style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 15),
@@ -122,7 +122,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 style: const TextStyle(color: Colors.white),
                 maxLines: 3,
                 decoration: InputDecoration(
-                  hintText: "আপনার মনের কথা লিখুন...",
+                  hintText: "Type anything ...",
                   hintStyle: const TextStyle(color: Colors.white24, fontSize: 14),
                   filled: true,
                   fillColor: Colors.white10,
@@ -173,7 +173,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   decoration: const BoxDecoration(color: Colors.white10, shape: BoxShape.circle),
                   child: const Icon(Icons.photo_library, color: Colors.greenAccent),
                 ),
-                title: const Text("ফটো যোগ করুন", style: TextStyle(color: Colors.white, fontSize: 14)),
+                title: const Text("Add gallary photos", style: TextStyle(color: Colors.white, fontSize: 14)),
                 onTap: () => _pickImage(setModalState),
               ),
 
@@ -208,7 +208,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text("পোস্ট সফলভাবে লাইভ হয়েছে! 🔥"), 
+                            content: Text("Post Successfully! 🔥"), 
                             backgroundColor: Colors.green,
                             behavior: SnackBarBehavior.floating,
                           ),
@@ -220,7 +220,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     }
                   }
                 },
-                child: const Text("পোস্ট করুন", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                child: const Text("Post", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
               ),
               const SizedBox(height: 30),
             ],
@@ -283,7 +283,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     child: Padding(
                       padding: EdgeInsets.only(top: 100),
                       child: Center(
-                        child: Text("এখনও কোনো পোস্ট নেই!", style: TextStyle(color: Colors.white24)),
+                        child: Text("Post empty!", style: TextStyle(color: Colors.white24)),
                       ),
                     ),
                   );
