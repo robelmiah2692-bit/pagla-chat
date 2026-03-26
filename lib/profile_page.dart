@@ -26,9 +26,9 @@ class _ProfilePageState extends State<ProfilePage> {
   final DatabaseService _dbService = DatabaseService();
   // ... বাকি ভেরিয়েবলগুলো এখানে থাকবে
   String userImageURL = ""; 
-  String userName = "পাগলা ইউজার";
+  String userName = "Unfixed";
   String uIDValue = ""; 
-  String gender = "অনির্ধারিত"; 
+  String gender = "Unfixed"; 
   int age = 22; 
   int diamonds = 200; 
   int xp = 0; 
@@ -77,7 +77,7 @@ class _ProfilePageState extends State<ProfilePage> {
             if (uid == ownerUID) {
               userName = "Hridoy (Owner) 😎";
             } else {
-              userName = data['name'] ?? "পাগলা ইউজার";
+              userName = data['name'] ?? "Pagla Type your name";
             }
             
             // ৩. গুরুত্বপূর্ণ: XP এবং VIP মেয়াদের ডাটা রিড
@@ -85,7 +85,7 @@ class _ProfilePageState extends State<ProfilePage> {
             xp = data['xp'] ?? 0;
             vipExpiry = data['vipExpiry'] ?? 0; // মেয়াদের মাইল্ডিসেকেন্ড
             
-            gender = data['gender'] ?? "অনির্ধারিত";
+            gender = data['gender'] ?? "Unfixed";
             userImageURL = data['profilePic'] ?? "";
             age = data['age'] ?? 22;
           });
@@ -93,12 +93,12 @@ class _ProfilePageState extends State<ProfilePage> {
       } else {
         // নতুন ইউজারের ডাটাবেস এন্ট্রি
         String newUserID = (100000 + (uid.hashCode.abs() % 899999)).toString();
-        String initialName = (uid == ownerUID) ? "Hridoy (Owner) 😎" : "পাগলা ইউজার";
+        String initialName = (uid == ownerUID) ? "Hridoy (Owner) 😎" : "Pagla Type your name";
         
         await userRef.set({
           'uID': newUserID,
           'name': initialName,
-          'gender': "অনির্ধারিত",
+          'gender': "Unfixed",
           'diamonds': 200, 
           'xp': 0,
           'vipExpiry': 0, // শুরুতে মেয়াদ থাকবে না
@@ -230,7 +230,7 @@ class _ProfilePageState extends State<ProfilePage> {
     showDialog(context: context, builder: (ctx) => AlertDialog(
       backgroundColor: const Color(0xFF1E1E2F),
       title: const Text("Your age?", style: TextStyle(color: Colors.white)),
-      content: SizedBox(height: 200, width: double.maxFinite, child: ListView.builder(itemCount: 40, itemBuilder: (context, index) => ListTile(title: Text("${index + 15} বছর", style: const TextStyle(color: Colors.white)), onTap: () async {
+      content: SizedBox(height: 200, width: double.maxFinite, child: ListView.builder(itemCount: 40, itemBuilder: (context, index) => ListTile(title: Text("${index + 15} Year", style: const TextStyle(color: Colors.white)), onTap: () async {
         String uid = FirebaseAuth.instance.currentUser!.uid;
         await FirebaseFirestore.instance.collection('users').doc(uid).update({'age': index + 15});
         setState(() => age = index + 15);
@@ -458,7 +458,7 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (context) => DefaultTabController(length: 4, child: Container(height: MediaQuery.of(context).size.height * 0.7, padding: const EdgeInsets.all(10),
         child: Column(children: [
           const TabBar(isScrollable: true, indicatorColor: Colors.pinkAccent, tabs: [Tab(text: "My Cards"), Tab(text: "My Frames"), Tab(text: "Effects"), Tab(text: "Others")]),
-          Expanded(child: TabBarView(children: [_buildMyCardsTab(), const Center(child: Text("Empty", style: TextStyle(color: Colors.white))), const Center(child: Text("Empty", style: TextStyle(color: Colors.white))), const Center(child: Text("খালি", style: TextStyle(color: Colors.white)))]))
+          Expanded(child: TabBarView(children: [_buildMyCardsTab(), const Center(child: Text("Empty", style: TextStyle(color: Colors.white))), const Center(child: Text("Empty", style: TextStyle(color: Colors.white))), const Center(child: Text("Empty", style: TextStyle(color: Colors.white)))]))
         ]))));
   }
 
@@ -510,7 +510,7 @@ Widget build(BuildContext context) {
         xp = userData['xp'] ?? 0; 
         vipExpiry = userData['vipExpiry'] ?? 0; // এক্সপায়ারি রিড করা হচ্ছে
         userImageURL = userData['profilePic'] ?? ""; 
-        gender = userData['gender'] ?? "অনির্ধারিত";
+        gender = userData['gender'] ?? "Unfixed";
         hasPremiumCard = userData['hasPremium'] ?? false;
         followers = userData['followers'] ?? 0;
         following = userData['following'] ?? 0;
@@ -703,7 +703,7 @@ Widget _buildStat(String label, int value, String uID, BuildContext context) {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("আপনি অন্যের $label লিস্ট দেখতে পারবেন না!"), 
+            content: Text("You not possible to see $label others parson List!"), 
             backgroundColor: Colors.redAccent
           )
         );
@@ -846,8 +846,8 @@ Widget _buildSoulmateSection() {
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E2F),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: const Text("সম্পর্ক ছিন্ন করবেন?", style: TextStyle(color: Colors.white, fontSize: 16)),
-        content: const Text("এটি করতে আপনার অ্যাকাউন্ট থেকে ১০০০ ডায়মন্ড কেটে নেওয়া হবে।", style: TextStyle(color: Colors.white70)),
+        title: const Text("Sure end relationship ?", style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: const Text("End relationship need 1k daimond", style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           TextButton(
@@ -856,7 +856,7 @@ Widget _buildSoulmateSection() {
               String response = await SoulmateService().breakRelation(partnerId);
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response), backgroundColor: Colors.pinkAccent));
             }, 
-            child: const Text("হ্যাঁ, কাটবো", style: TextStyle(color: Colors.redAccent))
+            child: const Text("Yes", style: TextStyle(color: Colors.redAccent))
           ),
         ],
       ),
