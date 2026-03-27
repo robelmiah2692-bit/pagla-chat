@@ -70,6 +70,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   
   String userProfilePic = ""; // এটি আপনার নিজের প্রোফাইল ছবি রাখার জন্য
   // --- সব ভেরিয়েবল ---
+  String userRole = "Guest";
   String myPersonalAvatar = ""; // এটি ইউজারের নিজের প্রোফাইল ছবি
   bool isOwner = true; 
   String displayUserID = "Hridoy"; 
