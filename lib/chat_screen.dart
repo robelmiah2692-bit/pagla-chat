@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:gallery_saver/gallery_saver.dart'; // গ্যালারিতে সেভ করার জন্য
 import 'dart:io';
 import 'screens/voice_room.dart';
+import 'package:record/record.dart';
 
 class ChatScreen extends StatefulWidget {
   final String receiverId;
@@ -32,7 +33,7 @@ class _ChatScreenState extends State<ChatScreen> {
   
   // মিডিয়া ও ভয়েস ভেরিয়েবল
   final ImagePicker _picker = ImagePicker();
-  final AudioRecorder _audioRecorder = AudioRecorder();
+  final Record _audioRecorder = Record();
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isRecording = false;
  
