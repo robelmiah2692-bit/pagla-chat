@@ -270,14 +270,28 @@ void initState() {
   // তবে গান এখন সরাসরি আগোরার EventHandler থেকেই কন্ট্রোল হচ্ছে।
 
   // ৬. ফায়ারস্টোর ডাটা লোড
-  FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
+   FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
     if (doc.exists && mounted) {
+      final data = doc.data();
       setState(() {
-        roomName = doc.data()?['roomName'] ?? roomName;
-        roomProfileImage = doc.data()?['roomImage'] ?? roomProfileImage;
-        followerCount = doc.data()?['followerCount'] ?? 0;
-        isRoomLocked = doc.data()?['isLocked'] ?? false;
-        roomWallpaperPath = doc.data()?['roomWallpaper'] ?? doc.data()?['wallpaper'] ?? '';
+        roomName = data?['roomName'] ?? roomName;
+        roomProfileImage = data?['roomImage'] ?? roomProfileImage;
+        followerCount = data?['followerCount'] ?? 0;
+        isRoomLocked = data?['isLocked'] ?? false;
+        roomWallpaperPath = data?['roomWallpaper'] ?? data?['wallpaper'] ?? '';
+
+        // --- ওনার, এডমিন এবং মেহমান চেনার লজিক (uId প্রোটোকল) ---
+        String ownerUID = data?['uId'] ?? data?['uid'] ?? ''; // রুমের ওনারের uId
+        List<dynamic> adminList = data?['admins'] ?? [];      // এডমিনদের uId লিস্ট
+        String myUID = currentUserData['uId'] ?? '';          // বর্তমান ইউজারের uId
+
+        if (myUID == ownerUID) {
+          userRole = "Owner"; // সে রুমের মালিক
+        } else if (adminList.contains(myUID)) {
+          userRole = "Admin"; // সে রুমের এডমিন
+        } else {
+          userRole = "Guest"; // সে সাধারণ মেহমান
+        }
       });
       
       _roomService.updateRoomFullData(
@@ -289,6 +303,7 @@ void initState() {
         followers: followerCount,
         totalDiamonds: 0,
       );
+      
       _addUserToViewers();
     }
   });
