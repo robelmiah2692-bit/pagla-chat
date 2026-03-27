@@ -19,19 +19,28 @@ dependencies:
   firebase_storage: ^11.7.7
   firebase_remote_config: ^4.4.7
   intl: ^0.19.0
+
   # --- গুগল লগইন ---
   google_sign_in: ^6.2.1
 
   # --- নোটিফিকেশন ---
   flutter_local_notifications: ^17.1.2
 
-  # --- ভয়েস চ্যাট ও মিডিয়া (Agora) ---
+  # --- ভয়েস চ্যাট, রেকর্ড ও মিডিয়া (Agora & Recording) ---
   agora_rtc_engine: ^6.3.2
   permission_handler: ^11.3.1 
   wakelock_plus: ^1.2.8
   universal_html: ^2.2.4
   audioplayers: ^5.2.1
+  record: ^5.1.0           # ✅ ভয়েস মেসেজ রেকর্ড করার জন্য নতুন যোগ করা হয়েছে
+  path_provider: ^2.1.2    # ✅ অডিও/ভিডিও ফাইল পাথ হ্যান্ডেল করার জন্য
+  path: ^1.9.0             # ✅ ফাইল ফরম্যাট ঠিক করার জন্য
   
+  # --- ভিডিও প্লেয়ার ও প্রগ্রেস ---
+  video_player: ^2.8.1     # ✅ ভিডিও মেসেজ প্লে করার জন্য
+  chewie: ^1.8.1           # ✅ প্রিমিয়াম ভিডিও কন্ট্রোলারের জন্য
+  percent_indicator: ^4.2.3 # ✅ আপলোড প্রগ্রেস দেখানোর জন্য
+
   # --- ইউটিউব ও ওয়েব ---
   webview_flutter: ^4.7.0 
   http: ^1.2.1
