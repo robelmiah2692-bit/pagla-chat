@@ -489,93 +489,92 @@ Widget build(BuildContext context) {
     return 35000; // VIP 8 এর টার্গেট
   }
 
-  return StreamBuilder<DocumentSnapshot>(
-    stream: FirebaseFirestore.instance.collection('users').doc(targetUserId).snapshots(),
-    builder: (context, snapshot) {
-      if (snapshot.hasError) return const Scaffold(body: Center(child: Text("Error!")));
-      if (snapshot.connectionState == ConnectionState.waiting) {
-        return const Scaffold(
-          backgroundColor: Color(0xFF0D0D1A), 
-          body: Center(child: CircularProgressIndicator(color: Colors.pinkAccent))
-        );
-      }
+    return StreamBuilder<DocumentSnapshot>(
+  stream: FirebaseFirestore.instance.collection('users').doc(targetUserId).snapshots(),
+  builder: (context, snapshot) {
+    if (snapshot.hasError) return const Scaffold(body: Center(child: Text("Error!")));
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF0D0D1A), 
+        body: Center(child: CircularProgressIndicator(color: Colors.pinkAccent))
+      );
+    }
 
-      Map<String, dynamic> userData = {};
-      if (snapshot.hasData && snapshot.data!.exists) {
-        userData = snapshot.data!.data() as Map<String, dynamic>;
-        
-        userName = userData['name'] ?? "User";
-        uIDValue = (userData['uid'] ?? userData['uID'] ?? "N/A").toString(); 
-        diamonds = userData['diamonds'] ?? 0;
-        xp = userData['xp'] ?? 0; 
-        vipExpiry = userData['vipExpiry'] ?? 0; // এক্সপায়ারি রিড করা হচ্ছে
-        userImageURL = userData['profilePic'] ?? ""; 
-        gender = userData['gender'] ?? "Unfixed";
-        hasPremiumCard = userData['hasPremium'] ?? false;
-        followers = userData['followers'] ?? 0;
-        following = userData['following'] ?? 0;
-      }
+    Map<String, dynamic> userData = {};
+    if (snapshot.hasData && snapshot.data!.exists) {
+      userData = snapshot.data!.data() as Map<String, dynamic>;
+      
+      userName = userData['name'] ?? "User";
+      uIDValue = (userData['uid'] ?? userData['uID'] ?? "N/A").toString(); 
+      diamonds = userData['diamonds'] ?? 0;
+      xp = userData['xp'] ?? 0; 
+      vipExpiry = userData['vipExpiry'] ?? 0; 
+      userImageURL = userData['profilePic'] ?? ""; 
+      gender = userData['gender'] ?? "Unfixed";
+      hasPremiumCard = userData['hasPremium'] ?? false;
+      followers = userData['followers'] ?? 0;
+      following = userData['following'] ?? 0;
+    }
 
-      // ভিআইপি লেভেল এবং পরবর্তী টার্গেট ক্যালকুলেশন
-      int vipLevel = getVipLevel(); 
-      int nextTarget = getNextLevelTarget(xp);
-      double progressValue = (xp / nextTarget).clamp(0.0, 1.0);
+    // ভিআইপি লেভেল এবং পরবর্তী টার্গেট ক্যালকুলেশন
+    int vipLevel = getVipLevel(); 
+    int nextTarget = getNextLevelTarget(xp);
+    double progressValue = (xp / nextTarget).clamp(0.0, 1.0);
 
-        return Scaffold(
-        backgroundColor: const Color(0xFF0A0A12),
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: isMe ? Padding(
-            padding: const EdgeInsets.only(left: 10),
-            child: Row(children: [
-              const Text("💎", style: TextStyle(fontSize: 16)), 
-              Text(" $diamonds", style: const TextStyle(color: Colors.white, fontSize: 12))
-            ]),
-          ) : const BackButton(color: Colors.white),
-          actions: [
-            if (isMe) IconButton(icon: const Icon(Icons.settings, color: Colors.white), onPressed: _openSettings)
-          ],
-        ),
-        body: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF121223),
-                Color(0xFF0A0A12),
-              ],
-            ),
-          ), // decoration এখানে শেষ
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              children: [
-                // --- ম্যারেজ সেকশন ---
-                StreamBuilder<DocumentSnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('marriages')
-                      .doc(targetUserId)
-                      .snapshots(),
-                  builder: (context, mSnapshot) {
-                    if (mSnapshot.hasData && mSnapshot.data!.exists) {
-                      var marriageData = mSnapshot.data!.data() as Map<String, dynamic>;
-                      return Padding(
-                        padding: const EdgeInsets.only(left: 20, top: 10, bottom: 10),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: _buildMarriageHeader(marriageData, userImageURL, ""),
-                        ),
-                      );
-                    }
-                    return const SizedBox(height: 20);
-                  },
-                ),
-                const SizedBox(height: 20),
-                // আপনার বাকি কোড এখানে বসবে...
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0A12),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: isMe ? Padding(
+          padding: const EdgeInsets.only(left: 10),
+          child: Row(children: [
+            const Text("💎", style: TextStyle(fontSize: 16)), 
+            Text(" $diamonds", style: const TextStyle(color: Colors.white, fontSize: 12))
+          ]),
+        ) : const BackButton(color: Colors.white),
+        actions: [
+          if (isMe) IconButton(icon: const Icon(Icons.settings, color: Colors.white), onPressed: _openSettings)
+        ],
+      ),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF121223),
+              Color(0xFF0A0A12),
+            ],
+          ),
+        ), 
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            children: [
+              // --- ম্যারেজ সেকশন ---
+              StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('marriages')
+                    .doc(targetUserId)
+                    .snapshots(),
+                builder: (context, mSnapshot) {
+                  if (mSnapshot.hasData && mSnapshot.data!.exists) {
+                    var marriageData = mSnapshot.data!.data() as Map<String, dynamic>;
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 20, top: 10, bottom: 10),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _buildMarriageHeader(marriageData, userImageURL, ""),
+                      ),
+                    );
+                  }
+                  return const SizedBox(height: 20);
+                },
+              ),
+              const SizedBox(height: 20),
             // প্রোফাইল পিকচার ও গোল্ডেন ফ্রেম
             Center(child: Stack(alignment: Alignment.center, children: [
               if (vipLevel > 0) 
