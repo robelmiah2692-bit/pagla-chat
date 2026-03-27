@@ -35,7 +35,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final AudioRecorder _audioRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isRecording = false;
-
+  String? _lastRecordPath;
+ 
   @override
   void dispose() {
     _messageController.dispose();
@@ -114,19 +115,41 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // --- ভয়েস নোট লজিক ---
+  // --- নতুন ও এরর-মুক্ত ভয়েস নোট লজিক ---
   void _startVoiceNote() async {
-    if (await _audioRecorder.hasPermission()) {
+    // মাইক্রোফোন পারমিশন চেক করা
+    bool hasPermission = await Permission.microphone.isGranted;
+    if (!hasPermission) {
+      hasPermission = await Permission.microphone.request().isGranted;
+    }
+
+    if (hasPermission) {
       if (_isRecording) {
-        final path = await _audioRecorder.stop();
+        // রেকর্ড স্টপ করা
+        bool stopSuccess = RecordMp3.instance.stop();
         setState(() => _isRecording = false);
-        if (path != null) _uploadToFirebase(File(path), "audio");
+        
+        if (stopSuccess && _lastRecordPath != null) {
+          _uploadToFirebase(File(_lastRecordPath!), "audio");
+        }
       } else {
+        // সেভ করার জন্য ডিরেক্টরি তৈরি
         final directory = await getApplicationDocumentsDirectory();
-        final path = '${directory.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
-        await _audioRecorder.start(const RecordConfig(), path: path);
+        String recordPath = '${directory.path}/voice_${DateTime.now().millisecondsSinceEpoch}.mp3';
+        _lastRecordPath = recordPath; // পাথটি সেভ করে রাখা যেন পরে আপলোড করা যায়
+
+        // রেকর্ড শুরু করা
+        RecordMp3.instance.start(recordPath, (type) {
+          // এখানে কোনো এরর হলে হ্যান্ডেল করা যায়
+          debugPrint("Record status: $type");
+        });
+
         setState(() => _isRecording = true);
       }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Microphone permission denied!")),
+      );
     }
   }
 
