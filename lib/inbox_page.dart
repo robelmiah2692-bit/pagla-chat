@@ -19,7 +19,6 @@ class _InboxPageState extends State<InboxPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // মাল্টি-কালার প্রিমিয়াম ব্যাকগ্রাউন্ড
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -43,7 +42,6 @@ class _InboxPageState extends State<InboxPage> {
     );
   }
 
-  // --- কাস্টম অ্যাপ বার ---
   Widget _buildAppBar() {
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -60,7 +58,6 @@ class _InboxPageState extends State<InboxPage> {
     );
   }
 
-  // --- সার্চ বার (আইডি সার্চ ফিক্সড) ---
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -92,31 +89,34 @@ class _InboxPageState extends State<InboxPage> {
     );
   }
 
-  // --- ইউজার লিস্ট বিল্ডার ---
   Widget _buildUserList() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('users').snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
 
         var users = snapshot.data!.docs.where((doc) {
           var data = doc.data() as Map<String, dynamic>;
           String name = (data['name'] ?? "").toString().toLowerCase();
-          // ইউজার প্রোফাইল থেকে আইডি সার্চ
-          String customId = (data['userId'] ?? "").toString(); 
-          return name.contains(_searchQuery.toLowerCase()) || customId.contains(_searchQuery);
+          
+          // এখানে সার্চের জন্য সব ধরণের আইডি চেক করা হচ্ছে
+          String customId = (data['uID'] ?? data['userId'] ?? data['uid'] ?? "").toString().toLowerCase();
+          
+          return name.contains(_searchQuery.toLowerCase()) || customId.contains(_searchQuery.toLowerCase());
         }).toList();
 
-        // Paglachat Official মেসেজ প্রায়োরিটি অনুযায়ী উপরে রাখা
+        // Paglachat Official মেসেজ প্রায়োরিটি
         users.sort((a, b) {
           var aData = a.data() as Map<String, dynamic>;
-          if (aData['userId'] == "paglachat_official") return -1;
+          var bData = b.data() as Map<String, dynamic>;
+          String aId = (aData['uID'] ?? aData['userId'] ?? "").toString();
+          if (aId == "paglachat_official") return -1;
           return 1;
         });
 
         return ListView.builder(
           itemCount: users.length,
-          padding: const EdgeInsets.only(top: 10),
+          padding: const EdgeInsets.all(10),
           itemBuilder: (context, index) {
             var userData = users[index].data() as Map<String, dynamic>;
             String userId = users[index].id;
@@ -129,19 +129,20 @@ class _InboxPageState extends State<InboxPage> {
     );
   }
 
-  // --- গ্লাস স্টাইল চ্যাট টাইল ---
   Widget _buildGlassChatTile(Map<String, dynamic> userData, String userId) {
-    String customId = (userData['userId'] ?? "N/A").toString();
+    // আইডি দেখানোর সময় সব ধরণের সম্ভাবনা (uID, userId, uid) চেক করা হচ্ছে
+    String displayId = (userData['uID'] ?? userData['userId'] ?? userData['uid'] ?? "N/A").toString();
+    
     String name = userData['name'] ?? "User";
     String image = userData['profilePic'] ?? userData['imageURL'] ?? "";
-    bool isLive = userData['currentRoomId'] != null; // লাইভ স্ট্যাটাস চেক
+    bool isLive = userData['currentRoomId'] != null;
 
     List<String> chatIds = [currentUserId, userId];
     chatIds.sort();
     String chatId = chatIds.join("_");
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
         child: BackdropFilter(
@@ -162,7 +163,7 @@ class _InboxPageState extends State<InboxPage> {
                     radius: 28,
                     backgroundImage: image.isNotEmpty ? NetworkImage(image) : null,
                     backgroundColor: Colors.white10,
-                    child: image.isEmpty ? Text(name[0]) : null,
+                    child: image.isEmpty ? Text(name[0], style: const TextStyle(color: Colors.white)) : null,
                   ),
                   if (userData['isOnline'] == true)
                     Positioned(bottom: 2, right: 2, child: Container(height: 12, width: 12, decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle, border: Border.all(color: Colors.black, width: 2)))),
@@ -181,7 +182,7 @@ class _InboxPageState extends State<InboxPage> {
                   ]
                 ],
               ),
-              subtitle: Text("ID: $customId", style: const TextStyle(color: Colors.white38, fontSize: 12)),
+              subtitle: Text("ID: $displayId", style: const TextStyle(color: Colors.white38, fontSize: 12)),
               trailing: _buildUnreadCounter(chatId),
             ),
           ),
@@ -190,7 +191,6 @@ class _InboxPageState extends State<InboxPage> {
     );
   }
 
-  // --- আনরিড মেসেজ কাউন্টার ---
   Widget _buildUnreadCounter(String chatId) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('chats').doc(chatId).collection('messages')
@@ -210,9 +210,8 @@ class _InboxPageState extends State<InboxPage> {
   }
 }
 
-// --- ChatScreen এর ভেতর লাইভ বার অ্যাড করার কোড ---
-// (আপনার ChatScreen এর Scaffold বডিতে এটি যোগ করবেন)
-Widget _buildLiveRoomBar(Map<String, dynamic> receiverData) {
+// আপনার ChatScreen-এ ব্যবহারের জন্য আলাদা ফাংশন
+Widget _buildLiveRoomBar(BuildContext context, Map<String, dynamic> receiverData) {
   if (receiverData['currentRoomId'] == null) return const SizedBox.shrink();
   
   return Container(
@@ -233,10 +232,9 @@ Widget _buildLiveRoomBar(Map<String, dynamic> receiverData) {
           ),
         ),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.pinkAccent, shape: StadiumBorder()),
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.pinkAccent, shape: const StadiumBorder()),
           onPressed: () {
-             // সরাসরি রুমে নিয়ে যাবে
-             // Navigator.push(context, MaterialPageRoute(builder: (context) => VoiceRoom(roomId: receiverData['currentRoomId'])));
+             Navigator.push(context, MaterialPageRoute(builder: (context) => VoiceRoom(roomId: receiverData['currentRoomId'])));
           }, 
           child: const Text("Join"),
         )
