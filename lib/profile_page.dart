@@ -967,4 +967,4 @@ Widget _buildAgencyWalletCard(Map<String, dynamic> userData) {
     ),
   );
 }
-   
+}   
