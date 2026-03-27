@@ -521,15 +521,16 @@ Widget build(BuildContext context) {
       int nextTarget = getNextLevelTarget(xp);
       double progressValue = (xp / nextTarget).clamp(0.0, 1.0);
 
-      return Scaffold(
-        backgroundColor: const Color(0xFF0A0A12),
+       return Scaffold(
+        backgroundColor: const Color(0xFF0A0A12), // আপনার পছন্দের ডার্ক ব্যাকগ্রাউন্ড
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: isMe ? Padding(
             padding: const EdgeInsets.only(left: 10),
             child: Row(children: [
-              const Icon(Icons.diamond, color: Colors.cyanAccent, size: 18),
+              // 🔥 এখানে আইকন সরিয়ে আপনার পছন্দের 💎 ইমোজি বসানো হয়েছে
+              const Text("💎", style: TextStyle(fontSize: 16)), 
               Text(" $diamonds", style: const TextStyle(color: Colors.white, fontSize: 12))
             ]),
           ) : const BackButton(color: Colors.white),
