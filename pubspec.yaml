@@ -26,15 +26,15 @@ dependencies:
   # --- নোটিফিকেশন ---
   flutter_local_notifications: ^17.1.2
 
-  # --- ভয়েস চ্যাট, রেকর্ড ও মিডিয়া (Agora & Recording) ---
+  # --- ভয়েস চ্যাট ও মিডিয়া (Agora & Recording) ---
   agora_rtc_engine: ^6.3.2
   permission_handler: ^11.3.1 
   wakelock_plus: ^1.2.8
   universal_html: ^2.2.4
   audioplayers: ^5.2.1
   
-  # ✅ Fix: 5.x.x এর লিনাক্স বাগ এড়াতে ৪.৪.৪ ভার্সনটি ব্যবহার করুন (এটি একদম স্ট্যাবল)
-  record: 4.4.4            
+  # ✅ Fix: record প্যাকেজটি লিনাক্সে এরর দিচ্ছে, তাই record_mp3 ব্যবহার করা হয়েছে
+  record_mp3: ^3.0.0        
   
   path_provider: ^2.1.2    
   path: ^1.9.0             
