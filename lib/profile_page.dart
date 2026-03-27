@@ -496,7 +496,7 @@ Widget build(BuildContext context) {
     if (snapshot.connectionState == ConnectionState.waiting) {
       return const Scaffold(
         backgroundColor: Color(0xFF0D0D1A), 
-        body: Center(child: CircularProgressIndicator(color: Colors.pinkAccent))
+        body: Center(child: CircularProgressIndicator(color: Colors.pinkAccent)),
       );
     }
 
@@ -575,133 +575,140 @@ Widget build(BuildContext context) {
                 },
               ),
               const SizedBox(height: 20),
-            // প্রোফাইল পিকচার ও গোল্ডেন ফ্রেম
-            Center(child: Stack(alignment: Alignment.center, children: [
-              if (vipLevel > 0) 
-                Image.network("https://png.pngtree.com/png-clipart/20230501/original/pngtree-golden-vip-frame-png-image_9128509.png", width: 130, height: 130),
-              GestureDetector(
-                onTap: isMe ? _pickProfileImage : null, 
-                child: CircleAvatar(
-                  radius: 50, 
-                  backgroundColor: Colors.grey[900], 
-                  backgroundImage: (userImageURL.isNotEmpty) ? NetworkImage(userImageURL) : null,
-                  child: (userImageURL.isEmpty) ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
+
+              // প্রোফাইল পিকচার ও গোল্ডেন ফ্রেম
+              Center(
+                child: Stack(
+                  alignment: Alignment.center, 
+                  children: [
+                    if (vipLevel > 0) 
+                      Image.network(
+                        "https://png.pngtree.com/png-clipart/20230501/original/pngtree-golden-vip-frame-png-image_9128509.png", 
+                        width: 130, 
+                        height: 130
+                      ),
+                    GestureDetector(
+                      onTap: isMe ? _pickProfileImage : null, 
+                      child: CircleAvatar(
+                        radius: 50, 
+                        backgroundColor: Colors.grey[900], 
+                        backgroundImage: (userImageURL.isNotEmpty) ? NetworkImage(userImageURL) : null,
+                        child: (userImageURL.isEmpty) ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
+                      ),
+                    ),
+                  ]
                 )
               ),
-            ])),
-            
-            const SizedBox(height: 10),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Text(userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-              if (isMe) IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.pinkAccent), onPressed: _editName)
-            ]),
-
-            Text("User ID: $uIDValue", style: const TextStyle(color: Colors.pinkAccent, fontSize: 13, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 15),
-
-            // 🔥 VIP এবং ডাইনামিক XP প্রগ্রেস বার সেকশন
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 25), 
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center, 
-                children: [
-                  // VIP ব্যাজ - লেভেল ০ হলে স্টার দেখাবে, ১-৮ হলে ব্যাজ দেখাবে
-                  if (vipLevel > 0) 
-                    Image.network(getVipBadge(vipLevel), width: 45, height: 45) 
-                  else 
-                    const Icon(Icons.stars_rounded, color: Colors.white24, size: 40),
-                  
-                  const SizedBox(width: 15),
-                  
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // লেভেল এবং টার্গেট টেক্সট
-                        Text(
-                          vipLevel == 0 
-                              ? "Target VIP 1 (XP: $xp / $nextTarget)" 
-                              : "VIP Level $vipLevel (XP: $xp / $nextTarget)", 
-                          style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)
-                        ),
-                        const SizedBox(height: 8),
-                        // হলুদ রঙের প্রগ্রেস বার যা রিচার্জের সাথে সাথে বাড়বে
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: LinearProgressIndicator(
-                            value: progressValue, 
-                            minHeight: 8,
-                            valueColor: const AlwaysStoppedAnimation(Colors.amber), 
-                            backgroundColor: Colors.white10,
-                          ),
-                        ),
-                      ],
-                    )
-                  ),
-                  
-                  const SizedBox(width: 15),
-                  // প্রিমিয়াম ব্যাজ
-                  if (hasPremiumCard) 
-                    Image.network(premiumBadgeUrl, width: 45, height: 45) 
-                  else 
-                    const SizedBox(width: 45),
-                ]
-              )
-            ),
-
-            const SizedBox(height: 25),
-
-            // ফলোয়ার ও ফলোয়িং (অন্যান্য ফিচার অপরিবর্তিত)
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              _buildStat("Followers", followers, targetUserId, context), 
-              const SizedBox(width: 25),
-              if (!isMe) ...[
-                ElevatedButton(
-                  onPressed: _toggleFollow,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isFollowing ? Colors.blueGrey : Colors.pinkAccent, 
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
-                  ),
-                  child: Text(isFollowing ? "Friend" : "Follow", style: const TextStyle(color: Colors.white)),
-                ),
-                const SizedBox(width: 10),
-                IconButton(
-                  icon: const Icon(Icons.mail, color: Colors.white),
-                  onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(receiverId: targetUserId, receiverName: userName)));
-                  },
-                ),
-              ] else
-                const SizedBox(width: 80, child: Center(child: Text("MY PROFILE", style: TextStyle(color: Colors.white54, fontSize: 10)))),
-              const SizedBox(width: 25),
-              _buildStat("Following", following, targetUserId, context),
-            ]),
-
-            const SizedBox(height: 35),
-
-            if (isMe) ...[
-              Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                _buildActionBox("Diamond", Icons.diamond, Colors.cyan, () => _openDiamondStore(userData)),
-                _buildActionBox("Premium", Icons.card_membership, Colors.purple, _openPremiumStore),
-                _buildActionBox("Backpack", Icons.backpack, Colors.orange, _openBackpack),
+              
+              const SizedBox(height: 10),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text(userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                if (isMe) IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.pinkAccent), onPressed: _editName)
               ]),
 
-              if (userData['isAgent'] == true) ...[
-                const SizedBox(height: 25),
-                _buildAgencyWalletCard(userData), 
-              ],
+              Text("User ID: $uIDValue", style: const TextStyle(color: Colors.pinkAccent, fontSize: 13, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 15),
 
+              // 🔥 VIP এবং ডাইনামিক XP প্রগ্রেস বার সেকশন
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 25), 
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center, 
+                  children: [
+                    if (vipLevel > 0) 
+                      Image.network(getVipBadge(vipLevel), width: 45, height: 45) 
+                    else 
+                      const Icon(Icons.stars_rounded, color: Colors.white24, size: 40),
+                    
+                    const SizedBox(width: 15),
+                    
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            vipLevel == 0 
+                                ? "Target VIP 1 (XP: $xp / $nextTarget)" 
+                                : "VIP Level $vipLevel (XP: $xp / $nextTarget)", 
+                            style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)
+                          ),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: LinearProgressIndicator(
+                              value: progressValue, 
+                              minHeight: 8,
+                              valueColor: const AlwaysStoppedAnimation(Colors.amber), 
+                              backgroundColor: Colors.white10,
+                            ),
+                          ),
+                        ],
+                      )
+                    ),
+                    
+                    const SizedBox(width: 15),
+                    if (hasPremiumCard) 
+                      Image.network(premiumBadgeUrl, width: 45, height: 45) 
+                    else 
+                      const SizedBox(width: 45),
+                  ]
+                )
+              ),
+
+              const SizedBox(height: 25),
+
+              // ফলোয়ার ও ফলোয়িং
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                _buildStat("Followers", followers, targetUserId, context), 
+                const SizedBox(width: 25),
+                if (!isMe) ...[
+                  ElevatedButton(
+                    onPressed: _toggleFollow,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isFollowing ? Colors.blueGrey : Colors.pinkAccent, 
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
+                    ),
+                    child: Text(isFollowing ? "Friend" : "Follow", style: const TextStyle(color: Colors.white)),
+                  ),
+                  const SizedBox(width: 10),
+                  IconButton(
+                    icon: const Icon(Icons.mail, color: Colors.white),
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(receiverId: targetUserId, receiverName: userName)));
+                    },
+                  ),
+                ] else
+                  const SizedBox(width: 80, child: Center(child: Text("MY PROFILE", style: TextStyle(color: Colors.white54, fontSize: 10)))),
+                const SizedBox(width: 25),
+                _buildStat("Following", following, targetUserId, context),
+              ]),
+
+              const SizedBox(height: 35),
+
+              if (isMe) ...[
+                Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                  _buildActionBox("Diamond", Icons.diamond, Colors.cyan, () => _openDiamondStore(userData)),
+                  _buildActionBox("Premium", Icons.card_membership, Colors.purple, _openPremiumStore),
+                  _buildActionBox("Backpack", Icons.backpack, Colors.orange, _openBackpack),
+                ]),
+
+                if (userData['isAgent'] == true) ...[
+                  const SizedBox(height: 25),
+                  _buildAgencyWalletCard(userData), 
+                ],
+
+                const SizedBox(height: 30),
+                _buildSoulmateSection(),
+              ],
+              
               const SizedBox(height: 30),
-              _buildSoulmateSection(),
             ],
-            
-            const SizedBox(height: 30),
-          ]),
+          ),
         ),
-      );
-    },
-  );
-}
+      ),
+    );
+  },
+);
 
 // ✅ ১. ফলোয়ার/ফলোয়িং লিস্ট দেখার উইজেট (প্যারামিটারে context যোগ করা হয়েছে)
 Widget _buildStat(String label, int value, String uID, BuildContext context) {
