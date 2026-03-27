@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; 
-import 'package:firebase_auth/firebase_auth.dart'; // ✅FirebaseAuth যোগ করা হয়েছে
+import 'package:firebase_auth/firebase_auth.dart'; 
 import 'package:flutter/foundation.dart'; 
 import 'dart:io' as io; 
 
@@ -16,41 +16,48 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-// ✅ WidgetsBindingObserver যোগ করা হয়েছে অনলাইন স্ট্যাটাস ট্র্যাক করার জন্য
-class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final ImagePicker _picker = ImagePicker();
   XFile? _pickedImage;
   Uint8List? _webImageBytes; 
   final TextEditingController _captionController = TextEditingController();
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
+  // নতুন ফিচারের জন্য এনিমেশন কন্ট্রোলার
+  late AnimationController _colorController;
+  late Animation<double> _colorAnimation;
+
   @override
   void initState() {
     super.initState();
-    // ✅ অ্যাপের লাইফসাইকেল পর্যবেক্ষণ শুরু
     WidgetsBinding.instance.addObserver(this);
-    _updateStatus(true); // অ্যাপে ঢুকলেই অনলাইন
+    _updateStatus(true); 
+
+    // ডাইনামিক কালার এনিমেশন সেটআপ
+    _colorController = AnimationController(
+      duration: const Duration(seconds: 3),
+      vsync: this,
+    )..repeat(reverse: true);
+    _colorAnimation = CurvedAnimation(parent: _colorController, curve: Curves.linear);
   }
 
   @override
   void dispose() {
-    // ✅ পর্যবেক্ষণ বন্ধ করা
     WidgetsBinding.instance.removeObserver(this);
     _captionController.dispose();
+    _colorController.dispose(); // এনিমেশন মেমোরি ক্লিয়ার
     super.dispose();
   }
 
-  // ✅ অ্যাপ মিনিমাইজ বা ক্লোজ করলে অনলাইন/অফলাইন হ্যান্ডেল করা
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _updateStatus(true); // অ্যাপে ফিরে আসলে অনলাইন
+      _updateStatus(true); 
     } else {
-      _updateStatus(false); // অ্যাপ থেকে বের হয়ে গেলে বা মিনিমাইজ করলে অফলাইন
+      _updateStatus(false); 
     }
   }
 
-  // ✅ ফায়ারস্টোরে অনলাইন স্ট্যাটাস আপডেট করার ফাংশন
   void _updateStatus(bool status) {
     if (currentUserId.isNotEmpty) {
       FirebaseFirestore.instance.collection('users').doc(currentUserId).update({
@@ -60,7 +67,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  // গ্যালারি থেকে ছবি সিলেক্ট করার ফাংশন (আপনার আগের কোড)
+  // নোটিফিকেশন ক্লিক করলে কাউন্ট জিরো করার ফাংশন
+  void _clearNotificationCount() {
+    FirebaseFirestore.instance
+        .collection('notifications')
+        .where('receiverId', isEqualTo: currentUserId)
+        .where('isRead', isEqualTo: false)
+        .get()
+        .then((snapshot) {
+      for (DocumentSnapshot ds in snapshot.docs) {
+        ds.reference.update({'isRead': true});
+      }
+    });
+  }
+
   Future<void> _pickImage(Function setModalState) async {
     try {
       final XFile? image = await _picker.pickImage(
@@ -94,9 +114,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E1E2F),
+      backgroundColor: const Color(0xFF1A1A3F), 
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
@@ -125,8 +145,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   hintText: "Type anything ...",
                   hintStyle: const TextStyle(color: Colors.white24, fontSize: 14),
                   filled: true,
-                  fillColor: Colors.white10,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  fillColor: Colors.white.withOpacity(0.05),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
                 ),
               ),
               const SizedBox(height: 15),
@@ -139,11 +159,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       width: double.infinity,
                       margin: const EdgeInsets.only(bottom: 10),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(15),
                         border: Border.all(color: Colors.pinkAccent.withOpacity(0.3)),
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(15),
                         child: kIsWeb 
                           ? Image.memory(_webImageBytes!, fit: BoxFit.cover) 
                           : Image.file(io.File(_pickedImage!.path), fit: BoxFit.cover), 
@@ -170,10 +190,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 contentPadding: EdgeInsets.zero,
                 leading: Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(color: Colors.white10, shape: BoxShape.circle),
-                  child: const Icon(Icons.photo_library, color: Colors.greenAccent),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
+                  child: const Icon(Icons.photo_library, color: Colors.cyanAccent),
                 ),
-                title: const Text("Add gallary photos", style: TextStyle(color: Colors.white, fontSize: 14)),
+                title: const Text("Add gallery photos", style: TextStyle(color: Colors.white, fontSize: 14)),
                 onTap: () => _pickImage(setModalState),
               ),
 
@@ -183,7 +203,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.pinkAccent,
                   minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   elevation: 5,
                 ),
                 onPressed: () async {
@@ -203,8 +223,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       );
 
                       if (mounted) {
-                        Navigator.pop(context); // ক্লোজ লোডিং
-                        Navigator.pop(context); // ক্লোজ মডেল
+                        Navigator.pop(context); 
+                        Navigator.pop(context); 
                         
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -233,19 +253,81 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1E),
+      backgroundColor: const Color(0xFF0D0D2B), 
       appBar: AppBar(
-        title: const Text(
-          "PAGLA CHAT", 
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.2)
-        ),
         centerTitle: true,
-        backgroundColor: const Color(0xFF0F0F1E),
+        backgroundColor: const Color(0xFF0D0D2B),
         elevation: 0,
+        // --- স্টাইলিশ ওয়েলকাম ব্যানার ---
+        title: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            gradient: LinearGradient(
+              colors: [Colors.white.withOpacity(0.05), Colors.white.withOpacity(0.15)],
+            ),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: AnimatedBuilder(
+            animation: _colorAnimation,
+            builder: (context, child) {
+              return ShaderMask(
+                shaderCallback: (bounds) => LinearGradient(
+                  colors: const [Colors.pinkAccent, Colors.cyanAccent, Colors.purpleAccent, Colors.pinkAccent],
+                  stops: [_colorAnimation.value - 0.2, _colorAnimation.value, _colorAnimation.value + 0.2, _colorAnimation.value + 0.4],
+                ).createShader(bounds),
+                child: const Text(
+                  "Welcome Pagla Chat",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                    color: Colors.white,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
         actions: [
-          IconButton(
-            onPressed: () {}, 
-            icon: const Icon(Icons.notifications_none, color: Colors.white)
+          // --- রিয়েল-টাইম নোটিফিকেশন বাটন ---
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('notifications')
+                .where('receiverId', isEqualTo: currentUserId)
+                .where('isRead', isEqualTo: false)
+                .snapshots(),
+            builder: (context, snapshot) {
+              int count = snapshot.hasData ? snapshot.data!.docs.length : 0;
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    onPressed: _clearNotificationCount, 
+                    icon: const Icon(Icons.notifications_active_outlined, color: Colors.white, size: 28)
+                  ),
+                  if (count > 0)
+                    Positioned(
+                      right: 10,
+                      top: 10,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF0D0D2B), width: 1.5),
+                        ),
+                        constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                        child: Text(
+                          '$count',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            }
           ),
         ],
       ),
@@ -255,57 +337,66 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         elevation: 10,
         child: const Icon(Icons.add, size: 30, color: Colors.white),
       ),
-      body: RefreshIndicator(
-        onRefresh: () async => setState(() {}),
-        color: Colors.pinkAccent,
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            const SliverToBoxAdapter(child: StorySection()),
-            
-            StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('stories')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 50),
-                      child: Center(child: CircularProgressIndicator(color: Colors.white24)),
-                    ),
-                  );
-                }
-                
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 100),
-                      child: Center(
-                        child: Text("Post empty!", style: TextStyle(color: Colors.white24)),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF1A1A3F), Color(0xFF0D0D2B)],
+          ),
+        ),
+        child: RefreshIndicator(
+          onRefresh: () async => setState(() {}),
+          color: Colors.pinkAccent,
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              const SliverToBoxAdapter(child: StorySection()),
+              
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('stories')
+                    .orderBy('timestamp', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 50),
+                        child: Center(child: CircularProgressIndicator(color: Colors.white24)),
                       ),
+                    );
+                  }
+                  
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 100),
+                        child: Center(
+                          child: Text("Post empty!", style: TextStyle(color: Colors.white24)),
+                        ),
+                      ),
+                    );
+                  }
+
+                  final docs = snapshot.data!.docs;
+                  return SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final data = docs[index].data() as Map<String, dynamic>;
+                        return PostCard(
+                          data: data, 
+                          postId: docs[index].id,
+                        );
+                      },
+                      childCount: docs.length,
                     ),
                   );
-                }
-
-                final docs = snapshot.data!.docs;
-                return SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final data = docs[index].data() as Map<String, dynamic>;
-                      return PostCard(
-                        data: data, 
-                        postId: docs[index].id,
-                      );
-                    },
-                    childCount: docs.length,
-                  ),
-                );
-              },
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 80)),
-          ],
+                },
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 80)),
+            ],
+          ),
         ),
       ),
     );
