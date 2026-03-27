@@ -32,14 +32,20 @@ dependencies:
   wakelock_plus: ^1.2.8
   universal_html: ^2.2.4
   audioplayers: ^5.2.1
-  record: ^5.1.0           # ✅ ভয়েস মেসেজ রেকর্ড করার জন্য নতুন যোগ করা হয়েছে
-  path_provider: ^2.1.2    # ✅ অডিও/ভিডিও ফাইল পাথ হ্যান্ডেল করার জন্য
-  path: ^1.9.0             # ✅ ফাইল ফরম্যাট ঠিক করার জন্য
   
-  # --- ভিডিও প্লেয়ার ও প্রগ্রেস ---
-  video_player: ^2.8.1     # ✅ ভিডিও মেসেজ প্লে করার জন্য
-  chewie: ^1.8.1           # ✅ প্রিমিয়াম ভিডিও কন্ট্রোলারের জন্য
-  percent_indicator: ^4.2.3 # ✅ আপলোড প্রগ্রেস দেখানোর জন্য
+  # ✅ Fix: 5.1.0 এ লিনাক্স এরর আছে, তাই 5.0.0 ব্যবহার করা হয়েছে বিল্ড ঠিক করার জন্য
+  record: 5.0.0            
+  
+  path_provider: ^2.1.2    
+  path: ^1.9.0             
+  
+  # ✅ চ্যাট থেকে মিডিয়া গ্যালারিতে সেভ করার জন্য
+  gallery_saver: ^2.3.2
+  
+  # --- ভিডিও প্লেয়ার ও প্রগ্রেস ---
+  video_player: ^2.8.1     
+  chewie: ^1.8.1           
+  percent_indicator: ^4.2.3 
 
   # --- ইউটিউব ও ওয়েব ---
   webview_flutter: ^4.7.0 
@@ -58,7 +64,7 @@ dependencies:
   shared_preferences: ^2.2.3
   lottie: ^3.1.2
 
-  # ✅ ১. এই প্যাকেজটি এখানে অবশ্যই লাগবে (স্প্ল্যাশ স্ক্রিনের জন্য)
+  # --- স্প্ল্যাশ স্ক্রিন ---
   flutter_native_splash: ^2.4.0
 
 dev_dependencies:
@@ -75,7 +81,7 @@ flutter_launcher_icons:
   adaptive_icon_foreground: "assets/logo.png"
   min_sdk_android: 21
 
-# ✅ ২. এই কনফিগারেশনটুকু এখানে অবশ্যই লাগবে
+# --- নেটিভ স্প্ল্যাশ কনফিগারেশন ---
 flutter_native_splash:
   color: "#0F0F1E"
   image: assets/logo.png
