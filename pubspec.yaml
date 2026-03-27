@@ -33,8 +33,9 @@ dependencies:
   universal_html: ^2.2.4
   audioplayers: ^5.2.1
   
-  # ✅ Fix: record প্যাকেজটি লিনাক্সে এরর দিচ্ছে, তাই record_mp3 ব্যবহার করা হয়েছে
-  record_mp3: ^3.0.0        
+  # ✅ Fix: record_mp3 বা record 5.x বাদ দিয়ে এই ভার্সনটি ব্যবহার করুন। 
+  # এটি লিনাক্স এবং অ্যান্ড্রোয়েড উভয় জায়গাতেই স্ট্যাবল।
+  record: ^4.4.4            
   
   path_provider: ^2.1.2    
   path: ^1.9.0             
