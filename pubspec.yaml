@@ -33,13 +33,13 @@ dependencies:
   universal_html: ^2.2.4
   audioplayers: ^5.2.1
   
-  # ✅ Fix: লিনাক্স বিল্ড এরর ফিক্স করতে ভার্সন লক করা হয়েছে
-  record: 5.0.0            
+  # ✅ Fix: 5.x.x এর লিনাক্স বাগ এড়াতে ৪.৪.৪ ভার্সনটি ব্যবহার করুন (এটি একদম স্ট্যাবল)
+  record: 4.4.4            
   
   path_provider: ^2.1.2    
   path: ^1.9.0             
   
-  # ✅ চ্যাট থেকে মিডিয়া গ্যালারিতে সেভ করার জন্য
+  # ✅ মিডিয়া সেভ করার প্যাকেজ
   gallery_saver: ^2.3.2
   
   # --- ভিডিও প্লেয়ার ও প্রগ্রেস ---
@@ -72,11 +72,11 @@ dev_dependencies:
     sdk: flutter
   flutter_launcher_icons: "^0.13.1"
 
-# ✅ এই সেকশনটি gallery_saver এর http কনফ্লিক্ট মেটানোর জন্য দরকার
+# ✅ http ভার্সন কনফ্লিক্ট মেটানোর জন্য
 dependency_overrides:
   http: ^1.2.1
 
-# --- ফোনের মেনু আইকন (অপরিবর্তিত) ---
+# --- ফোনের মেনু আইকন ---
 flutter_launcher_icons:
   android: true 
   ios: false
@@ -85,7 +85,7 @@ flutter_launcher_icons:
   adaptive_icon_foreground: "assets/logo.png"
   min_sdk_android: 21
 
-# --- নেটিভ স্প্ল্যাশ কনফিগারেশন (অপরিবর্তিত) ---
+# --- নেটিভ স্প্ল্যাশ কনফিগারেশন ---
 flutter_native_splash:
   color: "#0F0F1E"
   image: assets/logo.png
