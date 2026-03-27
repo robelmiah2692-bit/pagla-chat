@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:ui';
 import 'screens/voice_room.dart';
 
+
 // গ্লোবাল ভেরিয়েবল
 String? activeRoomId;
 String? activeRoomName;
@@ -20,7 +21,6 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
   late TabController _tabController;
   late AnimationController _bubbleController;
 
-  // কপিরাইট ফ্রি রিয়েল টাইপ ডিফল্ট ছবি
   final List<String> defaultRoomImages = [
     "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500",
     "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500",
@@ -43,6 +43,65 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     _tabController.dispose();
     _bubbleController.dispose();
     super.dispose();
+  }
+
+  // --- নতুন রুম তৈরির লজিক (মালিকের আইডি সহ) ---
+  Future<void> _createNewRoomLogic(String roomName) async {
+    final String? uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    try {
+      await FirebaseFirestore.instance.collection('rooms').add({
+        'roomName': roomName,
+        'ownerId': uid, // রুম এখন মালিককে চিনবে
+        'userCount': 1,
+        'createdAt': FieldValue.serverTimestamp(),
+        'roomImage': defaultRoomImages[DateTime.now().millisecond % defaultRoomImages.length],
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("রুম সফলভাবে তৈরি হয়েছে!"), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("ভুল হয়েছে: $e"), backgroundColor: Colors.redAccent),
+      );
+    }
+  }
+
+  // --- নতুন রুম বানানোর ডায়ালগ ---
+  void _showCreateRoomDialog() {
+    TextEditingController roomNameController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF151525),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("নতুন রুম তৈরি করুন", style: TextStyle(color: Colors.white, fontSize: 18)),
+        content: TextField(
+          controller: roomNameController,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: "রুমের নাম দিন...",
+            hintStyle: const TextStyle(color: Colors.white24),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.pinkAccent.withOpacity(0.5))),
+            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.pinkAccent)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("বাতিল", style: TextStyle(color: Colors.white54))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
+            onPressed: () {
+              if (roomNameController.text.trim().isNotEmpty) {
+                _createNewRoomLogic(roomNameController.text.trim());
+                Navigator.pop(context);
+              }
+            },
+            child: const Text("তৈরি করুন", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -77,7 +136,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
                   children: [
                     _buildLiveRoomList(),
                     _buildFollowingRoomList(),
-                    _buildMyRoomList(),
+                    _buildMyRoomList(), // আপডেট করা ফাংশন
                   ],
                 ),
               ),
@@ -89,81 +148,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     );
   }
 
-  // --- প্রিমিয়াম ব্যানার ---
-  Widget _buildBanner() {
-    return Container(
-      margin: const EdgeInsets.all(15),
-      height: 110,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(colors: [Color(0xFF6A11CB), Color(0xFF2575FC)]),
-        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 10)],
-      ),
-      child: const Padding(
-        padding: EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("পাগলা আড্ডায় জয়েন হও", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            Text("আড্ডা দাও মন খুলে", style: TextStyle(color: Colors.white70, fontSize: 13)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // --- গেমস সেকশন ---
-  Widget _buildGamesSection() {
-    final List<Map<String, dynamic>> games = [
-      {"name": "Ludo", "icon": Icons.casino, "color": Colors.orange},
-      {"name": "Spin", "icon": Icons.ads_click, "color": Colors.blue},
-      {"name": "Lucky Fruit", "icon": Icons.apple, "color": Colors.redAccent},
-      {"name": "Crazy Super", "icon": Icons.bolt, "color": Colors.yellow},
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 15),
-          child: Text("Games", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 85,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            itemCount: games.length,
-            itemBuilder: (context, index) {
-              return Container(
-                width: 85,
-                margin: const EdgeInsets.only(right: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(games[index]['icon'], color: games[index]['color'], size: 28),
-                    const SizedBox(height: 5),
-                    Text(games[index]['name'], style: const TextStyle(color: Colors.white70, fontSize: 11)),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 15),
-      ],
-    );
-  }
-
-  // --- ১. লাইভ রুম গ্রিড (সব পাবলিক রুম) ---
+  // --- ১. লাইভ রুম গ্রিড ---
   Widget _buildLiveRoomList() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
@@ -175,7 +160,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     );
   }
 
-  // --- ২. ফলোয়িং রুম লিস্ট (আপনি যাদের ফলো করেন তাদের রুম) ---
+  // --- ২. ফলোয়িং রুম লিস্ট ---
   Widget _buildFollowingRoomList() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return const SizedBox();
@@ -185,8 +170,6 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
       builder: (context, userSnapshot) {
         if (!userSnapshot.hasData) return const SizedBox();
         var userData = userSnapshot.data?.data() as Map<String, dynamic>?;
-        
-        // ইউজার যাদের ফলো করে তাদের ID লিস্ট
         List followedUserIds = userData?['following'] ?? [];
 
         if (followedUserIds.isEmpty) {
@@ -196,7 +179,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
               .collection('rooms')
-              .where('ownerId', whereIn: followedUserIds) // ফলো করা মেম্বারদের রুম ফিল্টার
+              .where('ownerId', whereIn: followedUserIds)
               .snapshots(),
           builder: (context, roomSnapshot) {
             if (!roomSnapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
@@ -210,25 +193,52 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     );
   }
 
-  // --- ৩. মাই রুম লিস্ট (শুধুমাত্র নিজের রুম) ---
+  // --- ৩. মাই রুম লিস্ট (আপডেট করা হয়েছে) ---
   Widget _buildMyRoomList() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return const Center(child: Text("লগইন করুন"));
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('rooms')
-          .where('ownerId', isEqualTo: uid) // নিজের রুম ফিল্টার
+          .where('ownerId', isEqualTo: uid)
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
-        if (snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text("আপনার কোন রুম নেই", style: TextStyle(color: Colors.white38)));
+        
+        // যদি ইউজারের রুম থাকে, তবে গ্রিড দেখাবে
+        if (snapshot.data!.docs.isNotEmpty) {
+          return _buildGrid(snapshot.data!.docs, isMyRoom: true);
         }
-        return _buildGrid(snapshot.data!.docs, isMyRoom: true);
+
+        // যদি রুম না থাকে, তবে নতুন রুম বানানোর বাটন দেখাবে
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.meeting_room_outlined, color: Colors.white12, size: 80),
+              const SizedBox(height: 15),
+              const Text("আপনার কোনো রুম নেই", style: TextStyle(color: Colors.white38)),
+              const SizedBox(height: 25),
+              ElevatedButton.icon(
+                onPressed: _showCreateRoomDialog,
+                icon: const Icon(Icons.add),
+                label: const Text("Create Your Room"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.pinkAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                ),
+              ),
+            ],
+          ),
+        );
       },
     );
   }
 
-  // --- কমন গ্রিড বিল্ডার ---
+  // --- গ্রিড এবং কার্ড ডিজাইন (অক্ষত রাখা হয়েছে) ---
   Widget _buildGrid(List<DocumentSnapshot> docs, {bool isMyRoom = false}) {
     return GridView.builder(
       padding: const EdgeInsets.all(12),
@@ -248,7 +258,6 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     );
   }
 
-  // --- প্রিমিয়াম গ্লাস কার্ড ডিজাইন ---
   Widget _buildPremiumGlassCard(String id, String name, int count, String? image, bool isMyRoom) {
     String finalImage = (image != null && image.isNotEmpty) ? image : defaultRoomImages[id.hashCode % defaultRoomImages.length];
 
@@ -265,7 +274,6 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
         borderRadius: BorderRadius.circular(18),
         child: Container(
           decoration: BoxDecoration(
-            // মাই রুম হলে বর্ডার একটু বেশি উজ্জ্বল হবে
             border: Border.all(
               color: isMyRoom ? Colors.pinkAccent.withOpacity(0.5) : Colors.white.withOpacity(0.1), 
               width: isMyRoom ? 2.0 : 1.5
@@ -317,7 +325,78 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     );
   }
 
-  // --- হার্টবিট ভাসমান বাবল ---
+  // --- গেমস এবং ব্যানার সেকশন (অক্ষত রাখা হয়েছে) ---
+  Widget _buildBanner() {
+    return Container(
+      margin: const EdgeInsets.all(15),
+      height: 110,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(colors: [Color(0xFF6A11CB), Color(0xFF2575FC)]),
+        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 10)],
+      ),
+      child: const Padding(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("পাগলা আড্ডায় জয়েন হও", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text("আড্ডা দাও মন খুলে", style: TextStyle(color: Colors.white70, fontSize: 13)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGamesSection() {
+    final List<Map<String, dynamic>> games = [
+      {"name": "Ludo", "icon": Icons.casino, "color": Colors.orange},
+      {"name": "Spin", "icon": Icons.ads_click, "color": Colors.blue},
+      {"name": "Lucky Fruit", "icon": Icons.apple, "color": Colors.redAccent},
+      {"name": "Crazy Super", "icon": Icons.bolt, "color": Colors.yellow},
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 15),
+          child: Text("Games", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 85,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            itemCount: games.length,
+            itemBuilder: (context, index) {
+              return Container(
+                width: 85,
+                margin: const EdgeInsets.only(right: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(games[index]['icon'], color: games[index]['color'], size: 28),
+                    const SizedBox(height: 5),
+                    Text(games[index]['name'], style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 15),
+      ],
+    );
+  }
+
   Widget _buildFloatingHeartbeatBubble() {
     return Positioned(
       bottom: 30, right: 20,
