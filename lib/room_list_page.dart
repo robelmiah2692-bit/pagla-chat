@@ -89,7 +89,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     );
   }
 
-  // --- প্রিমিয়াম ব্যানার ---
+  // --- প্রিমিয়াম ব্যানার ---
   Widget _buildBanner() {
     return Container(
       margin: const EdgeInsets.all(15),
@@ -106,7 +106,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("পাগলা আড্ডায় জয়েন হও", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text("পাগলা আড্ডায় জয়েন হও", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             Text("আড্ডা দাও মন খুলে", style: TextStyle(color: Colors.white70, fontSize: 13)),
           ],
         ),
@@ -114,7 +114,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     );
   }
 
-  // --- গেমস সেকশন (৪টি ঘর) ---
+  // --- গেমস সেকশন ---
   Widget _buildGamesSection() {
     final List<Map<String, dynamic>> games = [
       {"name": "Ludo", "icon": Icons.casino, "color": Colors.orange},
@@ -163,19 +163,19 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     );
   }
 
-  // --- ১. লাইভ রুম গ্রিড (রিয়েল টাইম) ---
+  // --- ১. লাইভ রুম গ্রিড (সব পাবলিক রুম) ---
   Widget _buildLiveRoomList() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
         var docs = snapshot.data!.docs;
         return _buildGrid(docs);
       },
     );
   }
 
-  // --- ২. ফলোয়িং রুম লিস্ট (ফিক্সড) ---
+  // --- ২. ফলোয়িং রুম লিস্ট (আপনি যাদের ফলো করেন তাদের রুম) ---
   Widget _buildFollowingRoomList() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return const SizedBox();
@@ -185,19 +185,24 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
       builder: (context, userSnapshot) {
         if (!userSnapshot.hasData) return const SizedBox();
         var userData = userSnapshot.data?.data() as Map<String, dynamic>?;
-        List followedIds = userData?['following'] ?? [];
+        
+        // ইউজার যাদের ফলো করে তাদের ID লিস্ট
+        List followedUserIds = userData?['following'] ?? [];
 
-        if (followedIds.isEmpty) {
+        if (followedUserIds.isEmpty) {
           return const Center(child: Text("কাউকে ফলো করা নেই", style: TextStyle(color: Colors.white38)));
         }
 
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
               .collection('rooms')
-              .where(FieldPath.documentId, whereIn: followedIds)
+              .where('ownerId', whereIn: followedUserIds) // ফলো করা মেম্বারদের রুম ফিল্টার
               .snapshots(),
           builder: (context, roomSnapshot) {
-            if (!roomSnapshot.hasData) return const SizedBox();
+            if (!roomSnapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
+            if (roomSnapshot.data!.docs.isEmpty) {
+              return const Center(child: Text("ফলো করা কেউ এখন লাইভে নেই", style: TextStyle(color: Colors.white38)));
+            }
             return _buildGrid(roomSnapshot.data!.docs);
           },
         );
@@ -205,20 +210,26 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     );
   }
 
-  // --- ৩. মাই রুম লিস্ট ---
+  // --- ৩. মাই রুম লিস্ট (শুধুমাত্র নিজের রুম) ---
   Widget _buildMyRoomList() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('rooms').where('ownerId', isEqualTo: uid).snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('rooms')
+          .where('ownerId', isEqualTo: uid) // নিজের রুম ফিল্টার
+          .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox();
-        return _buildGrid(snapshot.data!.docs);
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
+        if (snapshot.data!.docs.isEmpty) {
+          return const Center(child: Text("আপনার কোন রুম নেই", style: TextStyle(color: Colors.white38)));
+        }
+        return _buildGrid(snapshot.data!.docs, isMyRoom: true);
       },
     );
   }
 
   // --- কমন গ্রিড বিল্ডার ---
-  Widget _buildGrid(List<DocumentSnapshot> docs) {
+  Widget _buildGrid(List<DocumentSnapshot> docs, {bool isMyRoom = false}) {
     return GridView.builder(
       padding: const EdgeInsets.all(12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -232,13 +243,13 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
         int count = data['userCount'] ?? 0;
         String? image = data['roomImage'];
 
-        return _buildPremiumGlassCard(roomId, name, count, image);
+        return _buildPremiumGlassCard(roomId, name, count, image, isMyRoom);
       },
     );
   }
 
-  // --- প্রিমিয়াম গ্লাস কার্ড ডিজাইন ---
-  Widget _buildPremiumGlassCard(String id, String name, int count, String? image) {
+  // --- প্রিমিয়াম গ্লাস কার্ড ডিজাইন ---
+  Widget _buildPremiumGlassCard(String id, String name, int count, String? image, bool isMyRoom) {
     String finalImage = (image != null && image.isNotEmpty) ? image : defaultRoomImages[id.hashCode % defaultRoomImages.length];
 
     return GestureDetector(
@@ -254,13 +265,17 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
         borderRadius: BorderRadius.circular(18),
         child: Container(
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.white.withOpacity(0.1), width: 1.5),
+            // মাই রুম হলে বর্ডার একটু বেশি উজ্জ্বল হবে
+            border: Border.all(
+              color: isMyRoom ? Colors.pinkAccent.withOpacity(0.5) : Colors.white.withOpacity(0.1), 
+              width: isMyRoom ? 2.0 : 1.5
+            ),
             image: DecorationImage(image: NetworkImage(finalImage), fit: BoxFit.cover, opacity: 0.5),
           ),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
             child: Container(
-              color: Colors.black.withOpacity(0.3),
+              color: isMyRoom ? Colors.pinkAccent.withOpacity(0.05) : Colors.black.withOpacity(0.3),
               padding: const EdgeInsets.all(12),
               child: Stack(
                 children: [
@@ -271,7 +286,8 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
                       Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, 
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 2),
-                      const Text("Live Now", style: TextStyle(color: Colors.pinkAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                      Text(isMyRoom ? "Owner Mode" : "Live Now", 
+                        style: TextStyle(color: isMyRoom ? Colors.cyanAccent : Colors.pinkAccent, fontSize: 10, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   Positioned(
@@ -287,6 +303,11 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
                       ),
                     ),
                   ),
+                  if (isMyRoom)
+                    const Positioned(
+                      top: 0, left: 0,
+                      child: Icon(Icons.stars, color: Colors.amber, size: 18),
+                    ),
                 ],
               ),
             ),
