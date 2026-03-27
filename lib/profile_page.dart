@@ -522,7 +522,7 @@ Widget build(BuildContext context) {
       double progressValue = (xp / nextTarget).clamp(0.0, 1.0);
 
       return Scaffold(
-        backgroundColor: const Color(0xFF0D0D1A),
+        backgroundColor: const Color(0xFF0A0A12),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -537,28 +537,46 @@ Widget build(BuildContext context) {
             if (isMe) IconButton(icon: const Icon(Icons.settings, color: Colors.white), onPressed: _openSettings)
           ],
         ),
-        body: SingleChildScrollView(
+         body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF121223), // উপরে হালকা নীলচে ডার্ক
+              Color(0xFF0A0A12), // নিচে একদম ডার্ক
+            ],
+          ),
+        ),
+        child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          child: Column(children: [
-            // ম্যারেজ সেকশন (আপনার আগের কোড ঠিক আছে)
-            StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance.collection('marriages').doc(targetUserId).snapshots(),
-              builder: (context, mSnapshot) {
-                if (mSnapshot.hasData && mSnapshot.data!.exists) {
-                  var marriageData = mSnapshot.data!.data() as Map<String, dynamic>;
-                  return Padding(
-                    padding: const EdgeInsets.only(left: 20, top: 10, bottom: 10),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: _buildMarriageHeader(marriageData, userImageURL, ""),
-                    ),
-                  );
-                }
-                return const SizedBox(height: 20);
-              },
-            ),
-            
-            const SizedBox(height: 20),
+          child: Column(
+            children: [
+              // --- ম্যারেজ সেকশন ---
+              StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('marriages')
+                    .doc(targetUserId)
+                    .snapshots(),
+                builder: (context, mSnapshot) {
+                  if (mSnapshot.hasData && mSnapshot.data!.exists) {
+                    var marriageData = mSnapshot.data!.data() as Map<String, dynamic>;
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 20, top: 10, bottom: 10),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _buildMarriageHeader(marriageData, userImageURL, ""),
+                      ),
+                    );
+                  }
+                  return const SizedBox(height: 20);
+                },
+              ),
+              
+              const SizedBox(height: 20),
+              // এরপর আপনার বাকি ফিচারগুলো (প্রোফাইল পিক, নাম ইত্যাদি) থাকবে...
             
             // প্রোফাইল পিকচার ও গোল্ডেন ফ্রেম
             Center(child: Stack(alignment: Alignment.center, children: [
