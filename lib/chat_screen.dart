@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'screens/voice_room.dart';
 
 class ChatScreen extends StatefulWidget {
   final String receiverId;
   final String receiverName;
-  final Map<String, dynamic>? receiverData; // ইনবক্স থেকে আসা ডাটা
+  final Map<String, dynamic>? receiverData;
 
   const ChatScreen({
     super.key, 
@@ -29,7 +30,66 @@ class _ChatScreenState extends State<ChatScreen> {
     return ids.join("_"); 
   }
 
-  // মেসেজ পাঠানোর সময় প্রোফাইল ইনফো সহ পাঠানো
+  // --- নতুন লজিক: ছবি ও ভিডিওর মেয়াদ চেক এবং কেনা ---
+  void _handleMediaAction() async {
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUserId).get();
+    final userData = userDoc.data() as Map<String, dynamic>? ?? {};
+
+    DateTime now = DateTime.now();
+    Timestamp? expiry = userData['media_expiry'];
+    int diamonds = userData['diamonds'] ?? 0;
+
+    // যদি মেয়াদ কেনা থাকে এবং সময় শেষ না হয়
+    if (expiry != null && expiry.toDate().isAfter(now)) {
+      _openGallery(); // ফিচার খোলা
+    } else {
+      _showPurchaseDialog(diamonds); // লক থাকলে কেনার অপশন
+    }
+  }
+
+  void _showPurchaseDialog(int currentDiamonds) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E2F),
+        title: const Text("Unlock Media Feature", style: TextStyle(color: Colors.white)),
+        content: Text(
+          "Buy 1 month access to send Photos & Videos for 6,000 Diamonds.\n\nYour Balance: $currentDiamonds",
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
+            onPressed: () async {
+              if (currentDiamonds >= 6000) {
+                DateTime expiryDate = DateTime.now().add(const Duration(days: 30));
+                await FirebaseFirestore.instance.collection('users').doc(currentUserId).update({
+                  'diamonds': FieldValue.increment(-6000),
+                  'media_expiry': Timestamp.fromDate(expiryDate),
+                });
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Media feature unlocked for 1 month!")));
+              } else {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Not enough diamonds!")));
+              }
+            },
+            child: const Text("Buy Now"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openGallery() {
+    print("Gallery Opened"); // এখানে ইমেজ পিকার কোড বসবে
+  }
+
+  void _startVoiceNote() {
+    print("Voice Message Recording..."); // এখানে ভয়েস লজিক বসবে
+  }
+
   void _sendMessage() async {
     if (_messageController.text.trim().isEmpty || currentUserId.isEmpty) return;
     String message = _messageController.text.trim();
@@ -52,7 +112,7 @@ class _ChatScreenState extends State<ChatScreen> {
         'senderImage': myPic, 
         'receiverId': widget.receiverId,
         'message': message,
-        'isRead': false, // আনরিড কাউন্টের জন্য
+        'isRead': false,
         'timestamp': FieldValue.serverTimestamp(),
       });
     } catch (e) {
@@ -60,10 +120,9 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // লাইভ রুম বার (যদি ইউজার লাইভে থাকে)
+  // পুরাতন লাইভ বার ফিচার
   Widget _buildLiveRoomBar(Map<String, dynamic> data) {
     if (data['currentRoomId'] == null) return const SizedBox.shrink();
-
     return Container(
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
@@ -82,23 +141,18 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white, 
-              foregroundColor: Colors.pinkAccent, 
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              shape: const StadiumBorder()
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.pinkAccent, shape: const StadiumBorder()),
             onPressed: () {
-               // ভয়েস রুমে জয়েন করার লজিক এখানে হবে
+               // জয়েন লজিক
             }, 
-            child: const Text("Join", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            child: const Text("Join", style: TextStyle(fontSize: 11)),
           )
         ],
       ),
     );
   }
 
-  // প্রোফাইল বটম শিট
+  // পুরাতন প্রোফাইল বটম শিট
   void _showProfile(BuildContext context, String userId) {
     showModalBottomSheet(
       context: context,
@@ -108,7 +162,6 @@ class _ChatScreenState extends State<ChatScreen> {
         stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const SizedBox(height: 150);
-          
           final userData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
           final String name = userData['name'] ?? 'User';
           final String pic = userData['imageURL'] ?? userData['profilePic'] ?? userData['userImageURL'] ?? '';
@@ -205,9 +258,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
-          // লাইভ বার ফিচার
           if (widget.receiverData != null) _buildLiveRoomBar(widget.receiverData!),
-          
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
@@ -242,12 +293,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               padding: const EdgeInsets.all(15),
                               decoration: BoxDecoration(
                                 color: isMe ? Colors.pinkAccent : const Color(0xFF1E1E2F),
-                                borderRadius: BorderRadius.only(
-                                  topLeft: const Radius.circular(20),
-                                  topRight: const Radius.circular(20),
-                                  bottomLeft: isMe ? const Radius.circular(20) : const Radius.circular(5),
-                                  bottomRight: isMe ? const Radius.circular(5) : const Radius.circular(20),
-                                ),
+                                borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(data['message'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 16)),
                             ),
@@ -275,28 +321,37 @@ class _ChatScreenState extends State<ChatScreen> {
         radius: 20,
         backgroundColor: Colors.white10,
         backgroundImage: url.isNotEmpty ? NetworkImage(url) : null,
-        child: url.isEmpty 
-          ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: const TextStyle(color: Colors.white, fontSize: 12)) 
-          : null,
+        child: url.isEmpty ? Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 12)) : null,
       ),
     );
   }
 
+  // --- ইনপুট সেকশন (নতুন বাটন সহ) ---
   Widget _inputSection() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
       decoration: const BoxDecoration(
         color: Color(0xFF1E1E2F),
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
       child: Row(
         children: [
+          // নতুন ভয়েস বাটন
+          IconButton(
+            icon: const Icon(Icons.mic, color: Colors.cyanAccent),
+            onPressed: _startVoiceNote,
+          ),
+          // নতুন ইমেজ/মিডিয়া বাটন (লজিক সহ)
+          IconButton(
+            icon: const Icon(Icons.image, color: Colors.pinkAccent),
+            onPressed: _handleMediaAction,
+          ),
           Expanded(
             child: TextField(
               controller: _messageController,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: "মেসেজ লিখুন...",
+                hintText: "Type a message...",
                 hintStyle: const TextStyle(color: Colors.white24),
                 filled: true,
                 fillColor: const Color(0xFF0D0D1A),
@@ -305,7 +360,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 5),
           CircleAvatar(
             backgroundColor: Colors.pinkAccent,
             child: IconButton(
