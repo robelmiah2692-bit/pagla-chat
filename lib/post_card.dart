@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:ui'; // গ্লাস ইফেক্টের জন্য
 
 class PostCard extends StatelessWidget {
   final Map<String, dynamic> data;
@@ -8,7 +9,7 @@ class PostCard extends StatelessWidget {
 
   const PostCard({super.key, required this.data, this.postId});
 
-  // --- টাইম ক্যালকুলেশন ফাংশন (টাইমার ঠিক করার জন্য) ---
+  // --- টাইম ক্যালকুলেশন ফাংশন ---
   String _getTimeAgo(dynamic timestamp) {
     if (timestamp == null || timestamp is! Timestamp) return "Just now";
     DateTime postTime = timestamp.toDate();
@@ -21,20 +22,21 @@ class PostCard extends StatelessWidget {
     return "${postTime.day}/${postTime.month}/${postTime.year}";
   }
 
-  // --- পোস্ট ডিলিট লজিক (অপরিবর্তিত) ---
+  // --- পোস্ট ডিলিট লজিক ---
   void _deletePost(BuildContext context) async {
     if (postId == null) return;
     bool confirm = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF242526),
-        title: const Text("Delete post", style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFF1A1A1A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Delete post", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: const Text("Are you sure delete this post?", style: TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("No")),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("No", style: TextStyle(color: Colors.white54))),
           TextButton(
             onPressed: () => Navigator.pop(context, true), 
-            child: const Text("Yes", style: TextStyle(color: Colors.red))
+            child: const Text("Yes", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))
           ),
         ],
       ),
@@ -63,151 +65,189 @@ class PostCard extends StatelessWidget {
     bool isOwner = (data['userId'] == uid);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      // --- গ্লাস ডিজাইন পোস্ট বক্স ---
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08), 
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ListTile(
-            leading: CircleAvatar(
-              backgroundColor: Colors.grey[800],
-              backgroundImage: NetworkImage(
-                (data['userImage'] != null && data['userImage'].toString().isNotEmpty)
-                    ? data['userImage']
-                    : "https://www.w3schools.com/howto/img_avatar.png",
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(25),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.07), // প্রিমিয়াম গ্লাস কালার
+              borderRadius: BorderRadius.circular(25),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.15), // গ্লাস বর্ডার
+                width: 1.2,
               ),
-            ),
-            title: Row(
-              children: [
-                Text(
-                  data['userName'] ?? "User",
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(width: 5),
-                if (isOwner)
-                  const Icon(Icons.verified, color: Colors.blueAccent, size: 16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                )
               ],
             ),
-            // --- এখানে টাইমার সেট করা হয়েছে ---
-            subtitle: Text(
-              _getTimeAgo(data['timestamp']), 
-              style: const TextStyle(color: Colors.white54, fontSize: 11)
-            ),
-            trailing: IconButton(
-              icon: const Icon(Icons.more_vert, color: Colors.white54),
-              onPressed: () {
-                if (isOwner) {
-                  showModalBottomSheet(
-                    context: context,
-                    backgroundColor: const Color(0xFF242526),
-                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-                    builder: (context) => SafeArea(
-                      child: Wrap(
-                        children: [
-                          ListTile(
-                            leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                            title: const Text("Delete post", style: TextStyle(color: Colors.white)),
-                            onTap: () {
-                              Navigator.pop(context);
-                              _deletePost(context);
-                            },
-                          ),
-                          ListTile(
-                            leading: const Icon(Icons.close, color: Colors.white54),
-                            title: const Text("Cancel", style: TextStyle(color: Colors.white54)),
-                            onTap: () => Navigator.pop(context),
-                          ),
-                        ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(colors: [Colors.blueAccent, Colors.purpleAccent.withOpacity(0.5)]),
+                    ),
+                    child: CircleAvatar(
+                      radius: 22,
+                      backgroundColor: Colors.grey[900],
+                      backgroundImage: NetworkImage(
+                        (data['userImage'] != null && data['userImage'].toString().isNotEmpty)
+                            ? data['userImage']
+                            : "https://www.w3schools.com/howto/img_avatar.png",
                       ),
                     ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Deleted Only post owner")),
-                  );
-                }
-              },
-            ),
-          ),
-
-          // --- ক্যাপশন ---
-          if (data['caption'] != null && data['caption'].toString().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-              child: Text(
-                data['caption'],
-                style: const TextStyle(color: Colors.white, fontSize: 14),
-              ),
-            ),
-
-          // --- ইমেজ সেকশন (গ্লাস ডিজাইন বর্ডারসহ) ---
-          if (data['storyImage'] != null && data['storyImage'].toString().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  width: double.infinity,
-                  constraints: const BoxConstraints(minHeight: 200, maxHeight: 500),
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.05)),
-                  child: Image.network(
-                    data['storyImage'],
-                    width: double.infinity,
-                    fit: BoxFit.contain,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return SizedBox(height: 200, child: Center(child: CircularProgressIndicator(color: Colors.blueAccent)));
+                  ),
+                  title: Row(
+                    children: [
+                      Text(
+                        data['userName'] ?? "User",
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      const SizedBox(width: 5),
+                      if (isOwner)
+                        const Icon(Icons.verified, color: Colors.blueAccent, size: 17),
+                    ],
+                  ),
+                  subtitle: Text(
+                    _getTimeAgo(data['timestamp']), 
+                    style: const TextStyle(color: Colors.white38, fontSize: 10)
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.more_horiz, color: Colors.white70),
+                    onPressed: () {
+                      if (isOwner) {
+                        showModalBottomSheet(
+                          context: context,
+                          backgroundColor: const Color(0xFF121212),
+                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+                          builder: (context) => SafeArea(
+                            child: Wrap(
+                              children: [
+                                ListTile(
+                                  leading: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent),
+                                  title: const Text("Remove Post", style: TextStyle(color: Colors.white)),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    _deletePost(context);
+                                  },
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.close, color: Colors.white38),
+                                  title: const Text("Cancel", style: TextStyle(color: Colors.white38)),
+                                  onTap: () => Navigator.pop(context),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Only post owner can delete this")),
+                        );
+                      }
                     },
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      height: 100,
-                      color: Colors.white10,
-                      child: const Center(child: Icon(Icons.broken_image, color: Colors.white24, size: 40)),
-                    ),
                   ),
                 ),
-              ),
-            ),
 
-          // --- লাইক ও বাটন সেকশন ---
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                const Icon(Icons.favorite, color: Colors.red, size: 16),
-                const SizedBox(width: 5),
-                Text("${likes.length}", style: const TextStyle(color: Colors.white54)),
+                // --- ক্যাপশন ---
+                if (data['caption'] != null && data['caption'].toString().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(horizontal: 18, bottom: 10, top: 2),
+                    child: Text(
+                      data['caption'],
+                      style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
+                    ),
+                  ),
+
+                // --- ইমেজ সেকশন ---
+                if (data['storyImage'] != null && data['storyImage'].toString().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: Container(
+                        width: double.infinity,
+                        constraints: const BoxConstraints(minHeight: 200, maxHeight: 500),
+                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.03)),
+                        child: Image.network(
+                          data['storyImage'],
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(color: Colors.blueAccent, strokeWidth: 2)));
+                          },
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            height: 150,
+                            color: Colors.white10,
+                            child: const Center(child: Icon(Icons.broken_image_outlined, color: Colors.white24, size: 40)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // --- লাইক ও বাটন সেকশন ---
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 5),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.favorite, color: Colors.redAccent, size: 14),
+                      const SizedBox(width: 6),
+                      Text("${likes.length} People liked", style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                    ],
+                  ),
+                ),
+                
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 15),
+                  child: Divider(color: Colors.white10, thickness: 0.8),
+                ),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildVIPBtn(isLiked ? Icons.favorite : Icons.favorite_border, isLiked ? Colors.redAccent : Colors.white70, "Like", () {
+                      if (postId != null) _toggleLike(postId!, uid, likes);
+                    }),
+                    _buildVIPBtn(Icons.chat_bubble_outline_rounded, Colors.white70, "Comment", () {
+                      if (postId != null) _showCommentSheet(context, postId!);
+                    }),
+                    _buildVIPBtn(Icons.share_rounded, Colors.white70, "Share", () {}),
+                  ],
+                ),
+                const SizedBox(height: 10),
               ],
             ),
           ),
-          const Divider(color: Colors.white10, height: 1),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildBtn(isLiked ? Icons.favorite : Icons.favorite_border, isLiked ? Colors.red : Colors.white70, "Like", () {
-                if (postId != null) _toggleLike(postId!, uid, likes);
-              }),
-              _buildBtn(Icons.mode_comment_outlined, Colors.white70, "Comments", () {
-                if (postId != null) _showCommentSheet(context, postId!);
-              }),
-              _buildBtn(Icons.share_outlined, Colors.white70, "Share", () {}),
-            ],
-          ),
-          const SizedBox(height: 5),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildBtn(IconData icon, Color color, String text, VoidCallback onTap) {
-    return TextButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, color: color, size: 20),
-      label: Text(text, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+  Widget _buildVIPBtn(IconData icon, Color color, String text, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(15),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 19),
+            const SizedBox(width: 6),
+            Text(text, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -220,23 +260,25 @@ class PostCard extends StatelessWidget {
     }
   }
 
-  // --- কমেন্ট শিট লজিক (অপরিবর্তিত) ---
+  // --- কমেন্ট শিট লজিক ---
   void _showCommentSheet(BuildContext context, String pId) {
     final TextEditingController _commentController = TextEditingController();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF242526),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      backgroundColor: const Color(0xFF121212),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
       builder: (context) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, top: 20, left: 15, right: 15),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("comment", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(10))),
+            const SizedBox(height: 15),
+            const Text("COMMENTS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+            const SizedBox(height: 15),
             SizedBox(
-              height: 300,
+              height: 350,
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('stories')
@@ -245,32 +287,40 @@ class PostCard extends StatelessWidget {
                     .orderBy('timestamp', descending: false)
                     .snapshots(),
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                  if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
+                  if (snapshot.data!.docs.isEmpty) return const Center(child: Text("No comments yet", style: TextStyle(color: Colors.white38)));
                   return ListView(
                     children: snapshot.data!.docs.map((doc) {
                       Map<String, dynamic> cData = doc.data() as Map<String, dynamic>;
                       return ListTile(
                         leading: CircleAvatar(
-                          radius: 15, 
+                          radius: 16, 
                           backgroundImage: NetworkImage(cData['userImage'] ?? "https://www.w3schools.com/howto/img_avatar.png")
                         ),
-                        title: Text(cData['userName'] ?? "User", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                        subtitle: Text(cData['text'] ?? "", style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                        title: Text(cData['userName'] ?? "User", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                        subtitle: Text(cData['text'] ?? "", style: const TextStyle(color: Colors.white70, fontSize: 13)),
                       );
                     }).toList(),
                   );
                 },
               ),
             ),
-            TextField(
-              controller: _commentController,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: "type anything ...",
-                hintStyle: const TextStyle(color: Colors.white38),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.send, color: Colors.blueAccent),
-                  onPressed: () => _submitComment(pId, _commentController.text, _commentController),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: TextField(
+                controller: _commentController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.05),
+                  hintText: "Add a comment...",
+                  hintStyle: const TextStyle(color: Colors.white38),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.send_rounded, color: Colors.blueAccent),
+                    onPressed: () => _submitComment(pId, _commentController.text, _commentController),
+                  ),
                 ),
               ),
             ),
