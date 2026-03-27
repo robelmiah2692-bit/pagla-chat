@@ -521,15 +521,14 @@ Widget build(BuildContext context) {
       int nextTarget = getNextLevelTarget(xp);
       double progressValue = (xp / nextTarget).clamp(0.0, 1.0);
 
-       return Scaffold(
-        backgroundColor: const Color(0xFF0A0A12), // আপনার পছন্দের ডার্ক ব্যাকগ্রাউন্ড
+        return Scaffold(
+        backgroundColor: const Color(0xFF0A0A12),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: isMe ? Padding(
             padding: const EdgeInsets.only(left: 10),
             child: Row(children: [
-              // 🔥 এখানে আইকন সরিয়ে আপনার পছন্দের 💎 ইমোজি বসানো হয়েছে
               const Text("💎", style: TextStyle(fontSize: 16)), 
               Text(" $diamonds", style: const TextStyle(color: Colors.white, fontSize: 12))
             ]),
@@ -538,47 +537,45 @@ Widget build(BuildContext context) {
             if (isMe) IconButton(icon: const Icon(Icons.settings, color: Colors.white), onPressed: _openSettings)
           ],
         ),
-         body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF121223), // উপরে হালকা নীলচে ডার্ক
-              Color(0xFF0A0A12), // নিচে একদম ডার্ক
-            ],
-          ),
-        ),
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            children: [
-              // --- ম্যারেজ সেকশন ---
-              StreamBuilder<DocumentSnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('marriages')
-                    .doc(targetUserId)
-                    .snapshots(),
-                builder: (context, mSnapshot) {
-                  if (mSnapshot.hasData && mSnapshot.data!.exists) {
-                    var marriageData = mSnapshot.data!.data() as Map<String, dynamic>;
-                    return Padding(
-                      padding: const EdgeInsets.only(left: 20, top: 10, bottom: 10),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: _buildMarriageHeader(marriageData, userImageURL, ""),
-                      ),
-                    );
-                  }
-                  return const SizedBox(height: 20);
-                },
-              ),
-              
-              const SizedBox(height: 20),
-              // এরপর আপনার বাকি ফিচারগুলো (প্রোফাইল পিক, নাম ইত্যাদি) থাকবে...
-            
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF121223),
+                Color(0xFF0A0A12),
+              ],
+            ),
+          ), // decoration এখানে শেষ
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              children: [
+                // --- ম্যারেজ সেকশন ---
+                StreamBuilder<DocumentSnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('marriages')
+                      .doc(targetUserId)
+                      .snapshots(),
+                  builder: (context, mSnapshot) {
+                    if (mSnapshot.hasData && mSnapshot.data!.exists) {
+                      var marriageData = mSnapshot.data!.data() as Map<String, dynamic>;
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 20, top: 10, bottom: 10),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: _buildMarriageHeader(marriageData, userImageURL, ""),
+                        ),
+                      );
+                    }
+                    return const SizedBox(height: 20);
+                  },
+                ),
+                const SizedBox(height: 20),
+                // আপনার বাকি কোড এখানে বসবে...
             // প্রোফাইল পিকচার ও গোল্ডেন ফ্রেম
             Center(child: Stack(alignment: Alignment.center, children: [
               if (vipLevel > 0) 
