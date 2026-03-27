@@ -35,7 +35,6 @@ class _ChatScreenState extends State<ChatScreen> {
   final AudioRecorder _audioRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isRecording = false;
-  String? _lastRecordPath;
  
   @override
   void dispose() {
@@ -115,38 +114,30 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // --- নতুন ও এরর-মুক্ত ভয়েস নোট লজিক ---
+   // --- নতুন ও এরর-মুক্ত ভয়েস নোট লজিক (record: ^4.4.4) ---
   void _startVoiceNote() async {
     // মাইক্রোফোন পারমিশন চেক করা
-    bool hasPermission = await Permission.microphone.isGranted;
-    if (!hasPermission) {
-      hasPermission = await Permission.microphone.request().isGranted;
-    }
-
-    if (hasPermission) {
+    if (await _audioRecorder.hasPermission()) {
       if (_isRecording) {
         // রেকর্ড স্টপ করা
-        bool stopSuccess = RecordMp3.instance.stop();
+        final path = await _audioRecorder.stop();
         setState(() => _isRecording = false);
         
-        if (stopSuccess && _lastRecordPath != null) {
-          _uploadToFirebase(File(_lastRecordPath!), "audio");
+        if (path != null) {
+          _uploadToFirebase(File(path), "audio");
         }
       } else {
         // সেভ করার জন্য ডিরেক্টরি তৈরি
         final directory = await getApplicationDocumentsDirectory();
-        String recordPath = '${directory.path}/voice_${DateTime.now().millisecondsSinceEpoch}.mp3';
-        _lastRecordPath = recordPath; // পাথটি সেভ করে রাখা যেন পরে আপলোড করা যায়
-
-        // রেকর্ড শুরু করা
-        RecordMp3.instance.start(recordPath, (type) {
-          // এখানে কোনো এরর হলে হ্যান্ডেল করা যায়
-          debugPrint("Record status: $type");
-        });
+        final path = '${directory.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        
+        // রেকর্ড শুরু করা (record 4.4.4 এ সরাসরি পাথ দিলেই হয়)
+        await _audioRecorder.start(path: path);
 
         setState(() => _isRecording = true);
       }
     } else {
+      // পারমিশন না থাকলে মেসেজ দেখানো
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Microphone permission denied!")),
       );
