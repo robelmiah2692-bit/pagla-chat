@@ -72,10 +72,10 @@ class PostCard extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.07), // প্রিমিয়াম গ্লাস কালার
+              color: Colors.white.withOpacity(0.07), 
               borderRadius: BorderRadius.circular(25),
               border: Border.all(
-                color: Colors.white.withOpacity(0.15), // গ্লাস বর্ডার
+                color: Colors.white.withOpacity(0.15), 
                 width: 1.2,
               ),
               boxShadow: [
@@ -158,10 +158,10 @@ class PostCard extends StatelessWidget {
                   ),
                 ),
 
-                // --- ক্যাপশন ---
+                // --- ক্যাপশন (Error Fixed Here) ---
                 if (data['caption'] != null && data['caption'].toString().isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(horizontal: 18, bottom: 10, top: 2),
+                    padding: const EdgeInsets.only(left: 18, right: 18, bottom: 10, top: 2),
                     child: Text(
                       data['caption'],
                       style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
@@ -260,7 +260,6 @@ class PostCard extends StatelessWidget {
     }
   }
 
-  // --- কমেন্ট শিট লজিক ---
   void _showCommentSheet(BuildContext context, String pId) {
     final TextEditingController _commentController = TextEditingController();
     showModalBottomSheet(
