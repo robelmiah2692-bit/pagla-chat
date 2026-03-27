@@ -522,7 +522,7 @@ Widget build(BuildContext context) {
       double progressValue = (xp / nextTarget).clamp(0.0, 1.0);
 
       return Scaffold(
-        backgroundColor: const Color(0xFF0A0A12),
+        backgroundColor: const Color(0xFF0F0F1E),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -545,8 +545,8 @@ Widget build(BuildContext context) {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFF121223),
-                Color(0xFF0A0A12),
+                Color(0xFF1A1A2E),
+                Color(0xFF0F0F1E),
               ],
             ),
           ), 
