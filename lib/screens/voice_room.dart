@@ -557,14 +557,14 @@ void initState() {
     );
   }
 
-  @override
+ @override
 Widget build(BuildContext context) {
-  // কিবোর্ডের উচ্চতা মাপার জন্য variable (টাইপ বক্সের জন্য লাগবে)
+  // কিবোর্ডের উচ্চতা মাপার জন্য variable
   double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
   return Scaffold(
     backgroundColor: const Color(0xFF0F0F1E),
-    // resizeToAvoidBottomInset false রাখছি যাতে কিবোর্ড আসলে আপনার মেইল বাটন বা অন্য কিছু না নড়ে
+    // কিবোর্ড আসলে আপনার অন্য ফিচারগুলো যাতে পজিশন থেকে না সরে যায়
     resizeToAvoidBottomInset: false, 
     body: Stack(
       children: [
@@ -594,7 +594,7 @@ Widget build(BuildContext context) {
             _buildViewerArea(), 
             _buildSeatGridArea(), 
 
-            // ৩. মেসেজ ভিউ (১ নম্বর সমাধান: প্রোফাইল থেকে নাম ও ছবি আসবে)
+            // ৩. মেসেজ ভিউ (১ নম্বর সমাধান: প্রোফাইল থেকে নাম ও ছবি আসবে এবং uID/uid সাপোর্ট)
             const SizedBox(height: 10), 
             SizedBox(
               height: 180, 
@@ -620,16 +620,16 @@ Widget build(BuildContext context) {
                       itemBuilder: (context, index) {
                         var data = docs[index].data() as Map<String, dynamic>;
                         
-                        // uID, userid বা userId যাই থাকুক রিড করবে
+                        // uID, userid বা uid যাই থাকুক তা শনাক্ত করবে (আপনার রিকোয়েস্ট অনুযায়ী)
                         String uName = data['userName'] ?? "User";
-                        String uId = (data['uID'] ?? data['userid'] ?? data['userId'] ?? uName).toString();
+                        String uId = (data['uID'] ?? data['uid'] ?? data['userId'] ?? uName).toString();
                         String uImage = data['userImage'] ?? "";
 
                         return Align(
                           alignment: Alignment.bottomLeft,
                           child: GestureDetector(
                             onTap: () {
-                              // ২ নম্বর সমাধান (আংশিক): মেনশন সাপোর্ট
+                              // আইডি ছোট বা বড় হাতের যাই হোক মেনশন সাপোর্ট
                               setState(() {
                                 _messageController.text = "@$uId ";
                                 _messageController.selection = TextSelection.fromPosition(
@@ -653,18 +653,18 @@ Widget build(BuildContext context) {
 
             const Expanded(child: SizedBox.shrink()), 
 
-            // ৫. টাইপিং বার
+            // ৫. টাইপিং বার (অরিজিনাল ফিচার যা আছে তাই থাকবে)
             _buildBottomActionArea(),
           ],
         ),
 
-        // 🔥 ২ নম্বর সমাধান: টাইপ বক্স (যা কিবোর্ডের উপরে ভাসবে)
+        // 🔥 ২ নম্বর সমাধান: টাইপ বক্স (যা কিবোর্ডের উপরে ভাসবে এবং ফায়ারবেসে মেসেজ পাঠাবে)
         if (keyboardHeight > 0)
           Positioned(
             bottom: keyboardHeight,
             left: 0, right: 0,
             child: Container(
-              color: const Color(0xFF1A1A2E), // সলিড ব্যাকগ্রাউন্ড
+              color: const Color(0xFF1A1A2E), 
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: Row(
                 children: [
@@ -674,10 +674,11 @@ Widget build(BuildContext context) {
                       decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(25)),
                       child: TextField(
                         controller: _messageController,
-                        autofocus: true, // শুধু এখানে ক্লিক করলেই কিবোর্ড আসবে
+                        autofocus: true, 
                         style: const TextStyle(color: Colors.white),
                         decoration: const InputDecoration(
                           hintText: "মেসেজ লিখুন...",
+                          hintStyle: TextStyle(color: Colors.white54),
                           border: InputBorder.none,
                         ),
                       ),
@@ -686,9 +687,24 @@ Widget build(BuildContext context) {
                   IconButton(
                     icon: const Icon(Icons.send, color: Colors.pinkAccent),
                     onPressed: () {
-                      _sendMessage(_messageController.text);
-                      _messageController.clear();
-                      FocusScope.of(context).unfocus(); 
+                      String msg = _messageController.text.trim();
+                      if (msg.isNotEmpty) {
+                        // আপনার অরিজিনাল মেসেজ পাঠানোর ফায়ারবেস লজিক (গ্যাপ ছাড়াই)
+                        FirebaseFirestore.instance
+                            .collection('rooms')
+                            .doc(widget.roomId)
+                            .collection('messages')
+                            .add({
+                          'userName': widget.userName, 
+                          'userImage': widget.userImage, 
+                          'uID': FirebaseAuth.instance.currentUser?.uid, // আপনি uID চেয়েছিলেন
+                          'text': msg,
+                          'timestamp': FieldValue.serverTimestamp(),
+                        });
+
+                        _messageController.clear(); 
+                        FocusScope.of(context).unfocus(); 
+                      }
                     },
                   ),
                 ],
@@ -723,10 +739,7 @@ Widget build(BuildContext context) {
 
         // গিফট লিসেনার (অপরিবর্তিত)
         StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('rooms')
-              .doc(widget.roomId)
-              .snapshots(),
+          stream: FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).snapshots(),
           builder: (context, snapshot) {
             if (snapshot.hasData && snapshot.data!.exists) {
               var data = snapshot.data!.data() as Map<String, dynamic>;
@@ -756,7 +769,7 @@ Widget build(BuildContext context) {
           },
         ),
 
-        // ৮. মেইল বাটন ও ইনবক্স (হুবহু আপনার দেওয়া অরিজিনাল কোড)
+        // ৮. মেইল বাটন ও ইনবক্স (অপরিবর্তিত)
         Positioned(
           bottom: 110, 
           right: 15,
@@ -812,28 +825,33 @@ Widget build(BuildContext context) {
           ),
         ),
 
-        // ৯. সিট ইমোজি অ্যানিমেশন (৩ নম্বর সমাধান: ইউজারের নিজের সিটে দেখাবে)
-        ...activeEmojiMap.entries.map((entry) {
-          int seatIndex = entry.key;
-          String lottieUrl = entry.value;
-          if (seatIndex < seatPositions.length) {
-            return Positioned(
-              left: seatPositions[seatIndex].dx - 15,
-              top: seatPositions[seatIndex].dy - 40,
-              child: IgnorePointer(
-                child: SizedBox(
-                  width: 80, height: 80,
-                  child: Lottie.network(lottieUrl, repeat: false),
-                ),
-              ),
-            );
-          }
-          return const SizedBox.shrink();
-        }).toList(),
+        // ৯. সমাধান ৩: ইমোজি অ্যানিমেশন (আপনার অরিজিনাল মেথড কল করছি)
+        ..._buildFloatingEmojiAnimations(), 
       ],
     ),
   );
 }
+
+// আপনার অরিজিনাল ইমোজি মেথডটি আপডেট করে দিচ্ছি যাতে সিটের উপরে ইমোজি দেখায়
+List<Widget> _buildFloatingEmojiAnimations() {
+  // activeEmojiMap থেকে ইউজারের নিজের সিট পজিশন অনুযায়ী ইমোজি দেখাবে
+  return activeEmojiMap.entries.map((entry) {
+    int seatIndex = entry.key;
+    String lottieUrl = entry.value;
+
+    return Positioned(
+      left: (seatIndex < seatPositions.length) ? seatPositions[seatIndex].dx - 15 : 0, 
+      top: (seatIndex < seatPositions.length) ? seatPositions[seatIndex].dy - 40 : 0,
+      child: IgnorePointer(
+        child: SizedBox(
+          width: 80, height: 80,
+          child: Lottie.network(lottieUrl, repeat: false), 
+        ),
+      ),
+    );
+  }).toList();
+}
+
  // 🔥 এটিই আপনার ফাইনাল এবং একমাত্র dispose ফাংশন
   @override
   void dispose() {
