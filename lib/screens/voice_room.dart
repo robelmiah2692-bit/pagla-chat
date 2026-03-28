@@ -840,16 +840,36 @@ List<Widget> _buildFloatingEmojiAnimations() {
 
   // --- উইজেট ফাংশনসমূহ ---
   Widget _buildTopNavBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        children: [
-          // 🖼️ রুমের প্রোফাইল পিকচার (ক্লিক করলে সেভ হবে)
-          GestureDetector(
-            onTap: () => RoomProfileHandler.pickRoomImage(
-              onImagePicked: (p) {
+  // ১. পারমিশন চেক করার ভ্যারিয়েবল (মালিক বা এডমিন কি না)
+  final String myUid = FirebaseAuth.instance.currentUser?.uid ?? "";
+  bool hasPermission = (myUid == roomOwnerId) || adminList.contains(myUid);
+
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 12),
+    child: Row(
+      children: [
+        // 🖼️ রুমের প্রোফাইল পিকচার (ক্লিক করলে সেভ হবে)
+        GestureDetector(
+          onTap: () {
+            // শুধুমাত্র মালিক ও এডমিন পারবে
+            if (!hasPermission) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("শুধুমাত্র মালিক ও এডমিন ছবি বদলাতে পারবে")));
+              return;
+            }
+            
+            RoomProfileHandler.pickRoomImage(
+              onImagePicked: (p) async {
+                // 🔥 পুরাতন ছবি ডিলিট করার লজিক (স্টোরেজ ক্লিন রাখা)
+                if (roomProfileImage.isNotEmpty && roomProfileImage.contains("firebasestorage")) {
+                  try {
+                    await FirebaseStorage.instance.refFromURL(roomProfileImage).delete();
+                  } catch (e) {
+                    debugPrint("পুরাতন ছবি মুছতে সমস্যা: $e");
+                  }
+                }
+
                 setState(() => roomProfileImage = p);
-                // 🔥 ডাটাবেসে ছবি সেভ
+                // 🔥 ডাটাবেসে ছবি সেভ (আপনার মূল সার্ভিস কল)
                 _roomService.updateRoomFullData(
                   roomId: widget.roomId,
                   roomName: roomName,
@@ -861,26 +881,34 @@ List<Widget> _buildFloatingEmojiAnimations() {
                 );
               }, 
               showMessage: (m) {}
-            ),
-            child: CircleAvatar(
-              radius: 20,
-              backgroundImage: roomProfileImage.isNotEmpty ? NetworkImage(roomProfileImage) : null,
-              child: roomProfileImage.isEmpty ? const Icon(Icons.camera_alt, size: 18) : null,
-            ),
+            );
+          },
+          child: CircleAvatar(
+            radius: 20,
+            backgroundImage: roomProfileImage.isNotEmpty ? NetworkImage(roomProfileImage) : null,
+            child: roomProfileImage.isEmpty ? const Icon(Icons.camera_alt, size: 18) : null,
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 📝 রুমের নাম (এডিট করলে সেভ হবে)
-                GestureDetector(
-                  onTap: () => RoomProfileHandler.editRoomName(
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 📝 রুমের নাম (এডিট করলে সেভ হবে)
+              GestureDetector(
+                onTap: () {
+                  // শুধুমাত্র মালিক ও এডমিন পারবে
+                  if (!hasPermission) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("শুধুমাত্র মালিক ও এডমিন নাম বদলাতে পারবে")));
+                    return;
+                  }
+                  
+                  RoomProfileHandler.editRoomName(
                     context: context, 
                     currentName: roomName, 
                     onNameSaved: (n) {
                       setState(() => roomName = n);
-                      // 🔥 ডাটাবেসে নাম সেভ
+                      // 🔥 ডাটাবেসে নাম সেভ (আপনার মূল সার্ভিস কল)
                       _roomService.updateRoomFullData(
                         roomId: widget.roomId,
                         roomName: n,
@@ -891,98 +919,97 @@ List<Widget> _buildFloatingEmojiAnimations() {
                         totalDiamonds: 0,
                       );
                     }
-                  ),
-                  child: Text(roomName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-                Text("ID: ${widget.roomId} | $followerCount ফলোয়ার", style: const TextStyle(color: Colors.white54, fontSize: 10)),
-              ],
-            ),
+                  );
+                },
+                child: Text(roomName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+              Text("ID: ${widget.roomId} | $followerCount ফলোয়ার", style: const TextStyle(color: Colors.white54, fontSize: 10)),
+            ],
           ),
+        ),
 
-          // ➕ ফলোয়ার বাটন (Toggle Logic: একবার ক্লিক করলে ফলো, আবার করলে আনফলো)
-          IconButton(
-            icon: Icon(
-              isFollowing ? Icons.check_circle : Icons.person_add_alt_1,
-              color: isFollowing ? Colors.greenAccent : Colors.blueAccent, 
-              size: 20
-            ),
-            onPressed: () async {
-              final String myUid = FirebaseAuth.instance.currentUser?.uid ?? "";
-              if (myUid.isEmpty) return;
+        // ➕ ফলোয়ার বাটন (আপনার হুবহু টগল লজিক)
+        IconButton(
+          icon: Icon(
+            isFollowing ? Icons.check_circle : Icons.person_add_alt_1,
+            color: isFollowing ? Colors.greenAccent : Colors.blueAccent, 
+            size: 20
+          ),
+          onPressed: () async {
+            if (myUid.isEmpty) return;
 
-              var roomRef = FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
-              
-              // আপনার স্ক্রিনশট অনুযায়ী 'adminId' ই হচ্ছে আসল ওনার
-              if (isFollowing) {
-                // আনফলো লজিক
-                await roomRef.update({
-                  'followers': FieldValue.arrayRemove([myUid]),
-                  'followerCount': FieldValue.increment(-1), // এটি আপনার স্ক্রিনশটের ফিল্ড নাম অনুযায়ী
-                });
-                setState(() {
-                  isFollowing = false;
-                  followerCount--;
-                });
-              } else {
-                // ফলো লজিক (FieldValue.arrayUnion নিশ্চিত করে এক ইউজার বারবার অ্যাড হবে না)
-                await roomRef.update({
-                  'followers': FieldValue.arrayUnion([myUid]),
-                  'followerCount': FieldValue.increment(1),
-                });
-                setState(() {
-                  isFollowing = true;
-                  followerCount++;
-                });
-              }
+            var roomRef = FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
+            
+            if (isFollowing) {
+              // আনফলো লজিক (হুবহু আপনার কোড)
+              await roomRef.update({
+                'followers': FieldValue.arrayRemove([myUid]),
+                'followerCount': FieldValue.increment(-1),
+              });
+              setState(() {
+                isFollowing = false;
+                followerCount--;
+              });
+            } else {
+              // ফলো লজিক (হুবহু আপনার কোড)
+              await roomRef.update({
+                'followers': FieldValue.arrayUnion([myUid]),
+                'followerCount': FieldValue.increment(1),
+              });
+              setState(() {
+                isFollowing = true;
+                followerCount++;
+              });
+            }
 
-              // ডাটা সিঙ্ক করার জন্য আপনার আগের সার্ভিস কল (যদি প্রয়োজন হয়)
-              _roomService.updateRoomFullData(
+            // ডাটা সিঙ্ক (আপনার মূল সার্ভিস কল)
+            _roomService.updateRoomFullData(
+              roomId: widget.roomId,
+              roomName: roomName,
+              roomImage: roomProfileImage,
+              isLocked: isRoomLocked,
+              wallpaper: roomWallpaperPath,
+              followers: followerCount,
+              totalDiamonds: 0,
+            );
+          },
+        ),
+
+        // ২য় বাটন (লিস্ট দেখার বাটন - মালিকের আইডি adminId থেকে আসবে)
+        IconButton(
+          icon: const Icon(Icons.group, color: Colors.white70),
+          onPressed: () async {
+            var roomDoc = await FirebaseFirestore.instance
+                .collection('rooms')
+                .doc(widget.roomId)
+                .get();
+        
+            if (!roomDoc.exists) return;
+        
+            var data = roomDoc.data();
+            // ডাটাবেজের 'adminId' ফিল্ড থেকে মালিকের আইডি নিশ্চিত করা হচ্ছে
+            String ownerUidFromDb = data?['adminId'] ?? "";
+        
+            if (!context.mounted) return;
+        
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) => RoomFollowerSheet(
                 roomId: widget.roomId,
-                roomName: roomName,
-                roomImage: roomProfileImage,
-                isLocked: isRoomLocked,
-                wallpaper: roomWallpaperPath,
-                followers: followerCount,
-                totalDiamonds: 0,
-              );
-            },
-          ),
-
-          // ২য় বাটন (লিস্ট দেখার বাটন) আগের মতোই থাকবে
-          IconButton(
-            icon: const Icon(Icons.group, color: Colors.white70),
-            onPressed: () async {
-              var roomDoc = await FirebaseFirestore.instance
-                  .collection('rooms')
-                  .doc(widget.roomId)
-                  .get();
-          
-              if (!roomDoc.exists) return;
-          
-              var data = roomDoc.data();
-              // স্ক্রিনশট অনুযায়ী মালিকের আইডি 'adminId' ফিল্ডে আছে
-              String ownerUid = data?['adminId'] ?? "";
-          
-              if (!context.mounted) return;
-          
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (context) => RoomFollowerSheet(
-                  roomId: widget.roomId,
-                  ownerId: ownerUid,
-                ),
-              );
-            },
-          ),
-         
-          IconButton(icon: const Icon(Icons.settings, color: Colors.white70), onPressed: _showSettings),
-        ],
-      ),
-    );
-  }
-
+                ownerId: ownerUidFromDb, // ডাটাবেজের অরিজিনাল মালিক
+              ),
+            );
+          },
+        ),
+        
+        IconButton(icon: const Icon(Icons.settings, color: Colors.white70), onPressed: _showSettings),
+      ],
+    ),
+  );
+}
+ 
   // --- ১. মেইন সিট গ্রিড এরিয়া (যা আপনি build এ কল করেছেন) ---
    Widget _buildSeatGridArea() {
   return StreamBuilder<QuerySnapshot>(
