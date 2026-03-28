@@ -1039,8 +1039,8 @@ List<Widget> _buildFloatingEmojiAnimations() {
             if (!roomDoc.exists) return;
         
             var data = roomDoc.data();
-            // ডাটাবেজের 'adminId' ফিল্ড থেকে মালিকের আইডি নিশ্চিত করা হচ্ছে
-            String ownerUidFromDb = data?['adminId'] ?? "";
+            // ডাটাবেজের 'ownerId' ফিল্ড থেকে মালিকের আইডি নিশ্চিত করা হচ্ছে
+            String ownerUidFromDb = data?['ownerId'] ?? data?['adminId'] ?? "";
         
             if (!context.mounted) return;
         
