@@ -74,7 +74,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   List<dynamic> adminList = [];
   String userRole = "Guest";
   String myPersonalAvatar = ""; // এটি ইউজারের নিজের প্রোফাইল ছবি
-  bool isOwner = true; 
+  bool isOwner = false;
   String displayUserID = "Hridoy"; 
   String roomName = "পাগলা চ্যাট রুম";
   int followerCount = 0;
@@ -100,7 +100,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
   bool isRoomMusicPlaying = false; 
   final AudioPlayer _audioPlayer = AudioPlayer();
   final TextEditingController _messageController = TextEditingController();
-  
+
+  Map<String, dynamic> currentUserData = {};
   int currentSeatIndex = -1; 
   bool isMicOn = false;
   List<Map<String, String>> chatMessages = [];
