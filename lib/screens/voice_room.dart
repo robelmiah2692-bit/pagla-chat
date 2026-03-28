@@ -557,14 +557,14 @@ void initState() {
     );
   }
 
- @override
+  @override
 Widget build(BuildContext context) {
-  // কিবোর্ডের উচ্চতা মাপার জন্য variable
+  // কিবোর্ডের উচ্চতা মাপার জন্য
   double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
   return Scaffold(
     backgroundColor: const Color(0xFF0F0F1E),
-    // কিবোর্ড আসলে আপনার অন্য ফিচারগুলো যাতে পজিশন থেকে না সরে যায়
+    // resizeToAvoidBottomInset false রাখছি যাতে কিবোর্ড আসলে আপনার মেইল বাটন বা অন্য বাটন উপরে লাফিয়ে না ওঠে
     resizeToAvoidBottomInset: false, 
     body: Stack(
       children: [
@@ -594,7 +594,7 @@ Widget build(BuildContext context) {
             _buildViewerArea(), 
             _buildSeatGridArea(), 
 
-            // ৩. মেসেজ ভিউ (১ নম্বর সমাধান: প্রোফাইল থেকে নাম ও ছবি আসবে এবং uID/uid সাপোর্ট)
+            // ৩. মেসেজ ভিউ (ইউজার প্রোফাইল থেকে নাম, ছবি এবং uID/uid সাপোর্ট)
             const SizedBox(height: 10), 
             SizedBox(
               height: 180, 
@@ -603,7 +603,7 @@ Widget build(BuildContext context) {
                 margin: const EdgeInsets.only(left: 10, right: 90),
                 decoration: const BoxDecoration(color: Colors.transparent),
                 child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
+                  stream: _firestore
                       .collection('rooms')
                       .doc(widget.roomId)
                       .collection('messages')
@@ -620,7 +620,7 @@ Widget build(BuildContext context) {
                       itemBuilder: (context, index) {
                         var data = docs[index].data() as Map<String, dynamic>;
                         
-                        // uID, userid বা uid যাই থাকুক তা শনাক্ত করবে (আপনার রিকোয়েস্ট অনুযায়ী)
+                        // uID, uid বা userId যাই থাকুক না কেন তা শনাক্ত করবে
                         String uName = data['userName'] ?? "User";
                         String uId = (data['uID'] ?? data['uid'] ?? data['userId'] ?? uName).toString();
                         String uImage = data['userImage'] ?? "";
@@ -653,12 +653,12 @@ Widget build(BuildContext context) {
 
             const Expanded(child: SizedBox.shrink()), 
 
-            // ৫. টাইপিং বার (অরিজিনাল ফিচার যা আছে তাই থাকবে)
+            // ৫. টাইপিং বার (বটম অ্যাকশন এরিয়া - আপনার পুরাতন ফিচার যা আছে তাই থাকবে)
             _buildBottomActionArea(),
           ],
         ),
 
-        // 🔥 ২ নম্বর সমাধান: টাইপ বক্স (যা কিবোর্ডের উপরে ভাসবে এবং ফায়ারবেসে মেসেজ পাঠাবে)
+        // 🔥 সমাধান ২: টাইপ বক্স (কিবোর্ডের উপরে ভেসে উঠবে)
         if (keyboardHeight > 0)
           Positioned(
             bottom: keyboardHeight,
@@ -689,15 +689,15 @@ Widget build(BuildContext context) {
                     onPressed: () {
                       String msg = _messageController.text.trim();
                       if (msg.isNotEmpty) {
-                        // আপনার অরিজিনাল মেসেজ পাঠানোর ফায়ারবেস লজিক (গ্যাপ ছাড়াই)
-                        FirebaseFirestore.instance
+                        // আপনার অরিজিনাল ফায়ারবেস লজিক (uID সহ)
+                        _firestore
                             .collection('rooms')
                             .doc(widget.roomId)
                             .collection('messages')
                             .add({
-                          'userName': widget.userName, 
-                          'userImage': widget.userImage, 
-                          'uID': FirebaseAuth.instance.currentUser?.uid, // আপনি uID চেয়েছিলেন
+                          'userName': roomName, // বা আপনার ইউজারনেম ভেরিয়েবল
+                          'userImage': myPersonalAvatar, 
+                          'uID': FirebaseAuth.instance.currentUser?.uid,
                           'text': msg,
                           'timestamp': FieldValue.serverTimestamp(),
                         });
@@ -712,7 +712,7 @@ Widget build(BuildContext context) {
             ),
           ),
 
-        // মিউজিক প্লেয়ার (অপরিবর্তিত)
+        // মিউজিক প্লেয়ার (আপনার পুরাতন ফিচার)
         if (isFloatingPlayerVisible)
           Positioned(
             left: playerPosition.dx, 
@@ -739,7 +739,7 @@ Widget build(BuildContext context) {
 
         // গিফট লিসেনার (অপরিবর্তিত)
         StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).snapshots(),
+          stream: _firestore.collection('rooms').doc(widget.roomId).snapshots(),
           builder: (context, snapshot) {
             if (snapshot.hasData && snapshot.data!.exists) {
               var data = snapshot.data!.data() as Map<String, dynamic>;
@@ -769,7 +769,7 @@ Widget build(BuildContext context) {
           },
         ),
 
-        // ৮. মেইল বাটন ও ইনবক্স (অপরিবর্তিত)
+        // ৮. মেইল বাটন ও ইনবক্স (আপনার পুরাতন কোড - একদম হাত দেইনি)
         Positioned(
           bottom: 110, 
           right: 15,
@@ -789,7 +789,7 @@ Widget build(BuildContext context) {
               );
             },
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
+              stream: _firestore
                   .collection('chats')
                   .where('receiverId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
                   .where('isSeen', isEqualTo: false)
@@ -825,21 +825,21 @@ Widget build(BuildContext context) {
           ),
         ),
 
-        // ৯. সমাধান ৩: ইমোজি অ্যানিমেশন (আপনার অরিজিনাল মেথড কল করছি)
+        // ৯. সমাধান ৩: ইমোজি অ্যানিমেশন (আপনার ভেরিয়েবল activeEmojis ব্যবহার করে)
         ..._buildFloatingEmojiAnimations(), 
       ],
     ),
   );
 }
 
-// আপনার অরিজিনাল ইমোজি মেথডটি আপডেট করে দিচ্ছি যাতে সিটের উপরে ইমোজি দেখায়
+// ইমোজি মেথড (আপনার ভেরিয়েবল seatPositions এবং activeEmojis ব্যবহার করে)
 List<Widget> _buildFloatingEmojiAnimations() {
-  // activeEmojiMap থেকে ইউজারের নিজের সিট পজিশন অনুযায়ী ইমোজি দেখাবে
-  return activeEmojiMap.entries.map((entry) {
+  return activeEmojis.entries.map((entry) {
     int seatIndex = entry.key;
     String lottieUrl = entry.value;
 
     return Positioned(
+      // আপনার সিট পজিশন ভেরিয়েবল অনুযায়ী পজিশন হবে
       left: (seatIndex < seatPositions.length) ? seatPositions[seatIndex].dx - 15 : 0, 
       top: (seatIndex < seatPositions.length) ? seatPositions[seatIndex].dy - 40 : 0,
       child: IgnorePointer(
@@ -851,7 +851,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
     );
   }).toList();
 }
-
  // 🔥 এটিই আপনার ফাইনাল এবং একমাত্র dispose ফাংশন
   @override
   void dispose() {
