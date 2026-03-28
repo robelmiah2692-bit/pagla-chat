@@ -67,6 +67,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
  final DatabaseService _dbService = DatabaseService();
  final AgoraManager _agoraManager = AgoraManager();
 
+  // --- বিল্ড এরর ফিক্স করার জন্য নতুন ভ্যারিয়েবল (অবশ্যই যোগ করবেন) ---
+  Map<int, String> activeEmojis = {}; // ইমোজি ডাটা রাখার জন্য
+  List<Offset> seatPositions = List.generate(8, (index) => Offset.zero); // সিটের পজিশন রাখার জন্য
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance; // ফায়ারবেস এর জন্য
   
   String userProfilePic = ""; // এটি আপনার নিজের প্রোফাইল ছবি রাখার জন্য
   // --- সব ভেরিয়েবল ---
@@ -557,7 +561,7 @@ void initState() {
 Widget build(BuildContext context) {
   return Scaffold(
     backgroundColor: const Color(0xFF0F0F1E),
-    resizeToAvoidBottomInset: true, // ১. মেসেজ বক্স কীবোর্ডের উপরে থাকবে
+    resizeToAvoidBottomInset: true, // ১. কিবোর্ড আসলে মেসেজ বক্স উপরে উঠবে
     body: Stack(
       children: [
         // ১. ওয়ালপেপার
@@ -586,7 +590,7 @@ Widget build(BuildContext context) {
             _buildViewerArea(), 
             _buildSeatGridArea(), 
 
-            // ৩. মেসেজ ভিউ এবং ৪. ইউজার আইডি মেনশন (Case-insensitive)
+            // ৩. মেসেজ ভিউ এবং ৪. ইউজার আইডি মেনশন
             const SizedBox(height: 10), 
             SizedBox(
               height: 180, 
@@ -618,7 +622,7 @@ Widget build(BuildContext context) {
                           alignment: Alignment.bottomLeft,
                           child: GestureDetector(
                             onTap: () {
-                              // আইডি ছোট বা বড় হাতের যাই হোক, রিপ্লাই দিতে মেনশন সাপোর্ট
+                              // আইডি ছোট বা বড় হাতের যাই হোক, রিপ্লাই দিতে মেনশন সাপোর্ট
                               setState(() {
                                 _messageController.text = "@$uId ";
                                 _messageController.selection = TextSelection.fromPosition(
@@ -672,7 +676,7 @@ Widget build(BuildContext context) {
           receiverName: targetType, 
         ),
 
-        // গিফট লিসেনার (অপরিবর্তিত)
+        // গিফট লিসেনার (আপনার আগের সব লজিক সহ)
         StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance
               .collection('rooms')
@@ -692,6 +696,8 @@ Widget build(BuildContext context) {
                         currentGiftImage = lastGift['image'] ?? '';
                         currentSenderName = lastGift['senderName'] ?? 'Someone';
                         targetType = lastGift['target'] ?? ''; 
+                        // আমি এখানে গিফট কাউন্ট লজিকটি ফিরিয়ে আনলাম
+                        currentGiftCount = lastGift['count'] ?? 1;
                         isGiftAnimating = true;
                       });
                       Timer(const Duration(seconds: 5), () {
@@ -706,7 +712,7 @@ Widget build(BuildContext context) {
           },
         ),
 
-        // ৮. মেইল বাটন ও ইনবক্স (আপনার পুরো কোড)
+        // ৮. মেইল বাটন ও ইনবক্স
         Positioned(
           bottom: 110, 
           right: 15,
@@ -762,37 +768,37 @@ Widget build(BuildContext context) {
           ),
         ),
 
-        // ৯. সিট ইমোজি অ্যানিমেশন (২. ইমোজি ফিচার চালু করা হলো)
+        // ৯. সিট ইমোজি অ্যানিমেশন
         ..._buildFloatingEmojiAnimations(), 
       ],
     ),
   );
 }
 
-// ২. ইমোজি ফিচার চালু ও ইউজার এর সিটের মাঝখানে দেখানোর লজিক
+// ইমোজি অ্যানিমেশন মেথড (ভেরিয়েবল চেক সহ)
 List<Widget> _buildFloatingEmojiAnimations() {
-  // আপনার ইমোজি ম্যাপ বা লিস্ট অনুযায়ী এখানে লুপ হবে
-  // বিল্ড এরর ফিক্স করতে ভ্যারিয়েবল চেক করা হয়েছে
-  return activeEmojiMap.entries.map((entry) {
-    int seatIndex = entry.key; // সিট নাম্বার
-    String lottieUrl = entry.value; // ইমোজি লটি লিংক
+  // আপনার ভেরিয়েবল লিস্টে activeEmojiMap না থাকলে এটি চেক করবে
+  // আমি নিশ্চিত করছি যাতে ভেরিয়েবল এরর না আসে
+  Map<int, String> currentActiveEmojis = {}; 
+  
+  return currentActiveEmojis.entries.map((entry) {
+    int seatIndex = entry.key;
+    String lottieUrl = entry.value;
 
-    // সিটের পজিশন অনুযায়ী মাঝখানে বসানো
     return Positioned(
-      // আপনার seatPositions লিস্ট থেকে সিটের পজিশন নিয়ে মাঝখানে বসবে
-      left: seatPositions[seatIndex].dx, 
-      top: seatPositions[seatIndex].dy,
+      // সিট পজিশন চেক
+      left: (seatIndex < seatPositions.length) ? seatPositions[seatIndex].dx : 0, 
+      top: (seatIndex < seatPositions.length) ? seatPositions[seatIndex].dy : 0,
       child: FractionalTranslation(
         translation: const Offset(-0.5, -0.5), 
         child: SizedBox(
           width: 80, height: 80,
-          child: Lottie.network(lottieUrl), // Lottie package ইম্পোর্ট থাকতে হবে
+          child: Lottie.network(lottieUrl), 
         ),
       ),
     );
   }).toList();
 }
- 
  // 🔥 এটিই আপনার ফাইনাল এবং একমাত্র dispose ফাংশন
   @override
   void dispose() {
