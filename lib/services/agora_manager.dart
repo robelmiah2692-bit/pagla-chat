@@ -20,13 +20,12 @@ class AgoraManager {
   bool _isMicMutedLocal = false; // মাইকের বর্তমান অবস্থা ট্র্যাকিং
   bool _isMusicPlaying = false; // মিউজিক বাজছে কি না ট্র্যাকিং
 
-  RtcEngine get engine {
-    if (_engine == null) {
-      debugPrint("⚠️ এগোরা ইঞ্জিন এখনো তৈরি হয়নি!");
-    }
-    return _engine!;
-  }
+  // 🔔 রিপেল এনিমেশন ফিক্স করার জন্য ভলিউম স্ট্রিম (নতুন সংযোজন)
+  final StreamController<List<AudioVolumeInfo>> _volumeStreamController = 
+      StreamController<List<AudioVolumeInfo>>.broadcast();
+  Stream<List<AudioVolumeInfo>> get volumeStream => _volumeStreamController.stream;
 
+  RtcEngine? get engine => _engine;
   int? get localUid => _localUid;
 
   Future<void> initAgora() async {
@@ -41,7 +40,7 @@ class AgoraManager {
         channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
       ));
 
-      // মিউজিক এবং ভয়েস কোয়ালিটি উন্নত করার প্রোফাইল
+      // মিউজিক এবং ভয়েস কোয়ালিটি উন্নত করার প্রোফাইল (পুরাতন ফিচার)
       await _engine!.setAudioProfile(
         profile: AudioProfileType.audioProfileMusicHighQualityStereo,
         scenario: AudioScenarioType.audioScenarioGameStreaming,
@@ -53,6 +52,7 @@ class AgoraManager {
         await _engine!.setParameters('{"che.audio.specify.codec": "OPUS"}');
       }
 
+      // রিপেল এনিমেশনের জন্য ভলিউম ইন্ডিকেশন (পুরাতন ফিচার ঠিক রাখা হয়েছে)
       await _engine!.enableAudioVolumeIndication(
         interval: 250,
         smooth: 3,
@@ -65,12 +65,12 @@ class AgoraManager {
           _localUid = connection.localUid;
           forceResumeAudio(); 
         },
+        // 🔔 রিপেল ডাটা পাস করার হ্যান্ডলার (নতুন সংযোজন)
+        onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
+          _volumeStreamController.add(speakers);
+        },
         onAudioMixingStateChanged: (AudioMixingStateType state, AudioMixingReasonType reason) {
-          if (state == AudioMixingStateType.audioMixingStatePlaying) {
-            _isMusicPlaying = true;
-          } else if (state == AudioMixingStateType.audioMixingStateStopped) {
-            _isMusicPlaying = false;
-          }
+          _isMusicPlaying = (state == AudioMixingStateType.audioMixingStatePlaying);
         },
         onError: (err, msg) {
           debugPrint("❌ এগোরা এরর: $err - $msg");
@@ -84,17 +84,14 @@ class AgoraManager {
     }
   }
 
-  // --- মিউজিক ফিচারসমূহ ---
-
-  // ১. গান শুরু করা (গ্যালারি বা স্টোরেজ থেকে)
+  // --- মিউজিক ফিচারসমূহ (পুরাতন কোড হুবহু রাখা হয়েছে) ---
   Future<void> startMusic(String filePath) async {
     if (_engine == null) return;
     try {
       await _engine!.startAudioMixing(
         filePath: filePath,
-        loopback: true, // নিজে শোনার জন্য
-        // replaceMic: false, // 👈 আপনার ভার্সনে এটি নেই, তাই এটি রিমুভ করা হলো
-        cycle: -1, // আনলিমিটেড লুপ
+        loopback: true, 
+        cycle: -1, 
       );
       _isMusicPlaying = true;
       debugPrint("🎵 মিউজিক মিক্সিং শুরু: $filePath");
@@ -103,20 +100,16 @@ class AgoraManager {
     }
   }
 
-  // ২. গান বন্ধ করা
   Future<void> stopMusic() async {
     if (_engine == null) return;
     await _engine!.stopAudioMixing();
     _isMusicPlaying = false;
   }
 
-  // ৩. গানের ভলিউম সেট করা
   Future<void> setMusicVolume(int volume) async {
     if (_engine == null) return;
     await _engine!.adjustAudioMixingVolume(volume);
   }
-
-  // --- এন্ড অফ মিউজিক ফিচার ---
 
   Future<void> forceResumeAudio() async {
     if (kIsWeb) {
@@ -145,6 +138,7 @@ class AgoraManager {
     }
   }
 
+  // --- সাইলেন্ট এন্ট্রি ফিক্স (রুমে ঢোকার সময় কলিং হবে না) ---
   Future<void> joinAsListener(String channelName, [String? fireUid]) async {
     if (!_isInitialized || _engine == null) await initAgora();
 
@@ -158,14 +152,17 @@ class AgoraManager {
       uid: _localUid!,
       options: const ChannelMediaOptions(
         clientRoleType: ClientRoleType.clientRoleAudience,
-        publishMicrophoneTrack: false,
-        autoSubscribeAudio: true,
+        publishMicrophoneTrack: false, // 👈 কলিং বন্ধ থাকবে
+        autoSubscribeAudio: true,      // অন্যের কথা শোনা যাবে
       ),
     );
+    
+    await _engine!.enableLocalAudio(false); // 👈 হার্ডওয়্যার মাইক অফ
     _shouldBeBroadcasting = false;
     await forceResumeAudio();
   }
 
+  // --- সিটে বসার পর কলিং শুরু করার ফাংশন ---
   Future<void> becomeBroadcaster() async {
     if (_engine == null) await initAgora();
     _shouldBeBroadcasting = true;
@@ -178,6 +175,7 @@ class AgoraManager {
       }
     }
 
+    await _engine!.enableLocalAudio(true); // 👈 মাইক অন
     await _engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     await _ensureAudioPublishing();
 
@@ -192,14 +190,12 @@ class AgoraManager {
   Future<void> _ensureAudioPublishing() async {
     if (_engine == null) return;
     
-    // ৬.৫.৩ ভার্সনে 'publishAudioMixingTrack' নেই, তাই এটি রিমুভ করা হলো
     await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
-      publishMicrophoneTrack: !_isMicMutedLocal, // মাইক স্ট্যাটাস অনুযায়ী
+      publishMicrophoneTrack: !_isMicMutedLocal, 
       autoSubscribeAudio: true,
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
     ));
 
-    // হার্ডওয়্যার লেভেলে মাইক কন্ট্রোল
     await _engine!.enableLocalAudio(!_isMicMutedLocal);
     
     if (!_isMicMutedLocal) {
@@ -213,7 +209,6 @@ class AgoraManager {
     
     await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
       publishMicrophoneTrack: !isMute,
-      // publishAudioMixingTrack: true, // 👈 এরর রিমুভ করা হলো
     ));
     
     await _engine!.enableLocalAudio(!isMute);
@@ -224,13 +219,13 @@ class AgoraManager {
     if (_engine == null) return;
     _shouldBeBroadcasting = false;
     _keepAliveTimer?.cancel();
-    await stopMusic(); // লিসেনার হয়ে গেলে গান বন্ধ
+    await stopMusic(); 
     await _engine!.setClientRole(role: ClientRoleType.clientRoleAudience);
     await _engine!.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: false,
-      // publishAudioMixingTrack: false, // 👈 এরর রিমুভ করা হলো
       autoSubscribeAudio: true,
     ));
+    await _engine!.enableLocalAudio(false); // 👈 মাইক অফ
   }
 
   Future<void> leaveRoom() async {
