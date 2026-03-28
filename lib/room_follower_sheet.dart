@@ -57,28 +57,22 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
         if (!snapshot.data!.exists) return const Center(child: Text("রুম পাওয়া যায়নি", style: TextStyle(color: Colors.white54)));
 
         var roomData = snapshot.data!.data() as Map<String, dynamic>;
-        
-        // ১. ওনার আইডি নির্ধারণ (ডাটাবেস থেকে অথবা উইজেট প্যারামিটার থেকে)
         String actualOwnerId = roomData['adminId'] ?? widget.ownerId;
-        
         List<dynamic> followers = List.from(roomData['followers'] ?? []);
         List<dynamic> admins = List.from(roomData['admins'] ?? []);
 
-        // ২. গুরুত্বপূর্ণ: ওনার যদি বর্তমানে রুমে (ফলোয়ার লিস্টে) না থাকে, তবুও তাকে লিস্টে যুক্ত করা
         if (actualOwnerId.isNotEmpty && !followers.contains(actualOwnerId)) {
           followers.add(actualOwnerId);
         }
 
-        // ৩. সর্টিং লজিক: ওনার সবসময় Index 0 (সবার উপরে) থাকবে
+        // সর্টিং: ওনার সবার উপরে, তারপর এডমিনরা
         followers.sort((a, b) {
           if (a == actualOwnerId) return -1;
           if (b == actualOwnerId) return 1;
-          
           bool aIsAdmin = admins.contains(a);
           bool bIsAdmin = admins.contains(b);
           if (aIsAdmin && !bIsAdmin) return -1;
           if (!aIsAdmin && bIsAdmin) return 1;
-          
           return 0;
         });
 
@@ -86,15 +80,14 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
           itemCount: followers.length,
           itemBuilder: (context, index) {
             String uid = followers[index];
-            bool isOwner = (uid == actualOwnerId);
-            bool isAdmin = admins.contains(uid);
+            bool isTargetOwner = (uid == actualOwnerId);
+            bool isTargetAdmin = admins.contains(uid);
 
             return FutureBuilder<DocumentSnapshot>(
               future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
               builder: (context, userSnap) {
                 if (!userSnap.hasData) return const ListTile();
                 var userData = userSnap.data?.data() as Map<String, dynamic>?;
-                
                 String name = userData?['name'] ?? "User";
                 String photo = userData?['photoUrl'] ?? "";
 
@@ -106,27 +99,17 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
                         backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null,
                         child: photo.isEmpty ? const Icon(Icons.person, color: Colors.white54) : null,
                       ),
-                      if (isOwner)
-                        const Positioned(
-                          right: -2,
-                          bottom: -2,
-                          child: Icon(Icons.stars, color: Colors.amber, size: 18),
-                        ),
+                      if (isTargetOwner)
+                        const Positioned(right: -2, bottom: -2, child: Icon(Icons.stars, color: Colors.amber, size: 18)),
                     ],
                   ),
-                  title: Text(
-                    name, 
-                    style: TextStyle(
-                      color: isOwner ? Colors.amber : Colors.white,
-                      fontWeight: isOwner ? FontWeight.bold : FontWeight.normal
-                    )
-                  ),
-                  subtitle: _buildBadge(isOwner, isAdmin),
-                  // ওনারের জন্য ট্রেইলিং মেনু হাইড করা এবং ওনার ছাড়া অন্য কেউ যাতে মেনু না পায়
-                  trailing: (myUid == actualOwnerId && uid != myUid) 
+                  title: Text(name, style: TextStyle(color: isTargetOwner ? Colors.amber : Colors.white, fontWeight: isTargetOwner ? FontWeight.bold : FontWeight.normal)),
+                  subtitle: _buildBadge(isTargetOwner, isTargetAdmin),
+                  // মেনু লজিক: মালিক সবাইকে কন্ট্রোল করবে, এডমিন শুধু ফলোয়ারদের কিক করতে পারবে
+                  trailing: _shouldShowMenu(myUid, actualOwnerId, uid, isTargetOwner, isTargetAdmin, admins) 
                       ? IconButton(
                           icon: const Icon(Icons.more_vert, color: Colors.white54),
-                          onPressed: () => _showAdminOptions(uid, isAdmin),
+                          onPressed: () => _showAdminOptions(uid, isTargetAdmin, actualOwnerId),
                         ) 
                       : null,
                 );
@@ -138,13 +121,23 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
     );
   }
 
+  // মেনু কার জন্য দেখাবে তার লজিক
+  bool _shouldShowMenu(String me, String owner, String target, bool isTargetOwner, bool isTargetAdmin, List admins) {
+    if (me == target) return false; // নিজেকে নিজে মেনু দেখাবে না
+    if (me == owner) return true; // মালিক সবাইকে কন্ট্রোল করতে পারবে
+    if (admins.contains(me) && !isTargetOwner && !isTargetAdmin) return true; // এডমিন শুধু ফলোয়ারদের কিক করতে পারবে
+    return false;
+  }
+
   Widget _buildBadge(bool isOwner, bool isAdmin) {
     if (isOwner) return const Text("👑 Owner", style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold));
     if (isAdmin) return const Text("🛡️ Admin", style: TextStyle(color: Colors.blueAccent, fontSize: 12));
     return const Text("Follower", style: TextStyle(color: Colors.white54, fontSize: 12));
   }
 
-  void _showAdminOptions(String targetUid, bool isAdmin) {
+  void _showAdminOptions(String targetUid, bool isTargetAdmin, String actualOwnerId) {
+    bool IAmOwner = (myUid == actualOwnerId);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF16213E),
@@ -153,14 +146,17 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const SizedBox(height: 10),
-          ListTile(
-            leading: Icon(isAdmin ? Icons.remove_moderator : Icons.add_moderator, color: Colors.blue),
-            title: Text(isAdmin ? "Remove Admin" : "Make Admin", style: const TextStyle(color: Colors.white)),
-            onTap: () {
-              Navigator.pop(context);
-              _toggleAdmin(targetUid, isAdmin);
-            },
-          ),
+          // এডমিন দেওয়া/নেওয়া (শুধুমাত্র মালিক পারবে)
+          if (IAmOwner)
+            ListTile(
+              leading: Icon(isTargetAdmin ? Icons.remove_moderator : Icons.add_moderator, color: Colors.blue),
+              title: Text(isTargetAdmin ? "Remove Admin" : "Make Admin", style: const TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                _toggleAdmin(targetUid, isTargetAdmin);
+              },
+            ),
+          // কিক করা (মালিক সবাইরে পারবে, এডমিন শুধু ইউজাররে পারবে)
           ListTile(
             leading: const Icon(Icons.gavel, color: Colors.red),
             title: const Text("Kick User", style: TextStyle(color: Colors.red)),
@@ -181,7 +177,6 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         var data = snapshot.data!.data() as Map<String, dynamic>?;
-        
         String actualOwnerId = data?['adminId'] ?? widget.ownerId;
         List kickedUsers = data?['kickedUsers'] ?? [];
 
@@ -195,25 +190,19 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
               future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
               builder: (context, userSnap) {
                 var userData = userSnap.data?.data() as Map<String, dynamic>?;
-                String name = userData?['name'] ?? uid;
+                String name = userData?['name'] ?? "User";
                 String photo = userData?['photoUrl'] ?? "";
 
                 return ListTile(
                   leading: CircleAvatar(
-                    radius: 15, 
-                    backgroundColor: Colors.grey[800],
                     backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null,
-                    child: photo.isEmpty ? const Icon(Icons.person, color: Colors.white54, size: 15) : null,
+                    child: photo.isEmpty ? const Icon(Icons.person) : null,
                   ),
-                  title: Text(name, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                  title: Text(name, style: const TextStyle(color: Colors.white)),
                   trailing: (myUid == actualOwnerId || (data?['admins'] ?? []).contains(myUid)) 
-                    ? ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent, 
-                          visualDensity: VisualDensity.compact,
-                        ),
+                    ? IconButton(
+                        icon: const Icon(Icons.refresh, color: Colors.greenAccent),
                         onPressed: () => _unKickUser(uid),
-                        child: const Text("Unkick", style: TextStyle(color: Colors.white, fontSize: 11)),
                       ) : null,
                 );
               },
