@@ -1441,7 +1441,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
             },
           ),
           // ৪. গিফট বাটন
-          IconButton(
+           IconButton(
           constraints: const BoxConstraints(),
           padding: const EdgeInsets.symmetric(horizontal: 4),
           icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
@@ -1456,7 +1456,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
             
             if (userDoc.exists && userDoc.data() != null) {
               final data = userDoc.data()!;
-              // --- সংশোধন: আপনার ডাটাবেস অনুযায়ী diamonds এবং userName ---
+              // ডাটাবেস অনুযায়ী diamonds এবং userName চেক
               currentBalance = data['diamonds'] ?? 0;
               senderName = data['userName'] ?? data['name'] ?? "User"; 
             }
@@ -1502,14 +1502,14 @@ List<Widget> _buildFloatingEmojiAnimations() {
                     int unitPrice = gift['price'] ?? 0;
                     int totalAmount = unitPrice * count;
 
-                    // --- সংশোধন: target থেকে আইডি খুঁজে বের করা ---
-                    String receiverId = "";
+                    // সংশোধন: orElse-এ null এর বদলে খালি Map দিয়ে বিল্ড এরর সমাধান করা হয়েছে
                     var targetSeat = seats.firstWhere(
                       (s) => s != null && (s['userName'] == target || s['name'] == target),
-                      orElse: () => null,
+                      orElse: () => <String, dynamic>{}, 
                     );
                     
-                    if (targetSeat != null) {
+                    String receiverId = "";
+                    if (targetSeat.isNotEmpty) {
                       receiverId = targetSeat['uID'] ?? targetSeat['uid'] ?? "";
                     }
 
@@ -1789,17 +1789,23 @@ List<Widget> _buildFloatingEmojiAnimations() {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      await FirebaseFirestore.instance
-          .collection('rooms')
-          .doc(widget.roomId)
-          .collection('viewers')
-          .doc(user.uid)
-          .set({
-        'uid': user.uid,
-        'userName': userDoc.data()?['name'] ?? 'User',
-        'userImage': userDoc.data()?['profilePic'] ?? '',
-        'joinedAt': FieldValue.serverTimestamp(),
-      });
+      
+      if (userDoc.exists) {
+        final userData = userDoc.data();
+        
+        await FirebaseFirestore.instance
+            .collection('rooms')
+            .doc(widget.roomId)
+            .collection('viewers')
+            .doc(user.uid)
+            .set({
+          // --- আপনার ডাটাবেস প্রোটোকল অনুযায়ী আপডেট করা হয়েছে ---
+          'uID': user.uid, 
+          'userName': userData?['userName'] ?? userData?['name'] ?? 'User',
+          'userImage': userData?['userImage'] ?? userData?['profilePic'] ?? '',
+          'joinedAt': FieldValue.serverTimestamp(),
+        });
+      }
     }
   }
 
@@ -1814,4 +1820,4 @@ List<Widget> _buildFloatingEmojiAnimations() {
           .delete();
     }
   }
-} // <--- এই একটি ব্র্যাকেট দিয়ে ক্লাস শেষ করুন
+} // <--- এই একটি ব্র্যাকেট দিয়ে ক্লাস শেষ করা হলো
