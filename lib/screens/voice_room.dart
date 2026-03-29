@@ -1110,24 +1110,24 @@ List<Widget> _buildFloatingEmojiAnimations() {
 
               // ১. ভিআইপি সিট চেক
               if (isVipSeat) {
-                // সরাসরি আপনার ডাটাবেস অনুযায়ী 'uID' দিয়ে ইউজার খোঁজা হচ্ছে
+                // সরাসরি আপনার ডাটাবেস অনুযায়ী 'uID' দিয়ে ইউজার খোঁজা হচ্ছে
                 DocumentSnapshot userDoc = await FirebaseFirestore.instance
                     .collection('users')
-                    .doc(uid) // এখানে uid হলো ভেরিয়েবল, যা ফাংশন থেকে আসে
+                    .doc(uid) 
                     .get();
 
                 if (userDoc.exists) {
                   final userData = userDoc.data() as Map<String, dynamic>?;
                   
-                  // আপনার স্ক্রিনশট অনুযায়ী 'uID' এবং 'isVip' চেক করা হচ্ছে
+                  // আপনার স্ক্রিনশট অনুযায়ী 'isVip' চেক করা হচ্ছে
                   bool isUserVip = userData?['isVip'] == true;
-                  String checkUID = userData?['uID'] ?? ""; // বড় হাতের uID
 
                   if (!isUserVip) {
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text( Only VIP Users..."),
+                        // নিচের লাইনে কোটেশন (") ঠিক করে দেওয়া হয়েছে
+                        content: Text("Only VIP Users can sit here!"), 
                         backgroundColor: Colors.redAccent,
                       ),
                     );
@@ -1249,8 +1249,8 @@ List<Widget> _buildFloatingEmojiAnimations() {
     },
   );
 }
-                
-// --- ২. অ্যাকশন বার (মাইক, গেম এবং চ্যাট ইনপুট) ---
+  
+  // --- ২. অ্যাকশন বার (মাইক, গেম এবং চ্যাট ইনপুট) ---
    Widget _buildBottomActionArea() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
@@ -1262,30 +1262,40 @@ List<Widget> _buildFloatingEmojiAnimations() {
             child: ChatInputBar(
               controller: _messageController,
               onEmojiTap: () {
-                // ১. বর্তমান ইউজারের আইডি বের করা
+                // ১. বর্তমান ইউজারের আইডি
                 final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? "";
                 
-                // ২. ইউজার কোন সিটে আছে তা বের করা
-                int mySeatIndex = seats.indexWhere((s) => s != null && (s['uid'] == currentUid || s['userId'] == currentUid));
+                // ২. ইউজার কোন সিটে আছে (uID বড় হাতের চেক করা হচ্ছে)
+                int mySeatIndex = seats.indexWhere((s) => s != null && (s['uID'] == currentUid || s['uid'] == currentUid));
 
-                // EmojiHandler ব্যবহার করে পিকার দেখানো
+                // EmojiHandler দিয়ে পিকার দেখানো
                 EmojiHandler.showPicker(
                   context: context, 
                   seatIndex: mySeatIndex, 
                   onEmojiSelected: (index, url) {
-                    // ৩. অ্যানিমেটেড ইমোজি সিটে দেখানোর লজিক
                     if (index != -1) {
-                      setState(() { 
-                        // অ্যানিমেটেড ইমোজি আপডেট (যদি ভেরিয়েবল থাকে)
+                      // ৩. অ্যানিমেটেড ইমোজি সিটে দেখানোর জন্য লোকাল স্টেট আপডেট
+                      setState(() {
+                        seats[index]['showEmoji'] = true;
+                        seats[index]['currentEmoji'] = url;
+                      });
+
+                      // ইমোজি যেন ৩ সেকেন্ড পর চলে যায় তার জন্য টাইমার
+                      Future.delayed(const Duration(seconds: 3), () {
+                        if (mounted) {
+                          setState(() {
+                            seats[index]['showEmoji'] = false;
+                          });
+                        }
                       });
                       
-                      // 🔥 ইমোজি যেন সিটে দেখা যায় সেজন্য রিয়েলটাইম ডাটাবেসে আপডেট
+                      // 🔥 রিয়েলটাইম ডাটাবেসে আপডেট (সিটের ওপর ইমোজি দেখানোর জন্য)
                       FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index').update({
                         'currentEmoji': url,
                         'emojiTime': ServerValue.timestamp,
                       });
 
-                      // ডাটাবেসে আপডেট (আপনার অরিজিনাল ফায়ারস্টোর কোড)
+                      // ফায়ারস্টোরে আপডেট
                       FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
                         'lastEmoji': url,
                         'emojiIndex': index,
@@ -1299,8 +1309,9 @@ List<Widget> _buildFloatingEmojiAnimations() {
                 final user = FirebaseAuth.instance.currentUser;
                 final String senderId = user?.uid ?? "";
                 
-                // সঠিক নাম নিশ্চিত করা
-                String finalName = msg['userName'] ?? user?.displayName ?? "User";
+                // আপনার প্রোফাইল ডাটা থেকে সঠিক নাম ও ছবি নিশ্চিত করা
+                String finalName = currentUserData['userName'] ?? currentUserData['name'] ?? user?.displayName ?? "User";
+                String finalImage = currentUserData['userImage'] ?? currentUserData['profileImage'] ?? msg['userImage'] ?? "";
 
                 // ৪. মেসেজ ফায়ারবেসে পাঠানো
                 await FirebaseFirestore.instance
@@ -1309,16 +1320,16 @@ List<Widget> _buildFloatingEmojiAnimations() {
                     .collection('messages')
                     .add({
                   'userName': finalName,
-                  'userImage': msg['userImage'],
+                  'userImage': finalImage,
                   'text': msg['text'],
                   'senderId': senderId,
                   'timestamp': FieldValue.serverTimestamp(),
                 });
 
-                // ৫. ইমোজি হলে সিটে এনিমেশন ট্রিগার করা
-                int senderSeat = seats.indexWhere((s) => s != null && (s['uid'] == senderId || s['userId'] == senderId));
+                // ৫. মেসেজ পাঠানোর সময়ও যদি সিটে এনিমেশন ট্রিগার করতে চান (uID চেক)
+                int senderSeat = seats.indexWhere((s) => s != null && (s['uID'] == senderId || s['uid'] == senderId));
                 if (senderSeat != -1) {
-                  // এনিমেশন কোড এখানে থাকবে
+                   // এখানেও চাইলে ইমোজি বা পপ-আপ এনিমেশন লজিক দিতে পারেন
                 }
               },
             ),
