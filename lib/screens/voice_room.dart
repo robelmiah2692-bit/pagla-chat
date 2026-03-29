@@ -180,7 +180,7 @@ void initState() {
   );
 
   // ৪. এগোরা ম্যানেজার ব্যবহার করে ভয়েস ডিটেকশন ও মিউজিক রিপেল
-  Future.microtask(() async {
+   Future.microtask(() async {
     try {
       await _agoraManager.initAgora(); 
       
@@ -190,7 +190,7 @@ void initState() {
       final engine = _agoraManager.engine;
       
       if (engine != null) {
-        // ✅ রিপেল ইফেক্টের জন্য ভলিউম ইন্ডিকেশন ইনাবল করা
+        // ✅ ভলিউম ইন্ডিকেশন ইনাবল করা (স্মুথ এনিমেশনের জন্য ২৫০ মিলি সেকেন্ড রাখা হয়েছে)
         await engine.enableAudioVolumeIndication(
           interval: 250, 
           smooth: 3, 
@@ -202,18 +202,14 @@ void initState() {
             onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
               debugPrint("👥 Remote user joined: $remoteUid");
               if (mounted) {
-                setState(() {
-                  _addUserToViewers(); 
-                });
+                _addUserToViewers(); 
               }
             },
 
             onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
               debugPrint("👋 Remote user left: $remoteUid");
-              if (mounted) setState(() {});
             },
 
-            // ✅ গান শেষ হলে বা পজ হলে বাটন স্টেট আপডেট করার জন্য
             onAudioMixingStateChanged: (AudioMixingStateType state, AudioMixingReasonType reason) {
               if (mounted) {
                 setState(() {
@@ -226,41 +222,39 @@ void initState() {
               if (!mounted) return;
               
               bool hasChanged = false;
+              List<String> currentTalkingUids = [];
 
-              // লোকালি সবার কথা বলা বন্ধ ধরি শুরুতে
+              // ১. যারা কথা বলছে তাদের আইডিগুলো একটি লিস্টে জমা করি
+              for (var speaker in speakers) {
+                if ((speaker.volume ?? 0) > 5) {
+                  // এগোরা নিজের আইডিকে ০ পাঠায়, সেটাকে লোকাল আইডি দিয়ে বদলে নিচ্ছি
+                  String activeUid = (speaker.uid == 0) 
+                      ? myActualUid 
+                      : speaker.uid.toString();
+                  currentTalkingUids.add(activeUid);
+                }
+              }
+
+              // ২. সিট লিস্ট লুপ চালিয়ে কথা বলার স্টেট আপডেট করি
               for (int i = 0; i < seats.length; i++) {
-                if (seats[i]["isTalking"] == true) {
-                  seats[i]["isTalking"] = false;
+                if (seats[i] == null) continue;
+
+                // আপনার ডাটাবেস প্রোটোকল অনুযায়ী uID বা userId চেক
+                String seatUserId = seats[i]["uID"]?.toString() ?? seats[i]["userId"]?.toString() ?? "";
+                String seatAgoraUid = seats[i]["agoraUid"]?.toString() ?? "";
+
+                // চেক করছি এই সিটের ইউজার কি বর্তমান স্পিকার লিস্টে আছে?
+                bool isUserTalkingNow = currentTalkingUids.contains(seatUserId) || 
+                                      currentTalkingUids.contains(seatAgoraUid);
+
+                // যদি আগের স্টেট থেকে বর্তমান স্টেট আলাদা হয়, তবেই আপডেট হবে
+                if (seats[i]["isTalking"] != isUserTalkingNow) {
+                  seats[i]["isTalking"] = isUserTalkingNow;
                   hasChanged = true;
                 }
               }
 
-              // এগোরা থেকে আসা স্পিকারদের ডেটা চেক (গান বা ভয়েস দুইটাই এখানে আসবে)
-              for (var speaker in speakers) {
-                final int sUid = speaker.uid ?? 0;
-                final int managerUid = _agoraManager.localUid ?? 0;
-                final int currentSpeakerUid = (sUid == 0) ? managerUid : sUid;
-                final int vol = speaker.volume ?? 0;
-
-                // ভলিউম ৫ এর বেশি হলে রিপেল দেখাবে (গান বাজলে এটা কাজ করবে)
-                if (vol > 5) { 
-                  for (int i = 0; i < seats.length; i++) {
-                    final String seatUserId = seats[i]["userId"]?.toString() ?? "";
-                    final String seatAgoraUid = seats[i]["agoraUid"]?.toString() ?? "";
-
-                    bool isMe = (sUid == 0 && seatUserId == myActualUid);
-                    bool isOthers = (seatAgoraUid == currentSpeakerUid.toString());
-
-                    if (isMe || isOthers) {
-                      if (seats[i]["isTalking"] == false) {
-                        seats[i]["isTalking"] = true;
-                        hasChanged = true;
-                      }
-                    }
-                  }
-                }
-              }
-
+              // ৩. শুধুমাত্র পরিবর্তন হলেই একবার setState কল হবে
               if (hasChanged && mounted) {
                 setState(() {});
               }
@@ -273,7 +267,6 @@ void initState() {
       debugPrint("❌ Agora Error: $e");
     }
   });
-
   // ৫. পুরাতন অডিও প্লেয়ার লিসেনার সরিয়ে আগোরার সাথে সিঙ্ক (দরকার হলে রাখা হয়েছে)
   // তবে গান এখন সরাসরি আগোরার EventHandler থেকেই কন্ট্রোল হচ্ছে।
 
