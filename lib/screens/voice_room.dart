@@ -1442,89 +1442,101 @@ List<Widget> _buildFloatingEmojiAnimations() {
           ),
           // ৪. গিফট বাটন
           IconButton(
-            constraints: const BoxConstraints(),
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
-            onPressed: () async {
-              final userDoc = await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(FirebaseAuth.instance.currentUser?.uid)
-                  .get();
-              
-              int currentBalance = 0;
-              String senderName = "User"; 
-              
-              if (userDoc.exists && userDoc.data() != null) {
-                currentBalance = userDoc.data()!['diamonds'] ?? 0;
-                senderName = userDoc.data()!['name'] ?? "User"; 
-              }
+          constraints: const BoxConstraints(),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
+          onPressed: () async {
+            final userDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(FirebaseAuth.instance.currentUser?.uid)
+                .get();
+            
+            int currentBalance = 0;
+            String senderName = "User"; 
+            
+            if (userDoc.exists && userDoc.data() != null) {
+              final data = userDoc.data()!;
+              // --- সংশোধন: আপনার ডাটাবেস অনুযায়ী diamonds এবং userName ---
+              currentBalance = data['diamonds'] ?? 0;
+              senderName = data['userName'] ?? data['name'] ?? "User"; 
+            }
 
-              if (!mounted) return;
+            if (!mounted) return;
 
-              showModalBottomSheet(
-                context: context,
-                backgroundColor: Colors.transparent,
-                isScrollControlled: true,
-                builder: (context) => GiftBottomSheet(
-                  diamondBalance: currentBalance, 
-                  currentSeats: List.from(seats), 
-                  onGiftSend: (gift, count, target) async {
-                    // ১. লোকাল ফোনে এনিমেশন আপডেট
-                    setState(() {
-                      currentGiftImage = gift['icon'];
-                      isGiftAnimating = true;
-                      targetType = target; 
-                      currentSenderName = senderName; 
-                      currentReceiverName = target; 
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              isScrollControlled: true,
+              builder: (context) => GiftBottomSheet(
+                diamondBalance: currentBalance, 
+                currentSeats: List.from(seats), 
+                onGiftSend: (gift, count, target) async {
+                  // ১. লোকাল ফোনে এনিমেশন আপডেট
+                  setState(() {
+                    currentGiftImage = gift['icon'];
+                    isGiftAnimating = true;
+                    targetType = target; 
+                    currentSenderName = senderName; 
+                    currentReceiverName = target; 
+                  });
+
+                  // ২. গ্লোবাল এনিমেশন ট্রিগার
+                  try {
+                    await FirebaseFirestore.instance
+                        .collection('rooms')
+                        .doc(widget.roomId)
+                        .collection('gift_animations')
+                        .add({
+                      'giftIcon': gift['icon'],
+                      'senderName': senderName,
+                      'receiverName': target,
+                      'timestamp': FieldValue.serverTimestamp(),
                     });
+                  } catch (e) {
+                    debugPrint("Animation Trigger Error: $e");
+                  }
 
-                    // ২. গ্লোবাল এনিমেশন ট্রিগার (অন্যদের দেখানোর জন্য)
-                    try {
-                      await FirebaseFirestore.instance
-                          .collection('rooms')
-                          .doc(widget.roomId)
-                          .collection('gift_animations')
-                          .add({
-                        'giftIcon': gift['icon'],
-                        'senderName': senderName,
-                        'receiverName': target,
-                        'timestamp': FieldValue.serverTimestamp(),
-                      });
-                    } catch (e) {
-                      debugPrint("Animation Trigger Error: $e");
+                  // ৩. ট্রানজেকশন লজিক (uID এবং receiverId নিশ্চিত করা)
+                  try {
+                    bool isFree = gift['isFree'] ?? false;
+                    int unitPrice = gift['price'] ?? 0;
+                    int totalAmount = unitPrice * count;
+
+                    // --- সংশোধন: target থেকে আইডি খুঁজে বের করা ---
+                    String receiverId = "";
+                    var targetSeat = seats.firstWhere(
+                      (s) => s != null && (s['userName'] == target || s['name'] == target),
+                      orElse: () => null,
+                    );
+                    
+                    if (targetSeat != null) {
+                      receiverId = targetSeat['uID'] ?? targetSeat['uid'] ?? "";
                     }
 
-                    // ৩. পুরাতন ট্রানজেকশন লজিক ঠিক রাখা হয়েছে
-                    try {
-                      bool isFree = gift['isFree'] ?? false;
-                      String receiverId = gift['targetId'] ?? ""; 
-                      int unitPrice = gift['price'] ?? 0;
-                      int totalAmount = unitPrice * count;
-
-                      if (receiverId.isNotEmpty) {
-                        await GiftTransactionHelper.processGiftTransaction(
-                          senderId: FirebaseAuth.instance.currentUser!.uid,
-                          receiverId: receiverId,
-                          totalPrice: totalAmount,
-                          isFree: isFree,
-                          giftName: gift['name'] ?? "Gift",
-                        );
-                      }
-                    } catch (e) {
-                      debugPrint("Transaction Error: $e");
+                    if (receiverId.isNotEmpty) {
+                      await GiftTransactionHelper.processGiftTransaction(
+                        senderId: FirebaseAuth.instance.currentUser!.uid,
+                        receiverId: receiverId,
+                        totalPrice: totalAmount,
+                        isFree: isFree,
+                        giftName: gift['name'] ?? "Gift",
+                      );
                     }
+                  } catch (e) {
+                    debugPrint("Transaction Error: $e");
+                  }
 
-                    // ৪. এনিমেশন টাইমার
-                    Timer(const Duration(seconds: 3), () {
-                      if (mounted) {
-                        setState(() { isGiftAnimating = false; });
-                      }
-                    });
-                  },
-                ),
-              );
-            },
-          ),
+                  // ৪. এনিমেশন টাইমার
+                  Timer(const Duration(seconds: 5), () {
+                    if (mounted) {
+                      setState(() { isGiftAnimating = false; });
+                    }
+                  });
+                },
+              ),
+            );
+          },
+        ),
           // ৫. গেম বাটন
           IconButton(
             constraints: const BoxConstraints(),
