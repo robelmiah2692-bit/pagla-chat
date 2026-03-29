@@ -916,7 +916,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   try {
                     await FirebaseStorage.instance.refFromURL(roomProfileImage).delete();
                   } catch (e) {
-                    debugPrint("পুরাতন ছবি মুছতে সমস্যা: $e");
+                    debugPrint("failed $e");
                   }
                 }
 
@@ -1110,12 +1110,30 @@ List<Widget> _buildFloatingEmojiAnimations() {
 
               // ১. ভিআইপি সিট চেক
               if (isVipSeat) {
-                DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-                bool isUserVip = (userDoc.data() as Map<String, dynamic>?)?['isVip'] ?? false;
-                if (!isUserVip) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("এই রাজকীয় সিটটি শুধুমাত্র VIP মেম্বারদের জন্য!")),
-                  );
+                // সরাসরি আপনার ডাটাবেস অনুযায়ী 'uID' দিয়ে ইউজার খোঁজা হচ্ছে
+                DocumentSnapshot userDoc = await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(uid) // এখানে uid হলো ভেরিয়েবল, যা ফাংশন থেকে আসে
+                    .get();
+
+                if (userDoc.exists) {
+                  final userData = userDoc.data() as Map<String, dynamic>?;
+                  
+                  // আপনার স্ক্রিনশট অনুযায়ী 'uID' এবং 'isVip' চেক করা হচ্ছে
+                  bool isUserVip = userData?['isVip'] == true;
+                  String checkUID = userData?['uID'] ?? ""; // বড় হাতের uID
+
+                  if (!isUserVip) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text( Only VIP Users..."),
+                        backgroundColor: Colors.redAccent,
+                      ),
+                    );
+                    return; 
+                  }
+                } else {
                   return; 
                 }
               }
