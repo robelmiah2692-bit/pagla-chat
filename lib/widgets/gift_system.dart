@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:lottie/lottie.dart'; // লটি এনিমেশন ইমপোর্ট
+import 'package:lottie/lottie.dart'; 
 import 'package:pagla_chat/services/gift_logic_helper.dart';
 
-// ডাটা ফাইল ইমপোর্ট
 import 'package:pagla_chat/data/free_gifts.dart';
 import 'package:pagla_chat/data/classic_gifts.dart';
 import 'package:pagla_chat/data/romantic_gifts.dart';
@@ -12,6 +11,7 @@ import 'package:pagla_chat/data/luxury_gifts.dart';
 class GiftBottomSheet extends StatefulWidget {
   final int diamondBalance;
   final List<dynamic> currentSeats; 
+  final int viewerCount; // ভিউয়ার সংখ্যা জানার জন্য (All Room এর জন্য দরকার)
   final Function(Map<String, dynamic> gift, int count, String target) onGiftSend;
 
   const GiftBottomSheet({
@@ -19,6 +19,7 @@ class GiftBottomSheet extends StatefulWidget {
     required this.diamondBalance,
     required this.currentSeats,
     required this.onGiftSend,
+    this.viewerCount = 0,
   });
 
   @override
@@ -30,6 +31,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   int selectedCount = 1;
   String targetType = "Target"; 
   String? selectedTargetId; 
+  String? selectedTargetName; // ইউজারের নাম দেখানোর জন্য
   
   late List<Map<String, dynamic>> dynamicFreeGifts;
   Timer? _timer; 
@@ -37,8 +39,8 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   @override
   void initState() {
     super.initState();
-    // ফ্রি গিফট সেটআপ (টাইম আটকে থাকবে না, প্রতি সেকেন্ডে আপডেট হবে)
-    DateTime expiryDate = DateTime.now().add(const Duration(hours: 2, minutes: 23));
+    // ✅ ৩ দিনের (৭২ ঘণ্টা) ফ্রি গিফট লজিক
+    DateTime expiryDate = DateTime.now().add(const Duration(days: 3));
     dynamicFreeGifts = freeGifts.map((g) {
       var map = Map<String, dynamic>.from(g);
       map['expiry'] = expiryDate; 
@@ -48,9 +50,8 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
-          // সময় শেষ হলে ফ্রি গিফট অটোমেটিক রিমুভ হবে
           dynamicFreeGifts.removeWhere((g) => 
-            (g['expiry'] as DateTime).difference(DateTime.now()).isNegative
+            (g['expiry'] as DateTime).isBefore(DateTime.now())
           );
         });
       }
@@ -63,10 +64,9 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     super.dispose();
   }
 
-  // --- রুমে থাকা ইউজার লিস্ট দেখানোর ডায়ালগ ---
   void _showUserSelectionList() {
-    // শুধু যাদের UID আছে এবং যারা একটিভ তাদের লিস্ট
-    List activeUsers = widget.currentSeats.where((s) => s != null && s['uid'] != null).toList();
+    // অ্যাক্টিভ ইউজার ফিল্টারিং
+    List activeUsers = widget.currentSeats.where((s) => s != null && (s['uID'] != null || s['uid'] != null)).toList();
 
     showModalBottomSheet(
       context: context,
@@ -91,15 +91,18 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                       itemCount: activeUsers.length,
                       itemBuilder: (context, index) {
                         var seat = activeUsers[index];
+                        String uID = (seat['uID'] ?? seat['uid'] ?? "").toString();
+                        String name = seat['name'] ?? "User";
                         return ListTile(
                           leading: CircleAvatar(
                             backgroundImage: NetworkImage(seat['image'] ?? seat['profilePic'] ?? "https://via.placeholder.com/150"),
                           ),
-                          title: Text(seat['name'] ?? "User", style: const TextStyle(color: Colors.white)),
-                          subtitle: Text("ID: ${seat['uID'] ?? seat['uid'] ?? 'N/A'}", style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                          title: Text(name, style: const TextStyle(color: Colors.white)),
+                          subtitle: Text("ID: $uID", style: const TextStyle(color: Colors.white54, fontSize: 11)),
                           onTap: () {
                             setState(() {
-                              selectedTargetId = seat['uid'];
+                              selectedTargetId = uID;
+                              selectedTargetName = name;
                               targetType = "Target"; 
                             });
                             Navigator.pop(context);
@@ -176,22 +179,24 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
         children: [
           _targetChip("All Room", Icons.groups),
           _targetChip("All Mic", Icons.mic),
-          _targetChip("Target", Icons.person_pin_circle),
+          // যদি টার্গেট সিলেক্ট করা থাকে তবে তার নাম দেখাবে
+          _targetChip(selectedTargetName ?? "Target", Icons.person_pin_circle, isTargetMode: true),
         ],
       ),
     );
   }
 
-  Widget _targetChip(String label, IconData icon) {
-    bool isSelected = targetType == label;
+  Widget _targetChip(String label, IconData icon, {bool isTargetMode = false}) {
+    bool isSelected = isTargetMode ? (targetType == "Target") : (targetType == label);
     return GestureDetector(
       onTap: () {
-        if (label == "Target") {
+        if (isTargetMode) {
           _showUserSelectionList();
         } else {
           setState(() {
             targetType = label;
-            selectedTargetId = label; 
+            selectedTargetId = label;
+            selectedTargetName = null;
           });
         }
       },
@@ -227,10 +232,8 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
         var gift = gifts[index];
         bool isSelected = selectedGift?['id'] == gift['id'];
         
-        // ইমেজ হ্যান্ডলিং: JSON (Lottie), Network, অথবা Asset
         String giftPath = (gift["image"] ?? gift["icon"] ?? gift["url"] ?? gift["png"] ?? "").toString();
         bool isJson = giftPath.toLowerCase().endsWith('.json');
-        bool isNetwork = giftPath.startsWith('http');
 
         return GestureDetector(
           onTap: () => setState(() => selectedGift = gift),
@@ -245,17 +248,13 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
               children: [
                 SizedBox(
                   height: 45, width: 45,
-                  child: giftPath.isEmpty 
-                    ? const Icon(Icons.card_giftcard, color: Colors.white24)
-                    : isJson 
-                      ? Lottie.asset(giftPath, repeat: true, fit: BoxFit.contain, errorBuilder: (c,e,s) => const Icon(Icons.error))
-                      : isNetwork 
-                        ? Image.network(giftPath, fit: BoxFit.contain, errorBuilder: (c,e,s) => const Icon(Icons.broken_image))
-                        : Image.asset(giftPath, fit: BoxFit.contain, errorBuilder: (c,e,s) => const Icon(Icons.broken_image)),
+                  child: isJson 
+                      ? Lottie.asset(giftPath, repeat: true, fit: BoxFit.contain)
+                      : Image.network(giftPath, fit: BoxFit.contain, errorBuilder: (c,e,s) => const Icon(Icons.card_giftcard, color: Colors.white24)),
                 ),
                 const SizedBox(height: 5),
                 if (isFreeTab) 
-                  Text(_getRemainingTime(gift['expiry']), style: const TextStyle(color: Colors.greenAccent, fontSize: 8, fontWeight: FontWeight.bold))
+                  Text(_getRemainingTime(gift['expiry']), style: const TextStyle(color: Colors.greenAccent, fontSize: 7, fontWeight: FontWeight.bold))
                 else
                   Text("💎 ${gift["price"]}", style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
               ],
@@ -297,15 +296,29 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
 
   void _handleSendAction() {
     int unitPrice = (selectedGift!['price'] ?? 0) as int;
-    int totalPrice = unitPrice * selectedCount;
     bool isFree = selectedGift!['expiry'] != null;
+    
+    // ✅ ডায়মন্ড ক্যালকুলেশন লজিক
+    int multiplier = 1;
+    if (targetType == "All Mic") {
+      multiplier = widget.currentSeats.where((s) => s != null).length;
+    } else if (targetType == "All Room") {
+      multiplier = widget.viewerCount > 0 ? widget.viewerCount : 1;
+    }
+    
+    int totalPrice = unitPrice * selectedCount * multiplier;
 
     if (!isFree && widget.diamondBalance < totalPrice) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Insufficient Diamonds!")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Insufficient Diamonds! Need $totalPrice 💎")));
       return;
     }
 
-    // সার্ভারে বা মেইন পেজে ডাটা পাঠানো (সেখানে ৫ সেকেন্ডের টাইমার সেট করতে হবে)
+    // ফ্রি গিফট হলে শুধুমাত্র ১ জনকে দেওয়া যাবে ( multiplier = 1)
+    if (isFree && targetType != "Target") {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Free gifts can only be sent to a specific user!")));
+        return;
+    }
+
     widget.onGiftSend(selectedGift!, selectedCount, selectedTargetId ?? targetType);
 
     if (isFree) {
@@ -318,14 +331,8 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   }
 
   String _getRemainingTime(DateTime expiry) {
-    final now = DateTime.now();
-    final difference = expiry.difference(now);
+    final difference = expiry.difference(DateTime.now());
     if (difference.isNegative) return "Expired";
-    
-    int hours = difference.inHours;
-    int minutes = difference.inMinutes % 60;
-    int seconds = difference.inSeconds % 60;
-    
-    return "${hours}h ${minutes}m ${seconds}s";
+    return "${difference.inDays}d ${difference.inHours % 24}h ${difference.inMinutes % 60}m";
   }
 }
