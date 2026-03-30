@@ -54,7 +54,7 @@ class UserListScreen extends StatelessWidget {
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
               var data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
-              // এখান থেকে আইডিটা সঠিকভাবে নিতে হবে
+              // ডকুমেন্ট আইডি সরাসরি এখান থেকে নেওয়া হচ্ছে
               String targetUserId = snapshot.data!.docs[index].id; 
               
               return Container(
@@ -82,7 +82,7 @@ class UserListScreen extends StatelessWidget {
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 14),
                   onTap: () {
-                    // প্রোফাইলে যাওয়ার সময় আমরা শুধু আইডি পাঠাবো
+                    // প্রোফাইলে যাওয়ার লজিক ঠিক করা হয়েছে
                     Navigator.push(
                       context,
                       MaterialPageRoute(
