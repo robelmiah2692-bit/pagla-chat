@@ -83,7 +83,10 @@ class _LuckySpinViewState extends State<LuckySpinView> {
     if (isSpinning) return;
     
     widget.playSound("https://www.soundjay.com/misc/sounds/mechanical-clanking-1.mp3");
-    setState(() { isSpinning = true; winLoseStatus = ""; });
+    setState(() { 
+      isSpinning = true; 
+      winLoseStatus = ""; 
+    });
 
     int winIdx = Random().nextInt(wheelSegments.length);
     var winResult = wheelSegments[winIdx];
@@ -96,33 +99,48 @@ class _LuckySpinViewState extends State<LuckySpinView> {
 
     final myId = FirebaseAuth.instance.currentUser?.uid;
     final myName = FirebaseAuth.instance.currentUser?.displayName ?? "User";
+    
+    if (myId == null) return;
+
     int totalWin = 0;
     bool hasWon = false;
+    bool hasParticipated = false;
 
+    // ১. চেক করা ইউজার বেট ধরেছে কি না এবং জিতেছে কি না
     for (var bet in widget.luckyBets) {
-      if (bet['id'] == myId && bet['slot'] == winResult['label']) {
-        hasWon = true;
-        int amt = int.tryParse(bet['amount'].toString()) ?? 0;
-        totalWin += amt * (winResult['mult'] as int);
+      if (bet['id'] == myId) {
+        hasParticipated = true;
+        if (bet['slot'] == winResult['label']) {
+          hasWon = true;
+          int amt = int.tryParse(bet['amount'].toString()) ?? 0;
+          totalWin += amt * (winResult['mult'] as int);
+        }
       }
     }
 
-    if (hasWon) {
+    // ২. যদি উইন হয় তবে ডায়মন্ড যোগ করা
+    if (hasWon && totalWin > 0) {
       widget.playSound("https://www.soundjay.com/human/sounds/applause-01.mp3");
       setState(() => winLoseStatus = "🎉 WIN! +💎$totalWin");
+      
+      // ডায়মন্ড আপডেট
       await widget.userRef.child("diamonds").set(ServerValue.increment(totalWin));
+      
+      // উইনার লিস্টে নাম যোগ করা
       await widget.gameRef.child("luckyWinners").push().set({
         "name": myName,
         "amount": totalWin,
         "time": ServerValue.timestamp,
       });
-    } else if (widget.luckyBets.any((b) => b['id'] == myId)) {
+    } else if (hasParticipated) {
       widget.playSound("https://www.soundjay.com/buttons/sounds/button-10.mp3");
       setState(() => winLoseStatus = "❌ LOSE!");
     }
 
+    // ৩. ক্লিনিং লজিক
     Future.delayed(const Duration(seconds: 2), () async {
       if (mounted) {
+        // শুধুমাত্র গেম শেষ হলেই বেট ডিলিট করা
         await widget.gameRef.child("luckyBets").remove();
         setState(() => isSpinning = false);
       }
@@ -139,7 +157,6 @@ class _LuckySpinViewState extends State<LuckySpinView> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             child: Column(
               children: [
-                // ১. স্ট্যাটাস এবং কাউন্টডাউন
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
                   decoration: BoxDecoration(
@@ -154,7 +171,6 @@ class _LuckySpinViewState extends State<LuckySpinView> {
                 
                 const SizedBox(height: 15),
                 
-                // ২. হুইল সেকশন
                 Stack(
                   alignment: Alignment.topCenter,
                   children: [
@@ -181,15 +197,9 @@ class _LuckySpinViewState extends State<LuckySpinView> {
                 ),
 
                 const SizedBox(height: 20),
-                
-                // ৩. বেট গ্রিড
                 _buildBetGrid(constraints.maxWidth),
-                
                 const SizedBox(height: 20),
-                
-                // ৪. উইনার লিস্ট
                 _buildTopWinners(),
-                
                 const SizedBox(height: 30),
               ],
             ),
@@ -200,6 +210,8 @@ class _LuckySpinViewState extends State<LuckySpinView> {
   }
 
   Widget _buildBetGrid(double width) {
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -213,21 +225,28 @@ class _LuckySpinViewState extends State<LuckySpinView> {
       itemBuilder: (context, index) {
         String slot = wheelSegments[index]['label'];
         int myBetOnThis = 0;
+
         for (var b in widget.luckyBets) {
-          if (b['id'] == FirebaseAuth.instance.currentUser?.uid && b['slot'] == slot) {
+          if (b['id'] == currentUid && b['slot'] == slot) {
             myBetOnThis += int.tryParse(b['amount'].toString()) ?? 0;
           }
         }
 
         return GestureDetector(
           onTap: () async {
-            if (widget.userBalance < widget.betAmount || isSpinning || _countdown < 2) return;
+            if (currentUid == null || widget.userBalance < widget.betAmount || isSpinning || _countdown < 2) return;
+            
             widget.playSound("https://www.soundjay.com/buttons/sounds/button-3.mp3");
+            
+            // ডায়মন্ড বিয়োগ করা
             await widget.userRef.child("diamonds").set(ServerValue.increment(-widget.betAmount));
+            
+            // ফায়ারবেসে বেট জমা দেওয়া
             await widget.gameRef.child("luckyBets").push().set({
-              "id": FirebaseAuth.instance.currentUser?.uid,
+              "id": currentUid,
               "slot": slot,
               "amount": widget.betAmount,
+              "time": ServerValue.timestamp,
             });
           },
           child: Container(
