@@ -516,18 +516,17 @@ Widget build(BuildContext context) {
         following = userData['following'] ?? 0;
       }
 
-      // ভিআইপি লেভেল এবং পরবর্তী টার্গেট ক্যালকুলেশন
       int vipLevel = getVipLevel(); 
       int nextTarget = getNextLevelTarget(xp);
       double progressValue = (xp / nextTarget).clamp(0.0, 1.0);
 
       return Scaffold(
-        backgroundColor: const Color(0xFF0F0F1E),
+        extendBodyBehindAppBar: true, // ব্যাকগ্রাউন্ড কালার অ্যাপবার পর্যন্ত পাওয়ার জন্য
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: isMe ? Padding(
-            padding: const EdgeInsets.only(left: 10),
+            padding: const EdgeInsets.only(left: 10, top: 15),
             child: Row(children: [
               const Text("💎", style: TextStyle(fontSize: 16)), 
               Text(" $diamonds", style: const TextStyle(color: Colors.white, fontSize: 12))
@@ -540,13 +539,15 @@ Widget build(BuildContext context) {
         body: Container(
           width: double.infinity,
           height: double.infinity,
+          // 🔥 আপনার দেওয়া ছবির মতো কালার গ্রেডিয়েন্ট এখানে সেট করা হয়েছে
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFF1A1A2E),
-                Color(0xFF0F0F1E),
+                Color(0xFF8E8FFA), // হালকা বেগুনি (Top)
+                Color(0xFFFFA07A), // হালকা কমলা/গোল্ডেন (Middle)
+                Color(0xFFE91E63), // গাঢ় পিঙ্ক/ম্যাজেন্টা (Bottom)
               ],
             ),
           ), 
@@ -554,6 +555,8 @@ Widget build(BuildContext context) {
             physics: const BouncingScrollPhysics(),
             child: Column(
               children: [
+                const SizedBox(height: kToolbarHeight + 20), // অ্যাপবারের নিচে জায়গা রাখার জন্য
+
                 // --- ম্যারেজ সেকশন ---
                 StreamBuilder<DocumentSnapshot>(
                   stream: FirebaseFirestore.instance
@@ -574,7 +577,8 @@ Widget build(BuildContext context) {
                     return const SizedBox(height: 20);
                   },
                 ),
-                const SizedBox(height: 20),
+                
+                const SizedBox(height: 10),
 
                 // প্রোফাইল পিকচার ও গোল্ডেন ফ্রেম
                 Center(
@@ -584,14 +588,13 @@ Widget build(BuildContext context) {
                       if (vipLevel > 0) 
                         Image.network(
                           "https://png.pngtree.com/png-clipart/20230501/original/pngtree-golden-vip-frame-png-image_9128509.png", 
-                          width: 130, 
-                          height: 130
+                          width: 130, height: 130
                         ),
                       GestureDetector(
                         onTap: isMe ? _pickProfileImage : null, 
                         child: CircleAvatar(
                           radius: 50, 
-                          backgroundColor: Colors.grey[900], 
+                          backgroundColor: Colors.white24, 
                           backgroundImage: (userImageURL.isNotEmpty) ? NetworkImage(userImageURL) : null,
                           child: (userImageURL.isEmpty) ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
                         ),
@@ -603,13 +606,13 @@ Widget build(BuildContext context) {
                 const SizedBox(height: 10),
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Text(userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                  if (isMe) IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.pinkAccent), onPressed: _editName)
+                  if (isMe) IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.white70), onPressed: _editName)
                 ]),
 
-                Text("User ID: $uIDValue", style: const TextStyle(color: Colors.pinkAccent, fontSize: 13, fontWeight: FontWeight.bold)),
+                Text("User ID: $uIDValue", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 15),
 
-                // 🔥 VIP এবং ডাইনামিক XP প্রগ্রেস বার সেকশন
+                // VIP এবং XP প্রগ্রেস বার
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 25), 
                   child: Row(
@@ -618,7 +621,7 @@ Widget build(BuildContext context) {
                       if (vipLevel > 0) 
                         Image.network(getVipBadge(vipLevel), width: 45, height: 45) 
                       else 
-                        const Icon(Icons.stars_rounded, color: Colors.white24, size: 40),
+                        const Icon(Icons.stars_rounded, color: Colors.white38, size: 40),
                       
                       const SizedBox(width: 15),
                       
@@ -630,7 +633,7 @@ Widget build(BuildContext context) {
                               vipLevel == 0 
                                   ? "Target VIP 1 (XP: $xp / $nextTarget)" 
                                   : "VIP Level $vipLevel (XP: $xp / $nextTarget)", 
-                              style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)
                             ),
                             const SizedBox(height: 8),
                             ClipRRect(
@@ -638,8 +641,8 @@ Widget build(BuildContext context) {
                               child: LinearProgressIndicator(
                                 value: progressValue, 
                                 minHeight: 8,
-                                valueColor: const AlwaysStoppedAnimation(Colors.amber), 
-                                backgroundColor: Colors.white10,
+                                valueColor: const AlwaysStoppedAnimation(Colors.white), 
+                                backgroundColor: Colors.white24,
                               ),
                             ),
                           ],
@@ -665,10 +668,10 @@ Widget build(BuildContext context) {
                     ElevatedButton(
                       onPressed: _toggleFollow,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: isFollowing ? Colors.blueGrey : Colors.pinkAccent, 
+                        backgroundColor: isFollowing ? Colors.white24 : Colors.white, 
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
                       ),
-                      child: Text(isFollowing ? "Friend" : "Follow", style: const TextStyle(color: Colors.white)),
+                      child: Text(isFollowing ? "Friend" : "Follow", style: TextStyle(color: isFollowing ? Colors.white : Colors.pinkAccent, fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(width: 10),
                     IconButton(
@@ -678,18 +681,19 @@ Widget build(BuildContext context) {
                       },
                     ),
                   ] else
-                    const SizedBox(width: 80, child: Center(child: Text("MY PROFILE", style: TextStyle(color: Colors.white54, fontSize: 10)))),
+                    const SizedBox(width: 80, child: Center(child: Text("MY PROFILE", style: TextStyle(color: Colors.white70, fontSize: 10)))),
                   const SizedBox(width: 25),
                   _buildStat("Following", following, targetUserId, context),
                 ]),
 
                 const SizedBox(height: 35),
 
+                // মালিকের জন্য ডাইমন্ড, প্রিমিয়াম এবং ব্যাকপ্যাক বাটন
                 if (isMe) ...[
                   Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                    _buildActionBox("Diamond", Icons.diamond, Colors.cyan, () => _openDiamondStore(userData)),
-                    _buildActionBox("Premium", Icons.card_membership, Colors.purple, _openPremiumStore),
-                    _buildActionBox("Backpack", Icons.backpack, Colors.orange, _openBackpack),
+                    _buildActionBox("Diamond", Icons.diamond, Colors.white, () => _openDiamondStore(userData)),
+                    _buildActionBox("Premium", Icons.card_membership, Colors.white, _openPremiumStore),
+                    _buildActionBox("Backpack", Icons.backpack, Colors.white, _openBackpack),
                   ]),
 
                   if (userData['isAgent'] == true) ...[
@@ -711,7 +715,7 @@ Widget build(BuildContext context) {
   );
 }
 
-// ✅ ১. ফলোয়ার/ফলোয়িং লিস্ট সিকিউরিটি লজিক
+// ✅ ফলোয়ার/ফলোয়িং লিস্টের নিরাপত্তা লজিক (হুবহু রাখা হয়েছে)
 Widget _buildStat(String label, int value, String uID, BuildContext context) {
   final String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
   return GestureDetector(
@@ -724,8 +728,9 @@ Widget _buildStat(String label, int value, String uID, BuildContext context) {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("You not possible to see $label others parson List!"), 
-            backgroundColor: Colors.redAccent
+            content: Text("You cannot see $label list of other users!"), 
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
           )
         );
       }
@@ -736,7 +741,7 @@ Widget _buildStat(String label, int value, String uID, BuildContext context) {
     ]),
   );
 }
-
+                
 // ✅ ২. অ্যাকশন বক্স উইজেট (পুরানো ডিজাইন সহ)
 Widget _buildActionBox(String title, IconData icon, Color color, VoidCallback onTap) {
   return GestureDetector(
