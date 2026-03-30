@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'profile_page.dart'; // আপনার প্রোফাইল স্ক্রিনটি ইম্পোর্ট করুন
+// আপনার ফাইলের নাম অনুযায়ী ইম্পোর্ট
+import 'profile_page.dart'; 
 
 class UserListScreen extends StatelessWidget {
   final String title; 
@@ -48,7 +49,6 @@ class UserListScreen extends StatelessWidget {
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
               var data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
-              // ইউজারের আসল ডকুমেন্ট আইডি (uid) সংগ্রহ করা
               String targetUserId = snapshot.data!.docs[index].id; 
               
               return Container(
@@ -76,13 +76,13 @@ class UserListScreen extends StatelessWidget {
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 14),
                   onTap: () {
-                    // 🔥 অন্য ইউজারের প্রোফাইলে যাওয়ার লজিক
+                    // 🔥 এখানে ProfileScreen এর বদলে ProfilePage হবে
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => ProfileScreen(
-                          userId: targetUserId, // ঐ ইউজারের আইডি
-                          isReadOnly: true,     // প্রোফাইল শুধু দেখতে পারবে, এডিট করতে পারবে না
+                        builder: (context) => ProfilePage( // ✅ এটি পরিবর্তন করা হয়েছে
+                          userId: targetUserId, 
+                          isReadOnly: true,     
                         ),
                       ),
                     );
