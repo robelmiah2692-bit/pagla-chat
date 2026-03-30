@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'profile_screen.dart'; // আপনার প্রোফাইল স্ক্রিনটি ইম্পোর্ট করুন
+import 'profile_page.dart'; // আপনার প্রোফাইল স্ক্রিনটি ইম্পোর্ট করুন
 
 class UserListScreen extends StatelessWidget {
   final String title; 
