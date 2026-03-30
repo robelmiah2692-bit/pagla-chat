@@ -9,7 +9,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:gallery_saver/gallery_saver.dart'; // গ্যালারিতে সেভ করার জন্য
 import 'dart:io';
 import 'screens/voice_room.dart';
-import 'package:record/record.dart';
 
 class ChatScreen extends StatefulWidget {
   final String receiverId;
@@ -31,12 +30,12 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
   
-  // মিডিয়া ও ভয়েস ভেরিয়েবল
+  // মিডিয়া ও ভয়েস ভেরিয়েবল
   final ImagePicker _picker = ImagePicker();
   final Record _audioRecorder = Record();
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isRecording = false;
- 
+
   @override
   void dispose() {
     _messageController.dispose();
@@ -52,7 +51,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return ids.join("_"); 
   }
 
-  // --- মিডিয়া অ্যাকশন (ডায়মন্ড চেক) ---
+  // --- মিডিয়া অ্যাকশন (ডায়মন্ড চেক) ---
   void _handleMediaAction() async {
     final userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUserId).get();
     final userData = userDoc.data() as Map<String, dynamic>? ?? {};
@@ -91,7 +90,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  // গ্যালারি থেকে ফাইল নেওয়া
+  // গ্যালারি থেকে ফাইল নেওয়া
   Future<void> _pickMedia(ImageSource source, {required bool isVideo}) async {
     final XFile? file = isVideo 
         ? await _picker.pickVideo(source: source) 
@@ -102,7 +101,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // ফায়ারবেস স্টোরেজ আপলোড
+  // ফায়ারবেস স্টোরেজ আপলোড
   Future<void> _uploadToFirebase(File file, String type) async {
     try {
       String fileName = '${type}_${DateTime.now().millisecondsSinceEpoch}';
@@ -115,37 +114,29 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-   // --- নতুন ও এরর-মুক্ত ভয়েস নোট লজিক (record: ^4.4.4) ---
+  // --- নতুন ও এরর-মুক্ত ভয়েস নোট লজিক ---
   void _startVoiceNote() async {
-    // মাইক্রোফোন পারমিশন চেক করা
     if (await _audioRecorder.hasPermission()) {
       if (_isRecording) {
-        // রেকর্ড স্টপ করা
         final path = await _audioRecorder.stop();
         setState(() => _isRecording = false);
-        
         if (path != null) {
           _uploadToFirebase(File(path), "audio");
         }
       } else {
-        // সেভ করার জন্য ডিরেক্টরি তৈরি
         final directory = await getApplicationDocumentsDirectory();
         final path = '${directory.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
-        
-        // রেকর্ড শুরু করা (record 4.4.4 এ সরাসরি পাথ দিলেই হয়)
         await _audioRecorder.start(path: path);
-
         setState(() => _isRecording = true);
       }
     } else {
-      // পারমিশন না থাকলে মেসেজ দেখানো
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Microphone permission denied!")),
       );
     }
   }
 
-  // চ্যাটে মেসেজ পাঠানো (Text, Image, Video, Audio)
+  // চ্যাটে মেসেজ পাঠানো
   void _sendDataMessage(String content, String type) async {
     if (content.isEmpty) return;
     try {
@@ -179,7 +170,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageController.clear();
   }
 
-  // --- পুরাতন ডায়ালগ এবং ফিচারসমূহ (অপরিবর্তিত) ---
+  // ডায়মন্ড পারচেজ ডায়ালগ
   void _showPurchaseDialog(int currentDiamonds) {
     showDialog(
       context: context,
@@ -209,28 +200,41 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  // লাইভ বার
-  Widget _buildLiveRoomBar(Map<String, dynamic> data) {
-    if (data['currentRoomId'] == null) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.all(12),
-      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Colors.pinkAccent, Colors.deepPurple]),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.live_tv, color: Colors.white, size: 20),
-          const SizedBox(width: 10),
-          Expanded(child: Text("${data['name']} is Live in: ${data['currentRoomName'] ?? 'Voice Room'}", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.pinkAccent, shape: const StadiumBorder()),
-            onPressed: () {}, 
-            child: const Text("Join", style: TextStyle(fontSize: 11)),
-          )
-        ],
-      ),
+  // --- রিয়েল-টাইম লাইভ বার (Fixed) ---
+  Widget _buildLiveRoomBar() {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').doc(widget.receiverId).snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data?.data() == null) return const SizedBox.shrink();
+        var userData = snapshot.data!.data() as Map<String, dynamic>;
+        String? roomId = userData['currentRoomId'];
+        String roomName = userData['currentRoomName'] ?? 'Voice Room';
+
+        if (roomId == null || roomId.isEmpty) return const SizedBox.shrink();
+
+        return Container(
+          padding: const EdgeInsets.all(12),
+          margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Colors.pinkAccent, Colors.deepPurple]),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.live_tv, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(child: Text("${widget.receiverName} is Live in: $roomName", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.pinkAccent, shape: const StadiumBorder()),
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => VoiceRoomView(roomId: roomId, roomName: roomName)));
+                }, 
+                child: const Text("Join", style: TextStyle(fontSize: 11)),
+              )
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -312,7 +316,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
-          if (widget.receiverData != null) _buildLiveRoomBar(widget.receiverData!),
+          _buildLiveRoomBar(), // লাইভ বার এখন অটোমেটিক আপডেট হবে
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance.collection('chats').doc(getChatRoomId()).collection('messages').orderBy('timestamp', descending: true).snapshots(),
@@ -338,7 +342,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  // মেসেজ বাবল ডিজাইন (ইমেজ, ভিডিও, অডিও সাপোর্ট সহ)
+  // --- মেসেজ বাবল ডিজাইন (Live Badge Added) ---
   Widget _buildMessageBubble(Map<String, dynamic> data, bool isMe) {
     String type = data['type'] ?? 'text';
     String msg = data['message'] ?? '';
@@ -353,7 +357,7 @@ class _ChatScreenState extends State<ChatScreen> {
           const SizedBox(width: 10),
           Flexible(
             child: GestureDetector(
-              onLongPress: () => _downloadMedia(msg, type), // চেপে ধরলে সেভ হবে
+              onLongPress: () => _downloadMedia(msg, type),
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -390,7 +394,6 @@ class _ChatScreenState extends State<ChatScreen> {
     return Text(msg, style: const TextStyle(color: Colors.white, fontSize: 16));
   }
 
-  // মিডিয়া সেভ করার ফাংশন
   void _downloadMedia(String url, String type) async {
     if (type == 'image' || type == 'video') {
       bool? success = await GallerySaver.saveImage(url) ?? await GallerySaver.saveVideo(url);
@@ -398,10 +401,38 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  // --- অবতারের ওপর লাইভ ব্যাজ (Fixed) ---
   Widget _chatAvatar(String uid, String url, String name) {
-    return GestureDetector(
-      onTap: () => _showProfile(context, uid),
-      child: CircleAvatar(radius: 20, backgroundImage: url.isNotEmpty ? NetworkImage(url) : null, child: url.isEmpty ? Text(name[0]) : null),
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+      builder: (context, snapshot) {
+        bool isLive = false;
+        if (snapshot.hasData && snapshot.data?.data() != null) {
+          var d = snapshot.data!.data() as Map<String, dynamic>;
+          isLive = d['currentRoomId'] != null && d['currentRoomId'].toString().isNotEmpty;
+        }
+
+        return GestureDetector(
+          onTap: () => _showProfile(context, uid),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              CircleAvatar(radius: 20, backgroundImage: url.isNotEmpty ? NetworkImage(url) : null, child: url.isEmpty ? Text(name[0]) : null),
+              if (isLive)
+                Positioned(
+                  bottom: -4, left: 0, right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF0D0D1A), width: 1)),
+                      child: const Text("LIVE", style: TextStyle(color: Colors.white, fontSize: 6, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
