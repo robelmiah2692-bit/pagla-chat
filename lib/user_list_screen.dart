@@ -3,11 +3,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 // আপনার ফাইলের নাম অনুযায়ী ইম্পোর্ট
 import 'profile_page.dart'; 
 
-class UserListScreen extends StatelessWidget {
-  final String title; 
-  final String userId; 
+  class UserListScreen extends StatelessWidget {
+  final String title;
+  final String userId;
+  final bool isReadOnly; // ✅ এটি যোগ করুন
 
-  const UserListScreen({super.key, required this.title, required this.userId});
+  const UserListScreen({
+    super.key, 
+    required this.title, 
+    required this.userId, 
+    this.isReadOnly = false, // ✅ ডিফল্ট ভ্যালু false দিন
+  });
 
   @override
   Widget build(BuildContext context) {
