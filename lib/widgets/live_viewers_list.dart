@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'profile_screen.dart'; // প্রোফাইল স্ক্রিন ইম্পোর্ট করুন
 
 class LiveViewersList extends StatelessWidget {
   final String roomId;
@@ -24,13 +25,33 @@ class LiveViewersList extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             itemCount: viewers.length,
             itemBuilder: (context, index) {
-              var viewer = viewers[index].data() as Map<String, dynamic>;
+              var viewerDoc = viewers[index];
+              var viewerData = viewerDoc.data() as Map<String, dynamic>;
+              String viewerId = viewerDoc.id; // ভিউয়ারের ইউআইডি
+
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                child: CircleAvatar(
-                  radius: 16,
-                  backgroundImage: NetworkImage(viewer['userImage'] ?? ''),
-                  backgroundColor: Colors.grey[800],
+                child: GestureDetector(
+                  onTap: () {
+                    // 🔥 ভিউয়ারের প্রোফাইলে যাওয়ার লজিক (শুধু দেখার জন্য)
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProfileScreen(
+                          userId: viewerId, 
+                          isReadOnly: true, // এডিট বাটন হাইড থাকবে
+                        ),
+                      ),
+                    );
+                  },
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundImage: NetworkImage(viewerData['userImage'] ?? ''),
+                    backgroundColor: Colors.grey[800],
+                    child: (viewerData['userImage'] == null || viewerData['userImage'] == '')
+                        ? const Icon(Icons.person, size: 20, color: Colors.white)
+                        : null,
+                  ),
                 ),
               );
             },
