@@ -54,21 +54,26 @@ class _GamePanelViewState extends State<GamePanelView> {
     }
 
     _subscription = _gameRef.onValue.listen((event) {
-      final data = event.snapshot.value as Map?;
-      if (data == null || !mounted) return;
+      if (event.snapshot.value == null || !mounted) return;
+      final data = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
       setState(() {
         gameState = data['gameState'] ?? "WAITING";
         diceNumber = data['diceNumber'] ?? 1;
         if (data['players'] != null) {
-          players = (data['players'] as Map).values.map((e) => e as Map).toList();
+          players = (data['players'] as Map).values.map((e) => Map<dynamic, dynamic>.from(e)).toList();
+        } else {
+          players = [];
         }
         if (data['luckyBets'] != null) {
-          luckyBets = (data['luckyBets'] as Map).values.map((e) => e as Map).toList();
+          luckyBets = (data['luckyBets'] as Map).values.map((e) => Map<dynamic, dynamic>.from(e)).toList();
+        } else {
+          luckyBets = [];
         }
       });
     });
   }
 
+  // লুডু জয়েন করার সময় ডায়মন্ড কাটার লজিক এখানে ঠিক করা হয়েছে
   void _joinLudo() async {
     if (gameState == "RUNNING") {
       _showError("গেম চলছে! এই রাউন্ড শেষ হওয়া পর্যন্ত অপেক্ষা করুন।");
@@ -78,14 +83,37 @@ class _GamePanelViewState extends State<GamePanelView> {
       _showError("রুম ফুল হয়ে গেছে!");
       return;
     }
+    
+    if (userBalance < betAmount) {
+      _showError("আপনার পর্যাপ্ত ডায়মন্ড নেই!");
+      return;
+    }
+
     final user = FirebaseAuth.instance.currentUser;
-    bool alreadyJoined = players.any((p) => p['id'] == user?.uid);
-    if (!alreadyJoined && user != null) {
-      await _gameRef.child("players").child(user.uid).set({
-        "id": user.uid,
-        "name": user.displayName ?? "Player",
-        "photo": user.photoURL ?? "",
-      });
+    if (user == null) return;
+
+    bool alreadyJoined = players.any((p) => p['id'] == user.uid);
+    if (!alreadyJoined) {
+      try {
+        // ১. Firestore থেকে ডায়মন্ড কাটা
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+          'diamonds': FieldValue.increment(-betAmount)
+        });
+
+        // ২. Realtime Database-এ প্লেয়ার লিস্টে যোগ করা
+        await _gameRef.child("players").child(user.uid).set({
+          "id": user.uid,
+          "name": user.displayName ?? "Player",
+          "photo": user.photoURL ?? "",
+          "bet": betAmount,
+        });
+        
+        _playSound("https://www.soundjay.com/buttons/sounds/button-3.mp3");
+      } catch (e) {
+        _showError("জয়েন করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+      }
+    } else {
+      _showError("আপনি ইতিমধ্যে জয়েন করেছেন।");
     }
   }
 
@@ -120,12 +148,10 @@ class _GamePanelViewState extends State<GamePanelView> {
           children: [
             Column(
               children: [
-                const SizedBox(height: 50), // স্ট্যাটাস বারের গ্যাপ
+                const SizedBox(height: 50), 
                 
-                // ডায়মন্ড এবং বেট কন্ট্রোল এরিয়া
                 _buildGameHeader(), 
 
-                // লুডু জয়েন/স্টার্ট বাটন (গেম সিলেক্ট থাকলে এবং ওয়েটিং এ থাকলে)
                 if (selectedGame == "LUDO" && gameState == "WAITING")
                   _buildLudoActionButtons(),
 
@@ -144,18 +170,18 @@ class _GamePanelViewState extends State<GamePanelView> {
                           )
                         : LuckySpinView(
                             gameRef: _gameRef, 
+                            // এখানে userRef হিসেবে সঠিক Realtime Database পাথ অথবা logic হ্যান্ডেল করতে হবে
                             userRef: FirebaseDatabase.instance.ref("users/$currentUserId"), 
                             userBalance: userBalance, 
                             betAmount: betAmount, 
                             luckyBets: luckyBets, 
-                            playSound: _playSound
+                            playSound: _playSound,
                           )
                       ),
                 ),
               ],
             ),
             
-            // নেভিগেশন বাটন (ব্যাক এবং ক্লোজ)
             _buildFloatingNavButtons(),
           ],
         ),
@@ -169,7 +195,6 @@ class _GamePanelViewState extends State<GamePanelView> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // ডায়মন্ড সেকশন
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -186,7 +211,6 @@ class _GamePanelViewState extends State<GamePanelView> {
             ),
           ),
 
-          // বেট কন্ট্রোল সেকশন (গেম সিলেক্ট থাকলে দেখাবে)
           if (selectedGame != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5),
@@ -208,7 +232,7 @@ class _GamePanelViewState extends State<GamePanelView> {
                 ],
               ),
             ),
-          const SizedBox(width: 50), // ক্লোজ বাটনের জন্য স্পেস
+          const SizedBox(width: 50), 
         ],
       ),
     );
