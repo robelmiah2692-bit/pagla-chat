@@ -128,7 +128,6 @@ class _InboxPageState extends State<InboxPage> {
           return name.contains(_searchQuery.toLowerCase()) || customId.contains(_searchQuery.toLowerCase());
         }).toList();
 
-        // লাস্ট মেসেজ অনুযায়ী রিয়েল-টাইম সর্টিং লজিক
         return StreamBuilder<List<Map<String, dynamic>>>(
           stream: _getSortedUserStream(users),
           builder: (context, sortedSnapshot) {
@@ -139,7 +138,8 @@ class _InboxPageState extends State<InboxPage> {
               itemCount: sortedList.length,
               padding: const EdgeInsets.all(10),
               itemBuilder: (context, index) {
-                var userData = sortedList[index]['data'];
+                // এখানে explicit টাইপ কাস্টিং যোগ করা হয়েছে
+                var userData = sortedList[index]['data'] as Map<String, dynamic>;
                 String userId = sortedList[index]['id'];
                 String chatId = sortedList[index]['chatId'];
 
@@ -153,7 +153,6 @@ class _InboxPageState extends State<InboxPage> {
     );
   }
 
-  // লাস্ট মেসেজের টাইমস্ট্যাম্প দিয়ে সর্ট করার জন্য স্ট্রিম ফাংশন
   Stream<List<Map<String, dynamic>>> _getSortedUserStream(List<QueryDocumentSnapshot> users) {
     return Stream.fromFuture(Future.wait(users.map((user) async {
       String userId = user.id;
@@ -181,9 +180,17 @@ class _InboxPageState extends State<InboxPage> {
       };
     }))).map((list) {
       list.sort((a, b) {
+        // এরর ফিক্স: dynamic কে Map এ কাস্ট করা হয়েছে
+        final Map<String, dynamic> aData = a['data'] as Map<String, dynamic>;
+        final Map<String, dynamic> bData = b['data'] as Map<String, dynamic>;
+
+        String aUID = (aData['uID'] ?? "").toString();
+        String bUID = (bData['uID'] ?? "").toString();
+
         // Official অ্যাকাউন্ট সবসময় উপরে থাকবে
-        String aUID = (a['data']['uID'] ?? "").toString();
         if (aUID == "paglachat_official") return -1;
+        if (bUID == "paglachat_official") return 1;
+
         // বাকিরা লাস্ট মেসেজ টাইম অনুযায়ী সর্ট হবে
         return (b['lastTs'] as Timestamp).compareTo(a['lastTs'] as Timestamp);
       });
@@ -195,7 +202,7 @@ class _InboxPageState extends State<InboxPage> {
     String displayId = (userData['uID'] ?? userData['userId'] ?? userData['uid'] ?? "N/A").toString();
     String name = userData['name'] ?? "User";
     String image = userData['profilePic'] ?? userData['imageURL'] ?? "";
-    bool isLive = userData['currentRoomId'] != null;
+    bool isLive = userData['currentRoomId'] != null && userData['currentRoomId'].toString().isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
@@ -211,7 +218,6 @@ class _InboxPageState extends State<InboxPage> {
             ),
             child: ListTile(
               onTap: () {
-                // মেসেজ সিন করা এবং কাউন্ট মুছে ফেলা
                 _markAsRead(chatId);
                 Navigator.push(context, MaterialPageRoute(
                   builder: (context) => ChatScreen(receiverId: userId, receiverName: name, receiverData: userData),
