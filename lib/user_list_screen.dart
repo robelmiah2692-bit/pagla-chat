@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'profile_screen.dart'; // আপনার প্রোফাইল স্ক্রিনটি ইম্পোর্ট করুন
 
 class UserListScreen extends StatelessWidget {
-  final String title; // এটি "Followers" অথবা "Following" রিসিভ করবে
-  final String userId; // কোন ইউজারের লিস্ট দেখা হচ্ছে তার আইডি
+  final String title; 
+  final String userId; 
 
   const UserListScreen({super.key, required this.title, required this.userId});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D1A), // অ্যাপের থিম কালার
+      backgroundColor: const Color(0xFF0D0D1A), 
       appBar: AppBar(
         title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 18)),
         backgroundColor: Colors.transparent,
@@ -19,25 +20,22 @@ class UserListScreen extends StatelessWidget {
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // ডাটাবেস পাথ: users -> {userId} -> followers/following
         stream: FirebaseFirestore.instance
             .collection('users')
             .doc(userId)
             .collection(title.toLowerCase()) 
             .snapshots(),
         builder: (context, snapshot) {
-          // ১. লোডিং অবস্থা
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
           }
 
-          // ২. যদি কোনো ডাটা না থাকে
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.people_outline, color: Colors.white24, size: 80),
+                  const Icon(Icons.people_outline, color: Colors.white24, size: 80),
                   const SizedBox(height: 10),
                   Text("এখনো কোনো $title নেই!", style: const TextStyle(color: Colors.white54, fontSize: 16)),
                 ],
@@ -45,12 +43,13 @@ class UserListScreen extends StatelessWidget {
             );
           }
 
-          // ৩. লিস্ট রেন্ডার করা
           return ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
               var data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
+              // ইউজারের আসল ডকুমেন্ট আইডি (uid) সংগ্রহ করা
+              String targetUserId = snapshot.data!.docs[index].id; 
               
               return Container(
                 margin: const EdgeInsets.only(bottom: 10),
@@ -77,7 +76,16 @@ class UserListScreen extends StatelessWidget {
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 14),
                   onTap: () {
-                    // এখানে ক্লিক করলে ঐ ইউজারের প্রোফাইলে যাওয়ার লজিক দিতে পারেন পরে
+                    // 🔥 অন্য ইউজারের প্রোফাইলে যাওয়ার লজিক
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProfileScreen(
+                          userId: targetUserId, // ঐ ইউজারের আইডি
+                          isReadOnly: true,     // প্রোফাইল শুধু দেখতে পারবে, এডিট করতে পারবে না
+                        ),
+                      ),
+                    );
                   },
                 ),
               );
