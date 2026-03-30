@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-// আপনার ফাইলের নাম অনুযায়ী ইম্পোর্ট
 import 'profile_page.dart'; 
 
-  class UserListScreen extends StatelessWidget {
+class UserListScreen extends StatelessWidget {
   final String title;
   final String userId;
-  final bool isReadOnly; // ✅ এটি যোগ করুন
+  final bool isReadOnly; 
 
   const UserListScreen({
     super.key, 
     required this.title, 
     required this.userId, 
-    this.isReadOnly = false, // ✅ ডিফল্ট ভ্যালু false দিন
+    this.isReadOnly = false, 
   });
 
   @override
@@ -55,6 +54,7 @@ import 'profile_page.dart';
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
               var data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
+              // এখান থেকে আইডিটা সঠিকভাবে নিতে হবে
               String targetUserId = snapshot.data!.docs[index].id; 
               
               return Container(
@@ -67,7 +67,7 @@ import 'profile_page.dart';
                   leading: CircleAvatar(
                     backgroundColor: Colors.grey[800],
                     backgroundImage: NetworkImage(
-                      data['profilePic'] != null && data['profilePic'] != ""
+                      (data['profilePic'] != null && data['profilePic'] != "")
                           ? data['profilePic']
                           : "https://www.pngitem.com/pimgs/m/150-1503945_transparent-user-png-default-user-image-png-png.png",
                     ),
@@ -77,18 +77,17 @@ import 'profile_page.dart';
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                   subtitle: Text(
-                    "ID: ${data['uID'] ?? "N/A"}",
+                    "ID: ${data['uID'] ?? data['uid'] ?? "N/A"}",
                     style: const TextStyle(color: Colors.pinkAccent, fontSize: 12),
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 14),
                   onTap: () {
-                    // 🔥 এখানে ProfileScreen এর বদলে ProfilePage হবে
+                    // প্রোফাইলে যাওয়ার সময় আমরা শুধু আইডি পাঠাবো
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => ProfilePage( // ✅ এটি পরিবর্তন করা হয়েছে
+                        builder: (context) => ProfilePage(
                           userId: targetUserId, 
-                          isReadOnly: true,     
                         ),
                       ),
                     );
