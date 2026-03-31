@@ -10,7 +10,7 @@ class RoomSettingsHandler {
   static void showSettings({
     required BuildContext context,
     required bool isLocked,
-    required String roomId, // রুমের আইডি প্রয়োজন
+    required String roomId,
     required VoidCallback onToggleLock,
     required Function(String) onSetWallpaper,
     required VoidCallback onLeave,
@@ -35,14 +35,11 @@ class RoomSettingsHandler {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  // ১. রুম লক লজিক
                   _buildItem(isLocked ? Icons.lock : Icons.lock_open,
                       isLocked ? "Unlock" : "Lock", Colors.amber, () {
                     Navigator.pop(context);
                     _handleFeaturePurchase(context, roomId, "room_lock", onToggleLock);
                   }),
-
-                  // ২. ওয়ালপেপার পরিবর্তন লজিক
                   _buildItem(Icons.wallpaper, "Wallpaper", Colors.cyanAccent, () async {
                     Navigator.pop(context);
                     _handleFeaturePurchase(context, roomId, "wallpaper", () async {
@@ -53,17 +50,14 @@ class RoomSettingsHandler {
                       }
                     });
                   }),
-
                   _buildItem(Icons.delete_sweep, "Clean Chat", Colors.orangeAccent, () {
                     Navigator.pop(context);
                     onClearChat();
                   }),
-
                   _buildItem(Icons.open_in_full, "Minimize", Colors.green, () {
                     Navigator.pop(context);
                     onMinimize();
                   }),
-
                   _buildItem(Icons.logout, "Exit", Colors.redAccent, () {
                     Navigator.pop(context);
                     _showExitDialog(context, onLeave);
@@ -77,19 +71,19 @@ class RoomSettingsHandler {
     );
   }
 
-  // 🔥 ডায়মন্ড এবং প্যাকেজ চেক করার মেইন লজিক
   static void _handleFeaturePurchase(BuildContext context, String roomId, String featureType, Function onAllowed) async {
     String myUid = _auth.currentUser?.uid ?? "";
     var roomRef = _firestore.collection('rooms').doc(roomId);
     var userRef = _firestore.collection('users').doc(myUid);
 
-    var roomData = (await roomRef.get()).data();
+    var roomSnap = await roomRef.get();
+    if (!roomSnap.exists) return;
     
-    // বর্তমান ফিচারের প্যাকেজ চেক (featureType হতে পারে 'room_lock' অথবা 'wallpaper')
+    var roomData = roomSnap.data();
     var packageData = roomData?[featureType + '_package'];
     bool hasActivePackage = false;
 
-    if (packageData != null) {
+    if (packageData != null && packageData['expiry'] != null) {
       DateTime expiry = (packageData['expiry'] as Timestamp).toDate();
       if (DateTime.now().isBefore(expiry)) {
         hasActivePackage = true;
@@ -97,24 +91,21 @@ class RoomSettingsHandler {
     }
 
     if (hasActivePackage) {
-      // ✅ প্যাকেজ আছে, সরাসরি কাজ করতে দাও
       if (featureType == "room_lock") {
         _showPasswordDialog(context, onAllowed);
       } else {
         onAllowed();
       }
     } else {
-      // ❌ প্যাকেজ নেই, কেনার অপশন দেখাও
-      _showPurchaseDialog(context, (days, diamonds) async {
+      _showPurchaseDialog(context, (int hours, int diamonds) async {
         var userDoc = await userRef.get();
         int myDiamonds = userDoc.data()?['diamonds'] ?? 0;
 
         if (myDiamonds >= diamonds) {
-          // ডায়মন্ড কাটুন এবং প্যাকেজ সেভ করুন
           await userRef.update({'diamonds': myDiamonds - diamonds});
           await roomRef.update({
             featureType + '_package': {
-              'expiry': Timestamp.fromDate(DateTime.now().add(Duration(days: days == 24 ? 1 : 30))),
+              'expiry': Timestamp.fromDate(DateTime.now().add(Duration(hours: hours))),
               'boughtAt': FieldValue.serverTimestamp(),
             }
           });
@@ -131,12 +122,11 @@ class RoomSettingsHandler {
     }
   }
 
-  // ৪ সংখ্যার পাসওয়ার্ড সেট করার ডায়ালগ
   static void _showPasswordDialog(BuildContext context, Function onConfirm) {
     TextEditingController passController = TextEditingController();
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dContext) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
         title: const Text("Set Room Password", style: TextStyle(color: Colors.white)),
         content: TextField(
@@ -144,14 +134,17 @@ class RoomSettingsHandler {
           keyboardType: TextInputType.number,
           maxLength: 4,
           style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(hintText: "Enter 4 digit code", hintStyle: TextStyle(color: Colors.white24)),
+          decoration: const InputDecoration(
+            hintText: "Enter 4 digit code", 
+            hintStyle: TextStyle(color: Colors.white24),
+            counterStyle: TextStyle(color: Colors.white60)
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(onPressed: () => Navigator.pop(dContext), child: const Text("Cancel")),
           TextButton(onPressed: () {
             if (passController.text.length == 4) {
-              Navigator.pop(context);
-              // এখানে পাসওয়ার্ড ডাটাবেসে সেভ করার লজিক বা কলব্যাক দিন
+              Navigator.pop(dContext);
               onConfirm();
             }
           }, child: const Text("Set")),
@@ -160,24 +153,19 @@ class RoomSettingsHandler {
     );
   }
 
-  // প্যাকেজ কেনার ডায়ালগ
   static void _showPurchaseDialog(BuildContext context, Function(int, int) onBuy) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dContext) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
         title: const Text("ফিচারটি চালু করুন", style: TextStyle(color: Colors.white)),
-        content: const Text("আপনার কোনো সক্রিয় প্যাকেজ নেই।", style: TextStyle(color: Colors.white70)),
+        content: const Text("আপনার কোনো সক্রিয় প্যাকেজ নেই।", style: TextStyle(color: Colors.white70)),
         actions: [
-          _buyButton(context, "২৪ ঘণ্টা (২০০ 💎)", () => onBuy(24, 200)),
-          _buyButton(context, "১ মাস (৩৫০০ 💎)", () => onBuy(30, 3500)),
+          TextButton(onPressed: () { Navigator.pop(dContext); onBuy(24, 200); }, child: const Text("২৪ ঘণ্টা (২০০ 💎)")),
+          TextButton(onPressed: () { Navigator.pop(dContext); onBuy(720, 3500); }, child: const Text("১ মাস (৩৫০০ 💎)")),
         ],
       ),
     );
-  }
-
-  static Widget _buyButton(BuildContext context, String txt, VoidCallback tap) {
-    return TextButton(onPressed: () { Navigator.pop(context); tap(); }, child: Text(txt));
   }
 
   static void _showMessage(BuildContext context, String msg) {
@@ -200,13 +188,13 @@ class RoomSettingsHandler {
   static void _showExitDialog(BuildContext context, VoidCallback onConfirm) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[900],
+      builder: (dContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
         title: const Text("Exit Room?", style: TextStyle(color: Colors.white)),
         content: const Text("আপনি কি রুম থেকে বের হতে চান?", style: TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("না")),
-          TextButton(onPressed: () { Navigator.pop(context); onConfirm(); }, child: const Text("হ্যাঁ", style: TextStyle(color: Colors.redAccent))),
+          TextButton(onPressed: () => Navigator.pop(dContext), child: const Text("না")),
+          TextButton(onPressed: () { Navigator.pop(dContext); onConfirm(); }, child: const Text("হ্যাঁ", style: TextStyle(color: Colors.redAccent))),
         ],
       ),
     );
