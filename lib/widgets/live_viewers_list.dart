@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../profile_page.dart'; // পাথ সঠিক আছে কি না দেখে নিন
+
 class LiveViewersList extends StatelessWidget {
   final String roomId;
   const LiveViewersList({super.key, required this.roomId});
@@ -8,7 +9,6 @@ class LiveViewersList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      // যে ইউজাররা এই রুমে আড্ডা দিচ্ছে তাদের লিস্ট আনা
       stream: FirebaseFirestore.instance
           .collection('rooms')
           .doc(roomId)
@@ -26,19 +26,19 @@ class LiveViewersList extends StatelessWidget {
             itemBuilder: (context, index) {
               var viewerDoc = viewers[index];
               var viewerData = viewerDoc.data() as Map<String, dynamic>;
-              String viewerId = viewerDoc.id; // ভিউয়ারের ইউআইডি
+              String viewerId = viewerDoc.id; 
 
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4.0),
                 child: GestureDetector(
                   onTap: () {
-                    // 🔥 ভিউয়ারের প্রোফাইলে যাওয়ার লজিক (শুধু দেখার জন্য)
+                    // 🔥 ProfileScreen এর বদলে ProfilePage ব্যবহার করা হয়েছে
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => ProfileScreen(
+                        builder: (context) => ProfilePage(
                           userId: viewerId, 
-                          isReadOnly: true, // এডিট বাটন হাইড থাকবে
+                          isReadOnly: true, 
                         ),
                       ),
                     );
