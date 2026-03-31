@@ -14,9 +14,15 @@ import 'package:pagla_chat/services/soulmate_service.dart';
 import 'package:pagla_chat/services/marriage_service.dart';
 import 'package:pagla_chat/pages/agent_transfer_page.dart';
 
-class ProfilePage extends StatefulWidget {
-  final String? userId; // ✅ এটি যোগ করা হয়েছে যাতে অন্যের প্রোফাইল আইডি রিসিভ করা যায়
-  const ProfilePage({super.key, this.userId}); // ✅ কনস্ট্রাক্টর আপডেট করা হয়েছে
+  class ProfilePage extends StatefulWidget {
+  final String? userId; 
+  final bool isReadOnly; // ✅ এটি যোগ করুন যাতে এরর না আসে
+
+  const ProfilePage({
+    super.key, 
+    this.userId, 
+    this.isReadOnly = false, // ✅ ডিফল্ট ভ্যালু false দিন
+  }); 
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
