@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'profile_screen.dart'; // প্রোফাইল স্ক্রিন ইম্পোর্ট করুন
-
+import '../profile_page.dart'; // পাথ সঠিক আছে কি না দেখে নিন
 class LiveViewersList extends StatelessWidget {
   final String roomId;
   const LiveViewersList({super.key, required this.roomId});
