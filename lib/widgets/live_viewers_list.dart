@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'profile_page.dart'; // পাথ সঠিক আছে কি না দেখে নিন
+import 'package:pagla_chat/profile_page.dart'; // পাথ সঠিক আছে কি না দেখে নিন
 
 class LiveViewersList extends StatelessWidget {
   final String roomId;
