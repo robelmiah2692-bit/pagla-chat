@@ -32,13 +32,12 @@ class LiveViewersList extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 4.0),
                 child: GestureDetector(
                   onTap: () {
-                    // 🔥 ProfileScreen এর বদলে ProfilePage ব্যবহার করা হয়েছে
+                    // 🔥 isReadOnly প্যারামিটারটি ফেলে দেওয়া হয়েছে যাতে এরর না আসে
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => ProfilePage(
                           userId: viewerId, 
-                          isReadOnly: true, 
                         ),
                       ),
                     );
