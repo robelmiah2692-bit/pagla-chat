@@ -1,8 +1,8 @@
-//import 'package:flutter/material.dart';
-//import 'package:cloud_firestore/cloud_firestore.dart';
-//import 'profile_page.dart';
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'profile_page.dart';
 
-/*class UserListScreen extends StatelessWidget {
+class UserListScreen extends StatelessWidget {
   final String title;
   final String userId;
   final bool isReadOnly; 
@@ -98,4 +98,4 @@
       ),
     );
   }
-}*/
+}
