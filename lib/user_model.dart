@@ -1,4 +1,4 @@
-/*class UserModel {
+class UserModel {
   final String uID;
   final String roomID;
   final String name;
@@ -15,4 +15,4 @@
     );
   }
 }
-*#
+
