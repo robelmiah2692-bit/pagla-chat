@@ -1,4 +1,4 @@
-/*import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SeatService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
