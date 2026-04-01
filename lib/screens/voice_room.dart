@@ -1597,13 +1597,13 @@ List<Widget> _buildFloatingEmojiAnimations() {
     ); 
   }
 
-  void _showSettings() {
+ void _showSettings() {
     RoomSettingsHandler.showSettings(
       context: context,
+      roomId: widget.roomId, // বিল্ড এরর ফিক্সের জন্য এটি দরকার
       isLocked: isRoomLocked,
       onToggleLock: () async {
         setState(() => isRoomLocked = !isRoomLocked);
-        // ১. রুম লক ফিচার
         await FirebaseFirestore.instance
             .collection('rooms')
             .doc(widget.roomId)
@@ -1612,58 +1612,63 @@ List<Widget> _buildFloatingEmojiAnimations() {
       onSetWallpaper: (path) async {
         if (path.isEmpty) return;
         try {
-          // ইউজারের সুবিধার জন্য লোকালি আগে সেট করে দেখানো
           setState(() => roomWallpaperPath = path);
 
-          // ২. স্থায়ী আপলোড লজিক
-          String fileName = 'wallpapers/${widget.roomId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          // ১. পুরাতন ওয়ালপেপার ডিলিট করার লজিক
+          final roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get();
+          if (roomDoc.exists) {
+            String? oldUrl = roomDoc.data()?['roomWallpaper'];
+            // যদি আগে থেকেই কোনো ওয়ালপেপার থাকে এবং সেটি যদি ফায়ারবেস স্টোরেজের হয়
+            if (oldUrl != null && oldUrl.isNotEmpty && oldUrl.contains('firebase')) {
+              try {
+                await FirebaseStorage.instance.refFromURL(oldUrl).delete();
+                debugPrint("🗑️ পুরাতন ওয়ালপেপার ডিলিট হয়েছে");
+              } catch (e) {
+                debugPrint("Old wallpaper delete error: $e");
+              }
+            }
+          }
+
+          // ২. নতুন ফাইল আপলোড লজিক
+          String fileName = 'wallpapers/${widget.roomId}.jpg'; // ফাইলনেম ফিক্সড রাখলে রিপ্লেস হতে সুবিধা হয়
           var storageRef = FirebaseStorage.instance.ref().child(fileName);
 
-          // XFile দিয়ে বাইটস রিড করা (এটিই blob কে আসল ছবিতে রূপান্তর করবে)
           final XFile imageFile = XFile(path);
           final bytes = await imageFile.readAsBytes();
           
-          // ফায়ারবেস স্টোরেজে পুশ করা
           UploadTask uploadTask = storageRef.putData(
             bytes,
             SettableMetadata(contentType: 'image/jpeg'),
           );
 
-          // আপলোড শেষ হওয়া পর্যন্ত অপেক্ষা
           var snapshot = await uploadTask;
-          
-          // ৩. স্থায়ী ডাউনলোড ইউআরএল (https://...) নেওয়া
           String downloadUrl = await snapshot.ref.getDownloadURL();
 
-          // ৪. ডাটাবেসে সেভ (সব নামেই আপডেট করে দিচ্ছি যাতে ভুল না হয়)
+          // ৩. ডাটাবেস আপডেট
           await FirebaseFirestore.instance
               .collection('rooms')
               .doc(widget.roomId)
               .update({
                 'roomWallpaper': downloadUrl,
-                'wallpaper': downloadUrl // ব্যাকআপ ফিল্ড
+                'wallpaper': downloadUrl
               });
 
-          // স্টেট আপডেট যাতে পার্মানেন্ট লিঙ্কটা সেট হয়
           setState(() {
             roomWallpaperPath = downloadUrl;
           });
 
-          debugPrint("🖼️ পার্মানেন্ট লিঙ্ক সেভ হয়েছে: $downloadUrl");
-          
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Wallpaper saved permanently for everyone!")),
+              const SnackBar(content: Text("Wallpaper updated and old one deleted!")),
             );
           }
         } catch (e) {
           debugPrint("Wallpaper Error: $e");
         }
       },
-      onMinimize: () => Navigator.pop(context), // ৫. মিনিমাইজ ফিচার
+      onMinimize: () => Navigator.pop(context),
       onClearChat: () async {
         try {
-          // ৬. চ্যাট ক্লিন লজিক
           final chatDocs = await FirebaseFirestore.instance
               .collection('rooms')
               .doc(widget.roomId)
@@ -1673,9 +1678,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
           for (var ds in chatDocs.docs) {
             await ds.reference.delete();
           }
-          
-          debugPrint("🧹 চ্যাট পরিষ্কার করা হয়েছে!");
-          
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("Chat cleared successfully!")),
@@ -1686,7 +1688,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
         }
       },
       onLeave: () {
-        // ৭. লিভ ফিচার
         _agoraManager.engine.leaveChannel();
         Navigator.pop(context);
       },
