@@ -15,7 +15,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'home_page.dart';
 import 'screens/voice_room.dart';
 import 'inbox_page.dart';
-import 'profile_page.dart';
+//import 'profile_page.dart';
 import 'room_list_page.dart';
 
 // ফায়ারবেস কনফিগারেশন
