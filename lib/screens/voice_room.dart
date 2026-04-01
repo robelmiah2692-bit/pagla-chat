@@ -23,7 +23,7 @@ import 'package:pagla_chat/services/soulmate_animation_service.dart';
 import 'package:pagla_chat/services/agora_status_checker.dart';
 // --- নতুন আলাদা করা ফাইলগুলোর ইম্পোর্ট ---
 import 'package:pagla_chat/services/seat_sync_service.dart'; // সিট সিঙ্ক করার জন্য
-//import 'package:pagla_chat/widgets/live_viewers_list.dart';   // ভিউয়ার লিস্ট দেখানোর জন্য
+import 'package:pagla_chat/widgets/live_viewers_list.dart';   // ভিউয়ার লিস্ট দেখানোর জন্য
 // আপনার সব ফাইল ইমপোর্ট
 import '../pk_battle_view.dart';
 import '../pk_winner_dialog.dart';
@@ -43,7 +43,7 @@ import '../widgets/gift_overlay_handler.dart';
 import '../widgets/gift_system.dart';
 import '../widgets/music_player_widget.dart';
 import '../widgets/room_profile_handler.dart';
-//import '../widgets/room_settings_handler.dart';
+import '../widgets/room_settings_handler.dart';
 import 'package:firebase_storage/firebase_storage.dart'; // এটি নেই, এটি যোগ করতে হবে
 import 'package:image_picker/image_picker.dart'; // গ্যালারি থেকে ছবি নিতে এটি লাগবে
 
