@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'main.dart'; 
+import 'package:pagla_chat/user_list_screen.dart';
 import 'chat_screen.dart';
 import 'package:pagla_chat/services/database_service.dart';
 import 'package:pagla_chat/services/soulmate_service.dart';
@@ -15,13 +16,11 @@ import 'package:pagla_chat/pages/agent_transfer_page.dart';
 
   class ProfilePage extends StatefulWidget {
   final String? userId; 
-  final bool isReadOnly; // ✅ এটি যোগ করুন যাতে এরর না আসে
 
   const ProfilePage({
     super.key, 
     this.userId, 
-    this.isReadOnly = false, // ✅ ডিফল্ট ভ্যালু false দিন
-  }); 
+  });
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -521,17 +520,18 @@ class _ProfilePageState extends State<ProfilePage> {
           following = userData['following'] ?? 0;
         }
 
+        // ভিআইপি লেভেল এবং পরবর্তী টার্গেট ক্যালকুলেশন
         int vipLevel = getVipLevel(); 
         int nextTarget = getNextLevelTarget(xp);
         double progressValue = (xp / nextTarget).clamp(0.0, 1.0);
 
         return Scaffold(
-          extendBodyBehindAppBar: true, 
+          backgroundColor: const Color(0xFF0F0F1E),
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
-            leading: isMe ? Container(
-              padding: const EdgeInsets.only(left: 10, top: 15),
+            leading: isMe ? Padding(
+              padding: const EdgeInsets.only(left: 10),
               child: Row(children: [
                 const Text("💎", style: TextStyle(fontSize: 16)), 
                 Text(" $diamonds", style: const TextStyle(color: Colors.white, fontSize: 12))
@@ -549,9 +549,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFF8E8FFA), 
-                  Color(0xFFFFA07A), 
-                  Color(0xFFE91E63), 
+                  Color(0xFF1A1A2E),
+                  Color(0xFF0F0F1E),
                 ],
               ),
             ), 
@@ -559,8 +558,6 @@ class _ProfilePageState extends State<ProfilePage> {
               physics: const BouncingScrollPhysics(),
               child: Column(
                 children: [
-                  const SizedBox(height: kToolbarHeight + 20),
-
                   // --- ম্যারেজ সেকশন ---
                   StreamBuilder<DocumentSnapshot>(
                     stream: FirebaseFirestore.instance
@@ -581,8 +578,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       return const SizedBox(height: 20);
                     },
                   ),
-                  
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 20),
 
                   // প্রোফাইল পিকচার ও গোল্ডেন ফ্রেম
                   Center(
@@ -592,13 +588,14 @@ class _ProfilePageState extends State<ProfilePage> {
                         if (vipLevel > 0) 
                           Image.network(
                             "https://png.pngtree.com/png-clipart/20230501/original/pngtree-golden-vip-frame-png-image_9128509.png", 
-                            width: 130, height: 130
+                            width: 130, 
+                            height: 130
                           ),
                         GestureDetector(
                           onTap: isMe ? _pickProfileImage : null, 
                           child: CircleAvatar(
                             radius: 50, 
-                            backgroundColor: Colors.white24, 
+                            backgroundColor: Colors.grey[900], 
                             backgroundImage: (userImageURL.isNotEmpty) ? NetworkImage(userImageURL) : null,
                             child: (userImageURL.isEmpty) ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
                           ),
@@ -610,13 +607,13 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 10),
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Text(userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                    if (isMe) IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.white70), onPressed: _editName)
+                    if (isMe) IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.pinkAccent), onPressed: _editName)
                   ]),
 
-                  Text("User ID: $uIDValue", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                  Text("User ID: $uIDValue", style: const TextStyle(color: Colors.pinkAccent, fontSize: 13, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 15),
 
-                  // VIP এবং XP প্রগ্রেস বার
+                  // VIP এবং ডাইনামিক XP প্রগ্রেস বার সেকশন
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 25), 
                     child: Row(
@@ -625,7 +622,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         if (vipLevel > 0) 
                           Image.network(getVipBadge(vipLevel), width: 45, height: 45) 
                         else 
-                          const Icon(Icons.stars_rounded, color: Colors.white38, size: 40),
+                          const Icon(Icons.stars_rounded, color: Colors.white24, size: 40),
                         
                         const SizedBox(width: 15),
                         
@@ -637,7 +634,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 vipLevel == 0 
                                     ? "Target VIP 1 (XP: $xp / $nextTarget)" 
                                     : "VIP Level $vipLevel (XP: $xp / $nextTarget)", 
-                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)
+                                style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)
                               ),
                               const SizedBox(height: 8),
                               ClipRRect(
@@ -645,8 +642,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                 child: LinearProgressIndicator(
                                   value: progressValue, 
                                   minHeight: 8,
-                                  valueColor: const AlwaysStoppedAnimation(Colors.white), 
-                                  backgroundColor: Colors.white24,
+                                  valueColor: const AlwaysStoppedAnimation(Colors.amber), 
+                                  backgroundColor: Colors.white10,
                                 ),
                               ),
                             ],
@@ -672,10 +669,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       ElevatedButton(
                         onPressed: _toggleFollow,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isFollowing ? Colors.white24 : Colors.white, 
+                          backgroundColor: isFollowing ? Colors.blueGrey : Colors.pinkAccent, 
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
                         ),
-                        child: Text(isFollowing ? "Friend" : "Follow", style: TextStyle(color: isFollowing ? Colors.white : Colors.pinkAccent, fontWeight: FontWeight.bold)),
+                        child: Text(isFollowing ? "Friend" : "Follow", style: const TextStyle(color: Colors.white)),
                       ),
                       const SizedBox(width: 10),
                       IconButton(
@@ -685,19 +682,18 @@ class _ProfilePageState extends State<ProfilePage> {
                         },
                       ),
                     ] else
-                      const SizedBox(width: 80, child: Center(child: Text("MY PROFILE", style: TextStyle(color: Colors.white70, fontSize: 10)))),
+                      const SizedBox(width: 80, child: Center(child: Text("MY PROFILE", style: TextStyle(color: Colors.white54, fontSize: 10)))),
                     const SizedBox(width: 25),
                     _buildStat("Following", following, targetUserId, context),
                   ]),
 
                   const SizedBox(height: 35),
 
-                  // মালিকের জন্য একশন বক্স
                   if (isMe) ...[
                     Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                      _buildActionBox("Diamond", Icons.diamond, Colors.white, () => _openDiamondStore(userData)),
-                      _buildActionBox("Premium", Icons.card_membership, Colors.white, _openPremiumStore),
-                      _buildActionBox("Backpack", Icons.backpack, Colors.white, _openBackpack),
+                      _buildActionBox("Diamond", Icons.diamond, Colors.cyan, () => _openDiamondStore(userData)),
+                      _buildActionBox("Premium", Icons.card_membership, Colors.purple, _openPremiumStore),
+                      _buildActionBox("Backpack", Icons.backpack, Colors.orange, _openBackpack),
                     ]),
 
                     if (userData['isAgent'] == true) ...[
@@ -719,7 +715,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ✅ ফলোয়ার/ফলোয়িং লিস্টের সংশোধিত লজিক
+  // ফলোয়ার/ফলোয়িং লিস্ট সিকিউরিটি লজিক
   Widget _buildStat(String label, int value, String uID, BuildContext context) {
     final String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
     return GestureDetector(
@@ -727,20 +723,13 @@ class _ProfilePageState extends State<ProfilePage> {
         if (myId == uID) {
           Navigator.push(
             context, 
-            MaterialPageRoute(
-              builder: (context) => UserListScreen(
-                title: label, 
-                userId: uID,
-                isReadOnly: false,
-              )
-            )
+            MaterialPageRoute(builder: (context) => UserListScreen(title: label, userId: uID))
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("You cannot see $label list of other users!"), 
-              backgroundColor: Colors.redAccent,
-              behavior: SnackBarBehavior.floating,
+              content: Text("You not possible to see $label others parson List!"), 
+              backgroundColor: Colors.redAccent
             )
           );
         }
