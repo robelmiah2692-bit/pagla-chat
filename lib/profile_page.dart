@@ -1,4 +1,4 @@
-/*import 'vip_service.dart'; // ফাইলের নাম অনুযায়ী
+import 'vip_service.dart'; // ফাইলের নাম অনুযায়ী
 import 'dart:io' as io;
 import 'package:universal_html/html.dart' as html;
 import 'package:flutter/foundation.dart'; 
@@ -981,4 +981,4 @@ Widget _buildAgencyWalletCard(Map<String, dynamic> userData) {
     ),
   );
 }
-}*/
+}
