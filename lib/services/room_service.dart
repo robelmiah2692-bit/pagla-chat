@@ -6,7 +6,7 @@ class RoomService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // ১️⃣ রুমের সব ডাটা সেভ রাখা (নিরাপদ ভার্সন)
+  // ১️⃣ রুমের সব ডাটা সেভ রাখা (প্যারামিটার ফিক্স করা হয়েছে)
   Future<void> updateRoomFullData({
     required String roomId,
     required String roomName,
@@ -15,6 +15,8 @@ class RoomService {
     required String wallpaper,
     required int followers,
     required int totalDiamonds,
+    String? uID,        // 👈 নতুন যোগ করা হলো (বিল্ড এরর ফিক্সের জন্য)
+    String? ownerName,  // 👈 নতুন যোগ করা হলো (বিল্ড এরর ফিক্সের জন্য)
   }) async {
     final User? user = _auth.currentUser;
     if (user == null || roomId.isEmpty) return;
@@ -30,9 +32,11 @@ class RoomService {
         'totalDiamonds': totalDiamonds,
         'adminId': user.uid,
         'isLive': true,
+        'uID': uID ?? user.uid,             // 👈 ডাটাবেসে ওনার আইডি সেভ হবে
+        'ownerName': ownerName ?? 'Owner',   // 👈 ডাটাবেসে ওনার নাম সেভ হবে
         'lastUpdated': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      debugPrint("✅ Room Synced");
+      debugPrint("✅ Room Synced with Owner Info");
     } catch (e) {
       debugPrint("❌ Room Update Error: $e");
     }
@@ -67,11 +71,11 @@ class RoomService {
   // ৩️⃣ ইউজার ডায়মন্ড ব্যালেন্স স্ট্রিম
   Stream<DocumentSnapshot>? getUserDiamonds() {
     final String uid = _auth.currentUser?.uid ?? "";
-    if (uid.isEmpty) return null; // নাল রিটার্ন করলে হ্যান্ডেল করা সহজ
+    if (uid.isEmpty) return null;
     return _firestore.collection('users').doc(uid).snapshots();
   }
 
-  // ৪️⃣ গিফট লজিক (সবচেয়ে বেশি এরর এখানে হয়, তাই ফিক্সড)
+  // ৪️⃣ গিফট লজিক
   Future<bool> sendGift({
     required String roomId,
     required int giftValue,
@@ -82,27 +86,23 @@ class RoomService {
 
     try {
       final userDoc = await _firestore.collection('users').doc(sender.uid).get();
-      
-      // নিরাপদ ডাটা রিডিং
       final userData = userDoc.data();
       if (!userDoc.exists || userData == null) return false;
       
       final int currentBalance = userData['diamonds'] ?? 0;
 
       if (currentBalance >= giftValue) {
-        // ট্রানজেকশন একসাথে করা ভালো, তবে আপনার মেথডটাও ঠিক আছে যদি ব্যালেন্স চেক থাকে
-        
         // ১. সেন্ডার এর ডায়মন্ড কমানো
         await _firestore.collection('users').doc(sender.uid).update({
           'diamonds': FieldValue.increment(-giftValue),
         });
 
-        // ২. রুমের টোটাল ডায়মন্ড বাড়ানো
+        // ২. রুমের টোটাল ডায়মন্ড বাড়ানো
         await _firestore.collection('rooms').doc(roomId).update({
           'totalDiamonds': FieldValue.increment(giftValue),
         });
 
-        // ৩. রিসিভার এর ডায়মন্ড বাড়ানো
+        // ৩. রিসিভার এর ডায়মন্ড বাড়ানো
         if (receiverId.isNotEmpty) {
           await _firestore.collection('users').doc(receiverId).update({
             'receivedDiamonds': FieldValue.increment(giftValue),
