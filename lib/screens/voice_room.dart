@@ -725,11 +725,11 @@ Widget build(BuildContext context) {
             ),
           ),
 
-        const FloatingRoomTools({
-          super.key, 
-          required this.onGiftCountStart, 
-          this.seats, // // এখানে 'required' ফেলে দেওয়া হয়েছে এবং কোনো ডিফল্ট ভ্যালু নেই
-        });
+         // // মিউজিক প্লেয়ারের ঠিক নিচে এইটুকু বসান:
+        FloatingRoomTools(
+          onGiftCountStart: _startGiftCounting,
+          seats: seats, 
+        ),
         
         GiftOverlayHandler(
           isGiftAnimating: isGiftAnimating,
