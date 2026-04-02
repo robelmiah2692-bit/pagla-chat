@@ -725,7 +725,11 @@ Widget build(BuildContext context) {
             ),
           ),
 
-        FloatingRoomTools(onGiftCountStart: _startGiftCounting),
+        const FloatingRoomTools({
+          super.key, 
+          required this.onGiftCountStart, 
+          this.seats, // // এখানে 'required' ফেলে দেওয়া হয়েছে এবং কোনো ডিফল্ট ভ্যালু নেই
+        });
         
         GiftOverlayHandler(
           isGiftAnimating: isGiftAnimating,
