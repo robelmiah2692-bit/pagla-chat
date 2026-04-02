@@ -72,6 +72,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   List<Offset> seatPositions = List.generate(8, (index) => Offset.zero); // সিটের পজিশন রাখার জন্য
   final FirebaseFirestore _firestore = FirebaseFirestore.instance; // ফায়ারবেস এর জন্য
 
+  bool isGiftCounting = false; // // এই লাইনটি যোগ করুন
   String uID = ""; 
   String ownerName = "";
   String userProfilePic = ""; // এটি আপনার নিজের প্রোফাইল ছবি রাখার জন্য
@@ -726,10 +727,13 @@ Widget build(BuildContext context) {
           ),
 
          // // মিউজিক প্লেয়ারের ঠিক নিচে এইটুকু বসান:
-         FloatingRoomTools(
-          onGiftCountStart: (minutes) => _startGiftCounting(minutes),
-          seats: seats, 
-        ),
+         void _startGiftCounting(int minutes) {
+           setState(() => isGiftCounting = true);
+
+           Timer(Duration(minutes: minutes), () {
+           if (mounted) setState(() => isGiftCounting = false);
+         });
+       }
         
         GiftOverlayHandler(
           isGiftAnimating: isGiftAnimating,
