@@ -973,7 +973,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
           ),
         ),
 
-        // ➕ ফলোয়ার বাটন (আপনার হুবহু টগল লজিক)
+        // ➕ ১. ফলোয়ার বাটন (টগল লজিক + সঠিক ডাটা সিঙ্ক)
         IconButton(
           icon: Icon(
             isFollowing ? Icons.check_circle : Icons.person_add_alt_1,
@@ -985,8 +985,18 @@ List<Widget> _buildFloatingEmojiAnimations() {
 
             var roomRef = FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
             
+            // ডাটাবেস থেকে মালিকের আইডি এবং নাম সংগ্রহ (সিঙ্ক করার জন্য)
+            var roomDoc = await roomRef.get();
+            if (!roomDoc.exists) return;
+            var data = roomDoc.data();
+            
+            String ownerUidFromDb = data?['uID'] ?? data?['ownerId'] ?? "";
+            String currentOwnerName = data?['ownerName'] ?? "Unknown";
+
+            // মালিক নিজে নিজেকে ফলো করতে পারবে না
+            if (myUid == ownerUidFromDb) return;
+
             if (isFollowing) {
-              // আনফলো লজিক (হুবহু আপনার কোড)
               await roomRef.update({
                 'followers': FieldValue.arrayRemove([myUid]),
                 'followerCount': FieldValue.increment(-1),
@@ -996,7 +1006,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
                 followerCount--;
               });
             } else {
-              // ফলো লজিক (হুবহু আপনার কোড)
               await roomRef.update({
                 'followers': FieldValue.arrayUnion([myUid]),
                 'followerCount': FieldValue.increment(1),
@@ -1007,7 +1016,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
               });
             }
 
-            // ডাটা সিঙ্ক (আপনার মূল সার্ভিস কল)
+            // ✅ ডাটা সিঙ্ক: এখানে uID এবং ownerName পাস করা হয়েছে
             _roomService.updateRoomFullData(
               roomId: widget.roomId,
               roomName: roomName,
@@ -1016,11 +1025,13 @@ List<Widget> _buildFloatingEmojiAnimations() {
               wallpaper: roomWallpaperPath,
               followers: followerCount,
               totalDiamonds: 0,
+              uID: ownerUidFromDb,    // মালিকের আইডি (uID থেকে)
+              ownerName: currentOwnerName, // মালিকের নাম
             );
           },
         ),
 
-        // ২য় বাটন (লিস্ট দেখার বাটন - মালিকের আইডি adminId থেকে আসবে)
+        // ➕ ২. লিস্ট দেখার বাটন (মালিকের আইডি uID থেকে নিশ্চিত করা হয়েছে)
         IconButton(
           icon: const Icon(Icons.group, color: Colors.white70),
           onPressed: () async {
@@ -1032,8 +1043,9 @@ List<Widget> _buildFloatingEmojiAnimations() {
             if (!roomDoc.exists) return;
         
             var data = roomDoc.data();
-            // ডাটাবেজের 'ownerId' ফিল্ড থেকে মালিকের আইডি নিশ্চিত করা হচ্ছে
-            String ownerUidFromDb = data?['ownerId'] ?? data?['adminId'] ?? "";
+            
+            // ডাটাবেজের 'uID' ফিল্ড থেকে মালিকের আইডি নিশ্চিত করা হচ্ছে
+            String ownerUidFromDb = data?['uID'] ?? data?['ownerId'] ?? "";
         
             if (!context.mounted) return;
         
@@ -1043,13 +1055,16 @@ List<Widget> _buildFloatingEmojiAnimations() {
               backgroundColor: Colors.transparent,
               builder: (context) => RoomFollowerSheet(
                 roomId: widget.roomId,
-                ownerId: ownerUidFromDb, // ডাটাবেজের অরিজিনাল মালিক
+                ownerId: ownerUidFromDb, // অরিজিনাল মালিকের আইডি পাঠানো হচ্ছে
               ),
             );
           },
         ),
         
-        IconButton(icon: const Icon(Icons.settings, color: Colors.white70), onPressed: _showSettings),
+        IconButton(
+          icon: const Icon(Icons.settings, color: Colors.white70), 
+          onPressed: _showSettings
+        ),
       ],
     ),
   );
