@@ -181,36 +181,48 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     );
   }
 
-  // --- ২. ফলোয়িং রুম লিস্ট (uid এবং uID সাপোর্টেড লজিক) ---
+   // --- ২. ফলোয়িং রুম লিস্ট (আমি যে রুমগুলো ফলো করেছি সেগুলো দেখাবে) ---
   Widget _buildFollowingRoomList() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return const SizedBox();
+    final String? myUid = FirebaseAuth.instance.currentUser?.uid;
+    if (myUid == null) return const SizedBox();
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
-      builder: (context, userSnapshot) {
-        if (!userSnapshot.hasData) return const SizedBox();
-        var userData = userSnapshot.data?.data() as Map<String, dynamic>?;
-        
-        List followedIds = userData?['following'] ?? userData?['followerList'] ?? [];
-
-        if (followedIds.isEmpty) {
-          return const Center(child: Text("No following users", style: TextStyle(color: Colors.white38)));
+    return StreamBuilder<QuerySnapshot>(
+      // লজিক: 'rooms' কালেকশনে যাদের 'followers' লিস্টে আমার আইডি আছে
+      stream: FirebaseFirestore.instance
+          .collection('rooms')
+          .where('followers', arrayContains: myUid) 
+          .snapshots(),
+      builder: (context, roomSnapshot) {
+        if (roomSnapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
         }
 
-        return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('rooms')
-              .where('ownerId', whereIn: followedIds)
-              .snapshots(),
-          builder: (context, roomSnapshot) {
-            if (!roomSnapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
-            if (roomSnapshot.data!.docs.isEmpty) {
-              return const Center(child: Text("No one is live from following", style: TextStyle(color: Colors.white38)));
-            }
-            return _buildGrid(roomSnapshot.data!.docs);
-          },
-        );
+        if (!roomSnapshot.hasData || roomSnapshot.data!.docs.isEmpty) {
+          return const Center(
+            child: Text("You haven't followed any rooms yet", 
+            style: TextStyle(color: Colors.white38))
+          );
+        }
+
+        // আপনার নিজের আইডি বাদ দেওয়া (সব ধরণের ফিল্ড চেক করা হচ্ছে: uID, uid, ownerId)
+        var followedRooms = roomSnapshot.data!.docs.where((doc) {
+          var data = doc.data() as Map<String, dynamic>;
+          
+          // মালিকের আইডি বের করা (যেকোনো ফরম্যাটে থাকতে পারে)
+          String? roomOwnerId = data['uID'] ?? data['uid'] ?? data['ownerId'] ?? data['adminId'];
+
+          // কন্ডিশন: যদি মালিক আমি না হই, তবেই লিস্টে দেখাবে
+          return roomOwnerId != myUid;
+        }).toList();
+
+        if (followedRooms.isEmpty) {
+          return const Center(
+            child: Text("No followed rooms are live", 
+            style: TextStyle(color: Colors.white38))
+          );
+        }
+
+        return _buildGrid(followedRooms);
       },
     );
   }
