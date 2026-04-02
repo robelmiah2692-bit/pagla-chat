@@ -1289,35 +1289,38 @@ List<Widget> _buildFloatingEmojiAnimations() {
   
   // --- ২. অ্যাকশন বার (মাইক, গেম এবং চ্যাট ইনপুট) ---
    Widget _buildBottomActionArea() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
-      color: Colors.transparent,
-      child: Row(
-        children: [
-          // ১. চ্যাট ও ইমোজি
-          Expanded(
-            child: ChatInputBar(
-              controller: _messageController,
-              onEmojiTap: () {
-                // ১. বর্তমান ইউজারের আইডি
-                final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? "";
-                
-                // ২. ইউজার কোন সিটে আছে (uID বড় হাতের চেক করা হচ্ছে)
-                int mySeatIndex = seats.indexWhere((s) => s != null && (s['uID'] == currentUid || s['uid'] == currentUid));
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
+    color: Colors.transparent,
+    child: Row(
+      children: [
+        // ১. চ্যাট ও ইমোজি ইনপুট এরিয়া
+        Expanded(
+          child: ChatInputBar(
+            controller: _messageController,
+            onEmojiTap: () {
+              // ১. বর্তমান ইউজারের আইডি বের করা
+              final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? "";
+              if (currentUid.isEmpty) return;
 
-                // EmojiHandler দিয়ে পিকার দেখানো
+              // ২. ইউজার কোন সিটে বসে আছে তা খুঁজে বের করা (uID/uid দুইভাবেই চেক)
+              int mySeatIndex = seats.indexWhere((s) => 
+                  s != null && (s['uID'] == currentUid || s['uid'] == currentUid || s['userId'] == currentUid));
+
+              // ৩. যদি ইউজার কোনো সিটে বসে থাকে তবেই ইমোজি পিকার খুলবে
+              if (mySeatIndex != -1) {
                 EmojiHandler.showPicker(
-                  context: context, 
-                  seatIndex: mySeatIndex, 
+                  context: context,
+                  seatIndex: mySeatIndex,
                   onEmojiSelected: (index, url) {
-                    if (index != -1) {
-                      // ৩. অ্যানিমেটেড ইমোজি সিটে দেখানোর জন্য লোকাল স্টেট আপডেট
+                    if (index != -1 && url != null) {
+                      // ৪. লোকাল সিটে ইমোজি দেখানোর জন্য স্টেট আপডেট
                       setState(() {
                         seats[index]['showEmoji'] = true;
                         seats[index]['currentEmoji'] = url;
                       });
 
-                      // ইমোজি যেন ৩ সেকেন্ড পর চলে যায় তার জন্য টাইমার
+                      // ৫. ৩ সেকেন্ড পর ইমোজি হাইড করার টাইমার
                       Future.delayed(const Duration(seconds: 3), () {
                         if (mounted) {
                           setState(() {
@@ -1325,52 +1328,73 @@ List<Widget> _buildFloatingEmojiAnimations() {
                           });
                         }
                       });
-                      
-                      // 🔥 রিয়েলটাইম ডাটাবেসে আপডেট (সিটের ওপর ইমোজি দেখানোর জন্য)
+
+                      // 🔥 রিয়েলটাইম ডাটাবেসে আপডেট (যাতে অন্য সবাই সিটের ওপর অ্যানিমেশন দেখে)
                       FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index').update({
                         'currentEmoji': url,
+                        'showEmoji': true,
                         'emojiTime': ServerValue.timestamp,
                       });
-
-                      // ফায়ারস্টোরে আপডেট
-                      FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
-                        'lastEmoji': url,
-                        'emojiIndex': index,
-                        'emojiTime': FieldValue.serverTimestamp(),
+                      
+                      // ডাটাবেস থেকেও ৩ সেকেন্ড পর অটো ক্লিয়ার করার কমান্ড (অপশনাল কিন্তু ভালো)
+                      Future.delayed(const Duration(seconds: 4), () {
+                        FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index').update({
+                          'showEmoji': false,
+                        });
                       });
                     }
-                  }
+                  },
                 );
-              },
-              onMessageSend: (msg) async {
-                final user = FirebaseAuth.instance.currentUser;
-                final String senderId = user?.uid ?? "";
-                
-                // আপনার প্রোফাইল ডাটা থেকে সঠিক নাম ও ছবি নিশ্চিত করা
-                String finalName = currentUserData['userName'] ?? currentUserData['name'] ?? user?.displayName ?? "User";
-                String finalImage = currentUserData['userImage'] ?? currentUserData['profileImage'] ?? msg['userImage'] ?? "";
+              } else {
+                // সিটে না থাকলে সতর্কবার্তা
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("সিটে বসুন আগে!")),
+                );
+              }
+            },
+            onMessageSend: (msg) async {
+              final String senderId = FirebaseAuth.instance.currentUser?.uid ?? "";
+              if (senderId.isEmpty) return;
 
-                // ৪. মেসেজ ফায়ারবেসে পাঠানো
-                await FirebaseFirestore.instance
-                    .collection('rooms')
-                    .doc(widget.roomId)
-                    .collection('messages')
-                    .add({
-                  'userName': finalName,
-                  'userImage': finalImage,
-                  'text': msg['text'],
-                  'senderId': senderId,
-                  'timestamp': FieldValue.serverTimestamp(),
-                });
+              // 🛡️ রুমের নাম আসা বন্ধ করতে সরাসরি ইউজার কালেকশন থেকে ডাটা আনা
+              DocumentSnapshot userDoc = await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(senderId)
+                  .get();
 
-                // ৫. মেসেজ পাঠানোর সময়ও যদি সিটে এনিমেশন ট্রিগার করতে চান (uID চেক)
-                int senderSeat = seats.indexWhere((s) => s != null && (s['uID'] == senderId || s['uid'] == senderId));
-                if (senderSeat != -1) {
-                   // এখানেও চাইলে ইমোজি বা পপ-আপ এনিমেশন লজিক দিতে পারেন
-                }
-              },
-            ),
+              String finalName = "User";
+              String finalImage = "";
+
+              if (userDoc.exists) {
+                final uData = userDoc.data() as Map<String, dynamic>?;
+                finalName = uData?['userName'] ?? uData?['name'] ?? "User";
+                finalImage = uData?['userImage'] ?? uData?['profileImage'] ?? "";
+              }
+
+              // ৪. মেসেজ ফায়ারবেসে পাঠানো (ইউজারের অরিজিনাল নাম ও ছবি সহ)
+              await FirebaseFirestore.instance
+                  .collection('rooms')
+                  .doc(widget.roomId)
+                  .collection('messages')
+                  .add({
+                'userName': finalName,
+                'userImage': finalImage,
+                'text': msg['text'],
+                'senderId': senderId,
+                'timestamp': FieldValue.serverTimestamp(),
+              });
+
+              // ৫. মেসেজ পাঠানোর সময় সিটে এনিমেশন (যেমন পপ-আপ)
+              int senderSeat = seats.indexWhere((s) => 
+                  s != null && (s['uID'] == senderId || s['uid'] == senderId || s['userId'] == senderId));
+              
+              if (senderSeat != -1) {
+                // সিটে ছোট একটা রিয়্যাকশন বা ইন্ডিকেশন দেখানো যেতে পারে
+                debugPrint("Message sent from seat: $senderSeat");
+              }
+            },
           ),
+        ),
         
            // --- মাইক কন্ট্রোল বাটন শুরু ---
                 IconButton(
