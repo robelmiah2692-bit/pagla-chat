@@ -47,7 +47,7 @@ import '../widgets/room_settings_handler.dart';
 import 'package:firebase_storage/firebase_storage.dart'; // এটি নেই, এটি যোগ করতে হবে
 import 'package:image_picker/image_picker.dart'; // গ্যালারি থেকে ছবি নিতে এটি লাগবে
 
-class VoiceRoom extends StatefulWidget {
+  class VoiceRoom extends StatefulWidget {
   final String roomId;
   final String ownerId;
 
@@ -56,31 +56,32 @@ class VoiceRoom extends StatefulWidget {
     required this.roomId, 
     this.ownerId = "",
   });
- 
+
   @override
   State<VoiceRoom> createState() => _VoiceRoomState();
 }
 
 class _VoiceRoomState extends State<VoiceRoom> {
- final RoomService _roomService = RoomService();
- final RoomSyncService _syncService = RoomSyncService();
- final DatabaseService _dbService = DatabaseService();
- final AgoraManager _agoraManager = AgoraManager();
+  final RoomService _roomService = RoomService();
+  final RoomSyncService _syncService = RoomSyncService();
+  final DatabaseService _dbService = DatabaseService();
+  final AgoraManager _agoraManager = AgoraManager();
 
-  // --- বিল্ড এরর ফিক্স করার জন্য নতুন ভ্যারিয়েবল (অবশ্যই যোগ করবেন) ---
-  Map<int, String> activeEmojis = {}; // ইমোজি ডাটা রাখার জন্য
-  List<Offset> seatPositions = List.generate(8, (index) => Offset.zero); // সিটের পজিশন রাখার জন্য
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance; // ফায়ারবেস এর জন্য
+  // --- বিল্ড এরর ফিক্স করার জন্য ভ্যারিয়েবল ---
+  Map<int, String> activeEmojis = {}; 
+  List<Offset> seatPositions = List.generate(8, (index) => Offset.zero); 
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance; 
 
-  bool isGiftCounting = false; // // এই লাইনটি যোগ করুন
+  bool isGiftCounting = false; 
   String uID = ""; 
   String ownerName = "";
-  String userProfilePic = ""; // এটি আপনার নিজের প্রোফাইল ছবি রাখার জন্য
+  String userProfilePic = ""; 
+
   // --- সব ভেরিয়েবল ---
   String roomOwnerId = ""; 
   List<dynamic> adminList = [];
   String userRole = "Guest";
-  String myPersonalAvatar = ""; // এটি ইউজারের নিজের প্রোফাইল ছবি
+  String myPersonalAvatar = ""; 
   bool isOwner = false;
   String displayUserID = "Hridoy"; 
   String roomName = "পাগলা চ্যাট রুম";
@@ -96,14 +97,15 @@ class _VoiceRoomState extends State<VoiceRoom> {
   late VSPKManager pkManager;
   int pkSeconds = 300; 
   int currentGiftCount = 0;
-  // --- মিউজিক ফিচারের জন্য নতুন সংযোজন ---
-  bool isMusicBarVisible = false;      // মিউজিক সিলেকশন বার দেখানোর জন্য
-  bool isFloatingPlayerVisible = false; // ভাসমান প্লেয়ারটি স্ক্রিনে আনার জন্য
-  String currentPlayingMusicName = "";  // গানের নাম স্টোর করার জন্য
-  List<Map<String, dynamic>> userAddedMusicList = []; // ফোনের গানের লিস্ট
-  bool isMusicLoading = false;         // গান লোড হওয়ার এনিমেশনের জন্য
-  String currentMusicUrl = "";         // গানের লোকেশন/পাথ রাখার জন্য
-  Offset playerPosition = const Offset(150, 400); // প্লেয়ারটি ড্র্যাগ করে সরানোর জন্য
+
+  // --- মিউজিক ফিচারের ভেরিয়েবল ---
+  bool isMusicBarVisible = false;      
+  bool isFloatingPlayerVisible = false; 
+  String currentPlayingMusicName = "";  
+  List<Map<String, dynamic>> userAddedMusicList = []; 
+  bool isMusicLoading = false;         
+  String currentMusicUrl = "";         
+  Offset playerPosition = const Offset(150, 400); 
   bool isRoomMusicPlaying = false; 
   final AudioPlayer _audioPlayer = AudioPlayer();
   final TextEditingController _messageController = TextEditingController();
@@ -124,197 +126,153 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String currentReceiverName = "";
   
   @override
-void initState() {
-  super.initState();
+  void initState() {
+    super.initState();
 
-  // ১. সিট জেনারেশন (অরিজিনাল ১৫টি সিট ও আপনার VIP লজিক)
-  seats = List.generate(15, (index) => {
-    "isOccupied": false,
-    "userName": "",
-    "userImage": "",
-    "isVip": index < 5, 
-    "status": "empty", 
-    "giftCount": 0,
-    "isMicOn": false,
-    "isTalking": false, 
-    "userId": "",
-    "agoraUid": "", // এটি নিশ্চিত করার জন্য যোগ করা হলো
-  });
+    // ১. সিট জেনারেশন (১৫টি সিট ও VIP লজিক)
+    seats = List.generate(15, (index) => {
+      "isOccupied": false,
+      "userName": "",
+      "userImage": "",
+      "isVip": index < 5, 
+      "status": "empty", 
+      "giftCount": 0,
+      "isMicOn": false,
+      "isTalking": false, 
+      "userId": "",
+      "agoraUid": "", 
+    });
 
-  // ২. রিয়েলটাইম ডাটাবেস লিসেনার (আগের মতোই + Talking রিসেট)
-  FirebaseDatabase.instance
-      .ref('rooms/${widget.roomId}/seats')
-      .onValue.listen((event) {
-    if (!mounted) return;
-    final dynamic data = event.snapshot.value;
-    
-    setState(() {
-      for (var seat in seats) {
-        seat["isOccupied"] = false;
-        seat["status"] = "empty";
-        seat["userName"] = "";
-        seat["userImage"] = "";
-        seat["isMicOn"] = false;
-        seat["isTalking"] = false;
-      }
+    // ২. রিয়েলটাইম ডাটাবেস লিসেনার
+    FirebaseDatabase.instance
+        .ref('rooms/${widget.roomId}/seats')
+        .onValue.listen((event) {
+      if (!mounted) return;
+      final dynamic data = event.snapshot.value;
       
-      if (data != null) {
-        data.forEach((key, value) {
-          int? index = int.tryParse(key.toString());
-          if (index != null && index < seats.length) {
-            seats[index]["isOccupied"] = value["isOccupied"] ?? false;
-            seats[index]["status"] = value["status"] ?? "occupied";
-            seats[index]["userName"] = value["userName"] ?? "";
-            seats[index]["userImage"] = value["userImage"] ?? "";
-            seats[index]["isMicOn"] = value["isMicOn"] ?? false;
-            seats[index]["userId"] = value["userId"] ?? "";
-            // আগোরা ইউআইডি স্টোর করা যাতে রিপেল সঠিক সিটে দেখায়
-            seats[index]["agoraUid"] = value["agoraUid"]?.toString() ?? "";
+      setState(() {
+        for (var seat in seats) {
+          seat["isOccupied"] = false;
+          seat["status"] = "empty";
+          seat["userName"] = "";
+          seat["userImage"] = "";
+          seat["isMicOn"] = false;
+          seat["isTalking"] = false;
+        }
+        
+        if (data != null) {
+          data.forEach((key, value) {
+            int? index = int.tryParse(key.toString());
+            if (index != null && index < seats.length) {
+              seats[index]["isOccupied"] = value["isOccupied"] ?? false;
+              seats[index]["status"] = value["status"] ?? "occupied";
+              seats[index]["userName"] = value["userName"] ?? "";
+              seats[index]["userImage"] = value["userImage"] ?? "";
+              seats[index]["isMicOn"] = value["isMicOn"] ?? false;
+              seats[index]["userId"] = value["userId"] ?? "";
+              seats[index]["agoraUid"] = value["agoraUid"]?.toString() ?? "";
+            }
+          });
+        }
+      });
+    });
+
+    // ৩. পিকে ম্যানেজার
+    pkManager = VSPKManager(
+      onTick: (seconds) => setState(() => pkSeconds = seconds),
+      onFinished: () => _endPKBattle(),
+    );
+
+    // ৪. এগোরা ম্যানেজার ব্যবহার করে ভয়েস ডিটেকশন
+    Future.microtask(() async {
+      try {
+        await _agoraManager.initAgora(); 
+        final String myActualUid = FirebaseAuth.instance.currentUser?.uid ?? "";
+        await _agoraManager.joinAsListener(widget.roomId, myActualUid);
+
+        final engine = _agoraManager.engine;
+        if (engine != null) {
+          await engine.enableAudioVolumeIndication(interval: 250, smooth: 3, reportVad: true);
+          engine.registerEventHandler(
+            RtcEngineEventHandler(
+              onUserJoined: (connection, remoteUid, elapsed) {
+                if (mounted) _addUserToViewers(); 
+              },
+              onAudioMixingStateChanged: (state, reason) {
+                if (mounted) {
+                  setState(() => isRoomMusicPlaying = (state == AudioMixingStateType.audioMixingStatePlaying));
+                }
+              },
+              onAudioVolumeIndication: (connection, speakers, totalVolume, speakerNumber) {
+                if (!mounted) return;
+                bool hasChanged = false;
+                List<String> currentTalkingUids = speakers
+                    .where((s) => (s.volume ?? 0) > 5)
+                    .map((s) => s.uid == 0 ? myActualUid : s.uid.toString())
+                    .toList();
+
+                for (var seat in seats) {
+                  bool isUserTalkingNow = currentTalkingUids.contains(seat["userId"]) || currentTalkingUids.contains(seat["agoraUid"]);
+                  if (seat["isTalking"] != isUserTalkingNow) {
+                    seat["isTalking"] = isUserTalkingNow;
+                    hasChanged = true;
+                  }
+                }
+                if (hasChanged) setState(() {});
+              },
+            ),
+          );
+        }
+      } catch (e) { debugPrint("Agora Error: $e"); }
+    });
+
+    // ৫. ফায়ারস্টোর ডাটা লোড (রোল লজিকসহ)
+    FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
+      if (doc.exists && mounted) {
+        final data = doc.data();
+        final String myCurrentUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+
+        setState(() {
+          roomName = data?['roomName'] ?? roomName;
+          roomProfileImage = data?['roomImage'] ?? roomProfileImage;
+          followerCount = data?['followerCount'] ?? 0;
+          isRoomLocked = data?['isLocked'] ?? false;
+          roomWallpaperPath = data?['roomWallpaper'] ?? data?['wallpaper'] ?? '';
+
+          // --- ওনারশিপ ও এডমিন লজিক ফিক্স ---
+          roomOwnerId = data?['uID'] ?? data?['uId'] ?? data?['ownerId'] ?? ''; 
+          ownerName = data?['ownerName'] ?? 'Unknown Owner';
+          adminList = data?['admins'] ?? [];
+
+          if (myCurrentUID == roomOwnerId && roomOwnerId != "") {
+            userRole = "Owner";
+            isOwner = true;
+            uID = roomOwnerId; // মালিকের আইডি সেভ হলো
+          } else if (adminList.contains(myCurrentUID)) {
+            userRole = "Admin";
+            isOwner = false;
+          } else {
+            userRole = "Guest";
+            isOwner = false;
           }
         });
+
+        // ডাটা সিঙ্ক
+        _roomService.updateRoomFullData(
+          roomId: widget.roomId,
+          roomName: roomName,
+          roomImage: roomProfileImage,
+          isLocked: isRoomLocked,
+          wallpaper: roomWallpaperPath,
+          followers: followerCount,
+          totalDiamonds: 0,
+          uID: roomOwnerId,
+          ownerName: ownerName,
+        );
+        _addUserToViewers();
       }
     });
-  });
-
-  // ৩. পিকে ম্যানেজার
-  pkManager = VSPKManager(
-    onTick: (seconds) => setState(() => pkSeconds = seconds),
-    onFinished: () => _endPKBattle(),
-  );
-
-  // ৪. এগোরা ম্যানেজার ব্যবহার করে ভয়েস ডিটেকশন ও মিউজিক রিপেল
-  Future.microtask(() async {
-    try {
-      await _agoraManager.initAgora(); 
-      
-      final String myActualUid = FirebaseAuth.instance.currentUser?.uid ?? "guest_${Random().nextInt(10000)}";
-      await _agoraManager.joinAsListener(widget.roomId, myActualUid);
-
-      final engine = _agoraManager.engine;
-      
-      if (engine != null) {
-        // ✅ ভলিউম ইন্ডিকেশন ইনাবল করা (স্মুথ এনিমেশনের জন্য ২৫০ মিলি সেকেন্ড রাখা হয়েছে)
-        await engine.enableAudioVolumeIndication(
-          interval: 250, 
-          smooth: 3, 
-          reportVad: true
-        );
-
-        engine.registerEventHandler(
-          RtcEngineEventHandler(
-            onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
-              debugPrint("👥 Remote user joined: $remoteUid");
-              if (mounted) {
-                _addUserToViewers(); 
-              }
-            },
-
-            onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
-              debugPrint("👋 Remote user left: $remoteUid");
-            },
-
-            onAudioMixingStateChanged: (AudioMixingStateType state, AudioMixingReasonType reason) {
-              if (mounted) {
-                setState(() {
-                  isRoomMusicPlaying = (state == AudioMixingStateType.audioMixingStatePlaying);
-                });
-              }
-            },
-
-            onAudioVolumeIndication: (RtcConnection connection, List<AudioVolumeInfo> speakers, int totalVolume, int speakerNumber) {
-              if (!mounted) return;
-              
-              bool hasChanged = false;
-              List<String> currentTalkingUids = [];
-
-              // ১. যারা কথা বলছে তাদের আইডিগুলো একটি লিস্টে জমা করি
-              for (var speaker in speakers) {
-                if ((speaker.volume ?? 0) > 5) {
-                  // এগোরা নিজের আইডিকে ০ পাঠায়, সেটাকে লোকাল আইডি দিয়ে বদলে নিচ্ছি
-                  String activeUid = (speaker.uid == 0) 
-                      ? myActualUid 
-                      : speaker.uid.toString();
-                  currentTalkingUids.add(activeUid);
-                }
-              }
-
-              // ২. সিট লিস্ট লুপ চালিয়ে কথা বলার স্টেট আপডেট করি
-              for (int i = 0; i < seats.length; i++) {
-                if (seats[i] == null) continue;
-
-                // আপনার ডাটাবেস প্রোটোকল অনুযায়ী uID বা userId চেক
-                String seatUserId = seats[i]["uID"]?.toString() ?? seats[i]["userId"]?.toString() ?? "";
-                String seatAgoraUid = seats[i]["agoraUid"]?.toString() ?? "";
-
-                // চেক করছি এই সিটের ইউজার কি বর্তমান স্পিকার লিস্টে আছে?
-                bool isUserTalkingNow = currentTalkingUids.contains(seatUserId) || 
-                                      currentTalkingUids.contains(seatAgoraUid);
-
-                // যদি আগের স্টেট থেকে বর্তমান স্টেট আলাদা হয়, তবেই আপডেট হবে
-                if (seats[i]["isTalking"] != isUserTalkingNow) {
-                  seats[i]["isTalking"] = isUserTalkingNow;
-                  hasChanged = true;
-                }
-              }
-
-              // ৩. শুধুমাত্র পরিবর্তন হলেই একবার setState কল হবে
-              if (hasChanged && mounted) {
-                setState(() {});
-              }
-            },
-          ),
-        );
-        debugPrint("✅ সব সচল! EventHandler রেজিস্টার্ড হয়েছে।");
-      }
-    } catch (e) {
-      debugPrint("❌ Agora Error: $e");
-    }
-  });
-
-  // ৫. ফায়ারস্টোর ডাটা লোড (আপনার চাহিদা অনুযায়ী ৩টি ব্রাকেট লজিক সহ)
-  FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
-    if (doc.exists && mounted) {
-      final data = doc.data();
-      setState(() {
-        roomName = data?['roomName'] ?? roomName;
-        roomProfileImage = data?['roomImage'] ?? roomProfileImage;
-        followerCount = data?['followerCount'] ?? 0;
-        isRoomLocked = data?['isLocked'] ?? false;
-        roomWallpaperPath = data?['roomWallpaper'] ?? data?['wallpaper'] ?? '';
-
-        // --- ওনার, এডমিন এবং মেহমান চেনার লজিক (uID প্রোটোকল) ---
-        uID = data?['uID'] ?? data?['uId'] ?? data?['uid'] ?? ''; 
-        ownerName = data?['ownerName'] ?? 'Unknown Owner';
-
-        List<dynamic> adminList = data?['admins'] ?? [];
-        String myUID = currentUserData['uId'] ?? currentUserData['uID'] ?? '';
-
-        if (myUID == uID) {
-          userRole = "Owner"; 
-        } else if (adminList.contains(myUID)) {
-          userRole = "Admin"; 
-        } else {
-          userRole = "Guest"; 
-        }
-      }); // ১. setState এর সমাপ্তি
-
-      // ডাটা সিঙ্ক (uID এবং ownerName সহ)
-      _roomService.updateRoomFullData(
-        roomId: widget.roomId,
-        roomName: roomName,
-        roomImage: roomProfileImage,
-        isLocked: isRoomLocked,
-        wallpaper: roomWallpaperPath,
-        followers: followerCount,
-        totalDiamonds: 0,
-        uID: uID,
-        ownerName: ownerName,
-      );
-    
-      _addUserToViewers();
-    } // ২. if (doc.exists) এর সমাপ্তি
-  }); // ৩. .then() এর সমাপ্তি
-}
+  }
             
   // --- আপডেট করা গিফট লজিক (নতুন ফিচারের সাথে) ---
   void _startGiftCounting(int minutes) {
