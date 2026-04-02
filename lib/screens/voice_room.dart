@@ -727,14 +727,11 @@ Widget build(BuildContext context) {
           ),
 
          // // মিউজিক প্লেয়ারের ঠিক নিচে এইটুকু বসান:
-         void _startGiftCounting(int minutes) {
-           setState(() => isGiftCounting = true);
+        FloatingRoomTools(
+          onGiftCountStart: (minutes) => _startGiftCounting(minutes),
+          seats: seats,
+        ),
 
-           Timer(Duration(minutes: minutes), () {
-           if (mounted) setState(() => isGiftCounting = false);
-         });
-       }
-        
         GiftOverlayHandler(
           isGiftAnimating: isGiftAnimating,
           currentGiftImage: currentGiftImage,
