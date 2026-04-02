@@ -726,8 +726,8 @@ Widget build(BuildContext context) {
           ),
 
          // // মিউজিক প্লেয়ারের ঠিক নিচে এইটুকু বসান:
-        FloatingRoomTools(
-          onGiftCountStart: _startGiftCounting,
+         FloatingRoomTools(
+          onGiftCountStart: (minutes) => _startGiftCounting(minutes),
           seats: seats, 
         ),
         
@@ -1505,8 +1505,8 @@ List<Widget> _buildFloatingEmojiAnimations() {
               );
             },
           ),
-          // ৪. গিফট বাটন
-           IconButton(
+          // // ৪. গিফট বাটন
+        IconButton(
           constraints: const BoxConstraints(),
           padding: const EdgeInsets.symmetric(horizontal: 4),
           icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
@@ -1515,15 +1515,14 @@ List<Widget> _buildFloatingEmojiAnimations() {
                 .collection('users')
                 .doc(FirebaseAuth.instance.currentUser?.uid)
                 .get();
-            
+
             int currentBalance = 0;
-            String senderName = "User"; 
-            
+            String senderName = "User";
+
             if (userDoc.exists && userDoc.data() != null) {
               final data = userDoc.data()!;
-              // ডাটাবেস অনুযায়ী diamonds এবং userName চেক
               currentBalance = data['diamonds'] ?? 0;
-              senderName = data['userName'] ?? data['name'] ?? "User"; 
+              senderName = data['userName'] ?? data['name'] ?? "User";
             }
 
             if (!mounted) return;
@@ -1533,19 +1532,19 @@ List<Widget> _buildFloatingEmojiAnimations() {
               backgroundColor: Colors.transparent,
               isScrollControlled: true,
               builder: (context) => GiftBottomSheet(
-                diamondBalance: currentBalance, 
-                currentSeats: List.from(seats), 
+                diamondBalance: currentBalance,
+                currentSeats: List.from(seats),
                 onGiftSend: (gift, count, target) async {
-                  // ১. লোকাল ফোনে এনিমেশন আপডেট
+                  // // ১. লোকাল ফোনে এনিমেশন আপডেট
                   setState(() {
                     currentGiftImage = gift['icon'];
                     isGiftAnimating = true;
-                    targetType = target; 
-                    currentSenderName = senderName; 
-                    currentReceiverName = target; 
+                    targetType = target;
+                    currentSenderName = senderName;
+                    currentReceiverName = target;
                   });
 
-                  // ২. গ্লোবাল এনিমেশন ট্রিগার
+                  // // ২. গ্লোবাল এনিমেশন ট্রিগার
                   try {
                     await FirebaseFirestore.instance
                         .collection('rooms')
@@ -1561,18 +1560,17 @@ List<Widget> _buildFloatingEmojiAnimations() {
                     debugPrint("Animation Trigger Error: $e");
                   }
 
-                  // ৩. ট্রানজেকশন লজিক (uID এবং receiverId নিশ্চিত করা)
+                  // // ৩. ট্রানজেকশন লজিক (uID এবং receiverId নিশ্চিত করা)
                   try {
                     bool isFree = gift['isFree'] ?? false;
                     int unitPrice = gift['price'] ?? 0;
                     int totalAmount = unitPrice * count;
 
-                    // সংশোধন: orElse-এ null এর বদলে খালি Map দিয়ে বিল্ড এরর সমাধান করা হয়েছে
                     var targetSeat = seats.firstWhere(
                       (s) => s != null && (s['userName'] == target || s['name'] == target),
-                      orElse: () => <String, dynamic>{}, 
+                      orElse: () => <String, dynamic>{},
                     );
-                    
+
                     String receiverId = "";
                     if (targetSeat.isNotEmpty) {
                       receiverId = targetSeat['uID'] ?? targetSeat['uid'] ?? "";
@@ -1586,12 +1584,26 @@ List<Widget> _buildFloatingEmojiAnimations() {
                         isFree: isFree,
                         giftName: gift['name'] ?? "Gift",
                       );
+
+                      // // নতুন: গিফট কাউন্টার লজিক (ব্যানারে পয়েন্ট যোগ করার জন্য)
+                      if (isGiftCounting) {
+                        await FirebaseFirestore.instance
+                            .collection('rooms')
+                            .doc(widget.roomId)
+                            .collection('gift_counts')
+                            .add({
+                          'senderName': senderName,
+                          'receiverName': target,
+                          'points': totalAmount,
+                          'timestamp': FieldValue.serverTimestamp(),
+                        });
+                      }
                     }
                   } catch (e) {
                     debugPrint("Transaction Error: $e");
                   }
 
-                  // ৪. এনিমেশন টাইমার
+                  // // ৪. এনিমেশন টাইমার
                   Timer(const Duration(seconds: 5), () {
                     if (mounted) {
                       setState(() { isGiftAnimating = false; });
