@@ -316,33 +316,48 @@ void initState() {
   }); // ৩. .then() এর সমাপ্তি
 }
             
-  // --- গিফট লজিক ---
-  void _startGiftCounting() {
-    if (isCountingGifts) return;
-    setState(() { isCountingGifts = true; remainingSeconds = 900; });
+  // --- আপডেট করা গিফট লজিক (নতুন ফিচারের সাথে) ---
+  void _startGiftCounting(int minutes) {
+    if (isGiftCounting) return; // // অলরেডি চলতে থাকলে আর শুরু হবে না
+
+    setState(() { 
+      isGiftCounting = true; 
+      remainingSeconds = minutes * 60; // // মিনিটকে সেকেন্ডে রূপান্তর
+    });
+
     giftTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (remainingSeconds > 0) {
         if (mounted) setState(() => remainingSeconds--);
       } else {
         timer.cancel();
-        if (mounted) setState(() => isCountingGifts = false);
-        _showWinnerPopup();
+        if (mounted) setState(() => isGiftCounting = false);
+        _showWinnerPopup(); // // সময় শেষ হলে উইনার দেখাবে
       }
     });
   }
 
   void _showWinnerPopup() {
+    // // আপনার পুরাতন পপআপ লজিক এখানে হুবহু থাকবে
     List<Map<String, dynamic>> seatData = List.from(seats);
-    seatData.sort((a, b) => b['giftCount'].compareTo(a['giftCount']));
+    seatData.sort((a, b) => (b['giftCount'] ?? 0).compareTo(a['giftCount'] ?? 0));
+    
     List<Map<String, dynamic>> topWinners = [];
     for (var s in seatData) {
-      if (s['giftCount'] > 0 && s['isOccupied']) {
-        topWinners.add({"name": s['userName'], "avatar": s['userImage'], "gifts": s['giftCount']});
+      if (s != null && (s['giftCount'] ?? 0) > 0 && (s['isOccupied'] ?? false)) {
+        topWinners.add({
+          "name": s['userName'] ?? "User", 
+          "avatar": s['userImage'] ?? "", 
+          "gifts": s['giftCount']
+        });
       }
       if (topWinners.length == 2) break;
     }
+
     if (topWinners.isNotEmpty) {
-      showDialog(context: context, builder: (context) => GiftRankDialog(winners: topWinners));
+      showDialog(
+        context: context, 
+        builder: (context) => GiftRankDialog(winners: topWinners)
+      );
     }
   }
 
