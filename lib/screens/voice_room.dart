@@ -272,50 +272,50 @@ void initState() {
   // ৫. পুরাতন অডিও প্লেয়ার লিসেনার সরিয়ে আগোরার সাথে সিঙ্ক (দরকার হলে রাখা হয়েছে)
   // তবে গান এখন সরাসরি আগোরার EventHandler থেকেই কন্ট্রোল হচ্ছে।
    // ৬. ফায়ারস্টোর ডাটা লোড (ব্রাকেট এবং লজিক ঠিক করা হয়েছে)
-FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
-  if (doc.exists && mounted) {
-    final data = doc.data();
-    setState(() {
-      roomName = data?['roomName'] ?? roomName;
-      roomProfileImage = data?['roomImage'] ?? roomProfileImage;
-      followerCount = data?['followerCount'] ?? 0;
-      isRoomLocked = data?['isLocked'] ?? false;
-      roomWallpaperPath = data?['roomWallpaper'] ?? data?['wallpaper'] ?? '';
+  FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
+    if (doc.exists && mounted) {
+      final data = doc.data();
+      setState(() {
+        roomName = data?['roomName'] ?? roomName;
+        roomProfileImage = data?['roomImage'] ?? roomProfileImage;
+        followerCount = data?['followerCount'] ?? 0;
+        isRoomLocked = data?['isLocked'] ?? false;
+        roomWallpaperPath = data?['roomWallpaper'] ?? data?['wallpaper'] ?? '';
 
-      // --- ওনার, এডমিন এবং মেহমান চেনার লজিক (uID প্রোটোকল) ---
-      // নোট: ক্লাসের গ্লোবাল uID এবং ownerName ভেরিয়েবলে ডাটা রাখা হচ্ছে
-      uID = data?['uID'] ?? data?['uId'] ?? data?['uid'] ?? ''; 
-      ownerName = data?['ownerName'] ?? 'Unknown Owner';
+        // --- ওনার, এডমিন এবং মেহমান চেনার লজিক (uID প্রোটোকল) ---
+       // নোট: ক্লাসের গ্লোবাল uID এবং ownerName ভেরিয়েবলে ডাটা রাখা হচ্ছে
+        uID = data?['uID'] ?? data?['uId'] ?? data?['uid'] ?? ''; 
+        ownerName = data?['ownerName'] ?? 'Unknown Owner';
 
-      List<dynamic> adminList = data?['admins'] ?? [];
-      String myUID = currentUserData['uId'] ?? currentUserData['uID'] ?? '';
+        List<dynamic> adminList = data?['admins'] ?? [];
+        String myUID = currentUserData['uId'] ?? currentUserData['uID'] ?? '';
 
-      if (myUID == uID) {
-        userRole = "Owner"; 
-      } else if (adminList.contains(myUID)) {
-        userRole = "Admin"; 
-      } else {
-        userRole = "Guest"; 
-      }
-    }); // setState এর ব্রাকেট শেষ
+        if (myUID == uID) {
+          userRole = "Owner"; 
+        } else if (adminList.contains(myUID)) {
+          userRole = "Admin"; 
+        } else {
+          userRole = "Guest"; 
+        }
+      }); // setState এর ব্রাকেট শেষ
 
-    // ডাটা সিঙ্ক (এখানে uID এবং ownerName অবশ্যই পাঠাতে হবে)
-    _roomService.updateRoomFullData(
-      roomId: widget.roomId,
-      roomName: roomName,
-      roomImage: roomProfileImage,
-      isLocked: isRoomLocked,
-      wallpaper: roomWallpaperPath,
-      followers: followerCount,
-      totalDiamonds: 0,
-      uID: uID,           // আপনার বিল্ড এরর ফিক্স করতে এটা দরকার
-      ownerName: ownerName, // আপনার বিল্ড এরর ফিক্স করতে এটা দরকার
-    );
+      // ডাটা সিঙ্ক (এখানে uID এবং ownerName অবশ্যই পাঠাতে হবে)
+      _roomService.updateRoomFullData(
+        roomId: widget.roomId,
+        roomName: roomName,
+        roomImage: roomProfileImage,
+        isLocked: isRoomLocked,
+        wallpaper: roomWallpaperPath,
+        followers: followerCount,
+        totalDiamonds: 0,
+        uID: uID,           // আপনার বিল্ড এরর ফিক্স করতে এটা দরকার
+        ownerName: ownerName, // আপনার বিল্ড এরর ফিক্স করতে এটা দরকার
+      );
     
-    _addUserToViewers();
-  } // if এর ব্রাকেট শেষ
-}); // then এর ব্রাকেট শেষ
-   
+      _addUserToViewers();
+    } // if এর ব্রাকেট শেষ
+  }); // then এর ব্রাকেট শেষ
+ }
   // --- গিফট লজিক ---
   void _startGiftCounting() {
     if (isCountingGifts) return;
