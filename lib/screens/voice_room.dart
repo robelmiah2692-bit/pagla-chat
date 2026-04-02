@@ -125,7 +125,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   @override
 void initState() {
   super.initState();
-  
+
   // ১. সিট জেনারেশন (অরিজিনাল ১৫টি সিট ও আপনার VIP লজিক)
   seats = List.generate(15, (index) => {
     "isOccupied": false,
@@ -167,7 +167,7 @@ void initState() {
             seats[index]["userImage"] = value["userImage"] ?? "";
             seats[index]["isMicOn"] = value["isMicOn"] ?? false;
             seats[index]["userId"] = value["userId"] ?? "";
-            // আগোরা ইউআইডি স্টোর করা যাতে রিপেল সঠিক সিটে দেখায়
+            // আগোরা ইউআইডি স্টোর করা যাতে রিপেল সঠিক সিটে দেখায়
             seats[index]["agoraUid"] = value["agoraUid"]?.toString() ?? "";
           }
         });
@@ -182,7 +182,7 @@ void initState() {
   );
 
   // ৪. এগোরা ম্যানেজার ব্যবহার করে ভয়েস ডিটেকশন ও মিউজিক রিপেল
-   Future.microtask(() async {
+  Future.microtask(() async {
     try {
       await _agoraManager.initAgora(); 
       
@@ -192,7 +192,7 @@ void initState() {
       final engine = _agoraManager.engine;
       
       if (engine != null) {
-        // ✅ ভলিউম ইন্ডিকেশন ইনাবল করা (স্মুথ এনিমেশনের জন্য ২৫০ মিলি সেকেন্ড রাখা হয়েছে)
+        // ✅ ভলিউম ইন্ডিকেশন ইনাবল করা (স্মুথ এনিমেশনের জন্য ২৫০ মিলি সেকেন্ড রাখা হয়েছে)
         await engine.enableAudioVolumeIndication(
           interval: 250, 
           smooth: 3, 
@@ -229,7 +229,7 @@ void initState() {
               // ১. যারা কথা বলছে তাদের আইডিগুলো একটি লিস্টে জমা করি
               for (var speaker in speakers) {
                 if ((speaker.volume ?? 0) > 5) {
-                  // এগোরা নিজের আইডিকে ০ পাঠায়, সেটাকে লোকাল আইডি দিয়ে বদলে নিচ্ছি
+                  // এগোরা নিজের আইডিকে ০ পাঠায়, সেটাকে লোকাল আইডি দিয়ে বদলে নিচ্ছি
                   String activeUid = (speaker.uid == 0) 
                       ? myActualUid 
                       : speaker.uid.toString();
@@ -237,11 +237,11 @@ void initState() {
                 }
               }
 
-              // ২. সিট লিস্ট লুপ চালিয়ে কথা বলার স্টেট আপডেট করি
+              // ২. সিট লিস্ট লুপ চালিয়ে কথা বলার স্টেট আপডেট করি
               for (int i = 0; i < seats.length; i++) {
                 if (seats[i] == null) continue;
 
-                // আপনার ডাটাবেস প্রোটোকল অনুযায়ী uID বা userId চেক
+                // আপনার ডাটাবেস প্রোটোকল অনুযায়ী uID বা userId চেক
                 String seatUserId = seats[i]["uID"]?.toString() ?? seats[i]["userId"]?.toString() ?? "";
                 String seatAgoraUid = seats[i]["agoraUid"]?.toString() ?? "";
 
@@ -249,7 +249,7 @@ void initState() {
                 bool isUserTalkingNow = currentTalkingUids.contains(seatUserId) || 
                                       currentTalkingUids.contains(seatAgoraUid);
 
-                // যদি আগের স্টেট থেকে বর্তমান স্টেট আলাদা হয়, তবেই আপডেট হবে
+                // যদি আগের স্টেট থেকে বর্তমান স্টেট আলাদা হয়, তবেই আপডেট হবে
                 if (seats[i]["isTalking"] != isUserTalkingNow) {
                   seats[i]["isTalking"] = isUserTalkingNow;
                   hasChanged = true;
@@ -269,9 +269,8 @@ void initState() {
       debugPrint("❌ Agora Error: $e");
     }
   });
-  // ৫. পুরাতন অডিও প্লেয়ার লিসেনার সরিয়ে আগোরার সাথে সিঙ্ক (দরকার হলে রাখা হয়েছে)
-  // তবে গান এখন সরাসরি আগোরার EventHandler থেকেই কন্ট্রোল হচ্ছে।
-   // ৬. ফায়ারস্টোর ডাটা লোড (ব্রাকেট এবং লজিক ঠিক করা হয়েছে)
+
+  // ৫. ফায়ারস্টোর ডাটা লোড (আপনার চাহিদা অনুযায়ী ৩টি ব্রাকেট লজিক সহ)
   FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
     if (doc.exists && mounted) {
       final data = doc.data();
@@ -283,7 +282,6 @@ void initState() {
         roomWallpaperPath = data?['roomWallpaper'] ?? data?['wallpaper'] ?? '';
 
         // --- ওনার, এডমিন এবং মেহমান চেনার লজিক (uID প্রোটোকল) ---
-       // নোট: ক্লাসের গ্লোবাল uID এবং ownerName ভেরিয়েবলে ডাটা রাখা হচ্ছে
         uID = data?['uID'] ?? data?['uId'] ?? data?['uid'] ?? ''; 
         ownerName = data?['ownerName'] ?? 'Unknown Owner';
 
@@ -297,9 +295,9 @@ void initState() {
         } else {
           userRole = "Guest"; 
         }
-      }); // setState এর ব্রাকেট শেষ
+      }); // ১. setState এর সমাপ্তি
 
-      // ডাটা সিঙ্ক (এখানে uID এবং ownerName অবশ্যই পাঠাতে হবে)
+      // ডাটা সিঙ্ক (uID এবং ownerName সহ)
       _roomService.updateRoomFullData(
         roomId: widget.roomId,
         roomName: roomName,
@@ -308,14 +306,15 @@ void initState() {
         wallpaper: roomWallpaperPath,
         followers: followerCount,
         totalDiamonds: 0,
-        uID: uID,           // আপনার বিল্ড এরর ফিক্স করতে এটা দরকার
-        ownerName: ownerName, // আপনার বিল্ড এরর ফিক্স করতে এটা দরকার
+        uID: uID,
+        ownerName: ownerName,
       );
     
       _addUserToViewers();
-    } // if এর ব্রাকেট শেষ
-  }); // then এর ব্রাকেট শেষ
- }
+    } // ২. if (doc.exists) এর সমাপ্তি
+  }); // ৩. .then() এর সমাপ্তি
+}
+            
   // --- গিফট লজিক ---
   void _startGiftCounting() {
     if (isCountingGifts) return;
