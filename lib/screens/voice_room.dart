@@ -1133,35 +1133,47 @@ List<Widget> _buildFloatingEmojiAnimations() {
 
               final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-              // ১. ভিআইপি সিট চেক
-              if (isVipSeat) {
-                // সরাসরি আপনার ডাটাবেস অনুযায়ী 'uID' দিয়ে ইউজার খোঁজা হচ্ছে
-                DocumentSnapshot userDoc = await FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(uid) 
-                    .get();
+              // ১. ভিআইপি সিট চেক (uID এবং uid দুইভাবেই ডাটা খোঁজা হবে)
+          if (isVipSeat) {
+            // বর্তমান ইউজারের আইডি বের করা
+            final String myCurrentId = FirebaseAuth.instance.currentUser?.uid ?? "";
+            
+            if (myCurrentId.isEmpty) return;
 
-                if (userDoc.exists) {
-                  final userData = userDoc.data() as Map<String, dynamic>?;
-                  
-                  // আপনার স্ক্রিনশট অনুযায়ী 'isVip' চেক করা হচ্ছে
-                  bool isUserVip = userData?['isVip'] == true;
+            // সরাসরি ফায়ারস্টোর থেকে ইউজারের ডাটা আনা হচ্ছে
+            DocumentSnapshot userDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(myCurrentId)
+                .get();
 
-                  if (!isUserVip) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        // নিচের লাইনে কোটেশন (") ঠিক করে দেওয়া হয়েছে
-                        content: Text("Only VIP Users can sit here!"), 
-                        backgroundColor: Colors.redAccent,
-                      ),
-                    );
-                    return; 
-                  }
-                } else {
-                  return; 
-                }
+            if (userDoc.exists) {
+              final userData = userDoc.data() as Map<String, dynamic>?;
+
+              // --- আইডি চেক (uID অথবা uid দুইভাবেই লজিক রাখা হলো) ---
+              String foundUid = userData?['uID'] ?? userData?['uid'] ?? "";
+              
+              // --- ভিআইপি চেক (True/False চেক) ---
+              bool isUserVip = userData?['isVip'] == true;
+
+              // যদি ইউজার ভিআইপি না হয়
+              if (!isUserVip) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Only VIP Users can sit here!"),
+                    backgroundColor: Colors.redAccent,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                return; // ফাংশন এখানেই শেষ হবে, ইউজার সিটে বসতে পারবে না
               }
+              
+              debugPrint("VIP User Identity Verified: $foundUid");
+            } else {
+              // যদি ডাটাবেসে ইউজারের প্রোফাইলই না থাকে
+              return;
+            }
+          }
 
               // ২. পুরাতন সিট ক্লিন লজিক (রিয়েল-টাইম ক্লিন)
               var myOldSeats = await FirebaseFirestore.instance
