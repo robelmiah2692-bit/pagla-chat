@@ -150,24 +150,28 @@ class _ProfilePageState extends State<ProfilePage> {
     "https://images.pexels.com/photos/718978/pexels-photo-718978.jpeg?auto=compress&cs=tinysrgb&w=200&v=19",
     "https://images.pexels.com/photos/1310522/pexels-photo-1310522.jpeg?auto=compress&cs=tinysrgb&w=200&v=20",
   ];
+  // ১. গিটহাবের বেস লিঙ্ক (সব ছবির জন্য কমন)
+final String githubBaseUrl = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main";
 
-  // VIP বেইজ লিংকের ফাংশন
-  String getVipBadge(int level) {
-    if (level == 0) return ""; 
-    switch (level) {
-      case 1: return "https://i.ibb.co/6P0f9pX/vip1.png";
-      case 2: return "https://i.ibb.co/YyYfD6B/vip2.png";
-      case 3: return "https://i.ibb.co/PZf3B8M/vip3.png"; 
-      case 4: return "https://i.ibb.co/v4S8W5p/vip4.png";
-      case 5: return "https://i.ibb.co/L9H0YvY/vip5.png";
-      case 6: return "https://i.ibb.co/N1pXyFm/vip6.png";
-      case 7: return "https://i.ibb.co/mXzR1vB/vip7.png";
-      case 8: return "https://i.ibb.co/G0S4mXF/vip8.png";
-      default: return ""; 
-    }
+// ২. VIP বেইজ লিংকের ফাংশন (গিটহাব থেকে সরাসরি লোড হবে)
+String getVipBadge(int level) {
+  if (level == 0) return ""; 
+  
+  switch (level) {
+    case 1: return "$githubBaseUrl/vip1.png";
+    case 2: return "$githubBaseUrl/vip2.png";
+    case 3: return "$githubBaseUrl/vip3.png"; 
+    case 4: return "$githubBaseUrl/vip4.png";
+    case 5: return "$githubBaseUrl/vip5.png";
+    case 6: return "$githubBaseUrl/vip6.png";
+    case 7: return "$githubBaseUrl/vip7.png";
+    case 8: return "$githubBaseUrl/vip8.png";
+    default: return ""; 
   }
+}
 
-  String premiumBadgeUrl = "https://i.ibb.co/3ykC7mP/premium-gold.png";
+// ৩. প্রিমিয়াম ব্যাজের জন্য ডাইনামিক লিঙ্ক
+String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
 
   // VIP লেভেল ক্যালকুলেশন (মেয়াদসহ)
   int getVipLevel() {
