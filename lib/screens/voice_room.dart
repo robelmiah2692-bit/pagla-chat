@@ -89,7 +89,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String userRole = "Guest";
   String myPersonalAvatar = ""; 
   bool isOwner = false;
-  String displayUserID = "Hridoy"; 
+  String displayUserID = "Hridoy";
   String roomName = "পাগলা চ্যাট রুম";
   int followerCount = 0;
   String roomProfileImage = '';
@@ -675,7 +675,7 @@ Widget build(BuildContext context) {
                             .doc(widget.roomId)
                             .collection('messages')
                             .add({
-                          'userName': myName, // বা আপনার ইউজারনেম ভেরিয়েবল
+                          'userName': user.displayName ?? "User", // বা আপনার ইউজারনেম ভেরিয়েবল
                           'userImage': myPersonalAvatar, 
                           'uID': FirebaseAuth.instance.currentUser?.uid,
                           'text': msg,
