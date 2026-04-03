@@ -544,7 +544,9 @@ Widget build(BuildContext context) {
     backgroundColor: const Color(0xFF0F0F1E),
     // resizeToAvoidBottomInset false রাখছি যাতে কিবোর্ড আসলে আপনার মেইল বাটন বা অন্য বাটন উপরে লাফিয়ে না ওঠে
     resizeToAvoidBottomInset: false, 
-    body: Stack(
+    body: GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Stack(
       children: [
         // ১. ওয়ালপেপার
         if (roomWallpaperPath.isNotEmpty)
@@ -652,7 +654,7 @@ Widget build(BuildContext context) {
                       decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(25)),
                       child: TextField(
                         controller: _messageController,
-                        autofocus: true, 
+                        autofocus: false, 
                         style: const TextStyle(color: Colors.white),
                         decoration: const InputDecoration(
                           hintText: "type massge...",
@@ -673,7 +675,7 @@ Widget build(BuildContext context) {
                             .doc(widget.roomId)
                             .collection('messages')
                             .add({
-                          'userName': roomName, // বা আপনার ইউজারনেম ভেরিয়েবল
+                          'userName': myName, // বা আপনার ইউজারনেম ভেরিয়েবল
                           'userImage': myPersonalAvatar, 
                           'uID': FirebaseAuth.instance.currentUser?.uid,
                           'text': msg,
