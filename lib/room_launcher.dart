@@ -8,7 +8,6 @@ class RoomLauncher extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // অ্যাপবার একটু সুন্দর করা হলো
       appBar: AppBar(
         title: const Text("My Voice App", style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
@@ -38,25 +37,24 @@ class RoomLauncher extends StatelessWidget {
                 ),
               ),
               onPressed: () {
-                // ১. বর্তমান ইউজারের ডাটা চেক করা
                 final user = FirebaseAuth.instance.currentUser;
                 
                 if (user != null) {
                   final String myUid = user.uid;
 
-                  // ২. নেভিগেশন: roomId এবং মালিকের তথ্য পাঠানো
+                  // ফিক্সড লজিক: roomId এবং ownerId দুইটাই পাঠানো হচ্ছে
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => VoiceRoom(
-                        roomId: myUid,      // রুম আইডি হিসেবে ইউজারের ইউআইডি
+                        roomId: myUid,      // রুম আইডি ইউজারের ইউআইডি
+                        ownerId: myUid,     // মালিকও আপনি নিজে (এইটা আগে মিস ছিল)
                       ),
                     ),
                   );
                 } else {
-                  // ইউজার লগইন না থাকলে মেসেজ দেখানো
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("দয়া করে আগে লগইন করুন!")),
+                    const SnackBar(content: Text("দয়া করে আগে লগইন করুন!")),
                   );
                 }
               },
