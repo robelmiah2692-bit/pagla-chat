@@ -83,6 +83,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String ownerName = "";
   String userProfilePic = ""; 
 
+  String myName = "User"; // ডিফল্ট নাম
   // --- সব ভেরিয়েবল ---
   String roomOwnerId = ""; 
   List<dynamic> adminList = [];
@@ -675,9 +676,9 @@ Widget build(BuildContext context) {
                             .doc(widget.roomId)
                             .collection('messages')
                             .add({
-                          'userName': user.displayName ?? "User", // বা আপনার ইউজারনেম ভেরিয়েবল
-                          'userImage': myPersonalAvatar, 
-                          'uID': FirebaseAuth.instance.currentUser?.uid,
+                          'userName': data['name'] ?? "User", // বা আপনার ইউজারনেম ভেরিয়েবল
+                          'userImage': data['profilePic'] ?? "", 
+                          'uID': data['uID'] ?? FirebaseAuth.instance.currentUser?.uid,
                           'text': msg,
                           'timestamp': FieldValue.serverTimestamp(),
                         });
