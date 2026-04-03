@@ -1,72 +1,97 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'top_room_leaderboard.dart';
+import 'dart:ui'; // Glass effect এর জন্য লাগবে
 
 class FloatingRoomTools extends StatefulWidget {
-  // // ফাংশনে এখন int parameter পাস হবে টাইমিং এর জন্য
-  final Function(int minutes) onGiftCountStart;
-  final List<dynamic> seats; 
+  final Function(int minutes, String theme) onGiftCountStart;
+  final List<dynamic> seats;
 
   const FloatingRoomTools({
-    super.key, 
-    required this.onGiftCountStart, 
-    required this.seats
+    super.key,
+    required this.onGiftCountStart,
+    required this.seats,
   });
 
   @override
   State<FloatingRoomTools> createState() => _FloatingRoomToolsState();
 }
 
-class _FloatingRoomToolsState extends State<FloatingRoomTools> {
+class _FloatingRoomToolsState extends State<FloatingRoomTools> with SingleTickerProviderStateMixin {
   Offset position = const Offset(10, 200);
+  late AnimationController _gradientController;
+  final TextEditingController _themeController = TextEditingController();
 
-  // // ১০-৬০ মিনিটের টাইম সিলেক্টর পপ-আপ
+  @override
+  void initState() {
+    super.initState();
+    // কালার ঘোরার জন্য এনিমেশন কন্ট্রোলার
+    _gradientController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _gradientController.dispose();
+    _themeController.dispose();
+    super.dispose();
+  }
+
   void _showTimeSelector(BuildContext context) {
+    int tempTime = 10;
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          decoration: const BoxDecoration(
-            color: Color(0xFF1A1A2E),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-            boxShadow: [BoxShadow(color: Colors.black54, blurRadius: 20)],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(10))),
-              const SizedBox(height: 20),
-              const Text("SELECT DURATION", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 18)),
-              const SizedBox(height: 25),
-              Wrap(
-                spacing: 15,
-                runSpacing: 15,
-                alignment: WrapAlignment.center,
-                children: [10, 20, 30, 40, 50, 60].map((time) {
-                  return InkWell(
-                    onTap: () {
-                      Navigator.pop(context);
-                      widget.onGiftCountStart(time);
-                    },
-                    child: Container(
-                      width: 80,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [Colors.blueAccent.withOpacity(0.3), Colors.blue.withOpacity(0.1)]),
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: Colors.blueAccent.withOpacity(0.5)),
-                      ),
-                      child: Center(
-                        child: Text("$time Min", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 30),
-            ],
+        return StatefulBuilder(
+          builder: (context, setModalState) => Container(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + 20, left: 20, right: 20, top: 20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A2E).withOpacity(0.9),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text("START GIFT COUNT", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 18)),
+                const SizedBox(height: 20),
+                // থিম ইনপুট (ইউজার নিজের ইচ্ছা মতো লিখবে)
+                TextField(
+                  controller: _themeController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: "Enter activity theme (e.g. PK Battle)",
+                    hintStyle: const TextStyle(color: Colors.white54),
+                    filled: true,
+                    fillColor: Colors.white10,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 10,
+                  children: [10, 20, 30, 40, 50, 60].map((time) {
+                    return ChoiceChip(
+                      label: Text("$time Min"),
+                      selected: tempTime == time,
+                      onSelected: (val) => setModalState(() => tempTime = time),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black),
+                  onPressed: () {
+                    widget.onGiftCountStart(tempTime, _themeController.text);
+                    Navigator.pop(context);
+                  },
+                  child: const Text("Save & Start"),
+                )
+              ],
+            ),
           ),
         );
       },
@@ -83,12 +108,9 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools> {
         childWhenDragging: Container(),
         onDragEnd: (details) {
           setState(() {
-            // // স্ক্রিনের বাইরে যেন চলে না যায় তার চেক
             double x = details.offset.dx;
             double y = details.offset.dy;
-            if (x < 0) x = 0;
-            if (y < 0) y = 0;
-            position = Offset(x, y);
+            position = Offset(x < 0 ? 0 : x, y < 0 ? 0 : y);
           });
         },
         child: _buildToolPanel(),
@@ -97,34 +119,47 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools> {
   }
 
   Widget _buildToolPanel({bool isFeedback = false}) {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.4),
+    return AnimatedBuilder(
+      animation: _gradientController,
+      builder: (context, child) {
+        return ClipRRect(
           borderRadius: BorderRadius.circular(25),
-          border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
-          boxShadow: [const BoxShadow(color: Colors.black45, blurRadius: 15)],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _toolIcon(Icons.timer_outlined, "Gift Count", Colors.orangeAccent, () => _showTimeSelector(context)),
-            const SizedBox(height: 15),
-            _toolIcon(Icons.emoji_events_outlined, "Top Room", Colors.yellowAccent, () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const TopRoomLeaderboard()));
-            }),
-            const SizedBox(height: 15),
-            _toolIcon(Icons.bolt, "Personal PK", Colors.blueAccent, () {
-               // // এখানে আপনার PK ফাইলের Navigation দিবেন
-            }),
-            const SizedBox(height: 15),
-            _toolIcon(Icons.whatshot, "VS PK", Colors.redAccent, () {
-               // // এখানে আপনার VS PK ফাইলের Navigation দিবেন
-            }),
-          ],
-        ),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), // গ্লাস ইফেক্ট
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(25),
+                // রেন্ডম কালার মুভিং ইফেক্ট
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withOpacity(0.2),
+                    Colors.blueAccent.withOpacity(0.1 + (_gradientController.value * 0.2)),
+                    Colors.purpleAccent.withOpacity(0.1 + ((1 - _gradientController.value) * 0.2)),
+                  ],
+                ),
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
+              ),
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _toolIcon(Icons.timer_outlined, "Gift Count", Colors.orangeAccent, () => _showTimeSelector(context)),
+          const SizedBox(height: 15),
+          _toolIcon(Icons.emoji_events_outlined, "Top Room", Colors.yellowAccent, () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const TopRoomLeaderboard()));
+          }),
+          const SizedBox(height: 15),
+          _toolIcon(Icons.bolt, "Personal PK", Colors.blueAccent, () {}),
+          const SizedBox(height: 15),
+          _toolIcon(Icons.whatshot, "VS PK", Colors.redAccent, () {}),
+        ],
       ),
     );
   }
@@ -138,29 +173,30 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools> {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(colors: [color.withOpacity(0.4), color.withOpacity(0.1)]),
-              border: Border.all(color: color.withOpacity(0.3)),
+              color: color.withOpacity(0.15),
+              border: Border.all(color: color.withOpacity(0.4)),
             ),
             child: Icon(icon, color: color, size: 22),
           ),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w500)),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 }
 
-// // ---------------------------------------------------------
-// // গিফট কাউন্টার ভাসমান ব্যানার (ক্যালকুলেটর ভিউ)
-// // ---------------------------------------------------------
+// ---------------------------------------------------------
+// গিফট কাউন্টার ভাসমান ব্যানার (Glass Ranking View)
+// ---------------------------------------------------------
 
 class GiftCalculatorBanner extends StatefulWidget {
   final int minutes;
+  final String theme;
   final List<dynamic> seats;
   final VoidCallback onClose;
 
-  const GiftCalculatorBanner({super.key, required this.minutes, required this.seats, required this.onClose});
+  const GiftCalculatorBanner({super.key, required this.minutes, required this.theme, required this.seats, required this.onClose});
 
   @override
   State<GiftCalculatorBanner> createState() => _GiftCalculatorBannerState();
@@ -169,7 +205,6 @@ class GiftCalculatorBanner extends StatefulWidget {
 class _GiftCalculatorBannerState extends State<GiftCalculatorBanner> {
   late Timer _timer;
   int _secondsRemaining = 0;
-  // // ডাটাবেস থেকে রিয়েল টাইম পয়েন্ট আপডেট নেওয়ার জন্য স্ট্রীম বা ম্যাপ ব্যবহার করবেন
   Map<String, int> scores = {}; 
 
   @override
@@ -185,14 +220,9 @@ class _GiftCalculatorBannerState extends State<GiftCalculatorBanner> {
         setState(() => _secondsRemaining--);
       } else {
         _timer.cancel();
-        _showWinnerDialog();
+        // উইনার ডায়ালগ লজিক
       }
     });
-  }
-
-  void _showWinnerDialog() {
-    // // এখানে আপনার উইনার পপ-আপ লজিক বসবে (সবচেয়ে বেশি ডায়মন্ড পাওয়া ইউজারের জন্য)
-    // // এবং স্টোরি শেয়ার বাটন
   }
 
   @override
@@ -207,58 +237,55 @@ class _GiftCalculatorBannerState extends State<GiftCalculatorBanner> {
 
     return Material(
       color: Colors.transparent,
-      child: Container(
-        width: 260,
-        decoration: BoxDecoration(
-          color: const Color(0xFF161B40).withOpacity(0.95),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.amber.withOpacity(0.3)),
-          boxShadow: [const BoxShadow(color: Colors.black87, blurRadius: 20)],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // // হেডার
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.amber.withOpacity(0.1),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text("GIFT COUNT", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)),
-                  Text(timeStr, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  GestureDetector(onTap: widget.onClose, child: const Icon(Icons.close, color: Colors.white54, size: 16)),
-                ],
-              ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+          child: Container(
+            width: 260,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
             ),
-            // // সিট ইউজার লিস্ট
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                padding: const EdgeInsets.all(10),
-                itemCount: widget.seats.length,
-                itemBuilder: (context, index) {
-                  final seat = widget.seats[index];
-                  if (seat == null) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      children: [
-                        CircleAvatar(radius: 14, backgroundImage: NetworkImage(seat['userImage'] ?? "")),
-                        const SizedBox(width: 10),
-                        Expanded(child: Text(seat['userName'] ?? "User", style: const TextStyle(color: Colors.white70, fontSize: 11), overflow: TextOverflow.ellipsis)),
-                        const Icon(Icons.diamond, color: Colors.blueAccent, size: 12),
-                        Text(" ${scores[seat['uid']] ?? 0}", style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  );
-                },
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // হেডার
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(color: Colors.amber.withOpacity(0.2)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(child: Text(widget.theme.isEmpty ? "GIFT COUNT" : widget.theme, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 11), overflow: TextOverflow.ellipsis)),
+                      Text(timeStr, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 5),
+                      GestureDetector(onTap: widget.onClose, child: const Icon(Icons.close, color: Colors.white70, size: 16)),
+                    ],
+                  ),
+                ),
+                // র‍্যাঙ্কিং লিস্ট
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: widget.seats.length,
+                    itemBuilder: (context, index) {
+                      final seat = widget.seats[index];
+                      if (seat == null || seat['uid'] == null) return const SizedBox.shrink();
+                      return ListTile(
+                        dense: true,
+                        leading: CircleAvatar(radius: 12, backgroundImage: NetworkImage(seat['userImage'] ?? "")),
+                        title: Text(seat['userName'] ?? "User", style: const TextStyle(color: Colors.white, fontSize: 10)),
+                        trailing: Text("${scores[seat['uid']] ?? 0} 💎", style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
