@@ -823,9 +823,10 @@ Widget build(BuildContext context) {
           ),
         ),
 
-        // ৯. সমাধান ৩: ইমোজি অ্যানিমেশন (আপনার ভেরিয়েবল activeEmojis ব্যবহার করে)
-        ..._buildFloatingEmojiAnimations(), 
-      ],
+          // ৯. সমাধান ৩: ইমোজি অ্যানিমেশন (আপনার ভেরিয়েবল activeEmojis ব্যবহার করে)
+          ..._buildFloatingEmojiAnimations(), 
+        ],
+      ),
     ),
   );
 }
