@@ -275,51 +275,51 @@ class _VoiceRoomState extends State<VoiceRoom> {
     });
   }
             
-  // --- আপডেট করা গিফট লজিক (নতুন ফিচারের সাথে) ---
-  void _startGiftCounting(int minutes) {
-    if (isGiftCounting) return; // // অলরেডি চলতে থাকলে আর শুরু হবে না
+   // --- আপডেট করা গিফট লজিক (নতুন ফিচারের সাথে) ---
+    void _startGiftCounting(int minutes, String theme) {
+      if (isGiftCounting) return; // অলরেডি চলতে থাকলে আর শুরু হবে না
 
-    setState(() { 
-      isGiftCounting = true; 
-      remainingSeconds = minutes * 60; // // মিনিটকে সেকেন্ডে রূপান্তর
-    });
+      setState(() { 
+        isGiftCounting = true; 
+        activityTheme = theme; // থিমের নাম সেভ করা হলো
+        remainingSeconds = minutes * 60; // মিনিটকে সেকেন্ডে রূপান্তর
+      });
 
-    giftTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (remainingSeconds > 0) {
-        if (mounted) setState(() => remainingSeconds--);
-      } else {
-        timer.cancel();
-        if (mounted) setState(() => isGiftCounting = false);
-        _showWinnerPopup(); // // সময় শেষ হলে উইনার দেখাবে
-      }
-    });
-  }
-
-  void _showWinnerPopup() {
-    // // আপনার পুরাতন পপআপ লজিক এখানে হুবহু থাকবে
-    List<Map<String, dynamic>> seatData = List.from(seats);
-    seatData.sort((a, b) => (b['giftCount'] ?? 0).compareTo(a['giftCount'] ?? 0));
-    
-    List<Map<String, dynamic>> topWinners = [];
-    for (var s in seatData) {
-      if (s != null && (s['giftCount'] ?? 0) > 0 && (s['isOccupied'] ?? false)) {
-        topWinners.add({
-          "name": s['userName'] ?? "User", 
-          "avatar": s['userImage'] ?? "", 
-          "gifts": s['giftCount']
-        });
-      }
-      if (topWinners.length == 2) break;
+      giftTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (remainingSeconds > 0) {
+          if (mounted) setState(() => remainingSeconds--);
+        } else {
+          timer.cancel();
+          if (mounted) setState(() => isGiftCounting = false);
+          _showWinnerPopup(); // সময় শেষ হলে উইনার দেখাবে
+        }
+      });
     }
 
-    if (topWinners.isNotEmpty) {
-      showDialog(
-        context: context, 
-        builder: (context) => GiftRankDialog(winners: topWinners)
-      );
-    }
-  }
+    void _showWinnerPopup() {
+      // আপনার পুরাতন পপআপ লজিক এখানে হুবহু থাকবে
+      List<Map<String, dynamic>> seatData = List.from(seats);
+      seatData.sort((a, b) => (b['giftCount'] ?? 0).compareTo(a['giftCount'] ?? 0));
+      
+      List<Map<String, dynamic>> topWinners = [];
+      for (var s in seatData) {
+        if (s != null && (s['giftCount'] ?? 0) > 0 && (s['isOccupied'] ?? false)) {
+          topWinners.add({
+            "name": s['userName'] ?? "User", 
+            "avatar": s['userImage'] ?? "", 
+            "gifts": s['giftCount']
+          });
+        }
+        if (topWinners.length == 2) break;
+      }
 
+      if (topWinners.isNotEmpty) {
+        showDialog(
+          context: context, 
+          builder: (context) => GiftRankDialog(winners: topWinners)
+        );
+      }
+    }
   // --- PK Battle ---
   void _endPKBattle() {
     String winner = blueTeamPoints > redTeamPoints ? "BLUE" : "RED";
@@ -702,9 +702,20 @@ Widget build(BuildContext context) {
 
          // // মিউজিক প্লেয়ারের ঠিক নিচে এইটুকু বসান:
         FloatingRoomTools(
-          onGiftCountStart: (minutes) => _startGiftCounting(minutes),
+          onGiftCountStart: (minutes, theme) {
+            // এখানে থিম (theme) প্যারামিটারটি যোগ করে নিন
+            _startGiftCounting(minutes, theme);
+          },
           seats: seats,
         ),
+        
+        // র‍্যাঙ্কিং ব্যানারটি যদি দেখাতে চান
+        if (isCalculatorActive)
+          Positioned(
+            right: 10,
+            top: 250,
+            child: GiftCalculatorRanking(roomData: roomData),
+          ),
 
         GiftOverlayHandler(
           isGiftAnimating: isGiftAnimating,
