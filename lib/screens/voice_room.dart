@@ -669,16 +669,18 @@ Widget build(BuildContext context) {
                     icon: const Icon(Icons.send, color: Colors.pinkAccent),
                     onPressed: () {
                       String msg = _messageController.text.trim();
-                      if (msg.isNotEmpty) {
+                      final currentUser = FirebaseAuth.instance.currentUser;
+                      
+                      if (msg.isNotEmpty && currentUser != null) {
                         // আপনার অরিজিনাল ফায়ারবেস লজিক (uID সহ)
                         _firestore
                             .collection('rooms')
                             .doc(widget.roomId)
                             .collection('messages')
                             .add({
-                          'userName': data['name'] ?? "User", // বা আপনার ইউজারনেম ভেরিয়েবল
-                          'userImage': data['profilePic'] ?? "", 
-                          'uID': data['uID'] ?? FirebaseAuth.instance.currentUser?.uid,
+                          'userName': currentUser.displayName ?? "User", // বা আপনার ইউজারনেম ভেরিয়েবল
+                          'userImage': currentUser.photoURL ?? "",
+                          'uID': currentUser.uid,
                           'text': msg,
                           'timestamp': FieldValue.serverTimestamp(),
                         });
