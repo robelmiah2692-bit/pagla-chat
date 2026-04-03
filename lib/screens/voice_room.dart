@@ -1890,3 +1890,55 @@ List<Widget> _buildFloatingEmojiAnimations() {
     }
   }
 }
+class GiftCalculatorRanking extends StatelessWidget {
+  final Map<String, dynamic> roomData;
+  const GiftCalculatorRanking({super.key, required this.roomData});
+
+  @override
+  Widget build(BuildContext context) {
+    // ডাটা থেকে ক্যালকুলেটর স্কোর এবং থিম বের করা
+    Map<String, dynamic> scores = roomData['calcScores'] ?? {};
+    String theme = roomData['theme'] ?? "GIFT COUNT";
+    
+    // স্কোর অনুযায়ী সর্টিং (বেশি থেকে কম)
+    var sortedEntries = scores.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return Container(
+      width: 180,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.6), // গ্লাস ইফেক্ট
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(theme, style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold)),
+          const Divider(color: Colors.white24, thickness: 1),
+          if (sortedEntries.isEmpty)
+            const Text("No gifts yet", style: TextStyle(color: Colors.white54, fontSize: 10)),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: sortedEntries.length > 5 ? 5 : sortedEntries.length,
+            itemBuilder: (context, index) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Text("${index + 1}", style: const TextStyle(color: Colors.amber, fontSize: 11)),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(sortedEntries[index].key, style: const TextStyle(color: Colors.white, fontSize: 11), overflow: TextOverflow.ellipsis)),
+                    Text("${sortedEntries[index].value} 💎", style: const TextStyle(color: Colors.cyanAccent, fontSize: 11)),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
