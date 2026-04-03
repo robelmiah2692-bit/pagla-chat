@@ -68,6 +68,11 @@ class _VoiceRoomState extends State<VoiceRoom> {
   final DatabaseService _dbService = DatabaseService();
   final AgoraManager _agoraManager = AgoraManager();
 
+ // এই ভেরিয়েবলগুলো ক্লাসের ওপরের দিকে যোগ করুন
+  bool isCalculatorActive = false; 
+  String activityTheme = "";
+  Map<String, dynamic> roomData = {}; // এটিই মিসিং ছিল
+  Map<String, int> roomScores = {};
   // --- বিল্ড এরর ফিক্স করার জন্য ভ্যারিয়েবল ---
   Map<int, String> activeEmojis = {}; 
   List<Offset> seatPositions = List.generate(8, (index) => Offset.zero); 
