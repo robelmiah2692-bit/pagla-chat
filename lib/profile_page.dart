@@ -445,7 +445,7 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
 
   Widget _buildStoreCardTab() {
     return Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.network("https://i.ibb.co/3ykC7mP/premium-card.jpg", height: 150, width: 220, fit: BoxFit.cover)),
+      ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.network("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png"; height: 150, width: 220, fit: BoxFit.cover)),
       const SizedBox(height: 10),
       const Text("Pagla Premium Card", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
       const Text("6k 💎", style: TextStyle(color: Colors.cyanAccent)),
@@ -771,15 +771,16 @@ Widget _buildActionBox(String title, IconData icon, Color color, VoidCallback on
 // ✅ ৩. প্রিয়জন (Soulmate) ৬ স্লট লজিক
 Widget _buildSoulmateSection() {
   final String currentId = FirebaseAuth.instance.currentUser?.uid ?? '';
-  const String goldenCardUrl = "https://i.ibb.co/v6m4VfW/Picsart-26-03-06-12-06-39-154.jpg";
+  // গিটহাবের সেই সঠিক পারমানেন্ট লিঙ্ক
+  const String soulmateCardUrl = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/soulmatecard.png";
 
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         child: Text("প্রিয়জন (Soulmates)", 
-          style: TextStyle(color: Colors.white70, fontSize: 15, fontWeight: FontWeight.bold)),
+          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
       ),
       StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection('soulmates')
@@ -790,55 +791,28 @@ Widget _buildSoulmateSection() {
             physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 15),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3, 
-              childAspectRatio: 0.72, 
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
+              crossAxisCount: 2, // ২টা করে সারিতে থাকবে
+              childAspectRatio: 0.82, 
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
             ),
-            itemCount: 6, 
+            itemCount: 6, // সবসময় ৬টি ঘর
             itemBuilder: (context, index) {
-              var data = (snapshot.hasData && snapshot.data!.docs.length > index) 
+              var dataDoc = (snapshot.hasData && snapshot.data!.docs.length > index) 
                   ? snapshot.data!.docs[index] : null;
+              var data = dataDoc?.data() as Map<String, dynamic>?;
 
               return GestureDetector(
-                onLongPress: data != null ? () => _showBreakupDialog(data['partnerId']) : null,
+                onLongPress: dataDoc != null ? () => _showBreakupDialog(data!['partnerId']) : null,
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(18),
                     image: const DecorationImage(
-                      image: NetworkImage(goldenCardUrl), 
+                      image: NetworkImage(soulmateCardUrl), 
                       fit: BoxFit.fill,
                     ),
                   ),
-                  child: data != null ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 15),
-                      Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.amber, width: 2),
-                          image: DecorationImage(
-                            image: NetworkImage(data['partnerImage']),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
-                          data['partnerName'],
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ) : const Center(child: Icon(Icons.add, color: Colors.white24, size: 28)), 
+                  child: data != null ? _buildFilledSoulmate(data) : _buildEmptySoulmate(),
                 ),
               );
             },
@@ -847,6 +821,80 @@ Widget _buildSoulmateSection() {
       ),
       const SizedBox(height: 20),
     ],
+  );
+}
+
+// কার্ড যখন এক্টিভ (ছবি ও লেভেল সহ)
+Widget _buildFilledSoulmate(Map<String, dynamic> data) {
+  // লেভেল লজিক: প্রতি ৫০০০ ডাইমন্ডে ১ লেভেল (ম্যাক্স ৫০)
+  int totalGift = data['totalGift'] ?? 0;
+  int level = (totalGift / 5000).floor().clamp(1, 50);
+
+  return Column(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      // উপরের লেভেল ব্যাজ
+      Align(
+        alignment: Alignment.topRight,
+        child: Container(
+          margin: const EdgeInsets.only(right: 8, top: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.redAccent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text("Lv.$level", style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+        ),
+      ),
+      const Spacer(),
+      // পার্টনারের ছবি
+      Container(
+        width: 58,
+        height: 58,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.amber, width: 2),
+          image: DecorationImage(
+            image: NetworkImage(data['partnerImage'] ?? ""),
+            fit: BoxFit.cover,
+          ),
+        ),
+      ),
+      const SizedBox(height: 8),
+      // নাম
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Text(
+          data['partnerName'] ?? "Unknown",
+          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      const SizedBox(height: 4),
+      // সোলমেট ট্যাগ
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(color: Colors.orange.withOpacity(0.8), borderRadius: BorderRadius.circular(10)),
+        child: const Text("Soulmate", style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+      ),
+      const SizedBox(height: 12),
+    ],
+  );
+}
+
+// কার্ড যখন খালি (Lock আইকন)
+Widget _buildEmptySoulmate() {
+  return Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.lock_outline, color: Colors.white.withOpacity(0.2), size: 30),
+        const SizedBox(height: 4),
+        const Icon(Icons.add, color: Colors.white24, size: 20),
+      ],
+    ),
   );
 }
 
