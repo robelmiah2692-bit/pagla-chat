@@ -275,27 +275,88 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
         }, child: ClipOval(child: Image.network(avatars[index], fit: BoxFit.cover)))));
   }
 
-  void _pickProfileImage() {
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Wrap(children: [
-        ListTile(leading: const Icon(Icons.face, color: Colors.blueAccent), title: const Text("Real avtar (Free)", style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _showFreeAvatars(); }),
-        ListTile(leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), title: const Text("Gallery photo avtar", style: TextStyle(color: Colors.white)), onTap: () async {
+void _pickProfileImage() {
+  showModalBottomSheet(
+    context: context, 
+    backgroundColor: const Color(0xFF1A1A2E), 
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (context) => Wrap(children: [
+      ListTile(
+        leading: const Icon(Icons.face, color: Colors.blueAccent), 
+        title: const Text("Real avtar (Free)", style: TextStyle(color: Colors.white)), 
+        onTap: () { Navigator.pop(context); _showFreeAvatars(); }
+      ),
+      ListTile(
+        leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), 
+        title: const Text("Gallery photo avtar", style: TextStyle(color: Colors.white)), 
+        onTap: () async {
           if (hasPremiumCard || getVipLevel() >= 1) {
              try {
                final ImagePicker picker = ImagePicker();
-               final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-               if (image != null) setState(() => userImageURL = image.path);
-               if (mounted) Navigator.pop(context);
+               final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
+               
+               if (pickedFile != null) {
+                 Navigator.pop(context); // বটম শিট বন্ধ
+                 
+                 // ছবি আপলোড ও পুরাতনটা মোছার লজিক কল করা
+                 await _handleProfileUpdate(File(pickedFile.path));
+               }
              } catch (e) {
-               debugPrint("Error: $e");
+               debugPrint("Error picking image: $e");
              }
           } else {
              Navigator.pop(context);
-             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Premium card ya VIP 1 Need !"), backgroundColor: Colors.redAccent));
+             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+               content: Text("Premium card VIP 1 need!"), 
+               backgroundColor: Colors.redAccent
+             ));
           }
-        }),
-      ]));
+        }
+      ),
+    ])
+  );
+}
+
+// ছবি আপলোড এবং পুরাতন ছবি হ্যান্ডেল করার ফাংশন
+Future<void> _handleProfileUpdate(File newFile) async {
+  try {
+    String uid = FirebaseAuth.instance.currentUser!.uid;
+    
+    // ১. স্টোরেজ রেফারেন্স (একই নাম ব্যবহার করলে পুরাতন ছবি অটো রিপ্লেস হয়)
+    // আমরা ফাইলপাথ দিচ্ছি 'user_profiles/UID_profile.jpg'
+    Reference storageRef = FirebaseStorage.instance.ref().child('user_profiles').child('$uid\_profile.jpg');
+
+    // ২. পুরাতন ছবি যদি থাকে তবে সেটা আগে ডিলিট করার চেষ্টা করা (অপশনাল কিন্তু ক্লিন)
+    try {
+      await storageRef.delete(); 
+    } catch (e) {
+      // যদি আগে কোনো ছবি না থাকে তবে ডিলিট এরর দিবে, সেটা আমরা ইগনোর করব
+    }
+
+    // ৩. নতুন ছবি আপলোড করা
+    UploadTask uploadTask = storageRef.putFile(newFile);
+    TaskSnapshot snapshot = await uploadTask;
+    
+    // ৪. নতুন ইউআরএল নেওয়া
+    String newDownloadUrl = await snapshot.ref.getDownloadURL();
+    
+    // ৫. ফায়ারস্টোরে আপডেট করা
+    await FirebaseFirestore.instance.collection('users').doc(uid).update({
+      'userImage': newDownloadUrl,
+    });
+
+    // ৬. অ্যাপের লোকাল স্টেট আপডেট
+    setState(() {
+      userImageURL = newDownloadUrl;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("প্রোফাইল পিকচার সফলভাবে আপডেট হয়েছে!")));
+
+  } catch (e) {
+    debugPrint("Update Error: $e");
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("আপডেট ব্যর্থ হয়েছে!")));
   }
+}
 
   // ১. ডায়মন্ড স্টোর ওপেন করার ফাংশন (Fix: userData প্যারামিটার যোগ করা হয়েছে)
   void _openDiamondStore(Map<String, dynamic> userData) {
