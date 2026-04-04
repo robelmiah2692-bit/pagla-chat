@@ -36,7 +36,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String activeFrameUrl = ""; 
   DateTime? frameUntilDate;
   DateTime? premiumUntilDate;
-  String uid = FirebaseAuth.instance.currentUser!.uid;
+  String uID = FirebaseAuth.instance.currentUser!.uid;
   String userImageURL = ""; 
   String userName = "Unfixed";
   String uIDValue = ""; 
@@ -563,7 +563,7 @@ Widget _buildStoreCardTab() {
                 DateTime cardExpiry = now.add(const Duration(days: 30));
                 DateTime frameExpiry = now.add(const Duration(days: 10));
 
-                await FirebaseFirestore.instance.collection('users').doc(uid).update({
+                await FirebaseFirestore.instance.collection('users').doc(uID).update({
                   'diamonds': FieldValue.increment(-6000),
                   'hasPremiumCard': true,
                   'premiumUntil': Timestamp.fromDate(cardExpiry),
@@ -655,7 +655,7 @@ Widget _buildMyFramesTab() {
               style: ElevatedButton.styleFrom(backgroundColor: isPicked ? Colors.redAccent : Colors.blueAccent, minimumSize: const Size(80, 30)),
               onPressed: () async {
                 String newFrame = isPicked ? "" : "YOUR_FRAME_URL_HERE";
-                await FirebaseFirestore.instance.collection('users').doc(uid).update({'activeFrame': newFrame});
+                await FirebaseFirestore.instance.collection('users').doc(uID).update({'activeFrame': newFrame});
                 setState(() { activeFrameUrl = newFrame; });
               },
               child: Text(isPicked ? "UNPICK" : "PICK"),
