@@ -64,29 +64,31 @@ class PostCard extends StatelessWidget {
     final bool isLiked = likes.contains(uid);
     bool isOwner = (data['userId'] == uid);
 
-    // ব্যানার থিম কালারস
+    // থিম কালারস
     const Color premiumGold = Color(0xFFFFD700);
     const Color cyanOwner = Color(0xFF00FBFF);
+    // গ্লাস বডির জন্য নতুন কালার (কালো বা গোলাপি নয়)
+    final Color glassColor = const Color(0xFF1E2A47).withOpacity(0.3); 
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(25),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15), // গ্লাস ইফেক্টের ব্লার
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.4), // ডার্ক ব্যানার ভাইব
+              color: glassColor, // কালো বা গোলাপি বাদে প্রিমিয়াম ব্লু গ্লাস
               borderRadius: BorderRadius.circular(25),
               border: Border.all(
-                color: premiumGold.withOpacity(0.5), // নিখুঁত গোল্ডেন বর্ডার
-                width: 0.8, // আপনার চাহিদা মতো চিকন বর্ডার
+                color: premiumGold.withOpacity(0.4), // গোল্ডেন চিকন বর্ডার
+                width: 0.8,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: premiumGold.withOpacity(0.05),
+                  color: Colors.black.withOpacity(0.1),
                   blurRadius: 10,
-                  spreadRadius: 1,
+                  spreadRadius: 2,
                 )
               ],
             ),
@@ -98,7 +100,6 @@ class PostCard extends StatelessWidget {
                     padding: const EdgeInsets.all(1.5),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      // গ্রেডিয়েন্ট থেকে পার্পল সরিয়ে সায়ান দেওয়া হয়েছে
                       gradient: LinearGradient(colors: [cyanOwner, cyanOwner.withOpacity(0.2)]),
                     ),
                     child: CircleAvatar(
