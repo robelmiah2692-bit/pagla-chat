@@ -322,40 +322,52 @@ void _pickProfileImage() {
 Future<void> _handleProfileUpdate(File newFile) async {
   try {
     String uid = FirebaseAuth.instance.currentUser!.uid;
+    // ইউনিক নাম তৈরির জন্য টাইমস্ট্যাম্প নিচ্ছি
+    String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     
-    // ১. স্টোরেজ রেফারেন্স (একই নাম ব্যবহার করলে পুরাতন ছবি অটো রিপ্লেস হয়)
-    // আমরা ফাইলপাথ দিচ্ছি 'user_profiles/UID_profile.jpg'
-    Reference storageRef = FirebaseStorage.instance.ref().child('user_profiles').child('$uid\_profile.jpg');
+    // ১. স্টোরেজ রেফারেন্স (ইউনিক নাম দিলে পুরাতন ক্যাশ সমস্যা হবে না)
+    // পাথ: user_profiles/UID/profile_12345678.jpg
+    Reference storageFolder = FirebaseStorage.instance.ref().child('user_profiles').child(uid);
+    Reference newStorageRef = storageFolder.child('profile_$timestamp.jpg');
 
-    // ২. পুরাতন ছবি যদি থাকে তবে সেটা আগে ডিলিট করার চেষ্টা করা (অপশনাল কিন্তু ক্লিন)
+    // ২. পুরাতন ফাইলগুলো ডিলিট করা (বাকেট ক্লিন রাখার জন্য)
     try {
-      await storageRef.delete(); 
+      final listResult = await storageFolder.listAll();
+      for (var item in listResult.items) {
+        await item.delete();
+      }
     } catch (e) {
-      // যদি আগে কোনো ছবি না থাকে তবে ডিলিট এরর দিবে, সেটা আমরা ইগনোর করব
+      debugPrint("Old image delete error: $e");
     }
 
     // ৩. নতুন ছবি আপলোড করা
-    UploadTask uploadTask = storageRef.putFile(newFile);
+    UploadTask uploadTask = newStorageRef.putFile(newFile);
     TaskSnapshot snapshot = await uploadTask;
     
     // ৪. নতুন ইউআরএল নেওয়া
     String newDownloadUrl = await snapshot.ref.getDownloadURL();
     
-    // ৫. ফায়ারস্টোরে আপডেট করা
+    // ৫. ফায়ারস্টোরে আপডেট করা
     await FirebaseFirestore.instance.collection('users').doc(uid).update({
       'userImage': newDownloadUrl,
     });
 
     // ৬. অ্যাপের লোকাল স্টেট আপডেট
-    setState(() {
-      userImageURL = newDownloadUrl;
-    });
+    if (mounted) {
+      setState(() {
+        userImageURL = newDownloadUrl;
+      });
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("প্রোফাইল পিকচার সফলভাবে আপডেট হয়েছে!")));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("প্রোফাইল পিকচার সফলভাবে আপডেট হয়েছে!"), backgroundColor: Colors.green),
+    );
 
   } catch (e) {
     debugPrint("Update Error: $e");
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("আপডেট ব্যর্থ হয়েছে!")));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("আপডেট ব্যর্থ হয়েছে!"), backgroundColor: Colors.redAccent),
+    );
   }
 }
 
