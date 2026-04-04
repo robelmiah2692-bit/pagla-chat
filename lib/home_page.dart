@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart'; 
 import 'dart:io' as io; 
 
-import 'story_section.dart'; 
+// import 'story_section.dart'; // এটি আর লাগছে না কারণ স্টোরি বাদ দিচ্ছি
 import 'stories_service.dart'; 
 import 'post_card.dart'; 
 
@@ -23,7 +23,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
   final TextEditingController _captionController = TextEditingController();
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-  // নতুন ফিচারের জন্য এনিমেশন কন্ট্রোলার
+  // ব্যানারের লিঙ্ক
+  final String goldenBannerUrl = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premium_banner.png";
+
   late AnimationController _colorController;
   late Animation<double> _colorAnimation;
 
@@ -33,7 +35,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
     WidgetsBinding.instance.addObserver(this);
     _updateStatus(true); 
 
-    // ডাইনামিক কালার এনিমেশন সেটআপ
     _colorController = AnimationController(
       duration: const Duration(seconds: 3),
       vsync: this,
@@ -45,7 +46,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _captionController.dispose();
-    _colorController.dispose(); // এনিমেশন মেমোরি ক্লিয়ার
+    _colorController.dispose();
     super.dispose();
   }
 
@@ -67,7 +68,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
     }
   }
 
-  // নোটিফিকেশন ক্লিক করলে কাউন্ট জিরো করার ফাংশন
   void _clearNotificationCount() {
     FirebaseFirestore.instance
         .collection('notifications')
@@ -258,7 +258,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
         centerTitle: true,
         backgroundColor: const Color(0xFF0D0D2B),
         elevation: 0,
-        // --- স্টাইলিশ ওয়েলকাম ব্যানার ---
         title: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           decoration: BoxDecoration(
@@ -290,7 +289,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
           ),
         ),
         actions: [
-          // --- রিয়েল-টাইম নোটিফিকেশন বাটন ---
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('notifications')
@@ -351,11 +349,33 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              const SliverToBoxAdapter(child: StorySection()),
+              // --- স্টোরি সেকশনের বদলে আপনার ব্যানার ---
+              SliverToBoxAdapter(
+                child: Container(
+                  width: double.infinity,
+                  height: 180,
+                  margin: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.pinkAccent.withOpacity(0.2),
+                        blurRadius: 15,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                    image: DecorationImage(
+                      image: NetworkImage(goldenBannerUrl),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ),
               
+              // --- পোস্ট লিস্ট ---
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
-                    .collection('stories')
+                    .collection('stories') // আপনার কালেকশন নাম 'stories' হলে এটিই থাকবে
                     .orderBy('timestamp', descending: true)
                     .snapshots(),
                 builder: (context, snapshot) {
