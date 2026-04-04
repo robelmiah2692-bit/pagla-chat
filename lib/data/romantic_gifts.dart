@@ -1,4 +1,4 @@
-final List<Map<String, dynamic>> marriageRings = [
+final List<Map<String, dynamic>> romanticGifts = [
   {
     "id": "ring_2500", 
     "name": "Classic Gold Band", 
