@@ -282,7 +282,9 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
         }, child: ClipOval(child: Image.network(avatars[index], fit: BoxFit.cover)))));
   }
 
-  void _pickProfileImage() {
+
+  // ১. ইমেজ সোর্স সিলেক্ট করার মেইন ফাংশন
+void _pickProfileImage() {
   showModalBottomSheet(
     context: context, 
     backgroundColor: const Color(0xFF1A1A2E), 
@@ -290,15 +292,15 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
     builder: (context) => Wrap(children: [
       ListTile(
         leading: const Icon(Icons.face, color: Colors.blueAccent), 
-        title: const Text("Real avtar (Free)", style: TextStyle(color: Colors.white)), 
+        title: const Text("Real avatar (Free)", style: TextStyle(color: Colors.white)), 
         onTap: () { 
           Navigator.pop(context); 
-          _showFreeAvatars(); 
+          _showFreeAvatars(); // এখান থেকে ইউজার যেটা সিলেক্ট করবে সেটা সরাসরি profilePic হবে
         }
       ),
       ListTile(
         leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), 
-        title: const Text("Gallery photo avtar", style: TextStyle(color: Colors.white)), 
+        title: const Text("Gallery photo avatar", style: TextStyle(color: Colors.white)), 
         onTap: () async {
           // VIP বা Premium যেকোনো একটি থাকলেই গ্যালারি ওপেন হবে
           if (hasPremiumCard || getVipLevel() >= 1) {
@@ -308,9 +310,7 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
                
                if (pickedFile != null) {
                  if (!mounted) return;
-                 Navigator.pop(context); // বটম শিট বন্ধ
-                 
-                 // আপডেট ফাংশন কল
+                 Navigator.pop(context);
                  await _handleProfileUpdate(File(pickedFile.path));
                }
              } catch (e) {
@@ -320,7 +320,7 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
              if (!mounted) return;
              Navigator.pop(context);
              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-               content: Text("Premium card or VIP 1 needed!"), 
+               content: Text("Premium card or VIP 1 needed for Gallery!"), 
                backgroundColor: Colors.redAccent
              ));
           }
@@ -330,51 +330,44 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
   );
 }
 
-// ছবি আপলোড এবং দুই ফিল্ডেই সেভ করার ফাংশন
+// ২. গ্যালারি থেকে ছবি আপলোড করে profilePic হিসেবে সেভ করা
 Future<void> _handleProfileUpdate(File newFile) async {
   try {
-    // আপনার প্রজেক্টের uIDValue ব্যবহার করা হয়েছে
-    String uid = uIDValue; 
+    String uid = uIDValue; // আপনার প্রজেক্টের uIDValue
     String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     
-    // ১. স্টোরেজ রেফারেন্স
+    // স্টোরেজ রেফারেন্স
     Reference storageFolder = FirebaseStorage.instance.ref().child('user_profiles').child(uid);
     Reference newStorageRef = storageFolder.child('profile_$timestamp.jpg');
 
-    // ২. পুরাতন ফাইলগুলো ডিলিট করা (স্টোরেজ ক্লিন রাখার জন্য)
+    // পুরাতন স্টোরেজ ফাইল ডিলিট (বাকেট ক্লিন রাখতে)
     try {
       final listResult = await storageFolder.listAll();
       for (var item in listResult.items) {
         await item.delete();
       }
     } catch (e) {
-      debugPrint("Old image delete error: $e");
+      debugPrint("Old image cleanup error: $e");
     }
 
-    // ৩. নতুন ছবি আপলোড করা
+    // নতুন ছবি আপলোড
     UploadTask uploadTask = newStorageRef.putFile(newFile);
     TaskSnapshot snapshot = await uploadTask;
-    
-    // ৪. নতুন ইউআরএল নেওয়া
     String newDownloadUrl = await snapshot.ref.getDownloadURL();
     
-    // ৫. ফায়ারস্টোরে আপডেট (একসাথে দুই ফিল্ডেই সেভ হচ্ছে)
-    // যাতে মেয়াদ শেষ হলেও profilePic থেকে ছবি পাওয়া যায়
+    // শুধুমাত্র profilePic ফিল্ডেই সেভ হচ্ছে, যাতে কোনো ঝামেলা না হয়
     await FirebaseFirestore.instance.collection('users').doc(uid).update({
-      'userImage': newDownloadUrl,  // গ্যালারি ইমেজ ফিল্ড
-      'profilePic': newDownloadUrl, // প্রোফাইল পিকচার ফিল্ড (ব্যাকআপ)
+      'profilePic': newDownloadUrl,
     });
 
-    // ৬. অ্যাপের লোকাল স্টেট আপডেট
     if (mounted) {
       setState(() {
-        // আপনার লোকাল ভেরিয়েবল অনুযায়ী আপডেট করুন
         userImageURL = newDownloadUrl; 
       });
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Success! Profile updated."), backgroundColor: Colors.green),
+      const SnackBar(content: Text("Profile updated successfully!"), backgroundColor: Colors.green),
     );
 
   } catch (e) {
