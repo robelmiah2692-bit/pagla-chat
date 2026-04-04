@@ -6,13 +6,12 @@ import 'package:pagla_chat/services/gift_logic_helper.dart';
 
 import 'package:pagla_chat/data/free_gifts.dart';
 import 'package:pagla_chat/data/classic_gifts.dart';
-import 'package:pagla_chat/data/romantic_gifts.dart';
 import 'package:pagla_chat/data/luxury_gifts.dart';
 
 class GiftBottomSheet extends StatefulWidget {
   final int diamondBalance;
   final List<dynamic> currentSeats; 
-  final int viewerCount; // ভিউয়ার সংখ্যা জানার জন্য (All Room এর জন্য দরকার)
+  final int viewerCount;
   final Function(Map<String, dynamic> gift, int count, String target) onGiftSend;
 
   const GiftBottomSheet({
@@ -32,7 +31,8 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   int selectedCount = 1;
   String targetType = "Target"; 
   String? selectedTargetId; 
-  String? selectedTargetName; // ইউজারের নাম দেখানোর জন্য
+  String? selectedTargetName; 
+  String? selectedTargetImage; // ইউজারের ছবি দেখানোর জন্য
   
   late List<Map<String, dynamic>> dynamicFreeGifts;
   Timer? _timer; 
@@ -40,7 +40,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   @override
   void initState() {
     super.initState();
-    // ✅ ৩ দিনের (৭২ ঘণ্টা) ফ্রি গিফট লজিক
     DateTime expiryDate = DateTime.now().add(const Duration(days: 3));
     dynamicFreeGifts = freeGifts.map((g) {
       var map = Map<String, dynamic>.from(g);
@@ -65,13 +64,17 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     super.dispose();
   }
 
+  // ✅ ফিক্সড ইউজার সিলেকশন লজিক
   void _showUserSelectionList() {
-    // অ্যাক্টিভ ইউজার ফিল্টারিং
-    List activeUsers = widget.currentSeats.where((s) => s != null && (s['uID'] != null || s['uid'] != null)).toList();
+    // সিটে থাকা ইউজারদের ফিল্টার করা (null চেক এবং ID চেক)
+    List activeUsers = widget.currentSeats.where((s) {
+      if (s == null) return false;
+      return s['uID'] != null || s['uid'] != null || s['userId'] != null;
+    }).toList();
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: const Color(0xFF0F0F1E), // পিওর ডার্ক ব্যাকগ্রাউন্ড
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return Container(
@@ -79,12 +82,13 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text("Select User", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              const Divider(color: Colors.white10),
+              const Text("Select User from Seats", 
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
               activeUsers.isEmpty 
                 ? const Padding(
-                    padding: EdgeInsets.all(20.0),
-                    child: Text("No users on seats", style: TextStyle(color: Colors.white54)),
+                    padding: EdgeInsets.all(30.0),
+                    child: Text("No users are currently on seats", style: TextStyle(color: Colors.white54)),
                   )
                 : Flexible(
                     child: ListView.builder(
@@ -92,18 +96,23 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                       itemCount: activeUsers.length,
                       itemBuilder: (context, index) {
                         var seat = activeUsers[index];
-                        String uID = (seat['uID'] ?? seat['uid'] ?? "").toString();
-                        String name = seat['name'] ?? "User";
+                        String uID = (seat['uID'] ?? seat['uid'] ?? seat['userId'] ?? "").toString();
+                        String name = seat['name'] ?? seat['userName'] ?? "User ${index + 1}";
+                        String img = seat['image'] ?? seat['profilePic'] ?? seat['userImage'] ?? "";
+
                         return ListTile(
                           leading: CircleAvatar(
-                            backgroundImage: NetworkImage(seat['image'] ?? seat['profilePic'] ?? "https://via.placeholder.com/150"),
+                            backgroundColor: Colors.white10,
+                            backgroundImage: img.isNotEmpty ? NetworkImage(img) : null,
+                            child: img.isEmpty ? const Icon(Icons.person, color: Colors.white24) : null,
                           ),
                           title: Text(name, style: const TextStyle(color: Colors.white)),
-                          subtitle: Text("ID: $uID", style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                          subtitle: Text("ID: $uID", style: const TextStyle(color: Colors.white38, fontSize: 11)),
                           onTap: () {
                             setState(() {
                               selectedTargetId = uID;
                               selectedTargetName = name;
+                              selectedTargetImage = img;
                               targetType = "Target"; 
                             });
                             Navigator.pop(context);
@@ -126,8 +135,11 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       child: Container(
         height: 550,
         decoration: const BoxDecoration(
-          color: Color(0xFF0F0F1E),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+          color: Color(0xFF07070F), // তারার মতো কালো ব্যাকগ্রাউন্ড
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          boxShadow: [
+            BoxShadow(color: Colors.white10, blurRadius: 10, spreadRadius: 1), // হালকা তারার আভা
+          ],
         ),
         child: Column(
           children: [
@@ -137,6 +149,9 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
             const TabBar(
               isScrollable: true,
               indicatorColor: Colors.pinkAccent,
+              dividerColor: Colors.transparent,
+              labelStyle: TextStyle(fontWeight: FontWeight.bold),
+              unselectedLabelColor: Colors.white38,
               tabs: [
                 Tab(text: "Free"), Tab(text: "Classic"),
                 Tab(text: "Romantic"), Tab(text: "Luxury"),
@@ -161,12 +176,22 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 15),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text("💎 Balance: ${widget.diamondBalance}", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-          const Text("Send Gift", style: TextStyle(color: Colors.white, fontSize: 16)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15)),
+            child: Row(
+              children: [
+                const Icon(Icons.diamond, color: Colors.amber, size: 16),
+                const SizedBox(width: 5),
+                Text("${widget.diamondBalance}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          const Text("Send Gift", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
           const Icon(Icons.history, color: Colors.white38),
         ],
       ),
@@ -175,19 +200,22 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
 
   Widget _buildTargetSelector() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-      child: Row(
-        children: [
-          _targetChip("All Room", Icons.groups),
-          _targetChip("All Mic", Icons.mic),
-          // যদি টার্গেট সিলেক্ট করা থাকে তবে তার নাম দেখাবে
-          _targetChip(selectedTargetName ?? "Target", Icons.person_pin_circle, isTargetMode: true),
-        ],
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 15),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _targetChip("All Room", Icons.groups),
+            _targetChip("All Mic", Icons.mic),
+            // টার্গেট চিপে এখন ইউজারের ছবিও দেখাবে যদি সিলেক্ট করা থাকে
+            _targetChip(selectedTargetName ?? "Target", Icons.person_add, isTargetMode: true, userImg: selectedTargetImage),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _targetChip(String label, IconData icon, {bool isTargetMode = false}) {
+  Widget _targetChip(String label, IconData icon, {bool isTargetMode = false, String? userImg}) {
     bool isSelected = isTargetMode ? (targetType == "Target") : (targetType == label);
     return GestureDetector(
       onTap: () {
@@ -198,6 +226,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
             targetType = label;
             selectedTargetId = label;
             selectedTargetName = null;
+            selectedTargetImage = null;
           });
         }
       },
@@ -205,14 +234,18 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
         margin: const EdgeInsets.only(right: 10),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.pinkAccent : Colors.white10,
+          color: isSelected ? Colors.pinkAccent : Colors.white.withOpacity(0.05),
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isSelected ? Colors.white24 : Colors.transparent),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.white54),
-            const SizedBox(width: 5),
-            Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.white54, fontSize: 12)),
+            if (userImg != null && userImg.isNotEmpty)
+              CircleAvatar(radius: 8, backgroundImage: NetworkImage(userImg))
+            else
+              Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.white54),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.white54, fontSize: 12, fontWeight: FontWeight.w500)),
           ],
         ),
       ),
@@ -224,40 +257,48 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       padding: const EdgeInsets.all(15),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4, 
-        childAspectRatio: 0.75,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
+        childAspectRatio: 0.8,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
       ),
       itemCount: gifts.length,
       itemBuilder: (context, index) {
         var gift = gifts[index];
         bool isSelected = selectedGift?['id'] == gift['id'];
-        
-        String giftPath = (gift["image"] ?? gift["icon"] ?? gift["url"] ?? gift["png"] ?? "").toString();
+        String giftPath = (gift["image"] ?? gift["icon"] ?? gift["url"] ?? "").toString();
         bool isJson = giftPath.toLowerCase().endsWith('.json');
 
         return GestureDetector(
           onTap: () => setState(() => selectedGift = gift),
-          child: Container(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
             decoration: BoxDecoration(
-              color: isSelected ? Colors.pinkAccent.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+              color: isSelected ? Colors.pinkAccent.withOpacity(0.15) : Colors.white.withOpacity(0.03),
               borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: isSelected ? Colors.pinkAccent : Colors.white10),
+              border: Border.all(color: isSelected ? Colors.pinkAccent : Colors.white10, width: 1.5),
+              boxShadow: isSelected ? [BoxShadow(color: Colors.pinkAccent.withOpacity(0.3), blurRadius: 8)] : null,
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 SizedBox(
-                  height: 45, width: 45,
+                  height: 48, width: 48,
                   child: isJson 
                       ? Lottie.asset(giftPath, repeat: true, fit: BoxFit.contain)
                       : Image.network(giftPath, fit: BoxFit.contain, errorBuilder: (c,e,s) => const Icon(Icons.card_giftcard, color: Colors.white24)),
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 6),
                 if (isFreeTab) 
-                  Text(_getRemainingTime(gift['expiry']), style: const TextStyle(color: Colors.greenAccent, fontSize: 7, fontWeight: FontWeight.bold))
+                  Text(_getRemainingTime(gift['expiry']), style: const TextStyle(color: Colors.greenAccent, fontSize: 8, fontWeight: FontWeight.bold))
                 else
-                  Text("💎 ${gift["price"]}", style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.diamond, color: Colors.amber, size: 10),
+                      const SizedBox(width: 2),
+                      Text("${gift["price"]}", style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -268,27 +309,35 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
 
   Widget _buildBottomBar() {
     return Container(
-      padding: const EdgeInsets.all(15),
-      color: Colors.white10,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.05))),
+      ),
       child: Row(
         children: [
           ...[1, 10, 88, 100].map((count) => GestureDetector(
             onTap: () => setState(() => selectedCount = count),
             child: Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(right: 10),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: selectedCount == count ? Colors.pinkAccent : Colors.white10,
                 shape: BoxShape.circle,
               ),
-              child: Text("x$count", style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+              child: Text("$count", style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
             ),
           )),
           const Spacer(),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, shape: const StadiumBorder()),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.pinkAccent, 
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+              elevation: 5,
+            ),
             onPressed: (selectedGift == null || (targetType == "Target" && selectedTargetId == null)) ? null : _handleSendAction,
-            child: const Text("SEND", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text("SEND", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
           ),
         ],
       ),
@@ -299,7 +348,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     int unitPrice = (selectedGift!['price'] ?? 0) as int;
     bool isFree = selectedGift!['expiry'] != null;
     
-    // ✅ ডায়মন্ড ক্যালকুলেশন লজিক
     int multiplier = 1;
     if (targetType == "All Mic") {
       multiplier = widget.currentSeats.where((s) => s != null).length;
@@ -310,11 +358,12 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     int totalPrice = unitPrice * selectedCount * multiplier;
 
     if (!isFree && widget.diamondBalance < totalPrice) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Insufficient Diamonds! Need $totalPrice 💎")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: Colors.redAccent,
+        content: Text("Insufficient Diamonds! Need $totalPrice 💎", style: const TextStyle(color: Colors.white))));
       return;
     }
 
-    // ফ্রি গিফট হলে শুধুমাত্র ১ জনকে দেওয়া যাবে ( multiplier = 1)
     if (isFree && targetType != "Target") {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Free gifts can only be sent to a specific user!")));
         return;
