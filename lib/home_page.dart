@@ -4,10 +4,27 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart'; 
 import 'package:flutter/foundation.dart'; 
 import 'dart:io' as io; 
+import 'dart:math';
 
-// import 'story_section.dart'; // এটি আর লাগছে না কারণ স্টোরি বাদ দিচ্ছি
 import 'stories_service.dart'; 
 import 'post_card.dart'; 
+
+// তারার মতো ইফেক্ট তৈরির জন্য কাস্টম পেইন্টার
+class StarFieldPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.white.withOpacity(0.5);
+    final random = Random();
+    for (int i = 0; i < 100; i++) {
+      double x = random.nextDouble() * size.width;
+      double y = random.nextDouble() * size.height;
+      double radius = random.nextDouble() * 1.5;
+      canvas.drawCircle(Offset(x, y), radius, paint);
+    }
+  }
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -114,7 +131,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1A1A3F), 
+      backgroundColor: const Color(0xFF1E2A4A), 
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
@@ -160,7 +177,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
                       margin: const EdgeInsets.only(bottom: 10),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: Colors.pinkAccent.withOpacity(0.3)),
+                        border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)),
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(15),
@@ -178,7 +195,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
                         }),
                         child: Container(
                           padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(color: Colors.black87, shape: BoxShape.circle),
+                          decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
                           child: const Icon(Icons.close, color: Colors.white, size: 18),
                         ),
                       ),
@@ -201,7 +218,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
 
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.pinkAccent,
+                  backgroundColor: Colors.cyanAccent.shade700,
                   minimumSize: const Size(double.infinity, 50),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   elevation: 5,
@@ -212,7 +229,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
                     showDialog(
                       context: context, 
                       barrierDismissible: false,
-                      builder: (c) => const Center(child: CircularProgressIndicator(color: Colors.pinkAccent))
+                      builder: (c) => const Center(child: CircularProgressIndicator(color: Colors.cyanAccent))
                     );
                     
                     try {
@@ -253,171 +270,167 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D2B), 
-      appBar: AppBar(
-        centerTitle: true,
-        backgroundColor: const Color(0xFF0D0D2B),
-        elevation: 0,
-        title: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
-            gradient: LinearGradient(
-              colors: [Colors.white.withOpacity(0.05), Colors.white.withOpacity(0.15)],
+      body: Stack(
+        children: [
+          // ১. ব্যাকগ্রাউন্ড গ্রেডিয়েন্ট ও তারা (Stars) ইফেক্ট
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+              ),
             ),
-            border: Border.all(color: Colors.white10),
           ),
-          child: AnimatedBuilder(
-            animation: _colorAnimation,
-            builder: (context, child) {
-              return ShaderMask(
-                shaderCallback: (bounds) => LinearGradient(
-                  colors: const [Colors.pinkAccent, Colors.cyanAccent, Colors.purpleAccent, Colors.pinkAccent],
-                  stops: [_colorAnimation.value - 0.2, _colorAnimation.value, _colorAnimation.value + 0.2, _colorAnimation.value + 0.4],
-                ).createShader(bounds),
-                child: const Text(
-                  "Welcome Pagla Chat",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                    color: Colors.white,
-                    letterSpacing: 1.1,
-                  ),
-                ),
-              );
-            },
+          CustomPaint(
+            size: Size.infinite,
+            painter: StarFieldPainter(),
           ),
-        ),
-        actions: [
-          StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('notifications')
-                .where('receiverId', isEqualTo: currentUserId)
-                .where('isRead', isEqualTo: false)
-                .snapshots(),
-            builder: (context, snapshot) {
-              int count = snapshot.hasData ? snapshot.data!.docs.length : 0;
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  IconButton(
-                    onPressed: _clearNotificationCount, 
-                    icon: const Icon(Icons.notifications_active_outlined, color: Colors.white, size: 28)
+
+          // ২. মেইন কন্টেন্ট
+          SafeArea(
+            child: RefreshIndicator(
+              onRefresh: () async => setState(() {}),
+              color: Colors.cyanAccent,
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  // কাস্টম অ্যাপ বার
+                  SliverAppBar(
+                    floating: true,
+                    centerTitle: true,
+                    backgroundColor: Colors.transparent,
+                    elevation: 0,
+                    title: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(30),
+                        color: Colors.white.withOpacity(0.1),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: AnimatedBuilder(
+                        animation: _colorAnimation,
+                        builder: (context, child) {
+                          return ShaderMask(
+                            shaderCallback: (bounds) => LinearGradient(
+                              colors: const [Colors.amberAccent, Colors.cyanAccent, Colors.purpleAccent, Colors.amberAccent],
+                              stops: [_colorAnimation.value - 0.2, _colorAnimation.value, _colorAnimation.value + 0.2, _colorAnimation.value + 0.4],
+                            ).createShader(bounds),
+                            child: const Text(
+                              "Welcome Pagla Chat",
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 18,
+                                color: Colors.white,
+                                letterSpacing: 1.1,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    actions: [
+                      StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('notifications')
+                            .where('receiverId', isEqualTo: currentUserId)
+                            .where('isRead', isEqualTo: false)
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          int count = snapshot.hasData ? snapshot.data!.docs.length : 0;
+                          return IconButton(
+                            onPressed: _clearNotificationCount, 
+                            icon: Badge(
+                              label: count > 0 ? Text('$count') : null,
+                              isLabelVisible: count > 0,
+                              child: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 28),
+                            ),
+                          );
+                        }
+                      ),
+                    ],
                   ),
-                  if (count > 0)
-                    Positioned(
-                      right: 10,
-                      top: 10,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFF0D0D2B), width: 1.5),
-                        ),
-                        constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                        child: Text(
-                          '$count',
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
+
+                  // ব্যানার সেকশন - সম্পুর্ন ব্যানার দেখা যাওয়ার জন্য BoxFit.contain ব্যবহার করা হয়েছে
+                  SliverToBoxAdapter(
+                    child: Container(
+                      width: double.infinity,
+                      height: 200,
+                      margin: const EdgeInsets.all(15),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        color: Colors.white.withOpacity(0.05),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.cyanAccent.withOpacity(0.1),
+                            blurRadius: 20,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: Image.network(
+                          goldenBannerUrl,
+                          fit: BoxFit.contain, // সম্পুর্ন ব্যানার দেখানোর জন্য
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Center(child: CircularProgressIndicator(color: Colors.white24));
+                          },
                         ),
                       ),
                     ),
+                  ),
+                  
+                  // পোস্ট লিস্ট
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('stories')
+                        .orderBy('timestamp', descending: true)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SliverToBoxAdapter(
+                          child: Center(child: CircularProgressIndicator(color: Colors.white24)),
+                        );
+                      }
+                      
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.only(top: 50),
+                            child: Center(child: Text("No posts found", style: TextStyle(color: Colors.white38))),
+                          ),
+                        );
+                      }
+
+                      final docs = snapshot.data!.docs;
+                      return SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final data = docs[index].data() as Map<String, dynamic>;
+                            return PostCard(
+                              data: data, 
+                              postId: docs[index].id,
+                            );
+                          },
+                          childCount: docs.length,
+                        ),
+                      );
+                    },
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 80)),
                 ],
-              );
-            }
+              ),
+            ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showPostModal,
-        backgroundColor: Colors.pinkAccent,
+        backgroundColor: Colors.cyanAccent.shade700,
         elevation: 10,
-        child: const Icon(Icons.add, size: 30, color: Colors.white),
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1A1A3F), Color(0xFF0D0D2B)],
-          ),
-        ),
-        child: RefreshIndicator(
-          onRefresh: () async => setState(() {}),
-          color: Colors.pinkAccent,
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              // --- স্টোরি সেকশনের বদলে আপনার ব্যানার ---
-              SliverToBoxAdapter(
-                child: Container(
-                  width: double.infinity,
-                  height: 180,
-                  margin: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.pinkAccent.withOpacity(0.2),
-                        blurRadius: 15,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                    image: DecorationImage(
-                      image: NetworkImage(goldenBannerUrl),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-              ),
-              
-              // --- পোস্ট লিস্ট ---
-              StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('stories') // আপনার কালেকশন নাম 'stories' হলে এটিই থাকবে
-                    .orderBy('timestamp', descending: true)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: 50),
-                        child: Center(child: CircularProgressIndicator(color: Colors.white24)),
-                      ),
-                    );
-                  }
-                  
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: 100),
-                        child: Center(
-                          child: Text("Post empty!", style: TextStyle(color: Colors.white24)),
-                        ),
-                      ),
-                    );
-                  }
-
-                  final docs = snapshot.data!.docs;
-                  return SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final data = docs[index].data() as Map<String, dynamic>;
-                        return PostCard(
-                          data: data, 
-                          postId: docs[index].id,
-                        );
-                      },
-                      childCount: docs.length,
-                    ),
-                  );
-                },
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 80)),
-            ],
-          ),
-        ),
+        child: const Icon(Icons.add_photo_alternate_outlined, size: 28, color: Colors.white),
       ),
     );
   }
