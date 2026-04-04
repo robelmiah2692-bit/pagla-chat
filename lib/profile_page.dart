@@ -282,7 +282,7 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
         }, child: ClipOval(child: Image.network(avatars[index], fit: BoxFit.cover)))));
   }
 
-void _pickProfileImage() {
+  void _pickProfileImage() {
   showModalBottomSheet(
     context: context, 
     backgroundColor: const Color(0xFF1A1A2E), 
@@ -291,30 +291,36 @@ void _pickProfileImage() {
       ListTile(
         leading: const Icon(Icons.face, color: Colors.blueAccent), 
         title: const Text("Real avtar (Free)", style: TextStyle(color: Colors.white)), 
-        onTap: () { Navigator.pop(context); _showFreeAvatars(); }
+        onTap: () { 
+          Navigator.pop(context); 
+          _showFreeAvatars(); 
+        }
       ),
       ListTile(
         leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), 
         title: const Text("Gallery photo avtar", style: TextStyle(color: Colors.white)), 
         onTap: () async {
+          // VIP বা Premium যেকোনো একটি থাকলেই গ্যালারি ওপেন হবে
           if (hasPremiumCard || getVipLevel() >= 1) {
              try {
                final ImagePicker picker = ImagePicker();
                final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
                
                if (pickedFile != null) {
+                 if (!mounted) return;
                  Navigator.pop(context); // বটম শিট বন্ধ
                  
-                 // ছবি আপলোড ও পুরাতনটা মোছার লজিক কল করা
+                 // আপডেট ফাংশন কল
                  await _handleProfileUpdate(File(pickedFile.path));
                }
              } catch (e) {
                debugPrint("Error picking image: $e");
              }
           } else {
+             if (!mounted) return;
              Navigator.pop(context);
              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-               content: Text("Premium card VIP 1 need!"), 
+               content: Text("Premium card or VIP 1 needed!"), 
                backgroundColor: Colors.redAccent
              ));
           }
@@ -324,19 +330,18 @@ void _pickProfileImage() {
   );
 }
 
-// ছবি আপলোড এবং পুরাতন ছবি হ্যান্ডেল করার ফাংশন
+// ছবি আপলোড এবং দুই ফিল্ডেই সেভ করার ফাংশন
 Future<void> _handleProfileUpdate(File newFile) async {
   try {
-    String uid = FirebaseAuth.instance.currentUser!.uid;
-    // ইউনিক নাম তৈরির জন্য টাইমস্ট্যাম্প নিচ্ছি
+    // আপনার প্রজেক্টের uIDValue ব্যবহার করা হয়েছে
+    String uid = uIDValue; 
     String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     
-    // ১. স্টোরেজ রেফারেন্স (ইউনিক নাম দিলে পুরাতন ক্যাশ সমস্যা হবে না)
-    // পাথ: user_profiles/UID/profile_12345678.jpg
+    // ১. স্টোরেজ রেফারেন্স
     Reference storageFolder = FirebaseStorage.instance.ref().child('user_profiles').child(uid);
     Reference newStorageRef = storageFolder.child('profile_$timestamp.jpg');
 
-    // ২. পুরাতন ফাইলগুলো ডিলিট করা (বাকেট ক্লিন রাখার জন্য)
+    // ২. পুরাতন ফাইলগুলো ডিলিট করা (স্টোরেজ ক্লিন রাখার জন্য)
     try {
       final listResult = await storageFolder.listAll();
       for (var item in listResult.items) {
@@ -353,27 +358,32 @@ Future<void> _handleProfileUpdate(File newFile) async {
     // ৪. নতুন ইউআরএল নেওয়া
     String newDownloadUrl = await snapshot.ref.getDownloadURL();
     
-    // ৫. ফায়ারস্টোরে আপডেট করা
+    // ৫. ফায়ারস্টোরে আপডেট (একসাথে দুই ফিল্ডেই সেভ হচ্ছে)
+    // যাতে মেয়াদ শেষ হলেও profilePic থেকে ছবি পাওয়া যায়
     await FirebaseFirestore.instance.collection('users').doc(uid).update({
-      'userImage': newDownloadUrl,
+      'userImage': newDownloadUrl,  // গ্যালারি ইমেজ ফিল্ড
+      'profilePic': newDownloadUrl, // প্রোফাইল পিকচার ফিল্ড (ব্যাকআপ)
     });
 
     // ৬. অ্যাপের লোকাল স্টেট আপডেট
     if (mounted) {
       setState(() {
-        userImageURL = newDownloadUrl;
+        // আপনার লোকাল ভেরিয়েবল অনুযায়ী আপডেট করুন
+        userImageURL = newDownloadUrl; 
       });
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("প্রোফাইল পিকচার সফলভাবে আপডেট হয়েছে!"), backgroundColor: Colors.green),
+      const SnackBar(content: Text("Success! Profile updated."), backgroundColor: Colors.green),
     );
 
   } catch (e) {
     debugPrint("Update Error: $e");
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("আপডেট ব্যর্থ হয়েছে!"), backgroundColor: Colors.redAccent),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Update failed!"), backgroundColor: Colors.redAccent),
+      );
+    }
   }
 }
 
