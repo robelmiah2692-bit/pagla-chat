@@ -58,18 +58,17 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
 
         var roomData = snapshot.data!.data() as Map<String, dynamic>;
         
-        // ভাই, এখানে আপনার দেওয়া শর্ত অনুযায়ী uid এবং uID দুইটাই চেক করবে
+        // স্ক্রিনশট অনুযায়ী মালিকের আইডি চেক
         String actualOwnerId = roomData['ownerId'] ?? roomData['ownerID'] ?? roomData['uID'] ?? roomData['uid'] ?? widget.ownerId;
         
         List<dynamic> followers = List.from(roomData['followers'] ?? []);
         List<dynamic> admins = List.from(roomData['admins'] ?? roomData['adminList'] ?? []);
 
-        // মালিক অ্যাডমিন লিস্টে না থাকলেও ফলোয়ার লিস্টে তাকে দেখানো হবে (সবার উপরে)
         if (actualOwnerId.isNotEmpty && !followers.contains(actualOwnerId)) {
           followers.add(actualOwnerId);
         }
 
-        // সর্টিং: ওনার সবার উপরে, তারপর অ্যাডমিনরা
+        // সর্টিং: মালিক সবার উপরে
         followers.sort((a, b) {
           if (a == actualOwnerId) return -1;
           if (b == actualOwnerId) return 1;
@@ -90,16 +89,18 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
             return FutureBuilder<DocumentSnapshot>(
               future: FirebaseFirestore.instance.collection('users').doc(targetUid).get(),
               builder: (context, userSnap) {
-                if (!userSnap.hasData) return const ListTile();
+                if (!userSnap.hasData) return const SizedBox();
                 var userData = userSnap.data?.data() as Map<String, dynamic>?;
-                String name = userData?['name'] ?? "User";
-                String photo = userData?['photoUrl'] ?? "";
+                
+                // স্ক্রিনশট অনুযায়ী নাম ও ছবি ফিল্টার
+                String name = userData?['name'] ?? userData?['userName'] ?? "Pagla User";
+                String photo = userData?['profilePic'] ?? userData?['userImage'] ?? "";
 
                 return ListTile(
                   leading: Stack(
                     children: [
                       CircleAvatar(
-                        backgroundColor: Colors.grey[800],
+                        backgroundColor: Colors.grey[900],
                         backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null,
                         child: photo.isEmpty ? const Icon(Icons.person, color: Colors.white54) : null,
                       ),
@@ -124,15 +125,61 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
     );
   }
 
+  Widget _buildKickList() {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        var data = snapshot.data!.data() as Map<String, dynamic>?;
+        if (data == null) return const SizedBox();
+
+        String actualOwnerId = data['ownerId'] ?? data['ownerID'] ?? data['uID'] ?? data['uid'] ?? widget.ownerId;
+        List kickedUsers = data['kickedUsers'] ?? [];
+        List admins = data['admins'] ?? data['adminList'] ?? [];
+
+        if (kickedUsers.isEmpty) return const Center(child: Text("কেউ কিক লিস্টে নেই", style: TextStyle(color: Colors.white38)));
+
+        return ListView.builder(
+          itemCount: kickedUsers.length,
+          itemBuilder: (context, index) {
+            String targetUid = kickedUsers[index];
+            return FutureBuilder<DocumentSnapshot>(
+              future: FirebaseFirestore.instance.collection('users').doc(targetUid).get(),
+              builder: (context, userSnap) {
+                var userData = userSnap.data?.data() as Map<String, dynamic>?;
+                
+                String name = userData?['name'] ?? userData?['userName'] ?? "User";
+                String photo = userData?['profilePic'] ?? userData?['userImage'] ?? "";
+
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null,
+                    child: photo.isEmpty ? const Icon(Icons.person) : null,
+                  ),
+                  title: Text(name, style: const TextStyle(color: Colors.white)),
+                  trailing: (myUid == actualOwnerId || admins.contains(myUid)) 
+                    ? IconButton(
+                        icon: const Icon(Icons.refresh, color: Colors.greenAccent),
+                        onPressed: () => _unKickUser(targetUid),
+                      ) : null,
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
   bool _shouldShowMenu(String me, String owner, String target, bool isTargetOwner, bool isTargetAdmin, List admins) {
-    if (me == target) return false; // নিজেকে নিজে মেনু দেখাবে না
-    if (me == owner) return true; // মালিক সবাইকে কন্ট্রোল করতে পারবে
-    if (admins.contains(me) && !isTargetOwner && !isTargetAdmin) return true; // অ্যাডমিন শুধু সাধারণ ইউজারদের কিক করতে পারবে
+    if (me == target) return false;
+    if (me == owner) return true;
+    if (admins.contains(me) && !isTargetOwner && !isTargetAdmin) return true;
     return false;
   }
 
   Widget _buildBadge(bool isOwner, bool isAdmin) {
-    if (isOwner) return const Text("👑 Owner", style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold));
+    if (isOwner) return const Text("👑 Room Owner", style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold));
     if (isAdmin) return const Text("🛡️ Admin", style: TextStyle(color: Colors.blueAccent, fontSize: 12));
     return const Text("Follower", style: TextStyle(color: Colors.white54, fontSize: 12));
   }
@@ -171,53 +218,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
     );
   }
 
-  Widget _buildKickList() {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        var data = snapshot.data!.data() as Map<String, dynamic>?;
-        if (data == null) return const SizedBox();
-
-        String actualOwnerId = data['ownerId'] ?? data['ownerID'] ?? data['uID'] ?? data['uid'] ?? widget.ownerId;
-        List kickedUsers = data['kickedUsers'] ?? [];
-        List admins = data['admins'] ?? data['adminList'] ?? [];
-
-        if (kickedUsers.isEmpty) return const Center(child: Text("কেউ কিক লিস্টে নেই", style: TextStyle(color: Colors.white38)));
-
-        return ListView.builder(
-          itemCount: kickedUsers.length,
-          itemBuilder: (context, index) {
-            String targetUid = kickedUsers[index];
-            return FutureBuilder<DocumentSnapshot>(
-              future: FirebaseFirestore.instance.collection('users').doc(targetUid).get(),
-              builder: (context, userSnap) {
-                var userData = userSnap.data?.data() as Map<String, dynamic>?;
-                String name = userData?['name'] ?? "User";
-                String photo = userData?['photoUrl'] ?? "";
-
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null,
-                    child: photo.isEmpty ? const Icon(Icons.person) : null,
-                  ),
-                  title: Text(name, style: const TextStyle(color: Colors.white)),
-                  trailing: (myUid == actualOwnerId || admins.contains(myUid)) 
-                    ? IconButton(
-                        icon: const Icon(Icons.refresh, color: Colors.greenAccent),
-                        onPressed: () => _unKickUser(targetUid),
-                      ) : null,
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
   void _toggleAdmin(String targetUid, bool isAdmin) {
-    // ডাটাবেসে যাতে সব ফরম্যাটে আপডেট হয় তাই ২টা ফিল্ডই ব্যবহার করা হয়েছে
     FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
       'admins': isAdmin ? FieldValue.arrayRemove([targetUid]) : FieldValue.arrayUnion([targetUid]),
       'adminList': isAdmin ? FieldValue.arrayRemove([targetUid]) : FieldValue.arrayUnion([targetUid]),
