@@ -445,7 +445,7 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
 
   Widget _buildStoreCardTab() {
     return Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.network("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png"; height: 150, width: 220, fit: BoxFit.cover)),
+      ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.network("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png", height: 150, width: 220, fit: BoxFit.cover)),
       const SizedBox(height: 10),
       const Text("Pagla Premium Card", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
       const Text("6k 💎", style: TextStyle(color: Colors.cyanAccent)),
