@@ -524,14 +524,56 @@ Future<void> _handleProfileUpdate(File newFile) async {
         ]))));
   }
 
-  // ১. স্টোর ট্যাব: যেখানে কার্ড কিনলে ফ্রেম ফ্রি পাবে
+  // ১. আপনার সেই হারানো ব্যাকপ্যাক ওপেন করার মেইন ফাংশন
+void _openBackpack() {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: const Color(0xFF1E1E2F),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20))
+    ),
+    builder: (context) => DefaultTabController(
+      length: 4,
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          children: [
+            const TabBar(
+              isScrollable: true,
+              indicatorColor: Colors.pinkAccent,
+              tabs: [
+                Tab(text: "My Cards"),
+                Tab(text: "My Frames"),
+                Tab(text: "Effects"),
+                Tab(text: "Others")
+              ]
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _buildMyCardsTab(), 
+                  _buildMyFramesTab(), 
+                  const Center(child: Text("Empty", style: TextStyle(color: Colors.white))),
+                  const Center(child: Text("Empty", style: TextStyle(color: Colors.white)))
+                ]
+              )
+            )
+          ]
+        )
+      )
+    )
+  );
+}
+
+// ২. স্টোর কার্ড কেনার ফাংশন (আপনার uiD সহ)
 Widget _buildStoreCardTab() {
   return SingleChildScrollView(
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const SizedBox(height: 20),
-        // কার্ডের সঠিক সাইজ ও রেশিও
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 40),
           child: AspectRatio(
@@ -556,30 +598,29 @@ Widget _buildStoreCardTab() {
           onPressed: () async {
             if (diamonds >= 6000) {
               try {
-                String uid = FirebaseAuth.instance.currentUser!.uid;
                 DateTime now = DateTime.now();
-                
-                // মেয়াদের তারিখ হিসেব
                 DateTime cardExpiry = now.add(const Duration(days: 30));
                 DateTime frameExpiry = now.add(const Duration(days: 10));
 
-                await FirebaseFirestore.instance.collection('users').doc(uID).update({
+                // এখানে আপনার uiD ব্যবহার করা হয়েছে
+                await FirebaseFirestore.instance.collection('users').doc(uiD).update({
                   'diamonds': FieldValue.increment(-6000),
                   'hasPremiumCard': true,
                   'premiumUntil': Timestamp.fromDate(cardExpiry),
-                  // ফ্রি ফ্রেম ডাটাবেজে জমা করা
                   'hasFreeFrame': true,
                   'frameUntil': Timestamp.fromDate(frameExpiry),
-                  'activeFrame': "", // শুরুতে আনপিক থাকবে
+                  'activeFrame': "", 
                 });
 
                 setState(() {
                   diamonds -= 6000;
                   hasPremiumCard = true;
+                  premiumUntilDate = cardExpiry;
+                  frameUntilDate = frameExpiry;
                 });
 
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Success! Card & Free Frame Added to Backpack.")));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Success! Card & Free Frame Added.")));
               } catch (e) {
                 debugPrint("Error: $e");
               }
@@ -594,41 +635,9 @@ Widget _buildStoreCardTab() {
   );
 }
 
-// ২. ব্যাকপ্যাক: কার্ড ট্যাব (মেয়াদসহ)
-Widget _buildMyCardsTab() {
-  // মেয়াদের সময় বের করার লজিক
-  String getRemainingTime(DateTime? expiry) {
-    if (expiry == null || expiry.isBefore(DateTime.now())) return "Expired";
-    Duration diff = expiry.difference(DateTime.now());
-    return "${diff.inDays}d ${diff.inHours % 24}h remaining";
-  }
-
-  return !hasPremiumCard 
-    ? const Center(child: Text("No Cards Found", style: TextStyle(color: Colors.white54)))
-    : ListView(
-        padding: const EdgeInsets.all(15),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15)),
-            child: Column(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.network("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png", height: 100, fit: BoxFit.cover),
-                ),
-                const SizedBox(height: 10),
-                const Text("Premium Card", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                Text(getRemainingTime(premiumUntilDate), style: const TextStyle(color: Colors.greenAccent, fontSize: 12)),
-              ],
-            ),
-          ),
-        ],
-      );
-}
-
-// ৩. ব্যাকপ্যাক: ফ্রেম ট্যাব (Pick/Unpick লজিক)
+// ৩. ব্যাকপ্যাক: ফ্রেম ট্যাব (Pick/Unpick লজিক + uiD)
 Widget _buildMyFramesTab() {
+  const String frameUrl = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumframe.png";
   bool isExpired = frameUntilDate != null && frameUntilDate!.isBefore(DateTime.now());
 
   if (!hasFreeFrame || isExpired) {
@@ -640,22 +649,25 @@ Widget _buildMyFramesTab() {
     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 0.8),
     itemCount: 1,
     itemBuilder: (context, index) {
-      bool isPicked = activeFrameUrl == "YOUR_FRAME_URL_HERE"; // চেক করা হচ্ছে এটি পিক করা কি না
+      bool isPicked = activeFrameUrl == frameUrl; 
 
       return Container(
-        decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15), border: isPicked ? Border.all(color: Colors.amber) : null),
+        decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15), border: isPicked ? Border.all(color: Colors.amber, width: 2) : null),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.network("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumframe.png", height: 60), // এখানে ফ্রেমের লিঙ্ক দিন
-            const SizedBox(height: 5),
-            const Text("Premium Free", style: TextStyle(color: Colors.white, fontSize: 12)),
+            Image.network(frameUrl, height: 60),
             const SizedBox(height: 10),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: isPicked ? Colors.redAccent : Colors.blueAccent, minimumSize: const Size(80, 30)),
               onPressed: () async {
-                String newFrame = isPicked ? "" : "YOUR_FRAME_URL_HERE";
-                await FirebaseFirestore.instance.collection('users').doc(uID).update({'activeFrame': newFrame});
+                String newFrame = isPicked ? "" : frameUrl;
+                
+                // আপনার uiD ব্যবহার করে আপডেট
+                await FirebaseFirestore.instance.collection('users').doc(uiD).update({
+                  'activeFrame': newFrame
+                });
+                
                 setState(() { activeFrameUrl = newFrame; });
               },
               child: Text(isPicked ? "UNPICK" : "PICK"),
