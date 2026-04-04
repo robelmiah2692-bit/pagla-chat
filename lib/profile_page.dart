@@ -36,7 +36,6 @@ class _ProfilePageState extends State<ProfilePage> {
   String activeFrameUrl = ""; 
   DateTime? frameUntilDate;
   DateTime? premiumUntilDate;
-  String uID = FirebaseAuth.instance.currentUser!.uid;
   String userImageURL = ""; 
   String userName = "Unfixed";
   String uIDValue = ""; 
@@ -525,6 +524,7 @@ Future<void> _handleProfileUpdate(File newFile) async {
   }
 
   // ১. আপনার সেই হারানো ব্যাকপ্যাক ওপেন করার মেইন ফাংশন
+  // ১. ব্যাকপ্যাক ওপেন করার মেইন ফাংশন
 void _openBackpack() {
   showModalBottomSheet(
     context: context,
@@ -567,28 +567,22 @@ void _openBackpack() {
   );
 }
 
-// ২. স্টোর কার্ড কেনার ফাংশন (আপনার uiD সহ)
+// ২. স্টোর কার্ড কেনার ফাংশন (uIDValue ব্যবহার করা হয়েছে)
 Widget _buildStoreCardTab() {
   return SingleChildScrollView(
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: AspectRatio(
-            aspectRatio: 1.58,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(15),
-              child: Image.network(
-                "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png",
-                fit: BoxFit.fill,
-              ),
-            ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: Image.network(
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png",
+            height: 150, width: 220, fit: BoxFit.cover,
           ),
         ),
         const SizedBox(height: 15),
-        const Text("Pagla Premium Card", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+        const Text("Pagla Premium Card", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
         const Text("Bonus: Premium Frame (10 Days Free!)", style: TextStyle(color: Colors.amber, fontSize: 13)),
         const Text("Cost: 6k 💎", style: TextStyle(color: Colors.cyanAccent, fontSize: 16)),
         const SizedBox(height: 20),
@@ -602,8 +596,8 @@ Widget _buildStoreCardTab() {
                 DateTime cardExpiry = now.add(const Duration(days: 30));
                 DateTime frameExpiry = now.add(const Duration(days: 10));
 
-                // এখানে আপনার uiD ব্যবহার করা হয়েছে
-                await FirebaseFirestore.instance.collection('users').doc(uiD).update({
+                // এখানে uIDValue ব্যবহার করা হয়েছে
+                await FirebaseFirestore.instance.collection('users').doc(uIDValue).update({
                   'diamonds': FieldValue.increment(-6000),
                   'hasPremiumCard': true,
                   'premiumUntil': Timestamp.fromDate(cardExpiry),
@@ -635,7 +629,7 @@ Widget _buildStoreCardTab() {
   );
 }
 
-// ৩. ব্যাকপ্যাক: ফ্রেম ট্যাব (Pick/Unpick লজিক + uiD)
+// ৩. ব্যাকপ্যাক: ফ্রেম ট্যাব (Pick/Unpick লজিক + uIDValue)
 Widget _buildMyFramesTab() {
   const String frameUrl = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumframe.png";
   bool isExpired = frameUntilDate != null && frameUntilDate!.isBefore(DateTime.now());
@@ -663,8 +657,8 @@ Widget _buildMyFramesTab() {
               onPressed: () async {
                 String newFrame = isPicked ? "" : frameUrl;
                 
-                // আপনার uiD ব্যবহার করে আপডেট
-                await FirebaseFirestore.instance.collection('users').doc(uiD).update({
+                // uIDValue ব্যবহার করে আপডেট
+                await FirebaseFirestore.instance.collection('users').doc(uIDValue).update({
                   'activeFrame': newFrame
                 });
                 
@@ -679,6 +673,15 @@ Widget _buildMyFramesTab() {
   );
 }
 
+// ৪. কার্ড ট্যাব যা মিসিং ছিল (বাড়তি সুবিধা হিসেবে যোগ করে দিলাম)
+Widget _buildMyCardsTab() {
+  return Center(
+    child: hasPremiumCard 
+      ? Image.network("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png", height: 120)
+      : const Text("No Cards Found", style: TextStyle(color: Colors.white54)),
+  );
+}
+ 
   @override
   Widget build(BuildContext context) {
     final String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
