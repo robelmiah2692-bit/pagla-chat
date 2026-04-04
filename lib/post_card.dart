@@ -64,6 +64,10 @@ class PostCard extends StatelessWidget {
     final bool isLiked = likes.contains(uid);
     bool isOwner = (data['userId'] == uid);
 
+    // ব্যানার থিম কালারস
+    const Color premiumGold = Color(0xFFFFD700);
+    const Color cyanOwner = Color(0xFF00FBFF);
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: ClipRRect(
@@ -72,17 +76,17 @@ class PostCard extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.07), 
+              color: Colors.black.withOpacity(0.4), // ডার্ক ব্যানার ভাইব
               borderRadius: BorderRadius.circular(25),
               border: Border.all(
-                color: Colors.white.withOpacity(0.15), 
-                width: 1.2,
+                color: premiumGold.withOpacity(0.5), // নিখুঁত গোল্ডেন বর্ডার
+                width: 0.8, // আপনার চাহিদা মতো চিকন বর্ডার
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: premiumGold.withOpacity(0.05),
                   blurRadius: 10,
-                  offset: const Offset(0, 5),
+                  spreadRadius: 1,
                 )
               ],
             ),
@@ -91,10 +95,11 @@ class PostCard extends StatelessWidget {
               children: [
                 ListTile(
                   leading: Container(
-                    padding: const EdgeInsets.all(2),
+                    padding: const EdgeInsets.all(1.5),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: LinearGradient(colors: [Colors.blueAccent, Colors.purpleAccent.withOpacity(0.5)]),
+                      // গ্রেডিয়েন্ট থেকে পার্পল সরিয়ে সায়ান দেওয়া হয়েছে
+                      gradient: LinearGradient(colors: [cyanOwner, cyanOwner.withOpacity(0.2)]),
                     ),
                     child: CircleAvatar(
                       radius: 22,
@@ -114,7 +119,7 @@ class PostCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 5),
                       if (isOwner)
-                        const Icon(Icons.verified, color: Colors.blueAccent, size: 17),
+                        const Icon(Icons.verified, color: cyanOwner, size: 17),
                     ],
                   ),
                   subtitle: Text(
@@ -158,7 +163,6 @@ class PostCard extends StatelessWidget {
                   ),
                 ),
 
-                // --- ক্যাপশন (Error Fixed Here) ---
                 if (data['caption'] != null && data['caption'].toString().isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(left: 18, right: 18, bottom: 10, top: 2),
@@ -168,7 +172,6 @@ class PostCard extends StatelessWidget {
                     ),
                   ),
 
-                // --- ইমেজ সেকশন ---
                 if (data['storyImage'] != null && data['storyImage'].toString().isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -184,7 +187,7 @@ class PostCard extends StatelessWidget {
                           fit: BoxFit.cover,
                           loadingBuilder: (context, child, loadingProgress) {
                             if (loadingProgress == null) return child;
-                            return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(color: Colors.blueAccent, strokeWidth: 2)));
+                            return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(color: cyanOwner, strokeWidth: 2)));
                           },
                           errorBuilder: (context, error, stackTrace) => Container(
                             height: 150,
@@ -196,7 +199,6 @@ class PostCard extends StatelessWidget {
                     ),
                   ),
 
-                // --- লাইক ও বাটন সেকশন ---
                 Padding(
                   padding: const EdgeInsets.fromLTRB(18, 10, 18, 5),
                   child: Row(
@@ -286,7 +288,7 @@ class PostCard extends StatelessWidget {
                     .orderBy('timestamp', descending: false)
                     .snapshots(),
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
+                  if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFF00FBFF)));
                   if (snapshot.data!.docs.isEmpty) return const Center(child: Text("No comments yet", style: TextStyle(color: Colors.white38)));
                   return ListView(
                     children: snapshot.data!.docs.map((doc) {
@@ -317,7 +319,7 @@ class PostCard extends StatelessWidget {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
                   suffixIcon: IconButton(
-                    icon: const Icon(Icons.send_rounded, color: Colors.blueAccent),
+                    icon: const Icon(Icons.send_rounded, color: Color(0xFF00FBFF)),
                     onPressed: () => _submitComment(pId, _commentController.text, _commentController),
                   ),
                 ),
