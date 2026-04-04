@@ -1,3 +1,4 @@
+import 'widgets/animated_frame.dart'; // পাথটি আপনার ফোল্ডার অনুযায়ী ঠিক করে নিন
 import 'package:firebase_storage/firebase_storage.dart';
 import 'vip_service.dart'; // ফাইলের নাম অনুযায়ী
 import 'dart:io';
@@ -30,6 +31,12 @@ import 'package:pagla_chat/pages/agent_transfer_page.dart';
 class _ProfilePageState extends State<ProfilePage> {
   final DatabaseService _dbService = DatabaseService();
   // ... বাকি ভেরিয়েবলগুলো এখানে থাকবে
+
+  bool hasFreeFrame = false; 
+  String activeFrameUrl = ""; 
+  DateTime? frameUntilDate;
+  DateTime? premiumUntilDate;
+  String uid = FirebaseAuth.instance.currentUser!.uid;
   String userImageURL = ""; 
   String userName = "Unfixed";
   String uIDValue = ""; 
@@ -640,7 +647,7 @@ Widget _buildMyFramesTab() {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.network("YOUR_FRAME_URL_HERE", height: 60), // এখানে ফ্রেমের লিঙ্ক দিন
+            Image.network("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumframe.png", height: 60), // এখানে ফ্রেমের লিঙ্ক দিন
             const SizedBox(height: 5),
             const Text("Premium Free", style: TextStyle(color: Colors.white, fontSize: 12)),
             const SizedBox(height: 10),
