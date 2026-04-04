@@ -83,7 +83,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String ownerName = "";
   String userProfilePic = ""; 
 
-  String myName = "User"; // ডিফল্ট নাম
   // --- সব ভেরিয়েবল ---
   String roomOwnerId = ""; 
   List<dynamic> adminList = [];
