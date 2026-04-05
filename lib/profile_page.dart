@@ -517,16 +517,40 @@ Future<void> _handleProfileUpdate(File newFile) async {
     );
 
    void _openPremiumStore() {
-    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E1E2F), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => DefaultTabController(length: 4, child: Container(height: MediaQuery.of(context).size.height * 0.7, padding: const EdgeInsets.all(10),
-        child: Column(children: [
-          const TabBar(isScrollable: true, indicatorColor: Colors.amber, tabs: [Tab(text: "Cards"), Tab(text: "Frames"), Tab(text: "Entry"), Tab(text: "Special")]),
-          Expanded(child: TabBarView(children: [_buildStoreCardTab(), const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54))), const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54))), const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54)))]))
-        ]))));
-  }
+    showModalBottomSheet(
+      context: context, 
+      isScrollControlled: true, 
+      backgroundColor: const Color(0xFF1E1E2F), 
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => DefaultTabController(
+        length: 4, 
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.7, 
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            children: [
+              const TabBar(
+                isScrollable: true, 
+                indicatorColor: Colors.amber, 
+                tabs: [Tab(text: "Cards"), Tab(text: "Frames"), Tab(text: "Entry"), Tab(text: "Special")]
+              ),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _buildStoreCardTab(), 
+                    const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54))), 
+                    const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54))), 
+                    const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54)))
+                  ]
+                )
+              )
+            ]
+          )
+        )
+      )
+    );
+}
 
-  // ১. আপনার সেই হারানো ব্যাকপ্যাক ওপেন করার মেইন ফাংশন
-  // ১. ব্যাকপ্যাক ওপেন করার মেইন ফাংশন
 void _openBackpack() {
   showModalBottomSheet(
     context: context,
@@ -569,7 +593,6 @@ void _openBackpack() {
   );
 }
 
-// ২. স্টোর কার্ড কেনার ফাংশন (uIDValue ব্যবহার করা হয়েছে)
 Widget _buildStoreCardTab() {
   return SingleChildScrollView(
     child: Column(
@@ -598,7 +621,6 @@ Widget _buildStoreCardTab() {
                 DateTime cardExpiry = now.add(const Duration(days: 30));
                 DateTime frameExpiry = now.add(const Duration(days: 10));
 
-                // এখানে uIDValue ব্যবহার করা হয়েছে
                 await FirebaseFirestore.instance.collection('users').doc(uIDValue).update({
                   'diamonds': FieldValue.increment(-6000),
                   'hasPremiumCard': true,
@@ -631,61 +653,63 @@ Widget _buildStoreCardTab() {
   );
 }
 
-  // ৪. ব্যাকপ্যাক: আমার কার্ড ট্যাব (Missing ছিল)
-  Widget _buildMyCardsTab() {
-    if (!hasPremiumCard) {
-      return const Center(child: Text("No Cards Found", style: TextStyle(color: Colors.white54)));
-    }
-    return ListView(
-      padding: const EdgeInsets.all(15),
-      children: [
-        ListTile(
-          leading: Image.network("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png", width: 50),
-          title: const Text("Pagla Premium Card", style: TextStyle(color: Colors.white)),
-          subtitle: Text("Expires: ${premiumUntilDate?.toLocal().toString().split(' ')[0]}", style: const TextStyle(color: Colors.white54, fontSize: 12)),
-          trailing: const Icon(Icons.check_circle, color: Colors.green),
+Widget _buildMyCardsTab() {
+  if (!hasPremiumCard) {
+    return const Center(child: Text("No Cards Found", style: TextStyle(color: Colors.white54)));
+  }
+  return ListView(
+    padding: const EdgeInsets.all(15),
+    children: [
+      ListTile(
+        leading: Image.network("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png", width: 50),
+        title: const Text("Pagla Premium Card", style: TextStyle(color: Colors.white)),
+        subtitle: Text("Expires: ${premiumUntilDate?.toLocal().toString().split(' ')[0]}", style: const TextStyle(color: Colors.white54, fontSize: 12)),
+        trailing: const Icon(Icons.check_circle, color: Colors.green),
+      ),
+    ],
+  );
+}
+
+Widget _buildMyFramesTab() {
+  const String frameUrl = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumframe.png";
+  bool isExpired = frameUntilDate != null && frameUntilDate!.isBefore(DateTime.now());
+
+  if (!hasFreeFrame || isExpired) {
+    return const Center(child: Text("No Active Frames", style: TextStyle(color: Colors.white54)));
+  }
+
+  return GridView.builder(
+    padding: const EdgeInsets.all(15),
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.85),
+    itemCount: 1,
+    itemBuilder: (context, index) {
+      bool isPicked = activeFrameUrl == frameUrl;
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white10, 
+          borderRadius: BorderRadius.circular(15), 
+          border: isPicked ? Border.all(color: Colors.amber, width: 2) : null
         ),
-      ],
-    );
-  }
-
-  // ৫. ব্যাকপ্যাক: ফ্রেম ট্যাব (Pick/Unpick লজিক)
-  Widget _buildMyFramesTab() {
-    const String frameUrl = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumframe.png";
-    bool isExpired = frameUntilDate != null && frameUntilDate!.isBefore(DateTime.now());
-
-    if (!hasFreeFrame || isExpired) {
-      return const Center(child: Text("No Active Frames", style: TextStyle(color: Colors.white54)));
-    }
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(15),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.85),
-      itemCount: 1,
-      itemBuilder: (context, index) {
-        bool isPicked = activeFrameUrl == frameUrl;
-        return Container(
-          decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15), border: isPicked ? Border.all(color: Colors.amber, width: 2) : null),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.network(frameUrl, height: 60),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: isPicked ? Colors.redAccent : Colors.blueAccent, minimumSize: const Size(80, 30)),
-                onPressed: () async {
-                  String newFrame = isPicked ? "" : frameUrl;
-                  await FirebaseFirestore.instance.collection('users').doc(uIDValue).update({'activeFrame': newFrame});
-                  setState(() { activeFrameUrl = newFrame; });
-                },
-                child: Text(isPicked ? "UNPICK" : "PICK"),
-              )
-            ],
-          ),
-        );
-      },
-    );
-  }
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.network(frameUrl, height: 60),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: isPicked ? Colors.redAccent : Colors.blueAccent, minimumSize: const Size(80, 30)),
+              onPressed: () async {
+                String newFrame = isPicked ? "" : frameUrl;
+                await FirebaseFirestore.instance.collection('users').doc(uIDValue).update({'activeFrame': newFrame});
+                setState(() { activeFrameUrl = newFrame; });
+              },
+              child: Text(isPicked ? "UNPICK" : "PICK"),
+            )
+          ],
+        ),
+      );
+    },
+  );
+}
  
   @override
   Widget build(BuildContext context) {
