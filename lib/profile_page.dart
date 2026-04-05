@@ -515,7 +515,8 @@ Future<void> _handleProfileUpdate(File newFile) async {
         ],
       ),
     );
-
+  }
+    
    void _openPremiumStore() {
     showModalBottomSheet(
       context: context, 
