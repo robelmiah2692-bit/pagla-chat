@@ -516,162 +516,120 @@ Future<void> _handleProfileUpdate(File newFile) async {
       ),
     );
 
-   // ১. প্রিমিয়াম স্টোর ওপেন করার ফাংশন (স্টার ইফেক্ট সহ নতুন ডিজাইন)
-  void _openPremiumStore() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      builder: (context) => DefaultTabController(
-        length: 4,
-        child: Container(
-          height: MediaQuery.of(context).size.height * 0.75,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.lightBlue.shade200, 
-                Colors.blue.shade50,       
-                Colors.white,              
-              ],
+   void _openPremiumStore() {
+    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E1E2F), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => DefaultTabController(length: 4, child: Container(height: MediaQuery.of(context).size.height * 0.7, padding: const EdgeInsets.all(10),
+        child: Column(children: [
+          const TabBar(isScrollable: true, indicatorColor: Colors.amber, tabs: [Tab(text: "Cards"), Tab(text: "Frames"), Tab(text: "Entry"), Tab(text: "Special")]),
+          Expanded(child: TabBarView(children: [_buildStoreCardTab(), const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54))), const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54))), const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.white54)))]))
+        ]))));
+  }
+
+  // ১. আপনার সেই হারানো ব্যাকপ্যাক ওপেন করার মেইন ফাংশন
+  // ১. ব্যাকপ্যাক ওপেন করার মেইন ফাংশন
+void _openBackpack() {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: const Color(0xFF1E1E2F),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20))
+    ),
+    builder: (context) => DefaultTabController(
+      length: 4,
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          children: [
+            const TabBar(
+              isScrollable: true,
+              indicatorColor: Colors.pinkAccent,
+              tabs: [
+                Tab(text: "My Cards"),
+                Tab(text: "My Frames"),
+                Tab(text: "Effects"),
+                Tab(text: "Others")
+              ]
             ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-            boxShadow: [
-              BoxShadow(color: Colors.blueAccent.withOpacity(0.3), blurRadius: 20, spreadRadius: 5)
-            ],
-          ),
-          child: Stack(
-            children: [
-              // ব্যাকগ্রাউন্ডে তারার ঝিকিমিকি ইফেক্ট
-              ...List.generate(15, (index) => Positioned(
-                top: (index * 45.0) % 400,
-                left: (index * 70.0) % 350,
-                child: Icon(Icons.star, size: index % 3 == 0 ? 12 : 7, color: Colors.white.withOpacity(0.6)),
-              )),
-              Column(
+            Expanded(
+              child: TabBarView(
                 children: [
-                  const SizedBox(height: 12),
-                  Container(width: 45, height: 5, decoration: BoxDecoration(color: Colors.blue.withOpacity(0.2), borderRadius: BorderRadius.circular(10))),
-                  const TabBar(
-                    isScrollable: true,
-                    indicatorColor: Colors.amber,
-                    labelColor: Colors.blueAccent,
-                    unselectedLabelColor: Colors.black45,
-                    tabs: [Tab(text: "Cards"), Tab(text: "Frames"), Tab(text: "Entry"), Tab(text: "Special")],
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _buildStoreCardTab(),
-                        const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.blueGrey))),
-                        const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.blueGrey))),
-                        const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.blueGrey))),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                  _buildMyCardsTab(), 
+                  _buildMyFramesTab(), 
+                  const Center(child: Text("Empty", style: TextStyle(color: Colors.white))),
+                  const Center(child: Text("Empty", style: TextStyle(color: Colors.white)))
+                ]
+              )
+            )
+          ]
+        )
+      )
+    )
+  );
+}
+
+// ২. স্টোর কার্ড কেনার ফাংশন (uIDValue ব্যবহার করা হয়েছে)
+Widget _buildStoreCardTab() {
+  return SingleChildScrollView(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const SizedBox(height: 20),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: Image.network(
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png",
+            height: 150, width: 220, fit: BoxFit.cover,
           ),
         ),
-      ),
-    );
-  }
+        const SizedBox(height: 15),
+        const Text("Pagla Premium Card", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        const Text("Bonus: Premium Frame (10 Days Free!)", style: TextStyle(color: Colors.amber, fontSize: 13)),
+        const Text("Cost: 6k 💎", style: TextStyle(color: Colors.cyanAccent, fontSize: 16)),
+        const SizedBox(height: 20),
+        
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 12)),
+          onPressed: () async {
+            if (diamonds >= 6000) {
+              try {
+                DateTime now = DateTime.now();
+                DateTime cardExpiry = now.add(const Duration(days: 30));
+                DateTime frameExpiry = now.add(const Duration(days: 10));
 
-  // ২. ব্যাকপ্যাক ওপেন করার ফাংশন
-  void _openBackpack() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E1E2F),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => DefaultTabController(
-        length: 4,
-        child: Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            children: [
-              const TabBar(
-                isScrollable: true,
-                indicatorColor: Colors.pinkAccent,
-                tabs: [Tab(text: "My Cards"), Tab(text: "My Frames"), Tab(text: "Effects"), Tab(text: "Others")],
-              ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _buildMyCardsTab(), 
-                    _buildMyFramesTab(), 
-                    const Center(child: Text("Empty", style: TextStyle(color: Colors.white))),
-                    const Center(child: Text("Empty", style: TextStyle(color: Colors.white))),
-                  ],
-                ),
-              ),
-            ],
-          ),
+                // এখানে uIDValue ব্যবহার করা হয়েছে
+                await FirebaseFirestore.instance.collection('users').doc(uIDValue).update({
+                  'diamonds': FieldValue.increment(-6000),
+                  'hasPremiumCard': true,
+                  'premiumUntil': Timestamp.fromDate(cardExpiry),
+                  'hasFreeFrame': true,
+                  'frameUntil': Timestamp.fromDate(frameExpiry),
+                  'activeFrame': "", 
+                });
+
+                setState(() {
+                  diamonds -= 6000;
+                  hasPremiumCard = true;
+                  premiumUntilDate = cardExpiry;
+                  frameUntilDate = frameExpiry;
+                });
+
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Success! Card & Free Frame Added.")));
+              } catch (e) {
+                debugPrint("Error: $e");
+              }
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Insufficient diamonds!")));
+            }
+          },
+          child: const Text("BUY NOW"),
         ),
-      ),
-    );
-  }
-
-  // ৩. স্টোর কার্ড কেনার ট্যাব
-  Widget _buildStoreCardTab() {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(15),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.8),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white, width: 2),
-            ),
-            child: Column(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(15),
-                  child: Image.network("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png", height: 150, fit: BoxFit.contain),
-                ),
-                const SizedBox(height: 10),
-                const Text("Pagla Premium Card", style: TextStyle(color: Colors.blueAccent, fontSize: 18, fontWeight: FontWeight.bold)),
-                const Text("Bonus: Premium Frame (10 Days Free!)", style: TextStyle(color: Colors.orangeAccent, fontSize: 12)),
-                const Text("Cost: 6k 💎", style: TextStyle(color: Colors.blueGrey, fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 15),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, shape: StadiumBorder()),
-                  onPressed: () async {
-                    if (diamonds >= 6000) {
-                      try {
-                        DateTime cardExp = DateTime.now().add(const Duration(days: 30));
-                        DateTime frameExp = DateTime.now().add(const Duration(days: 10));
-                        await FirebaseFirestore.instance.collection('users').doc(uIDValue).update({
-                          'diamonds': FieldValue.increment(-6000),
-                          'hasPremiumCard': true,
-                          'premiumUntil': Timestamp.fromDate(cardExp),
-                          'hasFreeFrame': true,
-                          'frameUntil': Timestamp.fromDate(frameExp),
-                        });
-                        setState(() { diamonds -= 6000; hasPremiumCard = true; });
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Success! Card Added.")));
-                      } catch (e) { debugPrint(e.toString()); }
-                    }
-                  },
-                  child: const Text("BUY NOW", style: TextStyle(color: Colors.white)),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+      ],
+    ),
+  );
+}
 
   // ৪. ব্যাকপ্যাক: আমার কার্ড ট্যাব (Missing ছিল)
   Widget _buildMyCardsTab() {
