@@ -516,12 +516,12 @@ Future<void> _handleProfileUpdate(File newFile) async {
       ),
     );
 
-  // ১. প্রিমিয়াম স্টোর ওপেন করার ফাংশন
+   // ১. প্রিমিয়াম স্টোর ওপেন করার ফাংশন (স্টার ইফেক্ট সহ নতুন ডিজাইন)
   void _openPremiumStore() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent, // নিচে কন্টেইনারে গ্রেডিয়েন্ট দিচ্ছি
+      backgroundColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
@@ -530,7 +530,6 @@ Future<void> _handleProfileUpdate(File newFile) async {
         child: Container(
           height: MediaQuery.of(context).size.height * 0.75,
           decoration: BoxDecoration(
-            // বডি ডিজাইন: নীল আকাশ হালকা কালার গ্রেডিয়েন্ট
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -542,57 +541,32 @@ Future<void> _handleProfileUpdate(File newFile) async {
             ),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
             boxShadow: [
-              BoxShadow(
-                color: Colors.blueAccent.withOpacity(0.3),
-                blurRadius: 20,
-                spreadRadius: 5,
-              )
+              BoxShadow(color: Colors.blueAccent.withOpacity(0.3), blurRadius: 20, spreadRadius: 5)
             ],
           ),
           child: Stack(
             children: [
-              // ব্যাকগ্রাউন্ডে তারার মতো ঝিকিমিকি ইফেক্ট (Stars)
-              ...List.generate(20, (index) => Positioned(
-                top: (index * 40.0) % 450,
-                left: (index * 65.0) % 380,
-                child: Icon(
-                  Icons.star, 
-                  size: index % 3 == 0 ? 14 : 8, 
-                  color: Colors.white.withOpacity(0.7),
-                ),
+              // ব্যাকগ্রাউন্ডে তারার ঝিকিমিকি ইফেক্ট
+              ...List.generate(15, (index) => Positioned(
+                top: (index * 45.0) % 400,
+                left: (index * 70.0) % 350,
+                child: Icon(Icons.star, size: index % 3 == 0 ? 12 : 7, color: Colors.white.withOpacity(0.6)),
               )),
-
               Column(
                 children: [
                   const SizedBox(height: 12),
-                  // ড্র্যাগ হ্যান্ডেল
-                  Container(
-                    width: 45, 
-                    height: 5, 
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.2), 
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  
+                  Container(width: 45, height: 5, decoration: BoxDecoration(color: Colors.blue.withOpacity(0.2), borderRadius: BorderRadius.circular(10))),
                   const TabBar(
                     isScrollable: true,
                     indicatorColor: Colors.amber,
                     labelColor: Colors.blueAccent,
                     unselectedLabelColor: Colors.black45,
-                    labelStyle: TextStyle(fontWeight: FontWeight.bold),
-                    tabs: [
-                      Tab(text: "Cards"),
-                      Tab(text: "Frames"),
-                      Tab(text: "Entry"),
-                      Tab(text: "Special"),
-                    ],
+                    tabs: [Tab(text: "Cards"), Tab(text: "Frames"), Tab(text: "Entry"), Tab(text: "Special")],
                   ),
-                  
                   Expanded(
                     child: TabBarView(
                       children: [
-                        _buildStoreCardTab(), // স্টোর কার্ড ট্যাব
+                        _buildStoreCardTab(),
                         const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.blueGrey))),
                         const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.blueGrey))),
                         const Center(child: Text("Coming Soon", style: TextStyle(color: Colors.blueGrey))),
@@ -614,9 +588,7 @@ Future<void> _handleProfileUpdate(File newFile) async {
       context: context,
       isScrollControlled: true,
       backgroundColor: const Color(0xFF1E1E2F),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => DefaultTabController(
         length: 4,
         child: Container(
@@ -627,12 +599,7 @@ Future<void> _handleProfileUpdate(File newFile) async {
               const TabBar(
                 isScrollable: true,
                 indicatorColor: Colors.pinkAccent,
-                tabs: [
-                  Tab(text: "My Cards"),
-                  Tab(text: "My Frames"),
-                  Tab(text: "Effects"),
-                  Tab(text: "Others"),
-                ],
+                tabs: [Tab(text: "My Cards"), Tab(text: "My Frames"), Tab(text: "Effects"), Tab(text: "Others")],
               ),
               Expanded(
                 child: TabBarView(
@@ -651,165 +618,116 @@ Future<void> _handleProfileUpdate(File newFile) async {
     );
   }
 
-  // ৩. স্টোর কার্ড কেনার ট্যাব (uIDValue ব্যবহার করা হয়েছে)
+  // ৩. স্টোর কার্ড কেনার ট্যাব
   Widget _buildStoreCardTab() {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(20),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.8),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
             ),
             child: Column(
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(15),
-                  child: Image.network(
-                    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png",
-                    height: 160,
-                    width: 240,
-                    fit: BoxFit.contain,
-                  ),
+                  child: Image.network("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png", height: 150, fit: BoxFit.contain),
                 ),
+                const SizedBox(height: 10),
+                const Text("Pagla Premium Card", style: TextStyle(color: Colors.blueAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text("Bonus: Premium Frame (10 Days Free!)", style: TextStyle(color: Colors.orangeAccent, fontSize: 12)),
+                const Text("Cost: 6k 💎", style: TextStyle(color: Colors.blueGrey, fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 15),
-                const Text(
-                  "Pagla Premium Card", 
-                  style: TextStyle(color: Colors.blueAccent, fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const Text(
-                  "Bonus: Premium Frame (10 Days Free!)", 
-                  style: TextStyle(color: Colors.orangeAccent, fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-                const Text(
-                  "Cost: 6k 💎", 
-                  style: TextStyle(color: Colors.blueGrey, fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 20),
-                
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                      elevation: 5,
-                    ),
-                    onPressed: () async {
-                      if (diamonds >= 6000) {
-                        try {
-                          DateTime now = DateTime.now();
-                          DateTime cardExpiry = now.add(const Duration(days: 30));
-                          DateTime frameExpiry = now.add(const Duration(days: 10));
-
-                          // Firebase আপডেট লজিক
-                          await FirebaseFirestore.instance.collection('users').doc(uIDValue).update({
-                            'diamonds': FieldValue.increment(-6000),
-                            'hasPremiumCard': true,
-                            'premiumUntil': Timestamp.fromDate(cardExpiry),
-                            'hasFreeFrame': true,
-                            'frameUntil': Timestamp.fromDate(frameExpiry),
-                            'activeFrame': "", 
-                          });
-
-                          setState(() {
-                            diamonds -= 6000;
-                            hasPremiumCard = true;
-                            premiumUntilDate = cardExpiry;
-                            frameUntilDate = frameExpiry;
-                          });
-
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              backgroundColor: Colors.green,
-                              content: Text("Success! Card & Free Frame Added."),
-                            ),
-                          );
-                        } catch (e) {
-                          debugPrint("Error: $e");
-                        }
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            backgroundColor: Colors.redAccent,
-                            content: Text("Insufficient diamonds!"),
-                          ),
-                        );
-                      }
-                    },
-                    child: const Text("BUY NOW", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, shape: StadiumBorder()),
+                  onPressed: () async {
+                    if (diamonds >= 6000) {
+                      try {
+                        DateTime cardExp = DateTime.now().add(const Duration(days: 30));
+                        DateTime frameExp = DateTime.now().add(const Duration(days: 10));
+                        await FirebaseFirestore.instance.collection('users').doc(uIDValue).update({
+                          'diamonds': FieldValue.increment(-6000),
+                          'hasPremiumCard': true,
+                          'premiumUntil': Timestamp.fromDate(cardExp),
+                          'hasFreeFrame': true,
+                          'frameUntil': Timestamp.fromDate(frameExp),
+                        });
+                        setState(() { diamonds -= 6000; hasPremiumCard = true; });
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Success! Card Added.")));
+                      } catch (e) { debugPrint(e.toString()); }
+                    }
+                  },
+                  child: const Text("BUY NOW", style: TextStyle(color: Colors.white)),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 30),
         ],
       ),
     );
   }
-// ৩. ব্যাকপ্যাক: ফ্রেম ট্যাব (Pick/Unpick লজিক + uIDValue)
-Widget _buildMyFramesTab() {
-  const String frameUrl = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumframe.png";
-  bool isExpired = frameUntilDate != null && frameUntilDate!.isBefore(DateTime.now());
 
-  if (!hasFreeFrame || isExpired) {
-    return const Center(child: Text("No Active Frames", style: TextStyle(color: Colors.white54)));
+  // ৪. ব্যাকপ্যাক: আমার কার্ড ট্যাব (Missing ছিল)
+  Widget _buildMyCardsTab() {
+    if (!hasPremiumCard) {
+      return const Center(child: Text("No Cards Found", style: TextStyle(color: Colors.white54)));
+    }
+    return ListView(
+      padding: const EdgeInsets.all(15),
+      children: [
+        ListTile(
+          leading: Image.network("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png", width: 50),
+          title: const Text("Pagla Premium Card", style: TextStyle(color: Colors.white)),
+          subtitle: Text("Expires: ${premiumUntilDate?.toLocal().toString().split(' ')[0]}", style: const TextStyle(color: Colors.white54, fontSize: 12)),
+          trailing: const Icon(Icons.check_circle, color: Colors.green),
+        ),
+      ],
+    );
   }
 
-  return GridView.builder(
-    padding: const EdgeInsets.all(15),
-    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 0.8),
-    itemCount: 1,
-    itemBuilder: (context, index) {
-      bool isPicked = activeFrameUrl == frameUrl; 
+  // ৫. ব্যাকপ্যাক: ফ্রেম ট্যাব (Pick/Unpick লজিক)
+  Widget _buildMyFramesTab() {
+    const String frameUrl = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumframe.png";
+    bool isExpired = frameUntilDate != null && frameUntilDate!.isBefore(DateTime.now());
 
-      return Container(
-        decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15), border: isPicked ? Border.all(color: Colors.amber, width: 2) : null),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.network(frameUrl, height: 60),
-            const SizedBox(height: 10),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: isPicked ? Colors.redAccent : Colors.blueAccent, minimumSize: const Size(80, 30)),
-              onPressed: () async {
-                String newFrame = isPicked ? "" : frameUrl;
-                
-                // uIDValue ব্যবহার করে আপডেট
-                await FirebaseFirestore.instance.collection('users').doc(uIDValue).update({
-                  'activeFrame': newFrame
-                });
-                
-                setState(() { activeFrameUrl = newFrame; });
-              },
-              child: Text(isPicked ? "UNPICK" : "PICK"),
-            )
-          ],
-        ),
-      );
-    },
-  );
-}
+    if (!hasFreeFrame || isExpired) {
+      return const Center(child: Text("No Active Frames", style: TextStyle(color: Colors.white54)));
+    }
 
-// ৪. কার্ড ট্যাব যা মিসিং ছিল (বাড়তি সুবিধা হিসেবে যোগ করে দিলাম)
-Widget _buildMyCardsTab() {
-  return Center(
-    child: hasPremiumCard 
-      ? Image.network("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png", height: 120)
-      : const Text("No Cards Found", style: TextStyle(color: Colors.white54)),
-  );
-}
+    return GridView.builder(
+      padding: const EdgeInsets.all(15),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.85),
+      itemCount: 1,
+      itemBuilder: (context, index) {
+        bool isPicked = activeFrameUrl == frameUrl;
+        return Container(
+          decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15), border: isPicked ? Border.all(color: Colors.amber, width: 2) : null),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.network(frameUrl, height: 60),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: isPicked ? Colors.redAccent : Colors.blueAccent, minimumSize: const Size(80, 30)),
+                onPressed: () async {
+                  String newFrame = isPicked ? "" : frameUrl;
+                  await FirebaseFirestore.instance.collection('users').doc(uIDValue).update({'activeFrame': newFrame});
+                  setState(() { activeFrameUrl = newFrame; });
+                },
+                child: Text(isPicked ? "UNPICK" : "PICK"),
+              )
+            ],
+          ),
+        );
+      },
+    );
+  }
  
   @override
   Widget build(BuildContext context) {
