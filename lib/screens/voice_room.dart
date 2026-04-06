@@ -428,6 +428,25 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
+// --- পিকে ব্যাটেল লজিক (এটি না থাকলে এরর আসবে) ---
+  void _endPKBattle() {
+    if (!mounted) return;
+    
+    // উইনার নির্ধারণ (পয়েন্টের ভিত্তিতে)
+    String winner = blueTeamPoints > redTeamPoints ? "BLUE" : "RED";
+    
+    showDialog(
+      context: context,
+      builder: (context) => PKWinnerDialog(
+        winnerTeam: winner, 
+        bluePoints: blueTeamPoints, 
+        redPoints: redTeamPoints
+      ),
+    );
+    
+    setState(() => isPKActive = false);
+  }
+  
   @override
 Widget build(BuildContext context) {
   // কিবোর্ডের উচ্চতা মাপার জন্য
