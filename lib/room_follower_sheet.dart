@@ -58,7 +58,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
 
         var roomData = snapshot.data!.data() as Map<String, dynamic>;
         
-        // স্ক্রিনশট অনুযায়ী মালিকের আইডি চেক
+        // স্ক্রিনশট এবং ওনার ভেরিফিকেশন অনুযায়ী আইডি চেক
         String actualOwnerId = roomData['ownerId'] ?? roomData['ownerID'] ?? roomData['uID'] ?? roomData['uid'] ?? widget.ownerId;
         
         List<dynamic> followers = List.from(roomData['followers'] ?? []);
@@ -92,9 +92,9 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
                 if (!userSnap.hasData) return const SizedBox();
                 var userData = userSnap.data?.data() as Map<String, dynamic>?;
                 
-                // স্ক্রিনশট অনুযায়ী নাম ও ছবি ফিল্টার
-                String name = userData?['name'] ?? userData?['userName'] ?? "Pagla User";
-                String photo = userData?['profilePic'] ?? userData?['userImage'] ?? "";
+                // আপনার ফায়ারবেস স্ক্রিনশট অনুযায়ী Key গুলো ফিক্স করা হয়েছে
+                String name = userData?['name'] ?? "পাগলা ইউজার"; 
+                String photo = userData?['profilePic'] ?? "";
 
                 return ListTile(
                   leading: Stack(
@@ -148,8 +148,9 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
               builder: (context, userSnap) {
                 var userData = userSnap.data?.data() as Map<String, dynamic>?;
                 
-                String name = userData?['name'] ?? userData?['userName'] ?? "User";
-                String photo = userData?['profilePic'] ?? userData?['userImage'] ?? "";
+                // স্ক্রিনশট অনুযায়ী ফিল্ড নাম ফিক্স করা হয়েছে
+                String name = userData?['name'] ?? "User";
+                String photo = userData?['profilePic'] ?? "";
 
                 return ListTile(
                   leading: CircleAvatar(
