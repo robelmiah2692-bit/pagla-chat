@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:ui';
-import 'dart:math'; // ইউনিক আইডির জন্য
+import 'dart:math'; 
 import 'screens/voice_room.dart';
 
 // গ্লোবাল ভেরিয়েবল
@@ -45,30 +45,30 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     super.dispose();
   }
 
-  // --- নতুন রুম তৈরির লজিক (ইউনিক ৫ ডিজিট আইডি, ownerId এবং ownerName সহ) ---
+  // --- নতুন রুম তৈরির লজিক ---
   Future<void> _createNewRoomLogic(String roomName) async {
     final User? user = FirebaseAuth.instance.currentUser;
     final String? uid = user?.uid;
     if (uid == null) return;
 
-    // ইউনিক ৫ ডিজিট আইডি তৈরি (যেমন: ৪২১৮৪)
     String newUniqueRoomId = (10000 + Random().nextInt(90000)).toString();
 
     try {
-      // ইউজারের প্রোফাইল থেকে নাম সংগ্রহ
+      // ফায়ারবেস স্ক্রিনশট অনুযায়ী 'name' ফিল্ড থেকে নাম সংগ্রহ করা হচ্ছে
       DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
       String currentUserName = "User";
+      
       if(userDoc.exists) {
-        currentUserName = userDoc.get('name') ?? userDoc.get('userName') ?? "User";
+        var userData = userDoc.data() as Map<String, dynamic>;
+        currentUserName = userData['name'] ?? "User"; // স্ক্রিনশটে 'name' কি ব্যবহার করা হয়েছে
       }
 
-      // .doc(newUniqueRoomId) দিয়ে ডকুমেন্ট আইডি সেট করা হলো
       await FirebaseFirestore.instance.collection('rooms').doc(newUniqueRoomId).set({
         'roomId': newUniqueRoomId,
         'roomName': roomName,
-        'ownerId': uid, // ওনার আইডি
-        'ownerName': currentUserName, // ওনার নাম ফিল্ড
-        'uID': uid, // uID হিসেবেও ডাটা সেভ হবে
+        'ownerId': uid,
+        'ownerName': currentUserName,
+        'uID': uid,
         'userCount': 0,
         'isLive': true,
         'admins': [], 
@@ -90,7 +90,6 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     }
   }
 
-  // --- নতুন রুম বানানোর ডায়ালগ ---
   void _showCreateRoomDialog() {
     TextEditingController roomNameController = TextEditingController();
     showDialog(
@@ -181,13 +180,11 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     );
   }
 
-   // --- ২. ফলোয়িং রুম লিস্ট (আমি যে রুমগুলো ফলো করেছি সেগুলো দেখাবে) ---
   Widget _buildFollowingRoomList() {
     final String? myUid = FirebaseAuth.instance.currentUser?.uid;
     if (myUid == null) return const SizedBox();
 
     return StreamBuilder<QuerySnapshot>(
-      // লজিক: 'rooms' কালেকশনে যাদের 'followers' লিস্টে আমার আইডি আছে
       stream: FirebaseFirestore.instance
           .collection('rooms')
           .where('followers', arrayContains: myUid) 
@@ -204,14 +201,9 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
           );
         }
 
-        // আপনার নিজের আইডি বাদ দেওয়া (সব ধরণের ফিল্ড চেক করা হচ্ছে: uID, uid, ownerId)
         var followedRooms = roomSnapshot.data!.docs.where((doc) {
           var data = doc.data() as Map<String, dynamic>;
-          
-          // মালিকের আইডি বের করা (যেকোনো ফরম্যাটে থাকতে পারে)
           String? roomOwnerId = data['uID'] ?? data['uid'] ?? data['ownerId'] ?? data['adminId'];
-
-          // কন্ডিশন: যদি মালিক আমি না হই, তবেই লিস্টে দেখাবে
           return roomOwnerId != myUid;
         }).toList();
 
@@ -227,7 +219,6 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     );
   }
 
-  // --- ৩. মাই রুম লিস্ট (পুরাতন ডাটাবেস এর uid/uID/adminId ফিক্স সহ) ---
   Widget _buildMyRoomList() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return const Center(child: Text("Please Login", style: TextStyle(color: Colors.white)));
@@ -237,7 +228,6 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
         
-        // ওনার আইডির সকল ভার্সন চেক করে ফিল্টার করা হচ্ছে
         var myRooms = snapshot.data!.docs.where((doc) {
           var data = doc.data() as Map<String, dynamic>;
           return (data['ownerId'] == uid || data['uID'] == uid || data['adminId'] == uid);
@@ -273,7 +263,6 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     );
   }
 
-  // --- গ্রিড এবং কার্ড ডিজাইন ---
   Widget _buildGrid(List<DocumentSnapshot> docs, {bool isMyRoom = false}) {
     final String? currentUID = FirebaseAuth.instance.currentUser?.uid;
     return GridView.builder(
@@ -289,7 +278,6 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
         int count = data['userCount'] ?? 0;
         String? image = data['roomImage'];
         
-        // কার্ডের মালিকানা চেক
         bool isCardOwner = (data['ownerId'] == currentUID || data['uID'] == currentUID || data['adminId'] == currentUID);
 
         return _buildPremiumGlassCard(roomId, name, count, image, isCardOwner);
@@ -350,6 +338,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
                       ),
                     ),
                   ),
+                  // ওনার আইডেন্টিফিকেশন আইকন [cite: 2026-02-25]
                   if (isMyRoom)
                     const Positioned(
                       top: 0, left: 0,
