@@ -331,31 +331,23 @@ void _pickProfileImage() {
 }
 
 // ২. গ্যালারি থেকে ছবি আপলোড করে profilePic হিসেবে সেভ করা
-Future<void> _handleProfileUpdate(File newFile) async {
+ Future<void> _handleProfileUpdate(File newFile) async {
   try {
-    String uid = uIDValue; // আপনার প্রজেক্টের uIDValue
+    String uid = uIDValue; 
     String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     
-    // স্টোরেজ রেফারেন্স
+    // ১. স্টোরেজ রেফারেন্স
     Reference storageFolder = FirebaseStorage.instance.ref().child('user_profiles').child(uid);
     Reference newStorageRef = storageFolder.child('profile_$timestamp.jpg');
 
-    // পুরাতন স্টোরেজ ফাইল ডিলিট (বাকেট ক্লিন রাখতে)
-    try {
-      final listResult = await storageFolder.listAll();
-      for (var item in listResult.items) {
-        await item.delete();
-      }
-    } catch (e) {
-      debugPrint("Old image cleanup error: $e");
-    }
-
-    // নতুন ছবি আপলোড
-    UploadTask uploadTask = newStorageRef.putFile(newFile);
+    // ২. নতুন ছবি আপলোড (putData ব্যবহার করা হয়েছে যাতে এরর না আসে)
+    final bytes = await newFile.readAsBytes();
+    UploadTask uploadTask = newStorageRef.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+    
     TaskSnapshot snapshot = await uploadTask;
     String newDownloadUrl = await snapshot.ref.getDownloadURL();
     
-    // শুধুমাত্র profilePic ফিল্ডেই সেভ হচ্ছে, যাতে কোনো ঝামেলা না হয়
+    // ৩. ফায়ারস্টোর আপডেট
     await FirebaseFirestore.instance.collection('users').doc(uid).update({
       'profilePic': newDownloadUrl,
     });
@@ -366,6 +358,16 @@ Future<void> _handleProfileUpdate(File newFile) async {
       });
     }
 
+    // ৪. পুরাতন ছবি ডিলিট (এটা এখন আপলোড সফল হওয়ার পরে হবে, যাতে এরর না আসে)
+    // এরর আসলেও ট্রাই-ক্যাচ এর ভেতরে থাকায় মেইন কাজ থামবে না
+    storageFolder.listAll().then((listResult) {
+      for (var item in listResult.items) {
+        if (item.name != 'profile_$timestamp.jpg') {
+          item.delete().catchError((e) => debugPrint("Old file delete failed: $e"));
+        }
+      }
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Profile updated successfully!"), backgroundColor: Colors.green),
     );
@@ -374,12 +376,11 @@ Future<void> _handleProfileUpdate(File newFile) async {
     debugPrint("Update Error: $e");
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Update failed!"), backgroundColor: Colors.redAccent),
+        const SnackBar(content: Text("Update failed! Check internet or try again."), backgroundColor: Colors.redAccent),
       );
     }
   }
 }
-
   // ১. ডায়মন্ড স্টোর ওপেন করার ফাংশন (Fix: userData প্যারামিটার যোগ করা হয়েছে)
   void _openDiamondStore(Map<String, dynamic> userData) {
     showModalBottomSheet(
