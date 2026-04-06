@@ -135,7 +135,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   void initState() {
     super.initState();
 
-    // ১. সিট জেনারেশন (১৫টি সিট ও VIP লজিক)
+    // ১. সিট জেনারেশন (১৫টি সিট ও VIP লজিক - আপনার অরিজিনাল লজিক)
     seats = List.generate(15, (index) => {
       "isOccupied": false,
       "userName": "",
@@ -149,7 +149,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
       "agoraUid": "", 
     });
 
-    // ২. রিয়েলটাইম ডাটাবেস লিসেনার
+    // ২. রিয়েলটাইম ডাটাবেস লিসেনার (ডাটা সিঙ্ক)
     FirebaseDatabase.instance
         .ref('rooms/${widget.roomId}/seats')
         .onValue.listen((event) {
@@ -157,13 +157,15 @@ class _VoiceRoomState extends State<VoiceRoom> {
       final dynamic data = event.snapshot.value;
       
       setState(() {
+        // প্রথমে সব সিট রিসেট করে নেওয়া (যাতে ডুপ্লিকেট না হয়)
         for (var seat in seats) {
           seat["isOccupied"] = false;
           seat["status"] = "empty";
           seat["userName"] = "";
           seat["userImage"] = "";
           seat["isMicOn"] = false;
-          seat["isTalking"] = false;
+          seat["userId"] = "";
+          seat["agoraUid"] = "";
         }
         
         if (data != null) {
@@ -177,6 +179,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
               seats[index]["isMicOn"] = value["isMicOn"] ?? false;
               seats[index]["userId"] = value["userId"] ?? "";
               seats[index]["agoraUid"] = value["agoraUid"]?.toString() ?? "";
+              // গিফট কাউন্ট আপডেট
+              seats[index]["giftCount"] = value["giftCount"] ?? 0;
             }
           });
         }
@@ -189,7 +193,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
       onFinished: () => _endPKBattle(),
     );
 
-    // ৪. এগোরা ম্যানেজার ব্যবহার করে ভয়েস ডিটেকশন
+    // ৪. এগোরা ভয়েস ডিটেকশন (রিপল এনিমেশন ফিক্সড)
     Future.microtask(() async {
       try {
         await _agoraManager.initAgora(); 
@@ -212,13 +216,17 @@ class _VoiceRoomState extends State<VoiceRoom> {
               onAudioVolumeIndication: (connection, speakers, totalVolume, speakerNumber) {
                 if (!mounted) return;
                 bool hasChanged = false;
+                
                 List<String> currentTalkingUids = speakers
                     .where((s) => (s.volume ?? 0) > 5)
                     .map((s) => s.uid == 0 ? myActualUid : s.uid.toString())
                     .toList();
 
                 for (var seat in seats) {
-                  bool isUserTalkingNow = currentTalkingUids.contains(seat["userId"]) || currentTalkingUids.contains(seat["agoraUid"]);
+                  // userId অথবা agoraUid যেকোনো একটি ম্যাচ করলেই কথা বলছে ধরা হবে
+                  bool isUserTalkingNow = currentTalkingUids.contains(seat["userId"]) || 
+                                         currentTalkingUids.contains(seat["agoraUid"]);
+                  
                   if (seat["isTalking"] != isUserTalkingNow) {
                     seat["isTalking"] = isUserTalkingNow;
                     hasChanged = true;
@@ -232,7 +240,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
       } catch (e) { debugPrint("Agora Error: $e"); }
     });
 
-    // ৫. ফায়ারস্টোর ডাটা লোড (রোল লজিকসহ)
+    // ৫. ফায়ারস্টোর ডাটা লোড (ওনার ও রোল লজিক)
     FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
       if (doc.exists && mounted) {
         final data = doc.data();
@@ -243,17 +251,16 @@ class _VoiceRoomState extends State<VoiceRoom> {
           roomProfileImage = data?['roomImage'] ?? roomProfileImage;
           followerCount = data?['followerCount'] ?? 0;
           isRoomLocked = data?['isLocked'] ?? false;
-          roomWallpaperPath = data?['roomWallpaper'] ?? data?['wallpaper'] ?? '';
+          roomWallpaperPath = data?['roomWallpaper'] ?? '';
 
-          // --- ওনারশিপ ও এডমিন লজিক ফিক্স ---
           roomOwnerId = data?['uID'] ?? data?['uId'] ?? data?['ownerId'] ?? ''; 
           ownerName = data?['ownerName'] ?? 'Unknown Owner';
-          adminList = data?['admins'] ?? [];
+          adminList = List<String>.from(data?['admins'] ?? []);
 
           if (myCurrentUID == roomOwnerId && roomOwnerId != "") {
             userRole = "Owner";
             isOwner = true;
-            uID = roomOwnerId; // মালিকের আইডি সেভ হলো
+            uID = roomOwnerId; 
           } else if (adminList.contains(myCurrentUID)) {
             userRole = "Admin";
             isOwner = false;
@@ -263,15 +270,11 @@ class _VoiceRoomState extends State<VoiceRoom> {
           }
         });
 
-        // ডাটা সিঙ্ক
         _roomService.updateRoomFullData(
           roomId: widget.roomId,
           roomName: roomName,
           roomImage: roomProfileImage,
           isLocked: isRoomLocked,
-          wallpaper: roomWallpaperPath,
-          followers: followerCount,
-          totalDiamonds: 0,
           uID: roomOwnerId,
           ownerName: ownerName,
         );
@@ -279,52 +282,48 @@ class _VoiceRoomState extends State<VoiceRoom> {
       }
     });
   }
-            
-   // --- আপডেট করা গিফট লজিক (নতুন ফিচারের সাথে) ---
-    void _startGiftCounting(int minutes, String theme) {
-      if (isGiftCounting) return; // অলরেডি চলতে থাকলে আর শুরু হবে না
 
-      setState(() { 
-        isGiftCounting = true; 
-        activityTheme = theme; // থিমের নাম সেভ করা হলো
-        remainingSeconds = minutes * 60; // মিনিটকে সেকেন্ডে রূপান্তর
-      });
+  // --- গিফট লজিক ---
+  void _startGiftCounting(int minutes, String theme) {
+    if (isGiftCounting) return;
+    setState(() { 
+      isGiftCounting = true; 
+      activityTheme = theme; 
+      remainingSeconds = minutes * 60; 
+    });
 
-      giftTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (remainingSeconds > 0) {
-          if (mounted) setState(() => remainingSeconds--);
-        } else {
-          timer.cancel();
-          if (mounted) setState(() => isGiftCounting = false);
-          _showWinnerPopup(); // সময় শেষ হলে উইনার দেখাবে
-        }
-      });
+    giftTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (remainingSeconds > 0) {
+        if (mounted) setState(() => remainingSeconds--);
+      } else {
+        timer.cancel();
+        if (mounted) setState(() => isGiftCounting = false);
+        _showWinnerPopup();
+      }
+    });
+  }
+
+  void _showWinnerPopup() {
+    List<Map<String, dynamic>> seatData = List.from(seats);
+    seatData.sort((a, b) => (b['giftCount'] ?? 0).compareTo(a['giftCount'] ?? 0));
+    
+    List<Map<String, dynamic>> topWinners = [];
+    for (var s in seatData) {
+      if (s != null && (s['giftCount'] ?? 0) > 0 && (s['isOccupied'] ?? false)) {
+        topWinners.add({
+          "name": s['userName'] ?? "User", 
+          "avatar": s['userImage'] ?? "", 
+          "gifts": s['giftCount']
+        });
+      }
+      if (topWinners.length == 2) break;
     }
 
-    void _showWinnerPopup() {
-      // আপনার পুরাতন পপআপ লজিক এখানে হুবহু থাকবে
-      List<Map<String, dynamic>> seatData = List.from(seats);
-      seatData.sort((a, b) => (b['giftCount'] ?? 0).compareTo(a['giftCount'] ?? 0));
-      
-      List<Map<String, dynamic>> topWinners = [];
-      for (var s in seatData) {
-        if (s != null && (s['giftCount'] ?? 0) > 0 && (s['isOccupied'] ?? false)) {
-          topWinners.add({
-            "name": s['userName'] ?? "User", 
-            "avatar": s['userImage'] ?? "", 
-            "gifts": s['giftCount']
-          });
-        }
-        if (topWinners.length == 2) break;
-      }
-
-      if (topWinners.isNotEmpty) {
-        showDialog(
-          context: context, 
-          builder: (context) => GiftRankDialog(winners: topWinners)
-        );
-      }
+    if (topWinners.isNotEmpty) {
+      showDialog(context: context, builder: (context) => GiftRankDialog(winners: topWinners));
     }
+  }
+
   // --- PK Battle ---
   void _endPKBattle() {
     String winner = blueTeamPoints > redTeamPoints ? "BLUE" : "RED";
@@ -334,201 +333,89 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
     setState(() => isPKActive = false);
   }
-             
-  // ১. সিটে বসার মেইন লজিক (আপনার দেওয়া রিয়েল টাইম সিঙ্ক সহ)
-   void sitOnSeat(int index) async {
-  // ১. বেসিক চেক (সিট খালি আছে কিনা এবং ইউজার অলরেডি সেখানে আছে কিনা)
-  if (currentSeatIndex == index) { 
-    _showLeaveConfirmation(index); 
-    return; 
-  }
-  
-  if (seats[index]["isOccupied"] || isRoomLocked) return;
 
-  // ২. অডিও এবং ব্রডকাস্টার মোড এনাবল করা (সিটে বসার মুহূর্তে কলিং শুরু)
-  try {
-    if (kIsWeb) {
-      await WakelockPlus.enable();
+  // --- সিটে বসার লজিক (কলিং ও মালিক শনাক্তকরণসহ) ---
+  void sitOnSeat(int index) async {
+    final String authUid = FirebaseAuth.instance.currentUser?.uid ?? "";
+
+    // নিজের সিটে ক্লিক করলে লিভ অপশন
+    if (currentSeatIndex == index || (seats[index]["userId"] == authUid && seats[index]["isOccupied"])) { 
+      _showLeaveConfirmation(index); 
+      return; 
     }
-
-    // এগোরা ম্যানেজারের মাধ্যমে ব্রডকাস্টিং শুরু করা (রুমে ঢোকার সময় এটি Audience ছিল)
-    await _agoraManager.becomeBroadcaster();
     
-    // 🛡️ মাইক আনমিউট করা (যাতে বসার সাথে সাথে কথা বলা যায়)
-    await _agoraManager.engine?.muteLocalAudioStream(false);
+    if (seats[index]["isOccupied"] || isRoomLocked) return;
 
-    // ভলিউম ইন্ডিকেশন চালু করা (রিপেল এনিমেশনের জন্য)
-    await _agoraManager.engine?.enableAudioVolumeIndication(
-      interval: 200, 
-      smooth: 3, 
-      reportVad: true
-    );
-
-    debugPrint("✅ কলিং ইঞ্জিন সিটে বসার পর প্রস্তুত হলো!");
-  } catch (e) {
-    debugPrint("⚠️ Agora Setup Error: $e");
-    return; 
-  }
-
-  // ৩. পুরাতন সিট ক্লিয়ার করা (যদি ইউজার অন্য সিট থেকে মুভ করে)
-  if (currentSeatIndex != -1) {
-    int oldIndex = currentSeatIndex;
     try {
-      await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').onDisconnect().cancel();
-      await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$oldIndex').remove();
-    } catch (e) {
-      debugPrint("Old seat clear error: $e");
+      if (kIsWeb) await WakelockPlus.enable();
+      await _agoraManager.becomeBroadcaster();
+      await _agoraManager.engine?.muteLocalAudioStream(false);
+      await _agoraManager.engine?.enableAudioVolumeIndication(interval: 200, smooth: 3, reportVad: true);
+    } catch (e) { return; }
+
+    if (currentSeatIndex != -1) {
+      await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$currentSeatIndex').remove();
     }
-  }
 
-  // ৪. ডাটাবেস এবং স্টেট আপডেট
-  try {
-    final User? currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return;
+    try {
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return;
 
-    final String authUid = currentUser.uid; // মেইন আইডি
-    final String myFixedUid = currentUserData['uId'] ?? currentUserData['uid'] ?? authUid; // আপনার আজীবন uId প্রোটোকল
-    final String myName = currentUser.displayName ?? "User";
-    final String myPic = currentUser.photoURL ?? "";
+      final String myFixedUid = currentUserData['uId'] ?? currentUserData['uid'] ?? authUid;
+      final int myAgoraUid = _agoraManager.localUid ?? 0;
 
-    final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
-    final int myAgoraUid = _agoraManager.localUid ?? 0;
+      final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
+      await seatRef.onDisconnect().remove();
 
-    // ৫. নেট ডিসকানেক্ট হলে অটো সিট রিমুভ (onDisconnect)
-    await seatRef.onDisconnect().remove();
-
-    // ৬. ফায়ারবেসে সিট ডেটা পুশ (uId সিলসহ)
-    await seatRef.set({
-      'userName': myName,
-      'userImage': myPic,
-      'isOccupied': true,
-      'status': 'occupied',
-      'isMicOn': true,
-      'userId': authUid,
-      'uId': myFixedUid, // ✅ আজীবনের জন্য uId সিল মারা হলো
-      'isTalking': false,
-      'agoraUid': myAgoraUid, 
-    });
-    
-    // ৭. লোকাল UI আপডেট
-    if (mounted) {
-      setState(() {
-        if (currentSeatIndex != -1) {
-          seats[currentSeatIndex]["isOccupied"] = false;
-          seats[currentSeatIndex]["status"] = "empty";
-        }
-        
-        currentSeatIndex = index;
-        isMicOn = true;
-        userRole = (myFixedUid == roomOwnerId) ? "Owner" : (adminList.contains(myFixedUid) ? "Admin" : "Speaker");
-
-        seats[index] = {
-          "status": "occupied",
-          "isOccupied": true,
-          "userName": myName,
-          "userImage": myPic,
-          "isMicOn": true,
-          "userId": authUid,
-          "uId": myFixedUid,
-          "agoraUid": myAgoraUid,
-          "isTalking": false,
-        };
+      await seatRef.set({
+        'userName': currentUser.displayName ?? "User",
+        'userImage': currentUser.photoURL ?? "",
+        'isOccupied': true,
+        'status': 'occupied',
+        'isMicOn': true,
+        'userId': authUid,
+        'uId': myFixedUid,
+        'agoraUid': myAgoraUid.toString(), 
+        'isTalking': false,
+        'giftCount': 0,
       });
-    }
-    
-    debugPrint("👑 সিট সফলভাবে দখল এবং কলিং শুরু হয়েছে!");
-  } catch (e) {
-    debugPrint("❌ Firebase Update Error: $e");
-  }
-}
 
-  // মালিকের জন্য বিশেষ মেসেজ ফাংশন (নিরাপদ ভার্সন)
-  void _sendOwnerJoinMessage() {
-    if (!mounted) return;
-    
-    // আগের স্নাকবার থাকলে তা সরিয়ে নতুনটা দেখানো
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("সম্মানিত মালিক Hridoy ভাই সিটে বসেছেন!", 
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.blueAccent,
-        duration: Duration(seconds: 3),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+      if (mounted) {
+        setState(() {
+          currentSeatIndex = index;
+          isMicOn = true;
+          // মালিক শনাক্তকরণ
+          if (myFixedUid == roomOwnerId) _sendOwnerJoinMessage();
+        });
+      }
+    } catch (e) { debugPrint("Firebase Error: $e"); }
   }
 
-  // ২. সিট ছাড়ার লজিক
   void _showLeaveConfirmation(int index) {
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog( // context-এর নাম পরিবর্তন করলাম বোঝার সুবিধার্থে
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: Colors.grey[900],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: const Text("Leave", style: TextStyle(color: Colors.white, fontSize: 18)),
-        content: const Text("Are you sure?", style: TextStyle(color: Colors.grey)),
+        title: const Text("Leave", style: TextStyle(color: Colors.white)),
+        content: const Text("Are you sure you want to leave the seat?", style: TextStyle(color: Colors.grey)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext), 
-            child: const Text("No", style: TextStyle(color: Colors.blue))
-          ),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text("No")),
           TextButton(
             onPressed: () async {
-              // ১. এগোরা লজিক (নিরাপদ ভার্সন)
-              try {
-                // আপনার ১৯২ লাইনের ম্যানেজারের অরিজিনাল মেথড
-                await _agoraManager.becomeListener();
-                
-                if (kIsWeb) {
-                  // WakelockPlus সরাসরি কল না করে ট্রাই-ক্যাচে রাখা ভালো
-                  try { await WakelockPlus.disable(); } catch (_) {}
-                }
-                debugPrint("🔇 এগোরা লিসেনার মোডে।");
-              } catch (e) {
-                debugPrint("Agora Leaving Error: $e");
-              }
-
-              // ২. ফায়ারবেস ডাটাবেস আপডেট (সিট খালি করা)
-              try {
-                final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
-                
-                // 🛡️ ফিক্স: সিট ছাড়ার সময় ডিসকানেক্ট লজিক বাতিল করা জরুরি
-                await seatRef.onDisconnect().cancel();
-                await seatRef.remove();
-                
-                debugPrint("🧹 ফায়ারবেস ক্লিয়ার।");
-              } catch (e) {
-                debugPrint("Firebase Update Error: $e");
-              }
+              await _agoraManager.becomeListener();
+              final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
+              await seatRef.onDisconnect().cancel();
+              await seatRef.remove();
               
-              // ৩. লোকাল স্টেট আপডেট (রিপেল এবং মাইক বন্ধ করা)
               if (mounted) {
                 setState(() {
-                  seats[index]["isOccupied"] = false;
-                  seats[index]["status"] = "empty";
-                  seats[index]["userName"] = "";
-                  seats[index]["userImage"] = "";
-                  seats[index]["userId"] = "";
-                  
-                  // গুরুত্বপূর্ণ: আপনার রিপেল লজিকের সাথে মিল রেখে ০ সেট করা
-                  seats[index]["agoraUid"] = 0; 
-                  
-                  seats[index]["isMicOn"] = false; 
-                  seats[index]["isTalking"] = false; 
-                  
-                  // গ্লোবাল ভেরিয়েবল রিসেট
                   currentSeatIndex = -1;
                   isMicOn = false;
                 });
-              }
-              
-              // ৪. ডায়ালগ বন্ধ করা (নিরাপদভাবে)
-              if (mounted) {
-                Navigator.of(dialogContext).pop();
+                Navigator.pop(dialogContext);
               }
             }, 
-            child: const Text("হ্যাঁ", style: TextStyle(color: Colors.redAccent))
+            child: const Text("Yes", style: TextStyle(color: Colors.redAccent))
           ),
         ],
       ),
