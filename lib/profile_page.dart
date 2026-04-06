@@ -273,114 +273,139 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
 
   void _showFreeAvatars() {
     List<String> avatars = (gender == "Male") ? maleAvatars : femaleAvatars;
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1A1A2E), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => GridView.builder(padding: const EdgeInsets.all(15), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 10, crossAxisSpacing: 10),
-        itemCount: avatars.length, itemBuilder: (context, index) => GestureDetector(onTap: () async {
-          String uid = FirebaseAuth.instance.currentUser!.uid;
-          await FirebaseFirestore.instance.collection('users').doc(uid).update({'profilePic': avatars[index]});
-          Navigator.pop(context);
-        }, child: ClipOval(child: Image.network(avatars[index], fit: BoxFit.cover)))));
+    showModalBottomSheet(
+      context: context, 
+      backgroundColor: const Color(0xFF1A1A2E), 
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => GridView.builder(
+        padding: const EdgeInsets.all(15), 
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 5, mainAxisSpacing: 10, crossAxisSpacing: 10
+        ),
+        itemCount: avatars.length, 
+        itemBuilder: (context, index) => GestureDetector(
+          onTap: () async {
+            // ✅ ফিক্সড: FirebaseAuth থেকে আসল UID নেওয়া হচ্ছে
+            String uid = FirebaseAuth.instance.currentUser!.uid;
+            
+            await FirebaseFirestore.instance.collection('users').doc(uid).update({
+              'profilePic': avatars[index]
+            });
+
+            if (mounted) {
+              setState(() {
+                userImageURL = avatars[index]; 
+              });
+            }
+            Navigator.pop(context);
+          }, 
+          child: ClipOval(child: Image.network(avatars[index], fit: BoxFit.cover))
+        )
+      )
+    );
   }
 
-
-  // ১. ইমেজ সোর্স সিলেক্ট করার মেইন ফাংশন
-void _pickProfileImage() {
-  showModalBottomSheet(
-    context: context, 
-    backgroundColor: const Color(0xFF1A1A2E), 
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-    builder: (context) => Wrap(children: [
-      ListTile(
-        leading: const Icon(Icons.face, color: Colors.blueAccent), 
-        title: const Text("Real avatar (Free)", style: TextStyle(color: Colors.white)), 
-        onTap: () { 
-          Navigator.pop(context); 
-          _showFreeAvatars(); // এখান থেকে ইউজার যেটা সিলেক্ট করবে সেটা সরাসরি profilePic হবে
-        }
-      ),
-      ListTile(
-        leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), 
-        title: const Text("Gallery photo avatar", style: TextStyle(color: Colors.white)), 
-        onTap: () async {
-          // VIP বা Premium যেকোনো একটি থাকলেই গ্যালারি ওপেন হবে
-          if (hasPremiumCard || getVipLevel() >= 1) {
-             try {
-               final ImagePicker picker = ImagePicker();
-               final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
-               
-               if (pickedFile != null) {
-                 if (!mounted) return;
-                 Navigator.pop(context);
-                 await _handleProfileUpdate(File(pickedFile.path));
-               }
-             } catch (e) {
-               debugPrint("Error picking image: $e");
-             }
-          } else {
-             if (!mounted) return;
-             Navigator.pop(context);
-             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-               content: Text("Premium card or VIP 1 needed for Gallery!"), 
-               backgroundColor: Colors.redAccent
-             ));
+  void _pickProfileImage() {
+    showModalBottomSheet(
+      context: context, 
+      backgroundColor: const Color(0xFF1A1A2E), 
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Wrap(children: [
+        ListTile(
+          leading: const Icon(Icons.face, color: Colors.blueAccent), 
+          title: const Text("Real avatar (Free)", style: TextStyle(color: Colors.white)), 
+          onTap: () { 
+            Navigator.pop(context); 
+            _showFreeAvatars(); 
           }
-        }
-      ),
-    ])
-  );
-}
+        ),
+        ListTile(
+          leading: const Icon(Icons.photo_library, color: Colors.pinkAccent), 
+          title: const Text("Gallery photo avatar", style: TextStyle(color: Colors.white)), 
+          onTap: () async {
+            if (hasPremiumCard || getVipLevel() >= 1) {
+               try {
+                 final ImagePicker picker = ImagePicker();
+                 final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 40);
+                 
+                 if (pickedFile != null) {
+                   if (!mounted) return;
+                   Navigator.pop(context);
+                   // ফাইল পাঠানোর আগে সিওর হয়ে নিন ফাইলটি এক্সিস্ট করে
+                   await _handleProfileUpdate(File(pickedFile.path));
+                 }
+               } catch (e) {
+                 debugPrint("Error picking image: $e");
+               }
+            } else {
+               if (!mounted) return;
+               Navigator.pop(context);
+               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                 content: Text("Premium card or VIP 1 needed for Gallery!"), 
+                 backgroundColor: Colors.redAccent
+               ));
+            }
+          }
+        ),
+      ])
+    );
+  }
 
-// ২. গ্যালারি থেকে ছবি আপলোড করে profilePic হিসেবে সেভ করা
- Future<void> _handleProfileUpdate(File newFile) async {
-  try {
-    String uid = uIDValue; 
-    String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-    
-    // ১. স্টোরেজ রেফারেন্স
-    Reference storageFolder = FirebaseStorage.instance.ref().child('user_profiles').child(uid);
-    Reference newStorageRef = storageFolder.child('profile_$timestamp.jpg');
+  Future<void> _handleProfileUpdate(File newFile) async {
+    try {
+      // ✅ সবথেকে গুরুত্বপূর্ণ পরিবর্তন: Auth UID ব্যবহার করা
+      String uid = FirebaseAuth.instance.currentUser!.uid; 
+      String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      String fileName = 'profile_$timestamp.jpg';
+      
+      // ১. স্টোরেজ রেফারেন্স
+      Reference storageFolder = FirebaseStorage.instance.ref().child('user_profiles').child(uid);
+      Reference newStorageRef = storageFolder.child(fileName);
 
-    // ২. নতুন ছবি আপলোড (putData ব্যবহার করা হয়েছে যাতে এরর না আসে)
-    final bytes = await newFile.readAsBytes();
-    UploadTask uploadTask = newStorageRef.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
-    
-    TaskSnapshot snapshot = await uploadTask;
-    String newDownloadUrl = await snapshot.ref.getDownloadURL();
-    
-    // ৩. ফায়ারস্টোর আপডেট
-    await FirebaseFirestore.instance.collection('users').doc(uid).update({
-      'profilePic': newDownloadUrl,
-    });
-
-    if (mounted) {
-      setState(() {
-        userImageURL = newDownloadUrl; 
+      // ২. ছবি আপলোড (putFile সরাসরি কাজ করবে যদি পাথ ঠিক থাকে)
+      UploadTask uploadTask = newStorageRef.putFile(
+        newFile, 
+        SettableMetadata(contentType: 'image/jpeg')
+      );
+      
+      TaskSnapshot snapshot = await uploadTask;
+      String newDownloadUrl = await snapshot.ref.getDownloadURL();
+      
+      // ৩. ফায়ারস্টোর আপডেট (ডকুমেন্ট আইডি হিসেবে UID নিশ্চিত করা হয়েছে)
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'profilePic': newDownloadUrl,
       });
-    }
 
-    // ৪. পুরাতন ছবি ডিলিট (এটা এখন আপলোড সফল হওয়ার পরে হবে, যাতে এরর না আসে)
-    // এরর আসলেও ট্রাই-ক্যাচ এর ভেতরে থাকায় মেইন কাজ থামবে না
-    storageFolder.listAll().then((listResult) {
-      for (var item in listResult.items) {
-        if (item.name != 'profile_$timestamp.jpg') {
-          item.delete().catchError((e) => debugPrint("Old file delete failed: $e"));
+      // ৪. ইউজার ইন্টারফেস রিয়েল টাইম আপডেট
+      if (mounted) {
+        setState(() {
+          userImageURL = newDownloadUrl; 
+        });
+      }
+
+      // ৫. পুরাতন ফাইল ডিলিট করার লজিক (নিরাপদভাবে)
+      final ListResult result = await storageFolder.listAll();
+      for (var item in result.items) {
+        if (item.name != fileName) {
+          await item.delete().catchError((e) => debugPrint("Old file delete failed: $e"));
         }
       }
-    });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Profile updated successfully!"), backgroundColor: Colors.green),
-    );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Profile updated successfully!"), backgroundColor: Colors.green),
+        );
+      }
 
-  } catch (e) {
-    debugPrint("Update Error: $e");
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Update failed! Check internet or try again."), backgroundColor: Colors.redAccent),
-      );
+    } catch (e) {
+      debugPrint("Update Error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: ${e.toString()}"), backgroundColor: Colors.redAccent),
+        );
+      }
     }
   }
-}
   // ১. ডায়মন্ড স্টোর ওপেন করার ফাংশন (Fix: userData প্যারামিটার যোগ করা হয়েছে)
   void _openDiamondStore(Map<String, dynamic> userData) {
     showModalBottomSheet(
