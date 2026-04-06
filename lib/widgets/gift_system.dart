@@ -32,7 +32,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   String targetType = "Target"; 
   String? selectedTargetId; 
   String? selectedTargetName; 
-  String? selectedTargetImage; // ইউজারের ছবি দেখানোর জন্য
+  String? selectedTargetImage; 
   
   late List<Map<String, dynamic>> dynamicFreeGifts;
   Timer? _timer; 
@@ -64,9 +64,9 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     super.dispose();
   }
 
-  // ✅ ফিক্সড ইউজার সিলেকশন লজিক
+  // ✅ ফিক্সড ইউজার সিলেকশন লজিক (Firebase uID অনুযায়ী)
   void _showUserSelectionList() {
-    // সিটে থাকা ইউজারদের ফিল্টার করা (null চেক এবং ID চেক)
+    // সিটে থাকা ইউজারদের ফিল্টার করা - স্ক্রিনশট অনুযায়ী 'uID' চেক করা হচ্ছে
     List activeUsers = widget.currentSeats.where((s) {
       if (s == null) return false;
       return s['uID'] != null || s['uid'] != null || s['userId'] != null;
@@ -74,7 +74,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0F0F1E), // পিওর ডার্ক ব্যাকগ্রাউন্ড
+      backgroundColor: const Color(0xFF0F0F1E), 
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return Container(
@@ -96,9 +96,11 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                       itemCount: activeUsers.length,
                       itemBuilder: (context, index) {
                         var seat = activeUsers[index];
+                        
+                        // Firebase key 'uID' এবং 'profilePic' এর সাথে ম্যাচ করা হয়েছে
                         String uID = (seat['uID'] ?? seat['uid'] ?? seat['userId'] ?? "").toString();
                         String name = seat['name'] ?? seat['userName'] ?? "User ${index + 1}";
-                        String img = seat['image'] ?? seat['profilePic'] ?? seat['userImage'] ?? "";
+                        String img = seat['profilePic'] ?? seat['image'] ?? seat['userImage'] ?? "";
 
                         return ListTile(
                           leading: CircleAvatar(
@@ -135,10 +137,10 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       child: Container(
         height: 550,
         decoration: const BoxDecoration(
-          color: Color(0xFF07070F), // তারার মতো কালো ব্যাকগ্রাউন্ড
+          color: Color(0xFF07070F), 
           borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
           boxShadow: [
-            BoxShadow(color: Colors.white10, blurRadius: 10, spreadRadius: 1), // হালকা তারার আভা
+            BoxShadow(color: Colors.white10, blurRadius: 10, spreadRadius: 1),
           ],
         ),
         child: Column(
@@ -207,7 +209,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
           children: [
             _targetChip("All Room", Icons.groups),
             _targetChip("All Mic", Icons.mic),
-            // টার্গেট চিপে এখন ইউজারের ছবিও দেখাবে যদি সিলেক্ট করা থাকে
             _targetChip(selectedTargetName ?? "Target", Icons.person_add, isTargetMode: true, userImg: selectedTargetImage),
           ],
         ),
