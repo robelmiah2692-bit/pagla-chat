@@ -196,13 +196,32 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 
   void _updateFCMToken() async {
-    String? token = await FirebaseMessaging.instance.getToken();
-    User? user = FirebaseAuth.instance.currentUser;
-    if (token != null && user != null) {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-        'fcmToken': token,
-        'lastActive': FieldValue.serverTimestamp(),
-      });
+    try {
+      String? token = await FirebaseMessaging.instance.getToken();
+      User? user = FirebaseAuth.instance.currentUser;
+
+      if (token != null && user != null) {
+        // ১. ইমেইল দিয়ে ইউনিক আইডি (uID) খুঁজে বের করা
+        var userQuery = await FirebaseFirestore.instance
+            .collection('users')
+            .where('email', isEqualTo: user.email)
+            .limit(1)
+            .get();
+
+        if (userQuery.docs.isNotEmpty) {
+          // ২. ডকুমেন্টের আইডি (যা আপনার ৬ ডিজিটের নম্বর) নিয়ে আপডেট করা
+          String docId = userQuery.docs.first.id;
+          
+          await FirebaseFirestore.instance.collection('users').doc(docId).update({
+            'fcmToken': token,
+            'lastActive': FieldValue.serverTimestamp(),
+          });
+          
+          debugPrint("FCM Token Updated for ID: $docId");
+        }
+      }
+    } catch (e) {
+      debugPrint("Error updating FCM token: $e");
     }
   }
 
