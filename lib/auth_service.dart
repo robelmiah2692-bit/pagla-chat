@@ -5,16 +5,13 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // ১. ইমেইল ও পাসওয়ার্ড দিয়ে লগইন বা একাউন্ট খোলা
-  // এখান থেকে জেন্ডার এবং আইডি জেনারেশন লজিক সম্পূর্ণ বাদ দেওয়া হয়েছে।
+  // ১. ইমেইল ও পাসওয়ার্ড দিয়ে লগইন বা একাউন্ট খোলা
   Future<User?> loginOrRegister(String email, String password) async {
     try {
-      // প্রথমে সাইন-ইন করার চেষ্টা করবে
       UserCredential result = await _auth.signInWithEmailAndPassword(
           email: email, password: password);
       return result.user;
     } on FirebaseAuthException catch (e) {
-      // যদি ইউজার না থাকে, তবে নতুন একাউন্ট তৈরি করবে
       if (e.code == 'user-not-found' || e.code == 'invalid-credential' || e.code == 'wrong-password') {
         try {
           UserCredential result = await _auth.createUserWithEmailAndPassword(
@@ -30,23 +27,23 @@ class AuthService {
     }
   }
 
-  // ২. ফায়ারবেস চেক লজিক: ইউনিক আইডি আছে কি নেই তা খোঁজা
-  // এটি আপনার ৬-ডিজিটের ইউনিক আইডি দিয়ে ডাটাবেসে ইউজারকে খুঁজবে
-  Future<bool> checkUserExistsByUID(String authUID) async {
+  // ২. ফায়ারবেস চেক লজিক: ইউনিক আইডি আছে কি নেই তা খোঁজা
+  // (Bengali Comment: এখানে এখন আপনার ৬-ডিজিটের ইউনিক uID দিয়ে ডাটা খুঁজবে)
+  Future<bool> checkUserExistsByUID(String uniqueID) async {
     try {
-      // 'users' কালেকশনে 'uid' (Firebase Auth ID) দিয়ে সার্চ করবে
+      // (Bengali Comment: 'users' কালেকশনে 'uID' ফিল্ড দিয়ে সার্চ করা হচ্ছে)
       var query = await _db.collection('users')
-          .where('uid', isEqualTo: authUID)
+          .where('uID', isEqualTo: uniqueID) 
           .limit(1)
           .get();
       
-      return query.docs.isNotEmpty; // ডাটা থাকলে true, না থাকলে false
+      return query.docs.isNotEmpty; 
     } catch (e) {
       return false;
     }
   }
 
-  // ৩. পাসওয়ার্ড রিসেট (Forget Password)
+  // ৩. পাসওয়ার্ড রিসেট (Forget Password)
   Future<void> sendPasswordReset(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email);
