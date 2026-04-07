@@ -66,19 +66,16 @@ class PaglaChatApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Pagla Chat',
-      // --- গ্লোবাল থিম যা সব পেজকে বদলে দেবে ---
       theme: ThemeData(
         brightness: Brightness.dark, 
         primaryColor: const Color(0xFF302B63),
-        scaffoldBackgroundColor: const Color(0xFF0F0C29), // আপনার কসমিক ডার্ক কালার
+        scaffoldBackgroundColor: const Color(0xFF0F0C29), 
         
-        // কার্ড ডিজাইন
         cardTheme: CardTheme(
           color: const Color(0xFF1E1E2F).withOpacity(0.8),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         ),
 
-        // টেক্সট ফিল্ড ডিজাইন
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: const Color(0xFF1E1E2F),
@@ -86,7 +83,6 @@ class PaglaChatApp extends StatelessWidget {
           prefixIconColor: Colors.pinkAccent,
         ),
 
-        // নিচের মেনু বার (Bottom Navigation Bar)
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
           backgroundColor: Color(0xFF0F0C29),
           selectedItemColor: Colors.pinkAccent,
@@ -99,7 +95,6 @@ class PaglaChatApp extends StatelessWidget {
   }
 }
 
-// --- ব্যাকগ্রাউন্ড গ্রেডিয়েন্ট উইজেট (এটি আপনি যে কোনো পেজে ব্যবহার করতে পারবেন) ---
 class CosmicBackground extends StatelessWidget {
   final Widget child;
   const CosmicBackground({super.key, required this.child});
@@ -114,9 +109,9 @@ class CosmicBackground extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color(0xFF0F0C29), // Midnight Blue
-            Color(0xFF302B63), // Deep Slate
-            Color(0xFF24243E), // Midnight Navy
+            Color(0xFF0F0C29),
+            Color(0xFF302B63),
+            Color(0xFF24243E),
           ],
         ),
       ),
@@ -136,12 +131,24 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(seconds: 3), () {
+    Timer(const Duration(seconds: 3), () async {
       if (!mounted) return;
       
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+        // ইউজার ডাটাবেসে আছে কিনা চেক করা হচ্ছে (uID বা email দিয়ে)
+        var userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .where('email', isEqualTo: user.email)
+            .limit(1)
+            .get();
+
+        if (userDoc.docs.isNotEmpty) {
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+        } else {
+          // ইমেইল থাকলেও যদি প্রোফাইল না থাকে তবে ক্রিয়েট প্রোফাইল পেজে যাবে
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const CreateProfilePage()));
+        }
       } else {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
       }
@@ -151,7 +158,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      body: CosmicBackground( // এখানে গ্রেডিয়েন্ট বসিয়ে দিলাম
+      body: CosmicBackground(
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -169,6 +176,103 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
+// --- ক্রিয়েট প্রোফাইল পেজ (ইউনিক আইডি লজিকসহ) ---
+class CreateProfilePage extends StatefulWidget {
+  const CreateProfilePage({super.key});
+  @override
+  State<CreateProfilePage> createState() => _CreateProfilePageState();
+}
+
+class _CreateProfilePageState extends State<CreateProfilePage> {
+  final _nameController = TextEditingController();
+  final _ageController = TextEditingController();
+  String _selectedGender = "Male";
+  bool _isSaving = false;
+
+  Future<void> _createFinalProfile() async {
+    if (_nameController.text.isEmpty || _ageController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please fill all fields")));
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    final firestore = FirebaseFirestore.instance;
+    final user = FirebaseAuth.instance.currentUser;
+    final random = Random();
+
+    String? finalUID;
+    bool uniqueFound = false;
+
+    // ১. ইউনিক ৬-ডিজিটের আইডি জেনারেশন লজিক
+    while (!uniqueFound) {
+      int num = 100000 + random.nextInt(900000);
+      finalUID = num.toString();
+      var check = await firestore.collection('users').doc(finalUID).get();
+      if (!check.exists) uniqueFound = true;
+    }
+
+    try {
+      // ২. ডাটা সেভ (ডকুমেন্ট আইডি হবে আপনার ইউনিক নম্বর)
+      await firestore.collection('users').doc(finalUID).set({
+        'uID': finalUID,
+        'name': _nameController.text.trim(),
+        'age': _ageController.text.trim(),
+        'gender': _selectedGender,
+        'email': user?.email,
+        'authUID': user?.uid, // ফায়ারবেস ইন্টারনাল আইডি ব্যাকআপ
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+      }
+    } catch (e) {
+      debugPrint("Save Error: $e");
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: CosmicBackground(
+        child: Padding(
+          padding: const EdgeInsets.all(25.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text("COMPLETE YOUR PROFILE", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 30),
+              TextField(controller: _nameController, decoration: const InputDecoration(labelText: "Full Name", prefixIcon: Icon(Icons.person))),
+              const SizedBox(height: 15),
+              TextField(controller: _ageController, decoration: const InputDecoration(labelText: "Age", prefixIcon: Icon(Icons.cake)), keyboardType: TextInputType.number),
+              const SizedBox(height: 15),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Radio(value: "Male", groupValue: _selectedGender, activeColor: Colors.pinkAccent, onChanged: (v) => setState(() => _selectedGender = v.toString())),
+                  const Text("Male"),
+                  Radio(value: "Female", groupValue: _selectedGender, activeColor: Colors.pinkAccent, onChanged: (v) => setState(() => _selectedGender = v.toString())),
+                  const Text("Female"),
+                ],
+              ),
+              const SizedBox(height: 30),
+              _isSaving 
+                ? const CircularProgressIndicator(color: Colors.pinkAccent)
+                : ElevatedButton(
+                    onPressed: _createFinalProfile,
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(double.infinity, 50)),
+                    child: const Text("START CHATTING", style: TextStyle(color: Colors.white)),
+                  ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // --- মেইন নেভিগেশন ---
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -178,16 +282,7 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
-  
-  // ওনার আইডি চেক করার জন্য (হৃদয় ভাই, আপনার ২টা UID এখানে বসিয়ে নিন)
-  final List<String> _owners = ["u9XjK2L5m...", "k8YpM3N6n..."]; 
-
-  final List<Widget> _pages = [
-    const HomePage(),
-    const RoomListPage(),
-    const InboxPage(),
-    const ProfilePage(),
-  ];
+  final List<Widget> _pages = [const HomePage(), const RoomListPage(), const InboxPage(), const ProfilePage()];
 
   @override
   void initState() {
@@ -201,7 +296,6 @@ class _MainNavigationState extends State<MainNavigation> {
       User? user = FirebaseAuth.instance.currentUser;
 
       if (token != null && user != null) {
-        // ১. ইমেইল দিয়ে ইউনিক আইডি (uID) খুঁজে বের করা
         var userQuery = await FirebaseFirestore.instance
             .collection('users')
             .where('email', isEqualTo: user.email)
@@ -209,15 +303,11 @@ class _MainNavigationState extends State<MainNavigation> {
             .get();
 
         if (userQuery.docs.isNotEmpty) {
-          // ২. ডকুমেন্টের আইডি (যা আপনার ৬ ডিজিটের নম্বর) নিয়ে আপডেট করা
           String docId = userQuery.docs.first.id;
-          
           await FirebaseFirestore.instance.collection('users').doc(docId).update({
             'fcmToken': token,
             'lastActive': FieldValue.serverTimestamp(),
           });
-          
-          debugPrint("FCM Token Updated for ID: $docId");
         }
       }
     } catch (e) {
@@ -228,10 +318,7 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
@@ -257,12 +344,11 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isObscure = true; 
-  String _selectedGender = "Male"; 
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: CosmicBackground( // লগইন পেজেও নতুন ডিজাইন দিয়ে দিলাম
+      body: CosmicBackground(
         child: Center(
           child: SingleChildScrollView(
             child: Padding(
@@ -274,16 +360,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 20),
                   const Text("WELCOME BACK", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
                   const SizedBox(height: 30),
-                  
-                  TextField(
-                    controller: _emailController, 
-                    decoration: const InputDecoration(
-                      labelText: "Email",
-                      prefixIcon: Icon(Icons.email),
-                    ),
-                  ),
+                  TextField(controller: _emailController, decoration: const InputDecoration(labelText: "Email", prefixIcon: Icon(Icons.email))),
                   const SizedBox(height: 15),
-                  
                   TextField(
                     controller: _passwordController, 
                     obscureText: _isObscure,
@@ -296,72 +374,22 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-
-                  const SizedBox(height: 15),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("Gender: ", style: TextStyle(color: Colors.white)),
-                      Radio(
-                        value: "Male",
-                        groupValue: _selectedGender,
-                        activeColor: Colors.pinkAccent,
-                        onChanged: (val) => setState(() => _selectedGender = val.toString()),
-                      ),
-                      const Text("Male", style: TextStyle(color: Colors.white)),
-                      Radio(
-                        value: "Female",
-                        groupValue: _selectedGender,
-                        activeColor: Colors.pinkAccent,
-                        onChanged: (val) => setState(() => _selectedGender = val.toString()),
-                      ),
-                      const Text("Female", style: TextStyle(color: Colors.white)),
-                    ],
-                  ),
-
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () async {
-                        if (_emailController.text.isNotEmpty) {
-                          try {
-                            await AuthService().sendPasswordReset(_emailController.text.trim());
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Check Gmail for reset link."), backgroundColor: Colors.green),
-                            );
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Error: ${e.toString()}"), backgroundColor: Colors.red),
-                            );
-                          }
-                        }
-                      },
-                      child: const Text("Forget Password?", style: TextStyle(color: Colors.pinkAccent)),
-                    ),
-                  ),
-
-                  const SizedBox(height: 10),
-                  
+                  const SizedBox(height: 25),
                   ElevatedButton(
                     onPressed: () async {
                       if (_emailController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
                         var user = await AuthService().loginOrRegister(
                           _emailController.text.trim(), 
-                          _passwordController.text.trim(),
-                          _selectedGender
+                          _passwordController.text.trim()
                         );
-
                         if (user != null && mounted) {
-                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+                          // লগইন করার পর সরাসরি প্রোফাইল চেক করবে (Splash logic-এর মতো)
+                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const SplashScreen()));
                         }
                       }
                     }, 
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.pinkAccent,
-                      minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                    ),
-                    child: const Text("LOGIN / SIGNUP", style: TextStyle(color: Colors.white, fontSize: 16)),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(double.infinity, 50)),
+                    child: const Text("CONTINUE", style: TextStyle(color: Colors.white, fontSize: 16)),
                   )
                 ],
               ),
