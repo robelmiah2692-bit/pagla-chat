@@ -54,7 +54,9 @@ class AuthService {
           ? 'https://cdn-icons-png.flaticon.com/512/6997/6997674.png' 
           : 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
       
-      await _db.collection('users').doc(user.uid).set({
+      // ✅ পরিবর্তন: .doc(user.uid) এর বদলে .doc(uID) ব্যবহার করা হয়েছে
+      // এতে ফায়ারবেস ডকুমেন্টের নাম হবে আপনার ৬ ডিজিটের ইউনিক নম্বরটি
+      await _db.collection('users').doc(uID).set({
         'uID': uID,
         'uid': user.uid,
         'name': user.email!.split('@')[0],
@@ -66,6 +68,8 @@ class AuthService {
         'fcmToken': '', 
         'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+
+      print("UserData initialized with Unique ID: $uID");
     } catch (e) {
       print("Firestore Error: $e");
     }
