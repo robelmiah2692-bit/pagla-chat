@@ -58,76 +58,91 @@ class _ProfilePageState extends State<ProfilePage> {
     setupUserAccount(); 
   }
 
-  // ৩. ডাইনামিক আইডি জেনারেশন এবং অ্যাকাউন্ট সেটআপ লজিক (সংশোধিত)
+   // ৩. ডাইনামিক আইডি জেনারেশন এবং অ্যাকাউন্ট সেটআপ লজিক
   void setupUserAccount() async {
-    String? uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    User? currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
 
-    // 🔥 হৃদয় ভাই, এখানে আপনার অরিজিনাল ফায়ারবেস UID টা অবশ্যই বসাবেন
-    const String ownerUID = "InvA1lNPokgfxj20SyxiPv5J5s83"; 
+    String firebaseAuthUID = currentUser.uid;
 
     try {
-      DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(uid);
-      
-      // সার্ভার এবং ক্যাশ দুই জায়গা থেকেই ডাটা চেক করবে
-      DocumentSnapshot userDoc = await userRef.get(const GetOptions(source: Source.serverAndCache));
+      // ১. চেক করা: এই ইউজার আগে কোনো ৬-ডিজিটের আইডি পেয়েছে কি না
+      var userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('authUID', isEqualTo: firebaseAuthUID)
+          .limit(1)
+          .get();
 
-      if (userDoc.exists && userDoc.data() != null) {
-        var data = userDoc.data() as Map<String, dynamic>;
+      if (userQuery.docs.isNotEmpty) {
+        // ✅ পুরাতন ইউজার - ডাটা লোড করো
+        var doc = userQuery.docs.first;
+        var data = doc.data();
         
         if (mounted) {
           setState(() {
-            // ১. আইডি রিড (ছোট বা বড় হাতের যাই হোক)
-            uIDValue = (data['uID'] ?? data['uid'] ?? "").toString();
-            if (uIDValue.isEmpty || uIDValue == "null") {
-              uIDValue = (100000 + (uid.hashCode.abs() % 899999)).toString();
-              userRef.update({'uID': uIDValue}); 
-            }
-            
-            // ২. ওনার চেক ও নাম সেটআপ
-            if (uid == ownerUID) {
-              userName = "Hridoy (Owner) 😎";
-            } else {
-              userName = data['name'] ?? "Pagla Type your name";
-            }
-            
-            // ৩. গুরুত্বপূর্ণ: XP এবং VIP মেয়াদের ডাটা রিড
+            uIDValue = doc.id; // ৬-ডিজিটের আইডিটিই ডকুমেন্টের নাম
+            userName = data['name'] ?? "Pagla User";
             diamonds = data['diamonds'] ?? 0;
             xp = data['xp'] ?? 0;
-            vipExpiry = data['vipExpiry'] ?? 0; // মেয়াদের মাইল্ডিসেকেন্ড
-            
+            vipExpiry = data['vipExpiry'] ?? 0;
             gender = data['gender'] ?? "Unfixed";
             userImageURL = data['profilePic'] ?? "";
             age = data['age'] ?? 22;
           });
         }
       } else {
-        // নতুন ইউজারের ডাটাবেস এন্ট্রি
-        String newUserID = (100000 + (uid.hashCode.abs() % 899999)).toString();
-        String initialName = (uid == ownerUID) ? "Hridoy (Owner) 😎" : "Pagla Type your name";
-        
-        await userRef.set({
-          'uID': newUserID,
-          'name': initialName,
-          'gender': "Unfixed",
-          'diamonds': 200, 
-          'xp': 0,
-          'vipExpiry': 0, // শুরুতে মেয়াদ থাকবে না
-          'profilePic': "",
-          'createdAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-
-        if (mounted) {
-          setState(() {
-            uIDValue = newUserID;
-            userName = initialName;
-            xp = 0;
-            vipExpiry = 0;
-          });
-        }
+        // 🆕 নতুন ইউজার - একদম ইউনিক ৬-ডিজিটের আইডি তৈরি করো
+        _createNewUniqueUser(firebaseAuthUID);
       }
     } catch (e) {
       debugPrint("Firebase Error: $e");
+    }
+  }
+
+  // ✅ ১০০% ইউনিক ৬-ডিজিটের আইডি তৈরি এবং ডাটাবেস এন্ট্রি
+  Future<void> _createNewUniqueUser(String authUID) async {
+    String newSixDigitID = "";
+    bool isUnique = false;
+
+    // যতক্ষণ ইউনিক আইডি না মিলবে ততক্ষণ এই লুপ ঘুরবে
+    while (!isUnique) {
+      newSixDigitID = (100000 + Random().nextInt(900000)).toString();
+
+      // চেক করা: ডাটাবেসে এই নামে কোনো ডকুমেন্ট আছে কি না
+      var docCheck = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(newSixDigitID)
+          .get();
+
+      if (!docCheck.exists) {
+        isUnique = true; // এই আইডিটি একদম ফ্রেশ
+      }
+    }
+
+    // নতুন ইউজারের সব ডাটা ৬-ডিজিটের আইডিতে সেভ করা
+    await FirebaseFirestore.instance.collection('users').doc(newSixDigitID).set({
+      'uID': newSixDigitID,
+      'authUID': authUID,
+      'name': "Pagla User",
+      'gender': "Unfixed",
+      'diamonds': 200, 
+      'xp': 0,
+      'vipExpiry': 0,
+      'profilePic': "",
+      'age': 22,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    if (mounted) {
+      setState(() {
+        uIDValue = newSixDigitID;
+        userName = "Pagla User";
+        diamonds = 200;
+        xp = 0;
+        vipExpiry = 0;
+        gender = "Unfixed";
+        age = 22;
+      });
     }
   }
 
