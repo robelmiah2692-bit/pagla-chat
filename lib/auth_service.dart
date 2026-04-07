@@ -1,28 +1,24 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:math';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // ১. জিমেইল, পাসওয়ার্ড এবং জেন্ডার দিয়ে লগইন বা রেজিস্টার
-  // ✅ এখানে 'gender' প্যারামিটার যোগ করা হয়েছে যাতে ইউজারের পছন্দ সেভ করা যায়
-  Future<User?> loginOrRegister(String email, String password, String gender) async {
+  // ১. ইমেইল ও পাসওয়ার্ড দিয়ে লগইন বা একাউন্ট খোলা
+  // এখান থেকে জেন্ডার এবং আইডি জেনারেশন লজিক সম্পূর্ণ বাদ দেওয়া হয়েছে।
+  Future<User?> loginOrRegister(String email, String password) async {
     try {
-      // প্রথমে লগইন করার চেষ্টা করবে
+      // প্রথমে সাইন-ইন করার চেষ্টা করবে
       UserCredential result = await _auth.signInWithEmailAndPassword(
           email: email, password: password);
       return result.user;
     } on FirebaseAuthException catch (e) {
-      // যদি ইউজার নতুন হয়, তবেই রেজিস্ট্রেশন করবে
+      // যদি ইউজার না থাকে, তবে নতুন একাউন্ট তৈরি করবে
       if (e.code == 'user-not-found' || e.code == 'invalid-credential' || e.code == 'wrong-password') {
         try {
           UserCredential result = await _auth.createUserWithEmailAndPassword(
               email: email, password: password);
-          
-          // ✅ নতুন আইডি খোলার সময় ইউজারের সিলেক্ট করা জেন্ডার ডাটাবেসে পাঠানো হচ্ছে
-          await _initializeUserData(result.user!, gender);
           return result.user;
         } catch (innerError) {
           return null;
@@ -34,44 +30,28 @@ class AuthService {
     }
   }
 
-  // ২. পাসওয়ার্ড ভুলে গেলে জিমেইলে রিসেট লিঙ্ক পাঠানো (Forget Password)
+  // ২. ফায়ারবেস চেক লজিক: ইউনিক আইডি আছে কি নেই তা খোঁজা
+  // এটি আপনার ৬-ডিজিটের ইউনিক আইডি দিয়ে ডাটাবেসে ইউজারকে খুঁজবে
+  Future<bool> checkUserExistsByUID(String authUID) async {
+    try {
+      // 'users' কালেকশনে 'uid' (Firebase Auth ID) দিয়ে সার্চ করবে
+      var query = await _db.collection('users')
+          .where('uid', isEqualTo: authUID)
+          .limit(1)
+          .get();
+      
+      return query.docs.isNotEmpty; // ডাটা থাকলে true, না থাকলে false
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ৩. পাসওয়ার্ড রিসেট (Forget Password)
   Future<void> sendPasswordReset(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email);
     } catch (e) {
       throw Exception(e.toString());
-    }
-  }
-
-  // ৩. ফায়ারস্টোরে ইউজারের তথ্য সেভ করা
-  Future<void> _initializeUserData(User user, String selectedGender) async {
-    try {
-      // ৬ ডিজিটের ইউনিক ইউজার আইডি (যেমন: ১৫৪৩২১)
-      String uID = (100000 + Random().nextInt(900000)).toString();
-      
-      // ✅ জেন্ডার অনুযায়ী একটি ডিফল্ট প্রোফাইল পিকচার সেট করা (ঐচ্ছিক)
-      String defaultPic = selectedGender == 'মহিলা' 
-          ? 'https://cdn-icons-png.flaticon.com/512/6997/6997674.png' 
-          : 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
-      
-      // ✅ পরিবর্তন: .doc(user.uid) এর বদলে .doc(uID) ব্যবহার করা হয়েছে
-      // এতে ফায়ারবেস ডকুমেন্টের নাম হবে আপনার ৬ ডিজিটের ইউনিক নম্বরটি
-      await _db.collection('users').doc(uID).set({
-        'uID': uID,
-        'uid': user.uid,
-        'name': user.email!.split('@')[0],
-        'email': user.email,
-        'diamonds': 200,
-        'xp': 0,
-        'profilePic': defaultPic,
-        'gender': selectedGender, // ✅ এখানে এখন ইউজারের সিলেক্ট করা জেন্ডার সেভ হবে
-        'fcmToken': '', 
-        'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      print("UserData initialized with Unique ID: $uID");
-    } catch (e) {
-      print("Firestore Error: $e");
     }
   }
 
