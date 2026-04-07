@@ -46,50 +46,64 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
   }
 
   // --- নতুন রুম তৈরির লজিক ---
-  Future<void> _createNewRoomLogic(String roomName) async {
-    final User? user = FirebaseAuth.instance.currentUser;
-    final String? uid = user?.uid;
-    if (uid == null) return;
+   Future<void> _createNewRoomLogic(String roomName) async {
+  final User? user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
 
-    // ৫ ডিজিটের ইউনিক রুম আইডি জেনারেট করা
-    String newUniqueRoomId = (10000 + Random().nextInt(90000)).toString();
+  try {
+    // ১. ইউজারের ডাটাবেস থেকে তার ৬-ডিজিটের uID এবং নাম সংগ্রহ
+    // যেহেতু আপনার ডাটাবেস এখন ৬-ডিজিটের আইডিতে (বা authUID দিয়ে সার্চ করতে হয়)
+    var userQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .where('authUID', isEqualTo: user.uid)
+        .limit(1)
+        .get();
 
-    try {
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-      String currentUserName = "User";
-      
-      if(userDoc.exists) {
-        var userData = userDoc.data() as Map<String, dynamic>;
-        currentUserName = userData['name'] ?? "User";
-      }
+    if (userQuery.docs.isEmpty) return; // ইউজার প্রোফাইল না থাকলে রুম খোলা যাবে না
 
-      await FirebaseFirestore.instance.collection('rooms').doc(newUniqueRoomId).set({
-        'roomId': newUniqueRoomId,
-        'roomName': roomName,
-        'ownerId': uid,
-        'ownerName': currentUserName,
-        'uID': uid,
-        'userCount': 0,
-        'isLive': true,
-        'admins': [], 
-        'followers': [],
-        'createdAt': FieldValue.serverTimestamp(),
-        'roomImage': defaultRoomImages[Random().nextInt(defaultRoomImages.length)],
-      });
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Room created successfully!"), backgroundColor: Colors.green),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent),
-        );
-      }
+    var userData = userQuery.docs.first.data();
+    String mySixDigitID = userData['uID'] ?? ""; // আপনার সেই ৬ ডিজিটের আইডি
+    String currentUserName = userData['name'] ?? "Pagla User";
+
+    // ২. একদম ইউনিক ৫ বা ৬ ডিজিটের রুম আইডি জেনারেশন (লুপ ব্যবহার করে)
+    String newUniqueRoomId = "";
+    bool isUnique = false;
+    
+    while (!isUnique) {
+      newUniqueRoomId = (10000 + Random().nextInt(90000)).toString(); // ৫ ডিজিট
+      var roomCheck = await FirebaseFirestore.instance.collection('rooms').doc(newUniqueRoomId).get();
+      if (!roomCheck.exists) isUnique = true;
+    }
+
+    // ৩. রুম ডাটা সেভ
+    await FirebaseFirestore.instance.collection('rooms').doc(newUniqueRoomId).set({
+      'roomId': newUniqueRoomId,
+      'roomName': roomName,
+      'ownerId': mySixDigitID,      // হিজিবিজি আইডি না, আপনার ইউনিক uID
+      'ownerName': currentUserName,
+      'userCount': 1,               // মালিক নিজে জয়েন করবে তাই ১
+      'isLive': true,
+      'role': 'owner',              // ওনার হিসেবে সেভ
+      'admins': [], 
+      'followers': [],
+      'createdAt': FieldValue.serverTimestamp(),
+      'roomImage': defaultRoomImages[Random().nextInt(defaultRoomImages.length)],
+    });
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("রুম তৈরি হয়েছে!"), backgroundColor: Colors.green),
+      );
+      // এখানে রুম পেজে নেভিগেট করার কোড লিখুন
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent),
+      );
     }
   }
+}
 
   void _showCreateRoomDialog() {
     TextEditingController roomNameController = TextEditingController();
