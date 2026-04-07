@@ -20,6 +20,7 @@ class RoomSettingsHandler {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -31,7 +32,49 @@ class RoomSettingsHandler {
             children: [
               const Text("Room Settings",
                   style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
+              const SizedBox(height: 25),
+              
+              // --- ৫টি ফ্রি ওয়ালপেপার স্লাইডার সেকশন ---
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: EdgeInsets.only(left: 15, bottom: 10),
+                  child: Text("Free Wallpapers", style: TextStyle(color: Colors.white70, fontSize: 14)),
+                ),
+              ),
+              SizedBox(
+                height: 100,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  itemCount: 5,
+                  itemBuilder: (context, index) {
+                    String wallName = "wallpaper_${index + 1}";
+                    return GestureDetector(
+                      onTap: () {
+                        onSetWallpaper(wallName);
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        width: 70,
+                        margin: const EdgeInsets.only(right: 12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white24),
+                          image: DecorationImage(
+                            image: AssetImage('assets/wallpapers/$wallName.jpg'),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        child: const Icon(Icons.check_circle_outline, color: Colors.white38, size: 20),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 25),
+
+              // --- ফিচার আইটেম রো ---
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -40,7 +83,7 @@ class RoomSettingsHandler {
                     Navigator.pop(context);
                     _handleFeaturePurchase(context, roomId, "room_lock", onToggleLock);
                   }),
-                  _buildItem(Icons.wallpaper, "Wallpaper", Colors.cyanAccent, () async {
+                  _buildItem(Icons.add_photo_alternate, "Gallery", Colors.cyanAccent, () async {
                     Navigator.pop(context);
                     _handleFeaturePurchase(context, roomId, "wallpaper", () async {
                       final ImagePicker picker = ImagePicker();
@@ -50,7 +93,7 @@ class RoomSettingsHandler {
                       }
                     });
                   }),
-                  _buildItem(Icons.delete_sweep, "Clean Chat", Colors.orangeAccent, () {
+                  _buildItem(Icons.delete_sweep, "Clear Chat", Colors.orangeAccent, () {
                     Navigator.pop(context);
                     onClearChat();
                   }),
@@ -64,6 +107,7 @@ class RoomSettingsHandler {
                   }),
                 ],
               ),
+              const SizedBox(height: 10),
             ],
           ),
         );
@@ -116,7 +160,7 @@ class RoomSettingsHandler {
             onAllowed();
           }
         } else {
-          _showMessage(context, "আপনার পর্যাপ্ত ডায়মন্ড নেই!");
+          _showMessage(context, "Insufficient Diamonds!");
         }
       });
     }
@@ -158,11 +202,11 @@ class RoomSettingsHandler {
       context: context,
       builder: (dContext) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text("ফিচারটি চালু করুন", style: TextStyle(color: Colors.white)),
-        content: const Text("আপনার কোনো সক্রিয় প্যাকেজ নেই।", style: TextStyle(color: Colors.white70)),
+        title: const Text("Activate Feature", style: TextStyle(color: Colors.white)),
+        content: const Text("You don't have an active package.", style: TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () { Navigator.pop(dContext); onBuy(24, 200); }, child: const Text("২৪ ঘণ্টা (২০০ 💎)")),
-          TextButton(onPressed: () { Navigator.pop(dContext); onBuy(720, 3500); }, child: const Text("১ মাস (৩৫০০ 💎)")),
+          TextButton(onPressed: () { Navigator.pop(dContext); onBuy(24, 200); }, child: const Text("24 Hours (200 💎)")),
+          TextButton(onPressed: () { Navigator.pop(dContext); onBuy(720, 3500); }, child: const Text("30 Days (3500 💎)")),
         ],
       ),
     );
@@ -177,9 +221,9 @@ class RoomSettingsHandler {
       onTap: onTap,
       child: Column(
         children: [
-          CircleAvatar(backgroundColor: color.withOpacity(0.2), child: Icon(icon, color: color)),
-          const SizedBox(height: 5),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          CircleAvatar(backgroundColor: color.withOpacity(0.2), child: Icon(icon, color: color, size: 20)),
+          const SizedBox(height: 8),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
         ],
       ),
     );
@@ -191,13 +235,12 @@ class RoomSettingsHandler {
       builder: (dContext) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
         title: const Text("Exit Room?", style: TextStyle(color: Colors.white)),
-        content: const Text("আপনি কি রুম থেকে বের হতে চান?", style: TextStyle(color: Colors.white70)),
+        content: const Text("Are you sure you want to leave the room?", style: TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dContext), child: const Text("না")),
-          TextButton(onPressed: () { Navigator.pop(dContext); onConfirm(); }, child: const Text("হ্যাঁ", style: TextStyle(color: Colors.redAccent))),
+          TextButton(onPressed: () => Navigator.pop(dContext), child: const Text("Cancel")),
+          TextButton(onPressed: () { Navigator.pop(dContext); onConfirm(); }, child: const Text("Confirm", style: TextStyle(color: Colors.redAccent))),
         ],
       ),
     );
   }
 }
-
