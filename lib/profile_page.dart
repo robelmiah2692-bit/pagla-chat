@@ -53,99 +53,46 @@ class _ProfilePageState extends State<ProfilePage> {
   DateTime premiumExpiryDate = DateTime.now().add(const Duration(days: 30));
   DateTime lastLevelUpDate = DateTime.now();
 
-   @override
-  void initState() {
-    super.initState();
-    setupUserAccount(); 
-  }
+  @override
+void initState() {
+  super.initState();
+  loadUserData(); // আইডি জেনারেশন বন্ধ, শুধু ডাটা লোড হবে
+}
 
-   // ৩. ডাইনামিক আইডি জেনারেশন এবং অ্যাকাউন্ট সেটআপ লজিক
-  void setupUserAccount() async {
-    User? currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return;
+// আইডি জেনারেশন ছাড়া শুধু ডাটা খুঁজে বের করার লজিক
+void loadUserData() async {
+  User? currentUser = FirebaseAuth.instance.currentUser;
+  if (currentUser == null) return;
 
-    String firebaseAuthUID = currentUser.uid;
+  try {
+    // ডাটাবেসে যেখানে 'authUID' মিলবে, সেই ইউনিক আইডি ওয়ালা ডকুমেন্টটি খুঁজে বের করা
+    var userQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .where('authUID', isEqualTo: currentUser.uid)
+        .limit(1)
+        .get();
 
-    try {
-      // ১. চেক করা: এই ইউজার আগে কোনো ৬-ডিজিটের আইডি পেয়েছে কি না
-      var userQuery = await FirebaseFirestore.instance
-          .collection('users')
-          .where('authUID', isEqualTo: firebaseAuthUID)
-          .limit(1)
-          .get();
+    if (userQuery.docs.isNotEmpty && mounted) {
+      var userDoc = userQuery.docs.first;
+      var data = userDoc.data();
 
-      if (userQuery.docs.isNotEmpty) {
-        // ✅ পুরাতন ইউজার - ডাটা লোড করো
-        var doc = userQuery.docs.first;
-        var data = doc.data();
-        
-        if (mounted) {
-          setState(() {
-            uIDValue = doc.id; // ৬-ডিজিটের আইডিটিই ডকুমেন্টের নাম
-            userName = data['name'] ?? "Pagla User";
-            diamonds = data['diamonds'] ?? 0;
-            xp = data['xp'] ?? 0;
-            vipExpiry = data['vipExpiry'] ?? 0;
-            gender = data['gender'] ?? "Unfixed";
-            userImageURL = data['profilePic'] ?? "";
-            age = data['age'] ?? 22;
-          });
-        }
-      } else {
-        // 🆕 নতুন ইউজার - একদম ইউনিক ৬-ডিজিটের আইডি তৈরি করো
-        _createNewUniqueUser(firebaseAuthUID);
-      }
-    } catch (e) {
-      debugPrint("Firebase Error: $e");
-    }
-  }
-
-  // ✅ ১০০% ইউনিক ৬-ডিজিটের আইডি তৈরি এবং ডাটাবেস এন্ট্রি
-  Future<void> _createNewUniqueUser(String authUID) async {
-    String newSixDigitID = "";
-    bool isUnique = false;
-
-    // যতক্ষণ ইউনিক আইডি না মিলবে ততক্ষণ এই লুপ ঘুরবে
-    while (!isUnique) {
-      newSixDigitID = (100000 + Random().nextInt(900000)).toString();
-
-      // চেক করা: ডাটাবেসে এই নামে কোনো ডকুমেন্ট আছে কি না
-      var docCheck = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(newSixDigitID)
-          .get();
-
-      if (!docCheck.exists) {
-        isUnique = true; // এই আইডিটি একদম ফ্রেশ
-      }
-    }
-
-    // নতুন ইউজারের সব ডাটা ৬-ডিজিটের আইডিতে সেভ করা
-    await FirebaseFirestore.instance.collection('users').doc(newSixDigitID).set({
-      'uID': newSixDigitID,
-      'authUID': authUID,
-      'name': "Pagla User",
-      'gender': "Unfixed",
-      'diamonds': 200, 
-      'xp': 0,
-      'vipExpiry': 0,
-      'profilePic': "",
-      'age': 22,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    if (mounted) {
       setState(() {
-        uIDValue = newSixDigitID;
-        userName = "Pagla User";
-        diamonds = 200;
-        xp = 0;
-        vipExpiry = 0;
-        gender = "Unfixed";
-        age = 22;
+        // doc.id-ই হলো আপনার সেই ইউনিক ৬-ডিজিটের আইডি
+        uIDValue = userDoc.id; 
+        userName = data['name'] ?? "User";
+        userImageURL = data['profilePic'] ?? "";
+        diamonds = data['diamonds'] ?? 0;
+        xp = data['xp'] ?? 0;
+        gender = data['gender'] ?? "Unfixed";
+        age = data['age'] ?? 22;
       });
+    } else {
+      debugPrint("No document found! আইডি তৈরির দায়িত্ব এখন শুধুমাত্র Auth পেজের।");
     }
+  } catch (e) {
+    debugPrint("Firebase Error: $e");
   }
+}
 
   // ২০টি রিয়েল অবতার লিস্ট
   final List<String> maleAvatars = [
