@@ -235,38 +235,111 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
   }
 
   void _showFreeAvatars() {
-    List<String> avatars = (gender == "Male") ? maleAvatars : femaleAvatars;
-    showModalBottomSheet(
-      context: context, 
-      backgroundColor: const Color(0xFF1A1A2E), 
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => GridView.builder(
-        padding: const EdgeInsets.all(15), 
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 5, mainAxisSpacing: 10, crossAxisSpacing: 10
+  List<String> avatars = (gender == "Male") ? maleAvatars : femaleAvatars;
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent, 
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+    ),
+    builder: (context) => Container(
+      height: MediaQuery.of(context).size.height * 0.5,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.lightBlue.shade200, 
+            Colors.blue.shade50,       
+            Colors.white,              
+          ],
         ),
-        itemCount: avatars.length, 
-        itemBuilder: (context, index) => GestureDetector(
-          onTap: () async {
-            // ✅ ফিক্সড: FirebaseAuth থেকে আসল UID নেওয়া হচ্ছে
-            String uid = FirebaseAuth.instance.currentUser!.uid;
-            
-            await FirebaseFirestore.instance.collection('users').doc(uid).update({
-              'profilePic': avatars[index]
-            });
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blueAccent.withOpacity(0.3),
+            blurRadius: 20,
+            spreadRadius: 5,
+          )
+        ],
+      ),
+      child: Stack(
+        children: [
+          // প্রিমিয়াম তারার ইফেক্ট
+          ...List.generate(15, (index) => Positioned(
+            top: (index * 35.0) % 300,
+            left: (index * 70.0) % 400,
+            child: Icon(
+              Icons.star, 
+              size: index % 3 == 0 ? 12 : 6, 
+              color: Colors.white.withOpacity(0.6),
+            ),
+          )),
 
-            if (mounted) {
-              setState(() {
-                userImageURL = avatars[index]; 
-              });
-            }
-            Navigator.pop(context);
-          }, 
-          child: ClipOval(child: Image.network(avatars[index], fit: BoxFit.cover))
-        )
-      )
-    );
-  }
+          Column(
+            children: [
+              const SizedBox(height: 12),
+              // ড্র্যাগ হ্যান্ডেল
+              Container(
+                width: 45, height: 5, 
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.2), 
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 15),
+                child: Text("Free Avatars", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+              ),
+              Expanded(
+                child: GridView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 5, mainAxisSpacing: 12, crossAxisSpacing: 12
+                  ),
+                  itemCount: avatars.length,
+                  itemBuilder: (context, index) => GestureDetector(
+                    onTap: () async {
+                      try {
+                        // ✅ আপনার uIDValue ব্যবহার করে ইউনিক আইডি আপডেট
+                        if (uIDValue.isNotEmpty) {
+                          await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(uIDValue) 
+                              .update({'profilePic': avatars[index]});
+
+                          if (mounted) {
+                            setState(() {
+                              userImageURL = avatars[index]; 
+                            });
+                          }
+                        }
+                      } catch (e) {
+                        debugPrint("Error: $e");
+                      }
+                      if (mounted) Navigator.pop(context);
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                      ),
+                      child: ClipOval(
+                        child: Image.network(avatars[index], fit: BoxFit.cover),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
   void _pickProfileImage() {
     showModalBottomSheet(
