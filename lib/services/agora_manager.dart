@@ -20,6 +20,13 @@ class AgoraManager {
   bool _isMicMutedLocal = false; // মাইকের বর্তমান অবস্থা ট্র্যাকিং
   bool _isMusicPlaying = false; // মিউজিক বাজছে কি না ট্র্যাকিং
 
+  // সব রিমোট ইউজারের অডিও মিউট বা আনমিউট করার জন্য
+Future<void> muteAllRemoteAudio(bool mute) async {
+  if (engine != null) {
+    await engine.muteAllRemoteAudioStreams(mute);
+    print("All remote audio ${mute ? 'muted' : 'unmuted'}");
+  }
+}
   // 🔔 রিপেল এনিমেশনের ভলিউম স্ট্রিম
   final StreamController<List<AudioVolumeInfo>> _volumeStreamController = 
       StreamController<List<AudioVolumeInfo>>.broadcast();
