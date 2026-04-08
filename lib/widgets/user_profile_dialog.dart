@@ -6,61 +6,65 @@ import 'package:firebase_auth/firebase_auth.dart';
 class UserProfileDialog extends StatelessWidget {
   final String roomId;
   final Map<String, dynamic> userData;
-  final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
+  // 🔥 চোর ফিক্স: FirebaseAuth এর লম্বা আইডি (authUID)
+  final String currentAuthId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
   UserProfileDialog({super.key, required this.roomId, required this.userData});
 
   @override
   Widget build(BuildContext context) {
+    // 🔥 চোর ফিক্স: টার্গেট ইউজারের ৬-ডিজিটের uID বা লম্বা আইডি নিশ্চিত করা
     final String targetUid = userData['uID'] ?? userData['uId'] ?? userData['userId'] ?? "";
 
     return Dialog(
-      backgroundColor: Colors.transparent, // গ্লাস ইফেক্টের জন্য ট্রান্সপারেন্ট
+      backgroundColor: Colors.transparent,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(30),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15), // গ্লাস ব্লার ইফেক্ট
+          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
           child: StreamBuilder<DocumentSnapshot>(
             stream: FirebaseFirestore.instance.collection('rooms').doc(roomId).snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()));
               
               var roomData = snapshot.data!.data() as Map<String, dynamic>;
-              String ownerId = roomData['adminId'] ?? roomData['ownerId'] ?? "";
+              
+              // ⚔️ চোর জবাই: মালিকের আইডি শুধুমাত্র ownerId বা uID থেকে আসবে
+              String ownerId = roomData['ownerId'] ?? roomData['uID'] ?? "";
               List admins = List.from(roomData['admins'] ?? []);
 
-              bool isMeOwner = currentUserId == ownerId;
-              bool isMeAdmin = admins.contains(currentUserId);
+              // এখানে currentAuthId এর বদলে যদি আপনি অ্যাপে ৬-ডিজিটের ID ব্যবহার করেন তবে সেটা দিবেন
+              bool isMeOwner = currentAuthId == ownerId; 
+              bool isMeAdmin = admins.contains(currentAuthId);
+              
               bool isTargetOwner = targetUid == ownerId;
               bool isTargetAdmin = admins.contains(targetUid);
+              
               bool canControl = isMeOwner || isMeAdmin;
 
               return Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(30),
-                  border: Border.all(color: Colors.white.withOpacity(0.2)), // গ্লাসের কিনারা
+                  border: Border.all(color: Colors.white.withOpacity(0.2)),
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withOpacity(0.15), // হালকা মিক্স কালার ১
-                      Colors.blueAccent.withOpacity(0.05), // হালকা মিক্স কালার ২
-                      Colors.purpleAccent.withOpacity(0.1), // হালকা মিক্স কালার ৩
+                      Colors.white.withOpacity(0.15),
+                      Colors.blueAccent.withOpacity(0.05),
+                      Colors.purpleAccent.withOpacity(0.1),
                     ],
                   ),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // ১. প্রোফাইল হেডার
                     _buildHeader(targetUid, isTargetOwner, isTargetAdmin),
-
                     const SizedBox(height: 25),
                     
-                    // ২. কুইক অ্যাকশন বাটন
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
@@ -72,7 +76,6 @@ class UserProfileDialog extends StatelessWidget {
                       ],
                     ),
 
-                    // ৩. কন্ট্রোল প্যানেল
                     if (canControl) ...[
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 20),
@@ -83,6 +86,7 @@ class UserProfileDialog extends StatelessWidget {
                         runSpacing: 15,
                         alignment: WrapAlignment.center,
                         children: [
+                          // মালিক শুধু অন্যদের এডমিন বানাতে পারবে
                           if (isMeOwner && !isTargetOwner)
                             _controlBtn(
                               isTargetAdmin ? "Remove Admin" : "Make Admin", 
@@ -99,6 +103,7 @@ class UserProfileDialog extends StatelessWidget {
                             _controlBtn("Mute", Colors.blueGrey, Icons.mic_off, () {}),
                           ],
 
+                          // ওনার যে কাউকে কিক দিতে পারবে, এডমিন শুধু মেম্বারদের কিক দিতে পারবে
                           if (!isTargetOwner && (isMeOwner || (isMeAdmin && !isTargetAdmin)))
                             _controlBtn("Kick User", Colors.redAccent, Icons.gavel, () => _kickLogic(context, targetUid)),
                         ],
@@ -114,11 +119,17 @@ class UserProfileDialog extends StatelessWidget {
     );
   }
 
-  // --- ডাটাবেস লজিক ---
   void _handleAdminStatus(String uid, List currentAdmins, bool alreadyAdmin) async {
-    if (alreadyAdmin) currentAdmins.remove(uid);
-    else currentAdmins.add(uid);
-    await FirebaseFirestore.instance.collection('rooms').doc(roomId).update({'admins': currentAdmins});
+    // ⚔️ চোর জবাই: একই ফিল্ডে আপডেট হবে
+    if (alreadyAdmin) {
+      currentAdmins.remove(uid);
+    } else {
+      currentAdmins.add(uid);
+    }
+    await FirebaseFirestore.instance.collection('rooms').doc(roomId).update({
+      'admins': currentAdmins,
+      // 'adminId' বা অন্য কিছু আলাদা করে রাখার দরকার নেই
+    });
   }
 
   void _kickLogic(BuildContext context, String uid) async {
@@ -129,18 +140,17 @@ class UserProfileDialog extends StatelessWidget {
     if (context.mounted) Navigator.pop(context);
   }
 
-  // --- প্রিমিয়াম ডিজাইন কম্পোনেন্টস ---
   Widget _buildHeader(String uid, bool isOwner, bool isAdmin) {
-    String photo = userData['userImage'] ?? userData['photoUrl'] ?? "";
+    String photo = userData['userImage'] ?? userData['photoUrl'] ?? userData['profilePic'] ?? "";
     String name = userData['userName'] ?? userData['name'] ?? "User";
 
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(colors: [Colors.cyanAccent, Colors.purpleAccent]),
+            gradient: LinearGradient(colors: [Colors.cyanAccent, Colors.purpleAccent]),
           ),
           child: CircleAvatar(
             radius: 45,
