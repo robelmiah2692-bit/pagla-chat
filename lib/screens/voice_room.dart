@@ -462,288 +462,282 @@ Widget build(BuildContext context) {
   double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
   return Scaffold(
-    backgroundColor: const Color(0xFF0F0F1E),
-    // resizeToAvoidBottomInset false রাখছি যাতে কিবোর্ড আসলে আপনার মেইল বাটন বা অন্য বাটন উপরে লাফিয়ে না ওঠে
+    // ব্যাকগ্রাউন্ড কালার আপনার ছবির সাথে সামঞ্জস্য রেখে আপডেট করা হয়েছে
+    backgroundColor: const Color(0xFF0B1222), 
     resizeToAvoidBottomInset: false, 
     body: GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Stack(
-      children: [
-        // ১. ওয়ালপেপার
-        if (roomWallpaperPath.isNotEmpty)
-          Positioned.fill(
-            child: Image.network(
-              roomWallpaperPath, 
-              fit: BoxFit.cover,
-            ),
-          ),
-        
-        // ২. মেইন কন্টেন্ট
-        Column(
-          children: [
-            const SizedBox(height: 40),
-            _buildTopNavBar(), 
-            
-            if (isPKActive)
-              PKBattleView(
-                bluePoints: blueTeamPoints, 
-                redPoints: redTeamPoints, 
-                pkSeconds: pkSeconds,
-                pkManager: pkManager,
+        children: [
+          // ১. ওয়ালপেপার
+          if (roomWallpaperPath.isNotEmpty)
+            Positioned.fill(
+              child: Image.network(
+                roomWallpaperPath, 
+                fit: BoxFit.cover,
               ),
-            
-            _buildViewerArea(), 
-            _buildSeatGridArea(), 
-
-            // ৩. মেসেজ ভিউ (ইউজার প্রোফাইল থেকে নাম, ছবি এবং uID/uid সাপোর্ট)
-            const SizedBox(height: 10), 
-            SizedBox(
-              height: 180, 
-              width: double.infinity,
-              child: Container(
-                margin: const EdgeInsets.only(left: 10, right: 90),
-                decoration: const BoxDecoration(color: Colors.transparent),
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: _firestore
-                      .collection('rooms')
-                      .doc(widget.roomId)
-                      .collection('messages')
-                      .orderBy('timestamp', descending: true)
-                      .limit(30)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) return const SizedBox();
-                    var docs = snapshot.data!.docs;
-                    return ListView.builder(
-                      reverse: true,
-                      padding: EdgeInsets.zero,
-                      itemCount: docs.length,
-                      itemBuilder: (context, index) {
-                        var data = docs[index].data() as Map<String, dynamic>;
-                        
-                        // uID, uid বা userId যাই থাকুক না কেন তা শনাক্ত করবে
-                        String uName = data['userName'] ?? "User";
-                        String uId = (data['uID'] ?? data['uid'] ?? data['userId'] ?? uName).toString();
-                        String uImage = data['userImage'] ?? "";
-
-                        return Align(
-                          alignment: Alignment.bottomLeft,
-                          child: GestureDetector(
-                            onTap: () {
-                              // আইডি ছোট বা বড় হাতের যাই হোক মেনশন সাপোর্ট
-                              setState(() {
-                                _messageController.text = "@$uId ";
-                                _messageController.selection = TextSelection.fromPosition(
-                                  TextPosition(offset: _messageController.text.length),
-                                );
-                              });
-                            },
-                            child: _buildMessageRow({
-                              'userName': uName,
-                              'userImage': uImage, 
-                              'text': data['text'] ?? "",
-                            }),
-                          ),
-                        );
-                      },
-                    );
-                  },
+            ),
+          
+          // ২. মেইন কন্টেন্ট
+          Column(
+            children: [
+              const SizedBox(height: 40),
+              _buildTopNavBar(), 
+              
+              if (isPKActive)
+                PKBattleView(
+                  bluePoints: blueTeamPoints, 
+                  redPoints: redTeamPoints, 
+                  pkSeconds: pkSeconds,
+                  pkManager: pkManager,
                 ),
-              ),
-            ),
+              
+              _buildViewerArea(), 
+              _buildSeatGridArea(), 
 
-            const Expanded(child: SizedBox.shrink()), 
+              // ৩. মেসেজ ভিউ (ইউজার প্রোফাইল থেকে নাম, ছবি এবং uID/uid সাপোর্ট)
+              const SizedBox(height: 10), 
+              SizedBox(
+                height: 180, 
+                width: double.infinity,
+                child: Container(
+                  margin: const EdgeInsets.only(left: 10, right: 90),
+                  decoration: const BoxDecoration(color: Colors.transparent),
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: _firestore
+                        .collection('rooms')
+                        .doc(widget.roomId)
+                        .collection('messages')
+                        .orderBy('timestamp', descending: true)
+                        .limit(30)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const SizedBox();
+                      var docs = snapshot.data!.docs;
+                      return ListView.builder(
+                        reverse: true,
+                        padding: EdgeInsets.zero,
+                        itemCount: docs.length,
+                        itemBuilder: (context, index) {
+                          var data = docs[index].data() as Map<String, dynamic>;
+                          
+                          String uName = data['userName'] ?? "User";
+                          String uId = (data['uID'] ?? data['uid'] ?? data['userId'] ?? uName).toString();
+                          String uImage = data['userImage'] ?? "";
 
-            // ৫. টাইপিং বার (বটম অ্যাকশন এরিয়া - আপনার পুরাতন ফিচার যা আছে তাই থাকবে)
-            _buildBottomActionArea(),
-          ],
-        ),
-
-        // 🔥 সমাধান ২: টাইপ বক্স (কিবোর্ডের উপরে ভেসে উঠবে)
-        if (keyboardHeight > 0)
-          Positioned(
-            bottom: keyboardHeight,
-            left: 0, right: 0,
-            child: Container(
-              color: const Color(0xFF1A1A2E), 
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(25)),
-                      child: TextField(
-                        controller: _messageController,
-                        autofocus: false, 
-                        style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(
-                          hintText: "type massge...",
-                          hintStyle: TextStyle(color: Colors.white54),
-                          border: InputBorder.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.send, color: Colors.pinkAccent),
-                    onPressed: () {
-                      String msg = _messageController.text.trim();
-                      final currentUser = FirebaseAuth.instance.currentUser;
-                      
-                      if (msg.isNotEmpty && currentUser != null) {
-                        // আপনার অরিজিনাল ফায়ারবেস লজিক (uID সহ)
-                        _firestore
-                            .collection('rooms')
-                            .doc(widget.roomId)
-                            .collection('messages')
-                            .add({
-                          'userName': currentUser.displayName ?? "User", // বা আপনার ইউজারনেম ভেরিয়েবল
-                          'userImage': currentUser.photoURL ?? "",
-                          'uID': currentUser.uid,
-                          'text': msg,
-                          'timestamp': FieldValue.serverTimestamp(),
-                        });
-
-                        _messageController.clear(); 
-                        FocusScope.of(context).unfocus(); 
-                      }
+                          return Align(
+                            alignment: Alignment.bottomLeft,
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _messageController.text = "@$uId ";
+                                  _messageController.selection = TextSelection.fromPosition(
+                                    TextPosition(offset: _messageController.text.length),
+                                  );
+                                });
+                              },
+                              child: _buildMessageRow({
+                                'userName': uName,
+                                'userImage': uImage, 
+                                'text': data['text'] ?? "",
+                              }),
+                            ),
+                          );
+                        },
+                      );
                     },
                   ),
-                ],
+                ),
+              ),
+
+              const Expanded(child: SizedBox.shrink()), 
+
+              // ৫. বটম অ্যাকশন এরিয়া (এখানে চ্যাট আইকন এবং সাউন্ড বাটন যোগ করা হয়েছে)
+              _buildBottomActionArea(),
+            ],
+          ),
+
+          // 🔥 সমাধান: টাইপ বক্স (কিবোর্ড ওপেন হলে মেসেজ আইকনের লজিক থেকে আসবে)
+          if (keyboardHeight > 0)
+            Positioned(
+              bottom: keyboardHeight,
+              left: 0, right: 0,
+              child: Container(
+                color: const Color(0xFF1A1A2E), 
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(25)),
+                        child: TextField(
+                          controller: _messageController,
+                          autofocus: true, 
+                          style: const TextStyle(color: Colors.white),
+                          decoration: const InputDecoration(
+                            hintText: "type message...",
+                            hintStyle: TextStyle(color: Colors.white54),
+                            border: InputBorder.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.send, color: Colors.pinkAccent),
+                      onPressed: () {
+                        String msg = _messageController.text.trim();
+                        final currentUser = FirebaseAuth.instance.currentUser;
+                        
+                        if (msg.isNotEmpty && currentUser != null) {
+                          _firestore
+                              .collection('rooms')
+                              .doc(widget.roomId)
+                              .collection('messages')
+                              .add({
+                            'userName': currentUser.displayName ?? "User",
+                            'userImage': currentUser.photoURL ?? "",
+                            'uID': currentUser.uid,
+                            'text': msg,
+                            'timestamp': FieldValue.serverTimestamp(),
+                          });
+
+                          _messageController.clear(); 
+                          FocusScope.of(context).unfocus(); 
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // মিউজিক প্লেয়ার
+          if (isFloatingPlayerVisible)
+            Positioned(
+              left: playerPosition.dx, 
+              top: playerPosition.dy,
+              child: Draggable(
+                feedback: _buildFloatingPlayer(isDragging: true),
+                childWhenDragging: Container(),
+                onDragEnd: (details) {
+                  setState(() { playerPosition = details.offset; });
+                },
+                child: _buildFloatingPlayer(isDragging: false),
+              ),
+            ),
+
+          FloatingRoomTools(
+            onGiftCountStart: (minutes, theme) {
+              _startGiftCounting(minutes, theme);
+            },
+            seats: seats,
+          ),
+          
+          if (isCalculatorActive)
+            Positioned(
+              right: 10,
+              top: 250,
+              child: GiftCalculatorRanking(roomData: roomData),
+            ),
+
+          GiftOverlayHandler(
+            isGiftAnimating: isGiftAnimating,
+            currentGiftImage: currentGiftImage,
+            isFullScreenBinding: isGiftAnimating, 
+            senderName: currentSenderName, 
+            receiverName: targetType, 
+          ),
+
+          // গিফট লিসেনার
+          StreamBuilder<DocumentSnapshot>(
+            stream: _firestore.collection('rooms').doc(widget.roomId).snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasData && snapshot.data!.exists) {
+                var data = snapshot.data!.data() as Map<String, dynamic>;
+                var lastGift = data['last_gift'];
+                if (lastGift != null) {
+                  int giftTime = lastGift['timestamp'] ?? 0;
+                  int now = DateTime.now().millisecondsSinceEpoch;
+                  if (now - giftTime < 5000) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted && !isGiftAnimating) {
+                        setState(() {
+                          currentGiftImage = lastGift['image'] ?? '';
+                          currentSenderName = lastGift['senderName'] ?? 'Someone';
+                          targetType = lastGift['target'] ?? ''; 
+                          currentGiftCount = lastGift['count'] ?? 1;
+                          isGiftAnimating = true;
+                        });
+                        Timer(const Duration(seconds: 5), () {
+                          if (mounted) setState(() { isGiftAnimating = false; });
+                        });
+                      }
+                    });
+                  }
+                }
+              }
+              return const SizedBox.shrink(); 
+            },
+          ),
+
+          // ৮. মেইল বাটন ও ইনবক্স (অপরিবর্তিত)
+          Positioned(
+            bottom: 110, 
+            right: 15,
+            child: GestureDetector(
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  isScrollControlled: true,
+                  builder: (context) => ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+                    child: SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.7, 
+                      child: const InboxPage(), 
+                    ),
+                  ),
+                );
+              },
+              child: StreamBuilder<QuerySnapshot>(
+                stream: _firestore
+                    .collection('chats')
+                    .where('receiverId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                    .where('isSeen', isEqualTo: false)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  int unreadCount = (snapshot.hasData) ? snapshot.data!.docs.length : 0;
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white24, width: 1),
+                        ),
+                        child: const Icon(Icons.mail, color: Colors.white, size: 24),
+                      ),
+                      if (unreadCount > 0)
+                        Positioned(
+                          right: 0, top: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                            child: Text('$unreadCount', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
 
-        // মিউজিক প্লেয়ার (আপনার পুরাতন ফিচার)
-        if (isFloatingPlayerVisible)
-          Positioned(
-            left: playerPosition.dx, 
-            top: playerPosition.dy,
-            child: Draggable(
-              feedback: _buildFloatingPlayer(isDragging: true),
-              childWhenDragging: Container(),
-              onDragEnd: (details) {
-                setState(() { playerPosition = details.offset; });
-              },
-              child: _buildFloatingPlayer(isDragging: false),
-            ),
-          ),
-
-         // // মিউজিক প্লেয়ারের ঠিক নিচে এইটুকু বসান:
-        FloatingRoomTools(
-          onGiftCountStart: (minutes, theme) {
-            // এখানে থিম (theme) প্যারামিটারটি যোগ করে নিন
-            _startGiftCounting(minutes, theme);
-          },
-          seats: seats,
-        ),
-        
-        // র‍্যাঙ্কিং ব্যানারটি যদি দেখাতে চান
-        if (isCalculatorActive)
-          Positioned(
-            right: 10,
-            top: 250,
-            child: GiftCalculatorRanking(roomData: roomData),
-          ),
-
-        GiftOverlayHandler(
-          isGiftAnimating: isGiftAnimating,
-          currentGiftImage: currentGiftImage,
-          isFullScreenBinding: isGiftAnimating, 
-          senderName: currentSenderName, 
-          receiverName: targetType, 
-        ),
-
-        // গিফট লিসেনার (অপরিবর্তিত)
-        StreamBuilder<DocumentSnapshot>(
-          stream: _firestore.collection('rooms').doc(widget.roomId).snapshots(),
-          builder: (context, snapshot) {
-            if (snapshot.hasData && snapshot.data!.exists) {
-              var data = snapshot.data!.data() as Map<String, dynamic>;
-              var lastGift = data['last_gift'];
-              if (lastGift != null) {
-                int giftTime = lastGift['timestamp'] ?? 0;
-                int now = DateTime.now().millisecondsSinceEpoch;
-                if (now - giftTime < 5000) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted && !isGiftAnimating) {
-                      setState(() {
-                        currentGiftImage = lastGift['image'] ?? '';
-                        currentSenderName = lastGift['senderName'] ?? 'Someone';
-                        targetType = lastGift['target'] ?? ''; 
-                        currentGiftCount = lastGift['count'] ?? 1;
-                        isGiftAnimating = true;
-                      });
-                      Timer(const Duration(seconds: 5), () {
-                        if (mounted) setState(() { isGiftAnimating = false; });
-                      });
-                    }
-                  });
-                }
-              }
-            }
-            return const SizedBox.shrink(); 
-          },
-        ),
-
-        // ৮. মেইল বাটন ও ইনবক্স (আপনার পুরাতন কোড - একদম হাত দেইনি)
-        Positioned(
-          bottom: 110, 
-          right: 15,
-          child: GestureDetector(
-            onTap: () {
-              showModalBottomSheet(
-                context: context,
-                backgroundColor: Colors.transparent,
-                isScrollControlled: true,
-                builder: (context) => ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-                  child: SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.7, 
-                    child: const InboxPage(), 
-                  ),
-                ),
-              );
-            },
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('chats')
-                  .where('receiverId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
-                  .where('isSeen', isEqualTo: false)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                int unreadCount = (snapshot.hasData) ? snapshot.data!.docs.length : 0;
-                return Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white24, width: 1),
-                      ),
-                      child: const Icon(Icons.mail, color: Colors.white, size: 24),
-                    ),
-                    if (unreadCount > 0)
-                      Positioned(
-                        right: 0, top: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(3),
-                          decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                          child: Text('$unreadCount', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ),
-
-          // ৯. সমাধান ৩: ইমোজি অ্যানিমেশন (আপনার ভেরিয়েবল activeEmojis ব্যবহার করে)
+          // ৯. ইমোজি অ্যানিমেশন
           ..._buildFloatingEmojiAnimations(), 
         ],
       ),
@@ -751,14 +745,13 @@ Widget build(BuildContext context) {
   );
 }
 
-// ইমোজি মেথড (আপনার ভেরিয়েবল seatPositions এবং activeEmojis ব্যবহার করে)
+// ইমোজি মেথড (সিট পজিশন অনুযায়ী)
 List<Widget> _buildFloatingEmojiAnimations() {
   return activeEmojis.entries.map((entry) {
     int seatIndex = entry.key;
     String lottieUrl = entry.value;
 
     return Positioned(
-      // আপনার সিট পজিশন ভেরিয়েবল অনুযায়ী পজিশন হবে
       left: (seatIndex < seatPositions.length) ? seatPositions[seatIndex].dx - 15 : 0, 
       top: (seatIndex < seatPositions.length) ? seatPositions[seatIndex].dy - 40 : 0,
       child: IgnorePointer(
@@ -768,8 +761,64 @@ List<Widget> _buildFloatingEmojiAnimations() {
         ),
       ),
     );
-  }).toList();
+  }).toList(); 
 }
+
+// আপনার বটম অ্যাকশন এরিয়া যেখানে ইমোজি, চ্যাট আইকন এবং সাউন্ড বাটন থাকবে
+Widget _buildBottomActionArea() {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 20, left: 15, right: 15),
+    child: Row(
+      children: [
+        // চ্যাট আইকন (ক্লিক করলে কিবোর্ড আসবে)
+        GestureDetector(
+          onTap: () => FocusScope.of(context).requestFocus(FocusNode()),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
+            child: const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 24),
+          ),
+        ),
+        const SizedBox(width: 10),
+        
+        // ইমোজি বাটন
+        GestureDetector(
+          onTap: () => _showEmojiPicker(), // আপনার ইমোজি পিকার মেথড
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
+            child: const Icon(Icons.emoji_emotions_outlined, color: Colors.yellowAccent, size: 24),
+          ),
+        ),
+        const SizedBox(width: 10),
+
+        // সাউন্ড অন/অফ বাটন (রুমের সাউন্ড কন্ট্রোল)
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              isRoomMuted = !isRoomMuted;
+              // Agora বা অডিও ইঞ্জিন মিউট লজিক এখানে হবে
+              _agoraManager.muteAllRemoteAudio(isRoomMuted); 
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
+            child: Icon(
+              isRoomMuted ? Icons.volume_off : Icons.volume_up,
+              color: isRoomMuted ? Colors.redAccent : Colors.greenAccent,
+              size: 24,
+            ),
+          ),
+        ),
+        
+        const Spacer(),
+        // আপনার বাকি গিফট বা অন্য বাটন এখানে থাকবে
+      ],
+    ),
+  );
+}
+          
  // 🔥 এটিই আপনার ফাইনাল এবং একমাত্র dispose ফাংশন
   @override
   void dispose() {
