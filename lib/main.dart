@@ -18,11 +18,11 @@ import 'inbox_page.dart';
 import 'profile_page.dart';
 import 'room_list_page.dart';
 
-// 🔥 [The Final Roadmap] এটি আপনার অ্যাপের মেইন ডাটা সুইচবোর্ড
+// 🔥 [The Final Roadmap] মেইন ডাটা সুইচবোর্ড
 class AppData {
-  static String myID = "";      // আপনার সেই ৬-ডিজিটের ইউনিক আইডি
-  static String myName = "";    // ইউজারের নাম
-  static String myImage = "";   // প্রোফাইল পিকচার
+  static String myID = "";      // ৬-ডিজিটের ইউনিক আইডি
+  static String myName = "";    
+  static String myImage = "";   
 }
 
 // ফায়ারবেস কনফিগারেশন
@@ -143,7 +143,7 @@ class _SplashScreenState extends State<SplashScreen> {
       
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        // ইউজার ডাটাবেসে আছে কিনা চেক করা হচ্ছে (uID বা email দিয়ে)
+        // ইমেইল দিয়ে সার্চ করে সঠিক uID খুঁজে বের করা
         var userDoc = await FirebaseFirestore.instance
             .collection('users')
             .where('email', isEqualTo: user.email)
@@ -151,9 +151,9 @@ class _SplashScreenState extends State<SplashScreen> {
             .get();
 
         if (userDoc.docs.isNotEmpty) {
+          AppData.myID = userDoc.docs.first.id; // পাথ হিসেবে uID সেট
           Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
         } else {
-          // ইমেইল থাকলেও যদি প্রোফাইল না থাকে তবে ক্রিয়েট প্রোফাইল পেজে যাবে
           Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const CreateProfilePage()));
         }
       } else {
@@ -183,7 +183,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-// --- ক্রিয়েট প্রোফাইল পেজ (ইউনিক আইডি লজিকসহ) ---
+// --- ক্রিয়েট প্রোফাইল পেজ (ফিক্সড ডাটা লজিক) ---
 class CreateProfilePage extends StatefulWidget {
   const CreateProfilePage({super.key});
   @override
@@ -207,10 +207,9 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
     final user = FirebaseAuth.instance.currentUser;
     final random = Random();
 
-    String? finalUID;
+    String finalUID = "";
     bool uniqueFound = false;
 
-    // ১. ইউনিক ৬-ডিজিটের আইডি জেনারেশন লজিক
     while (!uniqueFound) {
       int num = 100000 + random.nextInt(900000);
       finalUID = num.toString();
@@ -219,17 +218,20 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
     }
 
     try {
-      // ২. ডাটা সেভ (ডকুমেন্ট আইডি হবে আপনার ইউনিক নম্বর)
+      // পাথ হবে uID (users/123456)
       await firestore.collection('users').doc(finalUID).set({
         'uID': finalUID,
         'name': _nameController.text.trim(),
         'age': _ageController.text.trim(),
         'gender': _selectedGender,
         'email': user?.email,
-        'authUID': user?.uid, // ফায়ারবেস ইন্টারনাল আইডি ব্যাকআপ
+        'authUID': user?.uid, 
+        'diamonds': 200,      // শুরুতে ফিক্সড ডাইমন্ড
+        'vip_xp': 0,         // VIP XP যোগ করা হলো
         'createdAt': FieldValue.serverTimestamp(),
       });
 
+      AppData.myID = finalUID;
       if (mounted) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
       }
@@ -300,22 +302,11 @@ class _MainNavigationState extends State<MainNavigation> {
   void _updateFCMToken() async {
     try {
       String? token = await FirebaseMessaging.instance.getToken();
-      User? user = FirebaseAuth.instance.currentUser;
-
-      if (token != null && user != null) {
-        var userQuery = await FirebaseFirestore.instance
-            .collection('users')
-            .where('email', isEqualTo: user.email)
-            .limit(1)
-            .get();
-
-        if (userQuery.docs.isNotEmpty) {
-          String docId = userQuery.docs.first.id;
-          await FirebaseFirestore.instance.collection('users').doc(docId).update({
-            'fcmToken': token,
-            'lastActive': FieldValue.serverTimestamp(),
-          });
-        }
+      if (token != null && AppData.myID.isNotEmpty) {
+        await FirebaseFirestore.instance.collection('users').doc(AppData.myID).update({
+          'fcmToken': token,
+          'lastActive': FieldValue.serverTimestamp(),
+        });
       }
     } catch (e) {
       debugPrint("Error updating FCM token: $e");
@@ -340,7 +331,7 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- লগইন স্ক্রিন ---
+// --- লগইন স্ক্রিন (পাসওয়ার্ড রিসেট অপশনসহ) ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
   @override
@@ -381,7 +372,36 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 25),
+                  
+                  // 🔥 পাসওয়ার্ড রিসেট বাটন
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () async {
+                        if (_emailController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter your email first")));
+                          return;
+                        }
+                        try {
+                          await FirebaseAuth.instance.sendPasswordResetEmail(email: _emailController.text.trim());
+                          // ✅ পপ আপ আসবে সাকসেস হলে
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Reset Email Sent Successfully!"),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
+                        }
+                      },
+                      child: const Text("Forget Password?", style: TextStyle(color: Colors.pinkAccent)),
+                    ),
+                  ),
+
+                  const SizedBox(height: 15),
                   ElevatedButton(
                     onPressed: () async {
                       if (_emailController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
@@ -390,7 +410,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           _passwordController.text.trim()
                         );
                         if (user != null && mounted) {
-                          // লগইন করার পর সরাসরি প্রোফাইল চেক করবে (Splash logic-এর মতো)
                           Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const SplashScreen()));
                         }
                       }
