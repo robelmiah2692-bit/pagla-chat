@@ -65,7 +65,7 @@ void loadUserData() async {
   if (currentUser == null) return;
 
   try {
-    // ডাটাবেসে যেখানে 'authUID' মিলবে, সেই ইউনিক আইডি ওয়ালা ডকুমেন্টটি খুঁজে বের করা
+    // ১. authUID দিয়ে আপনার নির্দিষ্ট ৬-ডিজিটের ইউনিক ডকুমেন্টটি খুঁজে বের করা
     var userQuery = await FirebaseFirestore.instance
         .collection('users')
         .where('authUID', isEqualTo: currentUser.uid)
@@ -77,17 +77,41 @@ void loadUserData() async {
       var data = userDoc.data();
 
       setState(() {
-        // doc.id-ই হলো আপনার সেই ইউনিক ৬-ডিজিটের আইডি
+        // ✅ আইডি ফিক্সড: আপনার সেই ৬-ডিজিটের ইউনিক আইডি
         uIDValue = userDoc.id; 
-        userName = data['name'] ?? "User";
+        
+        // বেসিক ইনফো (Null Safety সহ)
+        userName = data['name'] ?? "Pagla User";
         userImageURL = data['profilePic'] ?? "";
-        diamonds = data['diamonds'] ?? 0;
-        xp = data['xp'] ?? 0;
         gender = data['gender'] ?? "Unfixed";
-        age = data['age'] ?? 22;
+        
+        // 🔥 টাইপ ফিক্স: ডাটাবেসে age যদি String থাকে তবে সেটাকে int এ কনভার্ট করা
+        var ageData = data['age'];
+        if (ageData is String) {
+          age = int.tryParse(ageData) ?? 22;
+        } else {
+          age = ageData ?? 22;
+        }
+
+        // কয়েন, এক্সপি এবং ভিআইপি (Safe casting to int)
+        diamonds = (data['diamonds'] ?? 200).toInt();
+        xp = (data['xp'] ?? 0).toInt();
+        vipExpiry = (data['vipExpiry'] ?? 0).toInt();
+        
+        // ফলোয়ার এবং অন্যান্য বুলিয়ান ডাটা
+        followers = (data['followers'] ?? 0).toInt();
+        following = (data['following'] ?? 0).toInt();
+        isVIP = data['isVIP'] ?? false;
+        hasPremiumCard = data['hasPremiumCard'] ?? false;
+        
+        // ফ্রেম এবং প্রিমিয়াম ডাটা
+        hasFreeFrame = data['hasFreeFrame'] ?? false;
+        activeFrameUrl = data['activeFrameUrl'] ?? "";
       });
+      
+      debugPrint("Data Loaded for ID: $uIDValue");
     } else {
-      debugPrint("No document found! আইডি তৈরির দায়িত্ব এখন শুধুমাত্র Auth পেজের।");
+      debugPrint("No document found in Firestore for this authUID.");
     }
   } catch (e) {
     debugPrint("Firebase Error: $e");
