@@ -69,6 +69,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   final AgoraManager _agoraManager = AgoraManager();
 
  // এই ভেরিয়েবলগুলো ক্লাসের ওপরের দিকে যোগ করুন
+  bool isRoomMuted = false; // শুরুতে সাউন্ড অন থাকবে
   bool isCalculatorActive = false; 
   String activityTheme = "";
   Map<String, dynamic> roomData = {}; // এটিই মিসিং ছিল
