@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class VoiceRipple extends StatefulWidget {
   final Widget child;
-  final bool isTalking; // কথা বললে এটি true হবে
+  final bool isTalking;
 
   const VoiceRipple({super.key, required this.child, required this.isTalking});
 
@@ -18,10 +18,9 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1800), // একটু বেশি সময় দিলে ঢেউগুলো আরও ন্যাচারাল লাগে
     );
 
-    // ১. শুরুতে চেক করা কথা বলছে কিনা
     if (widget.isTalking) {
       _controller.repeat();
     }
@@ -30,13 +29,13 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
   @override
   void didUpdateWidget(covariant VoiceRipple oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // ২. 🛡️ গুরুত্বপূর্ণ ফিক্স: কথা বলা শুরু করলে এনিমেশন চলবে, থামলে বন্ধ হবে
     if (widget.isTalking != oldWidget.isTalking) {
       if (widget.isTalking) {
+        // শুরুতে এনিমেশন রিসেট করে চালানো ভালো
         _controller.repeat();
       } else {
         _controller.stop();
-        _controller.reset(); // ঢেউগুলো মুছে ফেলার জন্য
+        _controller.reset();
       }
     }
   }
@@ -55,38 +54,50 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
         return Stack(
           alignment: Alignment.center,
           children: [
-            // ৩. কথা বললে ৩টি ঢেউয়ের লেয়ার তৈরি হবে
             if (widget.isTalking) ...[
-              _buildRipple(_controller.value, 0),
-              _buildRipple(_controller.value, 0.4),
-              _buildRipple(_controller.value, 0.8),
+              _buildRipple(0.0),
+              _buildRipple(0.3),
+              _buildRipple(0.6),
             ],
-            widget.child, // ইউজারের প্রোফাইল পিকচার
+            widget.child,
           ],
         );
       },
     );
   }
 
-  // ৪. ঢেউ তৈরির লজিক (স্মুথ করা হয়েছে)
-  Widget _buildRipple(double value, double delay) {
-    double progress = (value + delay) % 1.0;
-    double opacity = (1.0 - progress).clamp(0.0, 1.0);
-    double scale = 1.0 + (progress * 0.6); // ঢেউ কতটুকু বড় হবে
+  Widget _buildRipple(double delay) {
+    // প্রোগ্রেস ক্যালকুলেশন আরও নিখুঁত করা হয়েছে
+    double progress = (_controller.value + delay) >= 1.0 
+        ? (_controller.value + delay) - 1.0 
+        : (_controller.value + delay);
 
-    return Container(
-      width: 75, // সিটের সাইজ অনুযায়ী ঠিক আছে
-      height: 75,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.pinkAccent.withOpacity(opacity * 0.6),
-          width: 2,
+    double opacity = (1.0 - progress).clamp(0.0, 1.0);
+    double scale = 1.0 + (progress * 0.5);
+
+    return Transform.scale(
+      scale: scale,
+      child: Opacity(
+        opacity: opacity,
+        child: Container(
+          width: 70, // সিটের গোল ফ্রেমের সাইজ অনুযায়ী
+          height: 70,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.pinkAccent.withOpacity(0.5),
+              width: 1.5,
+            ),
+            // গ্রেডিয়েন্ট দিলে ঢেউটা প্রিমিয়াম দেখাবে
+            gradient: RadialGradient(
+              colors: [
+                Colors.pinkAccent.withOpacity(0.2),
+                Colors.transparent,
+              ],
+            ),
+          ),
         ),
-        // শুধু বর্ডার দিলে দেখতে বেশি প্রফেশনাল লাগে, চাইলে কালারও দিতে পারেন
-        color: Colors.pinkAccent.withOpacity(opacity * 0.15),
       ),
-      transform: Matrix4.identity()..scale(scale),
     );
   }
 }
