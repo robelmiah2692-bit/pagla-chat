@@ -18,6 +18,13 @@ import 'inbox_page.dart';
 import 'profile_page.dart';
 import 'room_list_page.dart';
 
+// 🔥 [The Final Roadmap] এটি আপনার অ্যাপের মেইন ডাটা সুইচবোর্ড
+class AppData {
+  static String myID = "";      // আপনার সেই ৬-ডিজিটের ইউনিক আইডি
+  static String myName = "";    // ইউজারের নাম
+  static String myImage = "";   // প্রোফাইল পিকচার
+}
+
 // ফায়ারবেস কনফিগারেশন
 const firebaseOptions = FirebaseOptions(
   apiKey: "AIzaSyA9KMdtIBNVYSASc5C2w5JGVTL-NISXFog",
