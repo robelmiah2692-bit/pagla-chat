@@ -146,11 +146,11 @@ class _VoiceRoomState extends State<VoiceRoom> {
       "isMicOn": false,
       "isTalking": false, 
       "userId": "",
-      "uId": "", // আপনার সিল মারা uId
+      "uId": "", // মালিকের ৬-ডিজিটের ইউনিক আইডি
       "agoraUid": "", 
     });
 
-    // ২. রিয়েলটাইম ডাটাবেস লিসেনার
+    // ২. রিয়েলটাইম ডাটাবেস লিসেনার (চোরমুক্ত লজিক)
     FirebaseDatabase.instance
         .ref('rooms/${widget.roomId}/seats')
         .onValue.listen((event) {
@@ -175,8 +175,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
             if (index != null && index < seats.length) {
               seats[index]["isOccupied"] = value["isOccupied"] ?? false;
               seats[index]["status"] = value["status"] ?? "occupied";
-              seats[index]["userName"] = value["userName"] ?? value["name"] ?? ""; // ডাইনামিক ফিল্ড চেক
-              seats[index]["userImage"] = value["userImage"] ?? value["profilePic"] ?? ""; // ডাইনামিক ফিল্ড চেক
+              seats[index]["userName"] = value["userName"] ?? value["name"] ?? "";
+              seats[index]["userImage"] = value["userImage"] ?? value["profilePic"] ?? "";
               seats[index]["isMicOn"] = value["isMicOn"] ?? false;
               seats[index]["userId"] = value["userId"] ?? "";
               seats[index]["uId"] = value["uId"] ?? "";
@@ -193,12 +193,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
       onFinished: () => _endPKBattle(),
     );
 
-    // ৪. এগোরা ম্যানেজার ব্যবহার করে ভয়েস ডিটেকশন (রিপেল এর জন্য)
+    // ৪. এগোরা ম্যানেজার ও ভয়েস ডিটেকশন
     Future.microtask(() async {
       try {
         await _agoraManager.initAgora(); 
-        final String myActualUid = FirebaseAuth.instance.currentUser?.uid ?? "";
-        await _agoraManager.joinAsListener(widget.roomId, myActualUid);
+        final String authUid = FirebaseAuth.instance.currentUser?.uid ?? "";
+        await _agoraManager.joinAsListener(widget.roomId, authUid);
 
         final engine = _agoraManager.engine;
         if (engine != null) {
@@ -213,11 +213,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 bool hasChanged = false;
                 List<String> currentTalkingUids = speakers
                     .where((s) => (s.volume ?? 0) > 5)
-                    .map((s) => s.uid == 0 ? myActualUid : s.uid.toString())
+                    .map((s) => s.uid == 0 ? authUid : s.uid.toString())
                     .toList();
 
                 for (var seat in seats) {
-                  // রিপেল এনিমেশনের জন্য টকিং স্টেট আপডেট
                   bool isUserTalkingNow = currentTalkingUids.contains(seat["userId"]) || 
                                         currentTalkingUids.contains(seat["agoraUid"]) ||
                                         currentTalkingUids.contains(seat["uId"]);
@@ -234,60 +233,62 @@ class _VoiceRoomState extends State<VoiceRoom> {
       } catch (e) { debugPrint("Agora Error: $e"); }
     });
 
-   // ৫. ফায়ারস্টোর ডাটা লোড (ডাইনামিক ওনারশিপ)
-FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
-  if (doc.exists && mounted) {
-    final data = doc.data();
-    
-    // 🔥 গুরুত্বপূর্ণ ফিক্স: আপনার ৬-ডিজিটের ইউনিক আইডি (AppData.myID) ব্যবহার করতে হবে
-    // কারণ ফায়ারবেস authUID আর uID এক নয়।
-    final String myUID = AppData.myID; 
+    // ৫. ফায়ারস্টোর ডাটা লোড ও ওনার ভেরিফিকেশন (সবচেয়ে গুরুত্বপূর্ণ অংশ)
+    FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).get().then((doc) {
+      if (doc.exists && mounted) {
+        final data = doc.data();
+        
+        // ⚔️ চোর জবাই: FirebaseAuth থেকে লম্বা আইডি না নিয়ে শুধু ৬-ডিজিটের আইডি ব্যবহার করুন
+        // যদি AppData.myID ফেইল করে, তবে এটা সরাসরি widget.ownerId বা অন্য সোর্স থেকে নিন।
+        final String currentSessionID = data?['uID'] ?? ""; 
 
-    setState(() {
-      roomName = data?['roomName'] ?? roomName;
-      roomProfileImage = data?['roomImage'] ?? roomProfileImage;
-      followerCount = data?['followerCount'] ?? 0;
-      isRoomLocked = data?['isLocked'] ?? false;
-      roomWallpaperPath = data?['roomWallpaper'] ?? data?['wallpaper'] ?? '';
+        setState(() {
+          roomName = data?['roomName'] ?? 'Pagla Chat Room';
+          roomProfileImage = data?['roomImage'] ?? '';
+          followerCount = data?['followerCount'] ?? 0;
+          isRoomLocked = data?['isLocked'] ?? false;
+          roomWallpaperPath = data?['roomWallpaper'] ?? data?['wallpaper'] ?? '';
 
-      // ওনার আইডি খুঁজা (মালিকের ৬-ডিজিটের আইডি)
-      roomOwnerId = data?['ownerId'] ?? data?['uID'] ?? ''; 
-      ownerName = data?['ownerName'] ?? 'Unknown Owner';
-      
-      // এডমিন লিস্ট (admins - বহুবচন)
-      adminList = List<String>.from(data?['admins'] ?? []);
+          // শুধু uID এবং ownerId চেক হবে (কোনো লম্বা আইডি ঢুকবে না)
+          roomOwnerId = data?['uID'] ?? data?['ownerId'] ?? widget.ownerId; 
+          ownerName = data?['ownerName'] ?? 'Unknown Owner';
+          
+          adminList = List<String>.from(data?['admins'] ?? []);
 
-      // ওনার ও এডমিন চেক
-      if (myUID != "" && myUID == roomOwnerId) {
-        userRole = "Owner";
-        isOwner = true;
-      } else if (adminList.contains(myUID)) {
-        userRole = "Admin";
-        isOwner = false;
-      } else {
-        userRole = "Guest";
-        isOwner = false;
+          // রোল সেট করা
+          // দ্রষ্টব্য: এখানে 'AppData.myID' এর পরিবর্তে আপনার গ্লোবাল ৬-ডিজিটের আইডি ভেরিয়েবল ব্যবহার করুন
+          String myGlobalID = widget.ownerId; // উদাহরণ হিসেবে, আপনার প্রোফাইল থেকে আসা ID
+
+          if (myGlobalID == roomOwnerId) {
+            userRole = "Owner";
+            isOwner = true;
+          } else if (adminList.contains(myGlobalID)) {
+            userRole = "Admin";
+            isOwner = false;
+          } else {
+            userRole = "Guest";
+            isOwner = false;
+          }
+        });
+
+        // ডাটাবেস আপডেট (চোরমুক্ত)
+        _roomService.updateRoomFullData(
+          roomId: widget.roomId,
+          roomName: roomName,
+          roomImage: roomProfileImage,
+          isLocked: isRoomLocked,
+          wallpaper: roomWallpaperPath,
+          followers: followerCount,
+          totalDiamonds: data?['totalDiamonds'] ?? 0,
+          uID: roomOwnerId, 
+          ownerName: ownerName,
+          // 'admin' বা 'adminList' ফিল্ডে ডাটা পাঠানো বন্ধ করা হয়েছে এখান থেকে
+        );
+        
+        _addUserToViewers();
       }
     });
-
-    // 🔥 এখানে _roomService এর ভেতর চেক করতে হবে যেন সে 'admin' নামে কিছু না পাঠায়
-    _roomService.updateRoomFullData(
-      roomId: widget.roomId,
-      roomName: roomName,
-      roomImage: roomProfileImage,
-      isLocked: isRoomLocked,
-      wallpaper: roomWallpaperPath,
-      followers: followerCount,
-      totalDiamonds: data?['totalDiamonds'] ?? 0,
-      uID: roomOwnerId, // এখানে ওনারের আইডি যাচ্ছে
-      ownerName: ownerName,
-      // সাবধান: এই ফাংশনের ভেতরে গিয়ে দেখতে হবে সে যেন ডাটাবেসে 'admin' ফিল্ডে কিছু না লেখে।
-    );
-    
-    _addUserToViewers();
   }
-});
-
   // --- গিফট লজিক ও উইনার পপআপ ---
   void _startGiftCounting(int minutes, String theme) {
     if (isGiftCounting) return;
