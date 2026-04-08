@@ -814,11 +814,6 @@ Widget _buildBottomActionArea() {
         ),
         
         const Spacer(),
-        // আপনার বাকি গিফট বা অন্য বাটন এখানে থাকবে
-      ],
-    ),
-  );
-}
           
  // 🔥 এটিই আপনার ফাইনাল এবং একমাত্র dispose ফাংশন
   @override
