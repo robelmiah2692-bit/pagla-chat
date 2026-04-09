@@ -1204,347 +1204,335 @@ List<Widget> _buildFloatingEmojiAnimations() {
 }
   
   // --- ২. অ্যাকশন বার (মাইক, গেম এবং চ্যাট ইনপুট) ---
-   Widget _buildBottomActionArea() {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
-    color: Colors.transparent,
-    child: Row(
-      children: [
-        // ১. চ্যাট ও ইমোজি ইনপুট এরিয়া
-        Expanded(
-          child: ChatInputBar(
-            controller: _messageController,
-            onEmojiTap: () {
-              // ১. বর্তমান ইউজারের আইডি বের করা
-              final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? "";
-              if (currentUid.isEmpty) return;
+  // --- ২. অ্যাকশন বার (মাইক, গেম, মিউজিক, গিফট এবং চ্যাট ইনপুট) ---
+  Widget _buildBottomActionArea() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
+      color: Colors.transparent,
+      child: Row(
+        children: [
+          // ১. চ্যাট ও ইমোজি ইনপুট এরিয়া (আপনার নতুন লজিক সহ)
+          Expanded(
+            child: ChatInputBar(
+              controller: _messageController,
+              onEmojiTap: () {
+                // ১. বর্তমান ইউজারের আইডি বের করা
+                final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? "";
+                if (currentUid.isEmpty) return;
 
-              // ২. ইউজার কোন সিটে বসে আছে তা খুঁজে বের করা (uID/uid দুইভাবেই চেক)
-              int mySeatIndex = seats.indexWhere((s) => 
-                  s != null && (s['uID'] == currentUid || s['uid'] == currentUid || s['userId'] == currentUid));
+                // ২. ইউজার কোন সিটে বসে আছে তা খুঁজে বের করা (uID/uid/userId ৩টিই চেক করা হচ্ছে)
+                int mySeatIndex = seats.indexWhere((s) =>
+                    s != null && (s['uID'] == currentUid || s['uid'] == currentUid || s['userId'] == currentUid));
 
-              // ৩. যদি ইউজার কোনো সিটে বসে থাকে তবেই ইমোজি পিকার খুলবে
-              if (mySeatIndex != -1) {
-                EmojiHandler.showPicker(
-                  context: context,
-                  seatIndex: mySeatIndex,
-                  onEmojiSelected: (index, url) {
-                    if (index != -1 && url != null) {
-                      // ৪. লোকাল সিটে ইমোজি দেখানোর জন্য স্টেট আপডেট
-                      setState(() {
-                        seats[index]['showEmoji'] = true;
-                        seats[index]['currentEmoji'] = url;
-                      });
-
-                      // ৫. ৩ সেকেন্ড পর ইমোজি হাইড করার টাইমার
-                      Future.delayed(const Duration(seconds: 3), () {
-                        if (mounted) {
-                          setState(() {
-                            seats[index]['showEmoji'] = false;
-                          });
-                        }
-                      });
-
-                      // 🔥 রিয়েলটাইম ডাটাবেসে আপডেট (যাতে অন্য সবাই সিটের ওপর অ্যানিমেশন দেখে)
-                      FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index').update({
-                        'currentEmoji': url,
-                        'showEmoji': true,
-                        'emojiTime': ServerValue.timestamp,
-                      });
-                      
-                      // ডাটাবেস থেকেও ৩ সেকেন্ড পর অটো ক্লিয়ার করার কমান্ড (অপশনাল কিন্তু ভালো)
-                      Future.delayed(const Duration(seconds: 4), () {
-                        FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index').update({
-                          'showEmoji': false,
-                        });
-                      });
-                    }
-                  },
-                );
-              } else {
-                // সিটে না থাকলে সতর্কবার্তা
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("সিটে বসুন আগে!")),
-                );
-              }
-            },
-            onMessageSend: (msg) async {
-              final String senderId = FirebaseAuth.instance.currentUser?.uid ?? "";
-              if (senderId.isEmpty) return;
-
-              // 🛡️ রুমের নাম আসা বন্ধ করতে সরাসরি ইউজার কালেকশন থেকে ডাটা আনা
-              DocumentSnapshot userDoc = await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(senderId)
-                  .get();
-
-              String finalName = "User";
-              String finalImage = "";
-
-              if (userDoc.exists) {
-                final uData = userDoc.data() as Map<String, dynamic>?;
-                finalName = uData?['userName'] ?? uData?['name'] ?? "User";
-                finalImage = uData?['userImage'] ?? uData?['profileImage'] ?? "";
-              }
-
-              // ৪. মেসেজ ফায়ারবেসে পাঠানো (ইউজারের অরিজিনাল নাম ও ছবি সহ)
-              await FirebaseFirestore.instance
-                  .collection('rooms')
-                  .doc(widget.roomId)
-                  .collection('messages')
-                  .add({
-                'userName': finalName,
-                'userImage': finalImage,
-                'text': msg['text'],
-                'senderId': senderId,
-                'timestamp': FieldValue.serverTimestamp(),
-              });
-
-              // ৫. মেসেজ পাঠানোর সময় সিটে এনিমেশন (যেমন পপ-আপ)
-              int senderSeat = seats.indexWhere((s) => 
-                  s != null && (s['uID'] == senderId || s['uid'] == senderId || s['userId'] == senderId));
-              
-              if (senderSeat != -1) {
-                // সিটে ছোট একটা রিয়্যাকশন বা ইন্ডিকেশন দেখানো যেতে পারে
-                debugPrint("Message sent from seat: $senderSeat");
-              }
-            },
-          ),
-        ),
-        
-           // --- মাইক কন্ট্রোল বাটন শুরু ---
-                IconButton(
-                  constraints: const BoxConstraints(),
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  icon: Icon(
-                    isMicOn ? Icons.mic : Icons.mic_off,
-                    color: isMicOn ? Colors.greenAccent : Colors.redAccent,
-                    size: 22,
-                  ),
-                  onPressed: () async {
-                    // ১. চেক: ইউজার কোনো সিটে বসে আছে কি না
-                    if (currentSeatIndex == -1) return;
-
-                    // ২. ভাইব্রেশন ফিডব্যাক
-                    try {
-                      HapticFeedback.lightImpact();
-                    } catch (_) {}
-
-                    bool newMicState = !isMicOn;
-
-                    try {
-                      // ৩. এগোরা মাইক কন্ট্রোল
-                      // নতুন ম্যানেজার অনুযায়ী: মাইক অফ করলেও গান (Mixing) বন্ধ হবে না
-                      if (_agoraManager.engine != null) {
-                        await _agoraManager.toggleMic(!newMicState); 
-                      }
-
-                      // ৪. ফায়ারবেস রিয়েলটাইম ডাটাবেস আপডেট
-                      FirebaseDatabase.instance
-                          .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
-                          .update({'isMicOn': newMicState});
-
-                      // ৫. লোকাল ইউআই (UI) পরিবর্তন
-                      if (mounted) {
+                // ৩. যদি ইউজার কোনো সিটে বসে থাকে তবেই ইমোজি পিকার খুলবে
+                if (mySeatIndex != -1) {
+                  EmojiHandler.showPicker(
+                    context: context,
+                    seatIndex: mySeatIndex,
+                    onEmojiSelected: (index, url) {
+                      if (index != -1 && url != null) {
+                        // ৪. লোকাল সিটে ইমোজি দেখানোর জন্য স্টেট আপডেট
                         setState(() {
-                          isMicOn = newMicState;
-                          
-                          // মাইক অফ করলে রিপেল এনিমেশন সাথে সাথে বন্ধ করে দেওয়া
-                          if (!newMicState) {
-                            if (currentSeatIndex >= 0 && currentSeatIndex < seats.length) {
-                              seats[currentSeatIndex]["isTalking"] = false;
-                            }
+                          seats[index]['showEmoji'] = true;
+                          seats[index]['currentEmoji'] = url;
+                        });
+
+                        // ৫. ৩ সেকেন্ড পর ইমোজি হাইড করার টাইমার
+                        Future.delayed(const Duration(seconds: 3), () {
+                          if (mounted) {
+                            setState(() {
+                              seats[index]['showEmoji'] = false;
+                            });
                           }
                         });
+
+                        // 🔥 রিয়েলটাইম ডাটাবেসে আপডেট (যাতে অন্য সবাই সিটের ওপর অ্যানিমেশন দেখে)
+                        FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index').update({
+                          'currentEmoji': url,
+                          'showEmoji': true,
+                          'emojiTime': ServerValue.timestamp,
+                        });
+
+                        // ডাটাবেস থেকেও ৪ সেকেন্ড পর অটো ক্লিয়ার করার কমান্ড
+                        Future.delayed(const Duration(seconds: 4), () {
+                          FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index').update({
+                            'showEmoji': false,
+                          });
+                        });
                       }
-                      
-                      debugPrint("🎤 মাইক স্ট্যাটাস: ${newMicState ? "চালু" : "বন্ধ"}");
-                      
-                    } catch (e) {
-                      debugPrint("❌ Mic Toggle Error: $e");
-                    }
-                  },
-                ),
-                // --- মাইক কন্ট্রোল বাটন শেষ ---
-           // ৩. মিউজিক (ড্র্যাগেবল প্লেয়ার অন/অফ)
+                    },
+                  );
+                } else {
+                  // সিটে না থাকলে সতর্কবার্তা
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("সিটে বসুন আগে!")),
+                  );
+                }
+              },
+              onMessageSend: (msg) async {
+                final String senderId = FirebaseAuth.instance.currentUser?.uid ?? "";
+                if (senderId.isEmpty) return;
+
+                // সরাসরি ইউজার কালেকশন থেকে ডাটা আনা (ইউনিক আইডি/নামের জন্য)
+                DocumentSnapshot userDoc = await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(senderId)
+                    .get();
+
+                String finalName = "User";
+                String finalImage = "";
+
+                if (userDoc.exists) {
+                  final uData = userDoc.data() as Map<String, dynamic>?;
+                  // এখানে আপনার ৬ ডিজিটের ইউনিক আইডি বা নাম চেক করা হচ্ছে
+                  finalName = uData?['userName'] ?? uData?['name'] ?? "User";
+                  finalImage = uData?['userImage'] ?? uData?['profileImage'] ?? "";
+                }
+
+                // মেসেজ ফায়ারবেসে পাঠানো
+                await FirebaseFirestore.instance
+                    .collection('rooms')
+                    .doc(widget.roomId)
+                    .collection('messages')
+                    .add({
+                  'userName': finalName,
+                  'userImage': finalImage,
+                  'text': msg['text'],
+                  'senderId': senderId,
+                  'timestamp': FieldValue.serverTimestamp(),
+                });
+
+                // মেসেজ পাঠানোর সময় প্রেরকের সিট খুঁজে বের করা (অ্যানিমেশনের জন্য)
+                int senderSeat = seats.indexWhere((s) =>
+                    s != null && (s['uID'] == senderId || s['uid'] == senderId || s['userId'] == senderId));
+
+                if (senderSeat != -1) {
+                  debugPrint("Message sent from seat: $senderSeat");
+                }
+              },
+            ),
+          ),
+
+          // ২. রুম সাউন্ড বাটন (পুরাতন ফিচার থেকে যুক্ত করা)
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                isRoomMuted = !isRoomMuted;
+                _agoraManager.muteAllRemoteAudio(isRoomMuted);
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
+              child: Icon(
+                isRoomMuted ? Icons.volume_off : Icons.volume_up,
+                color: isRoomMuted ? Colors.redAccent : Colors.greenAccent,
+                size: 20,
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 4),
+
+          // ৩. মাইক কন্ট্রোল বাটন
           IconButton(
             constraints: const BoxConstraints(),
             padding: const EdgeInsets.symmetric(horizontal: 4),
             icon: Icon(
-              Icons.music_note, 
-              color: isFloatingPlayerVisible ? Colors.blueAccent : Colors.white70, 
+              isMicOn ? Icons.mic : Icons.mic_off,
+              color: isMicOn ? Colors.greenAccent : Colors.redAccent,
+              size: 22,
+            ),
+            onPressed: () async {
+              if (currentSeatIndex == -1) return;
+              try { HapticFeedback.lightImpact(); } catch (_) {}
+
+              bool newMicState = !isMicOn;
+              try {
+                if (_agoraManager.engine != null) {
+                  await _agoraManager.toggleMic(!newMicState);
+                }
+                FirebaseDatabase.instance
+                    .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
+                    .update({'isMicOn': newMicState});
+
+                if (mounted) {
+                  setState(() {
+                    isMicOn = newMicState;
+                    if (!newMicState) {
+                      if (currentSeatIndex >= 0 && currentSeatIndex < seats.length) {
+                        seats[currentSeatIndex]["isTalking"] = false;
+                      }
+                    }
+                  });
+                }
+              } catch (e) {
+                debugPrint("❌ Mic Toggle Error: $e");
+              }
+            },
+          ),
+
+          // ৪. মিউজিক বাটন
+          IconButton(
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            icon: Icon(
+              Icons.music_note,
+              color: isFloatingPlayerVisible ? Colors.blueAccent : Colors.white70,
               size: 22,
             ),
             onPressed: () {
-              // মিউজিক সিলেকশন বার (BottomSheet) ওপেন করা
               showModalBottomSheet(
                 context: context,
                 backgroundColor: Colors.transparent,
                 isScrollControlled: true,
                 builder: (context) => MusicPlayerWidget(
-                  // ১. গান সিলেক্ট করলে যা হবে
                   onMusicSelect: (path) async {
                     setState(() {
-                      currentMusicUrl = path; 
+                      currentMusicUrl = path;
                       isFloatingPlayerVisible = true;
                       isRoomMusicPlaying = true;
                     });
-
                     try {
-                      // আগোরাতে আগে কোনো গান চললে তা বন্ধ করা
                       await _agoraManager.engine.stopAudioMixing();
-
-                      // নতুন গান আগোরার মাধ্যমে চালানো (যাতে সবাই শোনে)
                       await _agoraManager.engine.startAudioMixing(
                         filePath: path,
-                        loopback: false, // নিজের আওয়াজ ইকো হবে না
-                        cycle: 1,        // একবার বাজবে (replace: false মুছে দেওয়া হয়েছে)
+                        loopback: false,
+                        cycle: 1,
                       );
-
-                      // ডিফল্ট ভলিউম সেট করা
                       await _agoraManager.engine.adjustAudioMixingVolume(100);
-
                     } catch (e) {
                       debugPrint("Agora Audio Mixing Error: $e");
                     }
                   },
-                  // ২. ভলিউম স্লাইডার নাড়ালে যা হবে
                   onVolumeChange: (volume) {
-                    // আগোরার মিউজিক ভলিউম সেট করা
                     _agoraManager.engine.adjustAudioMixingVolume(volume.toInt());
                   },
                 ),
               );
             },
           ),
-          // // ৪. গিফট বাটন
-        IconButton(
-          constraints: const BoxConstraints(),
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
-          onPressed: () async {
-            final userDoc = await FirebaseFirestore.instance
-                .collection('users')
-                .doc(FirebaseAuth.instance.currentUser?.uid)
-                .get();
 
-            int currentBalance = 0;
-            String senderName = "User";
-
-            if (userDoc.exists && userDoc.data() != null) {
-              final data = userDoc.data()!;
-              currentBalance = data['diamonds'] ?? 0;
-              senderName = data['userName'] ?? data['name'] ?? "User";
-            }
-
-            if (!mounted) return;
-
-            showModalBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              isScrollControlled: true,
-              builder: (context) => GiftBottomSheet(
-                diamondBalance: currentBalance,
-                currentSeats: List.from(seats),
-                onGiftSend: (gift, count, target) async {
-                  // // ১. লোকাল ফোনে এনিমেশন আপডেট
-                  setState(() {
-                    currentGiftImage = gift['icon'];
-                    isGiftAnimating = true;
-                    targetType = target;
-                    currentSenderName = senderName;
-                    currentReceiverName = target;
-                  });
-
-                  // // ২. গ্লোবাল এনিমেশন ট্রিগার
-                  try {
-                    await FirebaseFirestore.instance
-                        .collection('rooms')
-                        .doc(widget.roomId)
-                        .collection('gift_animations')
-                        .add({
-                      'giftIcon': gift['icon'],
-                      'senderName': senderName,
-                      'receiverName': target,
-                      'timestamp': FieldValue.serverTimestamp(),
-                    });
-                  } catch (e) {
-                    debugPrint("Animation Trigger Error: $e");
-                  }
-
-                  // // ৩. ট্রানজেকশন লজিক (uID এবং receiverId নিশ্চিত করা)
-                  try {
-                    bool isFree = gift['isFree'] ?? false;
-                    int unitPrice = gift['price'] ?? 0;
-                    int totalAmount = unitPrice * count;
-
-                    var targetSeat = seats.firstWhere(
-                      (s) => s != null && (s['userName'] == target || s['name'] == target),
-                      orElse: () => <String, dynamic>{},
-                    );
-
-                    String receiverId = "";
-                    if (targetSeat.isNotEmpty) {
-                      receiverId = targetSeat['uID'] ?? targetSeat['uid'] ?? "";
-                    }
-
-                    if (receiverId.isNotEmpty) {
-                      await GiftTransactionHelper.processGiftTransaction(
-                        senderId: FirebaseAuth.instance.currentUser!.uid,
-                        receiverId: receiverId,
-                        totalPrice: totalAmount,
-                        isFree: isFree,
-                        giftName: gift['name'] ?? "Gift",
-                      );
-
-                      // // নতুন: গিফট কাউন্টার লজিক (ব্যানারে পয়েন্ট যোগ করার জন্য)
-                      if (isGiftCounting) {
-                        await FirebaseFirestore.instance
-                            .collection('rooms')
-                            .doc(widget.roomId)
-                            .collection('gift_counts')
-                            .add({
-                          'senderName': senderName,
-                          'receiverName': target,
-                          'points': totalAmount,
-                          'timestamp': FieldValue.serverTimestamp(),
-                        });
-                      }
-                    }
-                  } catch (e) {
-                    debugPrint("Transaction Error: $e");
-                  }
-
-                  // // ৪. এনিমেশন টাইমার
-                  Timer(const Duration(seconds: 5), () {
-                    if (mounted) {
-                      setState(() { isGiftAnimating = false; });
-                    }
-                  });
-                },
-              ),
-            );
-          },
-        ),
-          // ৫. গেম বাটন
+          // ৫. গিফট বাটন
           IconButton(
             constraints: const BoxConstraints(),
             padding: const EdgeInsets.symmetric(horizontal: 4),
-            icon: const Icon(Icons.videogame_asset, color: Colors.orange, size: 22), 
+            icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
+            onPressed: () async {
+              final userDoc = await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(FirebaseAuth.instance.currentUser?.uid)
+                  .get();
+
+              int currentBalance = 0;
+              String senderName = "User";
+
+              if (userDoc.exists && userDoc.data() != null) {
+                final data = userDoc.data()!;
+                currentBalance = data['diamonds'] ?? 0;
+                senderName = data['userName'] ?? data['name'] ?? "User";
+              }
+
+              if (!mounted) return;
+
+              showModalBottomSheet(
+                context: context,
+                backgroundColor: Colors.transparent,
+                isScrollControlled: true,
+                builder: (context) => GiftBottomSheet(
+                  diamondBalance: currentBalance,
+                  currentSeats: List.from(seats),
+                  onGiftSend: (gift, count, target) async {
+                    setState(() {
+                      currentGiftImage = gift['icon'];
+                      isGiftAnimating = true;
+                      targetType = target;
+                      currentSenderName = senderName;
+                      currentReceiverName = target;
+                    });
+
+                    try {
+                      await FirebaseFirestore.instance
+                          .collection('rooms')
+                          .doc(widget.roomId)
+                          .collection('gift_animations')
+                          .add({
+                        'giftIcon': gift['icon'],
+                        'senderName': senderName,
+                        'receiverName': target,
+                        'timestamp': FieldValue.serverTimestamp(),
+                      });
+
+                      bool isFree = gift['isFree'] ?? false;
+                      int unitPrice = gift['price'] ?? 0;
+                      int totalAmount = unitPrice * count;
+
+                      var targetSeat = seats.firstWhere(
+                        (s) => s != null && (s['userName'] == target || s['name'] == target),
+                        orElse: () => <String, dynamic>{},
+                      );
+
+                      String receiverId = "";
+                      if (targetSeat.isNotEmpty) {
+                        receiverId = targetSeat['uID'] ?? targetSeat['uid'] ?? "";
+                      }
+
+                      if (receiverId.isNotEmpty) {
+                        await GiftTransactionHelper.processGiftTransaction(
+                          senderId: FirebaseAuth.instance.currentUser!.uid,
+                          receiverId: receiverId,
+                          totalPrice: totalAmount,
+                          isFree: isFree,
+                          giftName: gift['name'] ?? "Gift",
+                        );
+
+                        if (isGiftCounting) {
+                          await FirebaseFirestore.instance
+                              .collection('rooms')
+                              .doc(widget.roomId)
+                              .collection('gift_counts')
+                              .add({
+                            'senderName': senderName,
+                            'receiverName': target,
+                            'points': totalAmount,
+                            'timestamp': FieldValue.serverTimestamp(),
+                          });
+                        }
+                      }
+                    } catch (e) {
+                      debugPrint("Transaction Error: $e");
+                    }
+
+                    Timer(const Duration(seconds: 5), () {
+                      if (mounted) {
+                        setState(() { isGiftAnimating = false; });
+                      }
+                    });
+                  },
+                ),
+              );
+            },
+          ),
+
+          // ৬. গেম বাটন
+          IconButton(
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            icon: const Icon(Icons.videogame_asset, color: Colors.orange, size: 22),
             onPressed: () => showModalBottomSheet(
-              context: context, 
-              isScrollControlled: true, // ফুল স্ক্রিন করার জন্য প্রথম শর্ত
-              useSafeArea: false,       // নচ বা স্ট্যাটাস বারের ওপর দিয়ে যাওয়ার জন্য
-              backgroundColor: Colors.transparent, // ব্যাকগ্রাউন্ড ক্লিয়ার রাখার জন্য
+              context: context,
+              isScrollControlled: true,
+              useSafeArea: false,
+              backgroundColor: Colors.transparent,
               builder: (c) => SizedBox(
-                height: MediaQuery.of(context).size.height, // পুরো স্ক্রিনের হাইট
+                height: MediaQuery.of(context).size.height,
                 child: GamePanelView(roomId: widget.roomId),
               ),
             ),
           ),
-        ], // Row children closed
-      ), // Row closed
-    ); // Container closed
+        ],
+      ),
+    );
   }
   
   Widget _buildViewerArea() { 
