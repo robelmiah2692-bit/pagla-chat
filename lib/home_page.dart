@@ -38,7 +38,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
   XFile? _pickedImage;
   Uint8List? _webImageBytes; 
   final TextEditingController _captionController = TextEditingController();
-  final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
+  
+  // ডাইনামিক ইউজার ডাটা রাখার জন্য ভেরিয়েবল
+  Map<String, dynamic>? currentUserData;
+  String? myCustomDocId; // এখানে ৬ ডিজিটের আইডিটি বসবে
 
   // ব্যানারের লিঙ্ক
   final String goldenBannerUrl = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premium_banner.png";
@@ -50,13 +53,38 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _updateStatus(true); 
+    _fetchUserData(); // ডাটা আসার ৪টি রাস্তার মিশন শুরু
 
     _colorController = AnimationController(
       duration: const Duration(seconds: 3),
       vsync: this,
     )..repeat(reverse: true);
     _colorAnimation = CurvedAnimation(parent: _colorController, curve: Curves.linear);
+  }
+
+  // মিশন: ৪টি রাস্তার মাধ্যমে ইউজারকে চেনা এবং ডাটা আনা
+  Future<void> _fetchUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        // আপনার ৪টি রাস্তার মধ্যে email এবং authUID দিয়ে ডাটাবেস থেকে ৬ ডিজিটের আইডি খুঁজে বের করা
+        final querySnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .where('email', isEqualTo: user.email)
+            .get();
+
+        if (querySnapshot.docs.isNotEmpty) {
+          setState(() {
+            // ৬ ডিজিটের মেইন আইডি (আপনার স্ক্রিনশট অনুযায়ী ডকুমেন্ট আইডি)
+            myCustomDocId = querySnapshot.docs.first.id; 
+            currentUserData = querySnapshot.docs.first.data();
+          });
+          _updateStatus(true);
+        }
+      } catch (e) {
+        debugPrint("User Fetch Error: $e");
+      }
+    }
   }
 
   @override
@@ -77,8 +105,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
   }
 
   void _updateStatus(bool status) {
-    if (currentUserId.isNotEmpty) {
-      FirebaseFirestore.instance.collection('users').doc(currentUserId).update({
+    // ৬ ডিজিটের আইডি (myCustomDocId) ব্যবহার করে স্ট্যাটাস আপডেট
+    if (myCustomDocId != null) {
+      FirebaseFirestore.instance.collection('users').doc(myCustomDocId).update({
         'isOnline': status,
         'lastSeen': FieldValue.serverTimestamp(),
       }).catchError((e) => debugPrint("Status Update Error: $e"));
@@ -86,9 +115,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
   }
 
   void _clearNotificationCount() {
+    if (myCustomDocId == null) return;
     FirebaseFirestore.instance
         .collection('notifications')
-        .where('receiverId', isEqualTo: currentUserId)
+        .where('receiverId', isEqualTo: myCustomDocId) // receiverId হিসেবে ৬ ডিজিটের আইডি
         .where('isRead', isEqualTo: false)
         .get()
         .then((snapshot) {
@@ -290,7 +320,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
           // ২. মেইন কন্টেন্ট
           SafeArea(
             child: RefreshIndicator(
-              onRefresh: () async => setState(() {}),
+              onRefresh: () async => _fetchUserData(),
               color: Colors.cyanAccent,
               child: CustomScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -330,28 +360,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
                       ),
                     ),
                     actions: [
-                      StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance
-                            .collection('notifications')
-                            .where('receiverId', isEqualTo: currentUserId)
-                            .where('isRead', isEqualTo: false)
-                            .snapshots(),
-                        builder: (context, snapshot) {
-                          int count = snapshot.hasData ? snapshot.data!.docs.length : 0;
-                          return IconButton(
-                            onPressed: _clearNotificationCount, 
-                            icon: Badge(
-                              label: count > 0 ? Text('$count') : null,
-                              isLabelVisible: count > 0,
-                              child: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 28),
-                            ),
-                          );
-                        }
-                      ),
+                      if (myCustomDocId != null)
+                        StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('notifications')
+                              .where('receiverId', isEqualTo: myCustomDocId) // ৬ ডিজিটের আইডি দিয়ে চেক
+                              .where('isRead', isEqualTo: false)
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            int count = snapshot.hasData ? snapshot.data!.docs.length : 0;
+                            return IconButton(
+                              onPressed: _clearNotificationCount, 
+                              icon: Badge(
+                                label: count > 0 ? Text('$count') : null,
+                                isLabelVisible: count > 0,
+                                child: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 28),
+                              ),
+                            );
+                          }
+                        ),
                     ],
                   ),
 
-                  // ব্যানার সেকশন - সম্পুর্ন ব্যানার দেখা যাওয়ার জন্য BoxFit.contain ব্যবহার করা হয়েছে
+                  // ব্যানার সেকশন
                   SliverToBoxAdapter(
                     child: Container(
                       width: double.infinity,
@@ -372,7 +403,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
                         borderRadius: BorderRadius.circular(20),
                         child: Image.network(
                           goldenBannerUrl,
-                          fit: BoxFit.contain, // সম্পুর্ন ব্যানার দেখানোর জন্য
+                          fit: BoxFit.contain,
                           loadingBuilder: (context, child, loadingProgress) {
                             if (loadingProgress == null) return child;
                             return const Center(child: CircularProgressIndicator(color: Colors.white24));
