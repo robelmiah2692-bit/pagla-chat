@@ -60,32 +60,53 @@ void initState() {
 }
 
 // আইডি জেনারেশন ছাড়া শুধু ডাটা খুঁজে বের করার লজিক
-void loadUserData() async {
+ void loadUserData() async {
   User? currentUser = FirebaseAuth.instance.currentUser;
   if (currentUser == null) return;
 
   try {
-    // ১. authUID দিয়ে আপনার নির্দিষ্ট ৬-ডিজিটের ইউনিক ডকুমেন্টটি খুঁজে বের করা
-    var userQuery = await FirebaseFirestore.instance
-        .collection('users')
-        .where('authUID', isEqualTo: currentUser.uid)
-        .limit(1)
-        .get();
+    DocumentSnapshot? userDoc;
+    final collection = FirebaseFirestore.instance.collection('users');
 
-    if (userQuery.docs.isNotEmpty && mounted) {
-      var userDoc = userQuery.docs.first;
-      var data = userDoc.data();
+    // ১. প্রথমে 'uID' (আপনার সেই ৬-ডিজিটের ইউনিক আইডি) দিয়ে সরাসরি ডকুমেন্ট চেক
+    // আমরা ধরে নিচ্ছি uID টাই আপনার ডকুমেন্টের মেইন আইডি (Document ID)
+    var docById = await collection.doc(currentUser.uid).get(); 
+    if (docById.exists) {
+      userDoc = docById;
+    } 
+
+    // ২. যদি না পায়, তবে 'authUID' ফিল্ড দিয়ে সার্চ করবে
+    if (userDoc == null) {
+      var queryAuth = await collection.where('authUID', isEqualTo: currentUser.uid).limit(1).get();
+      if (queryAuth.docs.isNotEmpty) userDoc = queryAuth.docs.first;
+    }
+
+    // ৩. যদি তবুও না পায়, তবে 'email' ফিল্ড দিয়ে সার্চ করবে
+    if (userDoc == null && currentUser.email != null) {
+      var queryEmail = await collection.where('email', isEqualTo: currentUser.email).limit(1).get();
+      if (queryEmail.docs.isNotEmpty) userDoc = queryEmail.docs.first;
+    }
+
+    // ৪. সবশেষে 'uid' ফিল্ড দিয়ে সার্চ করবে (ব্যাকআপ হিসেবে)
+    if (userDoc == null) {
+      var queryUidField = await collection.where('uid', isEqualTo: currentUser.uid).limit(1).get();
+      if (queryUidField.docs.isNotEmpty) userDoc = queryUidField.docs.first;
+    }
+
+    // --- ডাটা পাওয়ার পর ভেরিয়েবলে সেট করা ---
+    if (userDoc != null && userDoc.exists && mounted) {
+      var data = userDoc.data() as Map<String, dynamic>;
 
       setState(() {
-        // ✅ আইডি ফিক্সড: আপনার সেই ৬-ডিজিটের ইউনিক আইডি
-        uIDValue = userDoc.id; 
+        // আইডি সেট করা
+        uIDValue = userDoc!.id; 
         
-        // বেসিক ইনফো (Null Safety সহ)
-        userName = data['name'] ?? "Pagla User";
+        // বেসিক ইনফো
+        userName = data['name'] ?? data['userName'] ?? "Pagla User";
         userImageURL = data['profilePic'] ?? "";
         gender = data['gender'] ?? "Unfixed";
         
-        // 🔥 টাইপ ফিক্স: ডাটাবেসে age যদি String থাকে তবে সেটাকে int এ কনভার্ট করা
+        // এজ (Age) হ্যান্ডেলিং
         var ageData = data['age'];
         if (ageData is String) {
           age = int.tryParse(ageData) ?? 22;
@@ -93,28 +114,26 @@ void loadUserData() async {
           age = ageData ?? 22;
         }
 
-        // কয়েন, এক্সপি এবং ভিআইপি (Safe casting to int)
+        // ডায়মন্ড, এক্সপি এবং ভিআইপি
         diamonds = (data['diamonds'] ?? 200).toInt();
         xp = (data['xp'] ?? 0).toInt();
         vipExpiry = (data['vipExpiry'] ?? 0).toInt();
         
-        // ফলোয়ার এবং অন্যান্য বুলিয়ান ডাটা
+        // ফলোয়ার এবং বাকি ডাটা
         followers = (data['followers'] ?? 0).toInt();
         following = (data['following'] ?? 0).toInt();
         isVIP = data['isVIP'] ?? false;
         hasPremiumCard = data['hasPremiumCard'] ?? false;
-        
-        // ফ্রেম এবং প্রিমিয়াম ডাটা
         hasFreeFrame = data['hasFreeFrame'] ?? false;
         activeFrameUrl = data['activeFrameUrl'] ?? "";
       });
       
-      debugPrint("Data Loaded for ID: $uIDValue");
+      debugPrint("✅ ডাটা পাওয়া গেছে: $uIDValue");
     } else {
-      debugPrint("No document found in Firestore for this authUID.");
+      debugPrint("❌ কোনো পদ্ধতিতেই ইউজার ডাটা পাওয়া যায়নি।");
     }
   } catch (e) {
-    debugPrint("Firebase Error: $e");
+    debugPrint("Firebase Search Error: $e");
   }
 }
 
