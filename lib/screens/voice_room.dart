@@ -764,57 +764,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
     );
   }).toList(); 
 }
-
-// আপনার বটম অ্যাকশন এরিয়া যেখানে ইমোজি, চ্যাট আইকন এবং সাউন্ড বাটন থাকবে
-Widget _buildBottomActionArea() {
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 20, left: 15, right: 15),
-    child: Row(
-      children: [
-        // চ্যাট আইকন (ক্লিক করলে কিবোর্ড আসবে)
-        GestureDetector(
-          onTap: () => FocusScope.of(context).requestFocus(FocusNode()),
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
-            child: const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 24),
-          ),
-        ),
-        const SizedBox(width: 10),
-        
-        // ইমোজি বাটন
-        GestureDetector(
-          onTap: () => _showEmojiPicker(), // আপনার ইমোজি পিকার মেথড
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
-            child: const Icon(Icons.emoji_emotions_outlined, color: Colors.yellowAccent, size: 24),
-          ),
-        ),
-        const SizedBox(width: 10),
-
-        // সাউন্ড অন/অফ বাটন (রুমের সাউন্ড কন্ট্রোল)
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              isRoomMuted = !isRoomMuted;
-              // Agora বা অডিও ইঞ্জিন মিউট লজিক এখানে হবে
-              _agoraManager.muteAllRemoteAudio(isRoomMuted); 
-            });
-          },
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
-            child: Icon(
-              isRoomMuted ? Icons.volume_off : Icons.volume_up,
-              color: isRoomMuted ? Colors.redAccent : Colors.greenAccent,
-              size: 24,
-            ),
-          ),
-        ),
-        
-        const Spacer(),
-          
+       
  // 🔥 এটিই আপনার ফাইনাল এবং একমাত্র dispose ফাংশন
   @override
   void dispose() {
