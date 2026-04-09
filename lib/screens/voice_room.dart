@@ -1204,13 +1204,13 @@ List<Widget> _buildFloatingEmojiAnimations() {
 }
   
   // --- ২. অ্যাকশন বার (মাইক, গেম এবং চ্যাট ইনপুট) ---
-   // --- ২. অ্যাকশন বার (মাইক, গেম, চ্যাট ইনপুট এবং রুম মোড) ---
+  // ১. অ্যাকশন বার (অন্য সকল ফিচার ঠিক রেখে আপডেট করা)
 Widget _buildBottomActionArea() {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
     child: Row(
       children: [
-        // ১. ইমোজি বাটন 😄 (অরিজিনাল ৩ ও ৪ সেকেন্ডের টাইমার লজিক সহ)
+        // ১. ইমোজি বাটন 😄 (আপনার অরিজিনাল ৩ ও ৪ সেকেন্ডের টাইমার লজিক সহ)
         _buildCircularIcon(Icons.emoji_emotions_outlined, Colors.orangeAccent, () {
           final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? "";
           int mySeatIndex = seats.indexWhere((s) => s != null && 
@@ -1249,58 +1249,17 @@ Widget _buildBottomActionArea() {
 
         const SizedBox(width: 8),
 
-        // ২. মেসেজ ইনপুট এরিয়া ✉️ (সঠিক profilePic লজিক সহ)
-        Expanded(
-          child: Container(
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(25),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: Row(
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(left: 12, right: 8),
-                  child: Icon(Icons.mail_outline, color: Colors.white70, size: 20),
-                ),
-                Expanded(
-                  child: ChatInputBar(
-                    controller: _messageController,
-                    onEmojiTap: null,
-                    onMessageSend: (msg) async {
-                      final String senderId = FirebaseAuth.instance.currentUser?.uid ?? "";
-                      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(senderId).get();
-
-                      String finalName = "User";
-                      String finalImage = "";
-
-                      if (userDoc.exists) {
-                        final uData = userDoc.data() as Map<String, dynamic>;
-                        finalName = uData['name'] ?? uData['userName'] ?? "User";
-                        finalImage = uData['profilePic'] ?? ""; 
-                      }
-
-                      await FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).collection('messages').add({
-                        'userName': finalName,
-                        'userImage': finalImage,
-                        'text': msg['text'],
-                        'senderId': senderId,
-                        'timestamp': FieldValue.serverTimestamp(),
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        // ২. আপনার চাওয়া নতুন ফিচার: সরাসরি মেসেজ ইনপুট এরিয়া বদলে শুধু ✉️ বাটন
+        _buildCircularIcon(Icons.mail_outline, Colors.white70, () {
+          // বাটনে ক্লিক করলে ইনপুট বক্সটি নিচ থেকে পপ-আপ হবে
+          _showChatInputBottomSheet(); 
+        }),
 
         const SizedBox(width: 8),
 
         // ৩. রুম মোড বাটন 🏩 (অরিজিনাল ফিচার)
         _buildCircularIcon(Icons.hotel, Colors.purpleAccent, () {
-          // এখানে আপনার রুম মোড পরিবর্তনের লজিক
+          // আপনার রুম মোড পরিবর্তনের লজিক এখানে
         }),
 
         const SizedBox(width: 4),
@@ -1403,7 +1362,54 @@ Widget _buildBottomActionArea() {
   );
 }
 
-// গিফট বাটনের জন্য স্পেশাল এনিমেটেড ফাংশন (লজিক বাদ না দিয়ে)
+// ২. আপনার মেসেজ ইনপুট এরিয়া ফিক্স (এটি একটি ফাংশন হিসেবে থাকবে)
+void _showChatInputBottomSheet() {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: const BoxDecoration(
+          color: Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        child: ChatInputBar(
+          controller: _messageController,
+          onEmojiTap: () {}, // Error fix: null এর বদলে empty function
+          onMessageSend: (msg) async {
+            final String senderId = FirebaseAuth.instance.currentUser?.uid ?? "";
+            DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(senderId).get();
+
+            String finalName = "User";
+            String finalImage = "";
+
+            if (userDoc.exists) {
+              final uData = userDoc.data() as Map<String, dynamic>;
+              finalName = uData['name'] ?? uData['userName'] ?? "User";
+              finalImage = uData['profilePic'] ?? ""; 
+            }
+
+            await FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).collection('messages').add({
+              'userName': finalName,
+              'userImage': finalImage,
+              'text': msg['text'],
+              'senderId': senderId,
+              'timestamp': FieldValue.serverTimestamp(),
+            });
+            
+            _messageController.clear();
+            Navigator.pop(context); // মেসেজ পাঠিয়ে ইনপুট বক্সটি বন্ধ করে দিবে
+          },
+        ),
+      ),
+    ),
+  );
+}
+
+// ৩. গিফট বাটনের এনিমেশন লজিক (অপরিবর্তিত)
 Widget _buildAnimatedGiftButton() {
   return TweenAnimationBuilder(
     tween: Tween<double>(begin: 1.0, end: 1.2),
@@ -1417,7 +1423,6 @@ Widget _buildAnimatedGiftButton() {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
       onPressed: () async {
-        // --- আপনার অরিজিনাল গিফট লজিক ---
         final userDoc = await FirebaseFirestore.instance.collection('users').doc(FirebaseAuth.instance.currentUser?.uid).get();
         int currentBalance = 0;
         String senderName = "User";
@@ -1479,7 +1484,7 @@ Widget _buildAnimatedGiftButton() {
   );
 }
 
-// হেল্পার বাটন
+// হেল্পার বাটন ফাংশন
 Widget _buildCircularIcon(IconData icon, Color color, VoidCallback onTap) {
   return GestureDetector(
     onTap: onTap,
