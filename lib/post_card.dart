@@ -59,15 +59,17 @@ class PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    final String uid = user?.uid ?? "";
+    
+    // আপনার Firestore স্ট্রাকচার অনুযায়ী userId চেক করা
+    // এখানে story-র userId এবং current user-এর authUID বা email কুয়েরি থেকে আসা ID চেক করা হচ্ছে
     final List likes = data['likes'] ?? [];
-    final bool isLiked = likes.contains(uid);
-    bool isOwner = (data['userId'] == uid);
+    
+    // মালিকানা চেক করার জন্য: আপনার স্ক্রিনশটে `uID` (String) আছে। 
+    // যদি stories কালেকশনে userId হিসেবে ৬ ডিজিটের আইডি থাকে, তবে তা মেলানো হবে।
+    bool isOwner = (data['authUID'] == user?.uid || data['userId'] == user?.uid);
 
-    // থিম কালারস
     const Color premiumGold = Color(0xFFFFD700);
     const Color cyanOwner = Color(0xFF00FBFF);
-    // গ্লাস বডির জন্য নতুন কালার (কালো বা গোলাপি নয়)
     final Color glassColor = const Color(0xFF1E2A47).withOpacity(0.3); 
 
     return Container(
@@ -75,13 +77,13 @@ class PostCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(25),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15), // গ্লাস ইফেক্টের ব্লার
+          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
           child: Container(
             decoration: BoxDecoration(
-              color: glassColor, // কালো বা গোলাপি বাদে প্রিমিয়াম ব্লু গ্লাস
+              color: glassColor,
               borderRadius: BorderRadius.circular(25),
               border: Border.all(
-                color: premiumGold.withOpacity(0.4), // গোল্ডেন চিকন বর্ডার
+                color: premiumGold.withOpacity(0.4),
                 width: 0.8,
               ),
               boxShadow: [
@@ -219,8 +221,8 @@ class PostCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildVIPBtn(isLiked ? Icons.favorite : Icons.favorite_border, isLiked ? Colors.redAccent : Colors.white70, "Like", () {
-                      if (postId != null) _toggleLike(postId!, uid, likes);
+                    _buildVIPBtn(likes.contains(user?.uid) ? Icons.favorite : Icons.favorite_border, likes.contains(user?.uid) ? Colors.redAccent : Colors.white70, "Like", () {
+                      if (postId != null && user != null) _toggleLike(postId!, user.uid, likes);
                     }),
                     _buildVIPBtn(Icons.chat_bubble_outline_rounded, Colors.white70, "Comment", () {
                       if (postId != null) _showCommentSheet(context, postId!);
@@ -297,7 +299,9 @@ class PostCard extends StatelessWidget {
                       return ListTile(
                         leading: CircleAvatar(
                           radius: 16, 
-                          backgroundImage: NetworkImage(cData['userImage'] ?? "https://www.w3schools.com/howto/img_avatar.png")
+                          backgroundImage: NetworkImage(cData['userImage'] != null && cData['userImage'] != "" 
+                            ? cData['userImage'] 
+                            : "https://www.w3schools.com/howto/img_avatar.png")
                         ),
                         title: Text(cData['userName'] ?? "User", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                         subtitle: Text(cData['text'] ?? "", style: const TextStyle(color: Colors.white70, fontSize: 13)),
@@ -337,11 +341,26 @@ class PostCard extends StatelessWidget {
     if (text.trim().isEmpty) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+
+    // আপনার স্ক্রিনশট অনুযায়ী ৬ ডিজিটের ডকুমেন্ট খুঁজে নাম ও ছবি বের করা
+    final userQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .where('email', isEqualTo: user.email)
+        .get();
+
+    String name = "User";
+    String image = "";
+
+    if (userQuery.docs.isNotEmpty) {
+      var userData = userQuery.docs.first.data();
+      name = userData['name'] ?? "User";
+      image = userData['profilePic'] ?? "";
+    }
+
     await FirebaseFirestore.instance.collection('stories').doc(pId).collection('comments').add({
       'text': text.trim(),
-      'userName': userDoc.exists ? (userDoc.data() as Map<String, dynamic>)['name'] : "User",
-      'userImage': userDoc.exists ? (userDoc.data() as Map<String, dynamic>)['profilePic'] : "",
+      'userName': name,
+      'userImage': image,
       'timestamp': FieldValue.serverTimestamp(),
     });
     controller.clear();
