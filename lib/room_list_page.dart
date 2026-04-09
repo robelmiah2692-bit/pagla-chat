@@ -24,7 +24,6 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
   final List<String> defaultRoomImages = [
     "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500",
     "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500",
-    "https://images. Rossi-1493225255756-d9584f8606e9?w=500",
     "https://images.unsplash.com/photo-1514525253361-bee87187046c?w=500",
   ];
 
@@ -46,64 +45,77 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
   }
 
   // --- নতুন রুম তৈরির লজিক ---
-   Future<void> _createNewRoomLogic(String roomName) async {
-  final User? user = FirebaseAuth.instance.currentUser;
-  if (user == null) return;
+  Future<void> _createNewRoomLogic(String roomName) async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-  try {
-    // ১. ইউজারের ডাটাবেস থেকে তার ৬-ডিজিটের uID এবং নাম সংগ্রহ
-    // যেহেতু আপনার ডাটাবেস এখন ৬-ডিজিটের আইডিতে (বা authUID দিয়ে সার্চ করতে হয়)
-    var userQuery = await FirebaseFirestore.instance
-        .collection('users')
-        .where('authUID', isEqualTo: user.uid)
-        .limit(1)
-        .get();
+    try {
+      // ১. ইউজারের uID এবং ডাটা সংগ্রহ
+      var userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('authUID', isEqualTo: user.uid)
+          .limit(1)
+          .get();
 
-    if (userQuery.docs.isEmpty) return; // ইউজার প্রোফাইল না থাকলে রুম খোলা যাবে না
+      if (userQuery.docs.isEmpty) return;
 
-    var userData = userQuery.docs.first.data();
-    String mySixDigitID = userData['uID'] ?? ""; // আপনার সেই ৬ ডিজিটের আইডি
-    String currentUserName = userData['name'] ?? "Pagla User";
+      var userData = userQuery.docs.first.data();
+      String mySixDigitID = userData['uID'] ?? "";
+      String currentUserName = userData['name'] ?? "Pagla User";
 
-    // ২. একদম ইউনিক ৫ বা ৬ ডিজিটের রুম আইডি জেনারেশন (লুপ ব্যবহার করে)
-    String newUniqueRoomId = "";
-    bool isUnique = false;
-    
-    while (!isUnique) {
-      newUniqueRoomId = (10000 + Random().nextInt(90000)).toString(); // ৫ ডিজিট
-      var roomCheck = await FirebaseFirestore.instance.collection('rooms').doc(newUniqueRoomId).get();
-      if (!roomCheck.exists) isUnique = true;
-    }
+      // ২. ইউজার কি আগে রুম বানিয়েছে? (লিমিট চেক)
+      var existingRoom = await FirebaseFirestore.instance
+          .collection('rooms')
+          .where('ownerId', isEqualTo: mySixDigitID)
+          .limit(1)
+          .get();
 
-    // ৩. রুম ডাটা সেভ
-    await FirebaseFirestore.instance.collection('rooms').doc(newUniqueRoomId).set({
-      'roomId': newUniqueRoomId,
-      'roomName': roomName,
-      'ownerId': mySixDigitID,      // হিজিবিজি আইডি না, আপনার ইউনিক uID
-      'ownerName': currentUserName,
-      'userCount': 1,               // মালিক নিজে জয়েন করবে তাই ১
-      'isLive': true,
-      'role': 'owner',              // ওনার হিসেবে সেভ
-      'admins': [], 
-      'followers': [],
-      'createdAt': FieldValue.serverTimestamp(),
-      'roomImage': defaultRoomImages[Random().nextInt(defaultRoomImages.length)],
-    });
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("রুম তৈরি হয়েছে!"), backgroundColor: Colors.green),
-      );
-      // এখানে রুম পেজে নেভিগেট করার কোড লিখুন
-    }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent),
-      );
+      if (existingRoom.docs.isNotEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("আপনার অলরেডি একটি রুম আছে!"), backgroundColor: Colors.orange),
+          );
+        }
+        return;
+      }
+
+      // ৩. ইউনিক ৫ ডিজিটের রুম আইডি জেনারেশন
+      String newUniqueRoomId = "";
+      bool isUnique = false;
+      while (!isUnique) {
+        newUniqueRoomId = (10000 + Random().nextInt(90000)).toString();
+        var roomCheck = await FirebaseFirestore.instance.collection('rooms').doc(newUniqueRoomId).get();
+        if (!roomCheck.exists) isUnique = true;
+      }
+
+      // ৪. রুম ডাটা সেভ (এখানে 'admin' ফিল্ড টোটালি বাদ দেওয়া হয়েছে)
+      await FirebaseFirestore.instance.collection('rooms').doc(newUniqueRoomId).set({
+        'roomId': newUniqueRoomId,
+        'roomName': roomName,
+        'ownerId': mySixDigitID,      // ইউজারের ইউনিক uID
+        'ownerName': currentUserName,
+        'userCount': 1,
+        'isLive': true,
+        'role': 'owner',
+        'admins': [],                 // ওনার কাউকে দিলে এখানে আইডি আসবে
+        'followers': [],
+        'createdAt': FieldValue.serverTimestamp(),
+        'roomImage': defaultRoomImages[Random().nextInt(defaultRoomImages.length)],
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("রুম তৈরি হয়েছে!"), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent),
+        );
+      }
     }
   }
-}
 
   void _showCreateRoomDialog() {
     TextEditingController roomNameController = TextEditingController();
@@ -112,7 +124,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF151525),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Create New Room", style: TextStyle(color: Colors.white, fontSize: 18)),
+        title: const Text("Create Your Fixed Room", style: TextStyle(color: Colors.white, fontSize: 18)),
         content: TextField(
           controller: roomNameController,
           style: const TextStyle(color: Colors.white),
@@ -214,51 +226,56 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
   }
 
   Widget _buildMyRoomList() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return const Center(child: Text("Please Login", style: TextStyle(color: Colors.white)));
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const Center(child: Text("Please Login", style: TextStyle(color: Colors.white)));
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
-        
-        var myRooms = snapshot.data!.docs.where((doc) {
-          var data = doc.data() as Map<String, dynamic>;
-          return (data['ownerId'] == uid || data['uID'] == uid);
-        }).toList();
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance.collection('users').where('authUID', isEqualTo: user.uid).limit(1).get(),
+      builder: (context, userSnapshot) {
+        if (!userSnapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
+        if (userSnapshot.data!.docs.isEmpty) return const Center(child: Text("User profile not found"));
 
-        if (myRooms.isNotEmpty) {
-          return _buildGrid(myRooms, isMyRoomList: true);
-        }
+        String myUID = userSnapshot.data!.docs.first['uID'];
 
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.meeting_room_outlined, color: Colors.white12, size: 80),
-              const SizedBox(height: 15),
-              const Text("You don't have any room", style: TextStyle(color: Colors.white38)),
-              const SizedBox(height: 25),
-              ElevatedButton.icon(
-                onPressed: _showCreateRoomDialog,
-                icon: const Icon(Icons.add),
-                label: const Text("Create Your Room"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.pinkAccent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                ),
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance.collection('rooms').where('ownerId', isEqualTo: myUID).snapshots(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
+            var myRooms = snapshot.data!.docs;
+
+            if (myRooms.isNotEmpty) {
+              return _buildGrid(myRooms, isMyRoomList: true);
+            }
+
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.meeting_room_outlined, color: Colors.white12, size: 80),
+                  const SizedBox(height: 15),
+                  const Text("You don't have any room", style: TextStyle(color: Colors.white38)),
+                  const SizedBox(height: 25),
+                  ElevatedButton.icon(
+                    onPressed: _showCreateRoomDialog,
+                    icon: const Icon(Icons.add),
+                    label: const Text("Create Your Room"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.pinkAccent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
   Widget _buildGrid(List<DocumentSnapshot> docs, {bool isMyRoomList = false}) {
-    final String? currentUID = FirebaseAuth.instance.currentUser?.uid;
     return GridView.builder(
       padding: const EdgeInsets.all(12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -272,15 +289,13 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
         int count = data['userCount'] ?? 0;
         String? image = data['roomImage'];
         
-        bool isCardOwner = (data['ownerId'] == currentUID || data['uID'] == currentUID);
-
-        return _buildPremiumGlassCard(roomId, name, count, image, isCardOwner);
+        return _buildPremiumGlassCard(roomId, name, count, image, isMyRoomList);
       },
     );
   }
 
   Widget _buildPremiumGlassCard(String id, String name, int count, String? image, bool isMyRoom) {
-    String finalImage = (image != null && image.isNotEmpty) ? image : defaultRoomImages[id.hashCode % defaultRoomImages.length];
+    String finalImage = (image != null && image.isNotEmpty) ? image : defaultRoomImages[0];
 
     return GestureDetector(
       onTap: () {
@@ -316,7 +331,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                       const SizedBox(height: 2),
                       Text(isMyRoom ? "MY ROOM" : "LIVE", 
-                        style: TextStyle(color: isMyRoom ? Colors.amberAccent : Colors.pinkAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                        style: TextStyle(color: isMyRoom ? Colors.amberAccent : Colors.pinkAccent, fontSize: 10, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   Positioned(
@@ -332,7 +347,6 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
                       ),
                     ),
                   ),
-                  // ওনার আইডি জেনারেট হলে স্টার আইকন দেখাবে
                   if (isMyRoom)
                     const Positioned(
                       top: 0, left: 0,
@@ -356,24 +370,16 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
         borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)]),
       ),
-      child: Stack(
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Pagla Chat World", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                Text("Connect with voice & fun", style: TextStyle(color: Colors.white70, fontSize: 12)),
-              ],
-            ),
-          ),
-          Positioned(
-            right: -10, bottom: -10,
-            child: Icon(Icons.rocket_launch, size: 80, color: Colors.white.withOpacity(0.1)),
-          )
-        ],
+      child: const Padding(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Pagla Chat World", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text("Connect with voice & fun", style: TextStyle(color: Colors.white70, fontSize: 12)),
+          ],
+        ),
       ),
     );
   }
@@ -437,7 +443,6 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: Colors.pinkAccent, width: 2),
-              boxShadow: [BoxShadow(color: Colors.pinkAccent.withOpacity(0.4), blurRadius: 12)],
               image: DecorationImage(image: NetworkImage(activeRoomImage ?? defaultRoomImages[0]), fit: BoxFit.cover),
             ),
             child: const Center(
