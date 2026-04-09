@@ -1,12 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart'; // kDebugMode এর জন্য
+import 'package:flutter/foundation.dart';
 
 class RoomService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // ১️⃣ রুমের সব ডাটা সেভ রাখা (প্যারামিটার ফিক্স করা হয়েছে)
+  // ১️⃣ রুমের সব ডাটা সেভ রাখা (Firebase Schema অনুযায়ী আপডেট করা হয়েছে)
   Future<void> updateRoomFullData({
     required String roomId,
     required String roomName,
@@ -15,13 +15,14 @@ class RoomService {
     required String wallpaper,
     required int followers,
     required int totalDiamonds,
-    String? uID,        // 👈 নতুন যোগ করা হলো (বিল্ড এরর ফিক্সের জন্য)
-    String? ownerName,  // 👈 নতুন যোগ করা হলো (বিল্ড এরর ফিক্সের জন্য)
+    String? uID,        // মালিকের uID (যেমন: "153530")
+    String? ownerName,  // মালিকের নাম
   }) async {
     final User? user = _auth.currentUser;
     if (user == null || roomId.isEmpty) return;
 
     try {
+      // স্ক্রিনশট অনুযায়ী মালিকের ফিল্ডগুলো সেট করা হচ্ছে
       await _firestore.collection('rooms').doc(roomId).set({
         'roomId': roomId,
         'roomName': roomName,
@@ -30,19 +31,22 @@ class RoomService {
         'wallpaper': wallpaper,
         'followerCount': followers,
         'totalDiamonds': totalDiamonds,
-        'adminId': user.uid,
+        'ownerId': uID ?? "",        // মালিকের uID এখানে সেভ হবে
+        'uID': uID ?? "",            // Firebase screenshot অনুযায়ী
+        'ownerName': ownerName ?? 'Owner',
         'isLive': true,
-        'uID': uID ?? user.uid,             // 👈 ডাটাবেসে ওনার আইডি সেভ হবে
-        'ownerName': ownerName ?? 'Owner',   // 👈 ডাটাবেসে ওনার নাম সেভ হবে
+        'userCount': 1,              // ডিফল্ট ভ্যালু হিসেবে
         'lastUpdated': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      debugPrint("✅ Room Synced with Owner Info");
+      
+      debugPrint("✅ Room Synced with Owner Info (uID: $uID)");
     } catch (e) {
       debugPrint("❌ Room Update Error: $e");
     }
   }
 
-  // ২️⃣ সিটে বসার পর ডাটা আপডেট করা (এরর ফ্রি লজিক)
+  // ২️⃣ সিটে বসার পর ডাটা আপডেট করা
   Future<void> updateSeatData({
     required String roomId,
     required int seatIndex,
@@ -59,8 +63,8 @@ class RoomService {
           'userName': uName,
           'userImage': uImage,
           'isOccupied': isOccupied,
-          'uid': user.uid,
-          'at': DateTime.now().toIso8601String(),
+          'uid': user.uid, // Firebase Auth ID
+          'at': FieldValue.serverTimestamp(),
         }
       });
     } catch (e) {
@@ -68,46 +72,44 @@ class RoomService {
     }
   }
 
-  // ৩️⃣ ইউজার ডায়মন্ড ব্যালেন্স স্ট্রিম
-  Stream<DocumentSnapshot>? getUserDiamonds() {
-    final String uid = _auth.currentUser?.uid ?? "";
-    if (uid.isEmpty) return null;
-    return _firestore.collection('users').doc(uid).snapshots();
+  // ৩️⃣ ইউজার ডায়মন্ড ব্যালেন্স স্ট্রিম (ইউজার কালেকশন থেকে)
+  Stream<DocumentSnapshot>? getUserDiamonds(String userUID) {
+    if (userUID.isEmpty) return null;
+    // আপনার স্ক্রিনশট অনুযায়ী 'users' কালেকশনে uID ডকুমেন্ট আইডি হিসেবে ব্যবহার হচ্ছে
+    return _firestore.collection('users').doc(userUID).snapshots();
   }
 
   // ৪️⃣ গিফট লজিক
   Future<bool> sendGift({
     required String roomId,
     required int giftValue,
-    required String receiverId,
+    required String senderUID,   // ইউজারের নিজস্ব uID (যেমন: "153530")
+    required String receiverUID, // রিসিভারের uID
   }) async {
-    final User? sender = _auth.currentUser;
-    if (sender == null) return false;
-
     try {
-      final userDoc = await _firestore.collection('users').doc(sender.uid).get();
-      final userData = userDoc.data();
-      if (!userDoc.exists || userData == null) return false;
+      final userDoc = await _firestore.collection('users').doc(senderUID).get();
+      if (!userDoc.exists) return false;
       
-      final int currentBalance = userData['diamonds'] ?? 0;
+      final int currentBalance = userDoc.data()?['diamonds'] ?? 0;
 
       if (currentBalance >= giftValue) {
-        // ১. সেন্ডার এর ডায়মন্ড কমানো
-        await _firestore.collection('users').doc(sender.uid).update({
-          'diamonds': FieldValue.increment(-giftValue),
-        });
+        WriteBatch batch = _firestore.batch();
+
+        // ১. সেন্ডারের ডায়মন্ড কমানো
+        DocumentReference senderRef = _firestore.collection('users').doc(senderUID);
+        batch.update(senderRef, {'diamonds': FieldValue.increment(-giftValue)});
 
         // ২. রুমের টোটাল ডায়মন্ড বাড়ানো
-        await _firestore.collection('rooms').doc(roomId).update({
-          'totalDiamonds': FieldValue.increment(giftValue),
-        });
+        DocumentReference roomRef = _firestore.collection('rooms').doc(roomId);
+        batch.update(roomRef, {'totalDiamonds': FieldValue.increment(giftValue)});
 
-        // ৩. রিসিভার এর ডায়মন্ড বাড়ানো
-        if (receiverId.isNotEmpty) {
-          await _firestore.collection('users').doc(receiverId).update({
-            'receivedDiamonds': FieldValue.increment(giftValue),
-          });
+        // ৩. রিসিভারের ডায়মন্ড বাড়ানো (যদি থাকে)
+        if (receiverUID.isNotEmpty) {
+          DocumentReference receiverRef = _firestore.collection('users').doc(receiverUID);
+          batch.update(receiverRef, {'receivedDiamonds': FieldValue.increment(giftValue)});
         }
+
+        await batch.commit();
         return true;
       }
       return false;
@@ -118,11 +120,10 @@ class RoomService {
   }
 
   // ৫️⃣ রুম থেকে বের হলে ডাটা আপডেট
-  Future<void> leaveRoom(String roomId) async {
-    final String uid = _auth.currentUser?.uid ?? "";
-    if (uid.isEmpty) return;
+  Future<void> leaveRoom(String userUID) async {
+    if (userUID.isEmpty) return;
     try {
-      await _firestore.collection('users').doc(uid).update({
+      await _firestore.collection('users').doc(userUID).update({
         'currentRoomId': "",
       });
     } catch (e) {
