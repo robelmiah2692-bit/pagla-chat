@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:ui';
 import 'chat_screen.dart';
-import 'screens/voice_room.dart';
+import 'screens/voice_room.dart'; // পাথ প্রয়োজন অনুযায়ী ঠিক করে নিন
 
 class InboxPage extends StatefulWidget {
   const InboxPage({super.key});
@@ -100,7 +100,7 @@ class _InboxPageState extends State<InboxPage> {
               onChanged: (val) => setState(() => _searchQuery = val.trim()),
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
-                hintText: "Search by User ID...",
+                hintText: "Search by Name or ID...",
                 hintStyle: TextStyle(color: Colors.white24),
                 prefixIcon: Icon(Icons.search, color: Colors.cyanAccent),
                 border: InputBorder.none,
@@ -124,7 +124,7 @@ class _InboxPageState extends State<InboxPage> {
         var users = snapshot.data!.docs.where((doc) {
           var data = doc.data() as Map<String, dynamic>;
           String name = (data['name'] ?? "").toString().toLowerCase();
-          String customId = (data['uID'] ?? data['userId'] ?? data['uid'] ?? "").toString().toLowerCase();
+          String customId = (data['uID'] ?? "").toString().toLowerCase();
           return name.contains(_searchQuery.toLowerCase()) || customId.contains(_searchQuery.toLowerCase());
         }).toList();
 
@@ -138,7 +138,6 @@ class _InboxPageState extends State<InboxPage> {
               itemCount: sortedList.length,
               padding: const EdgeInsets.all(10),
               itemBuilder: (context, index) {
-                // এখানে explicit টাইপ কাস্টিং যোগ করা হয়েছে
                 var userData = sortedList[index]['data'] as Map<String, dynamic>;
                 String userId = sortedList[index]['id'];
                 String chatId = sortedList[index]['chatId'];
@@ -156,9 +155,19 @@ class _InboxPageState extends State<InboxPage> {
   Stream<List<Map<String, dynamic>>> _getSortedUserStream(List<QueryDocumentSnapshot> users) {
     return Stream.fromFuture(Future.wait(users.map((user) async {
       String userId = user.id;
-      List<String> ids = [currentUserId, userId];
-      ids.sort();
-      String chatId = ids.join("_");
+      var userData = user.data() as Map<String, dynamic>;
+      String uID = (userData['uID'] ?? "").toString();
+      
+      String chatId;
+      
+      // অফিসিয়াল মেসেজের জন্য আপনার ডেটাবেস স্ট্রাকচার অনুযায়ী আইডি তৈরি
+      if (uID == "paglachat_official") {
+        chatId = "paglachat_official_$currentUserId"; 
+      } else {
+        List<String> ids = [currentUserId, userId];
+        ids.sort();
+        chatId = ids.join("_");
+      }
 
       var lastMsg = await FirebaseFirestore.instance
           .collection('chats')
@@ -174,13 +183,12 @@ class _InboxPageState extends State<InboxPage> {
 
       return {
         'id': userId,
-        'data': user.data() as Map<String, dynamic>,
+        'data': userData,
         'chatId': chatId,
         'lastTs': lastTs
       };
     }))).map((list) {
       list.sort((a, b) {
-        // এরর ফিক্স: dynamic কে Map এ কাস্ট করা হয়েছে
         final Map<String, dynamic> aData = a['data'] as Map<String, dynamic>;
         final Map<String, dynamic> bData = b['data'] as Map<String, dynamic>;
 
@@ -191,7 +199,7 @@ class _InboxPageState extends State<InboxPage> {
         if (aUID == "paglachat_official") return -1;
         if (bUID == "paglachat_official") return 1;
 
-        // বাকিরা লাস্ট মেসেজ টাইম অনুযায়ী সর্ট হবে
+        // বাকিরা শেষ মেসেজ অনুযায়ী সর্ট হবে
         return (b['lastTs'] as Timestamp).compareTo(a['lastTs'] as Timestamp);
       });
       return list;
@@ -199,9 +207,9 @@ class _InboxPageState extends State<InboxPage> {
   }
 
   Widget _buildGlassChatTile(Map<String, dynamic> userData, String userId, String chatId) {
-    String displayId = (userData['uID'] ?? userData['userId'] ?? userData['uid'] ?? "N/A").toString();
+    String displayId = (userData['uID'] ?? "N/A").toString();
     String name = userData['name'] ?? "User";
-    String image = userData['profilePic'] ?? userData['imageURL'] ?? "";
+    String image = userData['profilePic'] ?? "";
     bool isLive = userData['currentRoomId'] != null && userData['currentRoomId'].toString().isNotEmpty;
 
     return Padding(
