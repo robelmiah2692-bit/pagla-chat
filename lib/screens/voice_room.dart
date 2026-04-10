@@ -1830,7 +1830,7 @@ Widget _buildCircularIcon(IconData icon, Color color, VoidCallback onTap) {
       debugPrint("Viewer Remove Error: $e");
     }
   }
-
+}
 
 class GiftCalculatorRanking extends StatelessWidget {
   final Map<String, dynamic> roomData;
