@@ -4,10 +4,21 @@ class GiftService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // সোলমেট গিফট এক্সেপ্ট করার লজিক
-  Future<void> acceptSoulmateGift(String myId, String myName, String myImg, String friendId, String friendName, String friendImg) async {
+  Future<void> acceptSoulmateGift({
+    required String myId,
+    required String myName,
+    required String myImg,
+    required String friendId,
+    required String friendName,
+    required String friendImg,
+  }) async {
     try {
-      // ১. আমার সোলমেট হিসেবে বন্ধুকে সেভ করা (আমার প্রোফাইলে শো করার জন্য)
-      await _db.collection('soulmates').add({
+      // একটি ব্যাচ তৈরি করছি যাতে দুটি অপারেশনই একসাথে হয়
+      WriteBatch batch = _db.batch();
+
+      // ১. আমার সোলমেট ডকুমেন্ট (Doc ID হিসেবে myId ব্যবহার করছি যাতে আমার একটাই সোলমেট থাকে)
+      DocumentReference mySoulmateRef = _db.collection('soulmates').doc(myId);
+      batch.set(mySoulmateRef, {
         'ownerId': myId,
         'partnerId': friendId,
         'partnerName': friendName,
@@ -15,17 +26,23 @@ class GiftService {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // ২. বন্ধুর সোলমেট হিসেবে আমাকে সেভ করা (বন্ধুর প্রোফাইলে শো করার জন্য)
-      await _db.collection('soulmates').add({
+      // ২. বন্ধুর সোলমেট ডকুমেন্ট
+      DocumentReference friendSoulmateRef = _db.collection('soulmates').doc(friendId);
+      batch.set(friendSoulmateRef, {
         'ownerId': friendId,
         'partnerId': myId,
         'partnerName': myName,
         'partnerImage': myImg,
         'createdAt': FieldValue.serverTimestamp(),
       });
-      
+
+      // ব্যাচটি সাবমিট করা
+      await batch.commit();
+      print("Soulmate successfully established!");
+
     } catch (e) {
       print("Error saving soulmate: $e");
+      rethrow; // এররটি হ্যান্ডেল করার জন্য উপরের লেভেলে পাঠিয়ে দেওয়া
     }
   }
 }
