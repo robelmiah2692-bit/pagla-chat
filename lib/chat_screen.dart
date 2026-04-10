@@ -8,7 +8,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:gallery_saver/gallery_saver.dart';
 import 'dart:io';
-import 'screens/voice_room.dart';
+import 'voice_room.dart'; // পাথ সঠিক রাখুন
 
 class ChatScreen extends StatefulWidget {
   final String receiverId;
@@ -43,6 +43,7 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
+  // দুই ইউজারের আইডি দিয়ে একটি ইউনিক রুম আইডি তৈরি করা
   String getChatRoomId() {
     List<String> ids = [currentUserId, widget.receiverId];
     ids.sort(); 
@@ -131,12 +132,15 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  // মেসেজ পাঠানোর মূল লজিক (সংশোধিত)
   void _sendDataMessage(String content, String type) async {
     if (content.isEmpty) return;
     try {
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUserId).get();
       var userData = userDoc.data();
-      final String myPic = userData?['imageURL'] ?? userData?['profilePic'] ?? ''; 
+      
+      // আপনার ডাটাবেস অনুযায়ী ফিল্ড নেম সংশোধিত
+      final String myPic = userData?['profilePic'] ?? userData?['imageURL'] ?? ''; 
       final String myName = userData?['name'] ?? 'User';
 
       await FirebaseFirestore.instance
@@ -159,8 +163,9 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _sendMessage() {
-    if (_messageController.text.trim().isEmpty) return;
-    _sendDataMessage(_messageController.text.trim(), "text");
+    String text = _messageController.text.trim();
+    if (text.isEmpty) return;
+    _sendDataMessage(text, "text");
     _messageController.clear();
   }
 
@@ -193,7 +198,6 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  // --- রিয়েল-টাইম লাইভ বার (Fixed Navigation) ---
   Widget _buildLiveRoomBar() {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('users').doc(widget.receiverId).snapshots(),
@@ -220,7 +224,6 @@ class _ChatScreenState extends State<ChatScreen> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.pinkAccent, shape: const StadiumBorder()),
                 onPressed: () {
-                  // এখানে VoiceRoomView এর বদলে VoiceRoom ব্যবহার করা হয়েছে যা সঠিক
                   Navigator.push(context, MaterialPageRoute(builder: (context) => VoiceRoom(roomId: roomId)));
                 }, 
                 child: const Text("Join", style: TextStyle(fontSize: 11)),
@@ -243,7 +246,7 @@ class _ChatScreenState extends State<ChatScreen> {
           if (!snapshot.hasData) return const SizedBox(height: 150);
           final userData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
           final String name = userData['name'] ?? 'User';
-          final String pic = userData['imageURL'] ?? userData['profilePic'] ?? '';
+          final String pic = userData['profilePic'] ?? userData['imageURL'] ?? '';
           final bool isVIP = userData['isVIP'] ?? false;
           final bool isFollowing = (userData['followerList'] ?? []).contains(currentUserId);
 
@@ -312,7 +315,12 @@ class _ChatScreenState extends State<ChatScreen> {
           _buildLiveRoomBar(),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('chats').doc(getChatRoomId()).collection('messages').orderBy('timestamp', descending: true).snapshots(),
+              stream: FirebaseFirestore.instance
+                  .collection('chats')
+                  .doc(getChatRoomId())
+                  .collection('messages')
+                  .orderBy('timestamp', descending: true)
+                  .snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                 final docs = snapshot.data!.docs;
@@ -406,18 +414,15 @@ class _ChatScreenState extends State<ChatScreen> {
         return GestureDetector(
           onTap: () => _showProfile(context, uid),
           child: Stack(
-            clipBehavior: Clip.none,
+            // clipBehavior: Clip.none, // কিছু ভার্সনে এরর দিলে এটি কমেন্ট করতে পারেন
             children: [
               CircleAvatar(radius: 20, backgroundImage: url.isNotEmpty ? NetworkImage(url) : null, child: url.isEmpty ? Text(name[0]) : null),
               if (isLive)
                 Positioned(
-                  bottom: -4, left: 0, right: 0,
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                      decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF0D0D1A), width: 1)),
-                      child: const Text("LIVE", style: TextStyle(color: Colors.white, fontSize: 6, fontWeight: FontWeight.bold)),
-                    ),
+                  bottom: 0, right: 0,
+                  child: Container(
+                    width: 12, height: 12,
+                    decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)),
                   ),
                 ),
             ],
@@ -447,7 +452,11 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
-          CircleAvatar(backgroundColor: Colors.pinkAccent, child: IconButton(icon: const Icon(Icons.send, color: Colors.white), onPressed: _sendMessage)),
+          const SizedBox(width: 5),
+          CircleAvatar(
+            backgroundColor: Colors.pinkAccent, 
+            child: IconButton(icon: const Icon(Icons.send, color: Colors.white), onPressed: _sendMessage)
+          ),
         ],
       ),
     );
