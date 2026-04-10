@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:pagla_chat/profile_page.dart'; // পাথ সঠিক আছে কি না দেখে নিন
+import 'package:pagla_chat/profile_page.dart'; 
 
 class LiveViewersList extends StatelessWidget {
   final String roomId;
@@ -9,13 +9,21 @@ class LiveViewersList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
+      // আপনার স্ক্রিনশট অনুযায়ী কালেকশন পাথ: rooms -> {roomId} -> viewers
       stream: FirebaseFirestore.instance
           .collection('rooms')
           .doc(roomId)
           .collection('viewers')
           .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox();
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox();
+        }
+        
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const SizedBox();
+        }
+
         var viewers = snapshot.data!.docs;
 
         return SizedBox(
@@ -23,16 +31,19 @@ class LiveViewersList extends StatelessWidget {
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: viewers.length,
+            // নতুন থেকে পুরাতন ভিউয়ার দেখানোর জন্য reverse: true ব্যবহার করতে পারেন
             itemBuilder: (context, index) {
               var viewerDoc = viewers[index];
               var viewerData = viewerDoc.data() as Map<String, dynamic>;
-              String viewerId = viewerDoc.id; 
+              
+              // আপনার ফায়ারবেস স্ক্রিনশট অনুযায়ী ফিল্ডের নাম 'uID' এবং 'profilePic'
+              String viewerId = viewerData['uID'] ?? viewerDoc.id; 
+              String profileImage = viewerData['profilePic'] ?? '';
 
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4.0),
                 child: GestureDetector(
                   onTap: () {
-                    // 🔥 isReadOnly প্যারামিটারটি ফেলে দেওয়া হয়েছে যাতে এরর না আসে
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -44,9 +55,12 @@ class LiveViewersList extends StatelessWidget {
                   },
                   child: CircleAvatar(
                     radius: 16,
-                    backgroundImage: NetworkImage(viewerData['userImage'] ?? ''),
+                    // ডাইনামিক ইমেজ লোডিং
+                    backgroundImage: profileImage.isNotEmpty 
+                        ? NetworkImage(profileImage) 
+                        : null,
                     backgroundColor: Colors.grey[800],
-                    child: (viewerData['userImage'] == null || viewerData['userImage'] == '')
+                    child: profileImage.isEmpty
                         ? const Icon(Icons.person, size: 20, color: Colors.white)
                         : null,
                   ),
