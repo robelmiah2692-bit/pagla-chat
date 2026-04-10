@@ -409,15 +409,16 @@ class _VoiceRoomState extends State<VoiceRoom> {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Colors.grey[900],
         title: const Text("Leave Seat", style: TextStyle(color: Colors.white)),
-        content: const Text("আপনি কি সিট ছেড়ে দিতে চান?", style: TextStyle(color: Colors.grey)),
+        content: const Text("আপনি কি সিট ছেড়ে দিতে চান?", style: TextStyle(color: Colors.grey)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text("না")),
           TextButton(
             onPressed: () async {
               try {
                 await _agoraManager.becomeListener();
-                await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index').onDisconnect().cancel();
-                await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index').remove();
+                final dbRef = FirebaseDatabase.instanceFor(app: Firebase.app(), databaseURL: rtdbUrl);
+                await dbRef.ref('rooms/${widget.roomId}/seats/$index').onDisconnect().cancel();
+                await dbRef.ref('rooms/${widget.roomId}/seats/$index').remove();
                 
                 if (mounted) {
                   setState(() {
@@ -449,7 +450,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-// --- পিকে ব্যাটেল লজিক (এটি না থাকলে এরর আসবে) ---
+  // --- পিকে ব্যাটেল লজিক (এটি না থাকলে এরর আসবে) ---
   void _endPKBattle() {
     if (!mounted) return;
     
