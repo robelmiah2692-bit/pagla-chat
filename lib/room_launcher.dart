@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'screens/voice_room.dart';
 
 class RoomLauncher extends StatelessWidget {
@@ -9,7 +10,7 @@ class RoomLauncher extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("My Voice App", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Voice App", style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Colors.blueAccent,
       ),
@@ -31,40 +32,33 @@ class RoomLauncher extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 20),
                 backgroundColor: Colors.blueAccent,
-                elevation: 10,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
               ),
-              onPressed: () {
+              onPressed: () async {
                 final user = FirebaseAuth.instance.currentUser;
                 
                 if (user != null) {
-                  final String myUid = user.uid;
-
-                  // ফিক্সড লজিক: roomId এবং ownerId দুইটাই পাঠানো হচ্ছে
+                  // এখানে রুম আইডি হিসেবে ইউজারের নিজস্ব UID ব্যবহার করা হচ্ছে 
+                  // কারণ সাধারণত নিজের রুমে ঢোকার বাটন এটি।
+                  // তবে মালিকানা নির্ধারণ হবে VoiceRoom এর ভেতর ডাটাবেস চেক করে।
+                  
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => VoiceRoom(
-                        roomId: myUid,      // রুম আইডি ইউজারের ইউআইডি
-                        ownerId: myUid,     // মালিকও আপনি নিজে (এইটা আগে মিস ছিল)
+                        roomId: user.uid, 
                       ),
                     ),
                   );
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("দয়া করে আগে লগইন করুন!")),
+                    const SnackBar(content: Text("Login fast!")),
                   );
                 }
               },
               child: const Text(
-                "আমার রুমে প্রবেশ করুন",
-                style: TextStyle(
-                  color: Colors.white, 
-                  fontSize: 18, 
-                  fontWeight: FontWeight.bold
-                ),
+                "well come this room",
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
           ],
