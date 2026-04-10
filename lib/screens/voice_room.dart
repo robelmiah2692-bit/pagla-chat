@@ -578,61 +578,6 @@ Widget build(BuildContext context) {
             ],
           ),
 
-          // 🔥 সমাধান: টাইপ বক্স (কিবোর্ড ওপেন হলে মেসেজ আইকনের লজিক থেকে আসবে)
-          if (keyboardHeight > 0)
-            Positioned(
-              bottom: keyboardHeight,
-              left: 0, right: 0,
-              child: Container(
-                color: const Color(0xFF1A1A2E), 
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(25)),
-                        child: TextField(
-                          controller: _messageController,
-                          autofocus: true, 
-                          style: const TextStyle(color: Colors.white),
-                          decoration: const InputDecoration(
-                            hintText: "type message...",
-                            hintStyle: TextStyle(color: Colors.white54),
-                            border: InputBorder.none,
-                          ),
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.send, color: Colors.pinkAccent),
-                      onPressed: () {
-                        String msg = _messageController.text.trim();
-                        final currentUser = FirebaseAuth.instance.currentUser;
-                        
-                        if (msg.isNotEmpty && currentUser != null) {
-                          _firestore
-                              .collection('rooms')
-                              .doc(widget.roomId)
-                              .collection('messages')
-                              .add({
-                            'userName': currentUser.displayName ?? "User",
-                            'userImage': currentUser.photoURL ?? "",
-                            'uID': currentUser.uid,
-                            'text': msg,
-                            'timestamp': FieldValue.serverTimestamp(),
-                          });
-
-                          _messageController.clear(); 
-                          FocusScope.of(context).unfocus(); 
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
           // মিউজিক প্লেয়ার
           if (isFloatingPlayerVisible)
             Positioned(
