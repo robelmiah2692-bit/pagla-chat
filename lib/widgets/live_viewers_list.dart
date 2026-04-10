@@ -9,65 +9,73 @@ class LiveViewersList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      // আপনার স্ক্রিনশট অনুযায়ী কালেকশন পাথ: rooms -> {roomId} -> viewers
       stream: FirebaseFirestore.instance
           .collection('rooms')
           .doc(roomId)
           .collection('viewers')
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox();
-        }
+        if (snapshot.connectionState == ConnectionState.waiting) return const SizedBox();
         
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const SizedBox();
-        }
+        // ভিউয়ার লিস্ট বের করা
+        var viewers = snapshot.data?.docs ?? [];
+        int count = viewers.length; // এটিই আপনার বর্তমান ভিউয়ার সংখ্যা
 
-        var viewers = snapshot.data!.docs;
+        return Row(
+          children: [
+            // ১. এখানে ভিউয়ার কাউন্ট দেখাবে (যেমন: "12 Viewers")
+            if (count > 0)
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    "$count", // এখানে শুধু সংখ্যাটি দেখাবে
+                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
 
-        return SizedBox(
-          height: 40,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: viewers.length,
-            // নতুন থেকে পুরাতন ভিউয়ার দেখানোর জন্য reverse: true ব্যবহার করতে পারেন
-            itemBuilder: (context, index) {
-              var viewerDoc = viewers[index];
-              var viewerData = viewerDoc.data() as Map<String, dynamic>;
-              
-              // আপনার ফায়ারবেস স্ক্রিনশট অনুযায়ী ফিল্ডের নাম 'uID' এবং 'profilePic'
-              String viewerId = viewerData['uID'] ?? viewerDoc.id; 
-              String profileImage = viewerData['profilePic'] ?? '';
+            // ২. ভিউয়ারদের প্রোফাইল ছবিগুলো
+            Expanded(
+              child: SizedBox(
+                height: 40,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: viewers.length,
+                  itemBuilder: (context, index) {
+                    var viewerData = viewers[index].data() as Map<String, dynamic>;
+                    String viewerId = viewerData['uID'] ?? viewers[index].id; 
+                    String profileImage = viewerData['profilePic'] ?? viewerData['userImage'] ?? '';
 
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ProfilePage(
-                          userId: viewerId, 
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProfilePage(userId: viewerId),
+                            ),
+                          );
+                        },
+                        child: CircleAvatar(
+                          radius: 16,
+                          backgroundImage: profileImage.isNotEmpty ? NetworkImage(profileImage) : null,
+                          backgroundColor: Colors.grey[800],
+                          child: profileImage.isEmpty ? const Icon(Icons.person, size: 20, color: Colors.white) : null,
                         ),
                       ),
                     );
                   },
-                  child: CircleAvatar(
-                    radius: 16,
-                    // ডাইনামিক ইমেজ লোডিং
-                    backgroundImage: profileImage.isNotEmpty 
-                        ? NetworkImage(profileImage) 
-                        : null,
-                    backgroundColor: Colors.grey[800],
-                    child: profileImage.isEmpty
-                        ? const Icon(Icons.person, size: 20, color: Colors.white)
-                        : null,
-                  ),
                 ),
-              );
-            },
-          ),
+              ),
+            ),
+          ],
         );
       },
     );
