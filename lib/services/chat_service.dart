@@ -1,56 +1,61 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:pagla_chat/services/notification_service.dart'; // আপনার প্রোজেক্টের সঠিক পাথটি নিশ্চিত করুন
+// আপনার প্রোজেক্টের সঠিক পাথটি নিশ্চিত করুন
+import 'package:pagla_chat/services/notification_service.dart'; 
 
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // ১. মেসেজ পাঠানোর লজিক (নোটিফিকেশন সহ)
-  Future<void> sendMessage(String receiverId, String message) async {
-    final String currentUserId = _auth.currentUser!.uid;
+  // ১. মেসেজ পাঠানোর লজিক (ফায়ারবেস স্ট্রাকচার ও নোটিফিকেশন সহ)
+  Future<void> sendMessage(String receiverID, String message, {String? senderCustomUID}) async {
+    final User? currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+    
+    final String currentAuthId = currentUser.uid; // লম্বা uid
     final Timestamp timestamp = Timestamp.now();
 
     // মেসেজ ডাটা
     Map<String, dynamic> newMessage = {
-      'senderId': currentUserId,
-      'receiverId': receiverId,
+      'senderAuthId': currentAuthId,
+      'senderUID': senderCustomUID ?? "", // আপনার ৬-ডিজিটের আইডি (যেমন: 153530)
+      'receiverId': receiverID,
       'message': message,
       'timestamp': timestamp,
-      'isRead': false, // মেসেজটি পড়া হয়েছে কি না ট্র্যাকিংয়ের জন্য
+      'isRead': false,
     };
 
     // ইউনিক চ্যাট রুম আইডি তৈরি (A_B ফরম্যাট)
-    List<String> ids = [currentUserId, receiverId];
+    List<String> ids = [currentAuthId, receiverID];
     ids.sort(); 
     String chatRoomId = ids.join("_");
 
     try {
-      // ১. ডাটাবেসে মেসেজ সেভ করা
+      // ১. ডাটাবেসে মেসেজ সেভ করা (আপনার স্ক্রিনশটের 'chats' বা 'chat_rooms' অনুযায়ী)
       await _firestore
-          .collection('chat_rooms')
+          .collection('chats') // স্ক্রিনশটে 'chats' কালেকশন দেখা যাচ্ছে
           .doc(chatRoomId)
           .collection('messages')
           .add(newMessage);
 
       // ২. নোটিফিকেশন পাঠানোর লজিক
-      // যাকে মেসেজ পাঠাচ্ছেন তার ডাটা থেকে fcmToken এবং নিজের নাম নেওয়া
-      DocumentSnapshot receiverDoc = await _firestore.collection('users').doc(receiverId).get();
-      DocumentSnapshot senderDoc = await _firestore.collection('users').doc(currentUserId).get();
+      // আপনার স্ক্রিনশট অনুযায়ী 'users' কালেকশন থেকে ডাটা আনা হচ্ছে
+      DocumentSnapshot receiverDoc = await _firestore.collection('users').doc(receiverID).get();
+      DocumentSnapshot senderDoc = await _firestore.collection('users').doc(currentAuthId).get();
 
       if (receiverDoc.exists) {
-        String? token = receiverDoc.get('fcmToken');
-        String senderName = senderDoc.get('name') ?? "নতুন মেসেজ";
+        // ফায়ারবেস থেকে fcmToken এবং ইউজারের নাম (name) সংগ্রহ
+        String? token = receiverDoc.get('fcmToken'); 
+        String senderName = senderDoc.get('name') ?? "নতুন মেসেজ"; // স্ক্রিনশটে ফিল্ডের নাম 'name'
 
         if (token != null && token.isNotEmpty) {
-          // ✅ আপনার আপডেট করা NotificationService কল করা হচ্ছে
           await NotificationService.sendNotificationToUser(
             receiverToken: token, 
             title: senderName, 
             body: message,
             extraData: {
               'click_action': 'FLUTTER_NOTIFICATION_CLICK',
-              'senderId': currentUserId, // নোটিফিকেশনে ক্লিক করলে যেন আপনার চ্যাট ওপেন হয়
+              'senderId': currentAuthId,
               'route': '/chat',
             },
           );
@@ -61,17 +66,22 @@ class ChatService {
     }
   }
 
-  // ২. মেসেজ রিসিভ করার রিয়েল-টাইম স্ট্রিম
+  // ২. মেসেজ রিসিভ করার রিয়েল-টাইম স্ট্রিম
   Stream<QuerySnapshot> getMessages(String userId, String otherUserId) {
     List<String> ids = [userId, otherUserId];
     ids.sort();
     String chatRoomId = ids.join("_");
 
     return _firestore
-        .collection('chat_rooms')
+        .collection('chats')
         .doc(chatRoomId)
         .collection('messages')
         .orderBy('timestamp', descending: false)
         .snapshots();
+  }
+
+  // ৩. ইউজারের তথ্য সরাসরি 'users' কালেকশন থেকে পাওয়ার রাস্তা (স্ক্রিনশট অনুযায়ী)
+  DocumentReference getUserReference(String uID) {
+    return _firestore.collection('users').doc(uID);
   }
 }
