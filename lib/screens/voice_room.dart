@@ -132,7 +132,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String currentSenderName = "";
   String currentReceiverName = "";
   
-// এশিয়া সার্ভার ডাটাবেস URL
+  // এশিয়া সার্ভার ডাটাবেস URL (এটি অবশ্যই ক্লাসের ভেতরে ডিফাইন করে রাখুন)
   final String rtdbUrl = "https://paglachat-default-rtdb.asia-southeast1.firebasedatabase.app";
 
   @override
@@ -154,11 +154,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
       "agoraUid": "", 
     });
 
-    // ২. রিয়েলটাইম ডাটাবেস লিসেনার (সংশোধিত এশিয়া সার্ভার কানেকশন)
-    // Firebase.app() এর বদলে সরাসরি instanceFor ব্যবহার করা নিরাপদ
-    FirebaseDatabase.instanceFor(databaseURL: rtdbUrl)
-        .ref('rooms/${widget.roomId}/seats')
-        .onValue.listen((event) {
+    // ২. রিয়েলটাইম ডাটাবেস লিসেনার (এশিয়া সার্ভারের জন্য সংশোধিত)
+    FirebaseDatabase.instanceFor(
+      app: Firebase.app(), 
+      databaseURL: rtdbUrl
+    ).ref('rooms/${widget.roomId}/seats')
+     .onValue.listen((event) {
       if (!mounted) return;
       final dynamic data = event.snapshot.value;
       
@@ -250,13 +251,11 @@ class _VoiceRoomState extends State<VoiceRoom> {
           isRoomLocked = data?['isLocked'] ?? false;
           roomWallpaperPath = data?['roomWallpaper'] ?? data?['wallpaper'] ?? '';
 
-          // ৬-ডিজিটের ওনার আইডি হ্যান্ডলিং
           roomOwnerId = data?['uID'] ?? data?['ownerId'] ?? widget.ownerId; 
           ownerName = data?['ownerName'] ?? 'Unknown Owner';
           
           adminList = List<String>.from(data?['admins'] ?? []);
 
-          // ইউজার আইডি (৬-ডিজিটের) সংগ্রহ
           String myGlobalID = widget.ownerId; 
 
           if (myGlobalID == roomOwnerId) {
@@ -329,7 +328,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     }
   }
 
-  // --- সিট হ্যান্ডলিং লজিক (এশিয়া সার্ভারের জন্য সংশোধিত) ---
+  // --- সিট হ্যান্ডলিং লজিক (এশিয়া সার্ভার ফিক্সড) ---
   void sitOnSeat(int index) async {
     if (currentSeatIndex == index) { 
       _showLeaveConfirmation(index); 
@@ -364,14 +363,19 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
       final int myAgoraUid = _agoraManager.localUid ?? 0;
 
-      final dbRef = FirebaseDatabase.instanceFor(databaseURL: rtdbUrl);
+      // ২. এশিয়া সার্ভার ইন্সট্যান্স তৈরি
+      final db = FirebaseDatabase.instanceFor(
+        app: Firebase.app(),
+        databaseURL: rtdbUrl
+      );
 
       if (currentSeatIndex != -1) {
-        await dbRef.ref('rooms/${widget.roomId}/seats/${currentSeatIndex.toString()}').remove();
+        await db.ref('rooms/${widget.roomId}/seats/$currentSeatIndex').remove();
       }
 
-      final seatRef = dbRef.ref('rooms/${widget.roomId}/seats/${index.toString()}');
+      final seatRef = db.ref('rooms/${widget.roomId}/seats/$index');
       
+      // ৩. রিয়েলটাইম ডাটাবেসে সিট ডাটা সেভ
       await seatRef.set({
         'userName': myName,
         'userImage': myPic,
