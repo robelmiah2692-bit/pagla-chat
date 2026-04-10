@@ -334,63 +334,83 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   // --- সিট হ্যান্ডলিং লজিক ---
   void sitOnSeat(int index) async {
-    // ১. ক্লিক করলে যদি নিজের সিট হয় তবে লিভ কনফার্মেশন দেখাবে
-    if (currentSeatIndex == index) { 
-      _showLeaveConfirmation(index); 
-      return; 
-    }
-    
-    if (seats[index]["isOccupied"] || isRoomLocked) return;
-
-    try {
-      if (kIsWeb) await WakelockPlus.enable();
-      await _agoraManager.becomeBroadcaster();
-      await _agoraManager.engine?.muteLocalAudioStream(false);
-
-      final User? currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) return;
-
-      final String authUid = currentUser.uid;
-      // আপনার আজীবন uId প্রোটোকল (currentUserData থেকে নেওয়া)
-      final String myFixedUid = currentUserData['uId'] ?? currentUserData['uid'] ?? authUid; 
-      final String myName = currentUser.displayName ?? "User";
-      final String myPic = currentUser.photoURL ?? "";
-      final int myAgoraUid = _agoraManager.localUid ?? 0;
-
-      // ২. পুরাতন সিট রিমুভ (মুভ করার ক্ষেত্রে)
-      if (currentSeatIndex != -1) {
-        await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$currentSeatIndex').remove();
-      }
-
-      final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
-      await seatRef.onDisconnect().remove();
-
-      // ৩. ডাটাবেসে সেভ (রিপেল ও উইনার পপআপের জন্য সব কি দেওয়া হলো)
-      await seatRef.set({
-        'userName': myName,
-        'userImage': myPic,
-        'name': myName,         // উইনার পপআপের জন্য এক্সট্রা ব্যাকআপ
-        'profilePic': myPic,    // উইনার পপআপের জন্য এক্সট্রা ব্যাকআপ
-        'isOccupied': true,
-        'status': 'occupied',
-        'isMicOn': true,
-        'userId': authUid,
-        'uId': myFixedUid, 
-        'isTalking': false,
-        'agoraUid': myAgoraUid, 
-        'giftCount': 0,
-      });
-      
-      if (mounted) {
-        setState(() {
-          currentSeatIndex = index;
-          isMicOn = true;
-          // ওনার মেসেজ চেক
-          if (myFixedUid == roomOwnerId) _sendOwnerJoinMessage();
-        });
-      }
-    } catch (e) { debugPrint("Sit Error: $e"); }
+  // ১. নিজের সিট হলে লিভ কনফার্মেশন
+  if (currentSeatIndex == index) { 
+    _showLeaveConfirmation(index); 
+    return; 
   }
+  
+  // সিট দখল থাকলে বা রুম লক থাকলে রিটার্ন
+  if (seats[index]["isOccupied"] || isRoomLocked) return;
+
+  try {
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    // --- ডাটা সংগ্রহের রাস্তা ঠিক করা ---
+    // প্রথমে Firestore থেকে ইউজারের আসল প্রোফাইল ডাটা সংগ্রহ করা হচ্ছে
+    // এখানে currentUser.uid ব্যবহার করা হয়েছে কারণ আপনার Firestore-এর ডকুমেন্ট আইডি এটিই।
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUser.uid)
+        .get();
+
+    String myName = "User";
+    String myPic = "";
+    String myFixedUid = ""; // আপনার ৬-ডিজিটের ID
+
+    if (userDoc.exists) {
+      final userData = userDoc.data();
+      // আপনার ডাটাবেসের ফিল্ডের নাম অনুযায়ী ম্যাপিং
+      myName = userData?['userName'] ?? userData?['name'] ?? currentUser.displayName ?? "User";
+      myPic = userData?['userImage'] ?? userData?['profilePic'] ?? currentUser.photoURL ?? "";
+      myFixedUid = userData?['uID'] ?? userData?['uid'] ?? ""; 
+    }
+
+    if (kIsWeb) await WakelockPlus.enable();
+    await _agoraManager.becomeBroadcaster();
+    await _agoraManager.engine?.muteLocalAudioStream(false);
+
+    final int myAgoraUid = _agoraManager.localUid ?? 0;
+
+    // ২. পুরাতন সিট রিমুভ (মুভ করার ক্ষেত্রে)
+    if (currentSeatIndex != -1) {
+      await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$currentSeatIndex').remove();
+    }
+
+    final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
+    
+    // ৩. রিয়েলটাইম ডাটাবেসে সিট ডাটা সেভ
+    await seatRef.set({
+      'userName': myName,
+      'userImage': myPic,
+      'name': myName,         // উইনার পপআপের ব্যাকআপ
+      'profilePic': myPic,    // উইনার পপআপের ব্যাকআপ
+      'isOccupied': true,
+      'status': 'occupied',
+      'isMicOn': true,
+      'userId': currentUser.uid, // লম্বা আইডি
+      'uId': myFixedUid,         // আপনার ৬-ডিজিটের ইউনিক আইডি
+      'isTalking': false,
+      'agoraUid': myAgoraUid, 
+      'giftCount': 0,
+    });
+
+    // কানেকশন চলে গেলে সিট অটো খালি হবে
+    await seatRef.onDisconnect().remove();
+    
+    if (mounted) {
+      setState(() {
+        currentSeatIndex = index;
+        isMicOn = true;
+        // মালিক শনাক্তকরণ (৬-ডিজিটের আইডি দিয়ে)
+        if (myFixedUid == roomOwnerId) _sendOwnerJoinMessage();
+      });
+    }
+  } catch (e) { 
+    debugPrint("Sit Error: $e"); 
+  }
+}
 
   void _showLeaveConfirmation(int index) {
     showDialog(
@@ -1759,40 +1779,59 @@ Widget _buildCircularIcon(IconData icon, Color color, VoidCallback onTap) {
 
   void _addUserToViewers() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
+    if (user == null) return;
+
+    try {
+      // ১. প্রোফাইল ডাটা সংগ্রহ (users -> uID রাস্তা অনুযায়ী)
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       
       if (userDoc.exists) {
         final userData = userDoc.data();
-        
-        await FirebaseFirestore.instance
-            .collection('rooms')
-            .doc(widget.roomId)
-            .collection('viewers')
-            .doc(user.uid)
-            .set({
-          // --- আপনার ডাটাবেস প্রোটোকল অনুযায়ী আপডেট করা হয়েছে ---
-          'uID': user.uid, 
-          'userName': userData?['userName'] ?? userData?['name'] ?? 'User',
-          'userImage': userData?['userImage'] ?? userData?['profilePic'] ?? '',
+        final String myName = userData?['userName'] ?? userData?['name'] ?? 'Guest';
+        final String myImage = userData?['userImage'] ?? userData?['profilePic'] ?? '';
+        final String mySixDigitId = userData?['uID'] ?? userData?['uid'] ?? user.uid;
+
+        final roomRef = FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
+
+        // ২. ভিউয়ার লিস্টে ইউজারকে এড করা
+        await roomRef.collection('viewers').doc(user.uid).set({
+          'uID': mySixDigitId,
+          'userName': myName,
+          'userImage': myImage,
+          'profilePic': myImage, // ব্যাকআপের জন্য
           'joinedAt': FieldValue.serverTimestamp(),
         });
+
+        // ৩. ভিউয়ার কাউন্ট ১ বাড়ানো (Atomically increment)
+        await roomRef.update({
+          'viewerCount': FieldValue.increment(1)
+        });
       }
+    } catch (e) {
+      debugPrint("Viewer Add Error: $e");
     }
   }
 
   void _removeUserFromViewers() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      await FirebaseFirestore.instance
-          .collection('rooms')
-          .doc(widget.roomId)
-          .collection('viewers')
-          .doc(user.uid)
-          .delete();
+    if (user == null) return;
+
+    try {
+      final roomRef = FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
+
+      // ১. ভিউয়ার লিস্ট থেকে ইউজারকে মুছে ফেলা
+      await roomRef.collection('viewers').doc(user.uid).delete();
+
+      // ২. ভিউয়ার কাউন্ট ১ কমানো (Atomically decrement)
+      await roomRef.update({
+        'viewerCount': FieldValue.increment(-1)
+      });
+    } catch (e) {
+      debugPrint("Viewer Remove Error: $e");
     }
   }
-}
+
+
 class GiftCalculatorRanking extends StatelessWidget {
   final Map<String, dynamic> roomData;
   const GiftCalculatorRanking({super.key, required this.roomData});
