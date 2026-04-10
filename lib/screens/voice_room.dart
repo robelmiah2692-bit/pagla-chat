@@ -132,7 +132,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String currentSenderName = "";
   String currentReceiverName = "";
   
-  // আপনার ডাটাবেস ইউআরএলটি এখানে ভেরিয়েবল হিসেবে রাখলাম যাতে নিচে বারবার ব্যবহার করা যায়
+// এশিয়া সার্ভার ডাটাবেস URL
   final String rtdbUrl = "https://paglachat-default-rtdb.asia-southeast1.firebasedatabase.app";
 
   @override
@@ -155,7 +155,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
     });
 
     // ২. রিয়েলটাইম ডাটাবেস লিসেনার (সংশোধিত এশিয়া সার্ভার কানেকশন)
-    FirebaseDatabase.instanceFor(app: Firebase.app(), databaseURL: rtdbUrl)
+    // Firebase.app() এর বদলে সরাসরি instanceFor ব্যবহার করা নিরাপদ
+    FirebaseDatabase.instanceFor(databaseURL: rtdbUrl)
         .ref('rooms/${widget.roomId}/seats')
         .onValue.listen((event) {
       if (!mounted) return;
@@ -341,7 +342,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
       final User? currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) return;
 
-      // Firestore থেকে ডাটা সংগ্রহ
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(currentUser.uid)
@@ -364,8 +364,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
       final int myAgoraUid = _agoraManager.localUid ?? 0;
 
-      // ২. এশিয়া সার্ভার কানেকশন নিশ্চিত করে ডাটা ডিলিট ও সেভ
-      final dbRef = FirebaseDatabase.instanceFor(app: Firebase.app(), databaseURL: rtdbUrl);
+      final dbRef = FirebaseDatabase.instanceFor(databaseURL: rtdbUrl);
 
       if (currentSeatIndex != -1) {
         await dbRef.ref('rooms/${widget.roomId}/seats/${currentSeatIndex.toString()}').remove();
@@ -373,7 +372,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
       final seatRef = dbRef.ref('rooms/${widget.roomId}/seats/${index.toString()}');
       
-      // ৩. রিয়েলটাইম ডাটাবেসে সিট ডাটা সেভ
       await seatRef.set({
         'userName': myName,
         'userImage': myPic,
@@ -416,7 +414,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
             onPressed: () async {
               try {
                 await _agoraManager.becomeListener();
-                final dbRef = FirebaseDatabase.instanceFor(app: Firebase.app(), databaseURL: rtdbUrl);
+                final dbRef = FirebaseDatabase.instanceFor(databaseURL: rtdbUrl);
                 await dbRef.ref('rooms/${widget.roomId}/seats/$index').onDisconnect().cancel();
                 await dbRef.ref('rooms/${widget.roomId}/seats/$index').remove();
                 
@@ -450,11 +448,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  // --- পিকে ব্যাটেল লজিক (এটি না থাকলে এরর আসবে) ---
   void _endPKBattle() {
     if (!mounted) return;
     
-    // উইনার নির্ধারণ (পয়েন্টের ভিত্তিতে)
     String winner = blueTeamPoints > redTeamPoints ? "BLUE" : "RED";
     
     showDialog(
@@ -468,8 +464,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
     
     setState(() => isPKActive = false);
   }
-  
-  @override
+
+@override
 Widget build(BuildContext context) {
   // কিবোর্ডের উচ্চতা মাপার জন্য
   double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
