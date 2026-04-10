@@ -1362,7 +1362,7 @@ Widget _buildBottomActionArea() {
   );
 }
 
-// ২. আপনার মেসেজ ইনপুট এরিয়া ফিক্স (এটি একটি ফাংশন হিসেবে থাকবে)
+// ২. আপনার মেসেজ ইনপুট এরিয়া ফিক্স (ব্র্যাকেট এবং লজিক সব ঠিক করা হয়েছে)
 void _showChatInputBottomSheet() {
   showModalBottomSheet(
     context: context,
@@ -1371,44 +1371,73 @@ void _showChatInputBottomSheet() {
     builder: (context) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: const BoxDecoration(
           color: Color(0xFF1A1A1A),
           borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
         ),
-        child: ChatInputBar(
-          controller: _messageController,
-          onEmojiTap: () {}, // Error fix: null এর বদলে empty function
-          onMessageSend: (msg) async {
-            final String senderId = FirebaseAuth.instance.currentUser?.uid ?? "";
-            DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(senderId).get();
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _messageController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  hintText: "Say something...",
+                  hintStyle: TextStyle(color: Colors.white54),
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.send, color: Colors.pinkAccent),
+              onPressed: () async {
+                String msgText = _messageController.text.trim();
+                if (msgText.isEmpty) return;
 
-            String finalName = "User";
-            String finalImage = "";
+                final String senderId = FirebaseAuth.instance.currentUser?.uid ?? "";
+                
+                // ফায়ারবেস স্ক্রিনশট অনুযায়ী 'users' থেকে ডাটা সংগ্রহ
+                DocumentSnapshot userDoc = await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(senderId)
+                    .get();
 
-            if (userDoc.exists) {
-              final uData = userDoc.data() as Map<String, dynamic>;
-              finalName = uData['name'] ?? uData['userName'] ?? "User";
-              finalImage = uData['profilePic'] ?? ""; 
-            }
+                String finalName = "User";
+                String finalImage = "";
 
-            await FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).collection('messages').add({
-              'userName': finalName,
-              'userImage': finalImage,
-              'text': msg['text'],
-              'senderId': senderId,
-              'timestamp': FieldValue.serverTimestamp(),
-            });
-            
-            _messageController.clear();
-            Navigator.pop(context); // মেসেজ পাঠিয়ে ইনপুট বক্সটি বন্ধ করে দিবে
-          },
+                if (userDoc.exists) {
+                  final uData = userDoc.data() as Map<String, dynamic>;
+                  // আপনার ডাটাবেস ফিল্ড অনুযায়ী 'name' এবং 'profilePic'
+                  finalName = uData['name'] ?? uData['userName'] ?? "User";
+                  finalImage = uData['profilePic'] ?? ""; 
+                }
+
+                // মেসেজ পাঠানোর লজিক
+                await FirebaseFirestore.instance
+                    .collection('rooms')
+                    .doc(widget.roomId)
+                    .collection('messages')
+                    .add({
+                  'userName': finalName,
+                  'userImage': finalImage,
+                  'text': msgText,
+                  'senderId': senderId,
+                  'timestamp': FieldValue.serverTimestamp(),
+                });
+                
+                _messageController.clear();
+                if (mounted) Navigator.pop(context); // মেসেজ পাঠিয়ে পপআপ বন্ধ
+              },
+            ),
+          ],
         ),
       ),
     ),
   );
 }
-
+  
 // ৩. গিফট বাটনের এনিমেশন লজিক (অপরিবর্তিত)
 Widget _buildAnimatedGiftButton() {
   return TweenAnimationBuilder(
