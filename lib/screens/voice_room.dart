@@ -333,25 +333,31 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   // --- সিট হ্যান্ডলিং লজিক ---
-   // --- সিট হ্যান্ডলিং লজিক ---
-  void sitOnSeat(int index) async {
-  // ১. নিজের সিট হলে লিভ কনফার্মেশন
+  // --- সিট হ্যান্ডলিং লজিক (হৃদয় ভাইয়ের জন্য ফিক্সড) ---
+void sitOnSeat(int index) async {
+  // ১. নাল চেক এবং দখল চেক (যাতে অ্যাপ ক্রাশ না করে)
+  // seats লিস্টটি যদি নাল হয় বা ওই ইনডেক্সে ডাটা না থাকে তবে এরর দিবে না
+  bool occupied = false;
+  try {
+    if (seats != null && seats.length > index && seats[index] != null) {
+      occupied = seats[index]["isOccupied"] ?? false;
+    }
+  } catch (e) { occupied = false; }
+
+  // নিজের সিট হলে লিভ কনফার্মেশন
   if (currentSeatIndex == index) { 
     _showLeaveConfirmation(index); 
     return; 
   }
   
   // সিট দখল থাকলে বা রুম লক থাকলে রিটার্ন
-  if (seats[index]["isOccupied"] || isRoomLocked) return;
+  if (occupied || isRoomLocked) return;
 
   try {
     final User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
 
-    // --- ডাটা সংগ্রহের রাস্তা (আপনার ডাটাবেস অনুযায়ী ফিক্সড) ---
-    // আপনার Firestore-এ ইউজার ডকুমেন্টের নাম হলো ৬-ডিজিটের uID। 
-    // তাই আমরা ইউজারের ইমেইল দিয়ে সার্চ করে আগে তার ৬-ডিজিটের uID বের করে আনবো।
-    
+    // ২. ফায়ারস্টোর থেকে ৬-ডিজিটের uID সংগ্রহ
     final userQuery = await FirebaseFirestore.instance
         .collection('users')
         .where('email', isEqualTo: currentUser.email)
@@ -360,29 +366,47 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
     String myName = "User";
     String myPic = "";
-    String myFixedUid = ""; // ৬-ডিজিটের ইউনিক আইডি
+    String myFixedUid = ""; 
 
     if (userQuery.docs.isNotEmpty) {
       final userData = userQuery.docs.first.data();
-      myName = userData['name'] ?? userData['userName'] ?? "User";
-      myPic = userData['profilePic'] ?? userData['userImage'] ?? "";
-      myFixedUid = userData['uID'] ?? userData['uid'] ?? ""; 
+      myName = userData['name'] ?? "User";
+      myPic = userData['profilePic'] ?? "";
+      myFixedUid = userData['uID']?.toString() ?? ""; 
     }
 
+    // ৩. আগোরা এবং অন্যান্য সার্ভিস স্টার্ট
     if (kIsWeb) await WakelockPlus.enable();
     await _agoraManager.becomeBroadcaster();
     await _agoraManager.engine?.muteLocalAudioStream(false);
 
     final int myAgoraUid = _agoraManager.localUid ?? 0;
 
-    // ২. পুরাতন সিট রিমুভ (মুভ করার ক্ষেত্রে)
+    // ৪. ডবল আপডেট: Firestore এবং Realtime দুটিতেই ডাটা সেভ
+    // যাতে আপনার _buildSeatGridArea সাথে সাথে ছবি দেখাতে পারে
+    
+    // ফায়ারস্টোর আপডেট
+    await FirebaseFirestore.instance
+        .collection('rooms')
+        .doc(widget.roomId)
+        .collection('seats')
+        .doc(index.toString())
+        .set({
+      'isOccupied': true,
+      'userId': currentUser.uid,
+      'name': myName,
+      'profilePic': myPic,
+      'status': 'occupied',
+      'isMicOn': true,
+    }, SetOptions(merge: true));
+
+    // রিয়েলটাইম ডাটাবেস আপডেট (ভয়েস লজিকের জন্য)
+    final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
+    
     if (currentSeatIndex != -1) {
       await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$currentSeatIndex').remove();
     }
 
-    final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
-    
-    // ৩. রিয়েলটাইম ডাটাবেসে সিট ডাটা সেভ
     await seatRef.set({
       'userName': myName,
       'userImage': myPic,
@@ -391,21 +415,19 @@ class _VoiceRoomState extends State<VoiceRoom> {
       'isOccupied': true,
       'status': 'occupied',
       'isMicOn': true,
-      'userId': currentUser.uid, // লম্বা আইডি (Auth ID)
-      'uId': myFixedUid,          // ৬-ডিজিটের ইউনিক আইডি (আপনার চাওয়া অনুযায়ী)
+      'userId': currentUser.uid,
+      'uID': myFixedUid, // ৬-ডিজিটের আইডি
       'isTalking': false,
       'agoraUid': myAgoraUid, 
       'giftCount': 0,
     });
 
-    // কানেকশন চলে গেলে সিট অটো খালি হবে
     await seatRef.onDisconnect().remove();
     
     if (mounted) {
       setState(() {
         currentSeatIndex = index;
         isMicOn = true;
-        // মালিক শনাক্তকরণ (৬-ডিজিটের আইডি দিয়ে)
         if (myFixedUid == roomOwnerId) _sendOwnerJoinMessage();
       });
     }
