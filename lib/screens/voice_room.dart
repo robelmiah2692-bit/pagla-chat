@@ -985,7 +985,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
       }
 
       return GridView.builder(
-        shrinkWrap: true, 
+        shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -1010,62 +1010,46 @@ List<Widget> _buildFloatingEmojiAnimations() {
 
           return GestureDetector(
             onTap: () async {
+              // সিট দখল থাকলে শুধু প্রোফাইল দেখাবে বা রিটার্ন করবে
               if (isOccupied) return;
 
-              final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
+              final String currentAuthUid = FirebaseAuth.instance.currentUser?.uid ?? "";
+              if (currentAuthUid.isEmpty) return;
 
-              // ১. ভিআইপি সিট চেক (uID এবং uid দুইভাবেই ডাটা খোঁজা হবে)
-          if (isVipSeat) {
-            // বর্তমান ইউজারের আইডি বের করা
-            final String myCurrentId = FirebaseAuth.instance.currentUser?.uid ?? "";
-            
-            if (myCurrentId.isEmpty) return;
+              // ১. ইউজার ডাটা এবং ভিআইপি চেক (আপনার স্ক্রিনশট অনুযায়ী uID এবং isVip চেক)
+              DocumentSnapshot userDoc = await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(currentAuthUid)
+                  .get();
 
-            // সরাসরি ফায়ারস্টোর থেকে ইউজারের ডাটা আনা হচ্ছে
-            DocumentSnapshot userDoc = await FirebaseFirestore.instance
-                .collection('users')
-                .doc(myCurrentId)
-                .get();
+              if (!userDoc.exists) return;
+              final userData = userDoc.data() as Map<String, dynamic>;
 
-            if (userDoc.exists) {
-              final userData = userDoc.data() as Map<String, dynamic>?;
-
-              // --- আইডি চেক (uID অথবা uid দুইভাবেই লজিক রাখা হলো) ---
-              String foundUid = userData?['uID'] ?? userData?['uid'] ?? "";
-              
-              // --- ভিআইপি চেক (True/False চেক) ---
-              bool isUserVip = userData?['isVip'] == true;
-
-              // যদি ইউজার ভিআইপি না হয়
-              if (!isUserVip) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Only VIP Users can sit here!"),
-                    backgroundColor: Colors.redAccent,
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-                return; // ফাংশন এখানেই শেষ হবে, ইউজার সিটে বসতে পারবে না
+              // ভিআইপি লজিক
+              if (isVipSeat) {
+                bool isUserVip = userData['isVip'] == true;
+                if (!isUserVip) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Only VIP Users can sit here!"),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                  return;
+                }
               }
-              
-              debugPrint("VIP User Identity Verified: $foundUid");
-            } else {
-              // যদি ডাটাবেসে ইউজারের প্রোফাইলই না থাকে
-              return;
-            }
-          }
 
-              // ২. পুরাতন সিট ক্লিন লজিক (রিয়েল-টাইম ক্লিন)
+              // ২. পুরাতন সিট ক্লিন লজিক (রিয়েল-টাইম ক্লিন)
               var myOldSeats = await FirebaseFirestore.instance
                   .collection('rooms')
                   .doc(widget.roomId)
                   .collection('seats')
-                  .where('userId', isEqualTo: uid)
+                  .where('userId', isEqualTo: currentAuthUid)
                   .get();
 
               for (var doc in myOldSeats.docs) {
-                await doc.reference.set({ 
+                await doc.reference.update({ 
                   'isOccupied': false,
                   'userId': '',
                   'name': '',
@@ -1074,33 +1058,29 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   'isMicOn': false,
                   'isTalking': false,
                   'userFrame': '',
-                }, SetOptions(merge: true));
+                });
               }
 
-              // ৩. নতুন সিটে বসা (সব ফিচার বজায় রেখে)
-              DocumentSnapshot myProfile = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-              var myData = myProfile.data() as Map<String, dynamic>?;
-
-              if (myData != null) {
-                // set with merge: true দেওয়ার কারণে সিট ডিলিট হয়ে থাকলেও এখন ক্লিক করলে কাজ করবে
-                await FirebaseFirestore.instance
-                    .collection('rooms')
-                    .doc(widget.roomId)
-                    .collection('seats')
-                    .doc(index.toString())
-                    .set({
-                  'isOccupied': true,
-                  'userId': uid,
-                  'name': myData['name'] ?? "User", 
-                  'profilePic': myData['profilePic'] ?? "", 
-                  'userFrame': myData['userFrame'] ?? "",
-                  'status': 'occupied',
-                  'isMicOn': true,
-                  'isTalking': false,
-                }, SetOptions(merge: true));
-                
-                sitOnSeat(index); // ভয়েস কানেকশন কল
-              }
+              // ৩. নতুন সিটে ডাটা সেভ (আপনার চাওয়া uID এবং uid দুটাই রাখা হলো)
+              await FirebaseFirestore.instance
+                  .collection('rooms')
+                  .doc(widget.roomId)
+                  .collection('seats')
+                  .doc(index.toString())
+                  .set({
+                'isOccupied': true,
+                'userId': currentAuthUid, // লম্বা অথ আইডি
+                'uID': userData['uID'] ?? "", // আপনার সেই ৬-ডিজিটের আইডি
+                'name': userData['name'] ?? "User", 
+                'profilePic': userData['profilePic'] ?? "", 
+                'userFrame': userData['userFrame'] ?? "",
+                'status': 'occupied',
+                'isMicOn': true,
+                'isTalking': false,
+              }, SetOptions(merge: true));
+              
+              // ৪. ভয়েস কানেকশন কল (আগেই তৈরি করা ফাংশন)
+              sitOnSeat(index);
             },
             child: Column(
               children: [
