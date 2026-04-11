@@ -1457,7 +1457,7 @@ Widget _buildAnimatedGiftButton() {
                 if (receiverId.isNotEmpty) {
                   await GiftTransactionHelper.processGiftTransaction(
                     senderId: FirebaseAuth.instance.currentUser!.uid,
-                    receiverId: targetUserId,
+                    receiverId: receiverId,
                     roomId: widget.roomId,
                     totalPrice: totalAmount,
                     isFree: isFree,
