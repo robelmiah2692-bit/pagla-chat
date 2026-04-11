@@ -333,6 +333,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   // --- সিট হ্যান্ডলিং লজিক ---
+   // --- সিট হ্যান্ডলিং লজিক ---
   void sitOnSeat(int index) async {
   // ১. নিজের সিট হলে লিভ কনফার্মেশন
   if (currentSeatIndex == index) { 
@@ -347,24 +348,25 @@ class _VoiceRoomState extends State<VoiceRoom> {
     final User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
 
-    // --- ডাটা সংগ্রহের রাস্তা ঠিক করা ---
-    // প্রথমে Firestore থেকে ইউজারের আসল প্রোফাইল ডাটা সংগ্রহ করা হচ্ছে
-    // এখানে currentUser.uid ব্যবহার করা হয়েছে কারণ আপনার Firestore-এর ডকুমেন্ট আইডি এটিই।
-    final userDoc = await FirebaseFirestore.instance
+    // --- ডাটা সংগ্রহের রাস্তা (আপনার ডাটাবেস অনুযায়ী ফিক্সড) ---
+    // আপনার Firestore-এ ইউজার ডকুমেন্টের নাম হলো ৬-ডিজিটের uID। 
+    // তাই আমরা ইউজারের ইমেইল দিয়ে সার্চ করে আগে তার ৬-ডিজিটের uID বের করে আনবো।
+    
+    final userQuery = await FirebaseFirestore.instance
         .collection('users')
-        .doc(currentUser.uid)
+        .where('email', isEqualTo: currentUser.email)
+        .limit(1)
         .get();
 
     String myName = "User";
     String myPic = "";
-    String myFixedUid = ""; // আপনার ৬-ডিজিটের ID
+    String myFixedUid = ""; // ৬-ডিজিটের ইউনিক আইডি
 
-    if (userDoc.exists) {
-      final userData = userDoc.data();
-      // আপনার ডাটাবেসের ফিল্ডের নাম অনুযায়ী ম্যাপিং
-      myName = userData?['userName'] ?? userData?['name'] ?? currentUser.displayName ?? "User";
-      myPic = userData?['userImage'] ?? userData?['profilePic'] ?? currentUser.photoURL ?? "";
-      myFixedUid = userData?['uID'] ?? userData?['uid'] ?? ""; 
+    if (userQuery.docs.isNotEmpty) {
+      final userData = userQuery.docs.first.data();
+      myName = userData['name'] ?? userData['userName'] ?? "User";
+      myPic = userData['profilePic'] ?? userData['userImage'] ?? "";
+      myFixedUid = userData['uID'] ?? userData['uid'] ?? ""; 
     }
 
     if (kIsWeb) await WakelockPlus.enable();
@@ -384,13 +386,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
     await seatRef.set({
       'userName': myName,
       'userImage': myPic,
-      'name': myName,          // উইনার পপআপের ব্যাকআপ
-      'profilePic': myPic,    // উইনার পপআপের ব্যাকআপ
+      'name': myName,
+      'profilePic': myPic,
       'isOccupied': true,
       'status': 'occupied',
       'isMicOn': true,
-      'userId': currentUser.uid, // লম্বা আইডি
-      'uId': myFixedUid,          // আপনার ৬-ডিজিটের ইউনিক আইডি
+      'userId': currentUser.uid, // লম্বা আইডি (Auth ID)
+      'uId': myFixedUid,          // ৬-ডিজিটের ইউনিক আইডি (আপনার চাওয়া অনুযায়ী)
       'isTalking': false,
       'agoraUid': myAgoraUid, 
       'giftCount': 0,
@@ -403,7 +405,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
       setState(() {
         currentSeatIndex = index;
         isMicOn = true;
-        // মালিক শনাক্তকরণ (৬-ডিজিটের আইডি দিয়ে)
+        // মালিক শনাক্তকরণ (৬-ডিজিটের আইডি দিয়ে)
         if (myFixedUid == roomOwnerId) _sendOwnerJoinMessage();
       });
     }
