@@ -333,10 +333,21 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   // --- সিট হ্যান্ডলিং লজিক ---
-  // --- সিট হ্যান্ডলিং লজিক (হৃদয় ভাইয়ের জন্য ফিক্সড) ---
-void sitOnSeat(int index) async {
-  // ১. নাল চেক এবং দখল চেক (যাতে অ্যাপ ক্রাশ না করে)
-  // seats লিস্টটি যদি নাল হয় বা ওই ইনডেক্সে ডাটা না থাকে তবে এরর দিবে না
+   void sitOnSeat(int index) async {
+  // ১. স্ক্রিনে আইডি চেক করার জন্য SnackBar (মোবাইল ইউজারদের জন্য সেরা)
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text("Connecting to Room ID: ${widget.roomId}"),
+      duration: const Duration(seconds: 2),
+      backgroundColor: Colors.blueAccent,
+    ),
+  );
+
+  // লগে প্রিন্ট (যদি কখনও পিসিতে চেক করেন)
+  debugPrint("--- SIT ON SEAT DEBUG ---");
+  debugPrint("Target Room ID: ${widget.roomId}");
+  debugPrint("Seat Index: $index");
+
   bool occupied = false;
   try {
     if (seats != null && seats.length > index && seats[index] != null) {
@@ -344,18 +355,19 @@ void sitOnSeat(int index) async {
     }
   } catch (e) { occupied = false; }
 
-  // নিজের সিট হলে লিভ কনফার্মেশন
   if (currentSeatIndex == index) { 
     _showLeaveConfirmation(index); 
     return; 
   }
   
-  // সিট দখল থাকলে বা রুম লক থাকলে রিটার্ন
   if (occupied || isRoomLocked) return;
 
   try {
     final User? currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return;
+    if (currentUser == null) {
+      debugPrint("Error: User not logged in");
+      return;
+    }
 
     // ২. ফায়ারস্টোর থেকে ৬-ডিজিটের uID সংগ্রহ
     final userQuery = await FirebaseFirestore.instance
@@ -382,10 +394,10 @@ void sitOnSeat(int index) async {
 
     final int myAgoraUid = _agoraManager.localUid ?? 0;
 
-    // ৪. ডবল আপডেট: Firestore এবং Realtime দুটিতেই ডাটা সেভ
-    // যাতে আপনার _buildSeatGridArea সাথে সাথে ছবি দেখাতে পারে
+    // ৪. ডবল আপডেট: Firestore এবং Realtime
     
-    // ফায়ারস্টোর আপডেট
+    // ফায়ারস্টোর আপডেট শুরু
+    debugPrint("Saving to Firestore path: rooms/${widget.roomId}/seats/$index");
     await FirebaseFirestore.instance
         .collection('rooms')
         .doc(widget.roomId)
@@ -400,7 +412,7 @@ void sitOnSeat(int index) async {
       'isMicOn': true,
     }, SetOptions(merge: true));
 
-    // রিয়েলটাইম ডাটাবেস আপডেট (ভয়েস লজিকের জন্য)
+    // রিয়েলটাইম ডাটাবেস আপডেট
     final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
     
     if (currentSeatIndex != -1) {
@@ -416,7 +428,7 @@ void sitOnSeat(int index) async {
       'status': 'occupied',
       'isMicOn': true,
       'userId': currentUser.uid,
-      'uID': myFixedUid, // ৬-ডিজিটের আইডি
+      'uID': myFixedUid,
       'isTalking': false,
       'agoraUid': myAgoraUid, 
       'giftCount': 0,
@@ -430,9 +442,19 @@ void sitOnSeat(int index) async {
         isMicOn = true;
         if (myFixedUid == roomOwnerId) _sendOwnerJoinMessage();
       });
+      
+      // সফল হলে আরেকটি মেসেজ
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Seat updated successfully!"), backgroundColor: Colors.green),
+      );
     }
   } catch (e) { 
-    debugPrint("Sit Error: $e"); 
+    debugPrint("Sit Error: $e");
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+      );
+    }
   }
 }
 
