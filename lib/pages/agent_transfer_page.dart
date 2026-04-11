@@ -31,22 +31,15 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
     });
 
     try {
+      // আপনার স্ক্রিনশট অনুযায়ী ডকুমেন্ট আইডি নিজেই হলো ৬-ডিজিটের uID
       var userDoc = await FirebaseFirestore.instance
           .collection('users')
-          .where('uID', isEqualTo: inputId)
+          .doc(inputId)
           .get();
 
-      // স্ট্রিং বা ইনটিজার দুইভাবেই আইডি চেক করা হচ্ছে
-      if (userDoc.docs.isEmpty && int.tryParse(inputId) != null) {
-        userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .where('uID', isEqualTo: int.parse(inputId))
-            .get();
-      }
-
-      if (userDoc.docs.isNotEmpty) {
-        var userData = userDoc.docs.first.data();
-        receiverFirestoreId = userDoc.docs.first.id;
+      if (userDoc.exists) {
+        var userData = userDoc.data() as Map<String, dynamic>;
+        receiverFirestoreId = userDoc.id; // ডকুমেন্ট আইডি (৯৭০৩২১)
 
         bool isTargetAgent = userData['isAgent'] ?? false;
 
@@ -61,8 +54,29 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
           });
         }
       } else {
-        setState(() => isLoading = false);
-        _showSnackBar("User not found! (ID: $inputId)", isError: true);
+        // যদি সরাসরি ডকুমেন্ট আইডি না মিলে, তবে কুয়েরি করে দেখা (uID ফিল্ড হিসেবে)
+        var queryRes = await FirebaseFirestore.instance
+            .collection('users')
+            .where('uID', isEqualTo: inputId)
+            .get();
+
+        if (queryRes.docs.isEmpty && int.tryParse(inputId) != null) {
+          queryRes = await FirebaseFirestore.instance
+              .collection('users')
+              .where('uID', isEqualTo: int.parse(inputId))
+              .get();
+        }
+
+        if (queryRes.docs.isNotEmpty) {
+          setState(() {
+            foundUser = queryRes.docs.first.data();
+            receiverFirestoreId = queryRes.docs.first.id;
+            isLoading = false;
+          });
+        } else {
+          setState(() => isLoading = false);
+          _showSnackBar("User not found! (ID: $inputId)", isError: true);
+        }
       }
     } catch (e) {
       setState(() => isLoading = false);
@@ -83,13 +97,22 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
     setState(() => isLoading = true);
 
     try {
-      // 🔥 হৃদয় ভাই, এখানে ২৫০ ডায়মন্ডে ১ এক্সপি হিসাব করা হয়েছে
+      // 🔥 এখানে ২৫০ ডায়মন্ডে ১ এক্সপি হিসাব করা হয়েছে
       int earnedXP = amount ~/ 250; 
 
-      await FirebaseFirestore.instance.runTransaction((transaction) async {
-        DocumentReference senderRef = FirebaseFirestore.instance.collection('users').doc(currentUserId);
-        DocumentReference receiverRef = FirebaseFirestore.instance.collection('users').doc(receiverFirestoreId!);
+      // বর্তমান এজেন্টের ডকুমেন্ট খুঁজে বের করা (ইমেইল দিয়ে)
+      final String? agentEmail = FirebaseAuth.instance.currentUser?.email;
+      var agentQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: agentEmail)
+          .limit(1)
+          .get();
 
+      if (agentQuery.docs.isEmpty) throw Exception("Agent record not found!");
+      DocumentReference senderRef = agentQuery.docs.first.reference;
+      DocumentReference receiverRef = FirebaseFirestore.instance.collection('users').doc(receiverFirestoreId!);
+
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
         DocumentSnapshot senderSnap = await transaction.get(senderRef);
         
         if (!senderSnap.exists) throw Exception("Agent data not found!");
@@ -131,8 +154,8 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
 
         // রিচার্জ হিস্ট্রি ডায়মন্ড ডক
         transaction.set(FirebaseFirestore.instance.collection('diamond_history').doc(), {
-          'senderId': currentUserId,
-          'receiverId': foundUser!['uID'], 
+          'senderId': senderSnap.id, // এজেন্টের uID
+          'receiverId': receiverFirestoreId, // গ্রহীতার uID
           'amount': amount,
           'earnedXP': earnedXP,
           'type': 'agency_transfer',
@@ -167,12 +190,22 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
   }
 
   // ৩. ট্রানজেকশন হিস্ট্রি দেখার বটম শিট
-  void _openHistorySheet() {
+  void _openHistorySheet() async {
+    // এজেন্টের uID পাওয়ার জন্য কুয়েরি
+    final String? agentEmail = FirebaseAuth.instance.currentUser?.email;
+    var agentQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .where('email', isEqualTo: agentEmail)
+        .limit(1)
+        .get();
+    
+    String agentUID = agentQuery.docs.isNotEmpty ? agentQuery.docs.first.id : currentUserId;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => TransactionHistoryWidget(agentId: currentUserId),
+      builder: (context) => TransactionHistoryWidget(agentId: agentUID),
     );
   }
 
@@ -364,4 +397,3 @@ class TransactionHistoryWidget extends StatelessWidget {
     );
   }
 }
-
