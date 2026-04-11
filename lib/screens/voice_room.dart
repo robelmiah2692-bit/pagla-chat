@@ -425,9 +425,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
             onPressed: () async {
               try {
                 await _agoraManager.becomeListener();
-                final dbRef = FirebaseDatabase.instanceFor(databaseURL: rtdbUrl);
-                await dbRef.ref('rooms/${widget.roomId}/seats/$index').onDisconnect().cancel();
-                await dbRef.ref('rooms/${widget.roomId}/seats/$index').remove();
+                await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index').onDisconnect().cancel();
+                await FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index').remove();
                 
                 if (mounted) {
                   setState(() {
