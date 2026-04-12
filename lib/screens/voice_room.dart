@@ -43,7 +43,6 @@ import '../widgets/emoji_handler.dart';
 import '../widgets/gift_overlay_handler.dart';
 import '../widgets/gift_system.dart';
 import '../widgets/music_player_widget.dart';
-import '../widgets/room_profile_handler.dart';
 import '../widgets/room_settings_handler.dart';
 import 'package:firebase_storage/firebase_storage.dart'; // এটি নেই, এটি যোগ করতে হবে
 import 'package:image_picker/image_picker.dart'; // গ্যালারি থেকে ছবি নিতে এটি লাগবে
@@ -775,6 +774,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
 }
        
  // 🔥 এটিই আপনার ফাইনাল এবং একমাত্র dispose ফাংশন
+    // 🔥 এটিই আপনার ফাইনাল এবং একমাত্র dispose ফাংশন
   @override
   void dispose() {
     // ১. আড্ডা (Viewers List) থেকে নাম মুছে ফেলা
@@ -782,6 +782,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
 
     // ২. সিটে বসা থাকলে সেই সিটটি অটো খালি করে দেওয়া (Real-time Sync)
     if (currentSeatIndex != -1) {
+      // _roomService ব্যবহার করে ডাটা আপডেট করা হচ্ছে, যা রিয়েলটাইম ডাটাবেস ও ফায়ারস্টোর উভয়ই হ্যান্ডেল করবে
       _roomService.updateSeatData(
         roomId: widget.roomId, 
         seatIndex: currentSeatIndex, 
@@ -790,6 +791,8 @@ List<Widget> _buildFloatingEmojiAnimations() {
         isOccupied: false
       );
       
+      // সরাসরি ফায়ারস্টোর আপডেট করার প্রয়োজন নেই যদি _roomService এ এই লজিক থাকে। 
+      // তবে বাড়তি নিরাপত্তার জন্য রাখলে নিচের কোডটি যথেষ্ট:
       FirebaseFirestore.instance
           .collection('rooms')
           .doc(widget.roomId)
@@ -813,14 +816,14 @@ List<Widget> _buildFloatingEmojiAnimations() {
     super.dispose();
   }
 
-   // --- উইজেট ফাংশনসমূহ ---
+  // --- উইজেট ফাংশনসমূহ ---
   Widget _buildTopNavBar() {
-    // ১. পারমিশন চেক করার ভ্যারিয়েবল (মালিক বা এডমিন কি না)
-    final String myUid = FirebaseAuth.instance.currentUser?.uid ?? "";
+    // বর্তমান ইউজারের Firebase Auth ID
+    final String myAuthId = FirebaseAuth.instance.currentUser?.uid ?? "";
     
-    // রুম ওনার আইডি হিসেবে ডাটাবেসের uID ব্যবহার করা হচ্ছে
-    final String roomOwnerId = uID; 
-    bool hasPermission = (myUid == roomOwnerId) || adminList.contains(myUid);
+    // পারমিশন চেক: মালিকের Auth ID (যা ডাটাবেসে সেভ আছে) অথবা এডমিন লিস্টে থাকলে
+    // নোট: এখানে ownerAuthId ভেরিয়েবলটি ব্যবহার করুন যা আপনি রুম ডাটা লোড করার সময় পান।
+    bool hasPermission = (myAuthId == ownerAuthId) || adminList.contains(myAuthId);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -829,7 +832,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
           // 🖼️ রুমের প্রোফাইল পিকচার (ক্লিক করলে সেভ হবে)
           GestureDetector(
             onTap: () {
-              // শুধুমাত্র মালিক ও এডমিন পারবে
               if (!hasPermission) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Only Owner & Admin can change room picture"))
@@ -838,38 +840,39 @@ List<Widget> _buildFloatingEmojiAnimations() {
               }
               
               RoomProfileHandler.pickRoomImage(
-                onImagePicked: (p) async {
-                  // 🔥 পুরাতন ছবি ডিলিট করার লজিক (স্টোরেজ ক্লিন রাখা)
+                onImagePicked: (newImagePath) async {
+                  // 🔥 পুরাতন ছবি স্টোরেজ থেকে ডিলিট করা (স্টোরেজ ক্লিন রাখা)
                   if (roomProfileImage.isNotEmpty && roomProfileImage.contains("firebasestorage")) {
                     try {
                       await FirebaseStorage.instance.refFromURL(roomProfileImage).delete();
                     } catch (e) {
-                      debugPrint("failed $e");
+                      debugPrint("Old image delete failed: $e");
                     }
                   }
 
-                  setState(() => roomProfileImage = p);
+                  setState(() => roomProfileImage = newImagePath);
                   
-                  // 🔥 ডাটাবেসে ছবি সেভ (uID ও ownerName সহ সার্ভিস কল)
+                  // 🔥 ডাটাবেসে পূর্ণাঙ্গ রুম ডাটা আপডেট
                   _roomService.updateRoomFullData(
                     roomId: widget.roomId,
                     roomName: roomName,
-                    roomImage: p,
+                    roomImage: newImagePath,
                     isLocked: isRoomLocked,
                     wallpaper: roomWallpaperPath,
                     followers: followerCount,
                     totalDiamonds: 0,
-                    uID: roomOwnerId,
+                    uID: uID, // আপনার ৬-ডিজিটের আইডি
                     ownerName: ownerName,
                   );
                 }, 
-                showMessage: (m) {}
+                showMessage: (msg) {}
               );
             },
             child: CircleAvatar(
               radius: 20,
+              backgroundColor: Colors.white10,
               backgroundImage: roomProfileImage.isNotEmpty ? NetworkImage(roomProfileImage) : null,
-              child: roomProfileImage.isEmpty ? const Icon(Icons.camera_alt, size: 18) : null,
+              child: roomProfileImage.isEmpty ? const Icon(Icons.camera_alt, size: 18, color: Colors.white) : null,
             ),
           ),
           const SizedBox(width: 8),
@@ -881,7 +884,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
                 // 📝 রুমের নাম (এডিট করলে সেভ হবে)
                 GestureDetector(
                   onTap: () {
-                    // শুধুমাত্র মালিক ও এডমিন পারবে
                     if (!hasPermission) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text("Only Owner & Admin can change room name"))
@@ -892,30 +894,41 @@ List<Widget> _buildFloatingEmojiAnimations() {
                     RoomProfileHandler.editRoomName(
                       context: context, 
                       currentName: roomName, 
-                      onNameSaved: (n) {
-                        setState(() => roomName = n);
+                      onNameSaved: (newName) {
+                        setState(() => roomName = newName);
                         
-                        // 🔥 ডাটাবেসে নাম সেভ (uID ও ownerName সহ সিঙ্ক)
+                        // 🔥 ডাটাবেসে নাম সিঙ্ক করা
                         _roomService.updateRoomFullData(
                           roomId: widget.roomId,
-                          roomName: n,
+                          roomName: newName,
                           roomImage: roomProfileImage,
                           isLocked: isRoomLocked,
                           wallpaper: roomWallpaperPath,
                           followers: followerCount,
                           totalDiamonds: 0,
-                          uID: roomOwnerId,
+                          uID: uID,
                           ownerName: ownerName,
                         );
                       }
                     );
                   },
-                  child: Text(roomName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    roomName, 
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                Text("ID: ${widget.roomId} | $followerCount Followers", style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                Text(
+                  "ID: ${widget.roomId} | $followerCount Followers", 
+                  style: const TextStyle(color: Colors.white54, fontSize: 10)
+                ),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
 
           // ➕ ১. ফলোয়ার বাটন (টগল লজিক + সঠিক ডাটা সিঙ্ক)
           IconButton(
