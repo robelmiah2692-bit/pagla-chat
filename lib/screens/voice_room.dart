@@ -823,7 +823,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
     
     // পারমিশন চেক: মালিকের Auth ID (যা ডাটাবেসে সেভ আছে) অথবা এডমিন লিস্টে থাকলে
     // নোট: এখানে ownerAuthId ভেরিয়েবলটি ব্যবহার করুন যা আপনি রুম ডাটা লোড করার সময় পান।
-    bool hasPermission = (myAuthId == ownerAuthId) || adminList.contains(myAuthId);
+    bool hasPermission = (roomOwnerId == roomOwnerId) || adminList.contains(myAuthId);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
