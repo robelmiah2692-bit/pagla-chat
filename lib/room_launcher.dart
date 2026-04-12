@@ -10,7 +10,7 @@ class RoomLauncher extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Voice App", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Voice App", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         centerTitle: true,
         backgroundColor: Colors.blueAccent,
       ),
@@ -37,27 +37,51 @@ class RoomLauncher extends StatelessWidget {
               onPressed: () async {
                 final user = FirebaseAuth.instance.currentUser;
                 
-                if (user != null) {
-                  // এখানে রুম আইডি হিসেবে ইউজারের নিজস্ব UID ব্যবহার করা হচ্ছে 
-                  // কারণ সাধারণত নিজের রুমে ঢোকার বাটন এটি।
-                  // তবে মালিকানা নির্ধারণ হবে VoiceRoom এর ভেতর ডাটাবেস চেক করে।
-                  
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => VoiceRoom(
-                        roomId: user.uid, 
-                      ),
-                    ),
-                  );
+                if (user != null && user.email != null) {
+                  // ১. ইউজারের ৬-ডিজিটের uID খুঁজে বের করা
+                  var userQuery = await FirebaseFirestore.instance
+                      .collection('users')
+                      .where('email', isEqualTo: user.email)
+                      .limit(1)
+                      .get();
+
+                  if (userQuery.docs.isNotEmpty) {
+                    String mySixDigitID = userQuery.docs.first['uID'].toString();
+
+                    // ২. এই uID দিয়ে ইউজারের তৈরি করা রুম আইডি খুঁজে বের করা
+                    var roomQuery = await FirebaseFirestore.instance
+                        .collection('rooms')
+                        .where('ownerId', isEqualTo: mySixDigitID)
+                        .limit(1)
+                        .get();
+
+                    if (roomQuery.docs.isNotEmpty) {
+                      String actualRoomId = roomQuery.docs.first['roomId']; // ৫-ডিজিটের আইডি
+
+                      if (context.mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => VoiceRoom(roomId: actualRoomId),
+                          ),
+                        );
+                      }
+                    } else {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("আপনার কোনো রুম তৈরি করা নেই!")),
+                        );
+                      }
+                    }
+                  }
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Login fast!")),
+                    const SnackBar(content: Text("Please Login First!")),
                   );
                 }
               },
               child: const Text(
-                "well come this room",
+                "Enter My Room",
                 style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
