@@ -1053,81 +1053,56 @@ List<Widget> _buildFloatingEmojiAnimations() {
           bool hasSoulmate = dbSeat != null && (dbSeat['soulmateId'] != null); 
 
           return GestureDetector(
+            behavior: HitTestBehavior.opaque, // এটি ক্লিক নিশ্চিত করবেই
             onTap: () async {
-              // সিট দখল থাকলে শুধু প্রোফাইল দেখাবে বা রিটার্ন করবে
-              if (isOccupied) return;
+              // টেস্ট করার জন্য একটি প্রিন্ট
+              debugPrint("Seat $index clicked!");
 
-              final String currentAuthUid = FirebaseAuth.instance.currentUser?.uid ?? "";
-              if (currentAuthUid.isEmpty) return;
+              // ১. যদি সিট দখল থাকে, তবে ইউজারের প্রোফাইল দেখাবে (এখানে আপনার প্রোফাইল পপআপ কোড দিতে পারেন)
+              if (isOccupied) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("This seat is already taken!")),
+                );
+                return;
+              }
 
-              // ১. ইউজার ডাটা এবং ভিআইপি চেক (আপনার স্ক্রিনশট অনুযায়ী uID এবং isVip চেক)
-              DocumentSnapshot userDoc = await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(currentAuthUid)
-                  .get();
+              // ২. যদি সিট খালি থাকে, তবে বসার প্রসেস শুরু হবে
+              try {
+                final String currentAuthUid = FirebaseAuth.instance.currentUser?.uid ?? "";
+                if (currentAuthUid.isEmpty) return;
 
-              if (!userDoc.exists) return;
-              final userData = userDoc.data() as Map<String, dynamic>;
+                // বসার সময় একটু 'Calling' ইফেক্ট দেখানোর জন্য
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Connecting to seat ${index + 1}..."), duration: const Duration(milliseconds: 500)),
+                );
 
-              // ভিআইপি লজিক
-              if (isVipSeat) {
-                bool isUserVip = userData['isVip'] == true;
-                if (!isUserVip) {
-                  if (!mounted) return;
+                // ইউজারের ডাটা আনা
+                DocumentSnapshot userDoc = await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(currentAuthUid)
+                    .get();
+
+                if (!userDoc.exists) return;
+                final userData = userDoc.data() as Map<String, dynamic>;
+
+                // ভিআইপি চেক
+                if (isVipSeat && userData['isVip'] != true) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Only VIP Users can sit here!"),
-                      backgroundColor: Colors.redAccent,
-                    ),
+                    const SnackBar(content: Text("Only VIP Users can sit here!"), backgroundColor: Colors.redAccent),
                   );
                   return;
                 }
+
+                // ৩. সিটে বসার মেইন ফাংশন কল করা (যা আগে লিখেছিলেন)
+                sitOnSeat(index);
+
+              } catch (e) {
+                debugPrint("Click Logic Error: $e");
               }
-
-              // ২. পুরাতন সিট ক্লিন লজিক (রিয়েল-টাইম ক্লিন)
-              var myOldSeats = await FirebaseFirestore.instance
-                  .collection('rooms')
-                  .doc(widget.roomId)
-                  .collection('seats')
-                  .where('userId', isEqualTo: currentAuthUid)
-                  .get();
-
-              for (var doc in myOldSeats.docs) {
-                await doc.reference.update({ 
-                  'isOccupied': false,
-                  'userId': '',
-                  'name': '',
-                  'profilePic': '',
-                  'status': 'empty',
-                  'isMicOn': false,
-                  'isTalking': false,
-                  'userFrame': '',
-                });
-              }
-
-              // ৩. নতুন সিটে ডাটা সেভ (আপনার চাওয়া uID এবং uid দুটাই রাখা হলো)
-              await FirebaseFirestore.instance
-                  .collection('rooms')
-                  .doc(widget.roomId)
-                  .collection('seats')
-                  .doc(index.toString())
-                  .set({
-                'isOccupied': true,
-                'userId': currentAuthUid, // লম্বা অথ আইডি
-                'uID': userData['uID'] ?? "", // আপনার সেই ৬-ডিজিটের আইডি
-                'name': userData['name'] ?? "User", 
-                'profilePic': userData['profilePic'] ?? "", 
-                'userFrame': userData['userFrame'] ?? "",
-                'status': 'occupied',
-                'isMicOn': true,
-                'isTalking': false,
-              }, SetOptions(merge: true));
-              
-              // ৪. ভয়েস কানেকশন কল (আগেই তৈরি করা ফাংশন)
-              sitOnSeat(index);
             },
             child: Column(
               children: [
+                // আপনার ডিজাইন অংশটুকু...
                 VoiceRipple(
                   isTalking: isOccupied && isTalking, 
                   child: Stack(
@@ -1141,7 +1116,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
                             color: isVipSeat ? Colors.amber : Colors.cyan.withOpacity(0.6), 
                             width: 2,
                           ),
-                          boxShadow: isVipSeat ? [BoxShadow(color: Colors.amber.withOpacity(0.3), blurRadius: 5)] : [],
                         ),
                         child: CircleAvatar(
                           radius: 23,
@@ -1153,35 +1127,15 @@ List<Widget> _buildFloatingEmojiAnimations() {
                                   color: isVipSeat ? Colors.amber : Colors.white24, size: 20)),
                         ),
                       ),
-                      // ফ্রেম ফিচার
                       if (isOccupied && uFrame.isNotEmpty)
                         SizedBox(width: 60, height: 60, child: Image.network(uFrame, fit: BoxFit.contain)),
-                      // সোলমেট ফিচার
-                      if (isOccupied && hasSoulmate)
-                        Positioned(top: -2, child: Icon(Icons.favorite, color: Colors.pinkAccent, size: 14)),
-                      // মাইক ফিচার
-                      if (isOccupied && isMicOnLocal)
-                        Positioned(
-                          bottom: 0, right: 2,
-                          child: Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                            child: const Icon(Icons.mic, size: 10, color: Colors.greenAccent),
-                          ),
-                        ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   isOccupied ? uName : (isVipSeat ? "King ${index + 1}" : "${index + 1}"),
-                  style: TextStyle(
-                    color: isVipSeat ? Colors.amberAccent : (isOccupied ? Colors.white : Colors.white54), 
-                    fontSize: 9,
-                    fontWeight: isVipSeat || isOccupied ? FontWeight.bold : FontWeight.normal,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 9, color: Colors.white),
                 ),
               ],
             ),
