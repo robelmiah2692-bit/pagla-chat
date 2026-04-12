@@ -47,23 +47,34 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
   // --- নতুন রুম তৈরির লজিক ---
   Future<void> _createNewRoomLogic(String roomName) async {
     final User? user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null || user.email == null) return;
 
     try {
-      // ১. ইউজারের uID এবং ডাটা সংগ্রহ
+      // ১. ইমেইল দিয়ে ইউজারের ৬-ডিজিটের uID এবং ডাটা সংগ্রহ
       var userQuery = await FirebaseFirestore.instance
           .collection('users')
-          .where('authUID', isEqualTo: user.uid)
+          .where('email', isEqualTo: user.email) // ইমেইল দিয়ে সার্চ
           .limit(1)
           .get();
 
-      if (userQuery.docs.isEmpty) return;
+      if (userQuery.docs.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("ইউজার প্রোফাইল খুঁজে পাওয়া যায়নি!"), backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
 
       var userData = userQuery.docs.first.data();
-      String mySixDigitID = userData['uID'] ?? "";
+      String mySixDigitID = userData['uID']?.toString() ?? "";
       String currentUserName = userData['name'] ?? "Pagla User";
+      String currentUserPic = userData['profilePic'] ?? "";
+      String authUID = user.uid; // ফায়ারবেস অথ আইডি
 
-      // ২. ইউজার কি আগে রুম বানিয়েছে? (লিমিট চেক)
+      if (mySixDigitID.isEmpty) return;
+
+      // ২. ইউজার কি আগে রুম বানিয়েছে? (লিমিট চেক)
       var existingRoom = await FirebaseFirestore.instance
           .collection('rooms')
           .where('ownerId', isEqualTo: mySixDigitID)
@@ -88,19 +99,48 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
         if (!roomCheck.exists) isUnique = true;
       }
 
-      // ৪. রুম ডাটা সেভ (এখানে 'admin' ফিল্ড টোটালি বাদ দেওয়া হয়েছে)
-      await FirebaseFirestore.instance.collection('rooms').doc(newUniqueRoomId).set({
+      // ৪. রুমের মেইন ডাটা সেভ
+      final roomRef = FirebaseFirestore.instance.collection('rooms').doc(newUniqueRoomId);
+      
+      await roomRef.set({
         'roomId': newUniqueRoomId,
         'roomName': roomName,
-        'ownerId': mySixDigitID,      // ইউজারের ইউনিক uID
+        'ownerId': mySixDigitID,      // ৬-ডিজিটের আইডি
+        'ownerAuthId': authUID,       // অথ আইডি ব্যাকআপ
         'ownerName': currentUserName,
+        'ownerPic': currentUserPic,
         'userCount': 1,
         'isLive': true,
         'role': 'owner',
-        'admins': [],                 // ওনার কাউকে দিলে এখানে আইডি আসবে
+        'admins': [],
         'followers': [],
         'createdAt': FieldValue.serverTimestamp(),
         'roomImage': defaultRoomImages[Random().nextInt(defaultRoomImages.length)],
+      });
+
+      // ৫. সিট লিস্ট জেনারেট (১৫টি খালি সিট শুরুতেই তৈরি হবে)
+      final seatsRef = roomRef.collection('seats');
+      for (int i = 0; i < 15; i++) {
+        await seatsRef.doc(i.toString()).set({
+          'index': i,
+          'isOccupied': false,
+          'userId': '',
+          'uID': '',
+          'name': '',
+          'profilePic': '',
+          'status': 'empty',
+          'isMicOn': false,
+          'isTalking': false,
+          'userFrame': '',
+        });
+      }
+
+      // ৬. ভিউয়ার লিস্ট ইনিশিয়ালাইজ (ওনারকে প্রথম ভিউয়ার হিসেবে রাখা)
+      await roomRef.collection('viewers').doc(mySixDigitID).set({
+        'uID': mySixDigitID,
+        'name': currentUserName,
+        'profilePic': currentUserPic,
+        'joinedAt': FieldValue.serverTimestamp(),
       });
 
       if (mounted) {
@@ -208,13 +248,13 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
   }
 
   Widget _buildFollowingRoomList() {
-    final String? myUid = FirebaseAuth.instance.currentUser?.uid;
-    if (myUid == null) return const Center(child: Text("Login to see following", style: TextStyle(color: Colors.white38)));
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const Center(child: Text("Login to see following", style: TextStyle(color: Colors.white38)));
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('rooms')
-          .where('followers', arrayContains: myUid) 
+          .where('followers', arrayContains: user.uid) 
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
@@ -227,15 +267,16 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
 
   Widget _buildMyRoomList() {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return const Center(child: Text("Please Login", style: TextStyle(color: Colors.white)));
+    if (user == null || user.email == null) return const Center(child: Text("Please Login", style: TextStyle(color: Colors.white)));
 
     return FutureBuilder<QuerySnapshot>(
-      future: FirebaseFirestore.instance.collection('users').where('authUID', isEqualTo: user.uid).limit(1).get(),
+      // এখানেও ইমেইল দিয়ে uID খোঁজার রাস্তা রাখা হয়েছে
+      future: FirebaseFirestore.instance.collection('users').where('email', isEqualTo: user.email).limit(1).get(),
       builder: (context, userSnapshot) {
         if (!userSnapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
         if (userSnapshot.data!.docs.isEmpty) return const Center(child: Text("User profile not found"));
 
-        String myUID = userSnapshot.data!.docs.first['uID'];
+        String myUID = userSnapshot.data!.docs.first['uID'].toString();
 
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance.collection('rooms').where('ownerId', isEqualTo: myUID).snapshots(),
