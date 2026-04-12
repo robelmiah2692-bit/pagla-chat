@@ -780,9 +780,8 @@ List<Widget> _buildFloatingEmojiAnimations() {
     // ১. আড্ডা (Viewers List) থেকে নাম মুছে ফেলা
     _removeUserFromViewers(); 
 
-    // ২. সিটে বসা থাকলে সেই সিটটি অটো খালি করে দেওয়া (Real-time Sync)
+    // ২. সিটে বসা থাকলে সেই সিটটি অটো খালি করে দেওয়া (Real-time Sync)
     if (currentSeatIndex != -1) {
-      // _roomService ব্যবহার করে ডাটা আপডেট করা হচ্ছে, যা রিয়েলটাইম ডাটাবেস ও ফায়ারস্টোর উভয়ই হ্যান্ডেল করবে
       _roomService.updateSeatData(
         roomId: widget.roomId, 
         seatIndex: currentSeatIndex, 
@@ -791,8 +790,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
         isOccupied: false
       );
       
-      // সরাসরি ফায়ারস্টোর আপডেট করার প্রয়োজন নেই যদি _roomService এ এই লজিক থাকে। 
-      // তবে বাড়তি নিরাপত্তার জন্য রাখলে নিচের কোডটি যথেষ্ট:
       FirebaseFirestore.instance
           .collection('rooms')
           .doc(widget.roomId)
@@ -807,7 +804,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
           });
     }
 
-    // ৩. মেমোরি ক্লিনআপ (টাইমার, পিকে, অডিও এবং মেসেজ কন্ট্রোলার বন্ধ করা)
+    // ৩. মেমোরি ক্লিনআপ
     giftTimer?.cancel();
     pkManager.stopPK();
     _audioPlayer.dispose();
@@ -818,18 +815,23 @@ List<Widget> _buildFloatingEmojiAnimations() {
 
   // --- উইজেট ফাংশনসমূহ ---
   Widget _buildTopNavBar() {
-    // বর্তমান ইউজারের Firebase Auth ID
+    // ১. পারমিশন চেক করার সঠিক লজিক
     final String myAuthId = FirebaseAuth.instance.currentUser?.uid ?? "";
     
-    // পারমিশন চেক: মালিকের Auth ID (যা ডাটাবেসে সেভ আছে) অথবা এডমিন লিস্টে থাকলে
-    // নোট: এখানে ownerAuthId ভেরিয়েবলটি ব্যবহার করুন যা আপনি রুম ডাটা লোড করার সময় পান।
-    bool hasPermission = (roomOwnerId == roomOwnerId) || adminList.contains(myAuthId);
+    // রুমের আসল মালিকের Auth ID-র সাথে বর্তমান ইউজারের ID চেক করুন
+    // আপনার ভেরিয়েবল লিস্টে "roomOwnerId" থাকলে সেটিই ব্যবহার করুন
+    bool isOwner = (myAuthId == roomOwnerId); 
+    
+    // অ্যাডমিন লিস্ট চেক (ভেরিয়েবল adminList হলে সেটিই থাকবে)
+    bool isAdmin = adminList.contains(myAuthId);
+
+    bool hasPermission = isOwner || isAdmin;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          // 🖼️ রুমের প্রোফাইল পিকচার (ক্লিক করলে সেভ হবে)
+          // 🖼️ রুমের প্রোফাইল পিকচার
           GestureDetector(
             onTap: () {
               if (!hasPermission) {
@@ -841,7 +843,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
               
               RoomProfileHandler.pickRoomImage(
                 onImagePicked: (newImagePath) async {
-                  // 🔥 পুরাতন ছবি স্টোরেজ থেকে ডিলিট করা (স্টোরেজ ক্লিন রাখা)
                   if (roomProfileImage.isNotEmpty && roomProfileImage.contains("firebasestorage")) {
                     try {
                       await FirebaseStorage.instance.refFromURL(roomProfileImage).delete();
@@ -852,7 +853,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
 
                   setState(() => roomProfileImage = newImagePath);
                   
-                  // 🔥 ডাটাবেসে পূর্ণাঙ্গ রুম ডাটা আপডেট
                   _roomService.updateRoomFullData(
                     roomId: widget.roomId,
                     roomName: roomName,
@@ -861,7 +861,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                     wallpaper: roomWallpaperPath,
                     followers: followerCount,
                     totalDiamonds: 0,
-                    uID: uID, // আপনার ৬-ডিজিটের আইডি
+                    uID: uID, // ৬-ডিজিটের আইডি
                     ownerName: ownerName,
                   );
                 }, 
@@ -881,7 +881,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 📝 রুমের নাম (এডিট করলে সেভ হবে)
+                // 📝 রুমের নাম
                 GestureDetector(
                   onTap: () {
                     if (!hasPermission) {
@@ -897,7 +897,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
                       onNameSaved: (newName) {
                         setState(() => roomName = newName);
                         
-                        // 🔥 ডাটাবেসে নাম সিঙ্ক করা
                         _roomService.updateRoomFullData(
                           roomId: widget.roomId,
                           roomName: newName,
