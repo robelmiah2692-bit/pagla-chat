@@ -933,7 +933,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
               size: 20
             ),
             onPressed: () async {
-              if (myUid.isEmpty) return;
+              if (uID.isEmpty) return;
 
               var roomRef = FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
               
@@ -946,11 +946,11 @@ List<Widget> _buildFloatingEmojiAnimations() {
               String currentOwnerName = data?['ownerName'] ?? "Unknown";
 
               // মালিক নিজে নিজেকে ফলো করতে পারবে না
-              if (myUid == ownerUidFromDb) return;
+              if (uID == ownerUidFromDb) return;
 
               if (isFollowing) {
                 await roomRef.update({
-                  'followers': FieldValue.arrayRemove([myUid]),
+                  'followers': FieldValue.arrayRemove([uID]),
                   'followerCount': FieldValue.increment(-1),
                 });
                 setState(() {
@@ -959,7 +959,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                 });
               } else {
                 await roomRef.update({
-                  'followers': FieldValue.arrayUnion([myUid]),
+                  'followers': FieldValue.arrayUnion([uID]),
                   'followerCount': FieldValue.increment(1),
                 });
                 setState(() {
