@@ -924,10 +924,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
 
           // ➕ ১. ফলোয়ার বাটন (টগল লজিক + সঠিক ডাটা সিঙ্ক)
           IconButton(
