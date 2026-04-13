@@ -833,7 +833,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
         children: [
           // 🖼️ রুমের প্রোফাইল পিকচার
           GestureDetector(
-            onTap: () {
+            onTap: () async {
               if (!hasPermission) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Only Owner & Admin can change room picture"))
@@ -858,7 +858,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
                   _roomService.updateRoomFullData(
                     roomId: widget.roomId,
                     roomName: roomName,
-                    roomImage: newImagePath,
+                    roomImage: image.path,
                     isLocked: isRoomLocked,
                     wallpaper: roomWallpaperPath,
                     followers: followerCount,
