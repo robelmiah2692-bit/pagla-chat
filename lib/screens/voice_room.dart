@@ -333,7 +333,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   // --- সিট হ্যান্ডলিং লজিক ---
    void sitOnSeat(int index) async {
-  // ১. স্ক্রিনে আইডি চেক করার জন্য SnackBar (মোবাইল ইউজারদের জন্য সেরা)
+  // ১. কানেক্টিং নোটিফিকেশন
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text("Connecting to Room ID: ${widget.roomId}"),
@@ -342,11 +342,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     ),
   );
 
-  // লগে প্রিন্ট (যদি কখনও পিসিতে চেক করেন)
-  debugPrint("--- SIT ON SEAT DEBUG ---");
-  debugPrint("Target Room ID: ${widget.roomId}");
-  debugPrint("Seat Index: $index");
-
+  // ২. সিট খালি আছে কি না চেক
   bool occupied = false;
   try {
     if (seats != null && seats.length > index && seats[index] != null) {
@@ -363,12 +359,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   try {
     final User? currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
-      debugPrint("Error: User not logged in");
+    if (currentUser == null || currentUser.email == null) {
+      debugPrint("Error: User email not found");
       return;
     }
 
-    // ২. ফায়ারস্টোর থেকে ৬-ডিজিটের uID সংগ্রহ
+    // 🔥 আপনার দেওয়া রাস্তা: ইমেইল দিয়ে ইউজার কালেকশনে সার্চ
     final userQuery = await FirebaseFirestore.instance
         .collection('users')
         .where('email', isEqualTo: currentUser.email)
@@ -377,7 +373,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
     String myName = "User";
     String myPic = "";
-    String myFixedUid = ""; 
+    String myFixedUid = ""; // এটিই আপনার সেই ৬-ডিজিটের আইডি (যেমন: 978051)
 
     if (userQuery.docs.isNotEmpty) {
       final userData = userQuery.docs.first.data();
@@ -386,17 +382,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
       myFixedUid = userData['uID']?.toString() ?? ""; 
     }
 
-    // ৩. আগোরা এবং অন্যান্য সার্ভিস স্টার্ট
+    // ৩. অডিও সার্ভিস সেটআপ
     if (kIsWeb) await WakelockPlus.enable();
     await _agoraManager.becomeBroadcaster();
     await _agoraManager.engine?.muteLocalAudioStream(false);
-
     final int myAgoraUid = _agoraManager.localUid ?? 0;
 
-    // ৪. ডবল আপডেট: Firestore এবং Realtime
-    
-    // ফায়ারস্টোর আপডেট শুরু
-    debugPrint("Saving to Firestore path: rooms/${widget.roomId}/seats/$index");
+    // ৪. Firestore আপডেট (রুমের ভেতর সিটের ডাটা)
     await FirebaseFirestore.instance
         .collection('rooms')
         .doc(widget.roomId)
@@ -404,14 +396,17 @@ class _VoiceRoomState extends State<VoiceRoom> {
         .doc(index.toString())
         .set({
       'isOccupied': true,
-      'userId': currentUser.uid,
+      'authUID': currentUser.uid, // অরিজিনাল ফায়ারবেস অথ আইডি
+      'userName': myName,
+      'userImage': myPic,
       'name': myName,
       'profilePic': myPic,
       'status': 'occupied',
       'isMicOn': true,
+      'uID': myFixedUid, // ৬-ডিজিটের ইউজার আইডি
     }, SetOptions(merge: true));
 
-    // রিয়েলটাইম ডাটাবেস আপডেট
+    // ৫. Realtime Database আপডেট (রিয়েল-টাইম সিঙ্কের জন্য)
     final seatRef = FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
     
     if (currentSeatIndex != -1) {
@@ -427,7 +422,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
       'status': 'occupied',
       'isMicOn': true,
       'userId': currentUser.uid,
-      'uID': myFixedUid,
+      'uID': myFixedUid, // আপনার দেওয়া সেই ৬-ডিজিটের আইডি
       'isTalking': false,
       'agoraUid': myAgoraUid, 
       'giftCount': 0,
@@ -439,10 +434,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
       setState(() {
         currentSeatIndex = index;
         isMicOn = true;
+        // যদি ওনারের uID মিলে যায়, তবে স্পেশাল মেসেজ যাবে
         if (myFixedUid == roomOwnerId) _sendOwnerJoinMessage();
       });
       
-      // সফল হলে আরেকটি মেসেজ
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Seat updated successfully!"), backgroundColor: Colors.green),
       );
@@ -456,7 +451,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
     }
   }
 }
-
   void _showLeaveConfirmation(int index) {
     showDialog(
       context: context,
