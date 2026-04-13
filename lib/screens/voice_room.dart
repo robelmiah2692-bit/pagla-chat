@@ -892,17 +892,29 @@ List<Widget> _buildFloatingEmojiAnimations() {
                       );
                       return;
                     }
-                    
-                    RoomProfileHandler.editRoomName(
-                      context: context, 
-                      currentName: roomName, 
-                      onNameSaved: (newName) {
-                        setState(() => roomName = newName);
-                        
+
+                    showDialog(
+                      context: context,
+                      builder: (context) {
+                      TextEditingController nameEditController = TextEditingController(text: roomName);
+                       decoration: const InputDecoration(hintText: "Enter new room name"),
+                     ),
+                    actions: [
+                    TextButton(
+                    onPressed: () => Navigator.pop(context), 
+                    child: const Text("Cancel"),
+                  ),
+                   TextButton(
+                   onPressed: () {
+                   String newName = nameEditController.text.trim();
+                   if (newName.isNotEmpty) {
+                   // ৩. স্টেট আপডেট
+                   setState(() => roomName = newName);
+                         
                         _roomService.updateRoomFullData(
                           roomId: widget.roomId,
                           roomName: newName,
-                          roomImage: roomProfileImage,
+                          roomImage: image.path,
                           isLocked: isRoomLocked,
                           wallpaper: roomWallpaperPath,
                           followers: followerCount,
