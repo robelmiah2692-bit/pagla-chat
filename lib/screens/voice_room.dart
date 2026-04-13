@@ -774,13 +774,11 @@ List<Widget> _buildFloatingEmojiAnimations() {
 }
        
  // 🔥 এটিই আপনার ফাইনাল এবং একমাত্র dispose ফাংশন
-    // 🔥 এটিই আপনার ফাইনাল এবং একমাত্র dispose ফাংশন
+   // 🔥 এটিই আপনার ফাইনাল এবং একমাত্র dispose ফাংশন
   @override
   void dispose() {
-    // ১. আড্ডা (Viewers List) থেকে নাম মুছে ফেলা
     _removeUserFromViewers(); 
 
-    // ২. সিটে বসা থাকলে সেই সিটটি অটো খালি করে দেওয়া (Real-time Sync)
     if (currentSeatIndex != -1) {
       _roomService.updateSeatData(
         roomId: widget.roomId, 
@@ -804,7 +802,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
           });
     }
 
-    // ৩. মেমোরি ক্লিনআপ
     giftTimer?.cancel();
     pkManager.stopPK();
     _audioPlayer.dispose();
@@ -815,16 +812,9 @@ List<Widget> _buildFloatingEmojiAnimations() {
 
   // --- উইজেট ফাংশনসমূহ ---
   Widget _buildTopNavBar() {
-    // ১. পারমিশন চেক করার সঠিক লজিক
     final String myAuthId = FirebaseAuth.instance.currentUser?.uid ?? "";
-    
-    // রুমের আসল মালিকের Auth ID-র সাথে বর্তমান ইউজারের ID চেক করুন
-    // আপনার ভেরিয়েবল লিস্টে "roomOwnerId" থাকলে সেটিই ব্যবহার করুন
     bool isOwner = (myAuthId == roomOwnerId); 
-    
-    // অ্যাডমিন লিস্ট চেক (ভেরিয়েবল adminList হলে সেটিই থাকবে)
     bool isAdmin = adminList.contains(myAuthId);
-
     bool hasPermission = isOwner || isAdmin;
 
     return Padding(
@@ -845,30 +835,28 @@ List<Widget> _buildFloatingEmojiAnimations() {
               final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
               if (image != null) {
-                  if (roomProfileImage.isNotEmpty && roomProfileImage.contains("firebasestorage")) {
-                    try {
-                      await FirebaseStorage.instance.refFromURL(roomProfileImage).delete();
-                    } catch (e) {
-                      debugPrint("Old image delete failed: $e");
-                    }
+                if (roomProfileImage.isNotEmpty && roomProfileImage.contains("firebasestorage")) {
+                  try {
+                    await FirebaseStorage.instance.refFromURL(roomProfileImage).delete();
+                  } catch (e) {
+                    debugPrint("Old image delete failed: $e");
                   }
+                }
 
-                  setState(() => roomProfileImage = newImagePath);
-                  
-                  _roomService.updateRoomFullData(
-                    roomId: widget.roomId,
-                    roomName: roomName,
-                    roomImage: image.path,
-                    isLocked: isRoomLocked,
-                    wallpaper: roomWallpaperPath,
-                    followers: followerCount,
-                    totalDiamonds: 0,
-                    uID: uID, // ৬-ডিজিটের আইডি
-                    ownerName: ownerName,
-                  );
-                }, 
-                showMessage: (msg) {}
-              );
+                setState(() => roomProfileImage = image.path);
+                
+                _roomService.updateRoomFullData(
+                  roomId: widget.roomId,
+                  roomName: roomName,
+                  roomImage: image.path,
+                  isLocked: isRoomLocked,
+                  wallpaper: roomWallpaperPath,
+                  followers: followerCount,
+                  totalDiamonds: 0,
+                  uID: roomOwnerId,
+                  ownerName: ownerName,
+                );
+              }
             },
             child: CircleAvatar(
               radius: 20,
@@ -883,7 +871,6 @@ List<Widget> _buildFloatingEmojiAnimations() {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 📝 রুমের নাম
                 GestureDetector(
                   onTap: () {
                     if (!hasPermission) {
@@ -896,33 +883,42 @@ List<Widget> _buildFloatingEmojiAnimations() {
                     showDialog(
                       context: context,
                       builder: (context) {
-                      TextEditingController nameEditController = TextEditingController(text: roomName);
-                       decoration: const InputDecoration(hintText: "Enter new room name"),
-                     ),
-                    actions: [
-                    TextButton(
-                    onPressed: () => Navigator.pop(context), 
-                    child: const Text("Cancel"),
-                  ),
-                   TextButton(
-                   onPressed: () {
-                   String newName = nameEditController.text.trim();
-                   if (newName.isNotEmpty) {
-                   // ৩. স্টেট আপডেট
-                   setState(() => roomName = newName);
-                         
-                        _roomService.updateRoomFullData(
-                          roomId: widget.roomId,
-                          roomName: newName,
-                          roomImage: image.path,
-                          isLocked: isRoomLocked,
-                          wallpaper: roomWallpaperPath,
-                          followers: followerCount,
-                          totalDiamonds: 0,
-                          uID: uID,
-                          ownerName: ownerName,
+                        TextEditingController nameEditController = TextEditingController(text: roomName);
+                        return AlertDialog(
+                          title: const Text("Edit Room Name"),
+                          content: TextField(
+                            controller: nameEditController,
+                            decoration: const InputDecoration(hintText: "Enter new room name"),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context), 
+                              child: const Text("Cancel"),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                String newName = nameEditController.text.trim();
+                                if (newName.isNotEmpty) {
+                                  setState(() => roomName = newName);
+                                  _roomService.updateRoomFullData(
+                                    roomId: widget.roomId,
+                                    roomName: newName,
+                                    roomImage: roomProfileImage,
+                                    isLocked: isRoomLocked,
+                                    wallpaper: roomWallpaperPath,
+                                    followers: followerCount,
+                                    totalDiamonds: 0,
+                                    uID: roomOwnerId,
+                                    ownerName: ownerName,
+                                  );
+                                }
+                                Navigator.pop(context);
+                              }, 
+                              child: const Text("Save"),
+                            ),
+                          ],
                         );
-                      }
+                      },
                     );
                   },
                   child: Text(
@@ -938,7 +934,7 @@ List<Widget> _buildFloatingEmojiAnimations() {
               ],
             ),
           ),
-
+          
           // ➕ ১. ফলোয়ার বাটন (টগল লজিক + সঠিক ডাটা সিঙ্ক)
           IconButton(
             icon: Icon(
