@@ -840,9 +840,11 @@ List<Widget> _buildFloatingEmojiAnimations() {
                 );
                 return;
               }
-              
-              RoomProfileHandler.pickRoomImage(
-                onImagePicked: (newImagePath) async {
+
+              final ImagePicker picker = ImagePicker();
+              final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+              if (image != null) {
                   if (roomProfileImage.isNotEmpty && roomProfileImage.contains("firebasestorage")) {
                     try {
                       await FirebaseStorage.instance.refFromURL(roomProfileImage).delete();
