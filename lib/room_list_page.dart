@@ -70,7 +70,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
       String mySixDigitID = userData['uID']?.toString() ?? "";
       String currentUserName = userData['name'] ?? "Pagla User";
       String currentUserPic = userData['profilePic'] ?? "";
-      String authUID = user.uid; // ফায়ারবেস অথ আইডি
+      String authuID = user.uid; // ফায়ারবেস অথ আইডি
 
       if (mySixDigitID.isEmpty) return;
 
@@ -106,7 +106,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
         'roomId': newUniqueRoomId,
         'roomName': roomName,
         'ownerId': mySixDigitID,      // ৬-ডিজিটের আইডি
-        'ownerAuthId': authUID,       // অথ আইডি ব্যাকআপ
+        'ownerAuthId': authuID,       // অথ আইডি ব্যাকআপ
         'ownerName': currentUserName,
         'ownerPic': currentUserPic,
         'userCount': 1,
@@ -276,10 +276,10 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
         if (!userSnapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
         if (userSnapshot.data!.docs.isEmpty) return const Center(child: Text("User profile not found"));
 
-        String myUID = userSnapshot.data!.docs.first['uID'].toString();
+        String myuID = userSnapshot.data!.docs.first['uID'].toString();
 
         return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('rooms').where('ownerId', isEqualTo: myUID).snapshots(),
+          stream: FirebaseFirestore.instance.collection('rooms').where('ownerId', isEqualTo: myuID).snapshots(),
           builder: (context, snapshot) {
             if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
             var myRooms = snapshot.data!.docs;

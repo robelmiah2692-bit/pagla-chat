@@ -13,13 +13,13 @@ class GiftLogicHelper {
 
   // ২. গিফট প্রসেসিং (ফায়ারবেস স্ক্রিনশট অনুযায়ী নিখুঁত ফিল্ড নেম সহ)
   static Future<void> processGift({
-    required String senderAuthId, // লগইন করা ইউজারের লম্বা uid
-    required String targetAuthId, // রিসিভারের লম্বা uid
+    required String senderAuthId, // লগইন করা ইউজারের লম্বা uID
+    required String targetAuthId, // রিসিভারের লম্বা uID
     required Map<String, dynamic> gift,
     required int count,
     required String roomId,
     required String senderName,
-    required String? roomOwnerAuthId, // রুম ওনারের লম্বা uid
+    required String? roomOwnerAuthId, // রুম ওনারের লম্বা uID
   }) async {
     final int unitPrice = (gift['price'] ?? 0) as int;
     final int totalPrice = unitPrice * count;
@@ -81,11 +81,11 @@ class GiftLogicHelper {
     List<Map<String, dynamic>> micUsers = [];
     for (var seat in currentSeats) {
       if (seat != null && seat['isOccupied'] == true) {
-        String? authUID = seat['authUID']?.toString() ?? seat['uid']?.toString();
+        String? authuID = seat['authuID']?.toString() ?? seat['uID']?.toString();
         
-        if (authUID != null && authUID.isNotEmpty) {
+        if (authuID != null && authuID.isNotEmpty) {
           micUsers.add({
-            'uid': authUID, // লম্বা আইডি
+            'uID': authuID, // লম্বা আইডি
             'uID': seat['uID']?.toString() ?? '0', // মালিকের চেনার ৬-ডিজিটের আইডি
             'name': seat['name'] ?? seat['userName'] ?? 'Unknown',
             'photoUrl': seat['profilePic'] ?? seat['userImage'] ?? '',
@@ -156,7 +156,7 @@ class GiftLogicHelper {
   static void showTargetSelector({
     required BuildContext context,
     required List<Map<String, dynamic>> micUsers,
-    required Function(String authUID, String name) onSelected,
+    required Function(String authuID, String name) onSelected,
   }) {
     showModalBottomSheet(
       context: context,
@@ -170,14 +170,14 @@ class GiftLogicHelper {
             final user = micUsers[index];
             return ListTile(
               leading: CircleAvatar(
-                backgroundImage: user['photoUrl'].toString().isNotEmpty 
-                    ? NetworkImage(user['photoUrl']) : null,
-                child: user['photoUrl'].toString().isEmpty ? const Icon(Icons.person) : null,
+                backgroundImage: user['profilePic'].toString().isNotEmpty 
+                    ? NetworkImage(user['profilePic']) : null,
+                child: user['profilePic'].toString().isEmpty ? const Icon(Icons.person) : null,
               ),
               title: Text(user['name'], style: const TextStyle(color: Colors.white)),
               subtitle: Text("User ID: ${user['uID']}", style: const TextStyle(color: Colors.white54, fontSize: 10)),
               onTap: () {
-                onSelected(user['uid'], user['name']);
+                onSelected(user['uID'], user['name']);
                 Navigator.pop(context);
               },
             );

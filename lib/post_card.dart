@@ -61,12 +61,12 @@ class PostCard extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     
     // আপনার Firestore স্ট্রাকচার অনুযায়ী userId চেক করা
-    // এখানে story-র userId এবং current user-এর authUID বা email কুয়েরি থেকে আসা ID চেক করা হচ্ছে
+    // এখানে story-র userId এবং current user-এর authuID বা email কুয়েরি থেকে আসা ID চেক করা হচ্ছে
     final List likes = data['likes'] ?? [];
     
     // মালিকানা চেক করার জন্য: আপনার স্ক্রিনশটে `uID` (String) আছে। 
     // যদি stories কালেকশনে userId হিসেবে ৬ ডিজিটের আইডি থাকে, তবে তা মেলানো হবে।
-    bool isOwner = (data['authUID'] == user?.uid || data['userId'] == user?.uid);
+    bool isOwner = (data['authuID'] == user?.uid || data['userId'] == user?.uid);
 
     const Color premiumGold = Color(0xFFFFD700);
     const Color cyanOwner = Color(0xFF00FBFF);
@@ -256,12 +256,12 @@ class PostCard extends StatelessWidget {
     );
   }
 
-  void _toggleLike(String pId, String uId, List currentLikes) {
+  void _toggleLike(String pId, String uID, List currentLikes) {
     DocumentReference ref = FirebaseFirestore.instance.collection('stories').doc(pId);
-    if (currentLikes.contains(uId)) {
-      ref.update({'likes': FieldValue.arrayRemove([uId])});
+    if (currentLikes.contains(uID)) {
+      ref.update({'likes': FieldValue.arrayRemove([uID])});
     } else {
-      ref.update({'likes': FieldValue.arrayUnion([uId])});
+      ref.update({'likes': FieldValue.arrayUnion([uID])});
     }
   }
 

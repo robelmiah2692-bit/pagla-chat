@@ -4,12 +4,12 @@ import 'package:file_picker/file_picker.dart';
 
 class MusicPlayerWidget extends StatefulWidget {
   final Function(String path) onMusicSelect; 
-  final Function(double volume) onVolumeChange; // ভলিউম পরিবর্তনের জন্য নতুন ফাংশন
+  final Function(double volume) onVolumeChange; 
 
   const MusicPlayerWidget({
     super.key, 
     required this.onMusicSelect, 
-    required this.onVolumeChange, // এটি অ্যাড করা হয়েছে
+    required this.onVolumeChange, 
   });
 
   @override
@@ -19,7 +19,7 @@ class MusicPlayerWidget extends StatefulWidget {
 class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
   List<String> savedMusicNames = [];
   List<String> savedMusicPaths = [];
-  double _currentVolume = 0.5; // ডিফল্ট ভলিউম ৫০%
+  double _currentVolume = 0.5; 
 
   final List<Map<String, String>> hridoyDefaultLibrary = [
     {"name": "Bangla Folk Fusion", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"},
@@ -58,24 +58,31 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
     });
   }
 
+  // --- এরর মুক্ত pickMusic মেথড ---
   Future<void> pickMusic() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.audio,
-      allowMultiple: true,
-    );
+    try {
+      // সরাসরি FilePicker.platform.pickFiles কল করার পরিবর্তে 
+      // রেজাল্টটি আগে নিয়ে চেক করা হচ্ছে।
+      FilePickerResult? result = await FilePicker.pickFiles(
+        type: FileType.audio,
+        allowMultiple: true,
+      );
 
-    if (result != null) {
-      final prefs = await SharedPreferences.getInstance();
-      setState(() {
-        for (var file in result.files) {
-          if (file.path != null && !savedMusicPaths.contains(file.path)) {
-            savedMusicNames.add(file.name);
-            savedMusicPaths.add(file.path!);
+      if (result != null) {
+        final prefs = await SharedPreferences.getInstance();
+        setState(() {
+          for (var file in result.files) {
+            if (file.path != null && !savedMusicPaths.contains(file.path)) {
+              savedMusicNames.add(file.name);
+              savedMusicPaths.add(file.path!);
+            }
           }
-        }
-      });
-      await prefs.setStringList('my_music_names', savedMusicNames);
-      await prefs.setStringList('my_music_paths', savedMusicPaths);
+        });
+        await prefs.setStringList('my_music_names', savedMusicNames);
+        await prefs.setStringList('my_music_paths', savedMusicPaths);
+      }
+    } catch (e) {
+      debugPrint("File Picker Error: $e");
     }
   }
 
@@ -92,7 +99,7 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 550, // স্লাইডারের জন্য উচ্চতা বাড়ানো হয়েছে
+      height: 550, 
       decoration: const BoxDecoration(
         color: Color(0xFF1A1A2E),
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
@@ -104,7 +111,6 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
             const SizedBox(height: 12),
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
             
-            // --- নতুন ভলিউম কন্ট্রোল সেকশন (স্লাইডার) ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Row(
@@ -119,7 +125,7 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                         setState(() {
                           _currentVolume = value;
                         });
-                        widget.onVolumeChange(value * 100); // ১০০ এর স্কেলে কনভার্ট করে পাঠানো হচ্ছে
+                        widget.onVolumeChange(value * 100); 
                       },
                     ),
                   ),
@@ -140,7 +146,7 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
             Expanded(
               child: TabBarView(
                 children: [
-                  // ট্যাব ১: ডিফল্ট গান
+                  // Tab 1: Default Library
                   ListView.builder(
                     padding: const EdgeInsets.all(10),
                     itemCount: hridoyDefaultLibrary.length,
@@ -158,7 +164,7 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                     ),
                   ),
 
-                  // ট্যাব ২: গ্যালারির গান (ডিলিটসহ)
+                  // Tab 2: Local Gallery
                   Column(
                     children: [
                       ListTile(

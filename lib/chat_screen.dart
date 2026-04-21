@@ -6,7 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:gallery_saver/gallery_saver.dart';
+import 'package:gal/gal.dart';
 import 'dart:io';
 import 'screens/voice_room.dart';
 
@@ -31,7 +31,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
   
   final ImagePicker _picker = ImagePicker();
-  final Record _audioRecorder = Record();
+  final AudioRecorder _audioRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isRecording = false;
 
@@ -122,7 +122,7 @@ class _ChatScreenState extends State<ChatScreen> {
       } else {
         final directory = await getApplicationDocumentsDirectory();
         final path = '${directory.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
-        await _audioRecorder.start(path: path);
+        await _audioRecorder.start(const RecordConfig(), path: path);
         setState(() => _isRecording = true);
       }
     } else {
@@ -140,7 +140,7 @@ class _ChatScreenState extends State<ChatScreen> {
       var userData = userDoc.data();
       
       // আপনার ডাটাবেস অনুযায়ী ফিল্ড নেম সংশোধিত
-      final String myPic = userData?['profilePic'] ?? userData?['imageURL'] ?? ''; 
+      final String myPic = userData?['profilePic'] ?? userData?['profilePic'] ?? ''; 
       final String myName = userData?['name'] ?? 'User';
 
       await FirebaseFirestore.instance
@@ -246,7 +246,7 @@ class _ChatScreenState extends State<ChatScreen> {
           if (!snapshot.hasData) return const SizedBox(height: 150);
           final userData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
           final String name = userData['name'] ?? 'User';
-          final String pic = userData['profilePic'] ?? userData['imageURL'] ?? '';
+          final String pic = userData['profilePic'] ?? userData['profilePic'] ?? '';
           final bool isVIP = userData['isVIP'] ?? false;
           final bool isFollowing = (userData['followerList'] ?? []).contains(currentUserId);
 
@@ -282,9 +282,9 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _toggleFollow(String targetUid, bool isFollowing) async {
+  void _toggleFollow(String targetuID, bool isFollowing) async {
     var myRef = FirebaseFirestore.instance.collection('users').doc(currentUserId);
-    var targetRef = FirebaseFirestore.instance.collection('users').doc(targetUid);
+    var targetRef = FirebaseFirestore.instance.collection('users').doc(targetuID);
     if (isFollowing) {
       await targetRef.update({'followers': FieldValue.increment(-1), 'followerList': FieldValue.arrayRemove([currentUserId])});
       await myRef.update({'following': FieldValue.increment(-1)});
@@ -395,15 +395,31 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _downloadMedia(String url, String type) async {
-    if (type == 'image' || type == 'video') {
-      bool? success = await GallerySaver.saveImage(url) ?? await GallerySaver.saveVideo(url);
-      if (success == true) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saved to Gallery!")));
+  try {
+    if (type == 'image') {
+      // ইমেজের জন্য
+      await Gal.putImage(url);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Image Saved to Gallery!")),
+      );
+    } else if (type == 'video') {
+      // ভিডিওর জন্য
+      await Gal.putVideo(url);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Video Saved to Gallery!")),
+      );
     }
+  } catch (e) {
+    // কোনো এরর হলে
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Save failed: $e")),
+    );
   }
+}
 
-  Widget _chatAvatar(String uid, String url, String name) {
+  Widget _chatAvatar(String uID, String url, String name) {
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+      stream: FirebaseFirestore.instance.collection('users').doc(uID).snapshots(),
       builder: (context, snapshot) {
         bool isLive = false;
         if (snapshot.hasData && snapshot.data?.data() != null) {
@@ -412,7 +428,7 @@ class _ChatScreenState extends State<ChatScreen> {
         }
 
         return GestureDetector(
-          onTap: () => _showProfile(context, uid),
+          onTap: () => _showProfile(context, uID),
           child: Stack(
             // clipBehavior: Clip.none, // কিছু ভার্সনে এরর দিলে এটি কমেন্ট করতে পারেন
             children: [

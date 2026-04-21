@@ -210,7 +210,7 @@ class _LuckySpinViewState extends State<LuckySpinView> {
   }
 
   Widget _buildBetGrid(double width) {
-    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    final currentuID = FirebaseAuth.instance.currentUser?.uid;
 
     return GridView.builder(
       shrinkWrap: true,
@@ -227,14 +227,14 @@ class _LuckySpinViewState extends State<LuckySpinView> {
         int myBetOnThis = 0;
 
         for (var b in widget.luckyBets) {
-          if (b['id'] == currentUid && b['slot'] == slot) {
+          if (b['id'] == currentuID && b['slot'] == slot) {
             myBetOnThis += int.tryParse(b['amount'].toString()) ?? 0;
           }
         }
 
         return GestureDetector(
           onTap: () async {
-            if (currentUid == null || widget.userBalance < widget.betAmount || isSpinning || _countdown < 2) return;
+            if (currentuID == null || widget.userBalance < widget.betAmount || isSpinning || _countdown < 2) return;
             
             widget.playSound("https://www.soundjay.com/buttons/sounds/button-3.mp3");
             
@@ -243,7 +243,7 @@ class _LuckySpinViewState extends State<LuckySpinView> {
             
             // ফায়ারবেসে বেট জমা দেওয়া
             await widget.gameRef.child("luckyBets").push().set({
-              "id": currentUid,
+              "id": currentuID,
               "slot": slot,
               "amount": widget.betAmount,
               "time": ServerValue.timestamp,

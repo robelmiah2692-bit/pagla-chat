@@ -15,14 +15,13 @@ class AgoraManager {
   bool _isInitialized = false;
   final String appId = "855883e294ec4144b8e955451c06e3d7";
   Timer? _keepAliveTimer;
-  int? _localUid;
+  int? _localuID;
   bool _shouldBeBroadcasting = false;
   bool _isMicMutedLocal = false; // মাইকের বর্তমান অবস্থা ট্র্যাকিং
   bool _isMusicPlaying = false; // মিউজিক বাজছে কি না ট্র্যাকিং
 
-   // ✅ সব রিমোট ইউজারের অডিও মিউট বা আনমিউট করার জন্য
+  // ✅ সব রিমোট ইউজারের অডিও মিউট বা আনমিউট করার জন্য
   Future<void> muteAllRemoteAudio(bool mute) async {
-    // এখানে অবশ্যই গেটার 'engine' এর বদলে প্রাইভেট '_engine' ব্যবহার করতে হবে
     if (_engine != null) {
       try {
         await _engine!.muteAllRemoteAudioStreams(mute);
@@ -48,7 +47,7 @@ class AgoraManager {
     return _engine!;
   }
 
-  int? get localUid => _localUid;
+  int? get localuID => _localuID;
 
   Future<void> initAgora() async {
     if (_isInitialized && _engine != null) return;
@@ -81,8 +80,9 @@ class AgoraManager {
 
       _engine!.registerEventHandler(RtcEngineEventHandler(
         onJoinChannelSuccess: (connection, elapsed) {
-          debugPrint("✅ এগোরা কানেক্টেড! UID: ${connection.localUid}");
-          _localUid = connection.localUid;
+          // 'connection.localUid' সরাসরি ব্যবহার করা হয়েছে এরর এড়াতে
+          debugPrint("✅ এগোরা কানেক্টেড! uid: ${connection.localUid}");
+          _localuID = connection.localUid;
           forceResumeAudio(); 
         },
         onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
@@ -157,17 +157,17 @@ class AgoraManager {
   }
 
   // --- সাইলেন্ট এন্ট্রি ফিক্স ---
-  Future<void> joinAsListener(String channelName, [String? fireUid]) async {
+  Future<void> joinAsListener(String channelName, [String? fireuID]) async {
     if (!_isInitialized || _engine == null) await initAgora();
 
-    _localUid = (fireUid != null && fireUid.isNotEmpty) 
-        ? (fireUid.hashCode.abs() % 1000000) 
+    _localuID = (fireuID != null && fireuID.isNotEmpty) 
+        ? (fireuID.hashCode.abs() % 1000000) 
         : (Random().nextInt(899999) + 100000);
 
     await _engine!.joinChannel(
       token: "",
       channelId: channelName.trim(), 
-      uid: _localUid!,
+      uid: _localuID!,
       options: const ChannelMediaOptions(
         clientRoleType: ClientRoleType.clientRoleAudience,
         publishMicrophoneTrack: false, 
@@ -249,7 +249,7 @@ class AgoraManager {
     try {
       await stopMusic();
       if (_engine != null) await _engine!.leaveChannel();
-      _localUid = null;
+      _localuID = null;
     } catch (e) {}
   }
 }

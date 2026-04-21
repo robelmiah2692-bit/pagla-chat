@@ -63,7 +63,7 @@ class RoomService {
           'userName': uName,
           'userImage': uImage,
           'isOccupied': isOccupied,
-          'uid': user.uid, // Firebase Auth ID
+          'uID': user.uid, // Firebase Auth ID
           'at': FieldValue.serverTimestamp(),
         }
       });
@@ -73,21 +73,21 @@ class RoomService {
   }
 
   // ৩️⃣ ইউজার ডায়মন্ড ব্যালেন্স স্ট্রিম (ইউজার কালেকশন থেকে)
-  Stream<DocumentSnapshot>? getUserDiamonds(String userUID) {
-    if (userUID.isEmpty) return null;
+  Stream<DocumentSnapshot>? getUserDiamonds(String useruID) {
+    if (useruID.isEmpty) return null;
     // আপনার স্ক্রিনশট অনুযায়ী 'users' কালেকশনে uID ডকুমেন্ট আইডি হিসেবে ব্যবহার হচ্ছে
-    return _firestore.collection('users').doc(userUID).snapshots();
+    return _firestore.collection('users').doc(useruID).snapshots();
   }
 
   // ৪️⃣ গিফট লজিক
   Future<bool> sendGift({
     required String roomId,
     required int giftValue,
-    required String senderUID,   // ইউজারের নিজস্ব uID (যেমন: "153530")
-    required String receiverUID, // রিসিভারের uID
+    required String senderuID,   // ইউজারের নিজস্ব uID (যেমন: "153530")
+    required String receiveruID, // রিসিভারের uID
   }) async {
     try {
-      final userDoc = await _firestore.collection('users').doc(senderUID).get();
+      final userDoc = await _firestore.collection('users').doc(senderuID).get();
       if (!userDoc.exists) return false;
       
       final int currentBalance = userDoc.data()?['diamonds'] ?? 0;
@@ -96,7 +96,7 @@ class RoomService {
         WriteBatch batch = _firestore.batch();
 
         // ১. সেন্ডারের ডায়মন্ড কমানো
-        DocumentReference senderRef = _firestore.collection('users').doc(senderUID);
+        DocumentReference senderRef = _firestore.collection('users').doc(senderuID);
         batch.update(senderRef, {'diamonds': FieldValue.increment(-giftValue)});
 
         // ২. রুমের টোটাল ডায়মন্ড বাড়ানো
@@ -104,8 +104,8 @@ class RoomService {
         batch.update(roomRef, {'totalDiamonds': FieldValue.increment(giftValue)});
 
         // ৩. রিসিভারের ডায়মন্ড বাড়ানো (যদি থাকে)
-        if (receiverUID.isNotEmpty) {
-          DocumentReference receiverRef = _firestore.collection('users').doc(receiverUID);
+        if (receiveruID.isNotEmpty) {
+          DocumentReference receiverRef = _firestore.collection('users').doc(receiveruID);
           batch.update(receiverRef, {'receivedDiamonds': FieldValue.increment(giftValue)});
         }
 
@@ -120,10 +120,10 @@ class RoomService {
   }
 
   // ৫️⃣ রুম থেকে বের হলে ডাটা আপডেট
-  Future<void> leaveRoom(String userUID) async {
-    if (userUID.isEmpty) return;
+  Future<void> leaveRoom(String useruID) async {
+    if (useruID.isEmpty) return;
     try {
-      await _firestore.collection('users').doc(userUID).update({
+      await _firestore.collection('users').doc(useruID).update({
         'currentRoomId': "",
       });
     } catch (e) {

@@ -38,11 +38,11 @@ class _GamePanelViewState extends State<GamePanelView> {
   }
 
   void _listenToData() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null) {
+    final uID = FirebaseAuth.instance.currentUser?.uid;
+    if (uID != null) {
       FirebaseFirestore.instance
           .collection('users')
-          .doc(uid)
+          .doc(uID)
           .snapshots()
           .listen((snapshot) {
         if (snapshot.exists && mounted) {

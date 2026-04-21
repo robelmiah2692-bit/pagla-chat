@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class SoulmateService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final String myUid = FirebaseAuth.instance.currentUser!.uid;
+  final String myuID = FirebaseAuth.instance.currentUser!.uid;
 
   // ১০০০ ডায়মন্ড কেটে সম্পর্ক ছিন্ন করার লজিক
   // ✅ এখানে (String partnerId) যোগ করা হয়েছে যাতে প্রোফাইল পেজ থেকে পাঠানো আইডিটি গ্রহণ করতে পারে
@@ -11,7 +11,7 @@ class SoulmateService {
     const int breakupCost = 1000; 
 
     try {
-      DocumentSnapshot userDoc = await _db.collection('users').doc(myUid).get();
+      DocumentSnapshot userDoc = await _db.collection('users').doc(myuID).get();
       int myDiamonds = userDoc['diamonds'] ?? 0;
 
       if (myDiamonds < breakupCost) {
@@ -20,11 +20,11 @@ class SoulmateService {
 
       // দুইজনের ডাটাবেস থেকে রিমুভ (অটোমেটিক কার্ড খালি হয়ে যাবে)
       // আমরা সরাসরি প্রোফাইল পেজ থেকে আসা partnerId ব্যবহার করছি
-      await _db.collection('soulmates').doc(myUid).delete();
+      await _db.collection('soulmates').doc(myuID).delete();
       await _db.collection('soulmates').doc(partnerId).delete();
 
       // ডায়মন্ড কেটে নেওয়া
-      await _db.collection('users').doc(myUid).update({
+      await _db.collection('users').doc(myuID).update({
         'diamonds': FieldValue.increment(-breakupCost)
       });
 

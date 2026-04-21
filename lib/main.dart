@@ -78,7 +78,7 @@ class PaglaChatApp extends StatelessWidget {
         primaryColor: const Color(0xFF302B63),
         scaffoldBackgroundColor: const Color(0xFF0F0C29), 
         
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: const Color(0xFF1E1E2F).withOpacity(0.8),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         ),
@@ -207,32 +207,32 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
     final user = FirebaseAuth.instance.currentUser;
     final random = Random();
 
-    String finalUID = "";
+    String finaluID = "";
     bool uniqueFound = false;
 
     while (!uniqueFound) {
       int num = 100000 + random.nextInt(900000);
-      finalUID = num.toString();
-      var check = await firestore.collection('users').doc(finalUID).get();
+      finaluID = num.toString();
+      var check = await firestore.collection('users').doc(finaluID).get();
       if (!check.exists) uniqueFound = true;
     }
 
     try {
       // পাথ হবে uID (users/123456)
-      await firestore.collection('users').doc(finalUID).set({
-        'uID': finalUID,
+      await firestore.collection('users').doc(finaluID).set({
+        'uID': finaluID,
         'name': _nameController.text.trim(),
         'age': _ageController.text.trim(),
         'gender': _selectedGender,
         'email': user?.email,
-        'uid': user?.uid,
-        'authUID': user?.uid, 
+        'uID': user?.uid,
+        'authuID': user?.uid, 
         'diamonds': 200,      // শুরুতে ফিক্সড ডাইমন্ড
         'vip_xp': 0,         // VIP XP যোগ করা হলো
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      AppData.myID = finalUID;
+      AppData.myID = finaluID;
       if (mounted) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
       }

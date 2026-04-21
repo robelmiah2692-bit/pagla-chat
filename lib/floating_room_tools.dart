@@ -273,12 +273,12 @@ class _GiftCalculatorBannerState extends State<GiftCalculatorBanner> {
                     itemCount: widget.seats.length,
                     itemBuilder: (context, index) {
                       final seat = widget.seats[index];
-                      if (seat == null || seat['uid'] == null) return const SizedBox.shrink();
+                      if (seat == null || seat['uID'] == null) return const SizedBox.shrink();
                       return ListTile(
                         dense: true,
                         leading: CircleAvatar(radius: 12, backgroundImage: NetworkImage(seat['userImage'] ?? "")),
                         title: Text(seat['userName'] ?? "User", style: const TextStyle(color: Colors.white, fontSize: 10)),
-                        trailing: Text("${scores[seat['uid']] ?? 0} 💎", style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
+                        trailing: Text("${scores[seat['uID']] ?? 0} 💎", style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
                       );
                     },
                   ),

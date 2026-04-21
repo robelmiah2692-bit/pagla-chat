@@ -75,9 +75,9 @@ void initState() {
       userDoc = docById;
     } 
 
-    // ২. যদি না পায়, তবে 'authUID' ফিল্ড দিয়ে সার্চ করবে
+    // ২. যদি না পায়, তবে 'authuID' ফিল্ড দিয়ে সার্চ করবে
     if (userDoc == null) {
-      var queryAuth = await collection.where('authUID', isEqualTo: currentUser.uid).limit(1).get();
+      var queryAuth = await collection.where('authuID', isEqualTo: currentUser.uid).limit(1).get();
       if (queryAuth.docs.isNotEmpty) userDoc = queryAuth.docs.first;
     }
 
@@ -87,10 +87,10 @@ void initState() {
       if (queryEmail.docs.isNotEmpty) userDoc = queryEmail.docs.first;
     }
 
-    // ৪. সবশেষে 'uid' ফিল্ড দিয়ে সার্চ করবে (ব্যাকআপ হিসেবে)
+    // ৪. সবশেষে 'uID' ফিল্ড দিয়ে সার্চ করবে (ব্যাকআপ হিসেবে)
     if (userDoc == null) {
-      var queryUidField = await collection.where('uid', isEqualTo: currentUser.uid).limit(1).get();
-      if (queryUidField.docs.isNotEmpty) userDoc = queryUidField.docs.first;
+      var queryuIDField = await collection.where('uID', isEqualTo: currentUser.uid).limit(1).get();
+      if (queryuIDField.docs.isNotEmpty) userDoc = queryuIDField.docs.first;
     }
 
     // --- ডাটা পাওয়ার পর ভেরিয়েবলে সেট করা ---
@@ -220,8 +220,8 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
             onPressed: () async {
               String newName = _nameController.text.trim(); 
               if (newName.isNotEmpty) {
-                String uid = FirebaseAuth.instance.currentUser!.uid;
-                await FirebaseFirestore.instance.collection('users').doc(uid).set({'name': newName}, SetOptions(merge: true));
+                String uID = FirebaseAuth.instance.currentUser!.uid;
+                await FirebaseFirestore.instance.collection('users').doc(uID).set({'name': newName}, SetOptions(merge: true));
                 setState(() => userName = newName);
                 Navigator.pop(context);
               }
@@ -234,15 +234,15 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
   }
 
   void _toggleFollow() async {
-    String myUid = FirebaseAuth.instance.currentUser!.uid;
-    String targetUid = uIDValue; 
+    String myuID = FirebaseAuth.instance.currentUser!.uid;
+    String targetuID = uIDValue; 
     var followRef = FirebaseFirestore.instance.collection('users');
     if (isFollowing) {
-      await followRef.doc(myUid).update({'following': FieldValue.increment(-1)});
-      await followRef.doc(targetUid).update({'followers': FieldValue.increment(-1)});
+      await followRef.doc(myuID).update({'following': FieldValue.increment(-1)});
+      await followRef.doc(targetuID).update({'followers': FieldValue.increment(-1)});
     } else {
-      await followRef.doc(myUid).update({'following': FieldValue.increment(1)});
-      await followRef.doc(targetUid).update({'followers': FieldValue.increment(1)});
+      await followRef.doc(myuID).update({'following': FieldValue.increment(1)});
+      await followRef.doc(targetuID).update({'followers': FieldValue.increment(1)});
     }
     setState(() => isFollowing = !isFollowing);
   }
@@ -252,8 +252,8 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
       backgroundColor: const Color(0xFF1E1E2F),
       title: const Text("Your age?", style: TextStyle(color: Colors.white)),
       content: SizedBox(height: 200, width: double.maxFinite, child: ListView.builder(itemCount: 40, itemBuilder: (context, index) => ListTile(title: Text("${index + 15} Year", style: const TextStyle(color: Colors.white)), onTap: () async {
-        String uid = FirebaseAuth.instance.currentUser!.uid;
-        await FirebaseFirestore.instance.collection('users').doc(uid).update({'age': index + 15});
+        String uID = FirebaseAuth.instance.currentUser!.uid;
+        await FirebaseFirestore.instance.collection('users').doc(uID).update({'age': index + 15});
         setState(() => age = index + 15);
         Navigator.pop(context);
       }))),
@@ -266,8 +266,8 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
         const Padding(padding: EdgeInsets.all(15), child: Text("Settings", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
         ListTile(leading: const Icon(Icons.wc, color: Colors.pinkAccent), title: Text("Gender (Now: $gender)", style: const TextStyle(color: Colors.white)),
           trailing: PopupMenuButton<String>(color: const Color(0xFF1E1E2F), onSelected: (val) async {
-            String uid = FirebaseAuth.instance.currentUser!.uid;
-            await FirebaseFirestore.instance.collection('users').doc(uid).update({'gender': val});
+            String uID = FirebaseAuth.instance.currentUser!.uid;
+            await FirebaseFirestore.instance.collection('users').doc(uID).update({'gender': val});
             setState(() => gender = val);
           }, itemBuilder: (ctx) => [const PopupMenuItem(value: "Male", child: Text("Male", style: TextStyle(color: Colors.white))), const PopupMenuItem(value: "Female", child: Text("Female", style: TextStyle(color: Colors.white)))]),
         ),
@@ -432,13 +432,13 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
 
   Future<void> _handleProfileUpdate(File newFile) async {
     try {
-      // ✅ সবথেকে গুরুত্বপূর্ণ পরিবর্তন: Auth UID ব্যবহার করা
-      String uid = FirebaseAuth.instance.currentUser!.uid; 
+      // ✅ সবথেকে গুরুত্বপূর্ণ পরিবর্তন: Auth uID ব্যবহার করা
+      String uID = FirebaseAuth.instance.currentUser!.uid; 
       String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
       String fileName = 'profile_$timestamp.jpg';
       
       // ১. স্টোরেজ রেফারেন্স
-      Reference storageFolder = FirebaseStorage.instance.ref().child('user_profiles').child(uid);
+      Reference storageFolder = FirebaseStorage.instance.ref().child('user_profiles').child(uID);
       Reference newStorageRef = storageFolder.child(fileName);
 
       // ২. ছবি আপলোড (putFile সরাসরি কাজ করবে যদি পাথ ঠিক থাকে)
@@ -450,8 +450,8 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
       TaskSnapshot snapshot = await uploadTask;
       String newDownloadUrl = await snapshot.ref.getDownloadURL();
       
-      // ৩. ফায়ারস্টোর আপডেট (ডকুমেন্ট আইডি হিসেবে UID নিশ্চিত করা হয়েছে)
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+      // ৩. ফায়ারস্টোর আপডেট (ডকুমেন্ট আইডি হিসেবে uID নিশ্চিত করা হয়েছে)
+      await FirebaseFirestore.instance.collection('users').doc(uID).update({
         'profilePic': newDownloadUrl,
       });
 
@@ -957,7 +957,7 @@ Widget _buildMyFramesTab() {
           userData = snapshot.data!.data() as Map<String, dynamic>;
           
           userName = userData['name'] ?? "User";
-          uIDValue = (userData['uid'] ?? userData['uID'] ?? "N/A").toString(); 
+          uIDValue = (userData['uID'] ?? userData['uID'] ?? "N/A").toString(); 
           diamonds = userData['diamonds'] ?? 0;
           xp = userData['xp'] ?? 0; 
           vipExpiry = userData['vipExpiry'] ?? 0; 

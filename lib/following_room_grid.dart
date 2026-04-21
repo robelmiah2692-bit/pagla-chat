@@ -8,15 +8,15 @@ class FollowingRoomGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String? myUid = FirebaseAuth.instance.currentUser?.uid;
+    final String? myuID = FirebaseAuth.instance.currentUser?.uid;
 
-    if (myUid == null) return const Center(child: Text("লগইন করুন", style: TextStyle(color: Colors.white)));
+    if (myuID == null) return const Center(child: Text("লগইন করুন", style: TextStyle(color: Colors.white)));
 
-    // 🔥 সংশোধন: সরাসরি 'rooms' কালেকশনে কোয়েরি করছি যেখানে 'followers' লিস্টে myUid আছে
+    // 🔥 সংশোধন: সরাসরি 'rooms' কালেকশনে কোয়েরি করছি যেখানে 'followers' লিস্টে myuID আছে
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('rooms')
-          .where('followers', arrayContains: myUid) // চেক করছে ইউজার এই রুমের ফলোয়ার কি না
+          .where('followers', arrayContains: myuID) // চেক করছে ইউজার এই রুমের ফলোয়ার কি না
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {

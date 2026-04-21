@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class MarriageService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final String myUid = FirebaseAuth.instance.currentUser!.uid;
+  final String myuID = FirebaseAuth.instance.currentUser!.uid;
 
   // রিং পাঠানোর লজিক (জেন্ডার চেক-সহ)
   Future<String> sendMarriageRing(String partnerId, String myGender, String partnerGender) async {
@@ -14,7 +14,7 @@ class MarriageService {
 
     try {
       await _db.collection('marriage_requests').doc(partnerId).set({
-        'fromId': myUid,
+        'fromId': myuID,
         'status': 'pending',
         'timestamp': FieldValue.serverTimestamp(),
       });
@@ -28,7 +28,7 @@ class MarriageService {
   Future<void> completeMarriage(String partnerId, String partnerName, String partnerImg, String myName, String myImg) async {
     // দুইজনের ডাটাবেসেই বিয়ের ইনফো সেভ হবে
     var marriageData = {
-      'husbandId': myUid, // লজিক অনুযায়ী আইডি সেট হবে
+      'husbandId': myuID, // লজিক অনুযায়ী আইডি সেট হবে
       'wifeId': partnerId,
       'partnerName': partnerName,
       'partnerImage': partnerImg,
@@ -36,11 +36,11 @@ class MarriageService {
       'marriedAt': FieldValue.serverTimestamp(),
     };
 
-    await _db.collection('marriages').doc(myUid).set(marriageData);
+    await _db.collection('marriages').doc(myuID).set(marriageData);
     
     // পার্টনারের প্রোফাইলেও সেভ হবে
     await _db.collection('marriages').doc(partnerId).set({
-      'partnerId': myUid,
+      'partnerId': myuID,
       'partnerName': myName,
       'partnerImage': myImg,
       'marriedAt': FieldValue.serverTimestamp(),
@@ -52,7 +52,7 @@ class MarriageService {
     const int divorceCost = 2000;
     
     try {
-      DocumentSnapshot userDoc = await _db.collection('users').doc(myUid).get();
+      DocumentSnapshot userDoc = await _db.collection('users').doc(myuID).get();
       int currentDiamonds = userDoc['diamonds'] ?? 0;
 
       if (currentDiamonds < divorceCost) {
@@ -60,12 +60,12 @@ class MarriageService {
       }
 
       // ডায়মন্ড কেটে নেওয়া
-      await _db.collection('users').doc(myUid).update({
+      await _db.collection('users').doc(myuID).update({
         'diamonds': FieldValue.increment(-divorceCost)
       });
 
       // বিয়ের রেকর্ড মুছে ফেলা
-      await _db.collection('marriages').doc(myUid).delete();
+      await _db.collection('marriages').doc(myuID).delete();
       await _db.collection('marriages').doc(partnerId).delete();
 
       return "বিচ্ছেদ সম্পন্ন হয়েছে।";

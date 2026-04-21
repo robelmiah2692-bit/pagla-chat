@@ -192,12 +192,12 @@ class _InboxPageState extends State<InboxPage> {
         final Map<String, dynamic> aData = a['data'] as Map<String, dynamic>;
         final Map<String, dynamic> bData = b['data'] as Map<String, dynamic>;
 
-        String aUID = (aData['uID'] ?? "").toString();
-        String bUID = (bData['uID'] ?? "").toString();
+        String auID = (aData['uID'] ?? "").toString();
+        String buID = (bData['uID'] ?? "").toString();
 
         // Official অ্যাকাউন্ট সবসময় উপরে থাকবে
-        if (aUID == "paglachat_official") return -1;
-        if (bUID == "paglachat_official") return 1;
+        if (auID == "paglachat_official") return -1;
+        if (buID == "paglachat_official") return 1;
 
         // বাকিরা শেষ মেসেজ অনুযায়ী সর্ট হবে
         return (b['lastTs'] as Timestamp).compareTo(a['lastTs'] as Timestamp);

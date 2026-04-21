@@ -6,13 +6,13 @@ class RoomSyncService {
   // ১. সিটে বসার তথ্য আপডেট (আপনার ডাটাবেস ফিল্ড 'profilePic' অনুযায়ী ফিক্সড)
   Future<void> sitOnChair(String roomId, int seatIndex, Map<String, dynamic> userData) async {
     // আপনার ৬-ডিজিটের ইউনিক আইডি এবং লম্বা আইডি আলাদা করা হলো
-    final String authUid = userData['authUid'] ?? userData['uid'] ?? ""; 
-    final String fixedUid = userData['uID'] ?? userData['uid'] ?? "";
+    final String authuID = userData['authuID'] ?? userData['uID'] ?? ""; 
+    final String fixeduID = userData['uID'] ?? userData['uID'] ?? "";
 
     // voice_room.dart এর লিসেনার যেন চিনতে পারে তাই সরাসরি ইনডেক্স ব্যবহার করা হয়েছে
     await _db.ref('rooms/$roomId/seats/$seatIndex').set({
-      'userId': authUid,       // লম্বা Auth UID
-      'uId': fixedUid,         // আপনার ৬-ডিজিটের ইউনিক ID (৯৭০৩২১ টাইপ)
+      'userId': authuID,       // লম্বা Auth uID
+      'uID': fixeduID,         // আপনার ৬-ডিজিটের ইউনিক ID (৯৭০৩২১ টাইপ)
       'userName': userData['name'] ?? userData['userName'] ?? "User",
       'profilePic': userData['profilePic'] ?? userData['avatar'] ?? "", // আপনার স্ক্রিনশট অনুযায়ী ফিক্সড
       
@@ -36,13 +36,13 @@ class RoomSyncService {
 
   // ৩. চ্যাট মেসেজ পাঠানো
   Future<void> sendChatMessage(String roomId, Map<String, dynamic> messageData) async {
-    final String senderAuthUid = messageData['authUid'] ?? messageData['uid'] ?? "";
-    final String senderFixedUid = messageData['uID'] ?? messageData['uid'] ?? "";
+    final String senderAuthuID = messageData['authuID'] ?? messageData['uID'] ?? "";
+    final String senderFixeduID = messageData['uID'] ?? messageData['uID'] ?? "";
     
     await _db.ref('rooms/$roomId/chats').push().set({
       ...messageData,
-      'userId': senderAuthUid,
-      'uId': senderFixedUid,
+      'userId': senderAuthuID,
+      'uID': senderFixeduID,
       'profilePic': messageData['profilePic'] ?? "", // চ্যাটেও ছবির ফিল্ড ঠিক করা হলো
       'timestamp': ServerValue.timestamp,
     });

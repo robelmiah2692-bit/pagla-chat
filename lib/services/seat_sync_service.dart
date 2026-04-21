@@ -27,7 +27,7 @@ class SeatSyncService {
         'isOccupied': isOccupied,
         'isMicOn': (status == "occupied"),
         'userId': currentUser.uid,
-        'uId': uID ?? "",
+        'uID': uID ?? "",
         'isTalking': false,
         'giftCount': 0,
         'timestamp': ServerValue.timestamp,

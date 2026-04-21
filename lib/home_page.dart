@@ -67,7 +67,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Single
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        // আপনার ৪টি রাস্তার মধ্যে email এবং authUID দিয়ে ডাটাবেস থেকে ৬ ডিজিটের আইডি খুঁজে বের করা
+        // আপনার ৪টি রাস্তার মধ্যে email এবং authuID দিয়ে ডাটাবেস থেকে ৬ ডিজিটের আইডি খুঁজে বের করা
         final querySnapshot = await FirebaseFirestore.instance
             .collection('users')
             .where('email', isEqualTo: user.email)

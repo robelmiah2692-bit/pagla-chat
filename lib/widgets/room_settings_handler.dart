@@ -116,9 +116,9 @@ class RoomSettingsHandler {
   }
 
   static void _handleFeaturePurchase(BuildContext context, String roomId, String featureType, Function onAllowed) async {
-    String myUid = _auth.currentUser?.uid ?? "";
+    String myuID = _auth.currentUser?.uid ?? "";
     var roomRef = _firestore.collection('rooms').doc(roomId);
-    var userRef = _firestore.collection('users').doc(myUid);
+    var userRef = _firestore.collection('users').doc(myuID);
 
     var roomSnap = await roomRef.get();
     if (!roomSnap.exists) return;

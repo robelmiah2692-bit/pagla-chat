@@ -18,7 +18,7 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800), // একটু বেশি সময় দিলে ঢেউগুলো আরও ন্যাচারাল লাগে
+      duration: const Duration(milliseconds: 2000), // ২ সেকেন্ড দিলে আরও স্মুথ হয়
     );
 
     if (widget.isTalking) {
@@ -31,7 +31,6 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
     super.didUpdateWidget(oldWidget);
     if (widget.isTalking != oldWidget.isTalking) {
       if (widget.isTalking) {
-        // শুরুতে এনিমেশন রিসেট করে চালানো ভালো
         _controller.repeat();
       } else {
         _controller.stop();
@@ -54,11 +53,13 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
         return Stack(
           alignment: Alignment.center,
           children: [
+            // যখন কথা বলবে তখন ৩টি ঢেউ তৈরি হবে
             if (widget.isTalking) ...[
               _buildRipple(0.0),
-              _buildRipple(0.3),
-              _buildRipple(0.6),
+              _buildRipple(0.33),
+              _buildRipple(0.66),
             ],
+            // ইউজারের ছবি বা সিট উইজেট
             widget.child,
           ],
         );
@@ -67,33 +68,23 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
   }
 
   Widget _buildRipple(double delay) {
-    // প্রোগ্রেস ক্যালকুলেশন আরও নিখুঁত করা হয়েছে
-    double progress = (_controller.value + delay) >= 1.0 
-        ? (_controller.value + delay) - 1.0 
-        : (_controller.value + delay);
-
-    double opacity = (1.0 - progress).clamp(0.0, 1.0);
-    double scale = 1.0 + (progress * 0.5);
+    // এনিমেশনের ভ্যালুর সাথে ডিলে যোগ করে ০.০ থেকে ১.০ এর মধ্যে রাখা
+    double progress = (_controller.value + delay) % 1.0;
 
     return Transform.scale(
-      scale: scale,
+      // ঢেউটি ১.০ (আসল সাইজ) থেকে ২.০ গুণ পর্যন্ত বড় হবে
+      scale: 1.0 + (progress * 0.8), 
       child: Opacity(
-        opacity: opacity,
+        // ঢেউ যত বড় হবে তত স্বচ্ছ (transparent) হয়ে যাবে
+        opacity: (1.0 - progress).clamp(0.0, 1.0),
         child: Container(
-          width: 70, // সিটের গোল ফ্রেমের সাইজ অনুযায়ী
-          height: 70,
+          width: 75, // আপনার সিটের সাইজ অনুযায়ী এটা কম-বেশি করতে পারেন
+          height: 75,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: Colors.pinkAccent.withOpacity(0.5),
-              width: 1.5,
-            ),
-            // গ্রেডিয়েন্ট দিলে ঢেউটা প্রিমিয়াম দেখাবে
-            gradient: RadialGradient(
-              colors: [
-                Colors.pinkAccent.withOpacity(0.2),
-                Colors.transparent,
-              ],
+              color: Colors.pinkAccent.withOpacity(0.4),
+              width: 2.0,
             ),
           ),
         ),

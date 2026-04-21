@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart'; 
+import 'package:intl/intl.dart';
 
 class AgentTransferPage extends StatefulWidget {
   const AgentTransferPage({super.key});
@@ -20,9 +20,9 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
 
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-  // ১. ইউজার সার্চ লজিক (uID ফিল্ড ব্যবহার করা হয়েছে)
-  void searchUser(String inputId) async {
-    if (inputId.isEmpty) return;
+  // ১. ইউজার সার্চ লজিক (Email, uID, authUID, uid - সব ফিল্ডে খুঁজবে)
+  void searchUser(String input) async {
+    if (input.isEmpty) return;
 
     setState(() {
       isLoading = true;
@@ -31,60 +31,80 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
     });
 
     try {
-      // আপনার স্ক্রিনশট অনুযায়ী ডকুমেন্ট আইডি নিজেই হলো ৬-ডিজিটের uID
-      var userDoc = await FirebaseFirestore.instance
+      QuerySnapshot queryRes;
+
+      // ক. প্রথমে সরাসরি ডকুমেন্ট আইডি (uID) দিয়ে খোঁজা
+      var directDoc = await FirebaseFirestore.instance.collection('users').doc(input).get();
+
+      if (directDoc.exists) {
+        _processFoundUser(directDoc.data() as Map<String, dynamic>, directDoc.id);
+        return;
+      }
+
+      // খ. যদি না পায়, তবে email দিয়ে খোঁজা
+      queryRes = await FirebaseFirestore.instance
           .collection('users')
-          .doc(inputId)
+          .where('email', isEqualTo: input)
+          .limit(1)
           .get();
 
-      if (userDoc.exists) {
-        var userData = userDoc.data() as Map<String, dynamic>;
-        receiverFirestoreId = userDoc.id; // ডকুমেন্ট আইডি (৯৭০৩২১)
-
-        bool isTargetAgent = userData['isAgent'] ?? false;
-
-        // অন্য এজেন্টকে ডায়মন্ড পাঠানো ব্লক করা হয়েছে
-        if (isTargetAgent && receiverFirestoreId != currentUserId) {
-          setState(() => isLoading = false);
-          _showSnackBar("You cannot send diamonds to another agent!", isError: true);
-        } else {
-          setState(() {
-            foundUser = userData;
-            isLoading = false;
-          });
-        }
-      } else {
-        // যদি সরাসরি ডকুমেন্ট আইডি না মিলে, তবে কুয়েরি করে দেখা (uID ফিল্ড হিসেবে)
-        var queryRes = await FirebaseFirestore.instance
+      // গ. যদি না পায়, তবে uID (String/Number) দিয়ে খোঁজা
+      if (queryRes.docs.isEmpty) {
+        queryRes = await FirebaseFirestore.instance
             .collection('users')
-            .where('uID', isEqualTo: inputId)
+            .where('uID', isEqualTo: input)
+            .limit(1)
             .get();
+      }
 
-        if (queryRes.docs.isEmpty && int.tryParse(inputId) != null) {
-          queryRes = await FirebaseFirestore.instance
-              .collection('users')
-              .where('uID', isEqualTo: int.parse(inputId))
-              .get();
-        }
+      // ঘ. যদি না পায়, তবে authUID দিয়ে খোঁজা
+      if (queryRes.docs.isEmpty) {
+        queryRes = await FirebaseFirestore.instance
+            .collection('users')
+            .where('authUID', isEqualTo: input)
+            .limit(1)
+            .get();
+      }
 
-        if (queryRes.docs.isNotEmpty) {
-          setState(() {
-            foundUser = queryRes.docs.first.data();
-            receiverFirestoreId = queryRes.docs.first.id;
-            isLoading = false;
-          });
-        } else {
-          setState(() => isLoading = false);
-          _showSnackBar("User not found! (ID: $inputId)", isError: true);
-        }
+      // ঙ. যদি না পায়, তবে uid দিয়ে খোঁজা
+      if (queryRes.docs.isEmpty) {
+        queryRes = await FirebaseFirestore.instance
+            .collection('users')
+            .where('uid', isEqualTo: input)
+            .limit(1)
+            .get();
+      }
+
+      if (queryRes.docs.isNotEmpty) {
+        _processFoundUser(queryRes.docs.first.data() as Map<String, dynamic>, queryRes.docs.first.id);
+      } else {
+        setState(() => isLoading = false);
+        _showSnackBar("User not found! (Input: $input)", isError: true);
       }
     } catch (e) {
       setState(() => isLoading = false);
-      _showSnackBar("Error searching user", isError: true);
+      _showSnackBar("Error searching user: $e", isError: true);
     }
   }
 
-  // ২. ডায়মন্ড ট্রান্সফার লজিক (২৫০ ডায়মন্ডে ১ এক্সপি লজিক ফিক্সড)
+  // ইউজার ডাটা প্রসেসিং লজিক (অন্য এজেন্টকে পাঠানো ব্লক করবে)
+  void _processFoundUser(Map<String, dynamic> userData, String docId) {
+    bool isTargetAgent = userData['isAgent'] ?? false;
+
+    // টার্গেট ইউজার যদি এজেন্ট হয় এবং সে যদি আমি নিজে না হই (নিজেকে নিজে পাঠানো যাবে না বা অন্য এজেন্টকে না)
+    if (isTargetAgent && docId != currentUserId) {
+      setState(() => isLoading = false);
+      _showSnackBar("You cannot send diamonds to another agent!", isError: true);
+    } else {
+      setState(() {
+        foundUser = userData;
+        receiverFirestoreId = docId;
+        isLoading = false;
+      });
+    }
+  }
+
+  // ২. ডায়মন্ড ট্রান্সফার লজিক (agency_wallet এবং vip_xp ফিক্সড)
   Future<void> confirmTransfer() async {
     if (foundUser == null || _amountController.text.isEmpty || receiverFirestoreId == null) return;
 
@@ -97,18 +117,17 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
     setState(() => isLoading = true);
 
     try {
-      // 🔥 এখানে ২৫০ ডায়মন্ডে ১ এক্সপি হিসাব করা হয়েছে
-      int earnedXP = amount ~/ 250; 
+      int earnedXP = amount ~/ 250; // ২৫০ ডায়মন্ডে ১ এক্সপি
 
-      // বর্তমান এজেন্টের ডকুমেন্ট খুঁজে বের করা (ইমেইল দিয়ে)
-      final String? agentEmail = FirebaseAuth.instance.currentUser?.email;
+      // বর্তমান এজেন্টের ডাটা (authUID দিয়ে খোঁজা হচ্ছে আপনার প্রোফাইল)
       var agentQuery = await FirebaseFirestore.instance
           .collection('users')
-          .where('email', isEqualTo: agentEmail)
+          .where('authUID', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
           .limit(1)
           .get();
 
       if (agentQuery.docs.isEmpty) throw Exception("Agent record not found!");
+      
       DocumentReference senderRef = agentQuery.docs.first.reference;
       DocumentReference receiverRef = FirebaseFirestore.instance.collection('users').doc(receiverFirestoreId!);
 
@@ -118,10 +137,12 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
         if (!senderSnap.exists) throw Exception("Agent data not found!");
 
         Map<String, dynamic> senderData = senderSnap.data() as Map<String, dynamic>;
+        
+        // আপনার ডাটাবেস অনুযায়ী 'agency_wallet' ফিল্ড
         int currentAgencyWallet = (senderData['agency_wallet'] ?? 0).toInt();
 
         if (currentAgencyWallet < amount) {
-          throw Exception("Insufficient diamonds in your Agency Wallet!");
+          throw Exception("Insufficient balance in Agency Wallet!");
         }
 
         // এজেন্টের ওয়ালেট আপডেট
@@ -129,13 +150,13 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
           'agency_wallet': currentAgencyWallet - amount
         });
 
-        // ইউজারের ডায়মন্ড এবং এক্সপি (২৫০:১) আপডেট
+        // ইউজারের ডায়মন্ড এবং vip_xp আপডেট
         transaction.update(receiverRef, {
           'diamonds': FieldValue.increment(amount),
-          'xp': FieldValue.increment(earnedXP),
+          'vip_xp': FieldValue.increment(earnedXP),
         });
 
-        // PaglaChat Official ইনবক্স নোটিফিকেশন (সিস্টেম মেসেজ)
+        // PaglaChat Official ইনবক্স নোটিফিকেশন
         String chatId = "paglachat_official_$receiverFirestoreId";
         DocumentReference msgRef = FirebaseFirestore.instance
             .collection('chats')
@@ -152,10 +173,10 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
           'type': 'system_msg'
         });
 
-        // রিচার্জ হিস্ট্রি ডায়মন্ড ডক
+        // রিচার্জ হিস্ট্রি
         transaction.set(FirebaseFirestore.instance.collection('diamond_history').doc(), {
-          'senderId': senderSnap.id, // এজেন্টের uID
-          'receiverId': receiverFirestoreId, // গ্রহীতার uID
+          'senderId': senderSnap.id, 
+          'receiverId': receiverFirestoreId,
           'amount': amount,
           'earnedXP': earnedXP,
           'type': 'agency_transfer',
@@ -191,21 +212,19 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
 
   // ৩. ট্রানজেকশন হিস্ট্রি দেখার বটম শিট
   void _openHistorySheet() async {
-    // এজেন্টের uID পাওয়ার জন্য কুয়েরি
-    final String? agentEmail = FirebaseAuth.instance.currentUser?.email;
     var agentQuery = await FirebaseFirestore.instance
         .collection('users')
-        .where('email', isEqualTo: agentEmail)
+        .where('authUID', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
         .limit(1)
         .get();
     
-    String agentUID = agentQuery.docs.isNotEmpty ? agentQuery.docs.first.id : currentUserId;
+    String agentuID = agentQuery.docs.isNotEmpty ? agentQuery.docs.first.id : currentUserId;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => TransactionHistoryWidget(agentId: agentUID),
+      builder: (context) => TransactionHistoryWidget(agentId: agentuID),
     );
   }
 
@@ -232,6 +251,35 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
+            // আপনার নিজের ব্যালেন্স দেখানোর উইজেট (Dynamic)
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .where('authUID', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const SizedBox();
+                var myData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+                return Container(
+                  padding: const EdgeInsets.all(15),
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.pinkAccent.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.pinkAccent.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("My Agency Wallet:", style: TextStyle(color: Colors.white70)),
+                      Text("💎 ${myData['agency_wallet'] ?? 0}", 
+                        style: const TextStyle(color: Colors.greenAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                );
+              }
+            ),
+
             // সার্চ বার
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -242,9 +290,8 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
               child: TextField(
                 controller: _idController,
                 style: const TextStyle(color: Colors.white),
-                keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  hintText: "Search by User ID (uID)...",
+                  hintText: "Search by ID, Email, or uID...",
                   hintStyle: const TextStyle(color: Colors.white24),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.search, color: Colors.pinkAccent),
@@ -257,10 +304,7 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
             const SizedBox(height: 25),
 
             if (isLoading) 
-              const Padding(
-                padding: EdgeInsets.only(top: 20),
-                child: Center(child: CircularProgressIndicator(color: Colors.pinkAccent)),
-              ),
+              const Center(child: CircularProgressIndicator(color: Colors.pinkAccent)),
 
             // ইউজার কার্ড (সার্চ রেজাল্ট)
             if (foundUser != null && !isLoading)
@@ -289,7 +333,6 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
                     Text("ID: ${foundUser!['uID'] ?? 'N/A'}", style: const TextStyle(color: Colors.white54)),
                     const Divider(color: Colors.white10, height: 30),
                     
-                    // পরিমাণ ইনপুট
                     TextField(
                       controller: _amountController,
                       style: const TextStyle(color: Colors.white, fontSize: 22),
@@ -304,7 +347,6 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
                     ),
                     const SizedBox(height: 30),
                     
-                    // সেন্ড বাটন
                     SizedBox(
                       width: double.infinity,
                       height: 55,
@@ -328,7 +370,6 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
   }
 }
 
-// --- ট্রানজেকশন হিস্ট্রি উইজেট (পুরাতন ফিচার সহ) ---
 class TransactionHistoryWidget extends StatelessWidget {
   final String agentId;
   const TransactionHistoryWidget({super.key, required this.agentId});
@@ -375,16 +416,9 @@ class TransactionHistoryWidget extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                       child: ListTile(
                         leading: const CircleAvatar(backgroundColor: Colors.black26, child: Icon(Icons.diamond, color: Colors.pinkAccent, size: 20)),
-                        title: Text("User ID: ${data['receiverId']}", style: const TextStyle(color: Colors.white, fontSize: 14)),
+                        title: Text("Receiver ID: ${data['receiverId']}", style: const TextStyle(color: Colors.white, fontSize: 14)),
                         subtitle: Text(formattedDate, style: const TextStyle(color: Colors.white38, fontSize: 11)),
-                        trailing: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text("${data['amount']} 💎", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
-                            const Text("Success", style: TextStyle(color: Colors.white54, fontSize: 10)),
-                          ],
-                        ),
+                        trailing: Text("${data['amount']} 💎", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
                       ),
                     );
                   },

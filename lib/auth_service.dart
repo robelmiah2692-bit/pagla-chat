@@ -29,7 +29,7 @@ class AuthService {
 
   // ২. ফায়ারবেস চেক লজিক: ইউনিক আইডি আছে কি নেই তা খোঁজা
   // (Bengali Comment: এখানে এখন আপনার ৬-ডিজিটের ইউনিক uID দিয়ে ডাটা খুঁজবে)
-  Future<bool> checkUserExistsByUID(String uniqueID) async {
+  Future<bool> checkUserExistsByuID(String uniqueID) async {
     try {
       // (Bengali Comment: 'users' কালেকশনে 'uID' ফিল্ড দিয়ে সার্চ করা হচ্ছে)
       var query = await _db.collection('users')

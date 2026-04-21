@@ -58,7 +58,7 @@ class StoriesService {
       // ৩. ডাটাবেসে স্টোরি সেভ
       await _firestore.collection('stories').add({
         'userId': myCustomDocId, // এখানে ৬ ডিজিটের আইডি সেভ হবে
-        'authUID': user.uid,     // চেনার সুবিধার জন্য অরিজিনাল Auth UID-ও রাখা হলো
+        'authuID': user.uid,     // চেনার সুবিধার জন্য অরিজিনাল Auth uID-ও রাখা হলো
         'userName': actualName, 
         'userImage': actualProfilePic, 
         'storyImage': downloadUrl,

@@ -8,17 +8,17 @@ class ChatService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // ১. মেসেজ পাঠানোর লজিক (ফায়ারবেস স্ট্রাকচার ও নোটিফিকেশন সহ)
-  Future<void> sendMessage(String receiverID, String message, {String? senderCustomUID}) async {
+  Future<void> sendMessage(String receiverID, String message, {String? senderCustomuID}) async {
     final User? currentUser = _auth.currentUser;
     if (currentUser == null) return;
     
-    final String currentAuthId = currentUser.uid; // লম্বা uid
+    final String currentAuthId = currentUser.uid; // লম্বা uID
     final Timestamp timestamp = Timestamp.now();
 
     // মেসেজ ডাটা
     Map<String, dynamic> newMessage = {
       'senderAuthId': currentAuthId,
-      'senderUID': senderCustomUID ?? "", // আপনার ৬-ডিজিটের আইডি (যেমন: 153530)
+      'senderuID': senderCustomuID ?? "", // আপনার ৬-ডিজিটের আইডি (যেমন: 153530)
       'receiverId': receiverID,
       'message': message,
       'timestamp': timestamp,

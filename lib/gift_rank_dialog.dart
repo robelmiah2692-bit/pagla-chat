@@ -80,7 +80,7 @@ class GiftRankDialog extends StatelessWidget {
   Widget _buildWinnerAvatar(Map<String, dynamic> user, String rank, Color frameColor, double size) {
     // এখানে আপনার ডাটাবেসের ফিল্ডের নাম অনুযায়ী ভ্যালু নেওয়া হচ্ছে
     String name = user['name'] ?? user['userName'] ?? 'User';
-    String photo = user['photoUrl'] ?? user['avatar'] ?? '';
+    String photo = user['profilePic'] ?? user['avatar'] ?? '';
     int giftCount = user['totalPrice'] ?? user['diamonds'] ?? 0;
 
     return Column(

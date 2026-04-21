@@ -62,4 +62,4 @@ class ChatInputBar extends StatelessWidget {
     );
   }
 }
-*#
+*/

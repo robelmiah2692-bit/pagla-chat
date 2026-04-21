@@ -57,13 +57,13 @@ class DatabaseService {
   }
 
   // ৩. ডায়মন্ড যোগ করার পদ্ধতি (গ্রহীতার জন্য - ৬-ডিজিটের uID ব্যবহার করে)
-  Future<void> addDiamondsToUser(String targetUID, int amount) async {
+  Future<void> addDiamondsToUser(String targetuID, int amount) async {
     try {
-      // targetUID হলো ইউজারের সেই ৬-ডিজিটের আইডি (যেমন: 970321)
-      await _db.collection('users').doc(targetUID).update({
+      // targetuID হলো ইউজারের সেই ৬-ডিজিটের আইডি (যেমন: 970321)
+      await _db.collection('users').doc(targetuID).update({
         'diamonds': FieldValue.increment(amount),
       });
-      print("✅ Diamonds added to uID: $targetUID");
+      print("✅ Diamonds added to uID: $targetuID");
     } catch (e) {
       print("❌ Error adding diamonds: $e");
     }

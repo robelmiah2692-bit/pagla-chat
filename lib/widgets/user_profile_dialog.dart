@@ -6,7 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 class UserProfileDialog extends StatelessWidget {
   final String roomId;
   final Map<String, dynamic> userData;
-  // 🔥 চোর ফিক্স: FirebaseAuth এর লম্বা আইডি (authUID)
+  // 🔥 চোর ফিক্স: FirebaseAuth এর লম্বা আইডি (authuID)
   final String currentAuthId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
   UserProfileDialog({super.key, required this.roomId, required this.userData});
@@ -14,7 +14,7 @@ class UserProfileDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 🔥 চোর ফিক্স: টার্গেট ইউজারের ৬-ডিজিটের uID বা লম্বা আইডি নিশ্চিত করা
-    final String targetUid = userData['uID'] ?? userData['uId'] ?? userData['userId'] ?? "";
+    final String targetuID = userData['uID'] ?? userData['uID'] ?? userData['userId'] ?? "";
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -39,8 +39,8 @@ class UserProfileDialog extends StatelessWidget {
               bool isMeOwner = currentAuthId == ownerId; 
               bool isMeAdmin = admins.contains(currentAuthId);
               
-              bool isTargetOwner = targetUid == ownerId;
-              bool isTargetAdmin = admins.contains(targetUid);
+              bool isTargetOwner = targetuID == ownerId;
+              bool isTargetAdmin = admins.contains(targetuID);
               
               bool canControl = isMeOwner || isMeAdmin;
 
@@ -62,7 +62,7 @@ class UserProfileDialog extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildHeader(targetUid, isTargetOwner, isTargetAdmin),
+                    _buildHeader(targetuID, isTargetOwner, isTargetAdmin),
                     const SizedBox(height: 25),
                     
                     Row(
@@ -92,7 +92,7 @@ class UserProfileDialog extends StatelessWidget {
                               isTargetAdmin ? "Remove Admin" : "Make Admin", 
                               isTargetAdmin ? Colors.orange : Colors.blue, 
                               Icons.security, 
-                              () => _handleAdminStatus(targetUid, admins, isTargetAdmin)
+                              () => _handleAdminStatus(targetuID, admins, isTargetAdmin)
                             ),
 
                           if (userData['isOnSeat'] != true)
@@ -105,7 +105,7 @@ class UserProfileDialog extends StatelessWidget {
 
                           // ওনার যে কাউকে কিক দিতে পারবে, এডমিন শুধু মেম্বারদের কিক দিতে পারবে
                           if (!isTargetOwner && (isMeOwner || (isMeAdmin && !isTargetAdmin)))
-                            _controlBtn("Kick User", Colors.redAccent, Icons.gavel, () => _kickLogic(context, targetUid)),
+                            _controlBtn("Kick User", Colors.redAccent, Icons.gavel, () => _kickLogic(context, targetuID)),
                         ],
                       ),
                     ],
@@ -119,12 +119,12 @@ class UserProfileDialog extends StatelessWidget {
     );
   }
 
-  void _handleAdminStatus(String uid, List currentAdmins, bool alreadyAdmin) async {
+  void _handleAdminStatus(String uID, List currentAdmins, bool alreadyAdmin) async {
     // ⚔️ চোর জবাই: একই ফিল্ডে আপডেট হবে
     if (alreadyAdmin) {
-      currentAdmins.remove(uid);
+      currentAdmins.remove(uID);
     } else {
-      currentAdmins.add(uid);
+      currentAdmins.add(uID);
     }
     await FirebaseFirestore.instance.collection('rooms').doc(roomId).update({
       'admins': currentAdmins,
@@ -132,16 +132,16 @@ class UserProfileDialog extends StatelessWidget {
     });
   }
 
-  void _kickLogic(BuildContext context, String uid) async {
+  void _kickLogic(BuildContext context, String uID) async {
     await FirebaseFirestore.instance.collection('rooms').doc(roomId).update({
-      'followers': FieldValue.arrayRemove([uid]),
-      'kickedUsers': FieldValue.arrayUnion([uid])
+      'followers': FieldValue.arrayRemove([uID]),
+      'kickedUsers': FieldValue.arrayUnion([uID])
     });
     if (context.mounted) Navigator.pop(context);
   }
 
-  Widget _buildHeader(String uid, bool isOwner, bool isAdmin) {
-    String photo = userData['userImage'] ?? userData['photoUrl'] ?? userData['profilePic'] ?? "";
+  Widget _buildHeader(String uID, bool isOwner, bool isAdmin) {
+    String photo = userData['userImage'] ?? userData['profilePic'] ?? userData['profilePic'] ?? "";
     String name = userData['userName'] ?? userData['name'] ?? "User";
 
     return Column(

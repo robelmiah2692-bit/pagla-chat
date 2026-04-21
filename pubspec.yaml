@@ -11,37 +11,37 @@ dependencies:
     sdk: flutter
 
   # --- ফায়ারবেস (Firebase) ---
-  firebase_core: ^2.32.0
-  firebase_auth: ^4.20.0
-  cloud_firestore: ^4.17.5
-  firebase_database: ^10.5.2
-  firebase_messaging: ^14.9.4
-  firebase_storage: ^11.7.7
-  firebase_remote_config: ^4.4.7
-  intl: ^0.19.0
+  firebase_core: ^4.7.0
+  firebase_auth: ^6.4.0
+  cloud_firestore: ^6.3.0
+  firebase_database: ^12.3.0
+  firebase_messaging: ^16.2.0
+  firebase_storage: ^13.3.0
+  firebase_remote_config: ^6.4.0
+  intl: ^0.20.2
 
   # --- গুগল লগইন ---
-  google_sign_in: ^6.2.1
+  google_sign_in: ^7.2.0
 
   # --- নোটিফিকেশন ---
-  flutter_local_notifications: ^17.1.2
+  flutter_local_notifications: ^21.0.0
 
   # --- ভয়েস চ্যাট ও মিডিয়া (Agora & Recording) ---
   agora_rtc_engine: ^6.3.2
-  permission_handler: ^11.3.1 
+  permission_handler: ^12.0.1 
   wakelock_plus: ^1.2.8
   universal_html: ^2.2.4
-  audioplayers: ^5.2.1
+  audioplayers: ^6.6.0
   
   # ✅ Fix: record_mp3 বা record 5.x বাদ দিয়ে এই ভার্সনটি ব্যবহার করুন। 
   # এটি লিনাক্স এবং অ্যান্ড্রোয়েড উভয় জায়গাতেই স্ট্যাবল।
-  record: ^4.4.4            
+  record: ^6.2.0            
   
   path_provider: ^2.1.2    
   path: ^1.9.0             
   
   # ✅ মিডিয়া সেভ করার প্যাকেজ
-  gallery_saver: ^2.3.2
+  gal: 2.3.2
   
   # --- ভিডিও প্লেয়ার ও প্রগ্রেস ---
   video_player: ^2.8.1     
@@ -54,13 +54,13 @@ dependencies:
 
   # --- ব্যাকগ্রাউন্ড ও ডিভাইস ইনফো ---
   flutter_background_service: ^5.0.10
-  device_info_plus: ^9.1.2
-  package_info_plus: ^8.0.2
+  device_info_plus: ^12.4.0
+  package_info_plus: ^9.0.1
   uuid: ^4.3.3
 
   # --- ইউটিলিটি ও ডিজাইন ---
   cached_network_image: ^3.3.1
-  file_picker: ^8.0.3
+  file_picker: ^11.0.2
   image_picker: ^1.1.1
   shared_preferences: ^2.2.3
   lottie: ^3.1.2
@@ -71,7 +71,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_launcher_icons: "^0.13.1"
+  flutter_launcher_icons: ^0.14.4
 
 # ✅ http ভার্সন কনফ্লিক্ট মেটানোর জন্য
 dependency_overrides:

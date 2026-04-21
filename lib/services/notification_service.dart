@@ -18,7 +18,7 @@ class NotificationService {
     playSound: true,
   );
 
-  // 🔥 আপনার দেওয়া সেই চাবি (Server Key)
+  // 🔥 আপনার দেওয়া সেই চাবি (Server Key)
   static const String _serverKey = '85d1bd7016f3125ef1dc50f06b5801d48697d58d';
 
   Future<void> initNotification() async {
@@ -49,9 +49,10 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
 
+    // ✅ এখানে ফিক্স করা হয়েছে: initializationSettings নাম ব্যবহার করে
     await _localNotifications.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: (details) {
+      settings: initSettings,
+      onDidReceiveNotificationResponse: ( details) {
         // নোটিফিকেশনে ক্লিক করলে এখানে লজিক লিখবেন
         print("🔔 ক্লিক করা হয়েছে: ${details.payload}");
       },
@@ -66,7 +67,7 @@ class NotificationService {
 
     // ৬. ব্যাকগ্রাউন্ডে থাকা অবস্থায় ক্লিক করলে হ্যান্ডেল করা
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-       print("🚀 ব্যাকগ্রাউন্ড থেকে অ্যাপ ওপেন হয়েছে: ${message.data}");
+        print("🚀 ব্যাকগ্রাউন্ড থেকে অ্যাপ ওপেন হয়েছে: ${message.data}");
     });
   }
 
@@ -80,7 +81,7 @@ class NotificationService {
     }
   }
 
-  // --- 🔥 সকল নোটিফিকেশন (Inbox, Like, Follow) পাঠানোর মেইন ফাংশন ---
+  // --- 🔥 সকল নোটিফিকেশন পাঠানোর মেইন ফাংশন ---
   static Future<void> sendNotificationToUser({
     required String receiverToken,
     required String title,
@@ -92,7 +93,7 @@ class NotificationService {
         Uri.parse('https://fcm.googleapis.com/fcm/send'),
         headers: <String, String>{
           'Content-Type': 'application/json',
-          'Authorization': 'key=$_serverKey', // চাবি এখানে কাজ করছে
+          'Authorization': 'key=$_serverKey', 
         },
         body: jsonEncode(<String, dynamic>{
           'notification': <String, dynamic>{
@@ -110,7 +111,7 @@ class NotificationService {
       );
       print("🚀 নোটিফিকেশন স্ট্যাটাস: ${response.body}");
     } catch (e) {
-      print("❌ পাঠাতে সমস্যা হয়েছে: $e");
+      print("❌ পাঠাতে সমস্যা হয়েছে: $e");
     }
   }
 
@@ -123,7 +124,7 @@ class NotificationService {
   // ৫. নোটিফিকেশন দেখানোর ফাংশন (Display)
   static void display(RemoteMessage message) async {
     try {
-      final id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final int id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       
       NotificationDetails notificationDetails = NotificationDetails(
         android: AndroidNotificationDetails(
@@ -138,11 +139,12 @@ class NotificationService {
         ),
       );
 
+      // ✅ এখানে ফিক্স করা হয়েছে: id, title, body এবং notificationDetails ঠিকভাবে পাস করা হয়েছে
       await FlutterLocalNotificationsPlugin().show(
-        id,
-        message.notification?.title ?? "নতুন মেসেজ",
-        message.notification?.body ?? "",
-        notificationDetails,
+        id: id,
+        title: message.notification?.title ?? "নতুন মেসেজ",
+        body: message.notification?.body ?? "",
+        notificationDetails: notificationDetails,
         payload: message.data['route'], 
       );
     } catch (e) {

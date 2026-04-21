@@ -4,6 +4,9 @@ import 'dart:async';
 import 'package:lottie/lottie.dart'; 
 import 'package:pagla_chat/services/gift_logic_helper.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:pagla_chat/data/free_gifts.dart';
 import 'package:pagla_chat/data/classic_gifts.dart';
 import 'package:pagla_chat/data/luxury_gifts.dart';
@@ -69,7 +72,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     // সিটে থাকা ইউজারদের ফিল্টার করা - স্ক্রিনশট অনুযায়ী 'uID' চেক করা হচ্ছে
     List activeUsers = widget.currentSeats.where((s) {
       if (s == null) return false;
-      return s['uID'] != null || s['uid'] != null || s['userId'] != null;
+      return s['uID'] != null || s['uID'] != null || s['userId'] != null;
     }).toList();
 
     showModalBottomSheet(
@@ -98,7 +101,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                         var seat = activeUsers[index];
                         
                         // Firebase key 'uID' এবং 'profilePic' এর সাথে ম্যাচ করা হয়েছে
-                        String uID = (seat['uID'] ?? seat['uid'] ?? seat['userId'] ?? "").toString();
+                        String uID = (seat['uID'] ?? seat['uID'] ?? seat['userId'] ?? "").toString();
                         String name = seat['name'] ?? seat['userName'] ?? "User ${index + 1}";
                         String img = seat['profilePic'] ?? seat['image'] ?? seat['userImage'] ?? "";
 
@@ -130,75 +133,146 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 4,
-      child: Container(
-        height: 550,
-        decoration: const BoxDecoration(
-          color: Color(0xFF07070F), 
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-          boxShadow: [
-            BoxShadow(color: Colors.white10, blurRadius: 10, spreadRadius: 1),
-          ],
-        ),
-        child: Column(
-          children: [
-            const SizedBox(height: 15),
-            _buildHeader(),
-            _buildTargetSelector(),
-            const TabBar(
-              isScrollable: true,
-              indicatorColor: Colors.pinkAccent,
-              dividerColor: Colors.transparent,
-              labelStyle: TextStyle(fontWeight: FontWeight.bold),
-              unselectedLabelColor: Colors.white38,
-              tabs: [
-                Tab(text: "Free"), Tab(text: "Classic"),
-                Tab(text: "Romantic"), Tab(text: "Luxury"),
-              ],
-            ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _buildGrid(dynamicFreeGifts, isFreeTab: true),
-                  _buildGrid(classicGifts),
-                  _buildGrid(romanticGifts),
-                  _buildGrid(luxuryGifts),
-                ],
-              ),
-            ),
-            _buildBottomBar(),
-          ],
-        ),
-      ),
-    );
+ @override
+Widget build(BuildContext context) {
+  // 🎨 গিফটের টাইপ অনুযায়ী বডি কালার ঠিক করার লজিক
+  Color getDynamicBodyColor() {
+    if (selectedGift == null) return const Color(0xFF07070F); // ডিফল্ট ডার্ক কালার
+    
+    bool isFree = selectedGift!['expiry'] != null;
+    int price = (selectedGift!['price'] ?? 0);
+
+    if (isFree) return Colors.green.withOpacity(0.08); // ফ্রি গিফটের জন্য হালকা সবুজ আভা
+    if (price > 500) return Colors.purple.withOpacity(0.12); // লাক্সারি গিফটের জন্য বেগুনি আভা
+    if (price > 100) return Colors.orange.withOpacity(0.08); // রোমান্টিক গিফটের জন্য কমলা আভা
+    return Colors.pink.withOpacity(0.08); // ক্লাসিক গিফটের জন্য গোলাপী আভা
   }
 
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  return DefaultTabController(
+    length: 4,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 400), // কালার পরিবর্তনের সময়
+      height: 550,
+      decoration: BoxDecoration(
+        // এখানে সলিড কালারের বদলে গ্রেডিয়েন্ট দিলে আরও রয়্যাল লাগবে
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0xFF0F0F1E), // উপরের ডার্ক বেস
+            getDynamicBodyColor(),   // নিচের ডাইনামিক আভা
+          ],
+        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        boxShadow: [
+          BoxShadow(
+            color: getDynamicBodyColor().withOpacity(0.3), 
+            blurRadius: 15, 
+            spreadRadius: 2
+          ),
+        ],
+      ),
+      child: Column(
         children: [
+          const SizedBox(height: 15),
+          // উপরে একটা ছোট হ্যান্ডেল বারের মতো দিলে ভালো দেখাবে
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15)),
-            child: Row(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _buildHeader(),
+          _buildTargetSelector(),
+          const TabBar(
+            isScrollable: true,
+            indicatorColor: Colors.pinkAccent,
+            dividerColor: Colors.transparent,
+            labelStyle: TextStyle(fontWeight: FontWeight.bold),
+            unselectedLabelColor: Colors.white38,
+            tabs: [
+              Tab(text: "Free"), Tab(text: "Classic"),
+              Tab(text: "Romantic"), Tab(text: "Luxury"),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
               children: [
-                const Icon(Icons.diamond, color: Colors.amber, size: 16),
-                const SizedBox(width: 5),
-                Text("${widget.diamondBalance}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                _buildGrid(dynamicFreeGifts, isFreeTab: true),
+                _buildGrid(classicGifts),
+                _buildGrid(romanticGifts),
+                _buildGrid(luxuryGifts),
               ],
             ),
           ),
-          const Text("Send Gift", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-          const Icon(Icons.history, color: Colors.white38),
+          _buildBottomBar(),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
+
+  // ফায়ারবেস থেকে সরাসরি ডাইমন্ড আনার জন্য এই উইজেটটি ব্যবহার করুন
+  Widget _buildHeader() {
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 20),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // 💎 ডাইমন্ড দেখানোর জন্য StreamBuilder
+        StreamBuilder<QuerySnapshot>(
+          // আপনার ডাটাবেস অনুযায়ী authUID দিয়ে সঠিক ইউজার ডকুমেন্ট খোঁজা হচ্ছে
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .where('authUID', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+              .snapshots(),
+          builder: (context, snapshot) {
+            int currentBalance = 0;
+
+            if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+              // প্রথম যে ডকুমেন্ট পাওয়া যাবে (যেহেতু authUID ইউনিক)
+              var userData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+              
+              // আপনার ডাটাবেস অনুযায়ী ফিল্ডের নাম 'diamonds'
+              currentBalance = userData['diamonds'] ?? 0;
+            }
+
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white10, 
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Row(
+                children: [
+                  // ডাইমন্ড আইকন আপনি যেমন চেয়েছেন (💎)
+                  const Text("💎", style: TextStyle(fontSize: 14)),
+                  const SizedBox(width: 5),
+                  Text(
+                    "$currentBalance", 
+                    style: const TextStyle(
+                      color: Colors.white, 
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        const Text(
+          "Send Gift", 
+          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const Icon(Icons.history, color: Colors.white38),
+      ],
+    ),
+  );
+}
 
   Widget _buildTargetSelector() {
     return Container(
