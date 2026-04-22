@@ -1,6 +1,7 @@
 import 'widgets/animated_frame.dart'; // পাথটি আপনার ফোল্ডার অনুযায়ী ঠিক করে নিন
 import 'package:firebase_storage/firebase_storage.dart';
 import 'vip_service.dart'; // ফাইলের নাম অনুযায়ী
+import 'dart:math' as math;
 import 'dart:io';
 import 'package:universal_html/html.dart' as html;
 import 'package:flutter/foundation.dart'; 
@@ -207,31 +208,105 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
   }
 
   void _editName() {
-    TextEditingController _nameController = TextEditingController(text: userName);
-    showDialog(
-      context: context, 
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E2F),
-        title: const Text("Name Change", style: TextStyle(color: Colors.white)),
-        content: TextField(controller: _nameController, style: const TextStyle(color: Colors.white)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          TextButton(
-            onPressed: () async {
-              String newName = _nameController.text.trim(); 
-              if (newName.isNotEmpty) {
-                String uID = FirebaseAuth.instance.currentUser!.uid;
-                await FirebaseFirestore.instance.collection('users').doc(uID).set({'name': newName}, SetOptions(merge: true));
-                setState(() => userName = newName);
-                Navigator.pop(context);
-              }
-            }, 
-            child: const Text("Save", style: TextStyle(color: Colors.pinkAccent))
+  TextEditingController _nameController = TextEditingController(text: userName);
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: Colors.transparent, // কাস্টম ডিজাইনের জন্য স্বচ্ছ রাখা হয়েছে
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          // প্রিমিয়াম সেই আকাশী নীল গ্রেডিয়েন্ট
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.lightBlue.shade200,
+              Colors.blue.shade50,
+              Colors.white,
+            ],
           ),
-        ],
+          borderRadius: BorderRadius.circular(25),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blueAccent.withOpacity(0.2),
+              blurRadius: 15,
+              spreadRadius: 2,
+            )
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "Change Name",
+              style: TextStyle(
+                color: Colors.blueAccent,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            // নাম লেখার বক্স - গ্লাস বর্ডার স্টাইল
+            TextField(
+              controller: _nameController,
+              style: const TextStyle(color: Colors.black87),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.5),
+                hintText: "Enter your name",
+                hintStyle: TextStyle(color: Colors.blueGrey.withOpacity(0.6)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide(color: Colors.white.withOpacity(0.8), width: 1.5),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 25),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel", style: TextStyle(color: Colors.blueGrey)),
+                ),
+                const SizedBox(width: 10),
+                ElevatedButton(
+                  onPressed: () async {
+                    String newName = _nameController.text.trim();
+                    if (newName.isNotEmpty) {
+                      String uID = FirebaseAuth.instance.currentUser!.uid;
+                      await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(uID)
+                          .set({'name': newName}, SetOptions(merge: true));
+                      setState(() => userName = newName);
+                      Navigator.pop(context);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
+                  ),
+                  child: const Text("Save", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _toggleFollow() async {
     String myuID = FirebaseAuth.instance.currentUser!.uid;
@@ -260,21 +335,111 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
     ));
   }
 
-  void _openSettings() {
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1E1E2F), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Column(mainAxisSize: MainAxisSize.min, children: [
-        const Padding(padding: EdgeInsets.all(15), child: Text("Settings", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
-        ListTile(leading: const Icon(Icons.wc, color: Colors.pinkAccent), title: Text("Gender (Now: $gender)", style: const TextStyle(color: Colors.white)),
-          trailing: PopupMenuButton<String>(color: const Color(0xFF1E1E2F), onSelected: (val) async {
-            String uID = FirebaseAuth.instance.currentUser!.uid;
-            await FirebaseFirestore.instance.collection('users').doc(uID).update({'gender': val});
-            setState(() => gender = val);
-          }, itemBuilder: (ctx) => [const PopupMenuItem(value: "Male", child: Text("Male", style: TextStyle(color: Colors.white))), const PopupMenuItem(value: "Female", child: Text("Female", style: TextStyle(color: Colors.white)))]),
+ void _openSettings() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent, // গ্রেডিয়েন্ট দেখানোর জন্য
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.only(bottom: 20),
+        decoration: BoxDecoration(
+          // প্রিমিয়াম আকাশী নীল গ্রেডিয়েন্ট
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.lightBlue.shade200, 
+              Colors.blue.shade50,       
+              Colors.white,              
+            ],
+          ),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blueAccent.withOpacity(0.3),
+              blurRadius: 20,
+              spreadRadius: 5,
+            )
+          ],
         ),
-        ListTile(leading: const Icon(Icons.cake, color: Colors.orangeAccent), title: Text("Age change (Now: $age)", style: const TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _showAgePicker(); }),
-        ListTile(leading: const Icon(Icons.logout, color: Colors.redAccent), title: const Text("Logout", style: TextStyle(color: Colors.redAccent)), onTap: () { FirebaseAuth.instance.signOut(); Navigator.pop(context); }),
-        const SizedBox(height: 20),
-      ]));
+        child: Stack(
+          children: [
+            // ব্যাকগ্রাউন্ডে তারার ঝিকিমিকি
+            ...List.generate(15, (index) => Positioned(
+              top: (index * 50.0) % 300,
+              left: (index * 80.0) % 380,
+              child: Icon(
+                Icons.star, 
+                size: index % 3 == 0 ? 12 : 6, 
+                color: Colors.white.withOpacity(0.7),
+              ),
+            )),
+
+            Column(
+              mainAxisSize: MainAxisSize.min, 
+              children: [
+                const SizedBox(height: 12),
+                // ড্র্যাগ হ্যান্ডেল
+                Container(
+                  width: 45, height: 5, 
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.2), 
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.all(20), 
+                  child: Text("Settings", 
+                    style: TextStyle(color: Colors.blueAccent, fontSize: 20, fontWeight: FontWeight.bold)
+                  )
+                ),
+
+                // ১. বয়স পরিবর্তন (Age change)
+                ListTile(
+                  leading: const Icon(Icons.cake, color: Colors.orangeAccent), 
+                  title: Text("Age change (Now: $age)", style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500)), 
+                  onTap: () { Navigator.pop(context); _showAgePicker(); }
+                ),
+
+                // ২. প্রাইভেসি পলিসি (Privacy Policy) - নতুন যোগ করা হয়েছে
+                ListTile(
+                  leading: const Icon(Icons.security, color: Colors.blueAccent), 
+                  title: const Text("Privacy Policy", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w500)), 
+                  onTap: () { 
+                    Navigator.pop(context);
+                    // আপনার পলিসি পেইজের নেভিগেশন এখানে দিবেন
+                  }
+                ),
+
+                // ৩. হেল্প ডেস্ক (Help Desk) - নতুন যোগ করা হয়েছে
+                ListTile(
+                  leading: const Icon(Icons.support_agent, color: Colors.green), 
+                  title: const Text("Help Desk", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w500)), 
+                  onTap: () { 
+                    Navigator.pop(context);
+                    // হেল্প ডেস্ক পেইজের নেভিগেশন এখানে দিবেন
+                  }
+                ),
+
+                // ৪. লগআউট (Logout)
+                ListTile(
+                  leading: const Icon(Icons.logout, color: Colors.redAccent), 
+                  title: const Text("Logout", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)), 
+                  onTap: () { 
+                    FirebaseAuth.instance.signOut(); 
+                    Navigator.pop(context); 
+                  }
+                ),
+                const SizedBox(height: 10),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showFreeAvatars() {
@@ -485,99 +650,215 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
       }
     }
   }
-  // ১. ডায়মন্ড স্টোর ওপেন করার ফাংশন (Fix: userData প্যারামিটার যোগ করা হয়েছে)
+ // ১. ডায়মন্ড স্টোর ওপেন করার ফাংশন (ডিজাইন আপডেট করা হয়েছে)
   void _openDiamondStore(Map<String, dynamic> userData) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E1E2F),
+      backgroundColor: Colors.transparent, // কন্টেইনারে ডিজাইন দেওয়ার জন্য স্বচ্ছ রাখা হয়েছে
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 15),
-          const Text("Diamond Store",
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-          const Divider(color: Colors.white10),
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.80, // আপনার অপশন অনেক তাই উচ্চতা একটু বাড়ানো হয়েছে
+        decoration: BoxDecoration(
+          // প্রিমিয়াম স্টোরের মতো আকাশী নীল গ্রেডিয়েন্ট
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.lightBlue.shade200, 
+              Colors.blue.shade50,       
+              Colors.white,              
+            ],
+          ),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blueAccent.withOpacity(0.3),
+              blurRadius: 20,
+              spreadRadius: 5,
+            )
+          ],
+        ),
+        child: Stack(
+          children: [
+            // ব্যাকগ্রাউন্ডে তারার ঝিকিমিকি এফেক্ট
+            ...List.generate(20, (index) => Positioned(
+              top: (index * 45.0) % 500,
+              left: (index * 75.0) % 400,
+              child: Icon(
+                Icons.star, 
+                size: index % 3 == 0 ? 12 : 6, 
+                color: Colors.white.withOpacity(0.8),
+              ),
+            )),
 
-          // 🔥 এই অংশটি শুধুমাত্র এজেন্ট দেখতে পারবে
-          if (userData['isAgent'] == true)
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF1e3c72), Color(0xFF2a5298)]),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.pinkAccent.withOpacity(0.5)),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text("Agency Stock Balance",
-                            style: TextStyle(color: Colors.white70, fontSize: 12)),
-                        const Icon(Icons.verified, color: Colors.cyanAccent, size: 20),
-                      ],
+            SingleChildScrollView( // অপশন অনেক বেশি তাই স্ক্রল করার জন্য এটি দরকার
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  // ড্র্যাগ হ্যান্ডেল
+                  Container(
+                    width: 45, 
+                    height: 5, 
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.2), 
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(height: 8),
-                    Text("${userData['agency_wallet'] ?? 0} 💎",
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const AgentTransferPage()));
-                        },
-                        icon: const Icon(Icons.send, size: 16, color: Colors.white),
-                        label: const Text("Diamond Selling",
-                            style: TextStyle(color: Colors.white)),
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
+                  ),
+                  const SizedBox(height: 15),
+                  const Text("Diamond Store",
+                      style: TextStyle(color: Colors.blueAccent, fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Divider(color: Colors.blueAccent, thickness: 0.5, indent: 50, endIndent: 50),
+
+                  // 🔥 এই অংশটি শুধুমাত্র এজেন্ট দেখতে পারবে (লজিক অপরিবর্তিত)
+                  if (userData['isAgent'] == true)
+                    Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Container(
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [Color(0xFF1e3c72), Color(0xFF2a5298)]),
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8)],
+                          border: Border.all(color: Colors.white.withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text("Agency Stock Balance",
+                                    style: TextStyle(color: Colors.white70, fontSize: 12)),
+                                const Icon(Icons.verified, color: Colors.cyanAccent, size: 20),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text("${userData['agency_wallet'] ?? 0} 💎",
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (context) => const AgentTransferPage()));
+                                },
+                                icon: const Icon(Icons.send, size: 16, color: Colors.white),
+                                label: const Text("Diamond Selling",
+                                    style: TextStyle(color: Colors.white)),
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ],
-                ),
+
+                  // রিচার্জ অপশনগুলো
+                  _buildDiamondOption("6k   💎", "100 Tk"),
+                  _buildDiamondOption("12k  💎", "150 Tk"),
+                  _buildDiamondOption("30k  💎", "350 Tk"),
+                  _buildDiamondOption("60k  💎", "650 Tk"),
+                  _buildDiamondOption("120k 💎", "1200 Tk"),
+                  _buildDiamondOption("240k 💎", "2300 Tk"),
+                  _buildDiamondOption("500k 💎", "4500 Tk"),
+                  _buildDiamondOption("1M   💎", "8500 Tk"),
+                  _buildDiamondOption("2M   💎", "17500 Tk"),
+                  const SizedBox(height: 30),
+                ],
               ),
             ),
-
-          // রিচার্জ অপশনগুলো
-          _buildDiamondOption("6k   💎", "100 Tk"),
-          _buildDiamondOption("12k  💎", "150 Tk"),
-          _buildDiamondOption("30k  💎", "350 Tk"),
-          _buildDiamondOption("60k  💎", "650 Tk"),
-          _buildDiamondOption("120k 💎", "1200 Tk"),
-          _buildDiamondOption("240k 💎", "2300 Tk"),
-          _buildDiamondOption("500k 💎", "4500 Tk"),
-          _buildDiamondOption("1M   💎", "8500 Tk"),
-          _buildDiamondOption("2M   💎", "17500 Tk"),
-          const SizedBox(height: 15),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  // ২. ডায়মন্ড অপশন তৈরির হেল্পার উইজেট
+ // ২. ডায়মন্ড অপশন তৈরির গ্লাস-টাইপ উইজেট (আপডেটেড)
   Widget _buildDiamondOption(String amount, String price) {
-    return ListTile(
-      leading: const Icon(Icons.diamond, color: Colors.cyanAccent),
-      title: Text(amount, style: const TextStyle(color: Colors.white)),
-      trailing: Text(price, style: const TextStyle(color: Colors.greenAccent)),
-      onTap: () {
-        Navigator.pop(context);
-        _showPaymentMethods();
-      },
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8), // বক্সগুলোর মাঝে ফাঁকা জায়গা
+      child: InkWell(
+        onTap: () {
+          Navigator.pop(context);
+          _showPaymentMethods();
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            // গ্লাস ইফেক্ট: সাদা রঙের হালকা স্বচ্ছতা
+            color: Colors.white.withOpacity(0.3), 
+            borderRadius: BorderRadius.circular(20),
+            // বর্ডার দিলে গ্লাস লুকটা বেশি ফুটে ওঠে
+            border: Border.all(
+              color: Colors.white.withOpacity(0.5),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                // ডায়মন্ড আইকন পার্ট
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blueAccent.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.diamond, color: Colors.blueAccent, size: 26),
+                ),
+                const SizedBox(width: 15),
+                
+                // ডায়মন্ডের পরিমাণ
+                Expanded(
+                  child: Text(
+                    amount,
+                    style: const TextStyle(
+                      color: Colors.black87,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                
+                // দামের বক্স (আলাদা গ্লাস ফিনিশিং)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.blueAccent.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.blueAccent.withOpacity(0.1)),
+                  ),
+                  child: Text(
+                    price,
+                    style: const TextStyle(
+                      color: Colors.blueAccent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
-
   // ৩. পেমেন্ট মেথড দেখানোর ফাংশন
   void _showPaymentMethods() {
     showModalBottomSheet(
@@ -719,36 +1000,88 @@ String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E1E2F),
+      backgroundColor: Colors.transparent, // গ্রেডিয়েন্ট দেখানোর জন্য স্বচ্ছ রাখা হয়েছে
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
       builder: (context) => DefaultTabController(
         length: 4,
         child: Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          padding: const EdgeInsets.all(10),
-          child: Column(
+          height: MediaQuery.of(context).size.height * 0.75,
+          decoration: BoxDecoration(
+            // প্রিমিয়াম সেই আকাশী নীল গ্রেডিয়েন্ট
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.lightBlue.shade200, 
+                Colors.blue.shade50,       
+                Colors.white,              
+              ],
+            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blueAccent.withOpacity(0.3),
+                blurRadius: 20,
+                spreadRadius: 5,
+              )
+            ],
+          ),
+          child: Stack(
             children: [
-              const TabBar(
-                isScrollable: true,
-                indicatorColor: Colors.pinkAccent,
-                tabs: [
-                  Tab(text: "My Cards"),
-                  Tab(text: "My Frames"),
-                  Tab(text: "Effects"),
-                  Tab(text: "Others"),
-                ],
-              ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _buildMyCardsTab(), 
-                    _buildMyFramesTab(), 
-                    const Center(child: Text("Empty", style: TextStyle(color: Colors.white))),
-                    const Center(child: Text("Empty", style: TextStyle(color: Colors.white))),
-                  ],
+              // ব্যাকগ্রাউন্ডে তারার ঝিকিমিকি ইফেক্ট
+              ...List.generate(20, (index) => Positioned(
+                top: (index * 40.0) % 450,
+                left: (index * 65.0) % 380,
+                child: Icon(
+                  Icons.star, 
+                  size: index % 3 == 0 ? 14 : 8, 
+                  color: Colors.white.withOpacity(0.7),
                 ),
+              )),
+
+              Column(
+                children: [
+                  const SizedBox(height: 12),
+                  // ড্র্যাগ হ্যান্ডেল
+                  Container(
+                    width: 45, 
+                    height: 5, 
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.2), 
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  
+                  // ট্যাব বার ডিজাইন
+                  TabBar(
+                    isScrollable: true,
+                    indicatorColor: Colors.amber, // প্রিমিয়াম লুকের জন্য অ্যাম্বার কালার
+                    labelColor: Colors.blueAccent,
+                    unselectedLabelColor: Colors.black45,
+                    labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    tabs: const [
+                      Tab(text: "My Cards"),
+                      Tab(text: "My Frames"),
+                      Tab(text: "Effects"),
+                      Tab(text: "Others"),
+                    ],
+                  ),
+                  
+                  // ট্যাব কন্টেন্ট
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildMyCardsTab(), 
+                        _buildMyFramesTab(), 
+                        const Center(child: Text("Empty", style: TextStyle(color: Colors.blueGrey, fontWeight: FontWeight.w500))),
+                        const Center(child: Text("Empty", style: TextStyle(color: Colors.blueGrey, fontWeight: FontWeight.w500))),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -989,20 +1322,15 @@ Widget _buildMyFramesTab() {
               if (isMe) IconButton(icon: const Icon(Icons.settings, color: Colors.white), onPressed: _openSettings)
             ],
           ),
-          body: Container(
-            width: double.infinity,
-            height: double.infinity,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF1A1A2E),
-                  Color(0xFF0F0F1E),
-                ],
-              ),
-            ), 
-            child: SingleChildScrollView(
+          body: Stack(
+            children: [
+            Positioned.fill(
+            child: CustomPaint(
+              painter: RainbowCascadePainter(),  
+             ),
+           ), 
+           
+            SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               child: Column(
                 children: [
@@ -1052,13 +1380,43 @@ Widget _buildMyFramesTab() {
                     )
                   ),
                   
-                  const SizedBox(height: 10),
-                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text(userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                    if (isMe) IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.pinkAccent), onPressed: _editName)
-                  ]),
+                  const SizedBox(height: 15), 
 
-                  Text("User ID: $uIDValue", style: const TextStyle(color: Colors.pinkAccent, fontSize: 13, fontWeight: FontWeight.bold)),
+              // --- নামের গ্লাস বর্ডার বক্স (আইকন ছাড়া) ---
+              GestureDetector(
+                onTap: isMe ? _editName : null, 
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 10), // দুই পাশে একটু বাড়িয়েছি দেখতে সুন্দর লাগবে
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1), 
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3), 
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.purpleAccent.withOpacity(0.15),
+                        blurRadius: 15,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  // এখানে Row সরিয়ে শুধু Text রাখা হয়েছে
+                  child: Text(
+                    userName, 
+                    style: const TextStyle(
+                      fontSize: 20, 
+                      fontWeight: FontWeight.bold, 
+                      color: Colors.white,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ),
+              ),
+              // --- নামের গ্লাস বর্ডার বক্স শেষ ---
+
+                  Text("User ID: $uIDValue", style: const TextStyle(color: Color.fromARGB(255, 4, 189, 251), fontSize: 13, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 15),
 
                   // VIP এবং ডাইনামিক XP প্রগ্রেস বার সেকশন
@@ -1142,7 +1500,8 @@ Widget _buildMyFramesTab() {
                       _buildActionBox("Diamond", Icons.diamond, Colors.cyan, () => _openDiamondStore(userData)),
                       _buildActionBox("Premium", Icons.card_membership, Colors.purple, _openPremiumStore),
                       _buildActionBox("Backpack", Icons.backpack, Colors.orange, _openBackpack),
-                    ]),
+                    ],
+                  ),
 
                     if (userData['isAgent'] == true) ...[
                       const SizedBox(height: 25),
@@ -1154,14 +1513,15 @@ Widget _buildMyFramesTab() {
                   ],
                   
                   const SizedBox(height: 30),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
+                ], // Column এর children শেষ
+                ), // Column শেষ
+              ), // SingleChildScrollView শেষ
+            ], // Stack এর children শেষ
+          ), // Stack শেষ (বডি শেষ)
+        ); // Scaffold শেষ
+      }, // StreamBuilder builder শেষ
+    ); // StreamBuilder শেষ
+  } // Build method শেষ
 
   // ফলোয়ার/ফলোয়িং লিস্ট সিকিউরিটি লজিক
   Widget _buildStat(String label, int value, String uID, BuildContext context) {
@@ -1466,4 +1826,56 @@ Widget _buildAgencyWalletCard(Map<String, dynamic> userData) {
     ),
   );
 }
+}
+
+class RainbowCascadePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
+    final random = math.Random(); // এইটার জন্য উপরে import 'dart:math' as math; লাগবে
+
+    List<Color> colors = [
+      Colors.red, Colors.orange, Colors.yellow, 
+      Colors.green, Colors.blue, Colors.indigo, Colors.purple
+    ];
+
+    // ১. প্রথমে ব্যাকগ্রাউন্ডে হালকা রঙিন আভা (Glow)
+    double stripeWidth = size.width / colors.length;
+    for (int i = 0; i < colors.length; i++) {
+      Rect rect = Rect.fromLTWH(i * stripeWidth, 0, stripeWidth, size.height);
+      paint.shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          colors[i].withOpacity(0.15), // খুব হালকা আভা
+          const Color(0xFF0F0F1E).withOpacity(0.0),
+        ],
+      ).createShader(rect);
+      canvas.drawRect(rect, paint);
+    }
+
+    // ২. এবার ছবির মতো 'বৃষ্টির কণা' বা Sparkles যোগ করা
+    for (int i = 0; i < 150; i++) { // কতগুলো কণা হবে
+      final double x = random.nextDouble() * size.width;
+      final double y = random.nextDouble() * size.height * 0.8; // স্ক্রিনের ৮০% পর্যন্ত
+      final double particleHeight = random.nextDouble() * 20 + 5; // কণাগুলো লম্বাটে হবে
+      
+      // কণাটি কোন রঙের জোনে আছে সেই অনুযায়ী রঙ সেট করা
+      int colorIndex = (x / stripeWidth).floor().clamp(0, colors.length - 1);
+      
+      paint.shader = null; // শ্যাডার রিসেট
+      paint.color = colors[colorIndex].withOpacity(random.nextDouble() * 0.5 + 0.2);
+      paint.strokeWidth = random.nextDouble() * 1.5 + 0.5;
+
+      // লম্বাটে ড্রপ বা কণা আঁকা (ছবির মতো)
+      canvas.drawLine(
+        Offset(x, y),
+        Offset(x, y + particleHeight),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

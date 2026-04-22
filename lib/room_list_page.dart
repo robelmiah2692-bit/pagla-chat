@@ -60,7 +60,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
       if (userQuery.docs.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("ইউজার প্রোফাইল খুঁজে পাওয়া যায়নি!"), backgroundColor: Colors.red),
+            const SnackBar(content: Text("Dont find user!"), backgroundColor: Colors.red),
           );
         }
         return;
@@ -84,7 +84,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
       if (existingRoom.docs.isNotEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("আপনার অলরেডি একটি রুম আছে!"), backgroundColor: Colors.orange),
+            const SnackBar(content: Text("Alrady you have room!"), backgroundColor: Colors.orange),
           );
         }
         return;
@@ -145,7 +145,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("রুম তৈরি হয়েছে!"), backgroundColor: Colors.green),
+          const SnackBar(content: Text("Rady your room!"), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
@@ -192,18 +192,20 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     );
   }
 
-  @override
+ @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF050510),
+      // একদম নিচের লেয়ারের ব্যাকগ্রাউন্ড
+      backgroundColor: const Color(0xFF02020A), 
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0A0A1A),
+        // অ্যাপবারকে একটু বেগুনি আভাযুক্ত ডার্ক করা হয়েছে
+        backgroundColor: const Color(0xFF0A0A25),
         elevation: 0,
-        title: const Text("Pagla Chat", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text("𝐏𝐚𝐠𝐥𝐚𝐂𝐡𝐚𝐭🥳𝐋𝐢𝐯𝐞ღ`◕‿♫", style: TextStyle(color: Color.fromARGB(255, 226, 242, 5), fontWeight: FontWeight.bold)),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.pinkAccent,
-          labelColor: Colors.pinkAccent,
+          indicatorColor: Colors.purpleAccent, // ছবির বেগুনি থিমের সাথে মিল রেখে
+          labelColor: Colors.purpleAccent,
           unselectedLabelColor: Colors.white38,
           tabs: const [
             Tab(text: "Live Room"),
@@ -212,26 +214,105 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
           ],
         ),
       ),
-      body: Stack(
-        children: [
-          Column(
-            children: [
-              _buildBanner(),
-              _buildGamesSection(),
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildLiveRoomList(),
-                    _buildFollowingRoomList(),
-                    _buildMyRoomList(),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          // ছবিগুলোর মতো পার্পেল ও নেভি ব্লু গ্রেডিয়েন্ট
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0F0C29), // গাঢ় নীল
+              Color(0xFF302B63), // বেগুনি আভা
+              Color(0xFF24243E), // নেভি ব্লু
+            ],
+          ),
+        ),
+        child: Stack(
+          children: [
+            // ১. ছবির মতো নেবুলা ইফেক্ট (হালকা ঝাপসা কালার প্যাচ)
+            Positioned(
+              top: -100,
+              right: -50,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.purple.withOpacity(0.2),
+                  boxShadow: [
+                    BoxShadow(color: Colors.purpleAccent.withOpacity(0.1), blurRadius: 100, spreadRadius: 50)
                   ],
                 ),
               ),
-            ],
-          ),
-          if (activeRoomId != null) _buildFloatingHeartbeatBubble(),
-        ],
+            ),
+
+            // ২. গ্যালাক্সি তারা (Glowing Stars) - ছবির মতো ছড়িয়ে ছিটিয়ে থাকা
+            ...List.generate(50, (index) {
+              double size = Random().nextDouble() * 2.5;
+              return Positioned(
+                top: Random().nextDouble() * MediaQuery.of(context).size.height,
+                left: Random().nextDouble() * MediaQuery.of(context).size.width,
+                child: Container(
+                  width: size,
+                  height: size,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(Random().nextDouble()),
+                    boxShadow: [
+                      BoxShadow(
+                        color: index % 7 == 0 ? Colors.purpleAccent : Colors.white70,
+                        blurRadius: index % 10 == 0 ? 4 : 0,
+                        spreadRadius: 0.5,
+                      )
+                    ],
+                  ),
+                ),
+              );
+            }),
+
+            // ৩. ওপর থেকে আলোর বৃষ্টি (Light Strings) - আপনার প্রথম ছবির স্টাইল
+            ...List.generate(12, (index) => Positioned(
+              top: -10,
+              left: (index * 45.0) % MediaQuery.of(context).size.width,
+              child: Container(
+                width: 1.2,
+                height: 100 + (index * 15.0),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.blueAccent.withOpacity(0.3),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            )),
+
+            // মেইন কন্টেন্ট লেয়ার
+            Column(
+              children: [
+                _buildBanner(),
+                _buildGamesSection(),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildLiveRoomList(),
+                      _buildFollowingRoomList(),
+                      _buildMyRoomList(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            
+            if (activeRoomId != null) _buildFloatingHeartbeatBubble(),
+          ],
+        ),
       ),
     );
   }
@@ -335,7 +416,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     );
   }
 
-  Widget _buildPremiumGlassCard(String id, String name, int count, String? image, bool isMyRoom) {
+ Widget _buildPremiumGlassCard(String id, String name, int count, String? image, bool isMyRoom) {
     String finalImage = (image != null && image.isNotEmpty) ? image : defaultRoomImages[0];
 
     return GestureDetector(
@@ -355,46 +436,59 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
               color: isMyRoom ? Colors.amber.withOpacity(0.8) : Colors.white.withOpacity(0.1), 
               width: isMyRoom ? 2.5 : 1.5
             ),
-            image: DecorationImage(image: NetworkImage(finalImage), fit: BoxFit.cover, opacity: 0.6),
+            // এখানে ছবির opacity বাড়িয়ে ০.৯ বা ১.০ করে দিন যাতে পরিষ্কার দেখা যায়
+            image: DecorationImage(
+              image: NetworkImage(finalImage), 
+              fit: BoxFit.cover, 
+              opacity: 0.9 // ০.৬ থেকে বাড়িয়ে ০.৯ করা হলো
+            ),
           ),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-            child: Container(
-              color: isMyRoom ? Colors.black.withOpacity(0.2) : Colors.black.withOpacity(0.4),
-              padding: const EdgeInsets.all(12),
-              child: Stack(
-                children: [
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, 
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                      const SizedBox(height: 2),
-                      Text(isMyRoom ? "MY ROOM" : "LIVE", 
-                        style: TextStyle(color: isMyRoom ? Colors.amberAccent : Colors.pinkAccent, fontSize: 10, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  Positioned(
-                    top: 0, right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10)),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.person, size: 12, color: Colors.greenAccent),
-                          Text(" $count", style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (isMyRoom)
-                    const Positioned(
-                      top: 0, left: 0,
-                      child: Icon(Icons.workspace_premium, color: Colors.amber, size: 20),
-                    ),
+          child: Container(
+            // BackdropFilter বাদ দেওয়া হয়েছে যাতে ছবি ঝাপসা না হয়
+            decoration: BoxDecoration(
+              // ছবির ওপর হালকা একটি গ্রাডিয়েন্ট শ্যাডো যাতে নিচের লেখা স্পষ্ট হয়
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.7),
                 ],
               ),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: Stack(
+              children: [
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, 
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 2),
+                    Text(isMyRoom ? "MY ROOM" : "LIVE", 
+                      style: TextStyle(color: isMyRoom ? Colors.amberAccent : Colors.pinkAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                Positioned(
+                  top: 0, right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person, size: 12, color: Colors.greenAccent),
+                        Text(" $count", style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ),
+                if (isMyRoom)
+                  const Positioned(
+                    top: 0, left: 0,
+                    child: Icon(Icons.workspace_premium, color: Colors.amber, size: 20),
+                  ),
+              ],
             ),
           ),
         ),
