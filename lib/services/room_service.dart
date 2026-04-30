@@ -1,12 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart'; // Realtime DB যোগ করা হয়েছে
 import 'package:flutter/foundation.dart';
 
 class RoomService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseDatabase _realtime = FirebaseDatabase.instance; // Realtime DB ইনস্ট্যান্স
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // ১️⃣ রুমের সব ডাটা সেভ রাখা (Firebase Schema অনুযায়ী আপডেট করা হয়েছে)
+  // ১️⃣ রুমের মেইন প্রোফাইল (Firestore-এ থাকবে)
   Future<void> updateRoomFullData({
     required String roomId,
     required String roomName,
@@ -15,14 +17,12 @@ class RoomService {
     required String wallpaper,
     required int followers,
     required int totalDiamonds,
-    String? uID,        // মালিকের uID (যেমন: "153530")
-    String? ownerName,  // মালিকের নাম
+    String? uID,
+    String? ownerName,
   }) async {
     final User? user = _auth.currentUser;
     if (user == null || roomId.isEmpty) return;
-
     try {
-      // স্ক্রিনশট অনুযায়ী মালিকের ফিল্ডগুলো সেট করা হচ্ছে
       await _firestore.collection('rooms').doc(roomId).set({
         'roomId': roomId,
         'roomName': roomName,
@@ -31,60 +31,64 @@ class RoomService {
         'wallpaper': wallpaper,
         'followerCount': followers,
         'totalDiamonds': totalDiamonds,
-        'ownerId': uID ?? "",        // মালিকের uID এখানে সেভ হবে
-        'uID': uID ?? "",            // Firebase screenshot অনুযায়ী
+        'ownerId': uID ?? "",
+        'uID': uID ?? "",
         'ownerName': ownerName ?? 'Owner',
-        'isLive': true,
-        'userCount': 1,              // ডিফল্ট ভ্যালু হিসেবে
         'lastUpdated': FieldValue.serverTimestamp(),
-        'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      
-      debugPrint("✅ Room Synced with Owner Info (uID: $uID)");
     } catch (e) {
       debugPrint("❌ Room Update Error: $e");
     }
   }
 
-  // ২️⃣ সিটে বসার পর ডাটা আপডেট করা
+  // ২️⃣ সিটে বসা (ল্যাগ কমাতে এটাকে Realtime Database-এ নিয়ে গেলাম)
   Future<void> updateSeatData({
     required String roomId,
     required int seatIndex,
     required String uName,
     required String uImage,
     required bool isOccupied,
+    String? uIDShow, // আপনার ৬ ডিজিটের আইডি
   }) async {
     final User? user = _auth.currentUser;
     if (roomId.isEmpty || user == null) return;
 
     try {
-      await _firestore.collection('rooms').doc(roomId).update({
-        'seats.$seatIndex': {
+      // Realtime Database রেফারেন্স - যা আপনার UI-এর সাথে মিলবে
+      DatabaseReference seatRef = _realtime.ref('rooms/$roomId/seats/$seatIndex');
+
+      if (isOccupied) {
+        await seatRef.set({
           'userName': uName,
           'userImage': uImage,
-          'isOccupied': isOccupied,
-          'uID': user.uid, // Firebase Auth ID
-          'at': FieldValue.serverTimestamp(),
-        }
-      });
+          'isOccupied': true,
+          'uID': uIDShow ?? "", 
+          'authID': user.uid,
+          'isMicOn': true,
+          'isTalking': false,
+          'at': ServerValue.timestamp,
+        });
+      } else {
+        await seatRef.remove(); // সিট খালি হলে ডাটা মুছে ফেলবে, ল্যাগ হবে না
+      }
+      debugPrint("✅ Seat $seatIndex Updated in Realtime DB");
     } catch (e) {
       debugPrint("❌ Seat Update Error: $e");
     }
   }
 
-  // ৩️⃣ ইউজার ডায়মন্ড ব্যালেন্স স্ট্রিম (ইউজার কালেকশন থেকে)
+  // ৩️⃣ ডায়মন্ড ব্যালেন্স স্ট্রিম (Firestore)
   Stream<DocumentSnapshot>? getUserDiamonds(String useruID) {
     if (useruID.isEmpty) return null;
-    // আপনার স্ক্রিনশট অনুযায়ী 'users' কালেকশনে uID ডকুমেন্ট আইডি হিসেবে ব্যবহার হচ্ছে
     return _firestore.collection('users').doc(useruID).snapshots();
   }
 
-  // ৪️⃣ গিফট লজিক
+  // ৪️⃣ গিফট লজিক (Firestore)
   Future<bool> sendGift({
     required String roomId,
     required int giftValue,
-    required String senderuID,   // ইউজারের নিজস্ব uID (যেমন: "153530")
-    required String receiveruID, // রিসিভারের uID
+    required String senderuID,
+    required String receiveruID,
   }) async {
     try {
       final userDoc = await _firestore.collection('users').doc(senderuID).get();
@@ -94,19 +98,11 @@ class RoomService {
 
       if (currentBalance >= giftValue) {
         WriteBatch batch = _firestore.batch();
+        batch.update(_firestore.collection('users').doc(senderuID), {'diamonds': FieldValue.increment(-giftValue)});
+        batch.update(_firestore.collection('rooms').doc(roomId), {'totalDiamonds': FieldValue.increment(giftValue)});
 
-        // ১. সেন্ডারের ডায়মন্ড কমানো
-        DocumentReference senderRef = _firestore.collection('users').doc(senderuID);
-        batch.update(senderRef, {'diamonds': FieldValue.increment(-giftValue)});
-
-        // ২. রুমের টোটাল ডায়মন্ড বাড়ানো
-        DocumentReference roomRef = _firestore.collection('rooms').doc(roomId);
-        batch.update(roomRef, {'totalDiamonds': FieldValue.increment(giftValue)});
-
-        // ৩. রিসিভারের ডায়মন্ড বাড়ানো (যদি থাকে)
-        if (receiveruID.isNotEmpty) {
-          DocumentReference receiverRef = _firestore.collection('users').doc(receiveruID);
-          batch.update(receiverRef, {'receivedDiamonds': FieldValue.increment(giftValue)});
+        if (receiveruID.isNotEmpty && receiveruID != "null") {
+          batch.update(_firestore.collection('users').doc(receiveruID), {'receivedDiamonds': FieldValue.increment(giftValue)});
         }
 
         await batch.commit();
@@ -119,13 +115,11 @@ class RoomService {
     }
   }
 
-  // ৫️⃣ রুম থেকে বের হলে ডাটা আপডেট
+  // ৫️⃣ রুম লিভ (Firestore)
   Future<void> leaveRoom(String useruID) async {
     if (useruID.isEmpty) return;
     try {
-      await _firestore.collection('users').doc(useruID).update({
-        'currentRoomId': "",
-      });
+      await _firestore.collection('users').doc(useruID).update({'currentRoomId': ""});
     } catch (e) {
       debugPrint("❌ Leave Error: $e");
     }

@@ -18,7 +18,7 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000), // ২ সেকেন্ড দিলে আরও স্মুথ হয়
+      duration: const Duration(milliseconds: 1500), // কিছুটা দ্রুত করলে রিয়েল-টাইম ফিল পাওয়া যায়
     );
 
     if (widget.isTalking) {
@@ -29,6 +29,7 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
   @override
   void didUpdateWidget(covariant VoiceRipple oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // যদি কথা বলা শুরু করে তবেই এনিমেশন চলবে, নাহলে পুরোপুরি স্টপ
     if (widget.isTalking != oldWidget.isTalking) {
       if (widget.isTalking) {
         _controller.repeat();
@@ -41,25 +42,23 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller.dispose(); // মেমোরি লিক রোধ করতে অবশ্যই ডিসপোজ করতে হবে
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // কথা না বললে সরাসরি চাইল্ড রিটার্ন করবে, কোনো এনিমেশন বিল্ডার রান হবে না (Performance Boost)
+    if (!widget.isTalking) return widget.child;
+
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
         return Stack(
           alignment: Alignment.center,
           children: [
-            // যখন কথা বলবে তখন ৩টি ঢেউ তৈরি হবে
-            if (widget.isTalking) ...[
-              _buildRipple(0.0),
-              _buildRipple(0.33),
-              _buildRipple(0.66),
-            ],
-            // ইউজারের ছবি বা সিট উইজেট
+            _buildRipple(0.0),
+            _buildRipple(0.5), // মাত্র ২টি ঢেউ দিচ্ছি ল্যাগ কমানোর জন্য
             widget.child,
           ],
         );
@@ -68,23 +67,20 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
   }
 
   Widget _buildRipple(double delay) {
-    // এনিমেশনের ভ্যালুর সাথে ডিলে যোগ করে ০.০ থেকে ১.০ এর মধ্যে রাখা
     double progress = (_controller.value + delay) % 1.0;
 
     return Transform.scale(
-      // ঢেউটি ১.০ (আসল সাইজ) থেকে ২.০ গুণ পর্যন্ত বড় হবে
-      scale: 1.0 + (progress * 0.8), 
+      scale: 1.0 + (progress * 0.7), 
       child: Opacity(
-        // ঢেউ যত বড় হবে তত স্বচ্ছ (transparent) হয়ে যাবে
         opacity: (1.0 - progress).clamp(0.0, 1.0),
         child: Container(
-          width: 75, // আপনার সিটের সাইজ অনুযায়ী এটা কম-বেশি করতে পারেন
-          height: 75,
+          width: 60, // আপনার সিটের সাইজ ৫২ হলে ৬০-৬৫ রাখা পারফেক্ট
+          height: 60,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: Colors.pinkAccent.withOpacity(0.4),
-              width: 2.0,
+              color: Colors.cyanAccent.withOpacity(0.5), // সায়ান কালার সিটের বর্ডারের সাথে ভালো মিলবে
+              width: 1.5,
             ),
           ),
         ),
