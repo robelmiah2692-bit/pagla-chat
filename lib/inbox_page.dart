@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:ui';
 import 'chat_screen.dart';
-import 'screens/voice_room.dart'; // পাথ প্রয়োজন অনুযায়ী ঠিক করে নিন
+import 'screens/voice_room.dart';
 
 class InboxPage extends StatefulWidget {
   const InboxPage({super.key});
@@ -16,7 +16,6 @@ class _InboxPageState extends State<InboxPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
 
-  // মেসেজ সিন (isRead) করার ফাংশন
   void _markAsRead(String chatId) async {
     try {
       var unreadMessages = await FirebaseFirestore.instance
@@ -113,6 +112,7 @@ class _InboxPageState extends State<InboxPage> {
     );
   }
 
+  // --- এখানে নিজের আইডি ফিল্টার করা হয়েছে ---
   Widget _buildUserList() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('users').snapshots(),
@@ -121,11 +121,21 @@ class _InboxPageState extends State<InboxPage> {
           return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
         }
 
+        // কন্ডিশন: নিজের আইডি (currentUserId) বাদে বাকিদের ফিল্টার করা হচ্ছে
         var users = snapshot.data!.docs.where((doc) {
           var data = doc.data() as Map<String, dynamic>;
+          String authId = doc.id; // ডকুমেন্টের মেইন আইডি
           String name = (data['name'] ?? "").toString().toLowerCase();
           String customId = (data['uID'] ?? "").toString().toLowerCase();
-          return name.contains(_searchQuery.toLowerCase()) || customId.contains(_searchQuery.toLowerCase());
+
+          // নিজের আইডি বাদ দেওয়া হচ্ছে
+          bool isNotMe = authId != currentUserId;
+          
+          // সার্চ কুয়েরি ম্যাচ করা হচ্ছে
+          bool matchesSearch = name.contains(_searchQuery.toLowerCase()) || 
+                               customId.contains(_searchQuery.toLowerCase());
+
+          return isNotMe && matchesSearch;
         }).toList();
 
         return StreamBuilder<List<Map<String, dynamic>>>(
@@ -142,7 +152,6 @@ class _InboxPageState extends State<InboxPage> {
                 String userId = sortedList[index]['id'];
                 String chatId = sortedList[index]['chatId'];
 
-                if (userId == currentUserId) return const SizedBox.shrink();
                 return _buildGlassChatTile(userData, userId, chatId);
               },
             );
@@ -159,8 +168,6 @@ class _InboxPageState extends State<InboxPage> {
       String uID = (userData['uID'] ?? "").toString();
       
       String chatId;
-      
-      // অফিসিয়াল মেসেজের জন্য আপনার ডেটাবেস স্ট্রাকচার অনুযায়ী আইডি তৈরি
       if (uID == "paglachat_official") {
         chatId = "paglachat_official_$currentUserId"; 
       } else {
@@ -195,11 +202,9 @@ class _InboxPageState extends State<InboxPage> {
         String auID = (aData['uID'] ?? "").toString();
         String buID = (bData['uID'] ?? "").toString();
 
-        // Official অ্যাকাউন্ট সবসময় উপরে থাকবে
         if (auID == "paglachat_official") return -1;
         if (buID == "paglachat_official") return 1;
 
-        // বাকিরা শেষ মেসেজ অনুযায়ী সর্ট হবে
         return (b['lastTs'] as Timestamp).compareTo(a['lastTs'] as Timestamp);
       });
       return list;

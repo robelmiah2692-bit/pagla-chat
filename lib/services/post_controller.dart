@@ -26,7 +26,7 @@ class PostController {
     if (user == null) return;
 
     await _firestore.collection('stories').add({
-      'authuID': user.uid, // ফায়ারবেস অথেন্টিকেশন আইডি
+      'authUID': user.uid, // ফায়ারবেস অথেন্টিকেশন আইডি
       'uID': customuID ?? "", // আপনার মালিকের চেনার আইডি (যেমন: 153530)
       'name': postData['name'] ?? user.displayName ?? "User", // 'userName' এর বদলে 'name'
       'profilePic': postData['profilePic'] ?? user.photoURL ?? "", // 'userImage' এর বদলে 'profilePic'

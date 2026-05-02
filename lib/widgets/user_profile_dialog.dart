@@ -6,7 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 class UserProfileDialog extends StatelessWidget {
   final String roomId;
   final Map<String, dynamic> userData;
-  // 🔥 চোর ফিক্স: FirebaseAuth এর লম্বা আইডি (authuID)
+  // 🔥 চোর ফিক্স: FirebaseAuth এর লম্বা আইডি (authUID)
   final String currentAuthId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
   UserProfileDialog({super.key, required this.roomId, required this.userData});

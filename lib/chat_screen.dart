@@ -43,15 +43,16 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  // দুই ইউজারের আইডি দিয়ে একটি ইউনিক রুম আইডি তৈরি করা
+  // ইউনিক চ্যাট রুম আইডি তৈরি
   String getChatRoomId() {
     List<String> ids = [currentUserId, widget.receiverId];
     ids.sort(); 
     return ids.join("_"); 
   }
 
-  // --- মিডিয়া অ্যাকশন (ডায়মন্ড চেক) ---
+  // --- মিডিয়া অ্যাকশন (ডায়মন্ড ও এক্সপায়ারি চেক) ---
   void _handleMediaAction() async {
+    // এখানে ডাটাবেস থেকে ইউজারের বর্তমান অবস্থা চেক করা হচ্ছে
     final userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUserId).get();
     final userData = userDoc.data() as Map<String, dynamic>? ?? {};
 
@@ -132,23 +133,28 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // মেসেজ পাঠানোর মূল লজিক (সংশোধিত)
+  // --- সংশোধিত মেসেজ পাঠানোর লজিক (uID, email, authUID সহ) ---
   void _sendDataMessage(String content, String type) async {
     if (content.isEmpty) return;
     try {
+      // ইউজারের সঠিক ডাটা সংগ্রহ
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUserId).get();
-      var userData = userDoc.data();
+      final userData = userDoc.data();
       
-      // আপনার ডাটাবেস অনুযায়ী ফিল্ড নেম সংশোধিত
-      final String myPic = userData?['profilePic'] ?? userData?['profilePic'] ?? ''; 
-      final String myName = userData?['name'] ?? 'User';
+      final String myAuthUID = currentUserId; // লম্বা আইডি
+      final String mySixDigitId = userData?['uID']?.toString() ?? '0'; // আপনার ৬-ডিজিটের আইডি
+      final String myEmail = userData?['email'] ?? ''; // ইমেইল
+      final String myPic = userData?['profilePic'] ?? userData?['userImage'] ?? ''; 
+      final String myName = userData?['name'] ?? userData?['userName'] ?? 'User';
 
       await FirebaseFirestore.instance
           .collection('chats')
           .doc(getChatRoomId())
           .collection('messages')
           .add({
-        'senderId': currentUserId,
+        'senderId': myAuthUID,
+        'senderuID': mySixDigitId, // ৬-ডিজিটের আইডি
+        'senderEmail': myEmail,    // ইমেইল
         'senderName': myName,
         'senderImage': myPic, 
         'receiverId': widget.receiverId,
@@ -245,8 +251,8 @@ class _ChatScreenState extends State<ChatScreen> {
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const SizedBox(height: 150);
           final userData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-          final String name = userData['name'] ?? 'User';
-          final String pic = userData['profilePic'] ?? userData['profilePic'] ?? '';
+          final String name = userData['name'] ?? userData['userName'] ?? 'User';
+          final String pic = userData['profilePic'] ?? userData['userImage'] ?? '';
           final bool isVIP = userData['isVIP'] ?? false;
           final bool isFollowing = (userData['followerList'] ?? []).contains(currentUserId);
 
@@ -395,27 +401,18 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _downloadMedia(String url, String type) async {
-  try {
-    if (type == 'image') {
-      // ইমেজের জন্য
-      await Gal.putImage(url);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Image Saved to Gallery!")),
-      );
-    } else if (type == 'video') {
-      // ভিডিওর জন্য
-      await Gal.putVideo(url);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Video Saved to Gallery!")),
-      );
+    try {
+      if (type == 'image') {
+        await Gal.putImage(url);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Image Saved to Gallery!")));
+      } else if (type == 'video') {
+        await Gal.putVideo(url);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Video Saved to Gallery!")));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Save failed: $e")));
     }
-  } catch (e) {
-    // কোনো এরর হলে
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Save failed: $e")),
-    );
   }
-}
 
   Widget _chatAvatar(String uID, String url, String name) {
     return StreamBuilder<DocumentSnapshot>(
@@ -430,9 +427,8 @@ class _ChatScreenState extends State<ChatScreen> {
         return GestureDetector(
           onTap: () => _showProfile(context, uID),
           child: Stack(
-            // clipBehavior: Clip.none, // কিছু ভার্সনে এরর দিলে এটি কমেন্ট করতে পারেন
             children: [
-              CircleAvatar(radius: 20, backgroundImage: url.isNotEmpty ? NetworkImage(url) : null, child: url.isEmpty ? Text(name[0]) : null),
+              CircleAvatar(radius: 20, backgroundImage: url.isNotEmpty ? NetworkImage(url) : null, child: url.isEmpty ? Text(name.isNotEmpty ? name[0] : 'U') : null),
               if (isLive)
                 Positioned(
                   bottom: 0, right: 0,

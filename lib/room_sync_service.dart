@@ -7,12 +7,12 @@ class RoomSyncService {
   Future<void> sitOnChair(String roomId, int seatIndex, Map<String, dynamic> userData) async {
     try {
       // আপনার ৬-ডিজিটের ইউনিক আইডি এবং লম্বা আইডি আলাদা করা হলো
-      final String authuID = userData['authuID'] ?? userData['uID'] ?? ""; 
+      final String authUID = userData['authUID'] ?? userData['uID'] ?? ""; 
       final String fixeduID = userData['uID'] ?? "";
 
       // সরাসরি রেফারেন্স ব্যবহার করে দ্রুত ডাটা সেট করা
       await _db.ref('rooms/$roomId/seats/$seatIndex').set({
-        'userId': authuID,        // লম্বা Auth uID
+        'userId': authUID,        // লম্বা Auth uID
         'uID': fixeduID,          // আপনার ৬-ডিজিটের ইউনিক ID (৯৭০৩২১ টাইপ)
         'name': userData['name'] ?? userData['userName'] ?? "User", // name ফিল্ডটি সিঙ্ক করা হলো
         'profilePic': userData['profilePic'] ?? userData['avatar'] ?? "", 
@@ -41,12 +41,12 @@ class RoomSyncService {
   // ৩. চ্যাট মেসেজ পাঠানো
   Future<void> sendChatMessage(String roomId, Map<String, dynamic> messageData) async {
     try {
-      final String senderAuthuID = messageData['authuID'] ?? messageData['uID'] ?? "";
+      final String senderauthUID = messageData['authUID'] ?? messageData['uID'] ?? "";
       final String senderFixeduID = messageData['uID'] ?? "";
       
       await _db.ref('rooms/$roomId/chats').push().set({
         ...messageData,
-        'userId': senderAuthuID,
+        'userId': senderauthUID,
         'uID': senderFixeduID,
         'timestamp': ServerValue.timestamp,
       });

@@ -70,7 +70,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
       String mySixDigitID = userData['uID']?.toString() ?? "";
       String currentUserName = userData['name'] ?? "Pagla User";
       String currentUserPic = userData['profilePic'] ?? "";
-      String authuID = user.uid; // ফায়ারবেস অথ আইডি
+      String authUID = user.uid; // ফায়ারবেস অথ আইডি
 
       if (mySixDigitID.isEmpty) return;
 
@@ -106,7 +106,7 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
         'roomId': newUniqueRoomId,
         'roomName': roomName,
         'ownerId': mySixDigitID,      // ৬-ডিজিটের আইডি
-        'ownerAuthId': authuID,       // অথ আইডি ব্যাকআপ
+        'ownerAuthId': authUID,       // অথ আইডি ব্যাকআপ
         'ownerName': currentUserName,
         'ownerPic': currentUserPic,
         'userCount': 1,

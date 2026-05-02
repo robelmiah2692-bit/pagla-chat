@@ -20,7 +20,7 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
 
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-  // ১. ইউজার সার্চ লজিক (Email, uID, authUID, uid - সব ফিল্ডে খুঁজবে)
+  // ইউজার ডাটা সার্চ লজিক ঠিক করা হয়েছে
   void searchUser(String input) async {
     if (input.isEmpty) return;
 
@@ -31,80 +31,55 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
     });
 
     try {
-      QuerySnapshot queryRes;
-
-      // ক. প্রথমে সরাসরি ডকুমেন্ট আইডি (uID) দিয়ে খোঁজা
+      // ১. সরাসরি ডকুমেন্ট আইডি (Firestore Doc ID) দিয়ে চেক
       var directDoc = await FirebaseFirestore.instance.collection('users').doc(input).get();
-
       if (directDoc.exists) {
         _processFoundUser(directDoc.data() as Map<String, dynamic>, directDoc.id);
         return;
       }
 
-      // খ. যদি না পায়, তবে email দিয়ে খোঁজা
-      queryRes = await FirebaseFirestore.instance
-          .collection('users')
-          .where('email', isEqualTo: input)
-          .limit(1)
-          .get();
-
-      // গ. যদি না পায়, তবে uID (String/Number) দিয়ে খোঁজা
-      if (queryRes.docs.isEmpty) {
-        queryRes = await FirebaseFirestore.instance
+      // ২. অন্যান্য ফিল্ড (uID, email, authUID) দিয়ে চেক
+      List<String> fields = ['uID', 'email', 'authUID', 'uid'];
+      for (var field in fields) {
+        var queryRes = await FirebaseFirestore.instance
             .collection('users')
-            .where('uID', isEqualTo: input)
+            .where(field, isEqualTo: input)
             .limit(1)
             .get();
+        
+        if (queryRes.docs.isNotEmpty) {
+          _processFoundUser(queryRes.docs.first.data() as Map<String, dynamic>, queryRes.docs.first.id);
+          return;
+        }
       }
 
-      // ঘ. যদি না পায়, তবে authUID দিয়ে খোঁজা
-      if (queryRes.docs.isEmpty) {
-        queryRes = await FirebaseFirestore.instance
-            .collection('users')
-            .where('authUID', isEqualTo: input)
-            .limit(1)
-            .get();
-      }
-
-      // ঙ. যদি না পায়, তবে uid দিয়ে খোঁজা
-      if (queryRes.docs.isEmpty) {
-        queryRes = await FirebaseFirestore.instance
-            .collection('users')
-            .where('uid', isEqualTo: input)
-            .limit(1)
-            .get();
-      }
-
-      if (queryRes.docs.isNotEmpty) {
-        _processFoundUser(queryRes.docs.first.data() as Map<String, dynamic>, queryRes.docs.first.id);
-      } else {
-        setState(() => isLoading = false);
-        _showSnackBar("User not found! (Input: $input)", isError: true);
-      }
+      if (mounted) setState(() => isLoading = false);
+      _showSnackBar("User not found!", isError: true);
     } catch (e) {
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
       _showSnackBar("Error searching user: $e", isError: true);
     }
   }
 
-  // ইউজার ডাটা প্রসেসিং লজিক (অন্য এজেন্টকে পাঠানো ব্লক করবে)
   void _processFoundUser(Map<String, dynamic> userData, String docId) {
     bool isTargetAgent = userData['isAgent'] ?? false;
+    String myAuthUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+    bool isMe = (userData['authUID'] == myAuthUID); 
 
-    // টার্গেট ইউজার যদি এজেন্ট হয় এবং সে যদি আমি নিজে না হই (নিজেকে নিজে পাঠানো যাবে না বা অন্য এজেন্টকে না)
-    if (isTargetAgent && docId != currentUserId) {
-      setState(() => isLoading = false);
+    if (isTargetAgent && !isMe) {
+      if (mounted) setState(() => isLoading = false);
       _showSnackBar("You cannot send diamonds to another agent!", isError: true);
     } else {
-      setState(() {
-        foundUser = userData;
-        receiverFirestoreId = docId;
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          foundUser = userData;
+          receiverFirestoreId = docId;
+          isLoading = false;
+        });
+      }
     }
   }
 
-  // ২. ডায়মন্ড ট্রান্সফার লজিক (agency_wallet এবং vip_xp ফিক্সড)
   Future<void> confirmTransfer() async {
     if (foundUser == null || _amountController.text.isEmpty || receiverFirestoreId == null) return;
 
@@ -114,12 +89,11 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
       return;
     }
 
-    setState(() => isLoading = true);
+    if (mounted) setState(() => isLoading = true);
 
     try {
-      int earnedXP = amount ~/ 250; // ২৫০ ডায়মন্ডে ১ এক্সপি
+      int earnedXP = amount ~/ 250; 
 
-      // বর্তমান এজেন্টের ডাটা (authUID দিয়ে খোঁজা হচ্ছে আপনার প্রোফাইল)
       var agentQuery = await FirebaseFirestore.instance
           .collection('users')
           .where('authUID', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
@@ -133,30 +107,18 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
 
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         DocumentSnapshot senderSnap = await transaction.get(senderRef);
-        
         if (!senderSnap.exists) throw Exception("Agent data not found!");
 
-        Map<String, dynamic> senderData = senderSnap.data() as Map<String, dynamic>;
-        
-        // আপনার ডাটাবেস অনুযায়ী 'agency_wallet' ফিল্ড
-        int currentAgencyWallet = (senderData['agency_wallet'] ?? 0).toInt();
+        int currentAgencyWallet = (senderSnap.get('agency_wallet') ?? 0).toInt();
+        if (currentAgencyWallet < amount) throw Exception("Insufficient balance!");
 
-        if (currentAgencyWallet < amount) {
-          throw Exception("Insufficient balance in Agency Wallet!");
-        }
+        transaction.update(senderRef, {'agency_wallet': currentAgencyWallet - amount});
 
-        // এজেন্টের ওয়ালেট আপডেট
-        transaction.update(senderRef, {
-          'agency_wallet': currentAgencyWallet - amount
-        });
-
-        // ইউজারের ডায়মন্ড এবং vip_xp আপডেট
         transaction.update(receiverRef, {
           'diamonds': FieldValue.increment(amount),
           'vip_xp': FieldValue.increment(earnedXP),
         });
 
-        // PaglaChat Official ইনবক্স নোটিফিকেশন
         String chatId = "paglachat_official_$receiverFirestoreId";
         DocumentReference msgRef = FirebaseFirestore.instance
             .collection('chats')
@@ -173,7 +135,6 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
           'type': 'system_msg'
         });
 
-        // রিচার্জ হিস্ট্রি
         transaction.set(FirebaseFirestore.instance.collection('diamond_history').doc(), {
           'senderId': senderSnap.id, 
           'receiverId': receiverFirestoreId,
@@ -185,16 +146,17 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
       });
 
       _showSnackBar("Success! Diamonds sent.");
-
-      setState(() {
-        foundUser = null;
-        receiverFirestoreId = null;
-        _idController.clear();
-        _amountController.clear();
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          foundUser = null;
+          receiverFirestoreId = null;
+          _idController.clear();
+          _amountController.clear();
+          isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
       _showSnackBar(e.toString().replaceAll("Exception:", ""), isError: true);
     }
   }
@@ -202,15 +164,10 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
   void _showSnackBar(String message, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.redAccent : Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
+      SnackBar(content: Text(message), backgroundColor: isError ? Colors.redAccent : Colors.green),
     );
   }
 
-  // ৩. ট্রানজেকশন হিস্ট্রি দেখার বটম শিট
   void _openHistorySheet() async {
     var agentQuery = await FirebaseFirestore.instance
         .collection('users')
@@ -233,25 +190,16 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D1A),
       appBar: AppBar(
-        title: const Text("Agency Diamond Wallet", 
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text("Agency Diamond Wallet", style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF1E1E2F),
-        centerTitle: true,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.history_rounded, size: 28),
-            onPressed: _openHistorySheet,
-          ),
-          const SizedBox(width: 10),
+          IconButton(icon: const Icon(Icons.history_rounded, size: 28), onPressed: _openHistorySheet),
         ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // আপনার নিজের ব্যালেন্স দেখানোর উইজেট (Dynamic)
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('users')
@@ -279,92 +227,69 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
                 );
               }
             ),
-
-            // সার্চ বার
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E1E2F),
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: TextField(
-                controller: _idController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: "Search by ID, Email, or uID...",
-                  hintStyle: const TextStyle(color: Colors.white24),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.search, color: Colors.pinkAccent),
-                    onPressed: () => searchUser(_idController.text.trim()),
-                  ),
-                  border: InputBorder.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: 25),
-
-            if (isLoading) 
-              const Center(child: CircularProgressIndicator(color: Colors.pinkAccent)),
-
-            // ইউজার কার্ড (সার্চ রেজাল্ট)
-            if (foundUser != null && !isLoading)
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E1E2F),
-                  borderRadius: BorderRadius.circular(25),
-                  border: Border.all(color: Colors.pinkAccent.withOpacity(0.2)),
-                ),
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 45,
-                      backgroundColor: Colors.pinkAccent,
-                      backgroundImage: (foundUser!['profilePic'] != null && foundUser!['profilePic'] != "")
-                          ? NetworkImage(foundUser!['profilePic'])
-                          : null,
-                      child: (foundUser!['profilePic'] == null || foundUser!['profilePic'] == "")
-                          ? const Icon(Icons.person, size: 50, color: Colors.white)
-                          : null,
-                    ),
-                    const SizedBox(height: 15),
-                    Text(foundUser!['name'] ?? "User",
-                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                    Text("ID: ${foundUser!['uID'] ?? 'N/A'}", style: const TextStyle(color: Colors.white54)),
-                    const Divider(color: Colors.white10, height: 30),
-                    
-                    TextField(
-                      controller: _amountController,
-                      style: const TextStyle(color: Colors.white, fontSize: 22),
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      decoration: const InputDecoration(
-                        hintText: "Enter Amount",
-                        hintStyle: TextStyle(color: Colors.white10),
-                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.pinkAccent)),
-                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.cyanAccent)),
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                    
-                    SizedBox(
-                      width: double.infinity,
-                      height: 55,
-                      child: ElevatedButton(
-                        onPressed: confirmTransfer,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.pinkAccent,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                        ),
-                        child: const Text("SEND DIAMONDS",
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            _buildSearchInput(),
+            if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.pinkAccent)),
+            if (foundUser != null && !isLoading) _buildUserCard(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSearchInput() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(color: const Color(0xFF1E1E2F), borderRadius: BorderRadius.circular(30)),
+      child: TextField(
+        controller: _idController,
+        style: const TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          hintText: "Search by ID, Email, or uID...",
+          hintStyle: const TextStyle(color: Colors.white24),
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.search, color: Colors.pinkAccent),
+            onPressed: () => searchUser(_idController.text.trim()),
+          ),
+          border: InputBorder.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserCard() {
+    return Container(
+      margin: const EdgeInsets.only(top: 25),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: const Color(0xFF1E1E2F), borderRadius: BorderRadius.circular(25)),
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 45,
+            backgroundImage: (foundUser!['profilePic'] != null && foundUser!['profilePic'] != "") 
+                ? NetworkImage(foundUser!['profilePic']) : null,
+            child: (foundUser!['profilePic'] == null || foundUser!['profilePic'] == "") 
+                ? const Icon(Icons.person, size: 50) : null,
+          ),
+          const SizedBox(height: 15),
+          Text(foundUser!['name'] ?? "User", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          TextField(
+            controller: _amountController,
+            style: const TextStyle(color: Colors.white, fontSize: 22),
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            decoration: const InputDecoration(hintText: "Enter Amount", hintStyle: TextStyle(color: Colors.white10)),
+          ),
+          const SizedBox(height: 25),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: confirmTransfer,
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
+              child: const Text("SEND DIAMONDS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -380,46 +305,36 @@ class TransactionHistoryWidget extends StatelessWidget {
       height: MediaQuery.of(context).size.height * 0.7,
       decoration: const BoxDecoration(
         color: Color(0xFF151525),
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
       child: Column(
         children: [
-          const SizedBox(height: 12),
-          Container(width: 50, height: 5, decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(10))),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
-            child: Text("Transaction History", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-          ),
+          const SizedBox(height: 20),
+          const Text("Transaction History", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
           Expanded(
-            child: StreamBuilder(
+            child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('diamond_history')
                   .where('senderId', isEqualTo: agentId)
                   .orderBy('timestamp', descending: true)
                   .snapshots(),
-              builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
-                if (snapshot.data!.docs.isEmpty) return const Center(child: Text("No transactions found", style: TextStyle(color: Colors.white54)));
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                if (snapshot.data!.docs.isEmpty) return const Center(child: Text("No history found", style: TextStyle(color: Colors.white54)));
 
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   itemCount: snapshot.data!.docs.length,
                   itemBuilder: (context, index) {
                     var data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
-                    String formattedDate = "";
-                    if(data['timestamp'] != null) {
-                      formattedDate = DateFormat('dd MMM, hh:mm a').format((data['timestamp'] as Timestamp).toDate());
-                    }
+                    String date = data['timestamp'] != null 
+                        ? DateFormat('dd MMM, hh:mm a').format((data['timestamp'] as Timestamp).toDate()) : "";
 
-                    return Card(
-                      color: const Color(0xFF1E1E2F),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      child: ListTile(
-                        leading: const CircleAvatar(backgroundColor: Colors.black26, child: Icon(Icons.diamond, color: Colors.pinkAccent, size: 20)),
-                        title: Text("Receiver ID: ${data['receiverId']}", style: const TextStyle(color: Colors.white, fontSize: 14)),
-                        subtitle: Text(formattedDate, style: const TextStyle(color: Colors.white38, fontSize: 11)),
-                        trailing: Text("${data['amount']} 💎", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
-                      ),
+                    return ListTile(
+                      leading: const Icon(Icons.diamond, color: Colors.pinkAccent),
+                      title: Text("To ID: ${data['receiverId']}", style: const TextStyle(color: Colors.white, fontSize: 14)),
+                      subtitle: Text(date, style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                      trailing: Text("${data['amount']} 💎", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
                     );
                   },
                 );

@@ -81,11 +81,11 @@ class GiftLogicHelper {
     List<Map<String, dynamic>> micUsers = [];
     for (var seat in currentSeats) {
       if (seat != null && seat['isOccupied'] == true) {
-        String? authuID = seat['authuID']?.toString() ?? seat['uID']?.toString();
+        String? authUID = seat['authUID']?.toString() ?? seat['uID']?.toString();
         
-        if (authuID != null && authuID.isNotEmpty) {
+        if (authUID != null && authUID.isNotEmpty) {
           micUsers.add({
-            'uID': authuID, // লম্বা আইডি
+            'uID': authUID, // লম্বা আইডি
             'uID': seat['uID']?.toString() ?? '0', // মালিকের চেনার ৬-ডিজিটের আইডি
             'name': seat['name'] ?? seat['userName'] ?? 'Unknown',
             'photoUrl': seat['profilePic'] ?? seat['userImage'] ?? '',
@@ -156,7 +156,7 @@ class GiftLogicHelper {
   static void showTargetSelector({
     required BuildContext context,
     required List<Map<String, dynamic>> micUsers,
-    required Function(String authuID, String name) onSelected,
+    required Function(String authUID, String name) onSelected,
   }) {
     showModalBottomSheet(
       context: context,
