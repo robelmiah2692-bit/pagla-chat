@@ -225,7 +225,7 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
         'age': _ageController.text.trim(),
         'gender': _selectedGender,
         'email': user?.email,
-        'uID': user,
+        'uid': user?.uid,
         'authUID': user?.uid, 
         'diamonds': 200,      // শুরুতে ফিক্সড ডাইমন্ড
         'vip_xp': 0,         // VIP XP যোগ করা হলো

@@ -137,7 +137,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
 Widget build(BuildContext context) {
   // 🎨 গিফটের টাইপ অনুযায়ী বডি কালার ঠিক করার লজিক
   Color getDynamicBodyColor() {
-    if (selectedGift == null) return const Color(0xFF07070F); // ডিফল্ট ডার্ক কালার
+    if (selectedGift == null) return const Color.fromARGB(131, 4, 4, 122); // ডিফল্ট ডার্ক কালার
     
     bool isFree = selectedGift!['expiry'] != null;
     int price = (selectedGift!['price'] ?? 0);
@@ -327,60 +327,99 @@ Widget build(BuildContext context) {
     );
   }
 
-  Widget _buildGrid(List gifts, {bool isFreeTab = false}) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(15),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4, 
-        childAspectRatio: 0.8,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-      ),
-      itemCount: gifts.length,
-      itemBuilder: (context, index) {
-        var gift = gifts[index];
-        bool isSelected = selectedGift?['id'] == gift['id'];
-        String giftPath = (gift["image"] ?? gift["icon"] ?? gift["url"] ?? "").toString();
-        bool isJson = giftPath.toLowerCase().endsWith('.json');
+ Widget _buildGrid(List gifts, {bool isFreeTab = false}) {
+  return GridView.builder(
+    padding: const EdgeInsets.all(15),
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 4, 
+      childAspectRatio: 0.85,
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+    ),
+    itemCount: gifts.length,
+    itemBuilder: (context, index) {
+      var gift = gifts[index];
+      bool isSelected = selectedGift?['id'] == gift['id'];
+      String giftPath = (gift["image"] ?? gift["icon"] ?? gift["url"] ?? "").toString();
+      bool isJson = giftPath.toLowerCase().endsWith('.json');
 
-        return GestureDetector(
-          onTap: () => setState(() => selectedGift = gift),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              color: isSelected ? Colors.pinkAccent.withOpacity(0.15) : Colors.white.withOpacity(0.03),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: isSelected ? Colors.pinkAccent : Colors.white10, width: 1.5),
-              boxShadow: isSelected ? [BoxShadow(color: Colors.pinkAccent.withOpacity(0.3), blurRadius: 8)] : null,
+      return GestureDetector(
+        onTap: () => setState(() => selectedGift = gift),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.pinkAccent.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: isSelected ? Colors.pinkAccent : Colors.white10, 
+              width: isSelected ? 2.0 : 1.5
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+            boxShadow: isSelected ? [BoxShadow(color: Colors.pinkAccent.withOpacity(0.3), blurRadius: 8)] : null,
+          ),
+          child: ClipRRect( // ছবি যেন বর্ডারের বাইরে না যায়
+            borderRadius: BorderRadius.circular(13),
+            child: Stack(
               children: [
-                SizedBox(
-                  height: 48, width: 48,
+                // ১. মূল ছবি (পুরো কার্ড জুড়ে থাকবে)
+                Positioned.fill(
                   child: isJson 
-                      ? Lottie.asset(giftPath, repeat: true, fit: BoxFit.contain)
-                      : Image.network(giftPath, fit: BoxFit.contain, errorBuilder: (c,e,s) => const Icon(Icons.card_giftcard, color: Colors.white24)),
+                    ? Lottie.asset(giftPath, repeat: true, fit: BoxFit.contain)
+                    : Image.network(
+                        giftPath, 
+                        fit: BoxFit.cover, // এইটা ছবিকে পুরো বর্ডার পর্যন্ত টেনে বড় করবে
+                        errorBuilder: (c, e, s) => const Icon(Icons.card_giftcard, color: Colors.white24),
+                      ),
                 ),
-                const SizedBox(height: 6),
-                if (isFreeTab) 
-                  Text(_getRemainingTime(gift['expiry']), style: const TextStyle(color: Colors.greenAccent, fontSize: 8, fontWeight: FontWeight.bold))
-                else
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.diamond, color: Colors.amber, size: 10),
-                      const SizedBox(width: 2),
-                      Text("${gift["price"]}", style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
-                    ],
+
+                // ২. নিচের টেক্সট বা ডাইমন্ড কাউন্ট (ছবির উপরে হালকা শ্যাডো সহ)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.6), 
+                          Colors.transparent
+                        ],
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isFreeTab) 
+                          Text(
+                            _getRemainingTime(gift['expiry']), 
+                            style: const TextStyle(color: Colors.greenAccent, fontSize: 8, fontWeight: FontWeight.bold)
+                          )
+                        else
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text("💎", style: TextStyle(fontSize: 9)),
+                              const SizedBox(width: 2),
+                              Text(
+                                "${gift["price"]}", 
+                                style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
                   ),
+                ),
               ],
             ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildBottomBar() {
     return Container(

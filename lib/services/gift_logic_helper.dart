@@ -11,7 +11,7 @@ class GiftLogicHelper {
     };
   }
 
-  // ২. গিফট প্রসেসিং (ফায়ারবেস স্ক্রিনশট অনুযায়ী নিখুঁত ফিল্ড নেম সহ)
+  // ২. গিফট প্রসেসিং (সোলমেট রিকোয়েস্ট লজিকসহ)
   static Future<void> processGift({
     required String senderAuthId, // লগইন করা ইউজারের লম্বা uID
     required String targetAuthId, // রিসিভারের লম্বা uID
@@ -27,12 +27,12 @@ class GiftLogicHelper {
     
     WriteBatch batch = FirebaseFirestore.instance.batch();
 
-    // ক. সেন্ডারের একাউন্ট আপডেট (ডায়মন্ড কাটা + মোট খরচ বাড়ানো)
+    // ক. সেন্ডারের একাউন্ট আপডেট (ডায়মন্ড কাটা + মোট খরচ বাড়ানো)
     if (unitPrice > 0) {
       DocumentReference senderRef = FirebaseFirestore.instance.collection('users').doc(senderAuthId);
       batch.update(senderRef, {
         'diamonds': FieldValue.increment(-totalPrice),
-        'totalSpent': FieldValue.increment(totalPrice), // বস হওয়ার জন্য এক্সপি
+        'totalSpent': FieldValue.increment(totalPrice),
       });
     }
 
@@ -53,16 +53,16 @@ class GiftLogicHelper {
 
     batch.update(roomRef, {
       'last_gift': giftBanner,
-      'totalDiamonds': FieldValue.increment(totalPrice), // 'room_total_diamonds' এর বদলে 'totalDiamonds'
+      'totalDiamonds': FieldValue.increment(totalPrice),
     });
 
-    // গ. রিসিভারের একাউন্টে ৪০% যোগ করা (স্ক্রিনশট অনুযায়ী 'diamonds' ফিল্ডে)
+    // গ. রিসিভারের একাউন্টে ৪০% যোগ করা
     if (targetAuthId != 'All Room' && targetAuthId != 'All Mic') {
       DocumentReference targetRef = FirebaseFirestore.instance.collection('users').doc(targetAuthId);
       int userAmount = split['userShare'] ?? 0;
       batch.update(targetRef, {
         'diamonds': FieldValue.increment(userAmount),
-        'receivedDiamonds': FieldValue.increment(totalPrice), // Charming Score এর জন্য
+        'receivedDiamonds': FieldValue.increment(totalPrice),
       });
     }
 
@@ -73,24 +73,42 @@ class GiftLogicHelper {
       batch.update(ownerRef, {'diamonds': FieldValue.increment(ownerAmount)});
     }
 
+    // ট্রানজেকশন সম্পন্ন করা
     await batch.commit();
+
+    // 🔴 ঙ. সোলমেট রিকোয়েস্ট তৈরি (যদি গিফটটি সোলমেট কার্ড হয়)
+    if (gift['id'] == 'soulmate_special') {
+      await FirebaseFirestore.instance.collection('soulmate_requests').doc(targetAuthId).set({
+        'fromId': senderAuthId,
+        'fromName': senderName,
+        'fromImg': gift['image'] ?? gift['profilePic'] ?? '', 
+        'timestamp': FieldValue.serverTimestamp(),
+        'status': 'pending',
+      });
+      print("সোলমেট রিকোয়েস্ট পাঠানো হয়েছে!");
+    }
   }
 
-  // ৩. সিটে থাকা ইউজারদের ফিল্টার (আপনার স্ক্রিনশটের সিট স্ট্রাকচার অনুযায়ী)
+  // ৩. সিটে থাকা ইউজারদের ফিল্টার (সংশোধিত ভার্সন - ১৫ বার আইডি আসা বন্ধ করবে)
   static List<Map<String, dynamic>> getAllMicUsers(List<dynamic> currentSeats) {
     List<Map<String, dynamic>> micUsers = [];
+    
     for (var seat in currentSeats) {
-      if (seat != null && seat['isOccupied'] == true) {
-        String? authUID = seat['authUID']?.toString() ?? seat['uID']?.toString();
+      if (seat != null && 
+          seat['isOccupied'] == true && 
+          seat['uID'] != null && 
+          seat['uID'].toString() != "0" && 
+          seat['uID'].toString().isNotEmpty) {
         
-        if (authUID != null && authUID.isNotEmpty) {
-          micUsers.add({
-            'uID': authUID, // লম্বা আইডি
-            'uID': seat['uID']?.toString() ?? '0', // মালিকের চেনার ৬-ডিজিটের আইডি
-            'name': seat['name'] ?? seat['userName'] ?? 'Unknown',
-            'photoUrl': seat['profilePic'] ?? seat['userImage'] ?? '',
-          });
-        }
+        String longID = seat['authUID']?.toString() ?? seat['uID_long']?.toString() ?? "";
+        String shortID = seat['uID']?.toString() ?? "0";
+
+        micUsers.add({
+          'authUID': longID,       
+          'displayID': shortID,    
+          'name': seat['name'] ?? seat['userName'] ?? 'Unknown',
+          'photoUrl': seat['profilePic'] ?? seat['userImage'] ?? '',
+        });
       }
     }
     return micUsers;
@@ -152,7 +170,7 @@ class GiftLogicHelper {
     );
   }
 
-  // ৫. টার্গেট সিলেক্টর পপআপ (যেখানে ইউজার ID/uID দেখা যাবে)
+  // ৫. টার্গেট সিলেক্টর পপআপ (displayID ব্যবহার করে সংশোধিত)
   static void showTargetSelector({
     required BuildContext context,
     required List<Map<String, dynamic>> micUsers,
@@ -170,14 +188,14 @@ class GiftLogicHelper {
             final user = micUsers[index];
             return ListTile(
               leading: CircleAvatar(
-                backgroundImage: user['profilePic'].toString().isNotEmpty 
-                    ? NetworkImage(user['profilePic']) : null,
-                child: user['profilePic'].toString().isEmpty ? const Icon(Icons.person) : null,
+                backgroundImage: user['photoUrl'].toString().isNotEmpty 
+                    ? NetworkImage(user['photoUrl']) : null,
+                child: user['photoUrl'].toString().isEmpty ? const Icon(Icons.person) : null,
               ),
               title: Text(user['name'], style: const TextStyle(color: Colors.white)),
-              subtitle: Text("User ID: ${user['uID']}", style: const TextStyle(color: Colors.white54, fontSize: 10)),
+              subtitle: Text("User ID: ${user['displayID']}", style: const TextStyle(color: Colors.white54, fontSize: 10)),
               onTap: () {
-                onSelected(user['uID'], user['name']);
+                onSelected(user['authUID'], user['name']);
                 Navigator.pop(context);
               },
             );
