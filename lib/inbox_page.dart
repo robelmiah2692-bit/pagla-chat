@@ -100,7 +100,7 @@ class _InboxPageState extends State<InboxPage> {
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
                 hintText: "Search by Name or ID...",
-                hintStyle: TextStyle(color: Colors.white24),
+                hintStyle: TextStyle(color: Color.fromARGB(245, 101, 196, 244)),
                 prefixIcon: Icon(Icons.search, color: Colors.cyanAccent),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(vertical: 15),
@@ -112,55 +112,57 @@ class _InboxPageState extends State<InboxPage> {
     );
   }
 
-  // --- এখানে নিজের আইডি ফিল্টার করা হয়েছে ---
   Widget _buildUserList() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
-        }
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance.collection('users').snapshots(),
+    builder: (context, snapshot) {
+      if (!snapshot.hasData) {
+        return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
+      }
 
-        // কন্ডিশন: নিজের আইডি (currentUserId) বাদে বাকিদের ফিল্টার করা হচ্ছে
-        var users = snapshot.data!.docs.where((doc) {
-          var data = doc.data() as Map<String, dynamic>;
-          String authId = doc.id; // ডকুমেন্টের মেইন আইডি
-          String name = (data['name'] ?? "").toString().toLowerCase();
-          String customId = (data['uID'] ?? "").toString().toLowerCase();
+      // --- আসল ফিল্টার এখানে ---
+      var users = snapshot.data!.docs.where((doc) {
+        var data = doc.data() as Map<String, dynamic>;
+        
+        // আপনার ডাটাবেসে লম্বা আইডিটা 'authUID' ফিল্ডে আছে
+        String userAuthUID = data['authUID'] ?? ""; 
+        
+        // নিজের লম্বা আইডির সাথে ডাটাবেসের 'authUID' ফিল্ড মিলিয়ে দেখা হচ্ছে
+        // যদি মিলে যায় (অর্থাৎ এটা আপনি নিজে), তবে সে লিস্টে আসবে না
+        bool isNotMe = userAuthUID != currentUserId;
+        
+        // সার্চ কুয়েরি লজিক
+        String name = (data['name'] ?? "").toString().toLowerCase();
+        String customId = (data['uID'] ?? "").toString().toLowerCase();
+        bool matchesSearch = name.contains(_searchQuery.toLowerCase()) || 
+                             customId.contains(_searchQuery.toLowerCase());
 
-          // নিজের আইডি বাদ দেওয়া হচ্ছে
-          bool isNotMe = authId != currentUserId;
-          
-          // সার্চ কুয়েরি ম্যাচ করা হচ্ছে
-          bool matchesSearch = name.contains(_searchQuery.toLowerCase()) || 
-                               customId.contains(_searchQuery.toLowerCase());
+        return isNotMe && matchesSearch;
+      }).toList();
 
-          return isNotMe && matchesSearch;
-        }).toList();
+      return StreamBuilder<List<Map<String, dynamic>>>(
+        stream: _getSortedUserStream(users),
+        builder: (context, sortedSnapshot) {
+          if (!sortedSnapshot.hasData) return const SizedBox.shrink();
+          final sortedList = sortedSnapshot.data!;
 
-        return StreamBuilder<List<Map<String, dynamic>>>(
-          stream: _getSortedUserStream(users),
-          builder: (context, sortedSnapshot) {
-            if (!sortedSnapshot.hasData) return const SizedBox.shrink();
-            final sortedList = sortedSnapshot.data!;
+          return ListView.builder(
+            itemCount: sortedList.length,
+            padding: const EdgeInsets.all(10),
+            itemBuilder: (context, index) {
+              var userData = sortedList[index]['data'] as Map<String, dynamic>;
+              // এখানে userId হিসেবে আপনার সেই ৬-ডিজিটের uID (ডকুমেন্ট আইডি) যাবে
+              String userId = sortedList[index]['id']; 
+              String chatId = sortedList[index]['chatId'];
 
-            return ListView.builder(
-              itemCount: sortedList.length,
-              padding: const EdgeInsets.all(10),
-              itemBuilder: (context, index) {
-                var userData = sortedList[index]['data'] as Map<String, dynamic>;
-                String userId = sortedList[index]['id'];
-                String chatId = sortedList[index]['chatId'];
-
-                return _buildGlassChatTile(userData, userId, chatId);
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
+              return _buildGlassChatTile(userData, userId, chatId);
+            },
+          );
+        },
+      );
+    },
+  );
+}
   Stream<List<Map<String, dynamic>>> _getSortedUserStream(List<QueryDocumentSnapshot> users) {
     return Stream.fromFuture(Future.wait(users.map((user) async {
       String userId = user.id;

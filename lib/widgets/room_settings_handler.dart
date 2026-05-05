@@ -45,7 +45,6 @@ class RoomSettingsHandler {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // হ্যান্ডেল বার
                 Container(
                   width: 40,
                   height: 5,
@@ -66,7 +65,6 @@ class RoomSettingsHandler {
                 ),
                 const SizedBox(height: 25),
 
-                // --- ওয়ালপেপার স্লাইডার সেকশন ---
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Padding(
@@ -123,30 +121,27 @@ class RoomSettingsHandler {
                 ),
                 const SizedBox(height: 25),
 
-                // --- ফিচার আইটেম রো ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _buildItem(isLocked ? Icons.lock : Icons.lock_open,
                         isLocked ? "Unlock" : "Lock", Colors.amber, () {
-                      Navigator.pop(context);
                       _handleFeaturePurchase(
                           context, roomId, "room_lock", onToggleLock);
                     }),
                     _buildItem(
                         Icons.add_photo_alternate, "Gallery", Colors.cyanAccent,
                         () async {
-                      Navigator.pop(context);
-
                       _handleFeaturePurchase(context, roomId, "wallpaper",
                           () async {
                         final ImagePicker picker = ImagePicker();
-                        final XFile? image =
-                            await picker.pickImage(source: ImageSource.gallery);
+                        final XFile? image = await picker.pickImage(
+                            source: ImageSource.gallery, imageQuality: 70);
 
                         if (image != null) {
                           try {
-                            // ১. আগে চেক করি পুরাতন কোনো ওয়ালপেপার আছে কি না
+                            _showMessage(context, "Uploading wallpaper...");
+                            
                             var roomDoc = await _firestore
                                 .collection('rooms')
                                 .doc(roomId)
@@ -154,32 +149,25 @@ class RoomSettingsHandler {
                             String? oldWallpaperUrl =
                                 roomDoc.data()?['currentWallpaper'];
 
-                            // ২. যদি পুরাতন ওয়ালপেপার থাকে এবং সেটা ফায়ারবেস স্টোরেজের হয়, তবে তা ডিলিট করা
                             if (oldWallpaperUrl != null &&
                                 oldWallpaperUrl.contains('firebasestorage')) {
                               try {
                                 await FirebaseStorage.instance
                                     .refFromURL(oldWallpaperUrl)
                                     .delete();
-                                print("Old wallpaper deleted successfully.");
                               } catch (e) {
-                                print("Error deleting old wallpaper: $e");
+                                debugPrint("Old wallpaper delete error: $e");
                               }
                             }
 
-                            // ৩. নতুন ওয়ালপেপার আপলোড করা
                             File file = File(image.path);
-                            String fileName =
-                                'room_wallpapers/$roomId/current_bg.jpg'; // একই নাম দিলে অটো রিপ্লেস হওয়ার সম্ভাবনা থাকে
-                            Reference storageRef =
-                                FirebaseStorage.instance.ref().child(fileName);
+                            String fileName = 'room_wallpapers/$roomId/${DateTime.now().millisecondsSinceEpoch}.jpg';
+                            Reference storageRef = FirebaseStorage.instance.ref().child(fileName);
 
                             UploadTask uploadTask = storageRef.putFile(file);
                             TaskSnapshot snapshot = await uploadTask;
-                            String downloadUrl =
-                                await snapshot.ref.getDownloadURL();
+                            String downloadUrl = await snapshot.ref.getDownloadURL();
 
-                            // ৪. ডাটাবেসে নতুন লিঙ্ক আপডেট করা
                             await _firestore
                                 .collection('rooms')
                                 .doc(roomId)
@@ -188,13 +176,10 @@ class RoomSettingsHandler {
                               'wallpaperSetAt': FieldValue.serverTimestamp(),
                             });
 
-                            // ৫. স্ক্রিন আপডেট
                             onSetWallpaper(downloadUrl);
-
                             _showMessage(context, "New wallpaper updated!");
                           } catch (e) {
-                            _showMessage(
-                                context, "Failed to update wallpaper: $e");
+                            _showMessage(context, "Failed to update wallpaper: $e");
                           }
                         }
                       });
@@ -223,59 +208,81 @@ class RoomSettingsHandler {
         );
       },
     );
-  } // <--- এই ব্র্যাকেটটি এখানে মিসিং ছিল!
+  }
 
-  // বাকি মেথডগুলো এখন এই showSettings মেথডের বাইরে থাকবে
   static void _handleFeaturePurchase(BuildContext context, String roomId,
       String featureType, Function onAllowed) async {
-    String myuID = _auth.currentUser?.uid ?? "";
-    var roomRef = _firestore.collection('rooms').doc(roomId);
-    var userRef = _firestore.collection('users').doc(myuID);
+    
+    // বটম শীট বন্ধ করা যাতে ডায়ালগ দেখা যায়
+    Navigator.of(context).pop();
 
-    var roomSnap = await roomRef.get();
-    if (!roomSnap.exists) return;
+    final User? user = _auth.currentUser;
+    if (user == null) return;
 
-    var roomData = roomSnap.data();
-    var packageData = roomData?[featureType + '_package'];
-    bool hasActivePackage = false;
+    try {
+      // আপনার ডাটাবেস অনুযায়ী authUID দিয়ে ইউজার খুঁজে বের করা
+      var userQuery = await _firestore
+          .collection('users')
+          .where('authUID', isEqualTo: user.uid)
+          .limit(1)
+          .get();
 
-    if (packageData != null && packageData['expiry'] != null) {
-      DateTime expiry = (packageData['expiry'] as Timestamp).toDate();
-      if (DateTime.now().isBefore(expiry)) {
-        hasActivePackage = true;
+      if (userQuery.docs.isEmpty) {
+        _showMessage(context, "User profile not found!");
+        return;
       }
-    }
 
-    if (hasActivePackage) {
-      if (featureType == "room_lock") {
-        _showPasswordDialog(context, onAllowed);
-      } else {
-        onAllowed();
-      }
-    } else {
-      _showPurchaseDialog(context, (int hours, int diamonds) async {
-        var userDoc = await userRef.get();
-        int myDiamonds = userDoc.data()?['diamonds'] ?? 0;
+      var userDoc = userQuery.docs.first;
+      var userRef = userDoc.reference;
 
-        if (myDiamonds >= diamonds) {
-          await userRef.update({'diamonds': myDiamonds - diamonds});
-          await roomRef.update({
-            featureType + '_package': {
-              'expiry': Timestamp.fromDate(
-                  DateTime.now().add(Duration(hours: hours))),
-              'boughtAt': FieldValue.serverTimestamp(),
-            }
-          });
+      var roomRef = _firestore.collection('rooms').doc(roomId);
+      var roomSnap = await roomRef.get();
+      if (!roomSnap.exists) return;
 
-          if (featureType == "room_lock") {
-            _showPasswordDialog(context, onAllowed);
-          } else {
-            onAllowed();
-          }
-        } else {
-          _showMessage(context, "Insufficient Diamonds!");
+      var roomData = roomSnap.data();
+      var packageData = roomData?[featureType + '_package'];
+      bool hasActivePackage = false;
+
+      if (packageData != null && packageData['expiry'] != null) {
+        DateTime expiry = (packageData['expiry'] as Timestamp).toDate();
+        if (DateTime.now().isBefore(expiry)) {
+          hasActivePackage = true;
         }
-      });
+      }
+
+      if (hasActivePackage) {
+        if (featureType == "room_lock") {
+          _showPasswordDialog(context, onAllowed);
+        } else {
+          onAllowed();
+        }
+      } else {
+        _showPurchaseDialog(context, (int hours, int diamonds) async {
+          int myDiamonds = userDoc.data()['diamonds'] ?? 0;
+
+          if (myDiamonds >= diamonds) {
+            // ডায়মন্ড কাটা এবং প্যাকেজ আপডেট করা
+            await userRef.update({'diamonds': myDiamonds - diamonds});
+            await roomRef.update({
+              featureType + '_package': {
+                'expiry': Timestamp.fromDate(
+                    DateTime.now().add(Duration(hours: hours))),
+                'boughtAt': FieldValue.serverTimestamp(),
+              }
+            });
+
+            if (featureType == "room_lock") {
+              _showPasswordDialog(context, onAllowed);
+            } else {
+              onAllowed();
+            }
+          } else {
+            _showMessage(context, "Insufficient Diamonds!");
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Purchase Error: $e");
     }
   }
 
@@ -321,9 +328,10 @@ class RoomSettingsHandler {
       context: context,
       builder: (dContext) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         title: const Text("Activate Feature",
-            style: TextStyle(color: Colors.white)),
-        content: const Text("You don't have an active package.",
+            style: TextStyle(color: Colors.white, fontSize: 18)),
+        content: const Text("You don't have an active package for this feature.",
             style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
@@ -344,7 +352,9 @@ class RoomSettingsHandler {
   }
 
   static void _showMessage(BuildContext context, String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), duration: const Duration(seconds: 2))
+    );
   }
 
   static Widget _buildItem(

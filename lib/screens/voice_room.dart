@@ -16,6 +16,7 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 // Third Party Packages
 import 'package:audioplayers/audioplayers.dart';
 import 'package:lottie/lottie.dart';
+import 'package:pagla_chat/room_list_page.dart' show RoomListPage;
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -82,7 +83,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   Map<int, String> activeEmojis = {};
   List<Offset> seatPositions = List.generate(15, (index) => Offset.zero);
   List<GlobalKey> seatKeys = List.generate(15, (index) => GlobalKey());
-
+  
   // User & Owner Info
   bool isGiftCounting = false;
   String uID = "";
@@ -131,7 +132,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   bool isGiftAnimating = false;
   String currentGiftImage = "";
   late List<Map<String, dynamic>> seats;
-
+bool _isMeTalkingNow = false; // এটি লাল দাগ দূর করবে
   // Timer & Gift Logic
   bool isCountingGifts = false;
   int remainingSeconds = 900;
@@ -143,123 +144,162 @@ class _VoiceRoomState extends State<VoiceRoom> {
   StreamSubscription? _seatSubscription;
   StreamSubscription? _emojiSubscription;
 
-  @override
-  void initState() {
-    super.initState();
-    WakelockPlus.enable(); // স্ক্রিন যাতে অফ না হয়
+ @override
+void initState() {
+  super.initState();
+  WakelockPlus.enable(); // স্ক্রিন যাতে অফ না হয়
+  
+  // ফলো স্ট্যাটাস চেক ফাংশন কল
+  _checkIfFollowing();
 
-    // ১. ১৫টি সিটের ইনিশিয়ালাইজেশন
-    seats = List.generate(
-        15,
-        (index) => {
-              "isOccupied": false,
-              "userName": "",
-              "userImage": "",
-              "isVip": index < 5,
-              "status": "empty",
-              "giftCount": 0,
-              "isMicOn": false,
-              "isTalking": false,
-              "userId": "",
-              "uID": "",
-              "agorauID": "",
-            });
-
-    // ২. রিয়েলটাইম সিট লিসেনার
-    _seatSubscription = FirebaseDatabase.instance
-        .ref('rooms/${widget.roomId}/seats')
-        .onValue
-        .listen((event) {
-      if (!mounted) return;
-      final dynamic data = event.snapshot.value;
-
-      setState(() {
-        for (var seat in seats) {
-          seat["isOccupied"] = false;
-          seat["userName"] = "";
-          seat["userImage"] = "";
-          seat["uID"] = "";
-          seat["userId"] = "";
-        }
-
-        if (data != null) {
-          Map<dynamic, dynamic> dataMap =
-              (data is Map) ? data : (data as List).asMap();
-          dataMap.forEach((key, value) {
-            int? index = int.tryParse(key.toString());
-            if (index != null && index < seats.length) {
-              seats[index]["isOccupied"] = value["isOccupied"] ?? false;
-              seats[index]["userName"] =
-                  value["name"] ?? value["userName"] ?? "";
-              seats[index]["userImage"] =
-                  value["profilePic"] ?? value["userImage"] ?? "";
-              seats[index]["isMicOn"] = value["isMicOn"] ?? false;
-              seats[index]["userId"] =
-                  value["authUID"] ?? value["userId"] ?? "";
-              seats[index]["uID"] = value["uID"] ?? "";
-              seats[index]["agorauID"] = value["agorauID"]?.toString() ?? "";
-            }
+  // ১. ১৫টি সিটের ইনিশিয়ালাইজেশন
+  seats = List.generate(
+      15,
+      (index) => {
+            "isOccupied": false,
+            "userName": "",
+            "userImage": "",
+            "isVip": index < 5,
+            "status": "empty",
+            "giftCount": 0,
+            "isMicOn": false,
+            "isTalking": false,
+            "userId": "",
+            "uID": "",
+            "agorauID": "",
           });
-        }
-      });
-    });
 
-    // ৩. এগোরা লজিক (সংশোধিত)
-    Future.microtask(() async {
-      try {
-        await _agoraManager.initAgora();
-        final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
-        
-        // রুমে জয়েন করা
-        await _agoraManager.joinAsListener(widget.roomId, authUID);
+  // ২. রিয়েলটাইম সিট লিসেনার
+  _seatSubscription = FirebaseDatabase.instance
+      .ref('rooms/${widget.roomId}/seats')
+      .onValue
+      .listen((event) {
+    if (!mounted) return;
+    final dynamic data = event.snapshot.value;
 
-        // --- মূল সংশোধন: জয়েন করার সাথে সাথেই ডাটাবেসে ডাটা পাঠানো ---
-        if (mounted) {
-          _addUserToViewers(); 
-        }
+    setState(() {
+      for (var seat in seats) {
+        seat["isOccupied"] = false;
+        seat["userName"] = "";
+        seat["userImage"] = "";
+        seat["uID"] = "";
+        seat["userId"] = "";
+      }
 
-        final engine = _agoraManager.engine;
-        if (engine != null) {
-          await engine.enableAudioVolumeIndication(
-              interval: 500, smooth: 3, reportVad: true);
-          
-          engine.registerEventHandler(
-            RtcEngineEventHandler(
-              // এখানে _addUserToViewers রাখার দরকার নেই, কারণ এটি অন্য কেউ জয়েন করলে কাজ করে
-              onUserJoined: (connection, remoteuID, elapsed) {
-                debugPrint("Remote user joined: $remoteuID");
-              },
-              onAudioVolumeIndication:
-                  (connection, speakers, totalVolume, speakerNumber) {
-                if (!mounted) return;
-                bool hasChanged = false;
-                List<String> currentTalkinguIDs = speakers
-                    .where((s) => (s.volume ?? 0) > 10)
-                    .map((s) => s.uid == 0 ? authUID : s.uid.toString())
-                    .toList();
-
-                for (var seat in seats) {
-                  bool isUserTalkingNow =
-                      currentTalkinguIDs.contains(seat["userId"]) ||
-                          currentTalkinguIDs.contains(seat["agorauID"]);
-                  if (seat["isTalking"] != isUserTalkingNow) {
-                    seat["isTalking"] = isUserTalkingNow;
-                    hasChanged = true;
-                  }
-                }
-                if (hasChanged) setState(() {});
-              },
-            ),
-          );
-        }
-      } catch (e) {
-        debugPrint("Agora Error: $e");
+      if (data != null) {
+        Map<dynamic, dynamic> dataMap =
+            (data is Map) ? data : (data as List).asMap();
+        dataMap.forEach((key, value) {
+          int? index = int.tryParse(key.toString());
+          if (index != null && index < seats.length) {
+            seats[index]["isOccupied"] = value["isOccupied"] ?? false;
+            seats[index]["userName"] =
+                value["name"] ?? value["userName"] ?? "";
+            seats[index]["userImage"] =
+                value["profilePic"] ?? value["userImage"] ?? "";
+            seats[index]["isMicOn"] = value["isMicOn"] ?? false;
+            seats[index]["userId"] =
+                value["authUID"] ?? value["userId"] ?? "";
+            seats[index]["uID"] = value["uID"] ?? "";
+            seats[index]["agorauID"] = value["agorauID"]?.toString() ?? "";
+          }
+        });
       }
     });
+  });
 
-    _loadRoomAndUserData();
+  // ৩. এগোরা লজিক (সংশোধিত)
+  // ৩. এগোরা লজিক (সংশোধিত - নাচানাচি বন্ধ করার জন্য)
+Future.microtask(() async {
+  try {
+    await _agoraManager.initAgora();
+    final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+
+    await _agoraManager.joinAsListener(widget.roomId, authUID);
+
+    if (mounted) {
+      _addUserToViewers();
+    }
+
+    final engine = _agoraManager.engine;
+    if (engine != null) {
+      await engine.enableAudioVolumeIndication(
+          interval: 250, 
+          smooth: 3,
+          reportVad: true);
+
+      engine.registerEventHandler(
+        RtcEngineEventHandler(
+          onUserJoined: (connection, remoteuID, elapsed) {
+            debugPrint("Remote user joined: $remoteuID");
+          },
+          onAudioVolumeIndication:
+              (connection, speakers, totalVolume, speakerNumber) {
+            if (!mounted) return;
+
+            bool isMeTalking = false;
+            for (var speaker in speakers) {
+              // ভলিউম থ্রেশহোল্ড ১০ এর বদলে ১৫-২০ রাখা ভালো যাতে নয়েজে রি-বিল্ড না হয়
+              if (speaker.uid == 0 && (speaker.volume ?? 0) > 15) {
+                isMeTalking = true;
+                break;
+              }
+            }
+
+            // মূল সমাধান: অবস্থা পরিবর্তন (True/False) না হলে ফাংশন কল হবে না
+            if (_isMeTalkingNow != isMeTalking) {
+              _isMeTalkingNow = isMeTalking; 
+              _updateTalkingStatus(isMeTalking); // এখন এটি কেবল একবারই কল হবে
+            }
+          },
+        ),
+      );
+    }
+  } catch (e) {
+    debugPrint("Agora Error: $e");
   }
+});
 
+_loadRoomAndUserData();
+} 
+  // এই ফাংশনটি initState এর ক্লোজিং ব্র্যাকেটের নিচে বসাবেন
+Future<void> _checkIfFollowing() async {
+  final currentUser = FirebaseAuth.instance.currentUser;
+  if (currentUser == null) return;
+
+  try {
+    // ইউজারের ডাটা পাথ অনুযায়ী uID খুঁজে বের করা
+    var userQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .where('authUID', isEqualTo: currentUser.uid)
+        .limit(1)
+        .get();
+
+    if (userQuery.docs.isNotEmpty) {
+      String myuID = userQuery.docs.first.id; // আপনার ৬-ডিজিটের আইডি
+
+      var roomDoc = await FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(widget.roomId)
+          .get();
+
+      if (roomDoc.exists && mounted) {
+        var data = roomDoc.data();
+        List followersList = data?['followers'] ?? [];
+        int countFromDb = data?['followerCount'] ?? 0;
+
+        setState(() {
+          // যদি লিস্টে আপনার আইডি থাকে তবে isFollowing true হবে
+          isFollowing = followersList.contains(myuID);
+          followerCount = countFromDb;
+        });
+      }
+    }
+  } catch (e) {
+    print("Follow check error: $e");
+  }
+}
+  
   // ৪. ইমোজি লিসেনার (আপডেট করা)
   void _initEmojiListener() {
     _emojiSubscription?.cancel();
@@ -313,9 +353,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
           ownerAuthId = rData?['ownerAuthId'] ?? "";
           isOwner = (ownerAuthId == FirebaseAuth.instance.currentUser?.uid);
         });
-        
+
         _initEmojiListener();
-        
+
         // এখানেও একবার নিশ্চিত করার জন্য কল করা হলো
         _addUserToViewers();
       }
@@ -484,6 +524,23 @@ class _VoiceRoomState extends State<VoiceRoom> {
       }
     } catch (e) {
       debugPrint("Position Update Error: $e");
+    }
+  }
+
+  void _updateTalkingStatus(bool talking) async {
+    // currentSeatIndex যদি -1 না হয়, তারমানে আপনি কোনো সিটে বসে আছেন
+    if (currentSeatIndex != -1) {
+      try {
+        final seatRef = FirebaseDatabase.instance
+            .ref('rooms/${widget.roomId}/seats/$currentSeatIndex');
+
+        // শুধুমাত্র ডাটাবেসে isTalking ফিল্ডটি আপডেট করবে
+        await seatRef.update({
+          'isTalking': talking,
+        });
+      } catch (e) {
+        debugPrint("Talking Status Update Error: $e");
+      }
     }
   }
 
@@ -927,7 +984,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
     super.dispose();
   }
-
   Widget _buildTopNavBar() {
     final String myAuthId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
@@ -1151,7 +1207,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 ),
 
                 // ১. ফলোয়ার বাটন ও সংখ্যা প্রদর্শন
-                if (!isOwner) // রুমের মালিক (isOwner == true) হলে এই অংশটি রেন্ডার হবে না
+                if (!isOwner)
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -1166,57 +1222,105 @@ class _VoiceRoomState extends State<VoiceRoom> {
                           size: 20,
                         ),
                         onPressed: () async {
-                          if (uID.isEmpty) return;
-
-                          var roomRef = FirebaseFirestore.instance
-                              .collection('rooms')
-                              .doc(widget.roomId);
-                          var roomDoc = await roomRef.get();
-                          if (!roomDoc.exists) return;
-                          var data = roomDoc.data();
-
-                          String owneruIDFromDb =
-                              data?['uID'] ?? data?['ownerId'] ?? "";
-                          String currentOwnerName =
-                              data?['ownerName'] ?? "Unknown";
-
-                          // ডাটাবেস লেভেলে চেক করা হচ্ছে যেন মালিক ফলো না করতে পারে
-                          if (uID == owneruIDFromDb) return;
-
-                          if (isFollowing) {
-                            await roomRef.update({
-                              'followers': FieldValue.arrayRemove([uID]),
-                              'followerCount': FieldValue.increment(-1),
-                            });
-                            setState(() {
-                              isFollowing = false;
-                              followerCount--;
-                            });
-                          } else {
-                            await roomRef.update({
-                              'followers': FieldValue.arrayUnion([uID]),
-                              'followerCount': FieldValue.increment(1),
-                            });
-                            setState(() {
-                              isFollowing = true;
-                              followerCount++;
-                            });
+                          final currentUser = FirebaseAuth.instance.currentUser;
+                          if (currentUser == null) {
+                            print("ইউজার লগইন করা নেই!");
+                            return;
                           }
 
-                          _roomService.updateRoomFullData(
-                            roomId: widget.roomId,
-                            roomName: roomName,
-                            roomImage: roomProfileImage,
-                            isLocked: isRoomLocked,
-                            wallpaper: roomWallpaperPath,
-                            followers: followerCount,
-                            totalDiamonds: 0,
-                            uID: owneruIDFromDb,
-                            ownerName: currentOwnerName,
-                          );
+                          try {
+                            // ১. ডাটাবেস থেকে বর্তমান ইউজারের আসল ৬-ডিজিটের uID খুঁজে বের করা
+                            // আপনার প্রোফাইল কালেকশনের নাম 'users' এবং সেখানে 'authUID' ফিল্ডে FirebaseAuth-এর আইডি থাকে
+                            var userQuery = await FirebaseFirestore.instance
+                                .collection('users')
+                                .where('authUID', isEqualTo: currentUser.uid)
+                                .limit(1)
+                                .get();
+
+                            if (userQuery.docs.isEmpty) {
+                              print(
+                                  "Error: আপনার প্রোফাইলে কোনো ৬-ডিজিটের uID খুঁজে পাওয়া যায়নি!");
+                              return;
+                            }
+
+                            // ২. নিশ্চিতভাবে আপনার ৬-ডিজিটের আইডিটি নেওয়া হলো
+                            // এখানে documentID ই আপনার কাস্টম uID
+                            String activeUserID = userQuery.docs.first.id;
+
+                            // কনসোলে চেক করার জন্য প্রিন্ট (আপনি এটি দেখতে পারবেন)
+                            print(
+                                "ফলো বাটনে ক্লিক করা ইউজারের আসল আইডি: $activeUserID");
+
+                            var roomRef = FirebaseFirestore.instance
+                                .collection('rooms')
+                                .doc(widget.roomId);
+
+                            var roomDoc = await roomRef.get();
+                            if (!roomDoc.exists) return;
+
+                            var data = roomDoc.data();
+
+                            // রুমের মালিকের আইডি (এটিও ৬-ডিজিটের হওয়া উচিত)
+                            String owneruIDFromDb = data?['uID']?.toString() ??
+                                data?['ownerId']?.toString() ??
+                                "";
+                            String currentOwnerName =
+                                data?['ownerName'] ?? "Unknown";
+
+                            // মালিক নিজে নিজেকে ফলো করতে পারবে না
+                            if (activeUserID == owneruIDFromDb) {
+                              print(
+                                  "আপনি এই রুমের মালিক, তাই নিজেকে ফলো করতে পারবেন না।");
+                              return;
+                            }
+
+                            if (isFollowing) {
+                              // আনফলো লজিক - এখন নিশ্চিতভাবেই ৬-ডিজিটের আইডি রিমুভ হবে
+                              await roomRef.update({
+                                'followers':
+                                    FieldValue.arrayRemove([activeUserID]),
+                                'followerCount': FieldValue.increment(-1),
+                              });
+
+                              if (mounted) {
+                                setState(() {
+                                  isFollowing = false;
+                                  followerCount--;
+                                });
+                              }
+                            } else {
+                              // ফলো লজিক - এখন নিশ্চিতভাবেই ৬-ডিজিটের আইডি অ্যাড হবে
+                              await roomRef.update({
+                                'followers':
+                                    FieldValue.arrayUnion([activeUserID]),
+                                'followerCount': FieldValue.increment(1),
+                              });
+
+                              if (mounted) {
+                                setState(() {
+                                  isFollowing = true;
+                                  followerCount++;
+                                });
+                              }
+                            }
+
+                            // রুমের মেটা ডাটা আপডেট (সার্ভিস কল)
+                            _roomService.updateRoomFullData(
+                              roomId: widget.roomId,
+                              roomName: roomName,
+                              roomImage: roomProfileImage,
+                              isLocked: isRoomLocked,
+                              wallpaper: roomWallpaperPath,
+                              followers: followerCount,
+                              totalDiamonds: 0,
+                              uID: owneruIDFromDb,
+                              ownerName: currentOwnerName,
+                            );
+                          } catch (e) {
+                            print("Follow Error: $e");
+                          }
                         },
                       ),
-                      // ফলোয়ার সংখ্যা দেখানোর জন্য Text উইজেট
                       Text(
                         followerCount.toString(),
                         style: const TextStyle(
@@ -1225,10 +1329,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(width: 8), // একটু গ্যাপ দেওয়ার জন্য
+                      const SizedBox(width: 8),
                     ],
                   ),
-
                 // ২. ইউজার লিস্ট বাটন (এটি সবাই দেখবে)
                 IconButton(
                   icon: const Icon(Icons.group,
@@ -2167,232 +2270,257 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-Widget _buildFloatingPlayer({required bool isDragging}) {
-  final currentUser = FirebaseAuth.instance.currentUser;
+  Widget _buildFloatingPlayer({required bool isDragging}) {
+    final currentUser = FirebaseAuth.instance.currentUser;
 
-  return StreamBuilder<QuerySnapshot>(
-    stream: FirebaseFirestore.instance
-        .collection('users')
-        .where('authUID', isEqualTo: currentUser?.uid)
-        .snapshots(),
-    builder: (context, snapshot) {
-      String displayPic = "https://via.placeholder.com/150";
-      String displayID = "000000";
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .where('authUID', isEqualTo: currentUser?.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        String displayPic = "https://via.placeholder.com/150";
+        String displayID = "000000";
 
-      if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-        var userData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
-        displayPic = userData['profilePic'] ?? displayPic;
-        displayID = userData['uID'] ?? displayID;
-      }
+        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+          var userData =
+              snapshot.data!.docs.first.data() as Map<String, dynamic>;
+          displayPic = userData['profilePic'] ?? displayPic;
+          displayID = userData['uID'] ?? displayID;
+        }
 
-      return Material(
-        color: Colors.transparent,
-        child: Container(
-          width: 260,
-          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0D0D1F).withOpacity(0.98),
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: Colors.white10),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 25, spreadRadius: 5),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // টপ বার
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Icon(Icons.music_note, color: Colors.pinkAccent, size: 18),
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        isFloatingPlayerVisible = false;
-                        isRoomMusicPlaying = false;
-                      });
-                      _agoraManager.engine.stopAudioMixing();
-                    },
-                    child: const Icon(Icons.close, color: Colors.white38, size: 20),
-                  ),
-                ],
-              ),
-              
-              // প্রোফাইল ও এনিমেশন এরিয়া (ফিক্সড হাইট)
-              SizedBox(
-                height: 140,
-                child: Stack(
-                  alignment: Alignment.center,
+        return Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 260,
+            padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D0D1F).withOpacity(0.98),
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: Colors.white10),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.6),
+                    blurRadius: 25,
+                    spreadRadius: 5),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // টপ বার
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    if (isRoomMusicPlaying) ...[
-                      const SmoothPulseEffect(),
-                      const SmoothRotatingBorder(),
-                      ...List.generate(3, (index) => SmoothRotatingHeart(index: index)),
-                    ],
-                    Container(
-                      width: 90, height: 90,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white24, width: 2),
-                      ),
-                      child: ClipOval(
-                        child: Image.network(
-                          displayPic,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => 
-                            const Icon(Icons.person, color: Colors.white, size: 50),
-                        ),
-                      ),
+                    const Icon(Icons.music_note,
+                        color: Colors.pinkAccent, size: 18),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          isFloatingPlayerVisible = false;
+                          isRoomMusicPlaying = false;
+                        });
+                        _agoraManager.engine.stopAudioMixing();
+                      },
+                      child: const Icon(Icons.close,
+                          color: Colors.white38, size: 20),
                     ),
                   ],
                 ),
-              ),
 
-              Text("ID: $displayID", style: const TextStyle(color: Colors.cyanAccent, fontSize: 11, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 5),
-              const Text("Now Playing...", style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
-              
-              const SizedBox(height: 15),
-              
-              // ভিজুয়ালাইজার এরিয়া (ফিক্সড হাইট ২৫)
-              SizedBox(
-                height: 25,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: List.generate(25, (index) => SmoothVisualizerBar(index: index, isPlaying: isRoomMusicPlaying)),
-                ),
-              ),
-
-              const SizedBox(height: 25),
-
-              // কন্ট্রোল এরিয়া - নেক্সট বাটন বাদে দুই পাশে লাইট ইফেক্ট
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // বাম পাশের লাইট ইফেক্ট
-                  _buildSideLight(Colors.pinkAccent),
-                  
-                  const SizedBox(width: 20),
-
-                  // প্লে/পজ বাটন (লজিক আপডেট করা হয়েছে)
-                  GestureDetector(
-                    onTap: () async {
-                      if (isRoomMusicPlaying) {
-                        await _agoraManager.engine.pauseAudioMixing();
-                      } else {
-                        // যদি আগে কখনো স্টার্ট না হয়ে থাকে তবে স্টার্ট করবে, নয়তো রেজুউম করবে
-                        await _agoraManager.engine.resumeAudioMixing();
-                      }
-                      setState(() {
-                        isRoomMusicPlaying = !isRoomMusicPlaying;
-                      });
-                    },
-                    child: Container(
-                      width: 60, height: 60,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF0080), Color(0xFF00B2FF)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                // প্রোফাইল ও এনিমেশন এরিয়া (ফিক্সড হাইট)
+                SizedBox(
+                  height: 140,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (isRoomMusicPlaying) ...[
+                        const SmoothPulseEffect(),
+                        const SmoothRotatingBorder(),
+                        ...List.generate(
+                            3, (index) => SmoothRotatingHeart(index: index)),
+                      ],
+                      Container(
+                        width: 90,
+                        height: 90,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white24, width: 2),
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (isRoomMusicPlaying ? Colors.pinkAccent : Colors.blueAccent).withOpacity(0.5),
-                            blurRadius: 15,
-                            spreadRadius: 2
-                          )
-                        ],
+                        child: ClipOval(
+                          child: Image.network(
+                            displayPic,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(Icons.person,
+                                    color: Colors.white, size: 50),
+                          ),
+                        ),
                       ),
-                      child: Icon(
-                        isRoomMusicPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, 
-                        color: Colors.white, 
-                        size: 35
+                    ],
+                  ),
+                ),
+
+                Text("ID: $displayID",
+                    style: const TextStyle(
+                        color: Colors.cyanAccent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 5),
+                const Text("Now Playing...",
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500)),
+
+                const SizedBox(height: 15),
+
+                // ভিজুয়ালাইজার এরিয়া (ফিক্সড হাইট ২৫)
+                SizedBox(
+                  height: 25,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: List.generate(
+                        25,
+                        (index) => SmoothVisualizerBar(
+                            index: index, isPlaying: isRoomMusicPlaying)),
+                  ),
+                ),
+
+                const SizedBox(height: 25),
+
+                // কন্ট্রোল এরিয়া - নেক্সট বাটন বাদে দুই পাশে লাইট ইফেক্ট
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // বাম পাশের লাইট ইফেক্ট
+                    _buildSideLight(Colors.pinkAccent),
+
+                    const SizedBox(width: 20),
+
+                    // প্লে/পজ বাটন (লজিক আপডেট করা হয়েছে)
+                    GestureDetector(
+                      onTap: () async {
+                        if (isRoomMusicPlaying) {
+                          await _agoraManager.engine.pauseAudioMixing();
+                        } else {
+                          // যদি আগে কখনো স্টার্ট না হয়ে থাকে তবে স্টার্ট করবে, নয়তো রেজুউম করবে
+                          await _agoraManager.engine.resumeAudioMixing();
+                        }
+                        setState(() {
+                          isRoomMusicPlaying = !isRoomMusicPlaying;
+                        });
+                      },
+                      child: Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF0080), Color(0xFF00B2FF)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                                color: (isRoomMusicPlaying
+                                        ? Colors.pinkAccent
+                                        : Colors.blueAccent)
+                                    .withOpacity(0.5),
+                                blurRadius: 15,
+                                spreadRadius: 2)
+                          ],
+                        ),
+                        child: Icon(
+                            isRoomMusicPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            color: Colors.white,
+                            size: 35),
                       ),
                     ),
-                  ),
 
-                  const SizedBox(width: 20),
+                    const SizedBox(width: 20),
 
-                  // ডান পাশের লাইট ইফেক্ট
-                  _buildSideLight(Colors.cyanAccent),
-                ],
-              ),
-            ],
+                    // ডান পাশের লাইট ইফেক্ট
+                    _buildSideLight(Colors.cyanAccent),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
 // দুই পাশের লাইট ইফেক্ট উইজেট
-Widget _buildSideLight(Color color) {
-  return Container(
-    width: 40,
-    height: 4,
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(10),
-      boxShadow: [
-        BoxShadow(
-          color: color.withOpacity(0.8),
-          blurRadius: 12,
-          spreadRadius: 2,
-        ),
-      ],
-      color: color,
-    ),
-  );
-}
-  
-  void _addUserToViewers() async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) return;
-
-  try {
-    final firestore = FirebaseFirestore.instance;
-    
-    // ১. আপনার দেওয়া স্ট্রাকচার অনুযায়ী authUID দিয়ে ইউজারকে খুঁজে বের করা
-    // যেহেতু আপনি Doc ID হিসেবে র্যান্ডম নাম্বার ব্যবহার করেছেন, তাই where কুয়েরি লাগবে
-    final userQuery = await firestore
-        .collection('users')
-        .where('authUID', isEqualTo: user.uid)
-        .limit(1)
-        .get();
-
-    String myName = "Guest User";
-    String myPic = "";
-    String myShortID = "000000";
-
-    if (userQuery.docs.isNotEmpty) {
-      final userData = userQuery.docs.first.data();
-      myName = userData['name'] ?? "Guest";
-      myPic = userData['profilePic'] ?? userData['userImage'] ?? "";
-      myShortID = userData['uID']?.toString() ?? "0";
-    }
-
-    // ২. এবার ভিউয়ার লিস্টে ডাটা পাঠানো
-    final roomRef = firestore.collection('rooms').doc(widget.roomId);
-    
-    await roomRef.collection('viewers').doc(user.uid).set({
-      'authUID': user.uid,
-      'uID': myShortID,
-      'name': myName,
-      'profilePic': myPic,
-      'joinedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
-    // ৩. কাউন্ট আপডেট
-    await roomRef.update({'viewerCount': FieldValue.increment(1)});
-    
-    debugPrint("সফল! আপনার ID: $myShortID এবং ছবি: $myPic ডাটাবেসে পাঠানো হয়েছে।");
-
-  } catch (e) {
-    debugPrint("Viewer Add Error: $e");
+  Widget _buildSideLight(Color color) {
+    return Container(
+      width: 40,
+      height: 4,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.8),
+            blurRadius: 12,
+            spreadRadius: 2,
+          ),
+        ],
+        color: color,
+      ),
+    );
   }
-}
+
+  void _addUserToViewers() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+
+      // ১. আপনার দেওয়া স্ট্রাকচার অনুযায়ী authUID দিয়ে ইউজারকে খুঁজে বের করা
+      // যেহেতু আপনি Doc ID হিসেবে র্যান্ডম নাম্বার ব্যবহার করেছেন, তাই where কুয়েরি লাগবে
+      final userQuery = await firestore
+          .collection('users')
+          .where('authUID', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+
+      String myName = "Guest User";
+      String myPic = "";
+      String myShortID = "000000";
+
+      if (userQuery.docs.isNotEmpty) {
+        final userData = userQuery.docs.first.data();
+        myName = userData['name'] ?? "Guest";
+        myPic = userData['profilePic'] ?? userData['userImage'] ?? "";
+        myShortID = userData['uID']?.toString() ?? "0";
+      }
+
+      // ২. এবার ভিউয়ার লিস্টে ডাটা পাঠানো
+      final roomRef = firestore.collection('rooms').doc(widget.roomId);
+
+      await roomRef.collection('viewers').doc(user.uid).set({
+        'authUID': user.uid,
+        'uID': myShortID,
+        'name': myName,
+        'profilePic': myPic,
+        'joinedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // ৩. কাউন্ট আপডেট
+      await roomRef.update({'viewerCount': FieldValue.increment(1)});
+
+      debugPrint(
+          "সফল! আপনার ID: $myShortID এবং ছবি: $myPic ডাটাবেসে পাঠানো হয়েছে।");
+    } catch (e) {
+      debugPrint("Viewer Add Error: $e");
+    }
+  }
+
   void _removeUserFromViewers() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -2478,8 +2606,6 @@ class GiftCalculatorRanking extends StatelessWidget {
   }
 }
 
-
-
 // এগুলো আপনার মেইন ক্লাসের একদম নিচে (সব ব্র্যাকেটের বাইরে) বসান
 
 // এগুলো আপনার মেইন ক্লাসের একদম নিচে (সব ব্র্যাকেটের বাইরে) বসান
@@ -2490,15 +2616,23 @@ class SmoothPulseEffect extends StatefulWidget {
   State<SmoothPulseEffect> createState() => _SmoothPulseEffectState();
 }
 
-class _SmoothPulseEffectState extends State<SmoothPulseEffect> with SingleTickerProviderStateMixin {
+class _SmoothPulseEffectState extends State<SmoothPulseEffect>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   @override
   void initState() {
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1200))
+      ..repeat();
     super.initState();
   }
+
   @override
-  void dispose() { _controller.dispose(); super.dispose(); }
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -2507,7 +2641,7 @@ class _SmoothPulseEffectState extends State<SmoothPulseEffect> with SingleTicker
         width: 90 + (40 * _controller.value),
         height: 90 + (40 * _controller.value),
         decoration: BoxDecoration(
-          shape: BoxShape.circle, 
+          shape: BoxShape.circle,
           color: Colors.pinkAccent.withOpacity(0.3 * (1 - _controller.value)),
         ),
       ),
@@ -2521,24 +2655,34 @@ class SmoothRotatingBorder extends StatefulWidget {
   State<SmoothRotatingBorder> createState() => _SmoothRotatingBorderState();
 }
 
-class _SmoothRotatingBorderState extends State<SmoothRotatingBorder> with SingleTickerProviderStateMixin {
+class _SmoothRotatingBorderState extends State<SmoothRotatingBorder>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   @override
   void initState() {
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 5))..repeat();
+    _controller =
+        AnimationController(vsync: this, duration: const Duration(seconds: 5))
+          ..repeat();
     super.initState();
   }
+
   @override
-  void dispose() { _controller.dispose(); super.dispose(); }
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return RotationTransition(
       turns: _controller,
       child: Container(
-        width: 102, height: 102,
+        width: 102,
+        height: 102,
         decoration: BoxDecoration(
-          shape: BoxShape.circle, 
-          border: Border.all(color: Colors.cyanAccent.withOpacity(0.5), width: 2),
+          shape: BoxShape.circle,
+          border:
+              Border.all(color: Colors.cyanAccent.withOpacity(0.5), width: 2),
         ),
       ),
     );
@@ -2552,15 +2696,23 @@ class SmoothRotatingHeart extends StatefulWidget {
   State<SmoothRotatingHeart> createState() => _SmoothRotatingHeartState();
 }
 
-class _SmoothRotatingHeartState extends State<SmoothRotatingHeart> with SingleTickerProviderStateMixin {
+class _SmoothRotatingHeartState extends State<SmoothRotatingHeart>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   @override
   void initState() {
-    _controller = AnimationController(vsync: this, duration: Duration(seconds: 3 + widget.index))..repeat();
+    _controller = AnimationController(
+        vsync: this, duration: Duration(seconds: 3 + widget.index))
+      ..repeat();
     super.initState();
   }
+
   @override
-  void dispose() { _controller.dispose(); super.dispose(); }
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -2570,7 +2722,10 @@ class _SmoothRotatingHeartState extends State<SmoothRotatingHeart> with SingleTi
         double angle = (_controller.value * 2 * 3.14159) + (widget.index * 2.0);
         return Transform.translate(
           offset: Offset(60 * (math.cos(angle)), 60 * (math.sin(angle))),
-          child: Icon(Icons.favorite, color: widget.index % 2 == 0 ? Colors.pinkAccent : Colors.cyanAccent, size: 12),
+          child: Icon(Icons.favorite,
+              color:
+                  widget.index % 2 == 0 ? Colors.pinkAccent : Colors.cyanAccent,
+              size: 12),
         );
       },
     );
@@ -2580,20 +2735,30 @@ class _SmoothRotatingHeartState extends State<SmoothRotatingHeart> with SingleTi
 class SmoothVisualizerBar extends StatefulWidget {
   final int index;
   final bool isPlaying;
-  const SmoothVisualizerBar({super.key, required this.index, required this.isPlaying});
+  const SmoothVisualizerBar(
+      {super.key, required this.index, required this.isPlaying});
   @override
   State<SmoothVisualizerBar> createState() => _SmoothVisualizerBarState();
 }
 
-class _SmoothVisualizerBarState extends State<SmoothVisualizerBar> with SingleTickerProviderStateMixin {
+class _SmoothVisualizerBarState extends State<SmoothVisualizerBar>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   @override
   void initState() {
-    _controller = AnimationController(vsync: this, duration: Duration(milliseconds: 300 + (widget.index * 50)))..repeat(reverse: true);
+    _controller = AnimationController(
+        vsync: this,
+        duration: Duration(milliseconds: 300 + (widget.index * 50)))
+      ..repeat(reverse: true);
     super.initState();
   }
+
   @override
-  void dispose() { _controller.dispose(); super.dispose(); }
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -2602,9 +2767,11 @@ class _SmoothVisualizerBarState extends State<SmoothVisualizerBar> with SingleTi
         double height = widget.isPlaying ? (5 + (_controller.value * 12)) : 3;
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 1),
-          width: 2.5, height: height,
+          width: 2.5,
+          height: height,
           decoration: BoxDecoration(
-            color: widget.index % 2 == 0 ? Colors.pinkAccent : Colors.cyanAccent, 
+            color:
+                widget.index % 2 == 0 ? Colors.pinkAccent : Colors.cyanAccent,
             borderRadius: BorderRadius.circular(2),
           ),
         );

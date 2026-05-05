@@ -19,7 +19,8 @@ class AgoraManager {
   bool _shouldBeBroadcasting = false;
   bool _isMicMutedLocal = false; // মাইকের বর্তমান অবস্থা ট্র্যাকিং
   bool _isMusicPlaying = false; // মিউজিক বাজছে কি না ট্র্যাকিং
-
+  Function(bool)? onTalkingStatusChanged;
+  
   // ✅ সব রিমোট ইউজারের অডিও মিউট বা আনমিউট করার জন্য
   Future<void> muteAllRemoteAudio(bool mute) async {
     if (_engine != null) {

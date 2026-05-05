@@ -70,13 +70,13 @@ class _ChatScreenState extends State<ChatScreen> {
   void _showMediaOptions() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E1E2F),
+      backgroundColor: const Color.fromARGB(152, 84, 84, 244),
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
-            leading: const Icon(Icons.image, color: Colors.pinkAccent),
+            leading: const Icon(Icons.image, color: Color.fromARGB(200, 112, 248, 109)),
             title: const Text("Send Image", style: TextStyle(color: Colors.white)),
             onTap: () { Navigator.pop(context); _pickMedia(ImageSource.gallery, isVideo: false); },
           ),
@@ -132,42 +132,55 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     }
   }
-
-  // --- সংশোধিত মেসেজ পাঠানোর লজিক (uID, email, authUID সহ) ---
-  void _sendDataMessage(String content, String type) async {
+void _sendDataMessage(String content, String type) async {
     if (content.isEmpty) return;
-    try {
-      // ইউজারের সঠিক ডাটা সংগ্রহ
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUserId).get();
-      final userData = userDoc.data();
-      
-      final String myAuthUID = currentUserId; // লম্বা আইডি
-      final String mySixDigitId = userData?['uID']?.toString() ?? '0'; // আপনার ৬-ডিজিটের আইডি
-      final String myEmail = userData?['email'] ?? ''; // ইমেইল
-      final String myPic = userData?['profilePic'] ?? userData?['userImage'] ?? ''; 
-      final String myName = userData?['name'] ?? userData?['userName'] ?? 'User';
 
+    try {
+      final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+      
+      // ১. প্রথমে আমাদের লম্বা Auth UID ব্যবহার করে সেই ইউজারকে খুঁজে বের করতে হবে
+      // যার 'authUID' ফিল্ডটি বর্তমান ইউজারের আইডির সাথে মিলে যায়
+      final userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('authUID', isEqualTo: authUID)
+          .limit(1)
+          .get();
+
+      if (userQuery.docs.isEmpty) {
+        debugPrint("User profile not found in Firestore!");
+        return;
+      }
+
+      // ২. ইউজারের সঠিক ডাটা এবং ৬-ডিজিটের uID সংগ্রহ
+      final userData = userQuery.docs.first.data();
+      final String mySixDigitId = userData['uID']?.toString() ?? '0'; // ৬-ডিজিটের আইডি
+      final String myEmail = userData['email'] ?? ''; // ইমেইল
+      final String myName = userData['name'] ?? 'User'; // নাম
+      final String myPic = userData['profilepic'] ?? userData['profilePic'] ?? ''; // প্রোফাইল পিক
+
+      // ৩. মেসেজ পাঠানো
       await FirebaseFirestore.instance
           .collection('chats')
           .doc(getChatRoomId())
           .collection('messages')
           .add({
-        'senderId': myAuthUID,
-        'senderuID': mySixDigitId, // ৬-ডিজিটের আইডি
+        'senderId': authUID,       // লম্বা আইডি
+        'senderuID': mySixDigitId, // আপনার ৬-ডিজিটের আইডি
         'senderEmail': myEmail,    // ইমেইল
-        'senderName': myName,
-        'senderImage': myPic, 
+        'senderName': myName,      // নাম
+        'senderImage': myPic,      // প্রোফাইল পিক
         'receiverId': widget.receiverId,
         'message': content,
         'type': type,
         'isRead': false,
         'timestamp': FieldValue.serverTimestamp(),
       });
+
+      debugPrint("Message Sent Successfully via 6-digit ID path!");
     } catch (e) {
       debugPrint("Send Error: $e");
     }
   }
-
   void _sendMessage() {
     String text = _messageController.text.trim();
     if (text.isEmpty) return;
@@ -179,13 +192,13 @@ class _ChatScreenState extends State<ChatScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E2F),
+        backgroundColor: const Color.fromARGB(146, 129, 219, 241),
         title: const Text("Unlock Media Feature", style: TextStyle(color: Colors.white)),
         content: Text("Buy 1 month access for 6,000 Diamonds.\nYour Balance: $currentDiamonds", style: const TextStyle(color: Colors.white70)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(107, 238, 57, 117)),
             onPressed: () async {
               if (currentDiamonds >= 6000) {
                 DateTime expiryDate = DateTime.now().add(const Duration(days: 30));
@@ -219,7 +232,7 @@ class _ChatScreenState extends State<ChatScreen> {
           padding: const EdgeInsets.all(12),
           margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Colors.pinkAccent, Colors.deepPurple]),
+            gradient: const LinearGradient(colors: [Color.fromARGB(131, 242, 92, 142), Colors.deepPurple]),
             borderRadius: BorderRadius.circular(15),
           ),
           child: Row(
@@ -262,7 +275,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircleAvatar(radius: 55, backgroundColor: Colors.pinkAccent, child: CircleAvatar(radius: 52, backgroundImage: pic.isNotEmpty ? NetworkImage(pic) : null)),
+                CircleAvatar(radius: 55, backgroundColor: const Color.fromARGB(108, 237, 91, 140), child: CircleAvatar(radius: 52, backgroundImage: pic.isNotEmpty ? NetworkImage(pic) : null)),
                 const SizedBox(height: 15),
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Text(name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
@@ -367,7 +380,7 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isMe ? Colors.pinkAccent : const Color(0xFF1E1E2F),
+                  color: isMe ? const Color.fromARGB(171, 241, 97, 145) : const Color(0xFF1E1E2F),
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: _buildTypeContent(type, msg),
@@ -451,7 +464,7 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Row(
         children: [
           IconButton(icon: Icon(Icons.mic, color: _isRecording ? Colors.red : Colors.cyanAccent), onPressed: _startVoiceNote),
-          IconButton(icon: const Icon(Icons.image, color: Colors.pinkAccent), onPressed: _handleMediaAction),
+          IconButton(icon: const Icon(Icons.image, color: Color.fromARGB(255, 119, 245, 103)), onPressed: _handleMediaAction),
           Expanded(
             child: TextField(
               controller: _messageController,

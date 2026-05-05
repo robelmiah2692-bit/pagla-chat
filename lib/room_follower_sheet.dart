@@ -13,8 +13,32 @@ class RoomFollowerSheet extends StatefulWidget {
 }
 
 class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
-  // 🔥 ফিক্স: AppData.myID (৬-ডিজিটের আইডি) ব্যবহার করা সবচেয়ে নিরাপদ
-  final String myuID = FirebaseAuth.instance.currentUser?.uid ?? "";
+  // 🔥 ফিক্স: ৬-ডিজিটের ID লোড করার জন্য ভেরিয়েবল
+  String myuID = "";
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMyCustomID();
+  }
+
+  // ফায়ারবেস অথ আইডি দিয়ে আপনার ৬-ডিজিটের কাস্টম uID খুঁজে বের করা
+  Future<void> _fetchMyCustomID() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      var userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .where('authUID', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+      
+      if (userDoc.docs.isNotEmpty && mounted) {
+        setState(() {
+          myuID = userDoc.docs.first.data()['uID']?.toString() ?? "";
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +47,6 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
       child: Container(
         height: 600,
         decoration: const BoxDecoration(
-          // আপনার স্ক্রিনশট অনুযায়ী প্রিমিয়াম লাইট ব্লু কালার
           color: Color(0xFF87CEEB), 
           borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
         ),
@@ -42,7 +65,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
             Expanded(
               child: Container(
                 decoration: const BoxDecoration(
-                  color: Color(0xFF1A1A2E), // লিস্টের ভেতরটা ডার্ক রাখা হয়েছে ক্লারিটির জন্য
+                  color: Color(0xFF1A1A2E), 
                 ),
                 child: TabBarView(
                   children: [
@@ -66,23 +89,18 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
         if (!snapshot.data!.exists) return const Center(child: Text("রুম পাওয়া যায়নি", style: TextStyle(color: Colors.white54)));
 
         var roomData = snapshot.data!.data() as Map<String, dynamic>;
-        
-        // ⚔️ চোর জবাই: শুধু ownerId অথবা uID (৬-ডিজিটের আইডি) চেক হবে
-        String actualOwnerId = roomData['ownerId'] ?? roomData['uID'] ?? widget.ownerId;
+        String actualOwnerId = roomData['uID']?.toString() ?? roomData['ownerId']?.toString() ?? widget.ownerId;
         
         List<dynamic> followers = List.from(roomData['followers'] ?? []);
-        
-        // ⚔️ চোর জবাই: 'adminList' বাদ দিয়ে শুধু 'admins' (অ্যারে) ব্যবহার হবে
         List<dynamic> admins = List.from(roomData['admins'] ?? []);
 
         if (actualOwnerId.isNotEmpty && !followers.contains(actualOwnerId)) {
           followers.add(actualOwnerId);
         }
 
-        // সর্টিং: মালিক সবার উপরে
         followers.sort((a, b) {
-          if (a == actualOwnerId) return -1;
-          if (b == actualOwnerId) return 1;
+          if (a.toString() == actualOwnerId) return -1;
+          if (b.toString() == actualOwnerId) return 1;
           bool aIsAdmin = admins.contains(a);
           bool bIsAdmin = admins.contains(b);
           if (aIsAdmin && !bIsAdmin) return -1;
@@ -93,7 +111,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
         return ListView.builder(
           itemCount: followers.length,
           itemBuilder: (context, index) {
-            String targetuID = followers[index];
+            String targetuID = followers[index].toString();
             bool isTargetOwner = (targetuID == actualOwnerId);
             bool isTargetAdmin = admins.contains(targetuID);
 
@@ -103,8 +121,8 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
                 if (!userSnap.hasData) return const SizedBox();
                 var userData = userSnap.data?.data() as Map<String, dynamic>?;
                 
-                String name = userData?['name'] ?? "পাগলা ইউজার"; 
-                String photo = userData?['profilePic'] ?? "";
+                String name = userData?['name'] ?? "ইউজার $targetuID"; 
+                String photo = userData?['profilepic'] ?? userData?['profilePic'] ?? "";
 
                 return ListTile(
                   leading: Stack(
@@ -143,7 +161,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
         var data = snapshot.data!.data() as Map<String, dynamic>?;
         if (data == null) return const SizedBox();
 
-        String actualOwnerId = data['ownerId'] ?? data['uID'] ?? widget.ownerId;
+        String actualOwnerId = data['uID']?.toString() ?? data['ownerId']?.toString() ?? widget.ownerId;
         List kickedUsers = data['kickedUsers'] ?? [];
         List admins = data['admins'] ?? [];
 
@@ -152,14 +170,13 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
         return ListView.builder(
           itemCount: kickedUsers.length,
           itemBuilder: (context, index) {
-            String targetuID = kickedUsers[index];
+            String targetuID = kickedUsers[index].toString();
             return FutureBuilder<DocumentSnapshot>(
               future: FirebaseFirestore.instance.collection('users').doc(targetuID).get(),
               builder: (context, userSnap) {
                 var userData = userSnap.data?.data() as Map<String, dynamic>?;
-                
-                String name = userData?['name'] ?? "User";
-                String photo = userData?['profilePic'] ?? "";
+                String name = userData?['name'] ?? "User $targetuID";
+                String photo = userData?['profilepic'] ?? userData?['profilePic'] ?? "";
 
                 return ListTile(
                   leading: CircleAvatar(
@@ -182,8 +199,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
   }
 
   bool _shouldShowMenu(String me, String owner, String target, bool isTargetOwner, bool isTargetAdmin, List admins) {
-    if (me == target) return false;
-    // এখানে 'me' কে অবশ্যই ৬-ডিজিটের আইডি হতে হবে যদি ডাটাবেসের owner আইডি ৬-ডিজিটের হয়
+    if (me.isEmpty || me == target) return false;
     if (me == owner) return true;
     if (admins.contains(me) && !isTargetOwner && !isTargetAdmin) return true;
     return false;
@@ -229,7 +245,6 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
     );
   }
 
-  // ⚔️ চোর জবাই ফিক্স: শুধুমাত্র 'admins' অ্যারে আপডেট হবে
   void _toggleAdmin(String targetuID, bool isAdmin) {
     FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
       'admins': isAdmin 

@@ -17,13 +17,11 @@ class LiveViewersList extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const SizedBox();
         
-        // ভিউয়ার লিস্ট বের করা
         var viewers = snapshot.data?.docs ?? [];
-        int count = viewers.length; // এটিই আপনার বর্তমান ভিউয়ার সংখ্যা
+        int count = viewers.length;
 
         return Row(
           children: [
-            // ১. এখানে ভিউয়ার কাউন্ট দেখাবে (যেমন: "12 Viewers")
             if (count > 0)
               Padding(
                 padding: const EdgeInsets.only(right: 8.0),
@@ -34,17 +32,18 @@ class LiveViewersList extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    "$count", // এখানে শুধু সংখ্যাটি দেখাবে
+                    "$count",
                     style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
 
-            // ২. ভিউয়ারদের প্রোফাইল ছবিগুলো
             Expanded(
               child: SizedBox(
                 height: 40,
                 child: ListView.builder(
+                  // ১. এখানে একটি কি (Key) যোগ করা হয়েছে যাতে লিস্টের স্টেট বজায় থাকে
+                  key: const PageStorageKey('live_viewers_list'),
                   scrollDirection: Axis.horizontal,
                   itemCount: viewers.length,
                   itemBuilder: (context, index) {
@@ -53,6 +52,8 @@ class LiveViewersList extends StatelessWidget {
                     String profileImage = viewerData['profilePic'] ?? viewerData['userImage'] ?? '';
 
                     return Padding(
+                      // ২. এখানে ValueKey যোগ করা হয়েছে যাতে ইউজারের ছবিগুলো না নাচে
+                      key: ValueKey(viewerId),
                       padding: const EdgeInsets.symmetric(horizontal: 4.0),
                       child: GestureDetector(
                         onTap: () {
