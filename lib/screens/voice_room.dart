@@ -83,7 +83,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
   Map<int, String> activeEmojis = {};
   List<Offset> seatPositions = List.generate(15, (index) => Offset.zero);
   List<GlobalKey> seatKeys = List.generate(15, (index) => GlobalKey());
-  
+
+  String currentReceiverImage = "";
+  String currentSenderImage = "";
   // User & Owner Info
   bool isGiftCounting = false;
   String uID = "";
@@ -132,7 +134,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   bool isGiftAnimating = false;
   String currentGiftImage = "";
   late List<Map<String, dynamic>> seats;
-bool _isMeTalkingNow = false; // এটি লাল দাগ দূর করবে
+  bool _isMeTalkingNow = false; // এটি লাল দাগ দূর করবে
   // Timer & Gift Logic
   bool isCountingGifts = false;
   int remainingSeconds = 900;
@@ -140,228 +142,248 @@ bool _isMeTalkingNow = false; // এটি লাল দাগ দূর কর�
   String targetType = "";
   String currentSenderName = "";
   String currentReceiverName = "";
-
   StreamSubscription? _seatSubscription;
   StreamSubscription? _emojiSubscription;
 
- @override
-void initState() {
-  super.initState();
-  WakelockPlus.enable(); // স্ক্রিন যাতে অফ না হয়
-  
-  // ফলো স্ট্যাটাস চেক ফাংশন কল
-  _checkIfFollowing();
+  @override
+  void initState() {
+    super.initState();
+    WakelockPlus.enable(); // স্ক্রিন যাতে অফ না হয়
 
-  // ১. ১৫টি সিটের ইনিশিয়ালাইজেশন
-  seats = List.generate(
-      15,
-      (index) => {
-            "isOccupied": false,
-            "userName": "",
-            "userImage": "",
-            "isVip": index < 5,
-            "status": "empty",
-            "giftCount": 0,
-            "isMicOn": false,
-            "isTalking": false,
-            "userId": "",
-            "uID": "",
-            "agorauID": "",
+    // ফলো স্ট্যাটাস চেক ফাংশন কল
+    _checkIfFollowing();
+    _fetchRoomData();
+    _initEmojiListener();
+    _addUserToViewers();
+
+    // ১. ১৫টি সিটের ইনিশিয়ালাইজেশন
+    seats = List.generate(
+        15,
+        (index) => {
+              "isOccupied": false,
+              "userName": "",
+              "userImage": "",
+              "isVip": index < 5,
+              "status": "empty",
+              "giftCount": 0,
+              "isMicOn": false,
+              "isTalking": false,
+              "userId": "",
+              "uID": "",
+              "agorauID": "",
+            });
+
+    // ২. রিয়েলটাইম সিট লিসেনার
+    _seatSubscription = FirebaseDatabase.instance
+        .ref('rooms/${widget.roomId}/seats')
+        .onValue
+        .listen((event) {
+      if (!mounted) return;
+      final dynamic data = event.snapshot.value;
+
+      setState(() {
+        for (var seat in seats) {
+          seat["isOccupied"] = false;
+          seat["userName"] = "";
+          seat["userImage"] = "";
+          seat["uID"] = "";
+          seat["userId"] = "";
+        }
+
+        if (data != null) {
+          Map<dynamic, dynamic> dataMap =
+              (data is Map) ? data : (data as List).asMap();
+          dataMap.forEach((key, value) {
+            int? index = int.tryParse(key.toString());
+            if (index != null && index < seats.length) {
+              seats[index]["isOccupied"] = value["isOccupied"] ?? false;
+              seats[index]["userName"] =
+                  value["name"] ?? value["userName"] ?? "";
+              seats[index]["userImage"] =
+                  value["profilePic"] ?? value["userImage"] ?? "";
+              seats[index]["isMicOn"] = value["isMicOn"] ?? false;
+              seats[index]["userId"] =
+                  value["authUID"] ?? value["userId"] ?? "";
+              seats[index]["uID"] = value["uID"] ?? "";
+              seats[index]["agorauID"] = value["agorauID"]?.toString() ?? "";
+            }
           });
+        }
+      });
+    });
 
-  // ২. রিয়েলটাইম সিট লিসেনার
-  _seatSubscription = FirebaseDatabase.instance
-      .ref('rooms/${widget.roomId}/seats')
-      .onValue
-      .listen((event) {
-    if (!mounted) return;
-    final dynamic data = event.snapshot.value;
+    // ৩. এগোরা লজিক (সংশোধিত)
+    // ৩. এগোরা লজিক (সংশোধিত - নাচানাচি বন্ধ করার জন্য)
+    Future.microtask(() async {
+      try {
+        await _agoraManager.initAgora();
+        final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-    setState(() {
-      for (var seat in seats) {
-        seat["isOccupied"] = false;
-        seat["userName"] = "";
-        seat["userImage"] = "";
-        seat["uID"] = "";
-        seat["userId"] = "";
-      }
+        await _agoraManager.joinAsListener(widget.roomId, authUID);
 
-      if (data != null) {
-        Map<dynamic, dynamic> dataMap =
-            (data is Map) ? data : (data as List).asMap();
-        dataMap.forEach((key, value) {
-          int? index = int.tryParse(key.toString());
-          if (index != null && index < seats.length) {
-            seats[index]["isOccupied"] = value["isOccupied"] ?? false;
-            seats[index]["userName"] =
-                value["name"] ?? value["userName"] ?? "";
-            seats[index]["userImage"] =
-                value["profilePic"] ?? value["userImage"] ?? "";
-            seats[index]["isMicOn"] = value["isMicOn"] ?? false;
-            seats[index]["userId"] =
-                value["authUID"] ?? value["userId"] ?? "";
-            seats[index]["uID"] = value["uID"] ?? "";
-            seats[index]["agorauID"] = value["agorauID"]?.toString() ?? "";
-          }
-        });
+        if (mounted) {
+          _addUserToViewers();
+        }
+
+        final engine = _agoraManager.engine;
+        if (engine != null) {
+          await engine.enableAudioVolumeIndication(
+              interval: 250, smooth: 3, reportVad: true);
+
+          engine.registerEventHandler(
+            RtcEngineEventHandler(
+              onUserJoined: (connection, remoteuID, elapsed) {
+                debugPrint("Remote user joined: $remoteuID");
+              },
+              onAudioVolumeIndication:
+                  (connection, speakers, totalVolume, speakerNumber) {
+                if (!mounted) return;
+
+                bool isMeTalking = false;
+                for (var speaker in speakers) {
+                  // ভলিউম থ্রেশহোল্ড ১০ এর বদলে ১৫-২০ রাখা ভালো যাতে নয়েজে রি-বিল্ড না হয়
+                  if (speaker.uid == 0 && (speaker.volume ?? 0) > 15) {
+                    isMeTalking = true;
+                    break;
+                  }
+                }
+
+                // মূল সমাধান: অবস্থা পরিবর্তন (True/False) না হলে ফাংশন কল হবে না
+                if (_isMeTalkingNow != isMeTalking) {
+                  _isMeTalkingNow = isMeTalking;
+                  _updateTalkingStatus(
+                      isMeTalking); // এখন এটি কেবল একবারই কল হবে
+                }
+              },
+            ),
+          );
+        }
+      } catch (e) {
+        debugPrint("Agora Error: $e");
       }
     });
-  });
-
-  // ৩. এগোরা লজিক (সংশোধিত)
-  // ৩. এগোরা লজিক (সংশোধিত - নাচানাচি বন্ধ করার জন্য)
-Future.microtask(() async {
-  try {
-    await _agoraManager.initAgora();
-    final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
-
-    await _agoraManager.joinAsListener(widget.roomId, authUID);
-
-    if (mounted) {
-      _addUserToViewers();
-    }
-
-    final engine = _agoraManager.engine;
-    if (engine != null) {
-      await engine.enableAudioVolumeIndication(
-          interval: 250, 
-          smooth: 3,
-          reportVad: true);
-
-      engine.registerEventHandler(
-        RtcEngineEventHandler(
-          onUserJoined: (connection, remoteuID, elapsed) {
-            debugPrint("Remote user joined: $remoteuID");
-          },
-          onAudioVolumeIndication:
-              (connection, speakers, totalVolume, speakerNumber) {
-            if (!mounted) return;
-
-            bool isMeTalking = false;
-            for (var speaker in speakers) {
-              // ভলিউম থ্রেশহোল্ড ১০ এর বদলে ১৫-২০ রাখা ভালো যাতে নয়েজে রি-বিল্ড না হয়
-              if (speaker.uid == 0 && (speaker.volume ?? 0) > 15) {
-                isMeTalking = true;
-                break;
-              }
-            }
-
-            // মূল সমাধান: অবস্থা পরিবর্তন (True/False) না হলে ফাংশন কল হবে না
-            if (_isMeTalkingNow != isMeTalking) {
-              _isMeTalkingNow = isMeTalking; 
-              _updateTalkingStatus(isMeTalking); // এখন এটি কেবল একবারই কল হবে
-            }
-          },
-        ),
-      );
-    }
-  } catch (e) {
-    debugPrint("Agora Error: $e");
   }
-});
 
-_loadRoomAndUserData();
-} 
   // এই ফাংশনটি initState এর ক্লোজিং ব্র্যাকেটের নিচে বসাবেন
-Future<void> _checkIfFollowing() async {
-  final currentUser = FirebaseAuth.instance.currentUser;
-  if (currentUser == null) return;
+  Future<void> _checkIfFollowing() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
 
-  try {
-    // ইউজারের ডাটা পাথ অনুযায়ী uID খুঁজে বের করা
-    var userQuery = await FirebaseFirestore.instance
-        .collection('users')
-        .where('authUID', isEqualTo: currentUser.uid)
-        .limit(1)
-        .get();
-
-    if (userQuery.docs.isNotEmpty) {
-      String myuID = userQuery.docs.first.id; // আপনার ৬-ডিজিটের আইডি
-
-      var roomDoc = await FirebaseFirestore.instance
-          .collection('rooms')
-          .doc(widget.roomId)
+    try {
+      // ইউজারের ডাটা পাথ অনুযায়ী uID খুঁজে বের করা
+      var userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('authUID', isEqualTo: currentUser.uid)
+          .limit(1)
           .get();
 
-      if (roomDoc.exists && mounted) {
-        var data = roomDoc.data();
-        List followersList = data?['followers'] ?? [];
-        int countFromDb = data?['followerCount'] ?? 0;
+      if (userQuery.docs.isNotEmpty) {
+        String myuID = userQuery.docs.first.id; // আপনার ৬-ডিজিটের আইডি
 
-        setState(() {
-          // যদি লিস্টে আপনার আইডি থাকে তবে isFollowing true হবে
-          isFollowing = followersList.contains(myuID);
-          followerCount = countFromDb;
-        });
+        var roomDoc = await FirebaseFirestore.instance
+            .collection('rooms')
+            .doc(widget.roomId)
+            .get();
+
+        if (roomDoc.exists && mounted) {
+          var data = roomDoc.data();
+          List followersList = data?['followers'] ?? [];
+          int countFromDb = data?['followerCount'] ?? 0;
+
+          setState(() {
+            // যদি লিস্টে আপনার আইডি থাকে তবে isFollowing true হবে
+            isFollowing = followersList.contains(myuID);
+            followerCount = countFromDb;
+          });
+        }
       }
+    } catch (e) {
+      print("Follow check error: $e");
     }
-  } catch (e) {
-    print("Follow check error: $e");
   }
-}
-  
-  // ৪. ইমোজি লিসেনার (আপডেট করা)
+
+  void _fetchRoomData() {
+    FirebaseFirestore.instance
+        .collection('rooms')
+        .doc(widget.roomId)
+        .snapshots()
+        .listen((doc) {
+      if (doc.exists && mounted) {
+        final rData = doc.data() as Map<String, dynamic>;
+
+        // ১. ডাটাবেসের ডাটা এবং লোকাল ডাটা তুলনা করা
+        // যদি ডাটা না বদলায়, তবে setState হবে না, ফলে কাঁপাকাঁপি বন্ধ হবে
+        bool hasChanged = roomName != (rData['roomName'] ?? 'Love Line') ||
+            roomProfileImage != (rData['roomImage'] ?? '') ||
+            followerCount != (rData['followerCount'] ?? 0) ||
+            ownerAuthId != (rData['ownerAuthId'] ?? "");
+
+        if (hasChanged) {
+          setState(() {
+            roomData = rData;
+
+            // ২. এডমিন লিস্ট লোড
+            adminList = rData['admins'] ?? [];
+
+            // ৩. রুমের সাধারণ তথ্য
+            roomName = rData['roomName'] ?? 'Love Line';
+            roomProfileImage = rData['roomImage'] ?? '';
+
+            // ৪. ওনারের তথ্য
+            ownerId =
+                rData['ownerId']?.toString() ?? rData['uID']?.toString() ?? "";
+            ownerName = rData['ownerName'] ?? 'Hridoy';
+            ownerPic = rData['ownerPic'] ?? "";
+            ownerAuthId = rData['ownerAuthId'] ?? "";
+
+            // ৫. ওনার চেক (FirebaseAuth ID দিয়ে)
+            isOwner = (ownerAuthId == FirebaseAuth.instance.currentUser?.uid);
+
+            // ৬. ফলোয়ার সংখ্যা
+            followerCount = rData['followerCount'] ?? 0;
+          });
+        }
+      }
+    });
+  }
+
   void _initEmojiListener() {
     _emojiSubscription?.cancel();
     _emojiSubscription = FirebaseDatabase.instance
         .ref('rooms/${widget.roomId}/seats')
-        .onChildChanged
+        .onChildChanged // এখানে onValue এর বদলে onChildChanged ঠিক আছে, তবে ডাটা পাঠানোর স্টাইল বদলাতে হবে
         .listen((event) {
       if (!mounted) return;
 
       final dynamic value = event.snapshot.value;
       final int index = int.tryParse(event.snapshot.key ?? "") ?? -1;
 
+      // এখানে value["emojiTime"] থাকাটা বাধ্যতামূলক যাতে প্রতিবার ডাটা "Change" হয়
       if (index != -1 && value is Map && value["currentEmoji"] != null) {
-        // --- নতুন লজিক: সময় চেক করা ---
         final int serverTime = value["emojiTime"] ?? 0;
         final int currentTime = DateTime.now().millisecondsSinceEpoch;
 
-        // যদি ইমোজিটি ৫ সেকেন্ডের বেশি পুরনো হয়, তবে এটি ইগনোর করবে
-        if ((currentTime - serverTime).abs() > 5000) {
-          return;
+        // টাইম চেক (৫ সেকেন্ডের বেশি পুরনো হলে ইগনোর)
+        if ((currentTime - serverTime).abs() > 5000) return;
+
+        // --- সুপার ফাস্ট করার ট্রিক ---
+        // যদি ওই সিটে আগে থেকেই ইমোজি থাকে, তবে সেটা সরিয়ে নতুনটা সাথে সাথে বসান
+        if (activeEmojis.containsKey(index)) {
+          activeEmojis.remove(index);
         }
-        // ----------------------------
 
-        // ইমোজি দেখাও
-        setState(() => activeEmojis[index] = value["currentEmoji"]);
+        setState(() {
+          activeEmojis[index] = value["currentEmoji"];
+        });
 
-        // ৩ সেকেন্ড পর রিমুভ করো
-        Future.delayed(const Duration(seconds: 3), () {
-          if (mounted) setState(() => activeEmojis.remove(index));
+        // ৩ সেকেন্ড পর রিমুভ (Timer ব্যবহার করা ভালো Future.delayed এর চেয়ে)
+        Timer(const Duration(seconds: 3), () {
+          if (mounted && activeEmojis[index] == value["currentEmoji"]) {
+            setState(() => activeEmojis.remove(index));
+          }
         });
       }
     });
-  }
-
-  // ৫. রুম এবং ইউজার ডাটা লোড
-  Future<void> _loadRoomAndUserData() async {
-    try {
-      final roomDoc = await FirebaseFirestore.instance
-          .collection('rooms')
-          .doc(widget.roomId)
-          .get();
-      if (roomDoc.exists && mounted) {
-        final rData = roomDoc.data();
-        setState(() {
-          roomName = rData?['roomName'] ?? 'Love Line';
-          roomProfileImage = rData?['roomImage'] ?? '';
-          ownerId =
-              rData?['ownerId']?.toString() ?? rData?['uID']?.toString() ?? "";
-          ownerName = rData?['ownerName'] ?? 'Hridoy';
-          ownerPic = rData?['ownerPic'] ?? "";
-          ownerAuthId = rData?['ownerAuthId'] ?? "";
-          isOwner = (ownerAuthId == FirebaseAuth.instance.currentUser?.uid);
-        });
-
-        _initEmojiListener();
-
-        // এখানেও একবার নিশ্চিত করার জন্য কল করা হলো
-        _addUserToViewers();
-      }
-    } catch (e) {
-      debugPrint("Room Load Error: $e");
-    }
   }
 
   // গিফট কাউন্টিং শুরু
@@ -386,29 +408,40 @@ Future<void> _checkIfFollowing() async {
   }
 
   void _showWinnerPopup() {
-    // ১. সরাসরি সিট থেকে ডাটা নিয়ে ফিল্টার করা
-    List<Map<String, dynamic>> seatData = List.from(seats);
+    // ১. সরাসরি সিট থেকে ডাটা নিয়ে কপি তৈরি করা
+    // এখানে list.where ব্যবহার করে শুধু যারা সিটে বসে আছে (isOccupied) তাদের নেওয়া ভালো
+    List<Map<String, dynamic>> seatData = seats
+        .where((s) => s != null && s['isOccupied'] == true)
+        .map((s) => Map<String, dynamic>.from(s))
+        .toList();
 
-    // ২. সর্টিং (বেশি গিফট পাওয়া ইউজার উপরে থাকবে)
+    // ২. সর্টিং (বেশি গিফট পাওয়া ইউজার উপরে থাকবে)
     seatData
         .sort((a, b) => (b['giftCount'] ?? 0).compareTo(a['giftCount'] ?? 0));
 
     List<Map<String, dynamic>> topWinners = [];
+
     for (var s in seatData) {
-      if (s != null && (s['giftCount'] ?? 0) > 0) {
+      // যারা অন্তত ১টি গিফট পেয়েছে তাদের উইনার লিস্টে নেওয়া
+      if ((s['giftCount'] ?? 0) > 0) {
         topWinners.add({
           "name": s['name'] ?? s['userName'] ?? "User",
-          "avatar": s['profilePic'] ?? s['userImage'] ?? "", // নতুন রিয়েল অবতার
+          // আপনার লিসেনার অনুযায়ী ছবি 'userImage' এ থাকে
+          "avatar": s['userImage'] ?? s['profilePic'] ?? "",
           "gifts": s['giftCount']
         });
       }
-      if (topWinners.length == 2) break; // প্রথম ২ জন বিজয়ী
+      if (topWinners.length == 3)
+        break; // টপ ৩ জন দেখালে সুন্দর লাগে, আপনি চাইলে ২ জনও রাখতে পারেন
     }
 
+    // ৩. উইনার থাকলে পপআপ দেখানো
     if (topWinners.isNotEmpty) {
       showDialog(
-          context: context,
-          builder: (context) => GiftRankDialog(winners: topWinners));
+        context: context,
+        barrierDismissible: true, // বাইরে ক্লিক করলে যেন বন্ধ হয়
+        builder: (context) => GiftRankDialog(winners: topWinners),
+      );
     }
   }
 
@@ -504,37 +537,52 @@ Future<void> _checkIfFollowing() async {
     );
   }
 
-  void updateSeatPosition(int index, GlobalKey key) {
-    try {
-      final RenderBox? renderBox =
-          key.currentContext?.findRenderObject() as RenderBox?;
-      if (renderBox != null && renderBox.hasSize) {
-        final position = renderBox.localToGlobal(Offset.zero);
-        final size = renderBox.size;
-        double centerX = position.dx + (size.width / 2);
-        double centerY = position.dy + (size.height / 2);
+  // কথা বলার স্ট্যাটাস লোকালি সেভ রাখার জন্য
+  bool _lastTalkingStatus = false;
 
-        final RenderBox? roomBox = context.findRenderObject() as RenderBox?;
-        if (roomBox != null) {
-          setState(() {
-            seatPositions[index] =
+  void updateSeatPosition(int index, GlobalKey key) {
+    // ফ্রেম রেন্ডার হওয়ার পর পজিশন নেওয়ার জন্য এটি নিরাপদ
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        final RenderBox? renderBox =
+            key.currentContext?.findRenderObject() as RenderBox?;
+        if (renderBox != null && renderBox.hasSize) {
+          final position = renderBox.localToGlobal(Offset.zero);
+          final size = renderBox.size;
+          double centerX = position.dx + (size.width / 2);
+          double centerY = position.dy + (size.height / 2);
+
+          final RenderBox? roomBox = context.findRenderObject() as RenderBox?;
+          if (roomBox != null) {
+            Offset newPosition =
                 roomBox.globalToLocal(Offset(centerX, centerY));
-          });
+
+            // 🔥 টিপস: যদি পজিশন আগে থেকেই একই থাকে, তবে setState কল করার দরকার নেই
+            if (seatPositions[index] != newPosition) {
+              setState(() {
+                seatPositions[index] = newPosition;
+              });
+            }
+          }
         }
+      } catch (e) {
+        debugPrint("Position Update Error: $e");
       }
-    } catch (e) {
-      debugPrint("Position Update Error: $e");
-    }
+    });
   }
 
   void _updateTalkingStatus(bool talking) async {
-    // currentSeatIndex যদি -1 না হয়, তারমানে আপনি কোনো সিটে বসে আছেন
+    // ১. যদি স্ট্যাটাস আগের মতোই থাকে (উদা: কথা বলছেনই), তবে ডাটাবেসে পাঠানোর দরকার নেই
+    if (talking == _lastTalkingStatus) return;
+
     if (currentSeatIndex != -1) {
       try {
+        _lastTalkingStatus = talking; // লোকাল স্ট্যাটাস আপডেট
+
         final seatRef = FirebaseDatabase.instance
             .ref('rooms/${widget.roomId}/seats/$currentSeatIndex');
 
-        // শুধুমাত্র ডাটাবেসে isTalking ফিল্ডটি আপডেট করবে
+        // ২. শুধুমাত্র প্রয়োজনীয় ডাটা আপডেট
         await seatRef.update({
           'isTalking': talking,
         });
@@ -584,7 +632,7 @@ Future<void> _checkIfFollowing() async {
               // গিফট অ্যানিমেশনের লজিক - লুপ বন্ধ করার জন্য কন্ডিশনাল হ্যান্ডলিং
               var lastGift = roomData['last_gift'];
               if (lastGift != null) {
-                // ১. টাইমস্ট্যাম্প ঠিকভাবে নেওয়া (int বা Timestamp যাই হোক)
+                // ১. টাইমস্ট্যাম্প ঠিকভাবে নেওয়া
                 int giftTime = 0;
                 if (lastGift['timestamp'] is int) {
                   giftTime = lastGift['timestamp'];
@@ -600,12 +648,18 @@ Future<void> _checkIfFollowing() async {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted) {
                       setState(() {
-                        // আপনার নতুন অবতার ইমেজের পাথ অনুযায়ী 'image' বা 'icon' চেক করুন
                         currentGiftImage =
                             lastGift['image'] ?? lastGift['icon'] ?? '';
                         currentSenderName = lastGift['senderName'] ?? 'Someone';
                         currentReceiverName = lastGift['target'] ?? '';
                         currentGiftCount = lastGift['count'] ?? 1;
+
+                        // *** নতুন যোগ করা হয়েছে: আইডি থেকে পাঠানো ছবিগুলো রিসিভ করা ***
+                        currentSenderImage = lastGift['senderImage'] ??
+                            ''; // সেন্ডারের প্রোফাইল পিক
+                        currentReceiverImage = lastGift['receiverImage'] ??
+                            ''; // রিসিভারের প্রোফাইল পিক
+
                         isGiftAnimating = true;
                       });
 
@@ -657,12 +711,14 @@ Future<void> _checkIfFollowing() async {
 
                       // সিট এরিয়া - ল্যাগ কমাতে RepaintBoundary ব্যবহার করা হয়েছে
                       Expanded(
+                        flex: 2,
                         child: RepaintBoundary(child: _buildSeatGridArea()),
                       ),
 
                       // মেসেজ এরিয়া
                       const SizedBox(height: 10),
                       Expanded(
+                        flex: 1,
                         child: Container(
                           margin: const EdgeInsets.only(left: 10, right: 90),
                           child: StreamBuilder<QuerySnapshot>(
@@ -860,6 +916,8 @@ Future<void> _checkIfFollowing() async {
                     isGiftAnimating: isGiftAnimating,
                     currentGiftImage: currentGiftImage,
                     isFullScreenBinding: isGiftAnimating,
+                    senderImage: currentSenderImage,
+                    receiverImage: currentReceiverImage,
                     senderName: currentSenderName,
                     receiverName: targetType,
                   ),
@@ -873,7 +931,7 @@ Future<void> _checkIfFollowing() async {
     );
   }
 
-  // ইমোজি মেথড (সিট পজিশন অনুযায়ী)
+  // ইমোজি মেথড (সিট পজিশন অনুযায়ী) - আপডেট করা
   List<Widget> _buildFloatingEmojiAnimations() {
     return activeEmojis.entries.map((entry) {
       int seatIndex = entry.key;
@@ -888,21 +946,24 @@ Future<void> _checkIfFollowing() async {
       double leftPos = seatPositions[seatIndex].dx;
       double topPos = seatPositions[seatIndex].dy;
 
-      // যদি পজিশন 0,0 হয় (মানে ডাটা এখনো আসেনি), তবে এটি রেন্ডার করবে না
+      // যদি পজিশন 0,0 হয় (মানে ডাটা এখনো আসেনি), তবে এটি রেন্ডার করবে না
       if (leftPos == 0 && topPos == 0) return const SizedBox();
 
       return Positioned(
-        // সিটের পজিশন অনুযায়ী অ্যাডজাস্টমেন্ট
         left: leftPos - 15,
-        top: topPos - 50, // সিটের ঠিক উপরে ভাসানোর জন্য -৫০ দিলাম
+        top: topPos - 50,
         child: IgnorePointer(
           child: SizedBox(
             width: 80,
             height: 80,
             child: Lottie.network(
               lottieUrl,
+              // *** এই Key টি যোগ করার ফলে একই ইমোজি বারবার পাঠালেও সাথে সাথে প্লে হবে ***
+              key: ValueKey(
+                  '${seatIndex}_${DateTime.now().millisecondsSinceEpoch}'),
               repeat: false,
-              // নেটওয়ার্ক এরর হ্যান্ডলিং
+              animate: true, // নিশ্চিত করুন এটি ট্রু আছে
+              fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) => const SizedBox(),
             ),
           ),
@@ -984,26 +1045,28 @@ Future<void> _checkIfFollowing() async {
 
     super.dispose();
   }
+
   Widget _buildTopNavBar() {
     final String myAuthId = FirebaseAuth.instance.currentUser?.uid ?? "";
-
-    // ১. ওনার শনাক্তকরণের শক্তিশালী লজিক
+    bool isAdmin = false;
+    // ১. ওনার শনাক্তকরণ (এটি ঠিক কাজ করছে বলছেন, তাও নিরাপদ করে দিলাম)
     bool isOwner = false;
-    if (myAuthId.isNotEmpty && ownerAuthId.toString() == myAuthId) {
+    String currentMyAuthId = myAuthId.toString().trim();
+    String currentMyuID = myFixeduID.toString().trim();
+
+    if (currentMyAuthId.isNotEmpty &&
+        ownerAuthId.toString() == currentMyAuthId) {
       isOwner = true;
-    } else if (myFixeduID.isNotEmpty &&
-        (myFixeduID.toString() == ownerId.toString() ||
-            myFixeduID.toString() == uID.toString())) {
+    } else if (currentMyuID.isNotEmpty &&
+        (currentMyuID == ownerId.toString() ||
+            currentMyuID == uID.toString())) {
       isOwner = true;
     }
 
-    // ২. অ্যাডমিন চেক
-    bool isAdmin =
-        adminList.contains(myAuthId) || adminList.contains(myFixeduID);
+    // ২. অ্যাডমিন চেক (অ্যারো থেকে)
+    isAdmin = adminList.any((id) => id.toString().trim() == currentMyuID);
 
-    // পারমিশন স্ট্যাটাস
     bool hasPermission = isOwner || isAdmin;
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: ClipRRect(
@@ -1303,19 +1366,6 @@ Future<void> _checkIfFollowing() async {
                                 });
                               }
                             }
-
-                            // রুমের মেটা ডাটা আপডেট (সার্ভিস কল)
-                            _roomService.updateRoomFullData(
-                              roomId: widget.roomId,
-                              roomName: roomName,
-                              roomImage: roomProfileImage,
-                              isLocked: isRoomLocked,
-                              wallpaper: roomWallpaperPath,
-                              followers: followerCount,
-                              totalDiamonds: 0,
-                              uID: owneruIDFromDb,
-                              ownerName: currentOwnerName,
-                            );
                           } catch (e) {
                             print("Follow Error: $e");
                           }
@@ -1377,6 +1427,7 @@ Future<void> _checkIfFollowing() async {
   }
 
   // --- ১. মেইন সিট গ্রিড এরিয়া (সংশোধিত) ---
+  // --- ১. মেইন সিট গ্রিড এরিয়া (স্থায়ী ফিক্স) ---
   Widget _buildSeatGridArea() {
     return StreamBuilder<DatabaseEvent>(
       stream:
@@ -1396,11 +1447,14 @@ Future<void> _checkIfFollowing() async {
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+          // ✅ নিচের প্যাডিং ১০ থেকে বাড়িয়ে ৪৫ করা হয়েছে যাতে নাম/আইডি না কাটে
+          padding:
+              const EdgeInsets.only(left: 15, right: 15, top: 10, bottom: 30),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 5,
-            childAspectRatio: 0.7,
-            mainAxisSpacing: 8,
+            childAspectRatio:
+                0.75, // ✅ হাইট কিছুটা বাড়ানো হয়েছে নাম পরিষ্কার দেখার জন্য
+            mainAxisSpacing: 10, // ✅ লাইনের মাঝের গ্যাপ বাড়ানো হয়েছে
             crossAxisSpacing: 5,
           ),
           itemCount: 15,
@@ -1409,7 +1463,6 @@ Future<void> _checkIfFollowing() async {
             bool isOccupied =
                 seatData != null ? (seatData['isOccupied'] == true) : false;
 
-            // আপনার আগের সব ডাটা এক্সট্রাকশন ঠিক রাখা হয়েছে
             String uName = isOccupied
                 ? (seatData['name']?.toString() ??
                     seatData['userName']?.toString() ??
@@ -1427,14 +1480,11 @@ Future<void> _checkIfFollowing() async {
             bool isMicOn = isOccupied ? (seatData['isMicOn'] == true) : false;
             bool isVipSeat = index < 5;
 
-            // ✅ হ্যাং হওয়া বন্ধ করার ফিক্স: পজিশন একবার থাকলে আর আপডেট হবে না
-            if (isOccupied) {
+            // ✅ কাপা বা হ্যাং হওয়া বন্ধের লজিক: ফ্রেম রেন্ডার হওয়ার পরে পজিশন আপডেট
+            if (isOccupied && seatPositions[index] == null) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted && seatKeys[index].currentContext != null) {
-                  // seatPositions ম্যাপে ডাটা না থাকলেই শুধু আপডেট করবে
-                  if (seatPositions[index] == null) {
-                    updateSeatPosition(index, seatKeys[index]);
-                  }
+                  updateSeatPosition(index, seatKeys[index]);
                 }
               });
             }
@@ -1457,79 +1507,85 @@ Future<void> _checkIfFollowing() async {
               },
               behavior: HitTestBehavior.opaque,
               child: Column(
+                mainAxisSize: MainAxisSize.min, // ✅ কন্টেন্ট অনুযায়ী সাইজ হবে
                 children: [
-                  VoiceRipple(
-                    isTalking: isTalking,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: 52,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isVipSeat
-                                  ? Colors.amber
-                                  : (isOccupied
-                                      ? Colors.cyanAccent
-                                      : Colors.white10),
-                              width: 1.8,
+                  // ✅ RepaintBoundary যোগ করা হয়েছে যাতে VoiceRipple শুধু নিজের এরিয়া রেন্ডার করে
+                  // এর ফলে ভিউয়ার লিস্ট বা পাশের উইজেটগুলো কাঁপবে না।
+                  RepaintBoundary(
+                    child: VoiceRipple(
+                      isTalking: isTalking,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isVipSeat
+                                    ? Colors.amber
+                                    : (isOccupied
+                                        ? Colors.cyanAccent
+                                        : Colors.white10),
+                                width: 1.8,
+                              ),
+                              boxShadow: isVipSeat
+                                  ? [
+                                      BoxShadow(
+                                          color: Colors.amber.withOpacity(0.2),
+                                          blurRadius: 8,
+                                          spreadRadius: 1)
+                                    ]
+                                  : [],
                             ),
-                            boxShadow: isVipSeat
-                                ? [
-                                    BoxShadow(
-                                        color: Colors.amber.withOpacity(0.2),
-                                        blurRadius: 8,
-                                        spreadRadius: 1)
-                                  ]
-                                : [],
-                          ),
-                          child: CircleAvatar(
-                            radius: 24,
-                            backgroundColor: isVipSeat
-                                ? Colors.amber.withOpacity(0.1)
-                                : Colors.black45,
-                            backgroundImage: (isOccupied && uImage.isNotEmpty)
-                                ? NetworkImage(uImage)
-                                : null,
-                            child: (isOccupied)
-                                ? (uImage.isEmpty
-                                    ? const Icon(Icons.person,
-                                        color: Colors.white24, size: 25)
-                                    : null)
-                                : Icon(
-                                    isVipSeat
-                                        ? Icons.workspace_premium
-                                        : Icons.chair_rounded,
-                                    color: isVipSeat
-                                        ? Colors.amber.withOpacity(0.6)
-                                        : Colors.white12,
-                                    size: 22),
-                          ),
-                        ),
-                        if (isOccupied)
-                          Positioned(
-                            bottom: 2,
-                            right: 2,
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.7),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                      color: Colors.white24, width: 0.5)),
-                              child: Icon(isMicOn ? Icons.mic : Icons.mic_off,
-                                  color: isMicOn
-                                      ? Colors.greenAccent
-                                      : Colors.redAccent,
-                                  size: 11),
+                            child: CircleAvatar(
+                              radius: 24,
+                              backgroundColor: isVipSeat
+                                  ? Colors.amber.withOpacity(0.1)
+                                  : Colors.black45,
+                              backgroundImage: (isOccupied && uImage.isNotEmpty)
+                                  ? NetworkImage(uImage)
+                                  : null,
+                              child: (isOccupied)
+                                  ? (uImage.isEmpty
+                                      ? const Icon(Icons.person,
+                                          color: Colors.white24, size: 25)
+                                      : null)
+                                  : Icon(
+                                      isVipSeat
+                                          ? Icons.workspace_premium
+                                          : Icons.chair_rounded,
+                                      color: isVipSeat
+                                          ? Colors.amber.withOpacity(0.6)
+                                          : Colors.white12,
+                                      size: 22),
                             ),
                           ),
-                      ],
+                          if (isOccupied)
+                            Positioned(
+                              bottom: 2,
+                              right: 2,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.7),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: Colors.white24, width: 0.5)),
+                                child: Icon(isMicOn ? Icons.mic : Icons.mic_off,
+                                    color: isMicOn
+                                        ? Colors.greenAccent
+                                        : Colors.redAccent,
+                                    size: 11),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 0),
+                  // ✅ ইউজার নেম
                   Text(
                     isOccupied
                         ? uName
@@ -1547,15 +1603,19 @@ Future<void> _checkIfFollowing() async {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  // ✅ ইউজার আইডি (এখন আর কাটবে না)
                   if (isOccupied && uIDShow.isNotEmpty)
-                    Text(
-                      "ID: $uIDShow",
-                      style: const TextStyle(
-                          fontSize: 8,
-                          color: Colors.white54,
-                          letterSpacing: 0.2),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        "ID: $uIDShow",
+                        style: const TextStyle(
+                            fontSize: 8,
+                            color: Colors.white54,
+                            letterSpacing: 0.2),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                 ],
               ),
@@ -1651,10 +1711,10 @@ Future<void> _checkIfFollowing() async {
 
           const SizedBox(width: 8),
 
-          // ৩. রুম মোড বাটন 🏩 (অরিজিনাল ফিচার)
+          // ৩. রুম মোড বাটন 🏩
           _buildCircularIcon(Icons.hotel, Colors.purpleAccent, () {
-            // আপনার রুম মোড পরিবর্তনের লজিক এখানে
-          }),
+            
+          }), // <--- এখানে একটা কমা বা সেমিকোলন নিশ্চিত করুন এবং ব্র্যাকেট খেয়াল করুন
 
           const SizedBox(width: 4),
 
@@ -1938,7 +1998,6 @@ Future<void> _checkIfFollowing() async {
     );
   }
 
-// ৩. গিফট বাটনের এনিমেশন ও সেন্ডিং লজিক (সম্পূর্ণ আপডেট করা)
   Widget _buildAnimatedGiftButton() {
     return TweenAnimationBuilder(
       tween: Tween<double>(begin: 1.0, end: 1.2),
@@ -1953,25 +2012,36 @@ Future<void> _checkIfFollowing() async {
         icon:
             const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 22),
         onPressed: () async {
-          // ১. লম্বা Auth UID নেওয়া হলো
-          final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+          final String currentAuthUID =
+              FirebaseAuth.instance.currentUser?.uid ?? "";
+          if (currentAuthUID.isEmpty) return;
 
-          // ২. সঠিক ইউজার খুঁজে ডাটা নেওয়া (শর্ট আইডি বের করা)
+          // ১. নিজের তথ্য এবং ব্যালেন্স আনা (authUID দিয়ে কোয়েরি করে)
           var userQuery = await FirebaseFirestore.instance
               .collection('users')
-              .where('authUID', isEqualTo: authUID)
+              .where('authUID', isEqualTo: currentAuthUID)
               .limit(1)
               .get();
 
           int currentBalance = 0;
           String senderName = "User";
-          String senderActualId = authUID;
+          String senderImgUrl = "";
+          String senderDocID = ""; // আপনার ডাটাবেজের '978051' টাইপ আইডি
 
           if (userQuery.docs.isNotEmpty) {
-            final data = userQuery.docs.first.data();
-            currentBalance = data['diamonds'] ?? 0;
+            final doc = userQuery.docs.first;
+            final data = doc.data();
+            senderDocID = doc.id; // ডকুমেন্টের নাম (যেমন: 978051)
+            currentBalance = (data['diamonds'] ?? 0).toInt();
             senderName = data['name'] ?? data['userName'] ?? "User";
-            senderActualId = userQuery.docs.first.id; // শর্ট আইডি
+            senderImgUrl =
+                data['profilePic'] ?? data['image'] ?? data['userImage'] ?? "";
+            debugPrint("My Photo Found: $senderImgUrl");
+
+            debugPrint("Balance Found: $currentBalance for ID: $senderDocID");
+          } else {
+            debugPrint(
+                "User not found in Firestore for authUID: $currentAuthUID");
           }
 
           if (!mounted) return;
@@ -1984,89 +2054,103 @@ Future<void> _checkIfFollowing() async {
               diamondBalance: currentBalance,
               currentSeats: List.from(seats),
               onGiftSend: (gift, count, target) async {
-                // UI এনিমেশন সাথে সাথে চালু করা
-                setState(() {
-                  currentGiftImage = gift['icon'];
-                  isGiftAnimating = true;
-                  targetType = target;
-                  currentSenderName = senderName;
-                  currentReceiverName = target;
-                });
+                String giftImg = gift['image'] ?? gift['icon'] ?? "";
+                String receiverImgUrl = "";
+                String receiverDocID = "";
 
+                // ২. রিসিভারের আইডি এবং ছবি খোঁজা
+                if (target == "All Room" || target == "All Mic") {
+                  receiverDocID = target;
+                } else {
+                  // সিট থেকে রিসিভার খুঁজে বের করা
+                  var targetSeat = seats.firstWhere(
+                    (s) =>
+                        s != null &&
+                        (s['userName'] == target || s['name'] == target),
+                    orElse: () => <String, dynamic>{},
+                  );
+
+                  if (targetSeat != null && targetSeat.isNotEmpty) {
+                    receiverImgUrl = targetSeat['profilePic'] ??
+                        targetSeat['userImage'] ??
+                        "";
+                    // রিসিভারের শর্ট আইডি (ডকুমেন্ট আইডি) নেওয়া হচ্ছে
+                    receiverDocID =
+                        (targetSeat['uID'] ?? targetSeat['userId'] ?? "")
+                            .toString();
+                  }
+                }
+
+                // ৩. ট্রানজেকশন শুরু
                 try {
-                  // ৩. গিফট ট্রানজেকশন প্রসেস করা
-                  bool isFree = gift['isFree'] ?? false;
-                  int unitPrice = gift['price'] ?? 0;
+                  int unitPrice = (gift['price'] ?? 0).toInt();
                   int totalAmount = unitPrice * count;
+                  bool isFree =
+                      (gift['isFree'] == true) || (gift['expiry'] != null);
 
-                  // ৪. টার্গেট ইউজারের শর্ট আইডি খুঁজে বের করা
-                  String receiverId = "";
-                  if (target == "All Room" || target == "All Mic") {
-                    receiverId = target;
-                  } else {
-                    var targetSeat = seats.firstWhere(
-                      (s) =>
-                          s != null &&
-                          (s['userName'] == target || s['name'] == target),
-                      orElse: () => <String, dynamic>{},
+                  // ব্যালেন্স চেক
+                  if (!isFree && currentBalance < totalAmount) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text(
+                              "পর্যাপ্ত ডায়মন্ড নেই! খরচ: $totalAmount, আছে: $currentBalance"),
+                          backgroundColor: Colors.orange),
                     );
-                    if (targetSeat != null) {
-                      receiverId =
-                          (targetSeat['uID'] ?? targetSeat['userId'] ?? "")
-                              .toString();
-                    }
+                    return;
                   }
 
-                  if (receiverId.isNotEmpty) {
-                    // ডায়মন্ড কাটা এবং রেকর্ড সেভ করা
+                  if (senderDocID.isNotEmpty && receiverDocID.isNotEmpty) {
                     await GiftTransactionHelper.processGiftTransaction(
-                      senderId: senderActualId,
-                      receiverId: receiverId,
+                      senderId: senderDocID, // শর্ট আইডি (978051)
+                      receiverId: receiverDocID,
                       roomId: widget.roomId,
+                      senderImage: senderImgUrl, // এখন আর লাল দাগ আসবে না
+                      receiverImage: receiverImgUrl, // এখন আর লাল দাগ আসবে না
                       totalPrice: totalAmount,
                       isFree: isFree,
                       giftName: gift['name'] ?? "Gift",
                     );
-
-                    // ৫. রুমের মেইন ডকুমেন্টে last_gift আপডেট (যাতে রুমে এনিমেশন দেখা যায়)
-                    await FirebaseFirestore.instance
-                        .collection('rooms')
-                        .doc(widget.roomId)
-                        .update({
-                      'last_gift': {
-                        'image': gift['icon'],
-                        'senderName': senderName,
-                        'target': target,
-                        'count': count,
-                        'timestamp': DateTime.now().millisecondsSinceEpoch,
-                      }
-                    });
-
-                    // ৬. গিফট কাউন্টিং আপডেট (যদি অ্যাক্টিভিটি চালু থাকে)
-                    if (isGiftCounting) {
-                      await FirebaseFirestore.instance
-                          .collection('rooms')
-                          .doc(widget.roomId)
-                          .collection('gift_counts')
-                          .add({
-                        'senderName': senderName,
-                        'receiverName': target,
-                        'points': totalAmount,
-                        'timestamp': FieldValue.serverTimestamp(),
-                      });
-                    }
+                  } else {
+                    debugPrint("Transaction Skipped: IDs are missing.");
+                    return;
                   }
                 } catch (e) {
                   debugPrint("Transaction Error: $e");
+                  return;
                 }
 
-                // ৫ সেকেন্ড পর এনিমেশন বন্ধ করা
-                Timer(const Duration(seconds: 5), () {
-                  if (mounted) {
-                    setState(() {
-                      isGiftAnimating = false;
-                    });
+                // ৪. সফল হলে UI আপডেট
+                if (mounted) {
+                  setState(() {
+                    currentGiftImage = giftImg;
+                    isGiftAnimating = true;
+                    targetType = target;
+                    currentSenderName = senderName;
+                    currentReceiverName = target;
+                    currentSenderImage = senderImgUrl;
+                    currentReceiverImage = receiverImgUrl;
+                  });
+                }
+
+                // ৫. ফায়ারবেস রুম ব্যানার আপডেট
+                await FirebaseFirestore.instance
+                    .collection('rooms')
+                    .doc(widget.roomId)
+                    .update({
+                  'last_gift': {
+                    'image': giftImg,
+                    'senderName': senderName,
+                    'senderImage': senderImgUrl,
+                    'target': target,
+                    'receiverImage': receiverImgUrl,
+                    'count': count,
+                    'timestamp': DateTime.now().millisecondsSinceEpoch,
                   }
+                });
+
+                // ৬. এনিমেশন টাইমার (৫ সেকেন্ড)
+                Timer(const Duration(seconds: 5), () {
+                  if (mounted) setState(() => isGiftAnimating = false);
                 });
               },
             ),
@@ -2115,7 +2199,11 @@ Future<void> _checkIfFollowing() async {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: LiveViewersList(roomId: widget.roomId),
+            // 🔥 এই 'key' এবং 'const' নিশ্চিত করবে যে লিস্টটি নড়বে না
+            child: LiveViewersList(
+              key: PageStorageKey('live_viewers_${widget.roomId}'),
+              roomId: widget.roomId,
+            ),
           ),
         ],
       ),
@@ -2480,9 +2568,12 @@ Future<void> _checkIfFollowing() async {
 
     try {
       final firestore = FirebaseFirestore.instance;
+      final roomRef = firestore.collection('rooms').doc(widget.roomId);
 
-      // ১. আপনার দেওয়া স্ট্রাকচার অনুযায়ী authUID দিয়ে ইউজারকে খুঁজে বের করা
-      // যেহেতু আপনি Doc ID হিসেবে র্যান্ডম নাম্বার ব্যবহার করেছেন, তাই where কুয়েরি লাগবে
+      // চেক করুন ইউজার অলরেডি ভিউয়ার লিস্টে আছে কি না
+      final viewerDoc = await roomRef.collection('viewers').doc(user.uid).get();
+      if (viewerDoc.exists) return; // থাকলে আর অ্যাড করার দরকার নেই
+
       final userQuery = await firestore
           .collection('users')
           .where('authUID', isEqualTo: user.uid)
@@ -2500,9 +2591,7 @@ Future<void> _checkIfFollowing() async {
         myShortID = userData['uID']?.toString() ?? "0";
       }
 
-      // ২. এবার ভিউয়ার লিস্টে ডাটা পাঠানো
-      final roomRef = firestore.collection('rooms').doc(widget.roomId);
-
+      // ডাটা পাঠানো
       await roomRef.collection('viewers').doc(user.uid).set({
         'authUID': user.uid,
         'uID': myShortID,
@@ -2511,11 +2600,8 @@ Future<void> _checkIfFollowing() async {
         'joinedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      // ৩. কাউন্ট আপডেট
+      // কাউন্ট বাড়ানো
       await roomRef.update({'viewerCount': FieldValue.increment(1)});
-
-      debugPrint(
-          "সফল! আপনার ID: $myShortID এবং ছবি: $myPic ডাটাবেসে পাঠানো হয়েছে।");
     } catch (e) {
       debugPrint("Viewer Add Error: $e");
     }
@@ -2529,11 +2615,20 @@ Future<void> _checkIfFollowing() async {
       final roomRef =
           FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
 
-      // সরাসরি user.uid দিয়ে ডিলিট করুন
+      // ডিলিট করার আগে চেক
+      final viewerDoc = await roomRef.collection('viewers').doc(user.uid).get();
+      if (!viewerDoc.exists)
+        return; // না থাকলে ডিলিট বা কাউন্ট কমানোর দরকার নেই
+
       await roomRef.collection('viewers').doc(user.uid).delete();
 
-      // কাউন্ট কমানো (০ এর নিচে যাতে না যায় সেজন্য চেক রাখতে পারেন)
-      await roomRef.update({'viewerCount': FieldValue.increment(-1)});
+      // কাউন্ট কমানো (নিরাপদভাবে)
+      final roomDoc = await roomRef.get();
+      int currentCount = roomDoc.data()?['viewerCount'] ?? 0;
+
+      if (currentCount > 0) {
+        await roomRef.update({'viewerCount': FieldValue.increment(-1)});
+      }
     } catch (e) {
       debugPrint("Viewer Remove Error: $e");
     }

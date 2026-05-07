@@ -181,30 +181,24 @@ class AgoraManager {
     await forceResumeAudio();
   }
 
-  // --- সিটে বসার পর কলিং ---
   Future<void> becomeBroadcaster() async {
-    if (_engine == null) await initAgora();
-    _shouldBeBroadcasting = true;
-    _isMicMutedLocal = false; 
-    
-    if (!kIsWeb) {
-      var status = await Permission.microphone.status;
-      if (!status.isGranted) {
-        await Permission.microphone.request();
-      }
+  if (_engine == null) await initAgora();
+  _shouldBeBroadcasting = true;
+  _isMicMutedLocal = false; 
+  
+  if (!kIsWeb) {
+    var status = await Permission.microphone.status;
+    if (!status.isGranted) {
+      await Permission.microphone.request();
     }
-
-    await _engine!.enableLocalAudio(true); 
-    await _engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
-    await _ensureAudioPublishing();
-
-    _keepAliveTimer?.cancel();
-    _keepAliveTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
-      if (_isInitialized && _shouldBeBroadcasting) {
-        _ensureAudioPublishing();
-      }
-    });
   }
+
+  await _engine!.enableLocalAudio(true); 
+  await _engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+  await _ensureAudioPublishing(); // এটি এখানে একবার কল হওয়াই যথেষ্ট।
+
+  _keepAliveTimer?.cancel(); // টাইমার ডিলিট করে দিন।
+}
 
   Future<void> _ensureAudioPublishing() async {
     if (_engine == null) return;

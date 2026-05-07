@@ -1,7 +1,7 @@
 import 'package:pagla_chat/data/romantic_gifts.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:lottie/lottie.dart'; 
+import 'package:lottie/lottie.dart';
 import 'package:pagla_chat/services/gift_logic_helper.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,12 +10,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pagla_chat/data/free_gifts.dart';
 import 'package:pagla_chat/data/classic_gifts.dart';
 import 'package:pagla_chat/data/luxury_gifts.dart';
+import 'package:pagla_chat/data/pk_gifts.dart'; // নতুন ফাইলটি ইম্পোর্ট করলেন
 
 class GiftBottomSheet extends StatefulWidget {
   final int diamondBalance;
-  final List<dynamic> currentSeats; 
+  final List<dynamic> currentSeats;
   final int viewerCount;
-  final Function(Map<String, dynamic> gift, int count, String target) onGiftSend;
+  final Function(Map<String, dynamic> gift, int count, String target)
+      onGiftSend;
 
   const GiftBottomSheet({
     super.key,
@@ -32,13 +34,13 @@ class GiftBottomSheet extends StatefulWidget {
 class _GiftBottomSheetState extends State<GiftBottomSheet> {
   Map<String, dynamic>? selectedGift;
   int selectedCount = 1;
-  String targetType = "Target"; 
-  String? selectedTargetId; 
-  String? selectedTargetName; 
-  String? selectedTargetImage; 
-  
+  String targetType = "Target";
+  String? selectedTargetId;
+  String? selectedTargetName;
+  String? selectedTargetImage;
+
   late List<Map<String, dynamic>> dynamicFreeGifts;
-  Timer? _timer; 
+  Timer? _timer;
 
   @override
   void initState() {
@@ -46,16 +48,15 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     DateTime expiryDate = DateTime.now().add(const Duration(days: 3));
     dynamicFreeGifts = freeGifts.map((g) {
       var map = Map<String, dynamic>.from(g);
-      map['expiry'] = expiryDate; 
+      map['expiry'] = expiryDate;
       return map;
     }).toList();
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
-          dynamicFreeGifts.removeWhere((g) => 
-            (g['expiry'] as DateTime).isBefore(DateTime.now())
-          );
+          dynamicFreeGifts.removeWhere(
+              (g) => (g['expiry'] as DateTime).isBefore(DateTime.now()));
         });
       }
     });
@@ -67,212 +68,241 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     super.dispose();
   }
 
-  // ✅ ফিক্সড ইউজার সিলেকশন লজিক (Firebase uID অনুযায়ী)
+  // ✅ ফিক্সড ইউজার সিলেকশন লজিক
   void _showUserSelectionList() {
-    // সিটে থাকা ইউজারদের ফিল্টার করা - স্ক্রিনশট অনুযায়ী 'uID' চেক করা হচ্ছে
+    // সিটে থাকা ইউজারদের ফিল্টার করা - শুধুমাত্র যাদের uID আছে এবং সিট Occupied
     List activeUsers = widget.currentSeats.where((s) {
       if (s == null) return false;
-      return s['uID'] != null || s['uID'] != null || s['userId'] != null;
+      // চেক করা হচ্ছে সিটটি কি আসলেই অকুপাইড এবং সেখানে কি uID আছে
+      return (s['isOccupied'] == true || s['status'] == 'occupied') && 
+             (s['uID'] != null && s['uID'].toString().isNotEmpty);
     }).toList();
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0F0F1E), 
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      backgroundColor: const Color(0xFF0F0F1E),
+      isScrollControlled: true, // কিবোর্ড বা স্ক্রিন সাইজ ম্যানেজ করার জন্য
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return Container(
           padding: const EdgeInsets.all(15),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.6, // লিস্ট বড় হলে ৬০০% উচ্চতা নিবে
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text("Select User from Seats", 
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text("Select User from Seats",
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
-              activeUsers.isEmpty 
-                ? const Padding(
-                    padding: EdgeInsets.all(30.0),
-                    child: Text("No users are currently on seats", style: TextStyle(color: Colors.white54)),
-                  )
-                : Flexible(
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: activeUsers.length,
-                      itemBuilder: (context, index) {
-                        var seat = activeUsers[index];
-                        
-                        // Firebase key 'uID' এবং 'profilePic' এর সাথে ম্যাচ করা হয়েছে
-                        String uID = (seat['uID'] ?? seat['uID'] ?? seat['userId'] ?? "").toString();
-                        String name = seat['name'] ?? seat['userName'] ?? "User ${index + 1}";
-                        String img = seat['profilePic'] ?? seat['image'] ?? seat['userImage'] ?? "";
+              
+              activeUsers.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.all(40.0),
+                      child: Text("No users are currently on seats",
+                          style: TextStyle(color: Colors.white54)),
+                    )
+                  : Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: activeUsers.length,
+                        itemBuilder: (context, index) {
+                          var seat = activeUsers[index];
 
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.white10,
-                            backgroundImage: img.isNotEmpty ? NetworkImage(img) : null,
-                            child: img.isEmpty ? const Icon(Icons.person, color: Colors.white24) : null,
-                          ),
-                          title: Text(name, style: const TextStyle(color: Colors.white)),
-                          subtitle: Text("ID: $uID", style: const TextStyle(color: Colors.white38, fontSize: 11)),
-                          onTap: () {
-                            setState(() {
-                              selectedTargetId = uID;
-                              selectedTargetName = name;
-                              selectedTargetImage = img;
-                              targetType = "Target"; 
-                            });
-                            Navigator.pop(context);
-                          },
-                        );
-                      },
+                          // ডাটাবেজ কী (Key) অনুযায়ী ডাটা নেওয়া
+                          String uID = (seat['uID'] ?? "").toString();
+                          String name = seat['name'] ?? seat['userName'] ?? "User";
+                          String img = seat['profilePic'] ?? seat['image'] ?? seat['userImage'] ?? "";
+
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.white10,
+                              backgroundImage: img.isNotEmpty ? NetworkImage(img) : null,
+                              child: img.isEmpty
+                                  ? const Icon(Icons.person, color: Colors.white24)
+                                  : null,
+                            ),
+                            title: Text(name, style: const TextStyle(color: Colors.white)),
+                            subtitle: Text("ID: $uID",
+                                style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                            onTap: () {
+                              setState(() {
+                                selectedTargetId = uID;
+                                selectedTargetName = name;
+                                selectedTargetImage = img;
+                                targetType = name; // এখানে ইউজারের নাম সরাসরি সেট করুন
+                              });
+                              Navigator.pop(context);
+                            },
+                          );
+                        },
+                      ),
                     ),
-                  ),
             ],
           ),
         );
       },
     );
   }
+  
 
- @override
-Widget build(BuildContext context) {
-  // 🎨 গিফটের টাইপ অনুযায়ী বডি কালার ঠিক করার লজিক
-  Color getDynamicBodyColor() {
-    if (selectedGift == null) return const Color.fromARGB(131, 4, 4, 122); // ডিফল্ট ডার্ক কালার
-    
-    bool isFree = selectedGift!['expiry'] != null;
-    int price = (selectedGift!['price'] ?? 0);
+  @override
+  Widget build(BuildContext context) {
+    // 🎨 গিফটের টাইপ অনুযায়ী বডি কালার ঠিক করার লজিক
+    Color getDynamicBodyColor() {
+      if (selectedGift == null)
+        return const Color.fromARGB(131, 4, 4, 122); // ডিফল্ট ডার্ক কালার
 
-    if (isFree) return Colors.green.withOpacity(0.08); // ফ্রি গিফটের জন্য হালকা সবুজ আভা
-    if (price > 500) return Colors.purple.withOpacity(0.12); // লাক্সারি গিফটের জন্য বেগুনি আভা
-    if (price > 100) return Colors.orange.withOpacity(0.08); // রোমান্টিক গিফটের জন্য কমলা আভা
-    return Colors.pink.withOpacity(0.08); // ক্লাসিক গিফটের জন্য গোলাপী আভা
-  }
+      bool isFree = selectedGift!['expiry'] != null;
+      int price = (selectedGift!['price'] ?? 0);
 
-  return DefaultTabController(
-    length: 4,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 400), // কালার পরিবর্তনের সময়
-      height: 550,
-      decoration: BoxDecoration(
-        // এখানে সলিড কালারের বদলে গ্রেডিয়েন্ট দিলে আরও রয়্যাল লাগবে
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0xFF0F0F1E), // উপরের ডার্ক বেস
-            getDynamicBodyColor(),   // নিচের ডাইনামিক আভা
-          ],
-        ),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-        boxShadow: [
-          BoxShadow(
-            color: getDynamicBodyColor().withOpacity(0.3), 
-            blurRadius: 15, 
-            spreadRadius: 2
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 15),
-          // উপরে একটা ছোট হ্যান্ডেল বারের মতো দিলে ভালো দেখাবে
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 10),
-          _buildHeader(),
-          _buildTargetSelector(),
-          const TabBar(
-            isScrollable: true,
-            indicatorColor: Colors.pinkAccent,
-            dividerColor: Colors.transparent,
-            labelStyle: TextStyle(fontWeight: FontWeight.bold),
-            unselectedLabelColor: Colors.white38,
-            tabs: [
-              Tab(text: "Free"), Tab(text: "Classic"),
-              Tab(text: "Romantic"), Tab(text: "Luxury"),
+      if (isFree)
+        return Colors.green
+            .withOpacity(0.08); // ফ্রি গিফটের জন্য হালকা সবুজ আভা
+      if (price > 500)
+        return Colors.purple
+            .withOpacity(0.12); // লাক্সারি গিফটের জন্য বেগুনি আভা
+      if (price > 100)
+        return Colors.orange
+            .withOpacity(0.08); // রোমান্টিক গিফটের জন্য কমলা আভা
+      return Colors.pink.withOpacity(0.08); // ক্লাসিক গিফটের জন্য গোলাপী আভা
+    }
+
+    return DefaultTabController(
+      length: 4,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 400), // কালার পরিবর্তনের সময়
+        height: 550,
+        decoration: BoxDecoration(
+          // এখানে সলিড কালারের বদলে গ্রেডিয়েন্ট দিলে আরও রয়্যাল লাগবে
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              const Color(0xFF0F0F1E), // উপরের ডার্ক বেস
+              getDynamicBodyColor(), // নিচের ডাইনামিক আভা
             ],
           ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildGrid(dynamicFreeGifts, isFreeTab: true),
-                _buildGrid(classicGifts),
-                _buildGrid(romanticGifts),
-                _buildGrid(luxuryGifts),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          boxShadow: [
+            BoxShadow(
+                color: getDynamicBodyColor().withOpacity(0.3),
+                blurRadius: 15,
+                spreadRadius: 2),
+          ],
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 15),
+            // উপরে একটা ছোট হ্যান্ডেল বারের মতো দিলে ভালো দেখাবে
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _buildHeader(),
+            _buildTargetSelector(),
+            const TabBar(
+              isScrollable: true,
+              indicatorColor: Colors.pinkAccent,
+              dividerColor: Colors.transparent,
+              labelStyle: TextStyle(fontWeight: FontWeight.bold),
+              unselectedLabelColor: Colors.white38,
+              tabs: [
+                Tab(text: "Free"),
+                Tab(text: "Pk"),
+                Tab(text: "Classic"),
+                Tab(text: "Romantic"),
+                Tab(text: "Luxury"),
               ],
             ),
-          ),
-          _buildBottomBar(),
-        ],
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _buildGrid(dynamicFreeGifts, isFreeTab: true),
+                  _buildGrid(pkGifts),
+                  _buildGrid(classicGifts),
+                  _buildGrid(romanticGifts),
+                  _buildGrid(luxuryGifts),
+                ],
+              ),
+            ),
+            _buildBottomBar(),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   // ফায়ারবেস থেকে সরাসরি ডাইমন্ড আনার জন্য এই উইজেটটি ব্যবহার করুন
   Widget _buildHeader() {
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 20),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        // 💎 ডাইমন্ড দেখানোর জন্য StreamBuilder
-        StreamBuilder<QuerySnapshot>(
-          // আপনার ডাটাবেস অনুযায়ী authUID দিয়ে সঠিক ইউজার ডকুমেন্ট খোঁজা হচ্ছে
-          stream: FirebaseFirestore.instance
-              .collection('users')
-              .where('authUID', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
-              .snapshots(),
-          builder: (context, snapshot) {
-            int currentBalance = 0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // 💎 ডাইমন্ড দেখানোর জন্য StreamBuilder
+          StreamBuilder<QuerySnapshot>(
+            // আপনার ডাটাবেস অনুযায়ী authUID দিয়ে সঠিক ইউজার ডকুমেন্ট খোঁজা হচ্ছে
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .where('authUID',
+                    isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                .snapshots(),
+            builder: (context, snapshot) {
+              int currentBalance = 0;
 
-            if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-              // প্রথম যে ডকুমেন্ট পাওয়া যাবে (যেহেতু authUID ইউনিক)
-              var userData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
-              
-              // আপনার ডাটাবেস অনুযায়ী ফিল্ডের নাম 'diamonds'
-              currentBalance = userData['diamonds'] ?? 0;
-            }
+              if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                // প্রথম যে ডকুমেন্ট পাওয়া যাবে (যেহেতু authUID ইউনিক)
+                var userData =
+                    snapshot.data!.docs.first.data() as Map<String, dynamic>;
 
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white10, 
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Row(
-                children: [
-                  // ডাইমন্ড আইকন আপনি যেমন চেয়েছেন (💎)
-                  const Text("💎", style: TextStyle(fontSize: 14)),
-                  const SizedBox(width: 5),
-                  Text(
-                    "$currentBalance", 
-                    style: const TextStyle(
-                      color: Colors.white, 
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14
+                // আপনার ডাটাবেস অনুযায়ী ফিল্ডের নাম 'diamonds'
+                currentBalance = userData['diamonds'] ?? 0;
+              }
+
+              return Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white10,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Row(
+                  children: [
+                    // ডাইমন্ড আইকন আপনি যেমন চেয়েছেন (💎)
+                    const Text("💎", style: TextStyle(fontSize: 14)),
+                    const SizedBox(width: 5),
+                    Text(
+                      "$currentBalance",
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14),
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-        const Text(
-          "Send Gift", 
-          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        const Icon(Icons.history, color: Colors.white38),
-      ],
-    ),
-  );
-}
+                  ],
+                ),
+              );
+            },
+          ),
+          const Text(
+            "Send Gift",
+            style: TextStyle(
+                color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const Icon(Icons.history, color: Colors.white38),
+        ],
+      ),
+    );
+  }
 
   Widget _buildTargetSelector() {
     return Container(
@@ -283,15 +313,18 @@ Widget build(BuildContext context) {
           children: [
             _targetChip("All Room", Icons.groups),
             _targetChip("All Mic", Icons.mic),
-            _targetChip(selectedTargetName ?? "Target", Icons.person_add, isTargetMode: true, userImg: selectedTargetImage),
+            _targetChip(selectedTargetName ?? "Target", Icons.person_add,
+                isTargetMode: true, userImg: selectedTargetImage),
           ],
         ),
       ),
     );
   }
 
-  Widget _targetChip(String label, IconData icon, {bool isTargetMode = false, String? userImg}) {
-    bool isSelected = isTargetMode ? (targetType == "Target") : (targetType == label);
+  Widget _targetChip(String label, IconData icon,
+      {bool isTargetMode = false, String? userImg}) {
+    bool isSelected =
+        isTargetMode ? (targetType == "Target") : (targetType == label);
     return GestureDetector(
       onTap: () {
         if (isTargetMode) {
@@ -309,117 +342,139 @@ Widget build(BuildContext context) {
         margin: const EdgeInsets.only(right: 10),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.pinkAccent : Colors.white.withOpacity(0.05),
+          color:
+              isSelected ? Colors.pinkAccent : Colors.white.withOpacity(0.05),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? Colors.white24 : Colors.transparent),
+          border: Border.all(
+              color: isSelected ? Colors.white24 : Colors.transparent),
         ),
         child: Row(
           children: [
             if (userImg != null && userImg.isNotEmpty)
               CircleAvatar(radius: 8, backgroundImage: NetworkImage(userImg))
             else
-              Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.white54),
+              Icon(icon,
+                  size: 16, color: isSelected ? Colors.white : Colors.white54),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.white54, fontSize: 12, fontWeight: FontWeight.w500)),
+            Text(label,
+                style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.white54,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500)),
           ],
         ),
       ),
     );
   }
 
- Widget _buildGrid(List gifts, {bool isFreeTab = false}) {
-  return GridView.builder(
-    padding: const EdgeInsets.all(15),
-    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: 4, 
-      childAspectRatio: 0.85,
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-    ),
-    itemCount: gifts.length,
-    itemBuilder: (context, index) {
-      var gift = gifts[index];
-      bool isSelected = selectedGift?['id'] == gift['id'];
-      String giftPath = (gift["image"] ?? gift["icon"] ?? gift["url"] ?? "").toString();
-      bool isJson = giftPath.toLowerCase().endsWith('.json');
+  Widget _buildGrid(List gifts, {bool isFreeTab = false}) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(15),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        childAspectRatio: 0.85,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+      ),
+      itemCount: gifts.length,
+      itemBuilder: (context, index) {
+        var gift = gifts[index];
+        bool isSelected = selectedGift?['id'] == gift['id'];
+        String giftPath =
+            (gift["image"] ?? gift["icon"] ?? gift["url"] ?? "").toString();
+        bool isJson = giftPath.toLowerCase().endsWith('.json');
 
-      return GestureDetector(
-        onTap: () => setState(() => selectedGift = gift),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.pinkAccent.withOpacity(0.2) : Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(
-              color: isSelected ? Colors.pinkAccent : Colors.white10, 
-              width: isSelected ? 2.0 : 1.5
+        return GestureDetector(
+          onTap: () => setState(() => selectedGift = gift),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? Colors.pinkAccent.withOpacity(0.2)
+                  : Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(
+                  color: isSelected ? Colors.pinkAccent : Colors.white10,
+                  width: isSelected ? 2.0 : 1.5),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                          color: Colors.pinkAccent.withOpacity(0.3),
+                          blurRadius: 8)
+                    ]
+                  : null,
             ),
-            boxShadow: isSelected ? [BoxShadow(color: Colors.pinkAccent.withOpacity(0.3), blurRadius: 8)] : null,
-          ),
-          child: ClipRRect( // ছবি যেন বর্ডারের বাইরে না যায়
-            borderRadius: BorderRadius.circular(13),
-            child: Stack(
-              children: [
-                // ১. মূল ছবি (পুরো কার্ড জুড়ে থাকবে)
-                Positioned.fill(
-                  child: isJson 
-                    ? Lottie.asset(giftPath, repeat: true, fit: BoxFit.contain)
-                    : Image.network(
-                        giftPath, 
-                        fit: BoxFit.cover, // এইটা ছবিকে পুরো বর্ডার পর্যন্ত টেনে বড় করবে
-                        errorBuilder: (c, e, s) => const Icon(Icons.card_giftcard, color: Colors.white24),
-                      ),
-                ),
+            child: ClipRRect(
+              // ছবি যেন বর্ডারের বাইরে না যায়
+              borderRadius: BorderRadius.circular(13),
+              child: Stack(
+                children: [
+                  // ১. মূল ছবি (পুরো কার্ড জুড়ে থাকবে)
+                  Positioned.fill(
+                    child: isJson
+                        ? Lottie.asset(giftPath,
+                            repeat: true, fit: BoxFit.contain)
+                        : Image.network(
+                            giftPath,
+                            fit: BoxFit
+                                .cover, // এইটা ছবিকে পুরো বর্ডার পর্যন্ত টেনে বড় করবে
+                            errorBuilder: (c, e, s) => const Icon(
+                                Icons.card_giftcard,
+                                color: Colors.white24),
+                          ),
+                  ),
 
-                // ২. নিচের টেক্সট বা ডাইমন্ড কাউন্ট (ছবির উপরে হালকা শ্যাডো সহ)
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.6), 
-                          Colors.transparent
+                  // ২. নিচের টেক্সট বা ডাইমন্ড কাউন্ট (ছবির উপরে হালকা শ্যাডো সহ)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Colors.black.withOpacity(0.6),
+                            Colors.transparent
+                          ],
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isFreeTab)
+                            Text(_getRemainingTime(gift['expiry']),
+                                style: const TextStyle(
+                                    color: Colors.greenAccent,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold))
+                          else
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text("💎", style: TextStyle(fontSize: 9)),
+                                const SizedBox(width: 2),
+                                Text("${gift["price"]}",
+                                    style: const TextStyle(
+                                        color: Colors.amber,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold)),
+                              ],
+                            ),
                         ],
                       ),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isFreeTab) 
-                          Text(
-                            _getRemainingTime(gift['expiry']), 
-                            style: const TextStyle(color: Colors.greenAccent, fontSize: 8, fontWeight: FontWeight.bold)
-                          )
-                        else
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text("💎", style: TextStyle(fontSize: 9)),
-                              const SizedBox(width: 2),
-                              Text(
-                                "${gift["price"]}", 
-                                style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   Widget _buildBottomBar() {
     return Container(
@@ -431,27 +486,41 @@ Widget build(BuildContext context) {
       child: Row(
         children: [
           ...[1, 10, 88, 100].map((count) => GestureDetector(
-            onTap: () => setState(() => selectedCount = count),
-            child: Container(
-              margin: const EdgeInsets.only(right: 10),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: selectedCount == count ? Colors.pinkAccent : Colors.white10,
-                shape: BoxShape.circle,
-              ),
-              child: Text("$count", style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-            ),
-          )),
+                onTap: () => setState(() => selectedCount = count),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 10),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: selectedCount == count
+                        ? Colors.pinkAccent
+                        : Colors.white10,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text("$count",
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold)),
+                ),
+              )),
           const Spacer(),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.pinkAccent, 
+              backgroundColor: Colors.pinkAccent,
               padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25)),
               elevation: 5,
             ),
-            onPressed: (selectedGift == null || (targetType == "Target" && selectedTargetId == null)) ? null : _handleSendAction,
-            child: const Text("SEND", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
+            onPressed: (selectedGift == null ||
+                    (targetType == "Target" && selectedTargetId == null))
+                ? null
+                : _handleSendAction,
+            child: const Text("SEND",
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1)),
           ),
         ],
       ),
@@ -460,33 +529,46 @@ Widget build(BuildContext context) {
 
   void _handleSendAction() {
     int unitPrice = (selectedGift!['price'] ?? 0) as int;
-    bool isFree = selectedGift!['expiry'] != null;
-    
+    bool isFree =
+        selectedGift!['expiry'] != null; // এক্সপায়ারি থাকলে এটি ফ্রি গিফট
+
     int multiplier = 1;
     if (targetType == "All Mic") {
       multiplier = widget.currentSeats.where((s) => s != null).length;
     } else if (targetType == "All Room") {
       multiplier = widget.viewerCount > 0 ? widget.viewerCount : 1;
     }
-    
+
     int totalPrice = unitPrice * selectedCount * multiplier;
 
     if (!isFree && widget.diamondBalance < totalPrice) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        backgroundColor: Colors.redAccent,
-        content: Text("Insufficient Diamonds! Need $totalPrice 💎", style: const TextStyle(color: Colors.white))));
+          backgroundColor: Colors.redAccent,
+          content: Text("Insufficient Diamonds! Need $totalPrice 💎",
+              style: const TextStyle(color: Colors.white))));
       return;
     }
 
+    // ফ্রি গিফট শুধুমাত্র নির্দিষ্ট একজনকে পাঠানো যাবে
     if (isFree && targetType != "Target") {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Free gifts can only be sent to a specific user!")));
-        return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Free gifts can only be sent to a specific user!")));
+      return;
     }
 
-    widget.onGiftSend(selectedGift!, selectedCount, selectedTargetId ?? targetType);
+    // ✅ রুম ডারটের লজিকের সাথে মিল রেখে নাম পাঠানো হচ্ছে যাতে ছবি লোড হয়
+    String finalTargetValue;
+    if (targetType == "All Room" || targetType == "All Mic") {
+      finalTargetValue = targetType;
+    } else {
+      finalTargetValue = selectedTargetName ?? "Target";
+    }
+
+    widget.onGiftSend(selectedGift!, selectedCount, finalTargetValue);
 
     if (isFree) {
       setState(() {
+        // লিস্ট থেকে গিফটটি সরিয়ে ফেলা
         dynamicFreeGifts.removeWhere((g) => g['id'] == selectedGift!['id']);
         selectedGift = null;
       });
@@ -494,6 +576,7 @@ Widget build(BuildContext context) {
     Navigator.pop(context);
   }
 
+  // ✅ আপনার সেই হারানো টাইম লজিকটি এখানে যোগ করা হয়েছে
   String _getRemainingTime(DateTime expiry) {
     final difference = expiry.difference(DateTime.now());
     if (difference.isNegative) return "Expired";

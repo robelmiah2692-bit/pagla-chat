@@ -1540,7 +1540,7 @@ class _ProfilePageState extends State<ProfilePage> {
     // ৩. ইউজারের বর্তমান VIP লেভেল অনুযায়ী ফ্রেম চেক (১ থেকে ৮)
     if (currentLevel >= 1 && currentLevel <= 8) {
       String vipFrameUrl =
-          "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/framevip$vipLevel.png";
+           "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/framevip$currentLevel.png";
       myAvailableFrames.add({"name": "VIP Level $currentLevel", "url": vipFrameUrl});
   }
   

@@ -135,14 +135,6 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
         });
       }
 
-      // ৬. ভিউয়ার লিস্ট ইনিশিয়ালাইজ (ওনারকে প্রথম ভিউয়ার হিসেবে রাখা)
-      await roomRef.collection('viewers').doc(mySixDigitID).set({
-        'uID': mySixDigitID,
-        'name': currentUserName,
-        'profilePic': currentUserPic,
-        'joinedAt': FieldValue.serverTimestamp(),
-      });
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Rady your room!"), backgroundColor: Colors.green),

@@ -7,39 +7,45 @@ class GiftTransactionHelper {
   static Future<void> processGiftTransaction({
     required String senderId,
     required String receiverId,
-    required String roomId, // রুম আইডি লাগবে যাতে মালিককে খুঁজে পাওয়া যায়
+    required String roomId, 
+    String senderImage = "",   // এই লাইনটি যোগ করুন
+    String receiverImage = "", // এই লাইনটি যোগ করুন
     required int totalPrice,
     required bool isFree,
     required String giftName,
   }) async {
     try {
-      if (receiverId.isEmpty || receiverId == "ALL") {
-        debugPrint("Transaction Skipped: Receiver ID is empty or 'ALL'");
+      // ✅ ১. আইডি চেক লজিক আপডেট
+      if (senderId.isEmpty || receiverId.isEmpty) {
+        debugPrint("Transaction Cancelled: Sender or Receiver ID is missing.");
         return;
       }
 
       WriteBatch batch = _firestore.batch();
 
-      // ১. যদি পেইড গিফট হয়
+      // ২. যদি পেইড গিফট হয়
       if (!isFree && totalPrice > 0) {
-        int userShare = (totalPrice * 0.40).floor();  // ৪০% গ্রহীতা পাবে
-        int ownerShare = (totalPrice * 0.10).floor(); // ১০% রুমের মালিক পাবে
-
         // দাতার (Sender) ডায়মন্ড মাইনাস
         DocumentReference senderRef = _firestore.collection('users').doc(senderId);
         batch.update(senderRef, {
           'diamonds': FieldValue.increment(-totalPrice),
         });
 
-        // গ্রহীতার (Receiver) ডায়মন্ড যোগ (৪০%)
-        DocumentReference receiverRef = _firestore.collection('users').doc(receiverId);
-        batch.update(receiverRef, {
-          'diamonds': FieldValue.increment(userShare),
-        });
+        // ✅ ৩. রিসিভার যদি কোনো নির্দিষ্ট ইউজার হয় (All Room/Mic না হয়)
+        if (receiverId != "All Room" && receiverId != "All Mic") {
+          int userShare = (totalPrice * 0.40).floor();  // ৪০% গ্রহীতা পাবে
+          
+          DocumentReference receiverRef = _firestore.collection('users').doc(receiverId);
+          batch.update(receiverRef, {
+            'diamonds': FieldValue.increment(userShare),
+          });
+          debugPrint("Receiver ($receiverId) received $userShare diamonds");
+        }
 
-        // --- রুমের মালিকের কমিশন লজিক ---
-        // প্রথমে রুমের ডাটা থেকে ownerId খুঁজে বের করা
+        // ৪. রুমের মালিকের কমিশন (১০%)
+        int ownerShare = (totalPrice * 0.10).floor(); 
         var roomDoc = await _firestore.collection('rooms').doc(roomId).get();
+        
         if (roomDoc.exists) {
           String? ownerId = roomDoc.data()?['ownerId'];
           if (ownerId != null && ownerId.isNotEmpty) {
@@ -52,12 +58,14 @@ class GiftTransactionHelper {
         }
       } 
       
-      // ২. গিফট লগ সেভ করা
+      // ৫. গিফট লগ সেভ করা
       DocumentReference logRef = _firestore.collection('gift_logs').doc();
       batch.set(logRef, {
         'senderId': senderId,
         'receiverId': receiverId,
         'roomId': roomId,
+        'senderImage': senderImage,    // ডাটাবেজে ছবি সেভ হবে
+        'receiverImage': receiverImage, // ডাটাবেজে ছবি সেভ হবে
         'giftName': giftName,
         'totalPrice': totalPrice,
         'isFree': isFree,
@@ -65,10 +73,11 @@ class GiftTransactionHelper {
       });
 
       await batch.commit();
-      debugPrint("Gift Transaction Successful: $giftName sent");
+      debugPrint("✅ Gift Transaction Successful: $totalPrice diamonds handled.");
 
     } catch (e) {
-      debugPrint("Gift Transaction Error: $e");
+      debugPrint("❌ Gift Transaction Error: $e");
+      rethrow; // মেইন ফাইলে এরর পাঠানোর জন্য
     }
   }
 }

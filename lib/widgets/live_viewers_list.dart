@@ -9,11 +9,18 @@ class LiveViewersList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
+      // 🔥 পরিবর্তন: distinct ব্যবহার করা হয়েছে যাতে সিটে কথা বলার সময় ভিউয়ার লিস্ট না কাঁপে
       stream: FirebaseFirestore.instance
           .collection('rooms')
           .doc(roomId)
           .collection('viewers')
-          .snapshots(),
+          .snapshots(includeMetadataChanges: false)
+          .distinct((prev, next) {
+            // যদি ভিউয়ারদের সংখ্যা এবং প্রথম ইউজারের আইডি একই থাকে, তবে রিবিল্ড হবে না
+            if (prev.docs.length != next.docs.length) return false;
+            if (prev.docs.isEmpty && next.docs.isEmpty) return true;
+            return prev.docs.first.id == next.docs.first.id;
+          }), 
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const SizedBox();
         
@@ -42,35 +49,20 @@ class LiveViewersList extends StatelessWidget {
               child: SizedBox(
                 height: 40,
                 child: ListView.builder(
-                  // ১. এখানে একটি কি (Key) যোগ করা হয়েছে যাতে লিস্টের স্টেট বজায় থাকে
                   key: const PageStorageKey('live_viewers_list'),
                   scrollDirection: Axis.horizontal,
                   itemCount: viewers.length,
+                  addAutomaticKeepAlives: true,
+                  addRepaintBoundaries: true,
                   itemBuilder: (context, index) {
                     var viewerData = viewers[index].data() as Map<String, dynamic>;
-                    String viewerId = viewerData['uID'] ?? viewers[index].id; 
+                    String viewerId = viewerData['uID']?.toString() ?? viewers[index].id; 
                     String profileImage = viewerData['profilePic'] ?? viewerData['userImage'] ?? '';
 
-                    return Padding(
-                      // ২. এখানে ValueKey যোগ করা হয়েছে যাতে ইউজারের ছবিগুলো না নাচে
-                      key: ValueKey(viewerId),
-                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ProfilePage(userId: viewerId),
-                            ),
-                          );
-                        },
-                        child: CircleAvatar(
-                          radius: 16,
-                          backgroundImage: profileImage.isNotEmpty ? NetworkImage(profileImage) : null,
-                          backgroundColor: Colors.grey[800],
-                          child: profileImage.isEmpty ? const Icon(Icons.person, size: 20, color: Colors.white) : null,
-                        ),
-                      ),
+                    return ViewerAvatar(
+                      key: ValueKey(viewerId), // ইউনিক কি কথা বলার সময় ছবি স্থির রাখবে
+                      viewerId: viewerId,
+                      profileImage: profileImage,
                     );
                   },
                 ),
@@ -79,6 +71,40 @@ class LiveViewersList extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class ViewerAvatar extends StatelessWidget {
+  final String viewerId;
+  final String profileImage;
+
+  const ViewerAvatar({
+    super.key,
+    required this.viewerId,
+    required this.profileImage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProfilePage(userId: viewerId),
+            ),
+          );
+        },
+        child: CircleAvatar(
+          radius: 16,
+          backgroundImage: profileImage.isNotEmpty ? NetworkImage(profileImage) : null,
+          backgroundColor: Colors.grey[800],
+          child: profileImage.isEmpty ? const Icon(Icons.person, size: 20, color: Colors.white) : null,
+        ),
+      ),
     );
   }
 }

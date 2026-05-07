@@ -34,7 +34,32 @@ class _ChatScreenState extends State<ChatScreen> {
   final AudioRecorder _audioRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isRecording = false;
+  String currentSixDigitId = "";
+  
+  @override
+void initState() {
+  super.initState();
+  _getMySixDigitId(); // অ্যাপ ওপেন হওয়ার সাথে সাথে আপনার আইডি লোড হবে
+}
 
+// আপনার নিজের ৬-ডিজিটের uID খুঁজে বের করার ফাংশন
+void _getMySixDigitId() async {
+  final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+  
+  final userDoc = await FirebaseFirestore.instance
+      .collection('users')
+      .where('authUID', isEqualTo: authUID)
+      .limit(1)
+      .get();
+
+  if (userDoc.docs.isNotEmpty) {
+    setState(() {
+      // ডাটাবেজ থেকে আপনার uID ভেরিয়েবলে সেট করা হচ্ছে
+      currentSixDigitId = userDoc.docs.first.data()['uID']?.toString() ?? "";
+    });
+  }
+}
+  
   @override
   void dispose() {
     _messageController.dispose();
@@ -43,13 +68,14 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  // ইউনিক চ্যাট রুম আইডি তৈরি
   String getChatRoomId() {
-    List<String> ids = [currentUserId, widget.receiverId];
-    ids.sort(); 
-    return ids.join("_"); 
-  }
-
+  // নিশ্চিত করুন এখানে আপনি ইউজারের ৬-ডিজিটের uID ব্যবহার করছেন
+  // যেমন: "978051" এবং "454488"
+  List<String> ids = [currentSixDigitId, widget.receiverId]; 
+  ids.sort(); 
+  return ids.join("_"); 
+}
+  
   // --- মিডিয়া অ্যাকশন (ডায়মন্ড ও এক্সপায়ারি চেক) ---
   void _handleMediaAction() async {
     // এখানে ডাটাবেস থেকে ইউজারের বর্তমান অবস্থা চেক করা হচ্ছে
@@ -133,54 +159,59 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 void _sendDataMessage(String content, String type) async {
-    if (content.isEmpty) return;
+  if (content.isEmpty) return;
 
-    try {
-      final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
-      
-      // ১. প্রথমে আমাদের লম্বা Auth UID ব্যবহার করে সেই ইউজারকে খুঁজে বের করতে হবে
-      // যার 'authUID' ফিল্ডটি বর্তমান ইউজারের আইডির সাথে মিলে যায়
-      final userQuery = await FirebaseFirestore.instance
-          .collection('users')
-          .where('authUID', isEqualTo: authUID)
-          .limit(1)
-          .get();
+  try {
+    final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+    
+    // ১. আপনার লম্বা Auth UID দিয়ে ইউজার ডকুমেন্ট খুঁজে বের করা
+    final userQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .where('authUID', isEqualTo: authUID)
+        .limit(1)
+        .get();
 
-      if (userQuery.docs.isEmpty) {
-        debugPrint("User profile not found in Firestore!");
-        return;
-      }
-
-      // ২. ইউজারের সঠিক ডাটা এবং ৬-ডিজিটের uID সংগ্রহ
-      final userData = userQuery.docs.first.data();
-      final String mySixDigitId = userData['uID']?.toString() ?? '0'; // ৬-ডিজিটের আইডি
-      final String myEmail = userData['email'] ?? ''; // ইমেইল
-      final String myName = userData['name'] ?? 'User'; // নাম
-      final String myPic = userData['profilepic'] ?? userData['profilePic'] ?? ''; // প্রোফাইল পিক
-
-      // ৩. মেসেজ পাঠানো
-      await FirebaseFirestore.instance
-          .collection('chats')
-          .doc(getChatRoomId())
-          .collection('messages')
-          .add({
-        'senderId': authUID,       // লম্বা আইডি
-        'senderuID': mySixDigitId, // আপনার ৬-ডিজিটের আইডি
-        'senderEmail': myEmail,    // ইমেইল
-        'senderName': myName,      // নাম
-        'senderImage': myPic,      // প্রোফাইল পিক
-        'receiverId': widget.receiverId,
-        'message': content,
-        'type': type,
-        'isRead': false,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-
-      debugPrint("Message Sent Successfully via 6-digit ID path!");
-    } catch (e) {
-      debugPrint("Send Error: $e");
+    if (userQuery.docs.isEmpty) {
+      debugPrint("User profile not found in Firestore!");
+      return;
     }
+
+    // ২. নিজের ৬-ডিজিটের uID এবং অন্যান্য তথ্য সংগ্রহ করা
+    final userData = userQuery.docs.first.data();
+    final String mySixDigitId = userData['uID']?.toString() ?? '0'; 
+    final String myEmail = userData['email'] ?? ''; 
+    final String myName = userData['name'] ?? 'User'; 
+    final String myPic = userData['profilepic'] ?? userData['profilePic'] ?? ''; 
+
+    // ৩. ইউনিক চ্যাট রুম আইডি তৈরি (শুধুমাত্র ৬-ডিজিটের আইডি ব্যবহার করে)
+    // এখানে widget.receiverId ও অবশ্যই ৬-ডিজিটের হতে হবে
+    List<String> ids = [mySixDigitId, widget.receiverId];
+    ids.sort(); 
+    String roomId = ids.join("_");
+
+    // ৪. মেসেজ পাঠানো
+    await FirebaseFirestore.instance
+        .collection('chats')
+        .doc(roomId) // ৬-ডিজিট ভিত্তিক রুম আইডি
+        .collection('messages')
+        .add({
+      'senderId': authUID,       // লম্বা আইডি (ভবিষ্যৎ রেফারেন্সের জন্য রাখা ভালো)
+      'senderuID': mySixDigitId, // আপনার ৬-ডিজিটের আইডি
+      'senderEmail': myEmail,    
+      'senderName': myName,      
+      'senderImage': myPic,      
+      'receiverId': widget.receiverId, // রিসিভারের ৬-ডিজিটের আইডি
+      'message': content,
+      'type': type,
+      'isRead': false,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+
+    debugPrint("Message Sent to Room: $roomId");
+  } catch (e) {
+    debugPrint("Send Error: $e");
   }
+}
   void _sendMessage() {
     String text = _messageController.text.trim();
     if (text.isEmpty) return;
@@ -321,47 +352,95 @@ void _sendDataMessage(String content, String type) async {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D0D1A),
-      appBar: AppBar(
-        title: Text(widget.receiverName, style: const TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF1E1E2F),
-        iconTheme: const IconThemeData(color: Colors.white),
+Widget build(BuildContext context) {
+  return Scaffold(
+    // পুরো ব্যাকগ্রাউন্ডে নিয়ন ভাইব দেওয়ার জন্য Container ব্যবহার করা হয়েছে
+    body: Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF1A1A2E), // ডার্ক নেভি
+            Color(0xFF16213E), // গভীর পার্পল শেড
+            Color(0xFF0D0D1A), // একদম নিচে কালো
+          ],
+        ),
       ),
-      body: Column(
+      child: Column(
         children: [
+          // অ্যাপবার অংশ
+          AppBar(
+            title: Text(widget.receiverName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.transparent, // ব্যাকগ্রাউন্ডের সাথে মিশিয়ে দেওয়া হয়েছে
+            elevation: 0,
+            iconTheme: const IconThemeData(color: Colors.white),
+            actions: [
+              IconButton(icon: const Icon(Icons.more_vert, color: Colors.white70), onPressed: () {}),
+            ],
+          ),
+          
           _buildLiveRoomBar(),
+          
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('chats')
-                  .doc(getChatRoomId())
-                  .collection('messages')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                final docs = snapshot.data!.docs;
-                return ListView.builder(
-                  reverse: true,
-                  padding: const EdgeInsets.all(15),
-                  itemCount: docs.length,
-                  itemBuilder: (context, index) {
-                    final data = docs[index].data() as Map<String, dynamic>;
-                    final bool isMe = data['senderId'] == currentUserId;
-                    return _buildMessageBubble(data, isMe);
+            child: Stack(
+              children: [
+                // ব্যাকগ্রাউন্ডে হালকা একটি লাভ রিয়েকশন ইফেক্ট (আপনার ছবির থিম অনুযায়ী)
+                Positioned(
+                  bottom: 100,
+                  right: -50,
+                  child: Opacity(
+                    opacity: 0.03,
+                    child: Icon(Icons.favorite, size: 400, color: Colors.pinkAccent),
+                  ),
+                ),
+                
+                StreamBuilder<QuerySnapshot>(
+                  // বর্তমান সিক্স ডিজিট আইডি লোড না হওয়া পর্যন্ত ওয়েট করবে
+                  stream: currentSixDigitId.isEmpty 
+                    ? const Stream.empty() 
+                    : FirebaseFirestore.instance
+                      .collection('chats')
+                      .doc(getChatRoomId())
+                      .collection('messages')
+                      .orderBy('timestamp', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (currentSixDigitId.isEmpty) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
+                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.cyanAccent));
+                    
+                    final docs = snapshot.data!.docs;
+                    return ListView.builder(
+                      reverse: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                      itemCount: docs.length,
+                      itemBuilder: (context, index) {
+                        final data = docs[index].data() as Map<String, dynamic>;
+                        // লম্বা আইডি দিয়ে চেক করা হচ্ছে কে পাঠিয়েছে
+                        final bool isMe = data['senderId'] == FirebaseAuth.instance.currentUser?.uid;
+                        return _buildMessageBubble(data, isMe);
+                      },
+                    );
                   },
-                );
-              },
+                ),
+              ],
             ),
           ),
-          _inputSection(),
+          
+          // ইনপুট সেকশনকে একটু গ্লাসি লুক দেওয়া হয়েছে
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E2F).withOpacity(0.9),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: _inputSection(),
+          ),
         ],
       ),
-    );
-  }
-
+    ),
+  );
+}
   Widget _buildMessageBubble(Map<String, dynamic> data, bool isMe) {
     String type = data['type'] ?? 'text';
     String msg = data['message'] ?? '';

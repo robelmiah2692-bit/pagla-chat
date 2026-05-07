@@ -2,9 +2,10 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/material.dart';
 
 class AgoraStatusChecker {
-  // ১. মেথডটিকে নিরাপদ করার জন্য context চেক যোগ করা হয়েছে
+  // আগের মেসেজটি ট্র্যাকিং করার জন্য যাতে একই জিনিস বারবার না দেখায়
+  static String? _lastMessage;
+
   static void listenToEvents(RtcEngine? engine, BuildContext context) {
-    // ইঞ্জিন নাল থাকলে ফাংশনটি কাজ করবে না, ফলে ক্রাশ হবে না
     if (engine == null) return;
 
     engine.registerEventHandler(
@@ -27,8 +28,9 @@ class AgoraStatusChecker {
 
         onError: (ErrorCodeType err, String msg) {
           debugPrint("Agora Error [$err]: $msg");
+          // মাইক বা অডিওর এররগুলো বারবার আসতে পারে, তাই সতর্ক থাকতে হবে
           if (msg.toLowerCase().contains("mic") || msg.toLowerCase().contains("audio")) {
-             _showSnackBar(context, "⚠️ মাইক সমস্যা: $msg", Colors.red);
+             _showSnackBar(context, "⚠️ মাইক সমস্যা দেখা দিচ্ছে", Colors.red);
           }
         },
       ),
@@ -36,22 +38,37 @@ class AgoraStatusChecker {
   }
 
   static void _showSnackBar(BuildContext context, String message, Color color) {
-    // সমাধান: context এখনো স্ক্রিনে আছে কি না তা নিশ্চিত করা
-    if (!Navigator.canPop(context) && !context.mounted) return;
+    // ১. মাউন্টেড চেক এবং ডুপ্লিকেট মেসেজ চেক
+    if (!context.mounted || _lastMessage == message) return;
 
     try {
+      _lastMessage = message;
       final messenger = ScaffoldMessenger.of(context);
-      messenger.hideCurrentSnackBar();
+      
+      // ২. hideCurrentSnackBar() এর কারণে অনেক সময় ঝিলিক মারে, তাই সরাসরি নতুন স্ন্যাপবার দেখানো ভালো
+      messenger.clearSnackBars(); 
+
       messenger.showSnackBar(
         SnackBar(
-          content: Text(message, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-          backgroundColor: color.withOpacity(0.9),
-          duration: const Duration(seconds: 2),
+          content: Text(
+            message, 
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)
+          ),
+          backgroundColor: color.withOpacity(0.8),
+          duration: const Duration(seconds: 3),
           behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          // ৩. মার্জিন বাড়িয়ে দেওয়া হয়েছে যাতে এটি ভিউয়ার লিস্টের ওপর চাপ না দেয়
+          margin: const EdgeInsets.only(bottom: 100, left: 50, right: 50),
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         ),
       );
+
+      // মেসেজটি শেষ হওয়ার পর ট্র্যাকিং ক্লিয়ার করা
+      Future.delayed(const Duration(seconds: 3), () {
+        _lastMessage = null;
+      });
     } catch (e) {
       debugPrint("SnackBar Error: $e");
     }
