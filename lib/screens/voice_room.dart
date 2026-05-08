@@ -17,6 +17,7 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:lottie/lottie.dart';
 import 'package:pagla_chat/room_list_page.dart' show RoomListPage;
+import 'package:pagla_chat/widgets/entry_effect_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -107,7 +108,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
   int activeEmojiSeatIndex = -1;
   bool isRoomLocked = false;
   String roomWallpaperPath = '';
-
+  String? entryUserName;
+  String? entryUserImage;
+  String? currentEntryEffect;
+  bool showEntryEffect = false;
   // PK Battle Info
   int blueTeamPoints = 0;
   int redTeamPoints = 0;
@@ -155,6 +159,29 @@ class _VoiceRoomState extends State<VoiceRoom> {
     _fetchRoomData();
     _initEmojiListener();
     _addUserToViewers();
+
+    FirebaseFirestore.instance
+        .collection('rooms')
+        .doc(widget.roomId)
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.exists) {
+        var data = snapshot.data() as Map<String, dynamic>;
+        if (data.containsKey('lastEntry')) {
+          var entry = data['lastEntry'];
+
+          // স্ক্রিনে ইফেক্ট দেখানোর জন্য সেট স্টেট করা
+          if (mounted) {
+            setState(() {
+              entryUserName = entry['name'];
+              entryUserImage = entry['image'];
+              currentEntryEffect = entry['entryUrl'];
+              showEntryEffect = true;
+            });
+          }
+        }
+      }
+    });
 
     // ১. ১৫টি সিটের ইনিশিয়ালাইজেশন
     seats = List.generate(
@@ -384,6 +411,54 @@ class _VoiceRoomState extends State<VoiceRoom> {
         });
       }
     });
+  }
+
+  void sendEntrySignal(String roomId) async {
+    User? currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    try {
+      DocumentSnapshot? userDoc;
+      // প্রোফাইল ডাটা Firestore থেকেই আনুন (ওখানে যেহেতু আছে)
+      final collection = FirebaseFirestore.instance.collection('users');
+
+      // ইউজার খোঁজার লজিক (আপনার আগের কোড অনুযায়ী)
+      if (uID.isNotEmpty) {
+        var docById = await collection.doc(uID).get();
+        if (docById.exists) userDoc = docById;
+      }
+
+      if (userDoc == null) {
+        var queryAuth = await collection
+            .where('authUID', isEqualTo: currentUser.uid)
+            .limit(1)
+            .get();
+        if (queryAuth.docs.isNotEmpty) userDoc = queryAuth.docs.first;
+      }
+
+      // --- যদি ইউজার পাওয়া যায় ---
+      if (userDoc != null && userDoc.exists) {
+        var userData = userDoc.data() as Map<String, dynamic>;
+        String? entryUrl = userData['activeEntryUrl'];
+        bool hasEffect = userData['hasEntryEffect'] ?? false;
+
+        if (hasEffect && entryUrl != null && entryUrl.isNotEmpty) {
+          // 🔥 পরিবর্তন এখানে: Firestore এর বদলে Realtime Database এ আপডেট করুন
+          await FirebaseDatabase.instance
+              .ref('rooms/$roomId/lastEntry') // সিট যেখানে আছে সেখানেই পাঠাচ্ছি
+              .set({
+            'name': userData['name'] ?? "User",
+            'image': userData['profilePic'] ?? "",
+            'activeEntryUrl': entryUrl,
+            'timestamp':
+                ServerValue.timestamp, // Realtime Database এর টাইমস্ট্যাম্প
+          });
+          debugPrint("✅ Realtime Database-এ এন্ট্রি সিগন্যাল পাঠানো হয়েছে!");
+        }
+      }
+    } catch (e) {
+      debugPrint("Entry Signal Error: $e");
+    }
   }
 
   // গিফট কাউন্টিং শুরু
@@ -629,10 +704,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
               roomData = snapshot.data!.data() as Map<String, dynamic>;
               wallpaperUrl = roomData['currentWallpaper'];
 
-              // গিফট অ্যানিমেশনের লজিক - লুপ বন্ধ করার জন্য কন্ডিশনাল হ্যান্ডলিং
+              // --- গিফট অ্যানিমেশনের লজিক (আপনার আগের কোড) ---
               var lastGift = roomData['last_gift'];
               if (lastGift != null) {
-                // ১. টাইমস্ট্যাম্প ঠিকভাবে নেওয়া
                 int giftTime = 0;
                 if (lastGift['timestamp'] is int) {
                   giftTime = lastGift['timestamp'];
@@ -642,8 +716,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 }
 
                 int now = DateTime.now().millisecondsSinceEpoch;
-
-                // ২. যদি ৫ সেকেন্ডের মধ্যে নতুন গিফট আসে এবং বর্তমানে কোনো অ্যানিমেশন না চলে
                 if (now - giftTime < 5000 && mounted && !isGiftAnimating) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted) {
@@ -653,26 +725,56 @@ class _VoiceRoomState extends State<VoiceRoom> {
                         currentSenderName = lastGift['senderName'] ?? 'Someone';
                         currentReceiverName = lastGift['target'] ?? '';
                         currentGiftCount = lastGift['count'] ?? 1;
-
-                        // *** নতুন যোগ করা হয়েছে: আইডি থেকে পাঠানো ছবিগুলো রিসিভ করা ***
-                        currentSenderImage = lastGift['senderImage'] ??
-                            ''; // সেন্ডারের প্রোফাইল পিক
-                        currentReceiverImage = lastGift['receiverImage'] ??
-                            ''; // রিসিভারের প্রোফাইল পিক
-
+                        currentSenderImage = lastGift['senderImage'] ?? '';
+                        currentReceiverImage = lastGift['receiverImage'] ?? '';
                         isGiftAnimating = true;
                       });
-
-                      // ৩. ৫ সেকেন্ড পর অ্যানিমেশন স্টেট বন্ধ করা
                       Timer(const Duration(seconds: 5), () {
+                        if (mounted) setState(() => isGiftAnimating = false);
+                      });
+                    }
+                  });
+                }
+              }
+
+              // আপনার রুমের Firestore StreamBuilder এর ভেতরে...
+              if (snapshot.hasData && snapshot.data!.exists) {
+                Map<String, dynamic> roomData =
+                    snapshot.data!.data() as Map<String, dynamic>;
+
+                // --- আপনার দেওয়া এন্ট্রি ইফেক্ট লজিক এখানে ---
+                var lastEntry = roomData['lastEntry'];
+                if (lastEntry != null && lastEntry['timestamp'] != null) {
+                  int entryTime = 0;
+                  var ts = lastEntry['timestamp'];
+
+                  if (ts is Timestamp) {
+                    entryTime = ts.millisecondsSinceEpoch;
+                  } else if (ts is int) {
+                    entryTime = ts;
+                  }
+
+                  int now = DateTime.now().millisecondsSinceEpoch;
+
+                  // সময় ১০ সেকেন্ড দেওয়াতে সুবিধা হবে টেস্ট করতে
+                  if ((now - entryTime).abs() < 10000 &&
+                      mounted &&
+                      !showEntryEffect) {
+                    String? effectLink = lastEntry['activeEntryUrl'];
+
+                    if (effectLink != null && effectLink.isNotEmpty) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (mounted) {
                           setState(() {
-                            isGiftAnimating = false;
+                            entryUserName = lastEntry['name'];
+                            entryUserImage = lastEntry['image'];
+                            currentEntryEffect = effectLink;
+                            showEntryEffect = true;
                           });
                         }
                       });
                     }
-                  });
+                  }
                 }
               }
             }
@@ -854,7 +956,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   ),
                 ),
 
-// ভাসমান এবং মুভেবল ব্যানার
+                // ভাসমান এবং মুভেবল ব্যানার
                 if (roomData['showBanner'] ??
                     false) // যদি ফায়ারবেস থেকে ব্যানার অন থাকে
                   Positioned(
@@ -922,6 +1024,17 @@ class _VoiceRoomState extends State<VoiceRoom> {
                     receiverName: targetType,
                   ),
                 ),
+                // Stack এর একদম নিচে
+                if (showEntryEffect && currentEntryEffect != null)
+                  EntryEffectHandler(
+                    userName: entryUserName ?? "User",
+                    userImage: entryUserImage,
+                    effectUrl: currentEntryEffect!,
+                    onFinished: () {
+                      if (mounted) setState(() => showEntryEffect = false);
+                    },
+                  ),
+
                 ..._buildFloatingEmojiAnimations(),
               ],
             );
@@ -1712,9 +1825,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
           const SizedBox(width: 8),
 
           // ৩. রুম মোড বাটন 🏩
-          _buildCircularIcon(Icons.hotel, Colors.purpleAccent, () {
-            
-          }), // <--- এখানে একটা কমা বা সেমিকোলন নিশ্চিত করুন এবং ব্র্যাকেট খেয়াল করুন
+          _buildCircularIcon(Icons.hotel, Colors.purpleAccent,
+              () {}), // <--- এখানে একটা কমা বা সেমিকোলন নিশ্চিত করুন এবং ব্র্যাকেট খেয়াল করুন
 
           const SizedBox(width: 4),
 

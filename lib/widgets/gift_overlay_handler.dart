@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:lottie/lottie.dart'; 
 import 'dart:math' as math;
 
 class GiftOverlayHandler extends StatelessWidget {
@@ -8,18 +9,32 @@ class GiftOverlayHandler extends StatelessWidget {
   final bool isFullScreenBinding;
   final String senderName;
   final String receiverName;
-  final String senderImage;   // নতুন যোগ করা হয়েছে
-  final String receiverImage; // নতুন যোগ করা হয়েছে
+  final String senderImage;   
+  final String receiverImage; 
+  
+  // GitHub থেকে লটি ওভারলে লিঙ্ক
+  // ২টা ওভারলে লিঙ্ক এখানে লিস্ট আকারে রাখা হয়েছে
+  final List<String> lottieOverlays = [
+    // প্রথম ওভারলে
+  'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftoverly%20%20(1).json',
 
-  const GiftOverlayHandler({
+  // দ্বিতীয় ওভারলে 
+  'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftoverly%20%20(2).json',
+
+  // তৃতীয় ওভারলে
+  'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftoverly%20%20(3).json',
+
+];
+
+   GiftOverlayHandler({
     super.key,
     required this.isGiftAnimating,
     required this.currentGiftImage,
     required this.isFullScreenBinding,
     required this.senderName,
     required this.receiverName,
-    this.senderImage = '',   // ডিফল্ট খালি রাখা হয়েছে
-    this.receiverImage = '', // ডিফল্ট খালি রাখা হয়েছে
+    this.senderImage = '',   
+    this.receiverImage = '', 
   });
 
   @override
@@ -29,7 +44,11 @@ class GiftOverlayHandler extends StatelessWidget {
     final double fullHeight = MediaQuery.of(context).size.height;
     final double fullWidth = MediaQuery.of(context).size.width;
     final int animationType = math.Random().nextInt(3); 
-
+    // রেন্ডম ইন্ডেক্স বের করা
+  final int randomOverlayIndex = math.Random().nextInt(lottieOverlays.length);
+  final String selectedLottieUrl = lottieOverlays[randomOverlayIndex];
+    // ওভারলের জন্য রেন্ডম ইন্ডেক্স (০ অথবা ১ সিলেক্ট করবে)
+    
     return IgnorePointer(
       ignoring: true,
       child: SizedBox(
@@ -38,7 +57,7 @@ class GiftOverlayHandler extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // ১. বিজলি চমকানো এবং ধামাকা ইফেক্ট (Thunder & Flash)
+            // ১. বিজলি চমকানো এবং ধামাকা ইফেক্ট (এটি সবার নিচে থাকবে)
             _buildThunderStrikeEffect(),
 
             // ২. ফুল স্ক্রিন গিফট এবং নাম/ছবি
@@ -63,8 +82,22 @@ class GiftOverlayHandler extends StatelessWidget {
                 ],
               ),
             ),
+
+            // ৩. লটি ওভারলে এফেক্ট (এটি এখন সবার উপরে থাকবে)
+            _buildLottieOverlay(selectedLottieUrl),
           ],
         ),
+      ),
+    );
+  }
+
+  // লটি ওভারলে মেথড - এটিকে Stack-এর শেষে দেওয়া হয়েছে যাতে গিফটের উপরে দেখা যায়
+  Widget _buildLottieOverlay(String url) {
+    return Positioned.fill(
+      child: Lottie.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
       ),
     );
   }
@@ -75,7 +108,6 @@ class GiftOverlayHandler extends StatelessWidget {
       duration: const Duration(milliseconds: 800),
       tween: Tween(begin: 0.0, end: 1.0),
       builder: (context, value, child) {
-        // বিজলির মতো কাঁপানো এবং ফ্ল্যাশ তৈরি করা
         double flash = math.sin(value * math.pi * 5).abs(); 
         return Opacity(
           opacity: (flash * (1.0 - value)).clamp(0.0, 1.0),
@@ -144,7 +176,7 @@ class GiftOverlayHandler extends StatelessWidget {
           ),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 10),
-            child: Icon(Icons.bolt, color: Colors.yellowAccent, size: 24), // বিজলি আইকন
+            child: Icon(Icons.bolt, color: Colors.yellowAccent, size: 24), 
           ),
           Text(
             receiverName,
