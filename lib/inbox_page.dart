@@ -214,79 +214,149 @@ class _InboxPageState extends State<InboxPage> {
   }
 
   Widget _buildGlassChatTile(Map<String, dynamic> userData, String userId, String chatId) {
-    String displayId = (userData['uID'] ?? "N/A").toString();
-    String name = userData['name'] ?? "User";
-    String image = userData['profilePic'] ?? "";
-    bool isLive = userData['currentRoomId'] != null && userData['currentRoomId'].toString().isNotEmpty;
+  String displayId = (userData['uID'] ?? "N/A").toString();
+  String name = userData['name'] ?? "User";
+  String image = userData['profilePic'] ?? "";
+  
+  // ইউজার বর্তমানে কোন রুমে আছে তার আইডি
+  String? currentRoomId = userData['currentRoomId'];
+  bool isLive = currentRoomId != null && currentRoomId.toString().isNotEmpty;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-            ),
-            child: ListTile(
-              onTap: () {
-                _markAsRead(chatId);
-                Navigator.push(context, MaterialPageRoute(
-                  builder: (context) => ChatScreen(receiverId: userId, receiverName: name, receiverData: userData),
-                ));
-              },
-              leading: Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundImage: image.isNotEmpty ? NetworkImage(image) : null,
-                    backgroundColor: Colors.white10,
-                    child: image.isEmpty ? Text(name[0], style: const TextStyle(color: Colors.white)) : null,
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+          ),
+          child: ListTile(
+            onTap: () {
+              _markAsRead(chatId);
+              Navigator.push(context, MaterialPageRoute(
+                builder: (context) => ChatScreen(receiverId: userId, receiverName: name, receiverData: userData),
+              ));
+            },
+            leading: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundImage: image.isNotEmpty ? NetworkImage(image) : null,
+                  backgroundColor: Colors.white10,
+                  child: image.isEmpty ? Text(name[0], style: const TextStyle(color: Colors.white)) : null,
+                ),
+                if (userData['isOnline'] == true)
+                  Positioned(
+                    bottom: 2, 
+                    right: 2, 
+                    child: Container(
+                      height: 12, 
+                      width: 12, 
+                      decoration: BoxDecoration(
+                        color: Colors.green, 
+                        shape: BoxShape.circle, 
+                        border: Border.all(color: Colors.black, width: 2)
+                      )
+                    )
                   ),
-                  if (userData['isOnline'] == true)
-                    Positioned(bottom: 2, right: 2, child: Container(height: 12, width: 12, decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle, border: Border.all(color: Colors.black, width: 2)))),
-                ],
-              ),
-              title: Row(
-                children: [
-                  Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  if (isLive) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(5)),
-                      child: const Text("LIVE", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
-                    ),
-                  ]
-                ],
-              ),
-              subtitle: Text("ID: $displayId", style: const TextStyle(color: Colors.white38, fontSize: 12)),
-              trailing: _buildUnreadCounter(chatId),
+              ],
             ),
+            title: Row(
+              children: [
+                Flexible(
+                  child: Text(name, 
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+                  ),
+                ),
+                if (isLive) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red, 
+                      borderRadius: BorderRadius.circular(5)
+                    ),
+                    child: const Text("LIVE", 
+                      style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)
+                    ),
+                  ),
+                ]
+              ],
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text("ID: $displayId", style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                if (isLive) 
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: InkWell( // GestureDetector এর বদলে InkWell দিলে ক্লিক ইফেক্ট ভালো পাওয়া যায়
+                      onTap: () {
+                        Navigator.push(context, MaterialPageRoute(
+                          builder: (context) => VoiceRoom(roomId: currentRoomId!),
+                        ));
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.cyanAccent.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.sensors, color: Colors.cyanAccent, size: 14),
+                            const SizedBox(width: 4),
+                            Text("Join: $currentRoomId", 
+                              style: const TextStyle(color: Colors.cyanAccent, fontSize: 10, fontWeight: FontWeight.bold)
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            // 🔥 ট্রেইলিং থেকে কলাম সরিয়ে সরাসরি মেথড কল করা হয়েছে লাল দাগ দূর করতে
+            trailing: _buildUnreadCounter(chatId),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildUnreadCounter(String chatId) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('chats').doc(chatId).collection('messages')
-          .where('receiverId', isEqualTo: currentUserId)
-          .where('isRead', isEqualTo: false).snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-          return Container(
-            padding: const EdgeInsets.all(8),
-            decoration: const BoxDecoration(color: Colors.pinkAccent, shape: BoxShape.circle),
-            child: Text("${snapshot.data!.docs.length}", style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-          );
-        }
-        return const Icon(Icons.arrow_forward_ios, color: Colors.white10, size: 14);
-      },
-    );
-  }
+Widget _buildUnreadCounter(String chatId) {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .where('receiverId', isEqualTo: currentUserId)
+        .where('isRead', isEqualTo: false)
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.pinkAccent, 
+            borderRadius: BorderRadius.circular(12) // পিঙ্ক কাউন্টারকে সুন্দর শেপ দিবে
+          ),
+          child: Text("${snapshot.data!.docs.length}", 
+            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)
+          ),
+        );
+      }
+      return const Icon(Icons.arrow_forward_ios, color: Colors.white10, size: 14);
+    },
+  );
+}
 }

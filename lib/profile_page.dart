@@ -34,10 +34,10 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final DatabaseService _dbService = DatabaseService();
   // ... বাকি ভেরিয়েবলগুলো এখানে থাকবে
- // এই ভেরিয়েবলগুলো ক্লাসের একদম উপরে (build মেথডের বাইরে) যোগ করুন
-bool hasEntryEffect = false;
-DateTime? entryUntilDate;
-String activeEntryUrl = "";
+  // এই ভেরিয়েবলগুলো ক্লাসের একদম উপরে (build মেথডের বাইরে) যোগ করুন
+  bool hasEntryEffect = false;
+  DateTime? entryUntilDate;
+  String activeEntryUrl = "";
   bool hasFreeFrame = false;
   String activeFrameUrl = "";
   DateTime? frameUntilDate;
@@ -59,6 +59,11 @@ String activeEntryUrl = "";
   DateTime lastLevelUpDate = DateTime.now();
   bool isAgent = false; // একদম উপরে যেখানে অন্য ভেরিয়েবল আছে
   int vipLevel = 0; // 🔥 ভিআইপি লেভেলের জন্য এটি যোগ করুন
+  String activeSpecialUrl =
+      ""; // বর্তমানে কোন স্পেশাল ইফেক্টটি ব্যবহার হচ্ছে তার URL
+  bool hasSpecialEffect =
+      false; // ইউজার কি কোনো স্পেশাল ইফেক্ট অন করে রেখেছে কি না
+
   @override
   void initState() {
     super.initState();
@@ -66,7 +71,7 @@ String activeEntryUrl = "";
   }
 
 // আইডি জেনারেশন ছাড়া শুধু ডাটা খুঁজে বের করার লজিক
- // আইডি জেনারেশন ছাড়া শুধু ডাটা খুঁজে বের করার লজিক
+  // আইডি জেনারেশন ছাড়া শুধু ডাটা খুঁজে বের করার লজিক
   void loadUserData() async {
     User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
@@ -83,19 +88,28 @@ String activeEntryUrl = "";
 
       // ২. authUID দিয়ে চেক
       if (userDoc == null) {
-        var queryAuth = await collection.where('authUID', isEqualTo: currentUser.uid).limit(1).get();
+        var queryAuth = await collection
+            .where('authUID', isEqualTo: currentUser.uid)
+            .limit(1)
+            .get();
         if (queryAuth.docs.isNotEmpty) userDoc = queryAuth.docs.first;
       }
 
       // ৩. email দিয়ে চেক
       if (userDoc == null && currentUser.email != null) {
-        var queryEmail = await collection.where('email', isEqualTo: currentUser.email).limit(1).get();
+        var queryEmail = await collection
+            .where('email', isEqualTo: currentUser.email)
+            .limit(1)
+            .get();
         if (queryEmail.docs.isNotEmpty) userDoc = queryEmail.docs.first;
       }
 
       // ৪. uID ফিল্ড দিয়ে চেক
       if (userDoc == null) {
-        var queryuIDField = await collection.where('uID', isEqualTo: currentUser.uid).limit(1).get();
+        var queryuIDField = await collection
+            .where('uID', isEqualTo: currentUser.uid)
+            .limit(1)
+            .get();
         if (queryuIDField.docs.isNotEmpty) userDoc = queryuIDField.docs.first;
       }
 
@@ -112,11 +126,13 @@ String activeEntryUrl = "";
           gender = data['gender'] ?? "Unfixed";
 
           var ageData = data['age'];
-          age = (ageData is String) ? (int.tryParse(ageData) ?? 22) : (ageData ?? 22);
+          age = (ageData is String)
+              ? (int.tryParse(ageData) ?? 22)
+              : (ageData ?? 22);
 
           diamonds = (data['diamonds'] ?? 200).toInt();
           xp = (data['vip_xp'] ?? 0).toInt();
-          
+
           followers = (data['followers'] ?? 0).toInt();
           following = (data['following'] ?? 0).toInt();
           isVIP = data['isVIP'] ?? false;
@@ -131,6 +147,8 @@ String activeEntryUrl = "";
             }
           }
 
+          activeSpecialUrl = data['activeSpecialUrl'] ?? "";
+          hasSpecialEffect = data['hasSpecialEffect'] ?? false;
           // ২. Frame এক্সপায়ারি
           hasFreeFrame = data['hasFreeFrame'] ?? false;
           activeFrameUrl = data['activeFrameUrl'] ?? "";
@@ -139,7 +157,8 @@ String activeEntryUrl = "";
             if (now.isAfter(frameUntilDate!)) {
               hasFreeFrame = false;
               activeFrameUrl = "";
-              _clearExpiredData('hasFreeFrame', 'frameUntil', extraField: 'activeFrameUrl');
+              _clearExpiredData('hasFreeFrame', 'frameUntil',
+                  extraField: 'activeFrameUrl');
             }
           }
 
@@ -151,7 +170,8 @@ String activeEntryUrl = "";
             if (now.isAfter(entryUntilDate!)) {
               activeEntryUrl = "";
               hasEntryEffect = false;
-              _clearExpiredData('hasEntryEffect', 'entryUntil', extraField: 'activeEntryUrl');
+              _clearExpiredData('hasEntryEffect', 'entryUntil',
+                  extraField: 'activeEntryUrl');
             }
           }
         });
@@ -163,26 +183,30 @@ String activeEntryUrl = "";
   } // <--- loadUserData এখানে শেষ
 
   // ডাটাবেজ থেকে মেয়াদ শেষ হওয়া ডাটা মুছে ফেলার ফাংশন (এটি বাইরে থাকবে)
-  void _clearExpiredData(String boolField, String dateField, {String? extraField}) async {
+  void _clearExpiredData(String boolField, String dateField,
+      {String? extraField}) async {
     if (uIDValue == null || uIDValue.isEmpty) return;
 
     Map<String, dynamic> updateData = {
       boolField: false,
       dateField: FieldValue.delete(),
     };
-    
+
     if (extraField != null) {
       updateData[extraField] = "";
     }
 
     try {
-      await FirebaseFirestore.instance.collection('users').doc(uIDValue).update(updateData);
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uIDValue)
+          .update(updateData);
       debugPrint("🔥 $boolField এর মেয়াদ শেষ! ক্লিয়ার করা হয়েছে।");
     } catch (e) {
       debugPrint("Error clearing data: $e");
     }
   }
-  
+
   // ২০টি রিয়েল অবতার লিস্ট
   final List<String> maleAvatars = [
     "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/profilepic%20(1).jpg",
@@ -1274,13 +1298,9 @@ String activeEntryUrl = "";
                     child: TabBarView(
                       children: [
                         _buildStoreCardTab(), // স্টোর কার্ড ট্যাব
-                        const Center(
-                            child: Text("Coming Soon",
-                                style: TextStyle(color: Colors.blueGrey))),
+                        _buildFrameStoreTab(),
                         _buildEntryStoreTab(),
-                        const Center(
-                            child: Text("Coming Soon",
-                                style: TextStyle(color: Colors.blueGrey))),
+                        _buildSpecialStoreTab(),
                       ],
                     ),
                   ),
@@ -1293,185 +1313,529 @@ String activeEntryUrl = "";
     );
   }
 
-Widget _buildEntryStoreTab() {
-  final List<Map<String, String>> entryList = [
-    {
-      "name": "Royal Entry 1",
-      "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/9994c4424e1097e9ff6c21d70b37b97ac341dd9c/entry%20(1).json",
-      "price": "7000"
-    },
-    {
-      "name": "Royal Entry 2",
-      "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(2).json",
-      "price": "8000"
-    },
-    {
-      "name": "Royal Entry 3",
-      "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(3).json",
-      "price": "8000"
-    },
-   {
-      "name": "Royal Entry 4",
-      "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(4).json",
-      "price": "8000"
-    },
-  {
-      "name": "Royal Entry 5",
-      "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(5).json",
-      "price": "5000"
-    },
-  {
-      "name": "Royal Entry 6",
-      "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(6).json",
-      "price": "16000"
-    },
-  {
-      "name": "Royal Entry 7",
-      "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(7).json",
-      "price": "18000"
-    },
-  {
-      "name": "Royal Entry 8",
-      "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(8).json",
-      "price": "15000"
-    },
-  {
-      "name": "Royal Entry 9",
-      "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(9).json",
-      "price": "20000"
-    },
-  {
-      "name": "Royal Entry 10",
-      "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(10).json",
-      "price": "4000"
-    },
-  {
-      "name": "Royal Entry 11",
-      "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(11).json",
-      "price": "9000"
-    },
-  {
-      "name": "Royal Entry 12",
-      "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(12).json",
-      "price": "8000"
-    },
-  {
-      "name": "Royal Entry 13",
-      "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(13).json",
-      "price": "9000"
-    },
-  {
-      "name": "Royal Entry 14",
-      "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(14).json",
-      "price": "11000"
-    },
-  {
-      "name": "Royal Entry 15",
-      "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(15).json",
-      "price": "13000"
-    },
-  ];
+  Widget _buildFrameStoreTab() {
+    // আপনার এন্ট্রি লিস্টের মতো করেই ফ্রেমের লিস্ট
+    final List<Map<String, String>> frameList = [
+      {
+        "name": "Royal Gold 4 Star",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/frame%20(1).json",
+        "price": "7000"
+      },
+      {
+        "name": "Royal Gold",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/frame%20(2).json",
+        "price": "20000"
+      },
+      {
+        "name": "Royal 3 Star",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/frame%20(3).json", // যদি লটি হয়
+        "price": "8000"
+      },
+      {
+        "name": "Queen Blue",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/framequin.png", // যদি লটি হয়
+        "price": "10000"
+      },
+    ];
 
-  return GridView.builder(
-    padding: const EdgeInsets.all(15),
-    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, 
-        childAspectRatio: 0.72, 
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12),
-    itemCount: entryList.length, 
-    itemBuilder: (context, index) {
-      var item = entryList[index]; 
-      int itemPrice = int.parse(item['price']!);
-      String url = item['url']!;
+    return GridView.builder(
+      padding: const EdgeInsets.all(15),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.72,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12),
+      itemCount: frameList.length,
+      itemBuilder: (context, index) {
+        var item = frameList[index];
+        int itemPrice = int.parse(item['price']!);
+        String url = item['url']!;
 
-      return Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.cyan, width: 2),
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
-        ),
-        child: Column(
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: url.endsWith('.json') 
-                  ? Lottie.network(url, fit: BoxFit.contain)
-                  : Image.network(url, fit: BoxFit.contain, 
-                      errorBuilder: (c, e, s) => const Icon(Icons.auto_awesome, size: 40, color: Colors.cyan)),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(item['name']!, style: const TextStyle(color: Colors.blueAccent, fontSize: 13, fontWeight: FontWeight.bold)),
-            Text("${item['price']} 💎", style: const TextStyle(color: Colors.blueGrey, fontSize: 11, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              height: 35,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.cyan,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        return Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+                color: Colors.amber, width: 2), // ফ্রেমের জন্য গোল্ডেন বর্ডার
+            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
+          ),
+          child: Column(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: url.endsWith('.json')
+                      ? Lottie.network(url, fit: BoxFit.contain)
+                      : Image.network(url,
+                          fit: BoxFit.contain,
+                          errorBuilder: (c, e, s) => const Icon(Icons.portrait,
+                              size: 40, color: Colors.amber)),
                 ),
-                onPressed: () async {
-                  if (diamonds >= itemPrice) {
-                    try {
-                      DateTime now = DateTime.now();
-                      DateTime expiry = now.add(const Duration(days: 15));
-
-                      // --- ডায়মন্ড কাটা এবং ব্যাকপ্যাকে পাঠানোর আসল লজিক শুরু ---
-                      WriteBatch batch = FirebaseFirestore.instance.batch();
-                      DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(uIDValue);
-                      
-                      // ব্যাকপ্যাকের জন্য সাব-কালেকশন রেফারেন্স
-                      DocumentReference backpackRef = userRef.collection('myEntries').doc(item['name']);
-
-                      // ১. ডায়মন্ড আপডেট
-                      batch.update(userRef, {
-                        'diamonds': FieldValue.increment(-itemPrice),
-                      });
-
-                      // ২. ব্যাকপ্যাকে এন্ট্রি সেভ করা (যাতে পরে ব্যাকপ্যাক থেকে Pick করা যায়)
-                      batch.set(backpackRef, {
-                        'name': item['name'],
-                        'url': url,
-                        'expiryDate': Timestamp.fromDate(expiry),
-                        'isPicked': true, // কেনার সাথে সাথে পিক হয়ে যাবে
-                      });
-
-                      await batch.commit();
-                      // --- লজিক শেষ ---
-
-                      setState(() {
-                        diamonds -= itemPrice;
-                        activeEntryUrl = url;
-                      });
-
-                      Navigator.pop(context); // স্টোর বন্ধ করা
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(backgroundColor: Colors.green, content: Text("Bought & Added to Backpack!")),
-                      );
-                    } catch (e) {
-                      debugPrint("Buy Error: $e");
-                    }
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(backgroundColor: Colors.redAccent, content: Text("Not enough diamonds!")),
-                    );
-                  }
-                },
-                child: const Text("BUY", style: TextStyle(color: Colors.white, fontSize: 12)),
               ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
+              const SizedBox(height: 8),
+              Text(item['name']!,
+                  style: const TextStyle(
+                      color: Colors.orangeAccent,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold)),
+              Text("${item['price']} 💎",
+                  style: const TextStyle(
+                      color: Colors.blueGrey,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                height: 35,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    if (diamonds >= itemPrice) {
+                      try {
+                        DateTime now = DateTime.now();
+                        DateTime expiry =
+                            now.add(const Duration(days: 15)); // ১৫ দিন মেযাদ
+
+                        WriteBatch batch = FirebaseFirestore.instance.batch();
+                        DocumentReference userRef = FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(uIDValue);
+
+                        // ফ্রেমের জন্য ব্যাকপ্যাক সাব-কালেকশন: 'my_frames'
+                        DocumentReference backpackRef =
+                            userRef.collection('my_frames').doc(item['name']);
+
+                        // ১. ডায়মন্ড কাটা
+                        batch.update(userRef, {
+                          'diamonds': FieldValue.increment(-itemPrice),
+                        });
+
+                        // ২. ব্যাকপ্যাকে ফ্রেম সেভ করা
+                        batch.set(backpackRef, {
+                          'name': item['name'],
+                          'image_url':
+                              url, // আপনার ব্যাকপ্যাক কোডে 'image_url' আছে
+                          'expiryDate': Timestamp.fromDate(expiry),
+                          'isPicked': true,
+                        });
+
+                        await batch.commit();
+
+                        setState(() {
+                          diamonds -= itemPrice;
+                          activeFrameUrl = url; // সাথে সাথে সেট হয়ে যাবে
+                        });
+
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              backgroundColor: Colors.green,
+                              content:
+                                  Text("Frame Bought & Added to Backpack!")),
+                        );
+                      } catch (e) {
+                        debugPrint("Frame Buy Error: $e");
+                      }
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            backgroundColor: Colors.redAccent,
+                            content: Text("Not enough diamonds!")),
+                      );
+                    }
+                  },
+                  child: const Text("BUY",
+                      style: TextStyle(color: Colors.white, fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEntryStoreTab() {
+    final List<Map<String, String>> entryList = [
+      {
+        "name": "Royal Entry 1",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/9994c4424e1097e9ff6c21d70b37b97ac341dd9c/entry%20(1).json",
+        "price": "7000"
+      },
+      {
+        "name": "Royal Entry 2",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(2).json",
+        "price": "8000"
+      },
+      {
+        "name": "Royal Entry 3",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(3).json",
+        "price": "8000"
+      },
+      {
+        "name": "Royal Entry 4",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(4).json",
+        "price": "8000"
+      },
+      {
+        "name": "Royal Entry 5",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(5).json",
+        "price": "5000"
+      },
+      {
+        "name": "Royal Entry 6",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(6).json",
+        "price": "16000"
+      },
+      {
+        "name": "Royal Entry 7",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(7).json",
+        "price": "18000"
+      },
+      {
+        "name": "Royal Entry 8",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(8).json",
+        "price": "15000"
+      },
+      {
+        "name": "Royal Entry 9",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(9).json",
+        "price": "20000"
+      },
+      {
+        "name": "Royal Entry 10",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(10).json",
+        "price": "4000"
+      },
+      {
+        "name": "Royal Entry 11",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(11).json",
+        "price": "9000"
+      },
+      {
+        "name": "Royal Entry 12",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(12).json",
+        "price": "8000"
+      },
+      {
+        "name": "Royal Entry 13",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(13).json",
+        "price": "9000"
+      },
+      {
+        "name": "Royal Entry 14",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(14).json",
+        "price": "11000"
+      },
+      {
+        "name": "Royal Entry 15",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(15).json",
+        "price": "13000"
+      },
+    ];
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(15),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.72,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12),
+      itemCount: entryList.length,
+      itemBuilder: (context, index) {
+        var item = entryList[index];
+        int itemPrice = int.parse(item['price']!);
+        String url = item['url']!;
+
+        return Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.cyan, width: 2),
+            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
+          ),
+          child: Column(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: url.endsWith('.json')
+                      ? Lottie.network(url, fit: BoxFit.contain)
+                      : Image.network(url,
+                          fit: BoxFit.contain,
+                          errorBuilder: (c, e, s) => const Icon(
+                              Icons.auto_awesome,
+                              size: 40,
+                              color: Colors.cyan)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(item['name']!,
+                  style: const TextStyle(
+                      color: Colors.blueAccent,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold)),
+              Text("${item['price']} 💎",
+                  style: const TextStyle(
+                      color: Colors.blueGrey,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                height: 35,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.cyan,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    if (diamonds >= itemPrice) {
+                      try {
+                        DateTime now = DateTime.now();
+                        DateTime expiry = now.add(const Duration(days: 15));
+
+                        // --- ডায়মন্ড কাটা এবং ব্যাকপ্যাকে পাঠানোর আসল লজিক শুরু ---
+                        WriteBatch batch = FirebaseFirestore.instance.batch();
+                        DocumentReference userRef = FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(uIDValue);
+
+                        // ব্যাকপ্যাকের জন্য সাব-কালেকশন রেফারেন্স
+                        DocumentReference backpackRef =
+                            userRef.collection('myEntries').doc(item['name']);
+
+                        // ১. ডায়মন্ড আপডেট
+                        batch.update(userRef, {
+                          'diamonds': FieldValue.increment(-itemPrice),
+                        });
+
+                        // ২. ব্যাকপ্যাকে এন্ট্রি সেভ করা (যাতে পরে ব্যাকপ্যাক থেকে Pick করা যায়)
+                        batch.set(backpackRef, {
+                          'name': item['name'],
+                          'url': url,
+                          'expiryDate': Timestamp.fromDate(expiry),
+                          'isPicked': true, // কেনার সাথে সাথে পিক হয়ে যাবে
+                        });
+
+                        await batch.commit();
+                        // --- লজিক শেষ ---
+
+                        setState(() {
+                          diamonds -= itemPrice;
+                          activeEntryUrl = url;
+                        });
+
+                        Navigator.pop(context); // স্টোর বন্ধ করা
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              backgroundColor: Colors.green,
+                              content: Text("Bought & Added to Backpack!")),
+                        );
+                      } catch (e) {
+                        debugPrint("Buy Error: $e");
+                      }
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            backgroundColor: Colors.redAccent,
+                            content: Text("Not enough diamonds!")),
+                      );
+                    }
+                  },
+                  child: const Text("BUY",
+                      style: TextStyle(color: Colors.white, fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSpecialStoreTab() {
+    final List<Map<String, String>> specialList = [
+      {
+        "name": "Ripple Aura",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/Ripple.png",
+        "price": "15000",
+        "type": "Seat Effect"
+      },
+      {
+        "name": "Full Page Love",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/pageframe.png",
+        "price": "25000",
+        "type": "Profile Page"
+      },
+    ];
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(15),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.72,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12),
+      itemCount: specialList.length,
+      itemBuilder: (context, index) {
+        var item = specialList[index];
+
+        // ডায়মন্ড এবং প্রাইস হ্যান্ডলিং (int64 এর জন্য নিরাপদ পদ্ধতি)
+        int itemPrice = int.parse(item['price']!);
+        String url = item['url']!;
+
+        return Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.purpleAccent, width: 2),
+            boxShadow: [const BoxShadow(color: Colors.black12, blurRadius: 8)],
+          ),
+          child: Column(
+            children: [
+              // ইমেজ অথবা লটি অ্যানিমেশন প্রিভিউ
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: url.toLowerCase().endsWith('.json')
+                      ? Lottie.network(url, fit: BoxFit.contain)
+                      : Image.network(
+                          url,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(Icons.broken_image,
+                                  color: Colors.grey),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(item['name']!,
+                  style: const TextStyle(
+                      color: Colors.purple,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold)),
+              Text(item['type']!,
+                  style: const TextStyle(color: Colors.grey, fontSize: 10)),
+              Text("${item['price']} 💎",
+                  style: const TextStyle(
+                      color: Colors.blueGrey,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+
+              // কিনুন বাটন
+              SizedBox(
+                width: double.infinity,
+                height: 35,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purpleAccent,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    // int64 ডায়মন্ডকে নিরাপদভাবে ইনটিজারে রূপান্তর
+                    int currentDiamonds = 0;
+                    try {
+                      currentDiamonds = int.parse(diamonds.toString());
+                    } catch (e) {
+                      currentDiamonds = 0;
+                    }
+
+                    if (currentDiamonds >= itemPrice) {
+                      try {
+                        DateTime expiry =
+                            DateTime.now().add(const Duration(days: 30));
+
+                        // Firebase অপারেশন
+                        WriteBatch batch = FirebaseFirestore.instance.batch();
+
+                        if (uIDValue == null) return;
+
+                        DocumentReference userRef = FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(uIDValue);
+
+                        DocumentReference backpackRef =
+                            userRef.collection('my_special').doc(item['name']);
+
+                        // ডায়মন্ড কমানো এবং আইটেম যোগ করা
+                        batch.update(userRef,
+                            {'diamonds': FieldValue.increment(-itemPrice)});
+                        batch.set(backpackRef, {
+                          'name': item['name'],
+                          'image_url': url,
+                          'type': item['type'],
+                          'expiryDate': Timestamp.fromDate(expiry),
+                          'isPicked': true, // কেনার পর অটোমেটিক সিলেক্টেড থাকবে
+                        });
+
+                        await batch.commit();
+
+                        // লোকাল স্টেট আপডেট
+                        setState(() {
+                          diamonds = currentDiamonds - itemPrice;
+                        });
+
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content:
+                                    Text("অভিনন্দন! আইটেমটি কেনা হয়েছে।")));
+                      } catch (e) {
+                        print("Purchase Error: $e");
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text(
+                                "কিছু একটা সমস্যা হয়েছে! পরে চেষ্টা করুন।")));
+                      }
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text("আপনার যথেষ্ট ডায়মন্ড নেই!"),
+                        backgroundColor: Colors.redAccent,
+                      ));
+                    }
+                  },
+                  child: const Text("BUY",
+                      style: TextStyle(color: Colors.white, fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   // ২. ব্যাকপ্যাক ওপেন করার ফাংশন
   void _openBackpack() {
     showModalBottomSheet(
@@ -1548,7 +1912,7 @@ Widget _buildEntryStoreTab() {
                       Tab(text: "My Cards"),
                       Tab(text: "My Frames"),
                       Tab(text: "Entry Effects"),
-                      Tab(text: "rippale"),
+                      Tab(text: "My Special"),
                     ],
                   ),
 
@@ -1559,11 +1923,7 @@ Widget _buildEntryStoreTab() {
                         _buildMyCardsTab(),
                         _buildMyFramesTab(),
                         _buildMyEntriesTab(),
-                        const Center(
-                            child: Text("Empty",
-                                style: TextStyle(
-                                    color: Colors.blueGrey,
-                                    fontWeight: FontWeight.w500))),
+                        _buildMySpecialTab(),
                       ],
                     ),
                   ),
@@ -1728,243 +2088,434 @@ Widget _buildEntryStoreTab() {
     );
   }
 
-Widget _buildMyEntriesTab() {
-  return StreamBuilder<QuerySnapshot>(
-    stream: FirebaseFirestore.instance
-        .collection('users')
-        .doc(uIDValue)
-        .collection('myEntries')
-        .snapshots(),
-    builder: (context, snapshot) {
-      if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-      
-      var myEntries = snapshot.data!.docs;
-      if (myEntries.isEmpty) {
-        return const Center(
-          child: Text("আপনার কোনো এন্ট্রি ইফেক্ট নেই", 
-            style: TextStyle(color: Colors.blueGrey, fontSize: 16)),
-        );
-      }
+  Widget _buildMyEntriesTab() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uIDValue)
+          .collection('myEntries')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData)
+          return const Center(child: CircularProgressIndicator());
 
-      return GridView.builder(
-        padding: const EdgeInsets.all(12),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2, 
-          childAspectRatio: 0.75, // কার্ডের সাইজ ঠিক রাখার জন্য
-          crossAxisSpacing: 10, 
-          mainAxisSpacing: 10
-        ),
-        itemCount: myEntries.length,
-        itemBuilder: (context, index) {
-          var data = myEntries[index].data() as Map<String, dynamic>;
-          String url = data['url'] ?? "";
-          String name = data['name'] ?? "Unknown";
-          bool isPicked = activeEntryUrl == url;
-          
-          // এক্সপেয়ারি টাইম ক্যালকুলেশন
-          Timestamp? expiryTimestamp = data['expiryDate'] as Timestamp?;
-          DateTime expiryDate = expiryTimestamp?.toDate() ?? DateTime.now();
-          Duration remaining = expiryDate.difference(DateTime.now());
-          
-          // সময় দেখানোর লজিক (দিন বা ঘণ্টা)
-          String timeText = remaining.inDays > 0 
-              ? "${remaining.inDays} days left" 
-              : "${remaining.inHours} hours left";
+        var myEntries = snapshot.data!.docs;
+        if (myEntries.isEmpty) {
+          return const Center(
+            child: Text("আপনার কোনো এন্ট্রি ইফেক্ট নেই",
+                style: TextStyle(color: Colors.blueGrey, fontSize: 16)),
+          );
+        }
 
-          return Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(
-                color: isPicked ? Colors.orangeAccent : Colors.blue.shade100, 
-                width: 2
+        return GridView.builder(
+          padding: const EdgeInsets.all(12),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.75, // কার্ডের সাইজ ঠিক রাখার জন্য
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10),
+          itemCount: myEntries.length,
+          itemBuilder: (context, index) {
+            var data = myEntries[index].data() as Map<String, dynamic>;
+            String url = data['url'] ?? "";
+            String name = data['name'] ?? "Unknown";
+            bool isPicked = activeEntryUrl == url;
+
+            // এক্সপেয়ারি টাইম ক্যালকুলেশন
+            Timestamp? expiryTimestamp = data['expiryDate'] as Timestamp?;
+            DateTime expiryDate = expiryTimestamp?.toDate() ?? DateTime.now();
+            Duration remaining = expiryDate.difference(DateTime.now());
+
+            // সময় দেখানোর লজিক (দিন বা ঘণ্টা)
+            String timeText = remaining.inDays > 0
+                ? "${remaining.inDays} days left"
+                : "${remaining.inHours} hours left";
+
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                    color:
+                        isPicked ? Colors.orangeAccent : Colors.blue.shade100,
+                    width: 2),
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
               ),
-              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // এন্ট্রি প্রিভিউ (Lottie/Image)
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: url.endsWith('.json')
-                        ? Lottie.network(url, fit: BoxFit.contain)
-                        : Image.network(url, fit: BoxFit.contain),
-                  ),
-                ),
-                
-                Text(name, 
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                
-                // এক্সপেয়ারি ওয়ার্নিং
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Text(timeText, 
-                    style: TextStyle(
-                      color: remaining.inDays < 2 ? Colors.red : Colors.blueGrey, 
-                      fontSize: 10, 
-                      fontWeight: FontWeight.w500
-                    )),
-                ),
-
-                // Pick/Unpick বাটন
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10, left: 8, right: 8),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 30,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isPicked ? Colors.redAccent : Colors.green,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        elevation: 0,
-                      ),
-                      onPressed: () async {
-                        String newUrl = isPicked ? "" : url;
-                        bool newStatus = !isPicked;
-
-                        await FirebaseFirestore.instance.collection('users').doc(uIDValue).update({
-                          'activeEntryUrl': newUrl,
-                          'hasEntryEffect': newStatus,
-                        });
-
-                        setState(() {
-                          activeEntryUrl = newUrl;
-                          hasEntryEffect = newStatus;
-                        });
-                      },
-                      child: Text(isPicked ? "Unpick" : "Pick", 
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // এন্ট্রি প্রিভিউ (Lottie/Image)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: url.endsWith('.json')
+                          ? Lottie.network(url, fit: BoxFit.contain)
+                          : Image.network(url, fit: BoxFit.contain),
                     ),
                   ),
-                ),
-              ],
-            ),
+
+                  Text(name,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 13)),
+
+                  // এক্সপেয়ারি ওয়ার্নিং
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(timeText,
+                        style: TextStyle(
+                            color: remaining.inDays < 2
+                                ? Colors.red
+                                : Colors.blueGrey,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500)),
+                  ),
+
+                  // Pick/Unpick বাটন
+                  Padding(
+                    padding:
+                        const EdgeInsets.only(bottom: 10, left: 8, right: 8),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 30,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              isPicked ? Colors.redAccent : Colors.green,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                        onPressed: () async {
+                          String newUrl = isPicked ? "" : url;
+                          bool newStatus = !isPicked;
+
+                          await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(uIDValue)
+                              .update({
+                            'activeEntryUrl': newUrl,
+                            'hasEntryEffect': newStatus,
+                          });
+
+                          setState(() {
+                            activeEntryUrl = newUrl;
+                            hasEntryEffect = newStatus;
+                          });
+                        },
+                        child: Text(isPicked ? "Unpick" : "Pick",
+                            style: const TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildMySpecialTab() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uIDValue)
+          .collection('my_special')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData)
+          return const Center(child: CircularProgressIndicator());
+
+        var mySpecialItems = snapshot.data!.docs;
+        if (mySpecialItems.isEmpty) {
+          return const Center(
+            child: Text("আপনার কোনো স্পেশাল আইটেম নেই",
+                style: TextStyle(color: Colors.blueGrey, fontSize: 16)),
           );
-        },
-      );
-    },
-  );
-}
+        }
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(12),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.70,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10),
+          itemCount: mySpecialItems.length,
+          itemBuilder: (context, index) {
+            var data = mySpecialItems[index].data() as Map<String, dynamic>;
+            String url = data['image_url'] ?? "";
+            String name = data['name'] ?? "Special Item";
+            String type = data['type'] ?? "Effect";
+
+            bool isPicked = (activeSpecialUrl == url);
+
+            Timestamp? expiryTimestamp = data['expiryDate'] as Timestamp?;
+            DateTime expiryDate = expiryTimestamp?.toDate() ?? DateTime.now();
+            Duration remaining = expiryDate.difference(DateTime.now());
+
+            String timeText = remaining.inDays > 0
+                ? "${remaining.inDays} days left"
+                : "${remaining.inHours} hours left";
+
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                    color:
+                        isPicked ? Colors.purpleAccent : Colors.purple.shade50,
+                    width: 2),
+                boxShadow: [
+                  const BoxShadow(color: Colors.black12, blurRadius: 5)
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // --- এই অংশটুকু আপডেট করা হয়েছে ---
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: url.toLowerCase().endsWith('.json')
+                          ? Lottie.network(url, fit: BoxFit.contain)
+                          : Image.network(
+                              url,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.broken_image,
+                                      color: Colors.grey),
+                            ),
+                    ),
+                  ),
+                  // ---------------------------------
+
+                  Text(name,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.purple)),
+
+                  Text(type,
+                      style: const TextStyle(fontSize: 10, color: Colors.grey)),
+
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(timeText,
+                        style: TextStyle(
+                            color: remaining.inDays < 2
+                                ? Colors.red
+                                : Colors.blueGrey,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500)),
+                  ),
+
+                  Padding(
+                    padding:
+                        const EdgeInsets.only(bottom: 10, left: 8, right: 8),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 30,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              isPicked ? Colors.redAccent : Colors.purpleAccent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                        onPressed: () async {
+                          String newUrl = isPicked ? "" : url;
+                          bool newStatus = !isPicked;
+
+                          await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(uIDValue)
+                              .update({
+                            'activeSpecialUrl': newUrl,
+                            'hasSpecialEffect': newStatus,
+                          });
+
+                          setState(() {
+                            activeSpecialUrl = newUrl;
+                            hasSpecialEffect = newStatus;
+                          });
+                        },
+                        child: Text(isPicked ? "Unpick" : "Pick",
+                            style: const TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildMyFramesTab() {
-  int currentLevel = getVipLevel();
-  // ১. সকল সম্ভাব্য ফ্রেমের লিস্ট তৈরি
-  List<Map<String, String>> myAvailableFrames = [];
+    int currentLevel = getVipLevel();
 
-  // ২. প্রিমিয়াম কার্ডের ফ্রেম চেক
-  const String premiumFrameUrl =
-      "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumframe.png";
-  
-  bool isPremiumExpired =
-      frameUntilDate != null && frameUntilDate!.isBefore(DateTime.now());
+    // ১. কেনা ফ্রেমগুলোর জন্য স্ট্রিম বিল্ডার
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uIDValue) // আপনার ইউজার আইডি ভেরিয়েবল
+          .collection('my_frames')
+          .snapshots(),
+      builder: (context, snapshot) {
+        // কেনা ফ্রেমের লিস্ট তৈরি
+        List<Map<String, String>> myAvailableFrames = [];
 
-  if (hasFreeFrame && !isPremiumExpired) {
-    myAvailableFrames.add({
-      "name": "Premium Frame", 
-      "url": premiumFrameUrl,
-      "expiry": frameUntilDate != null 
-          ? "${frameUntilDate!.day}/${frameUntilDate!.month}/${frameUntilDate!.year}" 
-          : "N/A"
-    });
+        // ২. প্রিমিয়াম কার্ডের ফ্রেম চেক (আপনার আগের লজিক)
+        const String premiumFrameUrl =
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumframe.png";
+        bool isPremiumExpired =
+            frameUntilDate != null && frameUntilDate!.isBefore(DateTime.now());
+
+        if (hasFreeFrame && !isPremiumExpired) {
+          myAvailableFrames.add({
+            "name": "Premium Frame",
+            "url": premiumFrameUrl,
+            "expiry": frameUntilDate != null
+                ? "${frameUntilDate!.day}/${frameUntilDate!.month}/${frameUntilDate!.year}"
+                : "N/A"
+          });
+        }
+
+        // ৩. VIP লেভেল অনুযায়ী ফ্রেম চেক (আপনার আগের লজিক)
+        if (currentLevel >= 1 && currentLevel <= 8) {
+          String vipFrameUrl =
+              "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/framevip$currentLevel.png";
+          String vipExpiry = premiumUntilDate != null
+              ? "${premiumUntilDate!.day}/${premiumUntilDate!.month}/${premiumUntilDate!.year}"
+              : "Permanent";
+          myAvailableFrames.add({
+            "name": "VIP Level $currentLevel",
+            "url": vipFrameUrl,
+            "expiry": vipExpiry
+          });
+        }
+
+        // ৪. 🔥 কেনা ফ্রেমগুলো লিস্টে যোগ করা
+        if (snapshot.hasData) {
+          for (var doc in snapshot.data!.docs) {
+            var data = doc.data() as Map<String, dynamic>;
+
+            // ডাটাবেজ থেকে expiryDate নেওয়া
+            dynamic expiryData = data['expiryDate'];
+            String expiryString = "Permanent";
+
+            // যদি ডাটাবেজে তারিখ থাকে তবে সেটি কনভার্ট করা
+            if (expiryData != null && expiryData is Timestamp) {
+              DateTime date = expiryData.toDate();
+              // তারিখটিকে আপনার পছন্দমতো ফরম্যাটে সাজানো (দিন/মাস/বছর)
+              expiryString = "${date.day}/${date.month}/${date.year}";
+            }
+
+            myAvailableFrames.add({
+              "name": data['name']?.toString() ?? "Purchased Frame",
+              "url": data['image_url']?.toString() ??
+                  "", // স্টোর ট্যাবে আপনি 'image_url' হিসেবে সেভ করছেন
+              "expiry": expiryString,
+            });
+          }
+        }
+
+        if (myAvailableFrames.isEmpty) {
+          return const Center(
+              child: Text("No Active Frames",
+                  style: TextStyle(color: Colors.white54)));
+        }
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(15),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.72,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10),
+          itemCount: myAvailableFrames.length,
+          itemBuilder: (context, index) {
+            String currentUrl = myAvailableFrames[index]["url"]!;
+            String currentName = myAvailableFrames[index]["name"]!;
+            String expiryDate = myAvailableFrames[index]["expiry"]!;
+            bool isPicked = activeFrameUrl == currentUrl;
+
+            return Container(
+              decoration: BoxDecoration(
+                  color: Colors.white10,
+                  borderRadius: BorderRadius.circular(15),
+                  border: isPicked
+                      ? Border.all(color: Colors.amber, width: 2)
+                      : null),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 10),
+                  // লটি বা ইমেজ চেনার লজিক
+                  SizedBox(
+                    height: 65,
+                    child: currentUrl.contains('.json')
+                        ? Lottie.network(currentUrl)
+                        : Image.network(currentUrl),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(currentName,
+                      style: const TextStyle(
+                          color: Color.fromARGB(252, 66, 191, 244),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text("Expiry: $expiryDate",
+                      style: const TextStyle(
+                          color: Colors.orangeAccent, fontSize: 10)),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            isPicked ? Colors.redAccent : Colors.blueAccent,
+                        minimumSize: const Size(80, 30),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10))),
+                    onPressed: () async {
+                      String newFrame = isPicked ? "" : currentUrl;
+                      try {
+                        // ইউজারের মেইন ডাটাতে activeFrameUrl বা activeFrame আপডেট করুন
+                        await FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(uIDValue)
+                            .update({
+                          'activeFrameUrl': newFrame
+                        }); // নাম মিলিয়ে নিন (activeFrameUrl/activeFrame)
+
+                        setState(() {
+                          activeFrameUrl = newFrame;
+                        });
+                      } catch (e) {
+                        debugPrint("Update Error: $e");
+                      }
+                    },
+                    child: Text(isPicked ? "UNPICK" : "PICK",
+                        style: const TextStyle(fontSize: 11)),
+                  ),
+                  const SizedBox(height: 5),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
-  // ৩. ইউজারের বর্তমান VIP লেভেল অনুযায়ী ফ্রেম চেক (১ থেকে ৮)
-  if (currentLevel >= 1 && currentLevel <= 8) {
-    String vipFrameUrl =
-        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/framevip$currentLevel.png";
-    
-    // VIP ফ্রেমের মেয়াদ সাধারণত Premium Card এর মেয়াদের সমান হয়
-    String vipExpiry = premiumUntilDate != null 
-        ? "${premiumUntilDate!.day}/${premiumUntilDate!.month}/${premiumUntilDate!.year}" 
-        : "Permanent";
-
-    myAvailableFrames.add({
-      "name": "VIP Level $currentLevel", 
-      "url": vipFrameUrl,
-      "expiry": vipExpiry
-    });
-  }
-
-  // যদি কোনো ফ্রেম না থাকে
-  if (myAvailableFrames.isEmpty) {
-    return const Center(
-        child: Text("No Active Frames",
-            style: TextStyle(color: Colors.white54)));
-  }
-
-  return GridView.builder(
-    padding: const EdgeInsets.all(15),
-    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.72, // তারিখ দেখানোর জন্য হাইট সামান্য বাড়ানো হয়েছে
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10),
-    itemCount: myAvailableFrames.length,
-    itemBuilder: (context, index) {
-      String currentUrl = myAvailableFrames[index]["url"]!;
-      String currentName = myAvailableFrames[index]["name"]!;
-      String expiryDate = myAvailableFrames[index]["expiry"]!;
-
-      bool isPicked = activeFrameUrl == currentUrl;
-
-      return Container(
-        decoration: BoxDecoration(
-            color: Colors.white10,
-            borderRadius: BorderRadius.circular(15),
-            border:
-                isPicked ? Border.all(color: Colors.amber, width: 2) : null),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const SizedBox(height: 10),
-            Image.network(currentUrl, height: 65),
-            const SizedBox(height: 8),
-            Text(currentName,
-                style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
-            
-            // --- তারিখ দেখানোর অংশ ---
-            const SizedBox(height: 4),
-            Text(
-              "Expiry: $expiryDate",
-              style: const TextStyle(color: Colors.orangeAccent, fontSize: 10),
-            ),
-            // -----------------------
-
-            const SizedBox(height: 10),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      isPicked ? Colors.redAccent : Colors.blueAccent,
-                  minimumSize: const Size(80, 30),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-              onPressed: () async {
-                String newFrame = isPicked ? "" : currentUrl;
-
-                try {
-                  // Firebase এ activeFrame আপডেট
-                  await FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(uIDValue)
-                      .update({'activeFrame': newFrame});
-
-                  setState(() {
-                    activeFrameUrl = newFrame;
-                  });
-                } catch (e) {
-                  debugPrint("Update Error: $e");
-                }
-              },
-              child: Text(isPicked ? "UNPICK" : "PICK", style: const TextStyle(fontSize: 11)),
-            ),
-            const SizedBox(height: 5),
-          ],
-        ),
-      );
-    },
-  );
-}
   @override
   Widget build(BuildContext context) {
     final String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
@@ -2021,9 +2572,10 @@ Widget _buildMyEntriesTab() {
         double progressValue = (xp / nextTarget).clamp(0.0, 1.0);
 
         return Scaffold(
+          extendBodyBehindAppBar: true,
           backgroundColor: const Color(0xFF0F0F1E),
           appBar: AppBar(
-            backgroundColor: Colors.transparent,
+            backgroundColor: const Color.fromARGB(125, 4, 2, 58),
             elevation: 0,
             leading: isMe
                 ? Padding(
@@ -2039,7 +2591,7 @@ Widget _buildMyEntriesTab() {
             actions: [
               if (isMe)
                 IconButton(
-                    icon: const Icon(Icons.settings, color: Colors.white),
+                    icon: const Icon(Icons.settings, color: Color.fromARGB(255, 90, 191, 245)),
                     onPressed: _openSettings)
             ],
           ),
@@ -2055,6 +2607,7 @@ Widget _buildMyEntriesTab() {
                 physics: const BouncingScrollPhysics(),
                 child: Column(
                   children: [
+                    const SizedBox(height: kToolbarHeight + 60),
                     // --- ম্যারেজ সেকশন ---
                     StreamBuilder<DocumentSnapshot>(
                       stream: FirebaseFirestore.instance
@@ -2084,6 +2637,8 @@ Widget _buildMyEntriesTab() {
                     Center(
                       child: Stack(
                         alignment: Alignment.center,
+                        clipBehavior: Clip
+                            .none, // 🔥 এটি ফ্রেমকে বাউন্ডারির বাইরে যাওয়ার অনুমতি দিবে
                         children: [
                           // ১. প্রোফাইল পিকচার (সবার নিচে)
                           GestureDetector(
@@ -2101,15 +2656,30 @@ Widget _buildMyEntriesTab() {
                             ),
                           ),
 
-                          // ২. ফ্রেম (পিকের উপরে)
+                          // ২. ফ্রেম (প্রোফাইল পিকের জন্য - এখন এটি নামকে নিচে নামাবে না)
                           if (activeFrameUrl.isNotEmpty)
                             IgnorePointer(
-                              child: Image.network(
-                                activeFrameUrl,
-                                width:
-                                    193, // ফ্রেমের সাইজ একটু বাড়িয়েছি যাতে সুন্দর দেখায়
-                                height: 185,
-                                fit: BoxFit.contain,
+                              child: SizedBox(
+                                width: 0, // 🔥 লেআউটের জন্য উইডথ ০ করে দিন
+                                height: 0, // 🔥 লেআউটের জন্য হাইট ০ করে দিন
+                                child: OverflowBox(
+                                  minWidth: 193, // আপনার নির্ধারিত মাপ
+                                  maxWidth: 193,
+                                  minHeight: 185,
+                                  maxHeight: 185,
+                                  child: activeFrameUrl.contains('.json')
+                                      ? Transform.scale(
+                                          scale: 0.9,
+                                          child: Lottie.network(
+                                            activeFrameUrl,
+                                            fit: BoxFit.contain,
+                                          ),
+                                        )
+                                      : Image.network(
+                                          activeFrameUrl,
+                                          fit: BoxFit.contain,
+                                        ),
+                                ),
                               ),
                             ),
                         ],
@@ -2271,6 +2841,22 @@ Widget _buildMyEntriesTab() {
                   ], // Column এর children শেষ
                 ), // Column শেষ
               ), // SingleChildScrollView শেষ
+              // --- এইখানে ফুল পেজ ফ্রেমের কোডটি বসবে ---
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Container(
+                    width: MediaQuery.of(context).size.width,
+                    height: MediaQuery.of(context).size.height,
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: NetworkImage(activeSpecialUrl),
+                        fit: BoxFit
+                            .fill, // এটি পুরো স্ক্রিনে ফ্রেমটিকে টেনে বসাবে
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ], // Stack এর children শেষ
           ), // Stack শেষ (বডি শেষ)
         ); // Scaffold শেষ
@@ -2572,56 +3158,66 @@ class RainbowCascadePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint();
     final random =
-        math.Random(); // এইটার জন্য উপরে import 'dart:math' as math; লাগবে
+        math.Random(42); // Seed ব্যবহার করা হয়েছে যাতে রেন্ডার ফিক্সড থাকে
 
-    List<Color> colors = [
-      Colors.red,
-      Colors.orange,
-      Colors.yellow,
-      Colors.green,
-      Colors.blue,
-      Colors.indigo,
-      Colors.purple
+    // আপনার রুম পেইজের থিমের সাথে মিল রেখে কালার প্যালেট
+    List<Color> galaxyColors = [
+      const Color(0xFF0F0C29), // গাঢ় নীল
+      const Color(0xFF302B63), // বেগুনি আভা
+      const Color(0xFF24243E), // নেভি ব্লু
     ];
 
-    // ১. প্রথমে ব্যাকগ্রাউন্ডে হালকা রঙিন আভা (Glow)
-    double stripeWidth = size.width / colors.length;
-    for (int i = 0; i < colors.length; i++) {
-      Rect rect = Rect.fromLTWH(i * stripeWidth, 0, stripeWidth, size.height);
+    // ১. ব্যাকগ্রাউন্ডে গ্লাস ইফেক্টের জন্য রেডিয়াল গ্রেডিয়েন্ট (Glow)
+    final Rect rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    paint.shader = RadialGradient(
+      center: const Alignment(0.7, -0.6), // ডানদিকের উপরে হালকা গ্লো
+      radius: 1.5,
+      colors: [
+        const Color(0xFF302B63).withOpacity(0.3),
+        const Color(0xFF0F0C29).withOpacity(0.1),
+        Colors.transparent,
+      ],
+    ).createShader(rect);
+    canvas.drawRect(rect, paint);
+
+    // ২. গ্যালাক্সি তারা বা স্পার্কেলস (Glowing Stars)
+    for (int i = 0; i < 100; i++) {
+      final double x = random.nextDouble() * size.width;
+      final double y = random.nextDouble() * size.height;
+      final double starSize = random.nextDouble() * 2.0;
+
+      paint.shader = null;
+      // কিছু তারা সাদা এবং কিছু হালকা বেগুনি
+      paint.color = (i % 5 == 0)
+          ? Colors.purpleAccent.withOpacity(random.nextDouble() * 0.7)
+          : Colors.white.withOpacity(random.nextDouble() * 0.5);
+
+      canvas.drawCircle(Offset(x, y), starSize, paint);
+
+      // তারার চারপাশে হালকা গ্লো (ব্লায়ার ইফেক্ট)
+      if (i % 10 == 0) {
+        paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+        canvas.drawCircle(Offset(x, y), starSize * 2, paint);
+        paint.maskFilter = null;
+      }
+    }
+
+    // ৩. ওপর থেকে ঝুলে থাকা হালকা আলোর স্ট্রিং (Light Strings)
+    for (int i = 0; i < 15; i++) {
+      final double x = random.nextDouble() * size.width;
+      final double lineLength = random.nextDouble() * 150 + 50;
+
       paint.shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          colors[i].withOpacity(0.15), // খুব হালকা আভা
-          const Color(0xFF0F0F1E).withOpacity(0.0),
+          Colors.blueAccent.withOpacity(0.2),
+          Colors.transparent,
         ],
-      ).createShader(rect);
-      canvas.drawRect(rect, paint);
-    }
+      ).createShader(Rect.fromLTWH(x, 0, 1, lineLength));
 
-    // ২. এবার ছবির মতো 'বৃষ্টির কণা' বা Sparkles যোগ করা
-    for (int i = 0; i < 150; i++) {
-      // কতগুলো কণা হবে
-      final double x = random.nextDouble() * size.width;
-      final double y =
-          random.nextDouble() * size.height * 0.8; // স্ক্রিনের ৮০% পর্যন্ত
-      final double particleHeight =
-          random.nextDouble() * 20 + 5; // কণাগুলো লম্বাটে হবে
-
-      // কণাটি কোন রঙের জোনে আছে সেই অনুযায়ী রঙ সেট করা
-      int colorIndex = (x / stripeWidth).floor().clamp(0, colors.length - 1);
-
-      paint.shader = null; // শ্যাডার রিসেট
-      paint.color =
-          colors[colorIndex].withOpacity(random.nextDouble() * 0.5 + 0.2);
-      paint.strokeWidth = random.nextDouble() * 1.5 + 0.5;
-
-      // লম্বাটে ড্রপ বা কণা আঁকা (ছবির মতো)
-      canvas.drawLine(
-        Offset(x, y),
-        Offset(x, y + particleHeight),
-        paint,
-      );
+      paint.strokeWidth = 1.0;
+      canvas.drawLine(Offset(x, 0), Offset(x, lineLength), paint);
     }
   }
 

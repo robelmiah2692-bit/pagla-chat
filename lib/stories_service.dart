@@ -42,6 +42,7 @@ class StoriesService {
       String actualName = "User";
       String actualProfilePic = "";
       String myCustomDocId = "";
+      String actualFrameUrl = ""; // 🔥 ফ্রেমের জন্য ভেরিয়েবল
 
       final userQuery = await _firestore
           .collection('users')
@@ -53,6 +54,7 @@ class StoriesService {
         myCustomDocId = userQuery.docs.first.id; // এটা আপনার ৬ ডিজিটের আইডি (যেমন: 153530)
         actualName = data['name'] ?? "User";
         actualProfilePic = data['profilePic'] ?? "";
+        actualFrameUrl = data['activeFrameUrl'] ?? "";
       }
 
       // ৩. ডাটাবেসে স্টোরি সেভ
@@ -61,6 +63,7 @@ class StoriesService {
         'authUID': user.uid,     // চেনার সুবিধার জন্য অরিজিনাল Auth uID-ও রাখা হলো
         'userName': actualName, 
         'userImage': actualProfilePic, 
+        'activeFrameUrl': actualFrameUrl,
         'storyImage': downloadUrl,
         'caption': text,
         'timestamp': FieldValue.serverTimestamp(),

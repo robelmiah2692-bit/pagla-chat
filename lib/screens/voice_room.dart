@@ -17,6 +17,7 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:lottie/lottie.dart';
 import 'package:pagla_chat/room_list_page.dart' show RoomListPage;
+
 import 'package:pagla_chat/widgets/entry_effect_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:image_picker/image_picker.dart';
@@ -112,6 +113,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String? entryUserImage;
   String? currentEntryEffect;
   bool showEntryEffect = false;
+  String? entryUserFrame; // 🔥 ফ্রেমের জন্য এই নতুন লাইনটি যোগ করুন
   // PK Battle Info
   int blueTeamPoints = 0;
   int redTeamPoints = 0;
@@ -159,7 +161,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     _fetchRoomData();
     _initEmojiListener();
     _addUserToViewers();
-
+    showMyOwnEntry();
     FirebaseFirestore.instance
         .collection('rooms')
         .doc(widget.roomId)
@@ -176,6 +178,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
               entryUserName = entry['name'];
               entryUserImage = entry['image'];
               currentEntryEffect = entry['entryUrl'];
+              entryUserFrame = entry['activeFrameUrl'];
               showEntryEffect = true;
             });
           }
@@ -190,6 +193,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
               "isOccupied": false,
               "userName": "",
               "userImage": "",
+              "userFrame": "",
               "isVip": index < 5,
               "status": "empty",
               "giftCount": 0,
@@ -213,6 +217,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
           seat["isOccupied"] = false;
           seat["userName"] = "";
           seat["userImage"] = "";
+          seat["userFrame"] = ""; // ✅ ক্লিয়ার
           seat["uID"] = "";
           seat["userId"] = "";
         }
@@ -228,6 +233,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   value["name"] ?? value["userName"] ?? "";
               seats[index]["userImage"] =
                   value["profilePic"] ?? value["userImage"] ?? "";
+              seats[index]["userFrame"] =
+                  value["activeFrameUrl"] ?? value["userFrame"] ?? "";
               seats[index]["isMicOn"] = value["isMicOn"] ?? false;
               seats[index]["userId"] =
                   value["authUID"] ?? value["userId"] ?? "";
@@ -413,51 +420,48 @@ class _VoiceRoomState extends State<VoiceRoom> {
     });
   }
 
-  void sendEntrySignal(String roomId) async {
+  void showMyOwnEntry() async {
     User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
 
     try {
-      DocumentSnapshot? userDoc;
-      // প্রোফাইল ডাটা Firestore থেকেই আনুন (ওখানে যেহেতু আছে)
-      final collection = FirebaseFirestore.instance.collection('users');
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('authUID', isEqualTo: currentUser.uid)
+          .limit(1)
+          .get();
 
-      // ইউজার খোঁজার লজিক (আপনার আগের কোড অনুযায়ী)
-      if (uID.isNotEmpty) {
-        var docById = await collection.doc(uID).get();
-        if (docById.exists) userDoc = docById;
-      }
+      if (querySnapshot.docs.isNotEmpty) {
+        var userData = querySnapshot.docs.first.data();
 
-      if (userDoc == null) {
-        var queryAuth = await collection
-            .where('authUID', isEqualTo: currentUser.uid)
-            .limit(1)
-            .get();
-        if (queryAuth.docs.isNotEmpty) userDoc = queryAuth.docs.first;
-      }
-
-      // --- যদি ইউজার পাওয়া যায় ---
-      if (userDoc != null && userDoc.exists) {
-        var userData = userDoc.data() as Map<String, dynamic>;
-        String? entryUrl = userData['activeEntryUrl'];
-        bool hasEffect = userData['hasEntryEffect'] ?? false;
-
-        if (hasEffect && entryUrl != null && entryUrl.isNotEmpty) {
-          // 🔥 পরিবর্তন এখানে: Firestore এর বদলে Realtime Database এ আপডেট করুন
-          await FirebaseDatabase.instance
-              .ref('rooms/$roomId/lastEntry') // সিট যেখানে আছে সেখানেই পাঠাচ্ছি
-              .set({
-            'name': userData['name'] ?? "User",
-            'image': userData['profilePic'] ?? "",
-            'activeEntryUrl': entryUrl,
-            'timestamp':
-                ServerValue.timestamp, // Realtime Database এর টাইমস্ট্যাম্প
+        if (mounted) {
+          setState(() {
+            entryUserName = userData['name'] ?? "User";
+            entryUserImage = userData['profilePic'] ?? "";
+            currentEntryEffect = userData['activeEntryUrl'];
+            entryUserFrame = userData['activeFrameUrl'] ?? "";
+            showEntryEffect = userData['hasEntryEffect'] ?? false;
           });
-          debugPrint("✅ Realtime Database-এ এন্ট্রি সিগন্যাল পাঠানো হয়েছে!");
         }
+
+        // 🔥 ৩. মেসেজ লিস্টে এন্ট্রি ডাটা পাঠানো
+        await FirebaseFirestore.instance
+            .collection('rooms')
+            .doc(widget.roomId)
+            .collection('messages')
+            .add({
+          'name': userData['name'] ?? "User",
+          'uID': userData['uID'] ?? "",
+          'senderImage': userData['profilePic'] ??
+              "", // 🔥 এখানে 'senderImage' ব্যবহার করুন
+          'type': 'entry',
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+
+        debugPrint("🚀 এন্ট্রি মেসেজ পাঠানো হয়েছে!");
       }
     } catch (e) {
-      debugPrint("Entry Signal Error: $e");
+      debugPrint("Entry Error: $e");
     }
   }
 
@@ -553,6 +557,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
         await seatRef.set({
           'name': userData['name'] ?? "Hridoy",
           'profilePic': userData['profilePic'] ?? "",
+          'activeFrameUrl': userData['activeFrameUrl'] ?? "",
           'uID': userData['uID'] ?? "",
           'authUID': currentUser.uid,
           'isOccupied': true,
@@ -563,7 +568,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
         });
 
         await seatRef.onDisconnect().remove();
-
+        // 🔥 ঠিক এখানে এই নিচের কোডটুকু বসিয়ে দিন (Firestore-এ ডাটা পাঠানোর জন্য)
+        await FirebaseFirestore.instance
+            .collection('rooms')
+            .doc(widget.roomId)
+            .collection('messages')
+            .add({
+          'name': userData['name'] ?? "User",
+          'uID': userData['uID'] ?? "",
+          'profilePic': userData['profilePic'] ?? "",
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+        // 🔥 কোড শেষ
         if (mounted) {
           setState(() {
             currentSeatIndex = index;
@@ -580,35 +596,86 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   void _showLeaveConfirmation(int index) {
-    showDialog(
+    showGeneralDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: const Text("Leave Seat", style: TextStyle(color: Colors.white)),
-        content:
-            const Text("Are you sure?", style: TextStyle(color: Colors.grey)),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text("No")),
-          TextButton(
-              onPressed: () async {
-                await _agoraManager.becomeListener();
-                await FirebaseDatabase.instance
-                    .ref('rooms/${widget.roomId}/seats/$index')
-                    .remove();
-                if (mounted) {
-                  setState(() {
-                    currentSeatIndex = -1;
-                    isMicOn = false;
-                  });
-                  Navigator.pop(dialogContext);
-                }
-              },
-              child:
-                  const Text("Yes", style: TextStyle(color: Colors.redAccent))),
-        ],
-      ),
+      barrierDismissible: true,
+      barrierLabel: '',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (ctx, anim1, anim2) => Container(),
+      transitionBuilder: (ctx, anim1, anim2, child) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5), // গ্লাস ব্লার ইফেক্ট
+          child: FadeTransition(
+            opacity: anim1,
+            child: Center(
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  width: MediaQuery.of(context).size.width * 0.75,
+                  decoration: BoxDecoration(
+                    color:
+                        Colors.black.withOpacity(0.4), // আধা-স্বচ্ছ ডার্ক গ্লাস
+                    borderRadius: BorderRadius.circular(25),
+                    border: Border.all(color: Colors.white.withOpacity(0.2)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 20),
+                      const Icon(Icons.exit_to_app_rounded,
+                          color: Colors.redAccent, size: 30),
+                      const SizedBox(height: 10),
+                      const Text(
+                        "Leave Seat",
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 5),
+                      const Text(
+                        "Are you sure you want to leave?",
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                      const SizedBox(height: 20),
+                      const Divider(color: Colors.white10, height: 1),
+                      // 🔥 YES বাটন (সিট ছাড়ার আসল লজিক)
+                      _buildPremiumButton(
+                        text: "Yes, Leave",
+                        icon: Icons.check_circle_outline,
+                        textColor: Colors.redAccent,
+                        onTap: () async {
+                          Navigator.pop(ctx); // ডায়ালগ বন্ধ হবে
+                          await _agoraManager.becomeListener();
+                          await FirebaseDatabase.instance
+                              .ref('rooms/${widget.roomId}/seats/$index')
+                              .remove();
+                          if (mounted) {
+                            setState(() {
+                              currentSeatIndex = -1;
+                              isMicOn = false;
+                            });
+                          }
+                        },
+                      ),
+                      const Divider(color: Colors.white10, height: 1),
+                      // 🔥 NO বাটন (ক্যান্সেল)
+                      _buildPremiumButton(
+                        text: "No, Stay",
+                        icon: Icons.cancel_outlined,
+                        textColor: Colors.white70,
+                        onTap: () => Navigator.pop(ctx),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -687,7 +754,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B1222),
-      // কিবোর্ড আসার সময় রুম হ্যাং হওয়া কমাতে এটি true করা হয়েছে
       resizeToAvoidBottomInset: true,
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
@@ -704,7 +770,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
               roomData = snapshot.data!.data() as Map<String, dynamic>;
               wallpaperUrl = roomData['currentWallpaper'];
 
-              // --- গিফট অ্যানিমেশনের লজিক (আপনার আগের কোড) ---
+              // --- গিফট অ্যানিমেশনের লজিক ---
               var lastGift = roomData['last_gift'];
               if (lastGift != null) {
                 int giftTime = 0;
@@ -737,50 +803,30 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 }
               }
 
-              // আপনার রুমের Firestore StreamBuilder এর ভেতরে...
-              if (snapshot.hasData && snapshot.data!.exists) {
-                Map<String, dynamic> roomData =
-                    snapshot.data!.data() as Map<String, dynamic>;
-
-                // --- আপনার দেওয়া এন্ট্রি ইফেক্ট লজিক এখানে ---
+              // --- এন্ট্রি ইফেক্ট লজিক ---
+              if (roomData.containsKey('lastEntry')) {
                 var lastEntry = roomData['lastEntry'];
-                if (lastEntry != null && lastEntry['timestamp'] != null) {
-                  int entryTime = 0;
-                  var ts = lastEntry['timestamp'];
-
-                  if (ts is Timestamp) {
-                    entryTime = ts.millisecondsSinceEpoch;
-                  } else if (ts is int) {
-                    entryTime = ts;
-                  }
-
-                  int now = DateTime.now().millisecondsSinceEpoch;
-
-                  // সময় ১০ সেকেন্ড দেওয়াতে সুবিধা হবে টেস্ট করতে
-                  if ((now - entryTime).abs() < 10000 &&
-                      mounted &&
-                      !showEntryEffect) {
-                    String? effectLink = lastEntry['activeEntryUrl'];
-
-                    if (effectLink != null && effectLink.isNotEmpty) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) {
-                          setState(() {
-                            entryUserName = lastEntry['name'];
-                            entryUserImage = lastEntry['image'];
-                            currentEntryEffect = effectLink;
-                            showEntryEffect = true;
-                          });
-                        }
-                      });
-                    }
+                if (lastEntry != null && !showEntryEffect) {
+                  String? effectLink = lastEntry['activeEntryUrl'];
+                  if (effectLink != null && effectLink.isNotEmpty) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted && !showEntryEffect) {
+                        setState(() {
+                          entryUserName = lastEntry['name'] ?? "User";
+                          entryUserImage = lastEntry['image'] ?? "";
+                          currentEntryEffect = effectLink;
+                          showEntryEffect = true;
+                        });
+                      }
+                    });
                   }
                 }
               }
             }
+
             return Stack(
               children: [
-                // ১. ওয়ালপেপার (সবার নিচে) - RepaintBoundary ল্যাগ কমাবে
+                // ১. ওয়ালপেপার
                 Positioned.fill(
                   child: RepaintBoundary(
                     child: (wallpaperUrl != null && wallpaperUrl.isNotEmpty)
@@ -796,7 +842,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   ),
                 ),
 
-                // ২. মেইন UI (TopBar, Seats, Messages)
+                // ২. মেইন UI
                 SafeArea(
                   child: Column(
                     children: [
@@ -810,15 +856,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
                           pkManager: pkManager,
                         ),
                       _buildViewerArea(),
-
-                      // সিট এরিয়া - ল্যাগ কমাতে RepaintBoundary ব্যবহার করা হয়েছে
                       Expanded(
                         flex: 2,
                         child: RepaintBoundary(child: _buildSeatGridArea()),
                       ),
-
-                      // মেসেজ এরিয়া
                       const SizedBox(height: 10),
+
+                      // মেসেজ এবং অ্যাক্টিভিটি এরিয়া
                       Expanded(
                         flex: 1,
                         child: Container(
@@ -834,6 +878,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                             builder: (context, msgSnapshot) {
                               if (!msgSnapshot.hasData) return const SizedBox();
                               var docs = msgSnapshot.data!.docs;
+
                               return ListView.builder(
                                 reverse: true,
                                 padding: EdgeInsets.zero,
@@ -841,25 +886,26 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                 itemBuilder: (context, index) {
                                   var mData = docs[index].data()
                                       as Map<String, dynamic>;
+
+                                  // সেন্ডারের ডাটা
                                   String uName = mData['name'] ??
                                       mData['userName'] ??
                                       "User";
-                                  String uImage = mData['profilePic'] ??
+                                  String uImage = mData['senderImage'] ??
+                                      mData['profilePic'] ??
                                       mData['userImage'] ??
                                       "";
                                   String messageText =
                                       mData['message'] ?? mData['text'] ?? "";
-                                  String uID = (mData['uID'] ??
-                                          mData['senderId'] ??
-                                          uName)
-                                      .toString();
+                                  String type = mData['type'] ?? 'text';
 
                                   return Align(
                                     alignment: Alignment.bottomLeft,
                                     child: GestureDetector(
                                       onTap: () {
+                                        // 🔥 এখানে আইডি এর বদলে নাম (uName) সেট করা হয়েছে
                                         setState(() {
-                                          _messageController.text = "@$uID ";
+                                          _messageController.text = "@$uName ";
                                           _messageController.selection =
                                               TextSelection.fromPosition(
                                             TextPosition(
@@ -868,11 +914,14 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                           );
                                         });
                                       },
-                                      child: _buildMessageRow({
-                                        'name': uName,
-                                        'profilePic': uImage,
-                                        'text': messageText,
-                                      }),
+                                      child: type == 'text'
+                                          ? _buildMessageRow({
+                                              'name': uName,
+                                              'profilePic': uImage,
+                                              'text': messageText,
+                                            })
+                                          : _buildActivityRow(
+                                              mData), // এটি আপনার গিফট/এন্ট্রি রো দেখাবে ছবিসহ
                                     ),
                                   );
                                 },
@@ -881,12 +930,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
                           ),
                         ),
                       ),
+
                       _buildBottomActionArea(),
                     ],
                   ),
                 ),
 
-                // ৩. মেইল বাটন ও ইনবক্স
+                // ৩. ইনবক্স বাটন
                 Positioned(
                   bottom: 110,
                   right: 15,
@@ -956,32 +1006,21 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   ),
                 ),
 
-                // ভাসমান এবং মুভেবল ব্যানার
-                if (roomData['showBanner'] ??
-                    false) // যদি ফায়ারবেস থেকে ব্যানার অন থাকে
+                // ৪. মুভেবল ব্যানার
+                if (roomData['showBanner'] ?? false)
                   Positioned(
                     left: bannerPosition.dx,
                     top: bannerPosition.dy,
                     child: Draggable(
-                      feedback: Opacity(
-                        opacity: 0.8,
-                        child:
-                            _buildRoomBanner(roomData), // টানার সময় কেমন দেখাবে
-                      ),
-                      childWhenDragging:
-                          Container(), // টানার সময় আগের জায়গা খালি থাকবে
-                      onDragEnd: (details) {
-                        setState(() {
-                          // ড্র্যাগ শেষ হলে নতুন পজিশন সেট হবে
-                          bannerPosition = details.offset;
-                        });
-                      },
-                      child:
-                          _buildRoomBanner(roomData), // সাধারণ অবস্থায় ব্যানার
+                      feedback: _buildRoomBanner(roomData),
+                      childWhenDragging: Container(),
+                      onDragEnd: (details) =>
+                          setState(() => bannerPosition = details.offset),
+                      child: _buildRoomBanner(roomData),
                     ),
                   ),
 
-                // ৪. মিউজিক প্লেয়ার
+                // ৫. মিউজিক প্লেয়ার
                 if (isFloatingPlayerVisible)
                   Positioned(
                     left: playerPosition.dx,
@@ -989,20 +1028,16 @@ class _VoiceRoomState extends State<VoiceRoom> {
                     child: Draggable(
                       feedback: _buildFloatingPlayer(isDragging: true),
                       childWhenDragging: Container(),
-                      onDragEnd: (details) {
-                        setState(() {
-                          playerPosition = details.offset;
-                        });
-                      },
+                      onDragEnd: (details) =>
+                          setState(() => playerPosition = details.offset),
                       child: _buildFloatingPlayer(isDragging: false),
                     ),
                   ),
 
-                // ৫. টুলস এবং ক্যালকুলেটর
+                // ৬. টুলস ও ওভারলে
                 FloatingRoomTools(
-                  onGiftCountStart: (minutes, theme) {
-                    _startGiftCounting(minutes, theme);
-                  },
+                  onGiftCountStart: (minutes, theme) =>
+                      _startGiftCounting(minutes, theme),
                   seats: seats,
                 ),
                 if (isCalculatorActive)
@@ -1012,7 +1047,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                     child: GiftCalculatorRanking(roomData: roomData),
                   ),
 
-                // ৬. গিফট এবং ইমোজি অ্যানিমেশন (সবার ওপরে)
                 IgnorePointer(
                   child: GiftOverlayHandler(
                     isGiftAnimating: isGiftAnimating,
@@ -1024,22 +1058,149 @@ class _VoiceRoomState extends State<VoiceRoom> {
                     receiverName: targetType,
                   ),
                 ),
-                // Stack এর একদম নিচে
+
                 if (showEntryEffect && currentEntryEffect != null)
                   EntryEffectHandler(
                     userName: entryUserName ?? "User",
                     userImage: entryUserImage,
+                    activeFrameUrl: entryUserFrame,
                     effectUrl: currentEntryEffect!,
                     onFinished: () {
                       if (mounted) setState(() => showEntryEffect = false);
                     },
                   ),
-
                 ..._buildFloatingEmojiAnimations(),
               ],
             );
           },
         ),
+      ),
+    );
+  }
+
+// প্রোফাইল অ্যাকশন বাটন (Follow, Chat, Gift)
+  Widget _buildProfileActionButton(IconData icon, String label, Color color) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.2),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 24),
+        ),
+        const SizedBox(height: 5),
+        Text(label,
+            style: const TextStyle(color: Colors.white70, fontSize: 12)),
+      ],
+    );
+  }
+
+// এডমিন কন্ট্রোল বাটন (Kick out, Close)
+  Widget _buildAdminAction(IconData icon, String label, Color color) {
+    return InkWell(
+      onTap: () {/* এখানে আপনার কিক বা ক্লোজ লজিক বসবে */},
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 20),
+          Text(label, style: TextStyle(color: color, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActivityRow(Map<String, dynamic> data) {
+    String type = data['type'] ?? 'entry';
+    bool isGift = type == 'gift';
+
+    // সেন্ডার/এন্ট্রি ইউজারের ডাটা
+    String uName = data['name'] ?? data['userName'] ?? "User";
+    String sImg = data['senderImage'] ?? "";
+
+    // রিসিভারের ডাটা (শুধুমাত্র গিফটের জন্য)
+    String targetName = data['targetName'] ?? "";
+    String rImg = data['receiverImage'] ?? "";
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          // --- ১. সেন্ডার বা এন্ট্রি ইউজারের ছবি ---
+          if (sImg.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: CircleAvatar(
+                radius: 9,
+                backgroundColor: Colors.white10,
+                backgroundImage: NetworkImage(sImg),
+              ),
+            )
+          else
+            const Padding(
+              padding: EdgeInsets.only(right: 4),
+              child:
+                  Icon(Icons.account_circle, size: 18, color: Colors.white24),
+            ),
+
+          Text(
+            "$uName ",
+            style: const TextStyle(
+                color: Colors.amberAccent,
+                fontWeight: FontWeight.bold,
+                fontSize: 12),
+          ),
+
+          Text(
+            isGift ? "sent a gift to " : "entered the room",
+            style: const TextStyle(color: Colors.white, fontSize: 11),
+          ),
+
+          // --- ২. রিসিভারের ছবি ও নাম (শুধু গিফট হলে) ---
+          if (isGift && targetName.isNotEmpty) ...[
+            const SizedBox(width: 5),
+            if (rImg.isNotEmpty && rImg.startsWith('http'))
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: CircleAvatar(
+                  radius: 9,
+                  backgroundImage: NetworkImage(rImg),
+                ),
+              ),
+            Text(
+              targetName,
+              style: const TextStyle(
+                  color: Colors.cyanAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12),
+            ),
+          ],
+
+          // --- ৩. গিফট আইকন ও কাউন্ট ---
+          if (isGift) ...[
+            const SizedBox(width: 6),
+            Image.network(
+              data['giftImage'] ?? '',
+              height: 18,
+              width: 18,
+              errorBuilder: (c, e, s) => const Icon(Icons.card_giftcard,
+                  size: 14, color: Colors.orange),
+            ),
+            Text(
+              " x${data['giftCount'] ?? '1'}",
+              style: const TextStyle(
+                  color: Colors.orangeAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -1588,6 +1749,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 : "";
             String uIDShow =
                 isOccupied ? (seatData['uID']?.toString() ?? "") : "";
+            String uFrame = isOccupied
+                ? (seatData['activeFrameUrl']?.toString() ?? "")
+                : "";
+
             bool isTalking =
                 isOccupied ? (seatData['isTalking'] == true) : false;
             bool isMicOn = isOccupied ? (seatData['isMicOn'] == true) : false;
@@ -1605,8 +1770,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
             return GestureDetector(
               key: seatKeys[index],
               onTap: () {
+                // ১. চেক করা: ইউজার কি বর্তমানে এই সিটেই বসা?
+                if (currentSeatIndex == index) {
+                  _showLeaveConfirmation(index);
+                  return;
+                }
+
+                // ২. মালিক বা এডমিন কি না চেক করা
                 bool isOwner =
                     (FirebaseAuth.instance.currentUser?.uid == ownerAuthId);
+                bool isAdmin = adminList.contains(uID);
+
+                // ৩. VIP চেক
                 if (!isOwner && isVipSeat && (userRole != "VIP")) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                     content: Text(
@@ -1616,7 +1791,209 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   ));
                   return;
                 }
-                sitOnSeat(index);
+
+                // ৪. সিট খালি থাকলে পপআপ মেনু ওপেন হবে
+                bool isSeatOccupied = isOccupied;
+                bool isLocked =
+                    seatData != null ? (seatData['isLocked'] == true) : false;
+
+                if (!isSeatOccupied) {
+                  if (isLocked && !isOwner && !isAdmin) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text("This seat is locked!"),
+                      backgroundColor: Colors.redAccent,
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                    return;
+                  }
+
+                  // 🔥 প্রিমিয়াম গ্লাস লুক ডায়ালগ
+                  showGeneralDialog(
+                    context: context,
+                    barrierDismissible: true,
+                    barrierLabel: '',
+                    barrierColor: Colors.black54,
+                    transitionDuration: const Duration(milliseconds: 250),
+                    pageBuilder: (ctx, anim1, anim2) => Container(),
+                    transitionBuilder: (ctx, anim1, anim2, child) {
+                      return BackdropFilter(
+                        filter: ImageFilter.blur(
+                            sigmaX: 5, sigmaY: 5), // ব্লার ইফেক্ট
+                        child: FadeTransition(
+                          opacity: anim1,
+                          child: Center(
+                            child: Material(
+                              color: Colors.transparent,
+                              child: Container(
+                                width: MediaQuery.of(context).size.width * 0.75,
+                                decoration: BoxDecoration(
+                                  // আধা-স্বচ্ছ গ্লাস ব্যাকগ্রাউন্ড
+                                  color: Colors.black.withOpacity(0.4),
+                                  borderRadius: BorderRadius.circular(25),
+                                  border: Border.all(
+                                      color: Colors.white.withOpacity(0.2)),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const SizedBox(height: 10),
+                                    // Take the Mic বাটন
+                                    _buildPremiumButton(
+                                      text: "Take the Mic",
+                                      icon: Icons.mic_external_on,
+                                      textColor: Colors.cyanAccent,
+                                      onTap: () {
+                                        Navigator.pop(ctx);
+                                        sitOnSeat(index);
+                                      },
+                                    ),
+                                    const Divider(
+                                        color: Colors.white10, height: 1),
+                                    // Lock the Mic বাটন
+                                    if (isOwner || isAdmin) ...[
+                                      _buildPremiumButton(
+                                        text: isLocked
+                                            ? "Unlock the Mic"
+                                            : "Lock the Mic",
+                                        icon: isLocked
+                                            ? Icons.lock_open
+                                            : Icons.lock_outline,
+                                        textColor: Colors.amberAccent,
+                                        onTap: () {
+                                          Navigator.pop(ctx);
+                                          FirebaseDatabase.instance
+                                              .ref()
+                                              .child(
+                                                  'rooms/${widget.roomId}/seats/$index')
+                                              .update({
+                                            'isLocked': !isLocked,
+                                          });
+                                        },
+                                      ),
+                                      const Divider(
+                                          color: Colors.white10, height: 1),
+                                    ],
+                                    // Cancel বাটন
+                                    _buildPremiumButton(
+                                      text: "Cancel",
+                                      icon: Icons.close,
+                                      textColor: Colors.white70,
+                                      onTap: () => Navigator.pop(ctx),
+                                    ),
+                                    const SizedBox(height: 10),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }
+
+                // ৪. সিট যদি খালি না থাকে (অন্য ইউজার বসা থাকে)
+                else {
+                  String seatUserId = seatData?['userId'] ?? '';
+                  String seatUserName = seatData?['userName'] ?? 'User';
+                  String seatUserPhoto = seatData?['userPhoto'] ?? '';
+
+                  showGeneralDialog(
+                    context: context,
+                    barrierDismissible: true,
+                    barrierLabel: '',
+                    barrierColor: Colors.black54,
+                    transitionDuration: const Duration(milliseconds: 250),
+                    pageBuilder: (ctx, anim1, anim2) => Container(),
+                    transitionBuilder: (ctx, anim1, anim2, child) {
+                      return BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                        child: FadeTransition(
+                          opacity: anim1,
+                          child: Center(
+                            child: Material(
+                              color: Colors.transparent,
+                              child: Container(
+                                width: MediaQuery.of(context).size.width * 0.85,
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(30),
+                                  border: Border.all(
+                                      color: Colors.white.withOpacity(0.2)),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const SizedBox(height: 20),
+                                    CircleAvatar(
+                                      radius: 45,
+                                      backgroundImage:
+                                          NetworkImage(seatUserPhoto),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(seatUserName,
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold)),
+                                    Text("ID: $seatUserId",
+                                        style: const TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 12)),
+                                    const SizedBox(height: 20),
+                                    Padding(
+                                      padding: const EdgeInsets.all(15.0),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        children: [
+                                          _buildProfileActionButton(
+                                              Icons.person_add,
+                                              "Follow",
+                                              Colors.blueAccent),
+                                          _buildProfileActionButton(
+                                              Icons.chat_bubble_outline,
+                                              "Chat",
+                                              Colors.purpleAccent),
+                                          _buildProfileActionButton(
+                                              Icons.card_giftcard,
+                                              "Send Gifts",
+                                              Colors.orangeAccent),
+                                        ],
+                                      ),
+                                    ),
+                                    if (isOwner || isAdmin) ...[
+                                      const Divider(color: Colors.white10),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 10),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceAround,
+                                          children: [
+                                            _buildAdminAction(
+                                                Icons.verified_user,
+                                                "Admin",
+                                                Colors.white70),
+                                            _buildAdminAction(Icons.mic_off,
+                                                "Close", Colors.white70),
+                                            _buildAdminAction(Icons.gavel,
+                                                "Kick out", Colors.redAccent),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 10),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }
               },
               behavior: HitTestBehavior.opaque,
               child: Column(
@@ -1629,6 +2006,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                       isTalking: isTalking,
                       child: Stack(
                         alignment: Alignment.center,
+                        clipBehavior: Clip.none,
                         children: [
                           Container(
                             width: 52,
@@ -1666,15 +2044,48 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                           color: Colors.white24, size: 25)
                                       : null)
                                   : Icon(
-                                      isVipSeat
-                                          ? Icons.workspace_premium
-                                          : Icons.chair_rounded,
-                                      color: isVipSeat
-                                          ? Colors.amber.withOpacity(0.6)
-                                          : Colors.white12,
-                                      size: 22),
+                                      // 🔥 লক আইকন চেক (খালি সিটের জন্য)
+                                      (seatData != null &&
+                                              seatData['isLocked'] == true)
+                                          ? Icons.lock
+                                          : (isVipSeat
+                                              ? Icons.workspace_premium
+                                              : Icons.chair_rounded),
+                                      color: (seatData != null &&
+                                              seatData['isLocked'] == true)
+                                          ? Colors.redAccent
+                                          : (isVipSeat
+                                              ? Colors.amber.withOpacity(0.6)
+                                              : Colors.white12),
+                                      size: 22,
+                                    ),
                             ),
                           ),
+                          // ২. 🔥 ফ্রেম (OverflowBox ব্যবহার করে)
+                          if (isOccupied && uFrame.isNotEmpty)
+                            IgnorePointer(
+                              child: OverflowBox(
+                                maxWidth: 150,
+                                maxHeight: 150,
+                                child: SizedBox(
+                                  width: 105, // আপনার আগের সাইজ
+                                  height: 105,
+                                  child: uFrame.contains('.json') // লটি চেক
+                                      ? Lottie.network(
+                                          uFrame,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (c, e, s) =>
+                                              const SizedBox.shrink(),
+                                        )
+                                      : Image.network(
+                                          uFrame,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (c, e, s) =>
+                                              const SizedBox.shrink(),
+                                        ),
+                                ),
+                              ),
+                            ),
                           if (isOccupied)
                             Positioned(
                               bottom: 2,
@@ -1748,12 +2159,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
           // ১. ইমোজি বাটন 😄 (আপনার অরিজিনাল ৩ ও ৪ সেকেন্ডের টাইমার লজিক সহ)
           buildCircularIcon(Icons.emoji_emotions_outlined,
               const Color.fromARGB(255, 250, 143, 2), () async {
-            // ১. সরাসরি লম্বা Auth UID না নিয়ে, আপনার ডাটাবেসের শর্ট uID টা খুঁজে বের করা
-            // আপনি চাইলে গ্লোবাল কোনো ভ্যারিয়েবল থেকেও এটা নিতে পারেন যা লগইনের সময় সেভ করেছিলেন
             final String authId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-            // সিটে বসা ইউজারকে খোঁজার জন্য সঠিক আইডি বের করা
-            // যদি আপনার কাছে অলরেডি 'myShortId' থাকে তবে সরাসরি সেটা ব্যবহার করতে পারেন
+            // ইউজারের শর্ট আইডি (ডকুমেন্ট আইডি) বের করা
             var userSnap = await FirebaseFirestore.instance
                 .collection('users')
                 .where('authUID', isEqualTo: authId)
@@ -1761,15 +2169,15 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 .get();
 
             if (userSnap.docs.isEmpty) return;
+            String myActualId = userSnap.docs.first.id;
 
-            String myActualId = userSnap.docs.first.id; // এটা হবে '৯৭৮০৫১'
-
-            // ২. এখন সিটে চেক করুন এই আইডি দিয়ে
-            int mySeatIndex = seats.indexWhere((s) =>
-                s != null &&
-                (s['uID'].toString() == myActualId ||
-                    s['userId'].toString() == myActualId ||
-                    s['uid'].toString() == myActualId));
+            // 🔥 সিটে চেক করার সময় লক ডাটা থাকলেও যেন ইউজারকে খুঁজে পায়
+            int mySeatIndex = seats.indexWhere((s) {
+              if (s == null) return false;
+              // এখানে আপনার আইডি চেক করার সব অপশন (লক ডাটার ভেতরেও যদি থাকে)
+              var uID = s['uID'] ?? s['userId'] ?? s['uid'];
+              return uID.toString() == myActualId;
+            });
 
             if (mySeatIndex != -1) {
               EmojiHandler.showPicker(
@@ -1777,31 +2185,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   seatIndex: mySeatIndex,
                   onEmojiSelected: (index, url) {
                     if (index != -1 && url != null) {
-                      // ৩. লোকাল স্টেট আপডেট
-                      setState(() {
-                        seats[index]['showEmoji'] = true;
-                        seats[index]['currentEmoji'] = url;
-                      });
-
-                      // ৪. রিয়েলটাইম ডাটাবেস আপডেট
+                      // রিয়েলটাইম ডাটাবেস আপডেট
                       DatabaseReference seatRef = FirebaseDatabase.instance
                           .ref('rooms/${widget.roomId}/seats/$index');
 
+                      // ✅ শুধুমাত্র ইমোজি ডাটা আপডেট হবে, লক ডাটা নষ্ট হবে না
                       seatRef.update({
                         'currentEmoji': url,
                         'showEmoji': true,
                         'emojiTime': ServerValue.timestamp,
                       });
 
-                      // ৩ সেকেন্ড পর লোকাল স্ক্রিন থেকে মুছে ফেলা
-                      Future.delayed(const Duration(seconds: 3), () {
-                        if (mounted)
-                          setState(() {
-                            seats[index]['showEmoji'] = false;
-                          });
-                      });
-
-                      // ৪ সেকেন্ড পর ডাটাবেস থেকে শো অপশন বন্ধ করা
+                      // ইমোজি রিমুভ লজিক আগের মতোই থাকবে...
                       Future.delayed(const Duration(seconds: 4), () {
                         seatRef.update({'showEmoji': false});
                       });
@@ -2128,7 +2523,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
               FirebaseAuth.instance.currentUser?.uid ?? "";
           if (currentAuthUID.isEmpty) return;
 
-          // ১. নিজের তথ্য এবং ব্যালেন্স আনা (authUID দিয়ে কোয়েরি করে)
+          // ১. নিজের তথ্য এবং ব্যালেন্স আনা
           var userQuery = await FirebaseFirestore.instance
               .collection('users')
               .where('authUID', isEqualTo: currentAuthUID)
@@ -2138,22 +2533,16 @@ class _VoiceRoomState extends State<VoiceRoom> {
           int currentBalance = 0;
           String senderName = "User";
           String senderImgUrl = "";
-          String senderDocID = ""; // আপনার ডাটাবেজের '978051' টাইপ আইডি
+          String senderDocID = "";
 
           if (userQuery.docs.isNotEmpty) {
             final doc = userQuery.docs.first;
             final data = doc.data();
-            senderDocID = doc.id; // ডকুমেন্টের নাম (যেমন: 978051)
+            senderDocID = doc.id;
             currentBalance = (data['diamonds'] ?? 0).toInt();
             senderName = data['name'] ?? data['userName'] ?? "User";
             senderImgUrl =
                 data['profilePic'] ?? data['image'] ?? data['userImage'] ?? "";
-            debugPrint("My Photo Found: $senderImgUrl");
-
-            debugPrint("Balance Found: $currentBalance for ID: $senderDocID");
-          } else {
-            debugPrint(
-                "User not found in Firestore for authUID: $currentAuthUID");
           }
 
           if (!mounted) return;
@@ -2174,7 +2563,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 if (target == "All Room" || target == "All Mic") {
                   receiverDocID = target;
                 } else {
-                  // সিট থেকে রিসিভার খুঁজে বের করা
                   var targetSeat = seats.firstWhere(
                     (s) =>
                         s != null &&
@@ -2186,7 +2574,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                     receiverImgUrl = targetSeat['profilePic'] ??
                         targetSeat['userImage'] ??
                         "";
-                    // রিসিভারের শর্ট আইডি (ডকুমেন্ট আইডি) নেওয়া হচ্ছে
                     receiverDocID =
                         (targetSeat['uID'] ?? targetSeat['userId'] ?? "")
                             .toString();
@@ -2200,7 +2587,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   bool isFree =
                       (gift['isFree'] == true) || (gift['expiry'] != null);
 
-                  // ব্যালেন্স চেক
                   if (!isFree && currentBalance < totalAmount) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -2213,17 +2599,16 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
                   if (senderDocID.isNotEmpty && receiverDocID.isNotEmpty) {
                     await GiftTransactionHelper.processGiftTransaction(
-                      senderId: senderDocID, // শর্ট আইডি (978051)
+                      senderId: senderDocID,
                       receiverId: receiverDocID,
                       roomId: widget.roomId,
-                      senderImage: senderImgUrl, // এখন আর লাল দাগ আসবে না
-                      receiverImage: receiverImgUrl, // এখন আর লাল দাগ আসবে না
+                      senderImage: senderImgUrl,
+                      receiverImage: receiverImgUrl,
                       totalPrice: totalAmount,
                       isFree: isFree,
                       giftName: gift['name'] ?? "Gift",
                     );
                   } else {
-                    debugPrint("Transaction Skipped: IDs are missing.");
                     return;
                   }
                 } catch (e) {
@@ -2244,7 +2629,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   });
                 }
 
-                // ৫. ফায়ারবেস রুম ব্যানার আপডেট
+                // ৫. ফায়ারবেস রুম ব্যানার আপডেট
                 await FirebaseFirestore.instance
                     .collection('rooms')
                     .doc(widget.roomId)
@@ -2260,7 +2645,23 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   }
                 });
 
-                // ৬. এনিমেশন টাইমার (৫ সেকেন্ড)
+                // 🔥 ৬. মেসেজ লিস্টে ছবিসহ গিফট হিস্ট্রি পাঠানো
+                await FirebaseFirestore.instance
+                    .collection('rooms')
+                    .doc(widget.roomId)
+                    .collection('messages')
+                    .add({
+                  'type': 'gift',
+                  'name': senderName, // সেন্ডারের নাম
+                  'senderImage': senderImgUrl, // সেন্ডারের ছবি 🔥
+                  'targetName': target, // রিসিভারের নাম
+                  'receiverImage': receiverImgUrl, // রিসিভারের ছবি 🔥
+                  'giftImage': giftImg, // গিফটের আইকন
+                  'giftCount': count, // গিফটের সংখ্যা
+                  'timestamp': FieldValue.serverTimestamp(),
+                });
+
+                // ৭. এনিমেশন টাইমার
                 Timer(const Duration(seconds: 5), () {
                   if (mounted) setState(() => isGiftAnimating = false);
                 });
@@ -2985,4 +3386,29 @@ class _SmoothVisualizerBarState extends State<SmoothVisualizerBar>
       },
     );
   }
+}
+
+Widget _buildPremiumButton(
+    {required String text,
+    required IconData icon,
+    required Color textColor,
+    required VoidCallback onTap}) {
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(20),
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: textColor, size: 20),
+          const SizedBox(width: 10),
+          Text(text,
+              style: TextStyle(
+                  fontSize: 17, color: textColor, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    ),
+  );
 }

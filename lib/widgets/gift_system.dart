@@ -68,36 +68,42 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     super.dispose();
   }
 
-  // ✅ ফিক্সড ইউজার সিলেকশন লজিক
   void _showUserSelectionList() {
-    // সিটে থাকা ইউজারদের ফিল্টার করা - শুধুমাত্র যাদের uID আছে এবং সিট Occupied
+    // শুধুমাত্র যাদের uID আছে তাদের ফিল্টার করা (isOccupied চেক করার দরকার নেই যদি uID থাকে)
     List activeUsers = widget.currentSeats.where((s) {
       if (s == null) return false;
-      // চেক করা হচ্ছে সিটটি কি আসলেই অকুপাইড এবং সেখানে কি uID আছে
-      return (s['isOccupied'] == true || s['status'] == 'occupied') && 
-             (s['uID'] != null && s['uID'].toString().isNotEmpty);
+      
+      // সিটের ভেতর uID বা userId বা uid আছে কি না তা দেখা হচ্ছে
+      // কারণ সিটে ইউজার থাকলে অবশ্যই একটা আইডি থাকবে
+      var userId = s['uID'] ?? s['userId'] ?? s['uid'];
+      
+      return userId != null && userId.toString().trim().isNotEmpty;
     }).toList();
 
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF0F0F1E),
-      isScrollControlled: true, // কিবোর্ড বা স্ক্রিন সাইজ ম্যানেজ করার জন্য
+      isScrollControlled: true, 
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return Container(
           padding: const EdgeInsets.all(15),
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.6, // লিস্ট বড় হলে ৬০০% উচ্চতা নিবে
+            maxHeight: MediaQuery.of(context).size.height * 0.6,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // হ্যান্ডেল বার
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(height: 15),
               const Text("Select User from Seats",
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold)),
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               
               activeUsers.isEmpty
@@ -113,8 +119,8 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                         itemBuilder: (context, index) {
                           var seat = activeUsers[index];
 
-                          // ডাটাবেজ কী (Key) অনুযায়ী ডাটা নেওয়া
-                          String uID = (seat['uID'] ?? "").toString();
+                          // ডাটাবেজ কী (Key) অনুযায়ী ডাটা নেওয়া (মাল্টিপল অপশন চেক)
+                          String uID = (seat['uID'] ?? seat['userId'] ?? seat['uid'] ?? "").toString();
                           String name = seat['name'] ?? seat['userName'] ?? "User";
                           String img = seat['profilePic'] ?? seat['image'] ?? seat['userImage'] ?? "";
 
@@ -122,9 +128,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                             leading: CircleAvatar(
                               backgroundColor: Colors.white10,
                               backgroundImage: img.isNotEmpty ? NetworkImage(img) : null,
-                              child: img.isEmpty
-                                  ? const Icon(Icons.person, color: Colors.white24)
-                                  : null,
+                              child: img.isEmpty ? const Icon(Icons.person, color: Colors.white24) : null,
                             ),
                             title: Text(name, style: const TextStyle(color: Colors.white)),
                             subtitle: Text("ID: $uID",
@@ -134,7 +138,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                                 selectedTargetId = uID;
                                 selectedTargetName = name;
                                 selectedTargetImage = img;
-                                targetType = name; // এখানে ইউজারের নাম সরাসরি সেট করুন
+                                targetType = name; 
                               });
                               Navigator.pop(context);
                             },
@@ -148,7 +152,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       },
     );
   }
-  
 
   @override
   Widget build(BuildContext context) {
