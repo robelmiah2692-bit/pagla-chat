@@ -5,7 +5,7 @@ import 'dart:async';
 class EntryEffectHandler extends StatefulWidget {
   final String userName;
   final String? userImage;
-  final String? activeFrameUrl; // 🔥 ফ্রেমের জন্য নতুন প্যারামিটার
+  final String? activeFrameUrl;
   final String effectUrl;
   final VoidCallback onFinished;
 
@@ -13,7 +13,7 @@ class EntryEffectHandler extends StatefulWidget {
     super.key,
     required this.userName,
     this.userImage,
-    this.activeFrameUrl, // ফ্রেম ইউআরএল (Lottie বা Image)
+    this.activeFrameUrl,
     required this.effectUrl,
     required this.onFinished,
   });
@@ -22,19 +22,28 @@ class EntryEffectHandler extends StatefulWidget {
   State<EntryEffectHandler> createState() => _EntryEffectHandlerState();
 }
 
-class _EntryEffectHandlerState extends State<EntryEffectHandler> {
+class _EntryEffectHandlerState extends State<EntryEffectHandler> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(seconds: 5), () {
+    // ৫ সেকেন্ড পর অটোমেটিক বন্ধ হবে যাতে স্ক্রিন ব্লক না থাকে
+    Timer(const Duration(seconds: 6), () {
       if (mounted) widget.onFinished();
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    // ইফেক্ট ইউআরএল খালি থাকলে কিছুই দেখাবে না
+    if (widget.effectUrl.isEmpty) {
+      widget.onFinished();
+      return const SizedBox.shrink();
+    }
+
     return Positioned.fill(
-      child: IgnorePointer(
+      child: IgnorePointer( // টাচ করলে যাতে সমস্যা না হয়
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -43,84 +52,68 @@ class _EntryEffectHandlerState extends State<EntryEffectHandler> {
               widget.effectUrl,
               width: MediaQuery.of(context).size.width,
               fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+              // এনিমেশন লোড হতে দেরি হলে বা এরর হলে যাতে অ্যাপ না ক্রাশ করে
+              errorBuilder: (context, error, stackTrace) {
+                debugPrint("Lottie Error: $error");
+                return const SizedBox.shrink();
+              },
             ),
 
             // ২. রয়াল ব্যানার ডিজাইন
             Positioned(
-              bottom: MediaQuery.of(context).size.height * 0.4,
+              bottom: MediaQuery.of(context).size.height * 0.3, // একটু নিচে নামিয়ে দেওয়া হয়েছে
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                width: 280,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                width: MediaQuery.of(context).size.width * 0.8, // রেসপন্সিভ উইডথ
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
                       Colors.blue.withOpacity(0.9),
                       Colors.purple.withOpacity(0.8),
                     ],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
                   ),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.white30, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black45,
-                      blurRadius: 10,
-                      spreadRadius: 2,
-                    )
+                  borderRadius: BorderRadius.circular(30), // ফুল রাউন্ডেড লুকে বেশি ভালো লাগে
+                  border: Border.all(color: Colors.yellowAccent.withOpacity(0.5), width: 1.5),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black45, blurRadius: 10, spreadRadius: 2)
                   ],
                 ),
                 child: Row(
                   children: [
-                    // 🔥 প্রোফাইল ছবি এবং ফ্রেমের স্ট্যাক
+                    // প্রোফাইল ছবি এবং ফ্রেম
                     Stack(
                       alignment: Alignment.center,
                       clipBehavior: Clip.none,
                       children: [
-                        // প্রোফাইল ছবি
-                        Container(
-                          padding: const EdgeInsets.all(1.5),
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                          ),
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor: Colors.white,
                           child: CircleAvatar(
                             radius: 22,
-                            backgroundColor: Colors.grey[300],
-                            backgroundImage: widget.userImage != null && widget.userImage!.isNotEmpty
+                            backgroundImage: (widget.userImage != null && widget.userImage!.isNotEmpty)
                                 ? NetworkImage(widget.userImage!)
                                 : null,
-                            child: widget.userImage == null || widget.userImage!.isEmpty
-                                ? const Icon(Icons.person, color: Colors.white)
+                            child: (widget.userImage == null || widget.userImage!.isEmpty)
+                                ? const Icon(Icons.person)
                                 : null,
                           ),
                         ),
 
-                        // 🔥 ফ্রেম লজিক (Lottie বা Image সাপোর্ট)
+                        // ফ্রেম লজিক
                         if (widget.activeFrameUrl != null && widget.activeFrameUrl!.isNotEmpty)
-                          Positioned.fill(
-                            child: Transform.scale(
-                              scale: 2.3, // ফ্রেমের সাইজ বড় করার জন্য
-                              child: widget.activeFrameUrl!.contains('.json')
-                                  ? Lottie.network(
-                                      widget.activeFrameUrl!,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (context, error, stackTrace) => const SizedBox(),
-                                    )
-                                  : Image.network(
-                                      widget.activeFrameUrl!,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (context, error, stackTrace) => const SizedBox(),
-                                    ),
-                            ),
+                          Positioned(
+                            // ফ্রেমটি ছবির চারদিকে পারফেক্টলি বসানোর জন্য
+                            width: 85, 
+                            height: 85,
+                            child: widget.activeFrameUrl!.contains('.json')
+                                ? Lottie.network(widget.activeFrameUrl!, fit: BoxFit.contain)
+                                : Image.network(widget.activeFrameUrl!, fit: BoxFit.contain),
                           ),
                       ],
                     ),
-                    
                     const SizedBox(width: 15),
                     
-                    // নাম এবং "is coming" টেক্সট
+                    // নাম এবং টেক্সট
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,22 +121,18 @@ class _EntryEffectHandlerState extends State<EntryEffectHandler> {
                         children: [
                           Text(
                             widget.userName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Colors.yellowAccent,
                               fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              shadows: [Shadow(color: Colors.black, blurRadius: 2)],
+                              fontSize: 18,
+                              shadows: [Shadow(color: Colors.black, blurRadius: 5)],
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const Text(
-                            "is coming",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
+                            "is coming...",
+                            style: TextStyle(color: Colors.white, fontSize: 13),
                           ),
                         ],
                       ),

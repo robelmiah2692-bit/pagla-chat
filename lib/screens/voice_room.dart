@@ -85,7 +85,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   Map<int, String> activeEmojis = {};
   List<Offset> seatPositions = List.generate(15, (index) => Offset.zero);
   List<GlobalKey> seatKeys = List.generate(15, (index) => GlobalKey());
-
+  bool isAdmin = false; // এটি যোগ করুন
   String currentReceiverImage = "";
   String currentSenderImage = "";
   // User & Owner Info
@@ -121,7 +121,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   late VSPKManager pkManager;
   int pkSeconds = 300;
   int currentGiftCount = 0;
-
+  String myuID = "";
   // Music Feature
   bool isMusicBarVisible = false;
   bool isFloatingPlayerVisible = false;
@@ -150,15 +150,19 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String currentReceiverName = "";
   StreamSubscription? _seatSubscription;
   StreamSubscription? _emojiSubscription;
-
+  String lastProcessedEntryId =
+      ""; // এটি চেক করবে কোন আইডিটা লাস্ট প্রসেস হয়েছে
   @override
   void initState() {
     super.initState();
     WakelockPlus.enable(); // স্ক্রিন যাতে অফ না হয়
 
     // ফলো স্ট্যাটাস চেক ফাংশন কল
-    _checkIfFollowing();
-    _fetchRoomData();
+    // ১. সবার আগে নিজের আইডি নিয়ে আসুন, তারপর রুমের ডাটা চেক করুন
+    _fetchMyuID().then((_) {
+      _fetchRoomData();
+      _checkIfFollowing();
+    });
     _initEmojiListener();
     _addUserToViewers();
     showMyOwnEntry();
@@ -171,21 +175,26 @@ class _VoiceRoomState extends State<VoiceRoom> {
         var data = snapshot.data() as Map<String, dynamic>;
         if (data.containsKey('lastEntry')) {
           var entry = data['lastEntry'];
+          String currentEntryId = entry['entryId']?.toString() ?? "";
 
-          // স্ক্রিনে ইফেক্ট দেখানোর জন্য সেট স্টেট করা
-          if (mounted) {
-            setState(() {
-              entryUserName = entry['name'];
-              entryUserImage = entry['image'];
-              currentEntryEffect = entry['entryUrl'];
-              entryUserFrame = entry['activeFrameUrl'];
-              showEntryEffect = true;
-            });
+          // 🔥 আইডি চেক না করলে কিন্তু বারবার এনিমেশন হবে
+          if (currentEntryId.isNotEmpty &&
+              currentEntryId != lastProcessedEntryId) {
+            if (mounted) {
+              setState(() {
+                lastProcessedEntryId = currentEntryId; // আইডি আপডেট
+                entryUserName = entry['name'];
+                entryUserImage = entry['image'];
+                // 🔥 এখানে বানান ঠিক করা হয়েছে: activeEntryUrl
+                currentEntryEffect = entry['activeEntryUrl'];
+                entryUserFrame = entry['activeFrameUrl'];
+                showEntryEffect = true;
+              });
+            }
           }
         }
       }
     });
-
     // ১. ১৫টি সিটের ইনিশিয়ালাইজেশন
     seats = List.generate(
         15,
@@ -345,40 +354,66 @@ class _VoiceRoomState extends State<VoiceRoom> {
       if (doc.exists && mounted) {
         final rData = doc.data() as Map<String, dynamic>;
 
-        // ১. ডাটাবেসের ডাটা এবং লোকাল ডাটা তুলনা করা
-        // যদি ডাটা না বদলায়, তবে setState হবে না, ফলে কাঁপাকাঁপি বন্ধ হবে
-        bool hasChanged = roomName != (rData['roomName'] ?? 'Love Line') ||
-            roomProfileImage != (rData['roomImage'] ?? '') ||
-            followerCount != (rData['followerCount'] ?? 0) ||
-            ownerAuthId != (rData['ownerAuthId'] ?? "");
+        // ১. ডাটাবেস থেকে নতুন এডমিন লিস্ট আনা
+        List newAdminList = (rData['admins'] as List?) ?? [];
 
-        if (hasChanged) {
-          setState(() {
-            roomData = rData;
+        // ২. রুমের তথ্যগুলো লোকাল ভেরিয়েবলে সেট করা (সব সময় আপডেট হবে)
+        setState(() {
+          roomData = rData;
+          adminList = List.from(newAdminList);
+          roomName = rData['roomName'] ?? 'Love Line';
+          roomProfileImage = rData['roomImage'] ?? '';
+          ownerId =
+              rData['ownerId']?.toString() ?? rData['uID']?.toString() ?? "";
+          ownerName = rData['ownerName'] ?? 'Hridoy';
+          ownerPic = rData['ownerPic'] ?? "";
+          ownerAuthId = rData['ownerAuthId'] ?? "";
+          followerCount = rData['followerCount'] ?? 0;
 
-            // ২. এডমিন লিস্ট লোড
-            adminList = rData['admins'] ?? [];
+          // ৩. ওনার চেক
+          isOwner = (ownerAuthId == FirebaseAuth.instance.currentUser?.uid);
 
-            // ৩. রুমের সাধারণ তথ্য
-            roomName = rData['roomName'] ?? 'Love Line';
-            roomProfileImage = rData['roomImage'] ?? '';
+          // ৪. অ্যাডমিন চেক (অত্যন্ত গুরুত্বপূর্ণ অংশ)
+          String myCurrentID = myuID.toString().trim();
 
-            // ৪. ওনারের তথ্য
-            ownerId =
-                rData['ownerId']?.toString() ?? rData['uID']?.toString() ?? "";
-            ownerName = rData['ownerName'] ?? 'Hridoy';
-            ownerPic = rData['ownerPic'] ?? "";
-            ownerAuthId = rData['ownerAuthId'] ?? "";
+          if (myCurrentID.isNotEmpty) {
+            // যদি নিজের আইডি থাকে, তবে লিস্টে চেক করো
+            isAdmin = newAdminList
+                .any((admin) => admin.toString().trim() == myCurrentID);
+          } else {
+            // যদি আইডি এখনো না এসে থাকে, তবে আপাতত false
+            isAdmin = false;
+          }
+        });
 
-            // ৫. ওনার চেক (FirebaseAuth ID দিয়ে)
-            isOwner = (ownerAuthId == FirebaseAuth.instance.currentUser?.uid);
-
-            // ৬. ফলোয়ার সংখ্যা
-            followerCount = rData['followerCount'] ?? 0;
-          });
-        }
+        // ৫. ডিবাগ প্রিন্ট - এটি দেখে আপনি বুঝবেন আপনার আইডি কখন আসছে
+        print("---------------------------");
+        print("ROOM REFRESHED");
+        print("My local uID: '$myuID'"); // এটি খালি থাকলে এডমিন কাজ করবে না
+        print("Is Owner: $isOwner");
+        print("Is Admin: $isAdmin");
+        print("Admin List: $newAdminList");
+        print("---------------------------");
       }
     });
+  }
+
+  Future<void> _fetchMyuID() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      var userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .where('authUID', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+      if (userDoc.docs.isNotEmpty) {
+        setState(() {
+          myuID = userDoc.docs.first.data()['uID']?.toString() ?? "";
+        });
+        // আইডি পাওয়ার পর লিসেনার চালু করুন
+        _listenForKickSignal();
+      }
+    }
   }
 
   void _initEmojiListener() {
@@ -420,6 +455,158 @@ class _VoiceRoomState extends State<VoiceRoom> {
     });
   }
 
+// ১. এডমিন বানানো বা রিমুভ করা
+  void _toggleAdmin(String targetuID, bool isAlreadyAdmin) {
+    FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
+      'admins': isAlreadyAdmin
+          ? FieldValue.arrayRemove([targetuID])
+          : FieldValue.arrayUnion([targetuID]),
+    });
+  }
+
+  void _kickUserFromRoom(String targetuID) async {
+    if (targetuID.isEmpty) return;
+
+    try {
+      // ১. ফায়ারস্টোরে কিক লিস্টে জমা করা এবং ফলোয়ার থেকে সরানো
+      await FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(widget.roomId)
+          .update({
+        'kickedUsers': FieldValue.arrayUnion([targetuID]),
+        'followers': FieldValue.arrayRemove([targetuID]),
+        'admins':
+            FieldValue.arrayRemove([targetuID]), // এডমিন থাকলে তাকেও সরাতে হবে
+      });
+
+      // ২. রিয়েল-টাইম ডাটাবেসে একটি কিক সিগন্যাল পাঠানো
+      // যাতে ইউজার অ্যাপে থাকা অবস্থায় সাথে সাথে রুম থেকে বের হয়ে যায়
+      await FirebaseDatabase.instance
+          .ref('rooms/${widget.roomId}/kickSignal/$targetuID')
+          .set({
+        'action': 'kicked',
+        'timestamp': ServerValue.timestamp,
+      });
+
+      print("User $targetuID kicked and added to Kick List");
+    } catch (e) {
+      debugPrint("Kick Error: $e");
+    }
+  }
+
+  void _listenForKickSignal() {
+    if (myuID.isEmpty) return; // আইডি না থাকলে লিসেনার কাজ করবে না
+
+    FirebaseDatabase.instance
+        .ref('rooms/${widget.roomId}/kickSignal/$myuID')
+        .onValue
+        .listen((event) {
+      if (event.snapshot.exists) {
+        // ইউজারকে কিক করা হয়েছে!
+        _leaveRoomInternally();
+
+        if (mounted) {
+          // কিক সিগন্যালটি ডাটাবেস থেকে মুছে ফেলা (যাতে পরে আবার ঢুকতে সমস্যা না হয়)
+          FirebaseDatabase.instance
+              .ref('rooms/${widget.roomId}/kickSignal/$myuID')
+              .remove();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("You have been kicked from this room!"),
+              backgroundColor: Colors.red,
+            ),
+          );
+
+          // রুম থেকে বের করে দেওয়া
+          Navigator.of(context).pop();
+        }
+      }
+    });
+  }
+
+// ১. গিটহাবের বেস লিঙ্ক
+  final String githubBaseUrl =
+      "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main";
+
+// ২. VIP বেইজ লিংকের ফাংশন (ডায়ালগ থেকে কল করার জন্য)
+  String getVipBadge(int level) {
+    if (level <= 0) return "";
+    // আপনার গিটহাবের ফাইল নেম অনুযায়ী (vip1.png, vip2.png ইত্যাদি)
+    return "$githubBaseUrl/vip$level.png";
+  }
+
+// ৩. প্রিমিয়াম ব্যাজের জন্য লিঙ্ক
+  String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
+
+// ৪. VIP লেভেল ক্যালকুলেশন (ডায়ালগের ডাটা অনুযায়ী)
+  int getVipLevelFromData(int userXp, int userExpiry) {
+    int currentTime = DateTime.now().millisecondsSinceEpoch;
+
+    // যদি মেয়াদ থাকে এবং শেষ হয়ে যায়
+    if (userExpiry != 0 && currentTime > userExpiry) {
+      return 0;
+    }
+
+    if (userXp >= 35000) return 8;
+    if (userXp >= 30000) return 7;
+    if (userXp >= 25000) return 6;
+    if (userXp >= 20000) return 5;
+    if (userXp >= 13000) return 4;
+    if (userXp >= 9000) return 3;
+    if (userXp >= 5000) return 2;
+    if (userXp >= 2500) return 1;
+    return 0;
+  }
+
+// ৩. ইউজারের মাইক অফ করা (Admin Control)
+  Future<void> _muteUserByAdmin(String targetuID, int seatIndex) async {
+    // ডাটাবেজে ওই সিটের মাইক অফ করে দেওয়া
+    await FirebaseDatabase.instance
+        .ref('rooms/${widget.roomId}/seats/$seatIndex')
+        .update({'isMicOn': false, 'isMutedByAdmin': true});
+  }
+
+// ৪. ফলো/আনফলো লজিক
+  void _toggleFollowUser(String targetId) async {
+    String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
+    var userRef = FirebaseFirestore.instance.collection('users').doc(myId);
+
+    // আপনার আগের লজিক অনুযায়ী ফলোয়ার লিস্ট আপডেট করুন
+    // ... (Firebase logic)
+  }
+
+// ৫. চ্যাট বা ইনবক্সে নিয়ে যাওয়া
+  void _goToInbox(String peerId, String peerName) {
+    // Navigator.push দিয়ে আপনার চ্যাট স্ক্রিনে পাঠিয়ে দিন
+  }
+
+// এটি লাল দাগ দূর করবে এবং গিফট প্যানেল খুলবে
+  void _openGiftPanel(String targetUserId) async {
+    // ১. ইউজারের কারেন্ট ডায়মন্ড ব্যালেন্স আনা
+    final String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
+    var userDoc =
+        await FirebaseFirestore.instance.collection('users').doc(myId).get();
+    int currentBalance = (userDoc.data()?['diamonds'] ?? 0).toInt();
+
+    if (!mounted) return;
+
+    // ২. গিফট শিট ওপেন করা
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => GiftBottomSheet(
+        diamondBalance: currentBalance,
+        currentSeats: List.from(seats),
+        onGiftSend: (gift, count, target) async {
+          // এখানে আপনার গিফট পাঠানোর ট্রানজেকশন লজিক কাজ করবে
+          print("Sending ${gift['name']} to $target");
+        },
+      ),
+    );
+  }
+
   void showMyOwnEntry() async {
     User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
@@ -434,17 +621,35 @@ class _VoiceRoomState extends State<VoiceRoom> {
       if (querySnapshot.docs.isNotEmpty) {
         var userData = querySnapshot.docs.first.data();
 
+        // ১. নিজের স্ক্রিনে এনিমেশন দেখানোর ডাটা সেট
         if (mounted) {
           setState(() {
             entryUserName = userData['name'] ?? "User";
             entryUserImage = userData['profilePic'] ?? "";
             currentEntryEffect = userData['activeEntryUrl'];
             entryUserFrame = userData['activeFrameUrl'] ?? "";
-            showEntryEffect = userData['hasEntryEffect'] ?? false;
+            showEntryEffect = (userData['activeEntryUrl'] != null &&
+                userData['activeEntryUrl'].toString().isNotEmpty);
           });
         }
 
-        // 🔥 ৩. মেসেজ লিস্টে এন্ট্রি ডাটা পাঠানো
+        // 🔥 গুরুত্বপূর্ণ: রুম ডকুমেন্টে 'lastEntry' আপডেট করা (যাতে অন্য সবাই এনিমেশন দেখে)
+        await FirebaseFirestore.instance
+            .collection('rooms')
+            .doc(widget.roomId)
+            .update({
+          'lastEntry': {
+            'name': userData['name'] ?? "User",
+            'image': userData['profilePic'] ?? "",
+            'activeEntryUrl': userData['activeEntryUrl'] ?? "",
+            'activeFrameUrl': userData['activeFrameUrl'] ?? "",
+            'timestamp': FieldValue.serverTimestamp(),
+            'entryId': DateTime.now()
+                .millisecondsSinceEpoch
+                .toString(), // 🔥 এটি প্রতিবার ডাটাকে ইউনিক করবে
+          }
+        });
+        // ২. মেসেজ লিস্টে এন্ট্রি ডাটা পাঠানো (মেসেজ হিসেবে দেখানোর জন্য)
         await FirebaseFirestore.instance
             .collection('rooms')
             .doc(widget.roomId)
@@ -452,13 +657,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
             .add({
           'name': userData['name'] ?? "User",
           'uID': userData['uID'] ?? "",
-          'senderImage': userData['profilePic'] ??
-              "", // 🔥 এখানে 'senderImage' ব্যবহার করুন
+          'senderImage': userData['profilePic'] ?? "",
           'type': 'entry',
           'timestamp': FieldValue.serverTimestamp(),
         });
 
-        debugPrint("🚀 এন্ট্রি মেসেজ পাঠানো হয়েছে!");
+        debugPrint("🚀 এন্ট্রি ডাটা রুম এবং মেসেজে পাঠানো হয়েছে!");
       }
     } catch (e) {
       debugPrint("Entry Error: $e");
@@ -769,7 +973,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
             if (snapshot.hasData && snapshot.data!.exists) {
               roomData = snapshot.data!.data() as Map<String, dynamic>;
               wallpaperUrl = roomData['currentWallpaper'];
-
+              debugPrint(
+                  "DEBUG: Room update received. lastEntry ID: ${roomData['lastEntry']?['entryId']}");
               // --- গিফট অ্যানিমেশনের লজিক ---
               var lastGift = roomData['last_gift'];
               if (lastGift != null) {
@@ -803,17 +1008,29 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 }
               }
 
-              // --- এন্ট্রি ইফেক্ট লজিক ---
-              if (roomData.containsKey('lastEntry')) {
+              // --- এন্ট্রি ইফেক্ট লজিক (Simplified & Guaranteed) ---
+              if (roomData.containsKey('lastEntry') &&
+                  roomData['lastEntry'] != null) {
                 var lastEntry = roomData['lastEntry'];
-                if (lastEntry != null && !showEntryEffect) {
+                String currentEntryId = lastEntry['entryId']?.toString() ?? "";
+
+                // প্রিন্ট দিয়ে চেক করুন কন্ডিশন কেন কাজ করছে না
+                // debugPrint("Current: $currentEntryId, Last: $lastProcessedEntryId, Showing: $showEntryEffect");
+
+                if (currentEntryId.isNotEmpty &&
+                    currentEntryId != lastProcessedEntryId) {
                   String? effectLink = lastEntry['activeEntryUrl'];
+
                   if (effectLink != null && effectLink.isNotEmpty) {
+                    // আমরা প্রথমেই আইডি সেভ করে নেব যাতে লুপ না হয়
+                    lastProcessedEntryId = currentEntryId;
+
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted && !showEntryEffect) {
+                      if (mounted) {
                         setState(() {
                           entryUserName = lastEntry['name'] ?? "User";
                           entryUserImage = lastEntry['image'] ?? "";
+                          entryUserFrame = lastEntry['activeFrameUrl'] ?? "";
                           currentEntryEffect = effectLink;
                           showEntryEffect = true;
                         });
@@ -823,7 +1040,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 }
               }
             }
-
             return Stack(
               children: [
                 // ১. ওয়ালপেপার
@@ -1020,7 +1236,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                     ),
                   ),
 
-                // ৫. মিউজিক প্লেয়ার
+                 // ৫. মিউজিক প্লেয়ার
                 if (isFloatingPlayerVisible)
                   Positioned(
                     left: playerPosition.dx,
@@ -1033,8 +1249,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
                       child: _buildFloatingPlayer(isDragging: false),
                     ),
                   ),
-
                 // ৬. টুলস ও ওভারলে
+                
                 FloatingRoomTools(
                   onGiftCountStart: (minutes, theme) =>
                       _startGiftCounting(minutes, theme),
@@ -1078,33 +1294,45 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-// প্রোফাইল অ্যাকশন বাটন (Follow, Chat, Gift)
-  Widget _buildProfileActionButton(IconData icon, String label, Color color) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
-            shape: BoxShape.circle,
+  Widget _buildProfileActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap, // ক্লিক এখন কাজ করবে
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 24),
           ),
-          child: Icon(icon, color: color, size: 24),
-        ),
-        const SizedBox(height: 5),
-        Text(label,
-            style: const TextStyle(color: Colors.white70, fontSize: 12)),
-      ],
+          const SizedBox(height: 5),
+          Text(label,
+              style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        ],
+      ),
     );
   }
 
-// এডমিন কন্ট্রোল বাটন (Kick out, Close)
-  Widget _buildAdminAction(IconData icon, String label, Color color) {
+  Widget _buildAdminAction({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
-      onTap: () {/* এখানে আপনার কিক বা ক্লোজ লজিক বসবে */},
+      onTap: onTap,
       child: Column(
         children: [
           Icon(icon, color: color, size: 20),
-          Text(label, style: TextStyle(color: color, fontSize: 11)),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(color: color, fontSize: 10)),
         ],
       ),
     );
@@ -1322,25 +1550,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   Widget _buildTopNavBar() {
     final String myAuthId = FirebaseAuth.instance.currentUser?.uid ?? "";
-    bool isAdmin = false;
-    // ১. ওনার শনাক্তকরণ (এটি ঠিক কাজ করছে বলছেন, তাও নিরাপদ করে দিলাম)
-    bool isOwner = false;
-    String currentMyAuthId = myAuthId.toString().trim();
-    String currentMyuID = myFixeduID.toString().trim();
 
-    if (currentMyAuthId.isNotEmpty &&
-        ownerAuthId.toString() == currentMyAuthId) {
-      isOwner = true;
-    } else if (currentMyuID.isNotEmpty &&
-        (currentMyuID == ownerId.toString() ||
-            currentMyuID == uID.toString())) {
-      isOwner = true;
-    }
+    // ওনার চেক (আরও শক্তিশালী করা হলো)
+    bool amIOwner = (ownerAuthId.toString() == myAuthId.toString().trim()) ||
+        (myuID.toString().trim() == ownerId.toString().trim());
 
     // ২. অ্যাডমিন চেক (অ্যারো থেকে)
-    isAdmin = adminList.any((id) => id.toString().trim() == currentMyuID);
+    // অ্যাডমিন চেক (adminList থেকে)
+    bool amIAdmin = adminList
+        .map((e) => e.toString().trim())
+        .contains(myuID.toString().trim());
 
-    bool hasPermission = isOwner || isAdmin;
+    bool hasPermission = amIOwner || amIAdmin;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: ClipRRect(
@@ -1770,16 +1991,27 @@ class _VoiceRoomState extends State<VoiceRoom> {
             return GestureDetector(
               key: seatKeys[index],
               onTap: () {
+                // ১. বর্তমান ইউজারের আইডি গুলো সংগ্রহ (NavBar এর মত করে)
+                final String myAuthId =
+                    FirebaseAuth.instance.currentUser?.uid ?? "";
+                final String currentMyuID = myuID
+                    .toString()
+                    .trim(); // আপনার গ্লোবাল/ক্লাস ভেরিয়েবল myuID
+
+                // ২. মালিক বা এডমিন কি না চেক করা (NavBar এর শক্তিশালী লজিক অনুযায়ী)
+                bool isOwner =
+                    (ownerAuthId.toString() == myAuthId.toString().trim()) ||
+                        (currentMyuID == ownerId.toString().trim());
+
+                bool isAdmin = adminList
+                    .map((e) => e.toString().trim())
+                    .contains(currentMyuID);
+
                 // ১. চেক করা: ইউজার কি বর্তমানে এই সিটেই বসা?
                 if (currentSeatIndex == index) {
                   _showLeaveConfirmation(index);
                   return;
                 }
-
-                // ২. মালিক বা এডমিন কি না চেক করা
-                bool isOwner =
-                    (FirebaseAuth.instance.currentUser?.uid == ownerAuthId);
-                bool isAdmin = adminList.contains(uID);
 
                 // ৩. VIP চেক
                 if (!isOwner && isVipSeat && (userRole != "VIP")) {
@@ -1894,41 +2126,99 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
                 // ৪. সিট যদি খালি না থাকে (অন্য ইউজার বসা থাকে)
                 else {
-                  String seatUserId = seatData?['userId'] ?? '';
-                  String seatUserName = seatData?['userName'] ?? 'User';
-                  String seatUserPhoto = seatData?['userPhoto'] ?? '';
+                  // seatData থেকে সরাসরি আইডি না নিয়ে StreamBuilder ব্যবহার করা হয়েছে যাতে তথ্য রিয়েল-টাইম থাকে
+                  String seatUserId = seatData?['userId']?.toString() ??
+                      seatData?['uID']?.toString() ??
+                      '';
+
+                  if (seatUserId.isEmpty) return;
 
                   showGeneralDialog(
                     context: context,
                     barrierDismissible: true,
-                    barrierLabel: '',
+                    barrierLabel: 'Dismiss',
                     barrierColor: Colors.black54,
-                    transitionDuration: const Duration(milliseconds: 250),
-                    pageBuilder: (ctx, anim1, anim2) => Container(),
-                    transitionBuilder: (ctx, anim1, anim2, child) {
-                      return BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                        child: FadeTransition(
-                          opacity: anim1,
-                          child: Center(
-                            child: Material(
-                              color: Colors.transparent,
-                              child: Container(
+                    transitionDuration: const Duration(milliseconds: 300),
+                    pageBuilder: (ctx, anim1, anim2) {
+                      return Center(
+                        child: Material(
+                          color: Colors.transparent,
+                          child: StreamBuilder<DocumentSnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(seatUserId)
+                                .snapshots(),
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData ||
+                                  snapshot.data?.data() == null) {
+                                return const Center(
+                                    child: CircularProgressIndicator());
+                              }
+
+                              var userData =
+                                  snapshot.data!.data() as Map<String, dynamic>;
+
+                              // ডাটা রিট্রিভ
+                              String seatUserName = userData['name'] ?? 'User';
+                              String seatUserPhoto =
+                                  userData['profilePic'] ?? '';
+                              String activeFrame =
+                                  userData['activeFrame'] ?? "";
+                              int userXp = userData['vip_xp'] ?? 0;
+                              int userExpiry = userData['vip_expiry'] ?? 0;
+                              bool hasPremiumCard =
+                                  userData['hasPremiumCard'] ?? false;
+                              int vipLevel =
+                                  getVipLevelFromData(userXp, userExpiry);
+
+                              return Container(
                                 width: MediaQuery.of(context).size.width * 0.85,
                                 decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.5),
+                                  color: Colors.black.withOpacity(0.95),
                                   borderRadius: BorderRadius.circular(30),
                                   border: Border.all(
-                                      color: Colors.white.withOpacity(0.2)),
+                                      color: Colors.white.withOpacity(0.1)),
                                 ),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const SizedBox(height: 20),
-                                    CircleAvatar(
-                                      radius: 45,
-                                      backgroundImage:
-                                          NetworkImage(seatUserPhoto),
+                                    const SizedBox(height: 30),
+
+                                    // ১. প্রোফাইল পিকচার ও রিয়েল টাইপ অবতার ফ্রেম
+                                    SizedBox(
+                                      height:
+                                          100, // এখানে ফিক্সড হাইট দিলে নাম আর নিচে নামবে না
+                                      child: Stack(
+                                        alignment: Alignment.center,
+                                        clipBehavior:
+                                            Clip.none, // ফ্রেম যেন কেটে না যায়
+                                        children: [
+                                          // প্রোফাইল পিকচার
+                                          CircleAvatar(
+                                            radius: 35,
+                                            backgroundImage:
+                                                NetworkImage(seatUserPhoto),
+                                          ),
+
+                                          // অবতার ফ্রেম (এটি এখন প্রোফাইল পিকের উপর ভাসমান থাকবে)
+                                          if (activeFrame.isNotEmpty)
+                                            Positioned(
+                                              top:
+                                                  -20, // ফ্রেমকে সামান্য উপরে তুলে দেওয়া হলো যাতে নিচের নাম ডিস্টার্ব না হয়
+                                              child: SizedBox(
+                                                width: 153,
+                                                height: 160,
+                                                child: activeFrame
+                                                        .contains('.json')
+                                                    ? Lottie.network(
+                                                        activeFrame,
+                                                        fit: BoxFit.contain)
+                                                    : Image.network(activeFrame,
+                                                        fit: BoxFit.contain),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
                                     ),
                                     const SizedBox(height: 10),
                                     Text(seatUserName,
@@ -1940,45 +2230,183 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                         style: const TextStyle(
                                             color: Colors.white54,
                                             fontSize: 12)),
-                                    const SizedBox(height: 20),
+
+                                    const SizedBox(height: 15),
+
+                                    // ২. ব্যাজ সেকশন (VIP & Premium)
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        if (vipLevel > 0)
+                                          Image.network(getVipBadge(vipLevel),
+                                              width: 35, height: 35),
+                                        if (hasPremiumCard)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                                left: 8.0),
+                                            child: Image.network(
+                                                premiumBadgeUrl,
+                                                width: 35,
+                                                height: 35),
+                                          ),
+                                      ],
+                                    ),
+
+                                    const SizedBox(height: 25),
+
+                                    // ৩. অ্যাকশন বাটনস (Follow, Chat, Gift) - কার্যকরী onTap সহ
                                     Padding(
-                                      padding: const EdgeInsets.all(15.0),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10),
                                       child: Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceEvenly,
                                         children: [
                                           _buildProfileActionButton(
-                                              Icons.person_add,
-                                              "Follow",
-                                              Colors.blueAccent),
+                                            icon: Icons.person_add,
+                                            label: "Follow",
+                                            color: Colors.blueAccent,
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                              _toggleFollowUser(seatUserId);
+                                            },
+                                          ),
                                           _buildProfileActionButton(
-                                              Icons.chat_bubble_outline,
-                                              "Chat",
-                                              Colors.purpleAccent),
+                                            icon: Icons.chat_bubble_outline,
+                                            label: "Chat",
+                                            color: Colors.purpleAccent,
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                              _goToInbox(
+                                                  seatUserId, seatUserName);
+                                            },
+                                          ),
                                           _buildProfileActionButton(
-                                              Icons.card_giftcard,
-                                              "Send Gifts",
-                                              Colors.orangeAccent),
+                                            icon: Icons.card_giftcard,
+                                            label: "Gift",
+                                            color: Colors.orangeAccent,
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                              _openGiftPanel(seatUserId);
+                                            },
+                                          ),
                                         ],
                                       ),
                                     ),
+
+                                    // ৪. এডমিন কন্ট্রোল (শুধুমাত্র ওনার বা এডমিনদের জন্য)
                                     if (isOwner || isAdmin) ...[
-                                      const Divider(color: Colors.white10),
+                                      const Divider(
+                                          color: Colors.white10, height: 30),
                                       Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 10),
+                                        padding:
+                                            const EdgeInsets.only(bottom: 20),
                                         child: Row(
                                           mainAxisAlignment:
                                               MainAxisAlignment.spaceAround,
                                           children: [
                                             _buildAdminAction(
-                                                Icons.verified_user,
-                                                "Admin",
-                                                Colors.white70),
-                                            _buildAdminAction(Icons.mic_off,
-                                                "Close", Colors.white70),
-                                            _buildAdminAction(Icons.gavel,
-                                                "Kick out", Colors.redAccent),
+                                              icon: Icons.verified_user,
+                                              label: "Admin",
+                                              color:
+                                                  adminList.contains(seatUserId)
+                                                      ? Colors.green
+                                                      : Colors.white70,
+                                              onTap: () => _toggleAdmin(
+                                                  seatUserId,
+                                                  adminList
+                                                      .contains(seatUserId)),
+                                            ),
+                                            _buildAdminAction(
+                                              // ১. ডাটাবেসের 'isMicOn' ভ্যালু দেখে আইকন এবং কালার পরিবর্তন হবে
+                                              icon: (seatData?['isMicOn'] ==
+                                                      false)
+                                                  ? Icons.mic_off
+                                                  : Icons.mic,
+                                              label: (seatData?['isMicOn'] ==
+                                                      false)
+                                                  ? "Unmute"
+                                                  : "Mute",
+                                              color: (seatData?['isMicOn'] ==
+                                                      false)
+                                                  ? Colors.redAccent
+                                                  : Colors.white70,
+
+                                              onTap: () async {
+                                                // ১. এখান থেকে ইউজারের আইডি বের করা হচ্ছে
+                                                String seatUserId =
+                                                    seatData?['userId']
+                                                            ?.toString() ??
+                                                        seatData?['uID']
+                                                            ?.toString() ??
+                                                        '';
+
+                                                // ২. বর্তমান লগইন করা ইউজারের আইডি নেওয়া (লাল দাগ দূর করার জন্য)
+                                                final String currentUserId =
+                                                    FirebaseAuth.instance
+                                                            .currentUser?.uid ??
+                                                        '';
+                                                // সিট ইনডেক্স বের করা
+                                                int sIndex =
+                                                    seatData?['index'] ?? -1;
+                                                if (sIndex == -1) return;
+
+                                                // বর্তমান অবস্থা কি সেটা দেখা (true মানে মাইক অন, false মানে অফ)
+                                                bool currentMicStatus =
+                                                    seatData?['isMicOn'] ??
+                                                        true;
+                                                bool newMicStatus =
+                                                    !currentMicStatus;
+
+                                                try {
+                                                  // হ্যাপটিক ভাইব্রেশন
+                                                  try {
+                                                    HapticFeedback
+                                                        .lightImpact();
+                                                  } catch (_) {}
+
+                                                  // ২. ফায়ারবেসে আপডেট করা
+                                                  // এডমিন যখন 'Mute' চাপবে, ডাটাবেসে 'isMicOn' false হয়ে যাবে
+                                                  await FirebaseDatabase
+                                                      .instance
+                                                      .ref(
+                                                          'rooms/${widget.roomId}/seats/$sIndex')
+                                                      .update({
+                                                    'isMicOn': newMicStatus,
+                                                    'isTalking':
+                                                        false, // সাউন্ড অফ করার সাথে সাথে টকিং এনিমেশনও বন্ধ
+                                                  });
+
+                                                  // ৩. যদি এডমিন নিজেই নিজের সিটে বসা থাকে, তবে সরাসরি তার এগোরা মাইক অফ হবে
+                                                  if (seatUserId ==
+                                                          currentUserId &&
+                                                      _agoraManager.engine !=
+                                                          null) {
+                                                    await _agoraManager
+                                                        .toggleMic(
+                                                            !newMicStatus);
+                                                  }
+
+                                                  // ডায়ালগ বন্ধ করা (ঐচ্ছিক, চাইলে রাখতে পারেন)
+                                                  // Navigator.pop(context);
+                                                } catch (e) {
+                                                  debugPrint(
+                                                      "Admin Control Error: $e");
+                                                }
+                                              },
+                                            ),
+                                            _buildAdminAction(
+                                              icon: Icons.gavel,
+                                              label: "Kick",
+                                              color: Colors.redAccent,
+                                              onTap: () {
+                                                // ডায়ালগ বন্ধ করা
+                                                Navigator.pop(context);
+                                                // কিক ফাংশন কল করা
+                                                _kickUserFromRoom(seatUserId);
+                                              },
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -1986,10 +2414,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                     const SizedBox(height: 10),
                                   ],
                                 ),
-                              ),
-                            ),
+                              );
+                            },
                           ),
                         ),
+                      );
+                    },
+                    // ব্লার এবং ফেড এনিমেশন
+                    transitionBuilder: (ctx, anim1, anim2, child) {
+                      return BackdropFilter(
+                        filter: ImageFilter.blur(
+                            sigmaX: 8 * anim1.value, sigmaY: 8 * anim1.value),
+                        child: FadeTransition(opacity: anim1, child: child),
                       );
                     },
                   );
@@ -2871,7 +3307,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  Widget _buildFloatingPlayer({required bool isDragging}) {
+  
+ Widget _buildFloatingPlayer({required bool isDragging}) {
     final currentUser = FirebaseAuth.instance.currentUser;
 
     return StreamBuilder<QuerySnapshot>(
@@ -3146,7 +3583,36 @@ class _VoiceRoomState extends State<VoiceRoom> {
       debugPrint("Viewer Remove Error: $e");
     }
   }
-}
+
+  // একদম নিচের দিকে, শেষ ব্র্যাকেটের একটু উপরে এই ফাংশনটি বসান
+  void _leaveRoomInternally() async {
+    try {
+      if (_agoraManager.engine != null) {
+        await _agoraManager.engine?.leaveChannel();
+      }
+      if (currentSeatIndex != -1) {
+        FirebaseDatabase.instance
+            .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
+            .update({
+          'userId': '',
+          'userName': '',
+          'userPhoto': '',
+          'uID': '',
+          'isMicOn': false,
+          'isTalking': false,
+        });
+      }
+      if (mounted) {
+        setState(() {
+          isMicOn = false;
+          currentSeatIndex = -1;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error: $e");
+    }
+  }
+} // <--- এইটা হলো ক্লাসের একদম শেষ ব্র্যাকেট, এর ঠিক উপরে বসাবেন।
 
 class GiftCalculatorRanking extends StatelessWidget {
   final Map<String, dynamic> roomData;
