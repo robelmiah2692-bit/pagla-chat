@@ -157,12 +157,17 @@ class _VoiceRoomState extends State<VoiceRoom> {
     super.initState();
     WakelockPlus.enable(); // স্ক্রিন যাতে অফ না হয়
 
+    
     // ফলো স্ট্যাটাস চেক ফাংশন কল
     // ১. সবার আগে নিজের আইডি নিয়ে আসুন, তারপর রুমের ডাটা চেক করুন
     _fetchMyuID().then((_) {
+      if (mounted) {
+      _updateUserLiveStatus(widget.roomId);
       _fetchRoomData();
       _checkIfFollowing();
+      }
     });
+    
     _initEmojiListener();
     _addUserToViewers();
     showMyOwnEntry();
@@ -567,6 +572,56 @@ class _VoiceRoomState extends State<VoiceRoom> {
         .update({'isMicOn': false, 'isMutedByAdmin': true});
   }
 
+void _updateUserLiveStatus(String roomId) async {
+  String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+  
+  print("---------- LIVE STATUS DEBUG ----------");
+
+  try {
+    // ১. আপনার ৬-ডিজিটের uID দিয়ে আপডেট ট্রাই করবে। 
+    // .update ব্যবহার করা হয়েছে যাতে নতুন কোনো খালি আইডি তৈরি না হয়।
+    if (myuID.isNotEmpty) {
+      await FirebaseFirestore.instance.collection('users').doc(myuID).update({
+        'currentRoomId': roomId,
+      });
+      print("✅ Status Updated for uID: $myuID");
+    }
+
+    // ২. Auth UID দিয়ে আপডেট ট্রাই করবে। 
+    // যদি এই আইডিটি ডাটাবেসে না থাকে, তবে এটি কোনো নতুন ডকুমেন্ট বানাবে না।
+    if (authUID.isNotEmpty && authUID != myuID) {
+      await FirebaseFirestore.instance.collection('users').doc(authUID).update({
+        'currentRoomId': roomId,
+      });
+      print("✅ Status Updated for AuthUID: $authUID");
+    }
+  } catch (e) {
+    // যদি আইডি খুঁজে না পায় তবে এখানে আসবে, কিন্তু নতুন হিবিজিবি আইডি তৈরি হবে না।
+    print("ℹ️ Firestore Update Note: নির্দিষ্ট আইডিটি পাওয়া যায়নি, তাই নতুন কোনো ডকুমেন্ট তৈরি করা হয়নি।");
+  }
+  print("---------------------------------------");
+}
+
+void _clearUserLiveStatus() async {
+  String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+  
+  try {
+    // রুম থেকে বের হওয়ার সময় ডাটা মুছে দিবে
+    if (myuID.isNotEmpty) {
+      await FirebaseFirestore.instance.collection('users').doc(myuID).update({
+        'currentRoomId': FieldValue.delete(),
+      });
+    }
+    
+    if (authUID.isNotEmpty && authUID != myuID) {
+      await FirebaseFirestore.instance.collection('users').doc(authUID).update({
+        'currentRoomId': FieldValue.delete(),
+      });
+    }
+  } catch (e) {
+    print("❌ Error clearing status: $e");
+  }
+}
 // ৪. ফলো/আনফলো লজিক
   void _toggleFollowUser(String targetId) async {
     String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
@@ -1497,7 +1552,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   void dispose() {
     // ১. ভিউয়ার লিস্ট থেকে ব্যবহারকারীকে সরিয়ে ফেলা
     _removeUserFromViewers();
-
+     _clearUserLiveStatus();
     // ২. স্ট্রীম এবং লুপ বন্ধ করা (সবচেয়ে জরুরি)
     _seatSubscription?.cancel();
     _emojiSubscription?.cancel();
