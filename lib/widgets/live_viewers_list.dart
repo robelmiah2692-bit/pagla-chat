@@ -1,68 +1,68 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:pagla_chat/profile_page.dart'; 
+import 'package:pagla_chat/profile_page.dart';
 
-class LiveViewersList extends StatelessWidget {
+// এই ক্লাসটি এখন একদম আলাদা, তাই এটি কাঁপবে না
+class LiveViewersList extends StatefulWidget {
   final String roomId;
   const LiveViewersList({super.key, required this.roomId});
 
   @override
+  State<LiveViewersList> createState() => _LiveViewersListState();
+}
+
+class _LiveViewersListState extends State<LiveViewersList> {
+  // স্ট্রীমটিকে একবার ইনিশিয়েট করছি যাতে বারবার নতুন কানেকশন না তৈরি হয়
+  late Stream<QuerySnapshot> _viewerStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _viewerStream = FirebaseFirestore.instance
+        .collection('rooms')
+        .doc(widget.roomId)
+        .collection('viewers')
+        .snapshots(includeMetadataChanges: false);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      // 🔥 পরিবর্তন: distinct ব্যবহার করা হয়েছে যাতে সিটে কথা বলার সময় ভিউয়ার লিস্ট না কাঁপে
-      stream: FirebaseFirestore.instance
-          .collection('rooms')
-          .doc(roomId)
-          .collection('viewers')
-          .snapshots(includeMetadataChanges: false)
-          .distinct((prev, next) {
-            // যদি ভিউয়ারদের সংখ্যা এবং প্রথম ইউজারের আইডি একই থাকে, তবে রিবিল্ড হবে না
-            if (prev.docs.length != next.docs.length) return false;
-            if (prev.docs.isEmpty && next.docs.isEmpty) return true;
-            return prev.docs.first.id == next.docs.first.id;
-          }), 
+      stream: _viewerStream,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const SizedBox();
-        
-        var viewers = snapshot.data?.docs ?? [];
-        int count = viewers.length;
+        // এই প্রিন্টটি যদি এখনো খুব দ্রুত আসে, তবে বুঝতে হবে ডাটাবেজে কথা বলার সময় ডাটা কাঁপছে
+        if (snapshot.hasData) {
+           debugPrint("🚀 ভিউয়ার এরিয়া রেন্ডার হচ্ছে: ${snapshot.data!.docs.length} জন");
+        }
 
+        if (snapshot.connectionState == ConnectionState.waiting) return const SizedBox();
+
+        final docs = snapshot.data?.docs ?? [];
+        
         return Row(
           children: [
-            if (count > 0)
-              Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    "$count",
-                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-
+            if (docs.isNotEmpty) _buildCount(docs.length),
             Expanded(
               child: SizedBox(
                 height: 40,
                 child: ListView.builder(
-                  key: const PageStorageKey('live_viewers_list'),
+                  // 'physics' যোগ করা হয়েছে স্ক্রলিং স্মুথ করতে
+                  physics: const BouncingScrollPhysics(),
                   scrollDirection: Axis.horizontal,
-                  itemCount: viewers.length,
+                  itemCount: docs.length,
                   addAutomaticKeepAlives: true,
                   addRepaintBoundaries: true,
+                  cacheExtent: 1000, 
                   itemBuilder: (context, index) {
-                    var viewerData = viewers[index].data() as Map<String, dynamic>;
-                    String viewerId = viewerData['uID']?.toString() ?? viewers[index].id; 
-                    String profileImage = viewerData['profilePic'] ?? viewerData['userImage'] ?? '';
+                    final data = docs[index].data() as Map<String, dynamic>;
+                    final uID = data['uID']?.toString() ?? docs[index].id;
+                    final img = data['profilePic'] ?? data['userImage'] ?? '';
 
+                    // ValueKey এবং RepaintBoundary কাঁপাকাঁপি বন্ধের প্রধান অস্ত্র
                     return ViewerAvatar(
-                      key: ValueKey(viewerId), // ইউনিক কি কথা বলার সময় ছবি স্থির রাখবে
-                      viewerId: viewerId,
-                      profileImage: profileImage,
+                      key: ValueKey("viewer_$uID"), 
+                      viewerId: uID,
+                      profileImage: img,
                     );
                   },
                 ),
@@ -73,36 +73,59 @@ class LiveViewersList extends StatelessWidget {
       },
     );
   }
+
+  Widget _buildCount(int count) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black54, 
+        borderRadius: BorderRadius.circular(12)
+      ),
+      child: Text("$count", style: const TextStyle(color: Colors.white, fontSize: 11)),
+    );
+  }
 }
 
-class ViewerAvatar extends StatelessWidget {
+class ViewerAvatar extends StatefulWidget {
   final String viewerId;
   final String profileImage;
+  const ViewerAvatar({super.key, required this.viewerId, required this.profileImage});
 
-  const ViewerAvatar({
-    super.key,
-    required this.viewerId,
-    required this.profileImage,
-  });
+  @override
+  State<ViewerAvatar> createState() => _ViewerAvatarState();
+}
+
+class _ViewerAvatarState extends State<ViewerAvatar> with AutomaticKeepAliveClientMixin {
+  
+  @override
+  bool get wantKeepAlive => true; 
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+      padding: const EdgeInsets.symmetric(horizontal: 3.0),
       child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ProfilePage(userId: viewerId),
-            ),
-          );
-        },
-        child: CircleAvatar(
-          radius: 16,
-          backgroundImage: profileImage.isNotEmpty ? NetworkImage(profileImage) : null,
-          backgroundColor: Colors.grey[800],
-          child: profileImage.isEmpty ? const Icon(Icons.person, size: 20, color: Colors.white) : null,
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ProfilePage(userId: widget.viewerId))),
+        child: RepaintBoundary( 
+          child: CircleAvatar(
+            radius: 16,
+            backgroundColor: Colors.white10,
+            child: widget.profileImage.isEmpty 
+              ? const Icon(Icons.person, size: 18, color: Colors.white30) 
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.network(
+                    widget.profileImage,
+                    fit: BoxFit.cover,
+                    width: 32,
+                    height: 32,
+                    gaplessPlayback: true, // ছবি পরিবর্তনের সময় ঝিলিক মারা বন্ধ করবে
+                  ),
+                ),
+          ),
         ),
       ),
     );

@@ -81,12 +81,12 @@ class AgoraManager {
 
       _engine!.registerEventHandler(RtcEngineEventHandler(
         onJoinChannelSuccess: (connection, elapsed) {
-          // 'connection.localUid' সরাসরি ব্যবহার করা হয়েছে এরর এড়াতে
           debugPrint("✅ এগোরা কানেক্টেড! uid: ${connection.localUid}");
           _localuID = connection.localUid;
           forceResumeAudio(); 
         },
         onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
+          // 🔥 এই স্ট্রিম ব্যবহারের ফলে ভিউয়ার লিস্টের ডাটাবেজ রিবিল্ড হবে না
           _volumeStreamController.add(speakers);
         },
         onAudioMixingStateChanged: (AudioMixingStateType state, AudioMixingReasonType reason) {
@@ -182,23 +182,23 @@ class AgoraManager {
   }
 
   Future<void> becomeBroadcaster() async {
-  if (_engine == null) await initAgora();
-  _shouldBeBroadcasting = true;
-  _isMicMutedLocal = false; 
-  
-  if (!kIsWeb) {
-    var status = await Permission.microphone.status;
-    if (!status.isGranted) {
-      await Permission.microphone.request();
+    if (_engine == null) await initAgora();
+    _shouldBeBroadcasting = true;
+    _isMicMutedLocal = false; 
+    
+    if (!kIsWeb) {
+      var status = await Permission.microphone.status;
+      if (!status.isGranted) {
+        await Permission.microphone.request();
+      }
     }
+
+    await _engine!.enableLocalAudio(true); 
+    await _engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+    await _ensureAudioPublishing();
+
+    _keepAliveTimer?.cancel();
   }
-
-  await _engine!.enableLocalAudio(true); 
-  await _engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
-  await _ensureAudioPublishing(); // এটি এখানে একবার কল হওয়াই যথেষ্ট।
-
-  _keepAliveTimer?.cancel(); // টাইমার ডিলিট করে দিন।
-}
 
   Future<void> _ensureAudioPublishing() async {
     if (_engine == null) return;

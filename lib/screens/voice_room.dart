@@ -17,6 +17,8 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:lottie/lottie.dart';
 import 'package:pagla_chat/room_list_page.dart' show RoomListPage;
+import 'package:pagla_chat/room_manager.dart';
+import 'package:pagla_chat/services/floating_bubble_service.dart';
 
 import 'package:pagla_chat/widgets/entry_effect_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -157,20 +159,42 @@ class _VoiceRoomState extends State<VoiceRoom> {
     super.initState();
     WakelockPlus.enable(); // স্ক্রিন যাতে অফ না হয়
 
-    
-    // ফলো স্ট্যাটাস চেক ফাংশন কল
-    // ১. সবার আগে নিজের আইডি নিয়ে আসুন, তারপর রুমের ডাটা চেক করুন
+    // --- ১. মিনিমাইজড ডাটা রিকভারি লজিক ---
+    if (FloatingBubbleService.isMinimized) {
+      // যদি বাবল থেকে রুমে ফিরে আসে, তবে ম্যানেজার থেকে আগের ডাটা নিন
+      currentSeatIndex = RoomManager().currentSeatIndex;
+      debugPrint("মিনিমাইজড মোড থেকে ফিরেছি। সিট নম্বর: $currentSeatIndex");
+
+      // রুমে ফিরে আসার পর বাবল স্ট্যাটাস রিসেট করুন
+      FloatingBubbleService.isMinimized = false;
+      FloatingBubbleService.hide();
+    } else {
+      // নতুন করে রুমে ঢুকলে ম্যানেজার রিসেট করুন
+      RoomManager().reset();
+      RoomManager().activeRoomId = widget.roomId;
+    }
+
+    // ২. ইউজার এবং রুম ডাটা চেক
     _fetchMyuID().then((_) {
       if (mounted) {
-      _updateUserLiveStatus(widget.roomId);
-      _fetchRoomData();
-      _checkIfFollowing();
+        // বাবল থেকে ফিরলে লাইভ স্ট্যাটাস নতুন করে আপডেট করার দরকার নেই
+        if (!FloatingBubbleService.isMinimized) {
+          _updateUserLiveStatus(widget.roomId);
+          _fetchRoomData();
+          _checkIfFollowing();
+        }
       }
     });
-    
+
     _initEmojiListener();
-    _addUserToViewers();
-    showMyOwnEntry();
+
+    // ৩. এন্ট্রি লজিক (বাবল থেকে ফিরলে এগুলো কল হবে না)
+    if (!FloatingBubbleService.isMinimized) {
+      _addUserToViewers();
+      showMyOwnEntry();
+    }
+
+    // ৪. ফায়ারস্টোর রুম লিসেনার
     FirebaseFirestore.instance
         .collection('rooms')
         .doc(widget.roomId)
@@ -182,15 +206,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
           var entry = data['lastEntry'];
           String currentEntryId = entry['entryId']?.toString() ?? "";
 
-          // 🔥 আইডি চেক না করলে কিন্তু বারবার এনিমেশন হবে
           if (currentEntryId.isNotEmpty &&
               currentEntryId != lastProcessedEntryId) {
             if (mounted) {
               setState(() {
-                lastProcessedEntryId = currentEntryId; // আইডি আপডেট
+                lastProcessedEntryId = currentEntryId;
                 entryUserName = entry['name'];
                 entryUserImage = entry['image'];
-                // 🔥 এখানে বানান ঠিক করা হয়েছে: activeEntryUrl
                 currentEntryEffect = entry['activeEntryUrl'];
                 entryUserFrame = entry['activeFrameUrl'];
                 showEntryEffect = true;
@@ -200,7 +222,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
         }
       }
     });
-    // ১. ১৫টি সিটের ইনিশিয়ালাইজেশন
+
+    // ৫. ১৫টি সিটের ইনিশিয়ালাইজেশন
     seats = List.generate(
         15,
         (index) => {
@@ -218,7 +241,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
               "agorauID": "",
             });
 
-    // ২. রিয়েলটাইম সিট লিসেনার
+    // ৬. রিয়েলটাইম সিট লিসেনার
     _seatSubscription = FirebaseDatabase.instance
         .ref('rooms/${widget.roomId}/seats')
         .onValue
@@ -231,7 +254,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
           seat["isOccupied"] = false;
           seat["userName"] = "";
           seat["userImage"] = "";
-          seat["userFrame"] = ""; // ✅ ক্লিয়ার
+          seat["userFrame"] = "";
           seat["uID"] = "";
           seat["userId"] = "";
         }
@@ -254,23 +277,29 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   value["authUID"] ?? value["userId"] ?? "";
               seats[index]["uID"] = value["uID"] ?? "";
               seats[index]["agorauID"] = value["agorauID"]?.toString() ?? "";
+
+              // 🔥 গুরুত্বপূর্ণ: ডাটাবেজ থেকে নিজের সিট খুঁজে বের করে currentSeatIndex লক করা
+              if (seats[index]["userId"] ==
+                  FirebaseAuth.instance.currentUser?.uid) {
+                currentSeatIndex = index;
+              }
             }
           });
         }
       });
     });
 
-    // ৩. এগোরা লজিক (সংশোধিত)
-    // ৩. এগোরা লজিক (সংশোধিত - নাচানাচি বন্ধ করার জন্য)
+    // ৭. এগোরা লজিক (রিপেল ঠিক করার জন্য পুরাতন কোড ফিরিয়ে আনা হলো)
     Future.microtask(() async {
       try {
-        await _agoraManager.initAgora();
-        final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+        if (!FloatingBubbleService.isMinimized) {
+          await _agoraManager.initAgora();
+          final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+          await _agoraManager.joinAsListener(widget.roomId, authUID);
 
-        await _agoraManager.joinAsListener(widget.roomId, authUID);
-
-        if (mounted) {
-          _addUserToViewers();
+          if (mounted) {
+            _addUserToViewers();
+          }
         }
 
         final engine = _agoraManager.engine;
@@ -280,27 +309,26 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
           engine.registerEventHandler(
             RtcEngineEventHandler(
-              onUserJoined: (connection, remoteuID, elapsed) {
-                debugPrint("Remote user joined: $remoteuID");
-              },
               onAudioVolumeIndication:
                   (connection, speakers, totalVolume, speakerNumber) {
                 if (!mounted) return;
 
                 bool isMeTalking = false;
                 for (var speaker in speakers) {
-                  // ভলিউম থ্রেশহোল্ড ১০ এর বদলে ১৫-২০ রাখা ভালো যাতে নয়েজে রি-বিল্ড না হয়
                   if (speaker.uid == 0 && (speaker.volume ?? 0) > 15) {
                     isMeTalking = true;
                     break;
                   }
                 }
 
-                // মূল সমাধান: অবস্থা পরিবর্তন (True/False) না হলে ফাংশন কল হবে না
                 if (_isMeTalkingNow != isMeTalking) {
-                  _isMeTalkingNow = isMeTalking;
-                  _updateTalkingStatus(
-                      isMeTalking); // এখন এটি কেবল একবারই কল হবে
+                  // 🔥 রিপেল ফিরিয়ে আনার জন্য লোকাল স্টেট আপডেট
+                  setState(() {
+                    _isMeTalkingNow = isMeTalking;
+                  });
+
+                  // ডাটাবেজ আপডেট (আপনার পুরাতন কোড অনুযায়ী)
+                  _updateTalkingStatus(isMeTalking);
                 }
               },
             ),
@@ -422,44 +450,66 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
   void _initEmojiListener() {
-    _emojiSubscription?.cancel();
-    _emojiSubscription = FirebaseDatabase.instance
-        .ref('rooms/${widget.roomId}/seats')
-        .onChildChanged // এখানে onValue এর বদলে onChildChanged ঠিক আছে, তবে ডাটা পাঠানোর স্টাইল বদলাতে হবে
-        .listen((event) {
-      if (!mounted) return;
+  _emojiSubscription?.cancel();
+  debugPrint("📡 [MASTER]: লিসেনার চালু হয়েছে। রুম আইডি: ${widget.roomId}");
 
-      final dynamic value = event.snapshot.value;
-      final int index = int.tryParse(event.snapshot.key ?? "") ?? -1;
+  _emojiSubscription = FirebaseDatabase.instance
+      .ref('rooms/${widget.roomId}/seats')
+      .onValue // onChildChanged এর চেয়ে onValue বেশি নিরাপদ অন্যদের ডাটা ধরার জন্য
+      .listen((event) {
+    if (!mounted || event.snapshot.value == null) {
+      debugPrint("🛑 [MASTER]: ডাটাবেজ থেকে কোনো সিট ডাটা পাওয়া যায়নি (Null Snapshot)");
+      return;
+    }
 
-      // এখানে value["emojiTime"] থাকাটা বাধ্যতামূলক যাতে প্রতিবার ডাটা "Change" হয়
-      if (index != -1 && value is Map && value["currentEmoji"] != null) {
-        final int serverTime = value["emojiTime"] ?? 0;
-        final int currentTime = DateTime.now().millisecondsSinceEpoch;
+    final Map<dynamic, dynamic> seatsData = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
+    debugPrint("🔍 [MASTER]: ডাটাবেজে পরিবর্তন দেখা গেছে। মোট সিট ডাটা: ${seatsData.length}");
 
-        // টাইম চেক (৫ সেকেন্ডের বেশি পুরনো হলে ইগনোর)
-        if ((currentTime - serverTime).abs() > 5000) return;
+    seatsData.forEach((key, value) {
+      int index = int.tryParse(key.toString()) ?? -1;
+      
+      if (index != -1 && value is Map) {
+        final String? emoji = value["currentEmoji"];
+        final bool showEmoji = value["showEmoji"] ?? false;
+        
+        // ১. আগে চেক করি ডাটা আসছে কি না
+        if (emoji != null && showEmoji == true) {
+          debugPrint("🔥 [DETECTED]: সিট $index এ ইমোজি পাওয়া গেছে! URL: $emoji");
 
-        // --- সুপার ফাস্ট করার ট্রিক ---
-        // যদি ওই সিটে আগে থেকেই ইমোজি থাকে, তবে সেটা সরিয়ে নতুনটা সাথে সাথে বসান
-        if (activeEmojis.containsKey(index)) {
-          activeEmojis.remove(index);
-        }
+          // ২. চেক করি পজিশন আছে কি না (এইটাই আসল ভিলেন হতে পারে)
+          if (index < seatPositions.length) {
+            double x = seatPositions[index].dx;
+            double y = seatPositions[index].dy;
+            debugPrint("📍 [POSITION]: সিট $index এর পজিশন -> X: $x, Y: $y");
 
-        setState(() {
-          activeEmojis[index] = value["currentEmoji"];
-        });
-
-        // ৩ সেকেন্ড পর রিমুভ (Timer ব্যবহার করা ভালো Future.delayed এর চেয়ে)
-        Timer(const Duration(seconds: 3), () {
-          if (mounted && activeEmojis[index] == value["currentEmoji"]) {
-            setState(() => activeEmojis.remove(index));
+            if (x == 0 && y == 0) {
+              debugPrint("❌ [FAIL]: ইমোজি আছে কিন্তু পজিশন (0,0) তাই অন্য ইউজাররা দেখতে পারছে না!");
+            } else {
+              debugPrint("✅ [SUCCESS]: সব ঠিক আছে! এখন UI তে দেখা যাওয়ার কথা।");
+            }
+          } else {
+            debugPrint("⚠️ [RANGE ERROR]: সিট ইনডেক্স $index আমাদের পজিশন লিস্টের বাইরে!");
           }
-        });
+
+          // ৩. UI আপডেট
+          if (activeEmojis[index] != emoji) {
+            setState(() {
+              activeEmojis[index] = emoji;
+            });
+            
+            // অটো রিমুভ (অন্য ইউজারদের স্ক্রিন থেকে)
+            Timer(const Duration(seconds: 4), () {
+              if (mounted) {
+                setState(() => activeEmojis.remove(index));
+                debugPrint("🗑️ [CLEANUP]: ৪ সেকেন্ড পর ইমোজি রিমুভ করা হয়েছে।");
+              }
+            });
+          }
+        }
       }
     });
-  }
-
+  });
+}
 // ১. এডমিন বানানো বা রিমুভ করা
   void _toggleAdmin(String targetuID, bool isAlreadyAdmin) {
     FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
@@ -572,56 +622,64 @@ class _VoiceRoomState extends State<VoiceRoom> {
         .update({'isMicOn': false, 'isMutedByAdmin': true});
   }
 
-void _updateUserLiveStatus(String roomId) async {
-  String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
-  
-  print("---------- LIVE STATUS DEBUG ----------");
+  void _updateUserLiveStatus(String roomId) async {
+    String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-  try {
-    // ১. আপনার ৬-ডিজিটের uID দিয়ে আপডেট ট্রাই করবে। 
-    // .update ব্যবহার করা হয়েছে যাতে নতুন কোনো খালি আইডি তৈরি না হয়।
-    if (myuID.isNotEmpty) {
-      await FirebaseFirestore.instance.collection('users').doc(myuID).update({
-        'currentRoomId': roomId,
-      });
-      print("✅ Status Updated for uID: $myuID");
-    }
+    print("---------- LIVE STATUS DEBUG ----------");
 
-    // ২. Auth UID দিয়ে আপডেট ট্রাই করবে। 
-    // যদি এই আইডিটি ডাটাবেসে না থাকে, তবে এটি কোনো নতুন ডকুমেন্ট বানাবে না।
-    if (authUID.isNotEmpty && authUID != myuID) {
-      await FirebaseFirestore.instance.collection('users').doc(authUID).update({
-        'currentRoomId': roomId,
-      });
-      print("✅ Status Updated for AuthUID: $authUID");
+    try {
+      // ১. আপনার ৬-ডিজিটের uID দিয়ে আপডেট ট্রাই করবে।
+      // .update ব্যবহার করা হয়েছে যাতে নতুন কোনো খালি আইডি তৈরি না হয়।
+      if (myuID.isNotEmpty) {
+        await FirebaseFirestore.instance.collection('users').doc(myuID).update({
+          'currentRoomId': roomId,
+        });
+        print("✅ Status Updated for uID: $myuID");
+      }
+
+      // ২. Auth UID দিয়ে আপডেট ট্রাই করবে।
+      // যদি এই আইডিটি ডাটাবেসে না থাকে, তবে এটি কোনো নতুন ডকুমেন্ট বানাবে না।
+      if (authUID.isNotEmpty && authUID != myuID) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(authUID)
+            .update({
+          'currentRoomId': roomId,
+        });
+        print("✅ Status Updated for AuthUID: $authUID");
+      }
+    } catch (e) {
+      // যদি আইডি খুঁজে না পায় তবে এখানে আসবে, কিন্তু নতুন হিবিজিবি আইডি তৈরি হবে না।
+      print(
+          "ℹ️ Firestore Update Note: নির্দিষ্ট আইডিটি পাওয়া যায়নি, তাই নতুন কোনো ডকুমেন্ট তৈরি করা হয়নি।");
     }
-  } catch (e) {
-    // যদি আইডি খুঁজে না পায় তবে এখানে আসবে, কিন্তু নতুন হিবিজিবি আইডি তৈরি হবে না।
-    print("ℹ️ Firestore Update Note: নির্দিষ্ট আইডিটি পাওয়া যায়নি, তাই নতুন কোনো ডকুমেন্ট তৈরি করা হয়নি।");
+    print("---------------------------------------");
   }
-  print("---------------------------------------");
-}
 
-void _clearUserLiveStatus() async {
-  String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
-  
-  try {
-    // রুম থেকে বের হওয়ার সময় ডাটা মুছে দিবে
-    if (myuID.isNotEmpty) {
-      await FirebaseFirestore.instance.collection('users').doc(myuID).update({
-        'currentRoomId': FieldValue.delete(),
-      });
+  void _clearUserLiveStatus() async {
+    String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+
+    try {
+      // রুম থেকে বের হওয়ার সময় ডাটা মুছে দিবে
+      if (myuID.isNotEmpty) {
+        await FirebaseFirestore.instance.collection('users').doc(myuID).update({
+          'currentRoomId': FieldValue.delete(),
+        });
+      }
+
+      if (authUID.isNotEmpty && authUID != myuID) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(authUID)
+            .update({
+          'currentRoomId': FieldValue.delete(),
+        });
+      }
+    } catch (e) {
+      print("❌ Error clearing status: $e");
     }
-    
-    if (authUID.isNotEmpty && authUID != myuID) {
-      await FirebaseFirestore.instance.collection('users').doc(authUID).update({
-        'currentRoomId': FieldValue.delete(),
-      });
-    }
-  } catch (e) {
-    print("❌ Error clearing status: $e");
   }
-}
+
 // ৪. ফলো/আনফলো লজিক
   void _toggleFollowUser(String targetId) async {
     String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
@@ -1010,7 +1068,7 @@ void _clearUserLiveStatus() async {
   Widget build(BuildContext context) {
     // কিবোর্ডের উচ্চতা মাপার জন্য
     double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-
+    print("🛠️ ডিবাগ: পুরো রুম পেজ রিবিল্ড হচ্ছে!"); // এই লাইনটি যোগ করুন
     return Scaffold(
       backgroundColor: const Color(0xFF0B1222),
       resizeToAvoidBottomInset: true,
@@ -1291,7 +1349,7 @@ void _clearUserLiveStatus() async {
                     ),
                   ),
 
-                 // ৫. মিউজিক প্লেয়ার
+                // ৫. মিউজিক প্লেয়ার
                 if (isFloatingPlayerVisible)
                   Positioned(
                     left: playerPosition.dx,
@@ -1305,7 +1363,7 @@ void _clearUserLiveStatus() async {
                     ),
                   ),
                 // ৬. টুলস ও ওভারলে
-                
+
                 FloatingRoomTools(
                   onGiftCountStart: (minutes, theme) =>
                       _startGiftCounting(minutes, theme),
@@ -1488,46 +1546,57 @@ void _clearUserLiveStatus() async {
     );
   }
 
-  // ইমোজি মেথড (সিট পজিশন অনুযায়ী) - আপডেট করা
-  List<Widget> _buildFloatingEmojiAnimations() {
-    return activeEmojis.entries.map((entry) {
-      int seatIndex = entry.key;
-      String lottieUrl = entry.value;
+ List<Widget> _buildFloatingEmojiAnimations() {
+  return activeEmojis.entries.map((entry) {
+    int seatIndex = entry.key;
+    String lottieUrl = entry.value;
 
-      // পজিশন সেফটি চেক
-      if (seatIndex < 0 || seatIndex >= seatPositions.length) {
-        return const SizedBox();
-      }
+    // পজিশন সেফটি চেক
+    if (seatIndex < 0 || seatIndex >= seatPositions.length) {
+      debugPrint("⚠️ DEBUG: Seat index $seatIndex out of range");
+      return const SizedBox();
+    }
 
-      // সিটের লোকেশন বের করা
-      double leftPos = seatPositions[seatIndex].dx;
-      double topPos = seatPositions[seatIndex].dy;
+    // সিটের লোকেশন বের করা
+    double leftPos = seatPositions[seatIndex].dx;
+    double topPos = seatPositions[seatIndex].dy;
 
-      // যদি পজিশন 0,0 হয় (মানে ডাটা এখনো আসেনি), তবে এটি রেন্ডার করবে না
-      if (leftPos == 0 && topPos == 0) return const SizedBox();
+    // পজিশন চেক প্রিন্ট (ইমোজি না দেখা গেলে এটি চেক করবেন)
+    if (leftPos == 0 && topPos == 0) {
+      debugPrint("📍 DEBUG: Seat $seatIndex has (0,0) position, hiding emoji.");
+      return const SizedBox();
+    }
 
-      return Positioned(
-        left: leftPos - 15,
-        top: topPos - 50,
-        child: IgnorePointer(
-          child: SizedBox(
-            width: 80,
-            height: 80,
-            child: Lottie.network(
-              lottieUrl,
-              // *** এই Key টি যোগ করার ফলে একই ইমোজি বারবার পাঠালেও সাথে সাথে প্লে হবে ***
-              key: ValueKey(
-                  '${seatIndex}_${DateTime.now().millisecondsSinceEpoch}'),
-              repeat: false,
-              animate: true, // নিশ্চিত করুন এটি ট্রু আছে
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) => const SizedBox(),
-            ),
+    return Positioned(
+      // পজিশন একটু এডজাস্ট করা হয়েছে যাতে সিটের মাথার ঠিক উপরে থাকে
+      left: leftPos - 25, 
+      top: topPos - 60,
+      child: IgnorePointer(
+        child: SizedBox(
+          width: 80,
+          height: 80,
+          child: Lottie.network(
+            lottieUrl,
+            // এখানে key হিসেবে শুধু seatIndex এবং url ব্যবহার করুন 
+            // যাতে প্রতি মিলি-সেকেন্ডে key বদলে এনিমেশন না ভেঙে যায়
+            key: ValueKey('${seatIndex}_$lottieUrl'),
+            repeat: false,
+            animate: true,
+            fit: BoxFit.contain,
+            // ডাটাবেজ থেকে আসা লট্টি ফাইল লোড হতে সময় নিলে একটি ছোট প্রিভিউ বা লোডার
+            onLoaded: (composition) {
+              debugPrint("✅ DEBUG: Lottie Loaded for seat $seatIndex");
+            },
+            errorBuilder: (context, error, stackTrace) {
+              debugPrint("❌ DEBUG: Lottie Error on seat $seatIndex: $error");
+              return const SizedBox();
+            },
           ),
         ),
-      );
-    }).toList();
-  }
+      ),
+    );
+  }).toList();
+}
 
 // এই উইজেটটি আপনার আইকন বাটন তৈরি করবে
   Widget buildCircularIcon(IconData icon, Color color, VoidCallback onTap) {
@@ -1550,16 +1619,33 @@ void _clearUserLiveStatus() async {
 
   @override
   void dispose() {
-    // ১. ভিউয়ার লিস্ট থেকে ব্যবহারকারীকে সরিয়ে ফেলা
+    // ১. চেক করছি বাবল কি স্ক্রিনে আছে?
+    // যদি থাকে, তবে আমরা ডাটাবেস আপডেট বা এগোরা বন্ধ কিছুই করবো না।
+    if (FloatingBubbleService.isMinimized) {
+      debugPrint("মিনিমাইজড মোড: রুম ব্যাকগ্রাউন্ডে সচল রাখা হচ্ছে।");
+
+      // নোট: এখানে return করার মানে হলো নিচের কোনো ক্লিনআপ কোড এক্সিকিউট হবে না।
+      // ফলে আপনার Firestore বা Realtime Database এ সিট খালি হবে না।
+      super.dispose();
+      return;
+    }
+
+    // --- ২. যদি বাবল না থাকে (ইউজার যখন সরাসরি Exit বাটন চেপে বের হবে) ---
+
+    debugPrint("ফুল এক্সিট: রুমের সব লজিক ক্লিনআপ করা হচ্ছে।");
+
+    // ৩. ভিউয়ার লিস্ট থেকে ব্যবহারকারীকে সরিয়ে ফেলা
     _removeUserFromViewers();
-     _clearUserLiveStatus();
-    // ২. স্ট্রীম এবং লুপ বন্ধ করা (সবচেয়ে জরুরি)
+    _clearUserLiveStatus();
+
+    // ৪. স্ট্রীম এবং লুপ বন্ধ করা (সবচেয়ে জরুরি)
     _seatSubscription?.cancel();
     _emojiSubscription?.cancel();
     giftTimer?.cancel();
 
-    // ৩. সিটে বসে থাকলে সেটি অটোমেটিক খালি করে দেওয়া
+    // ৫. সিটে বসে থাকলে সেটি অটোমেটিক খালি করে দেওয়া
     if (currentSeatIndex != -1) {
+      // Firestore এবং Service আপডেট
       _roomService.updateSeatData(
           roomId: widget.roomId,
           seatIndex: currentSeatIndex,
@@ -1567,7 +1653,6 @@ void _clearUserLiveStatus() async {
           uImage: "",
           isOccupied: false);
 
-      // Firestore ডাটা আপডেট
       FirebaseFirestore.instance
           .collection('rooms')
           .doc(widget.roomId)
@@ -1587,12 +1672,12 @@ void _clearUserLiveStatus() async {
           .remove();
     }
 
-    // ৪. কন্ট্রোলার এবং পিকে ম্যানেজার বন্ধ করা
+    // ৬. কন্ট্রোলার এবং পিকে ম্যানেজার বন্ধ করা
     if (isPKActive) pkManager.stopPK();
     _audioPlayer.dispose();
     _messageController.dispose();
 
-    // ৫. এগোরা ইঞ্জিন রিলিজ করা (Resource cleanup)
+    // ৭. এগোরা ইঞ্জিন রিলিজ করা
     try {
       _agoraManager.engine?.leaveChannel();
       _agoraManager.engine?.release();
@@ -2647,28 +2732,35 @@ void _clearUserLiveStatus() async {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       child: Row(
         children: [
-          // ১. ইমোজি বাটন 😄 (আপনার অরিজিনাল ৩ ও ৪ সেকেন্ডের টাইমার লজিক সহ)
+          // ১. ইমোজি বাটন 😄
           buildCircularIcon(Icons.emoji_emotions_outlined,
               const Color.fromARGB(255, 250, 143, 2), () async {
             final String authId = FirebaseAuth.instance.currentUser?.uid ?? "";
+            debugPrint("🔘 DEBUG: Emoji Button Clicked by AuthID: $authId");
 
-            // ইউজারের শর্ট আইডি (ডকুমেন্ট আইডি) বের করা
+            // ইউজারের আইডি বের করা
             var userSnap = await FirebaseFirestore.instance
                 .collection('users')
                 .where('authUID', isEqualTo: authId)
                 .limit(1)
                 .get();
 
-            if (userSnap.docs.isEmpty) return;
+            if (userSnap.docs.isEmpty) {
+              debugPrint("❌ DEBUG: User not found in Firestore!");
+              return;
+            }
+
             String myActualId = userSnap.docs.first.id;
+            debugPrint("👤 DEBUG: Found MyActualID: $myActualId");
 
             // 🔥 সিটে চেক করার সময় লক ডাটা থাকলেও যেন ইউজারকে খুঁজে পায়
             int mySeatIndex = seats.indexWhere((s) {
               if (s == null) return false;
-              // এখানে আপনার আইডি চেক করার সব অপশন (লক ডাটার ভেতরেও যদি থাকে)
               var uID = s['uID'] ?? s['userId'] ?? s['uid'];
               return uID.toString() == myActualId;
             });
+
+            debugPrint("🪑 DEBUG: Seat Search Result Index: $mySeatIndex");
 
             if (mySeatIndex != -1) {
               EmojiHandler.showPicker(
@@ -2676,24 +2768,35 @@ void _clearUserLiveStatus() async {
                   seatIndex: mySeatIndex,
                   onEmojiSelected: (index, url) {
                     if (index != -1 && url != null) {
-                      // রিয়েলটাইম ডাটাবেস আপডেট
+                      debugPrint(
+                          "🎭 DEBUG: Emoji Selected: $url for Seat: $index");
+
                       DatabaseReference seatRef = FirebaseDatabase.instance
                           .ref('rooms/${widget.roomId}/seats/$index');
 
-                      // ✅ শুধুমাত্র ইমোজি ডাটা আপডেট হবে, লক ডাটা নষ্ট হবে না
+                      // ✅ শুধুমাত্র ইমোজি ডাটা আপডেট হবে
                       seatRef.update({
                         'currentEmoji': url,
                         'showEmoji': true,
                         'emojiTime': ServerValue.timestamp,
+                      }).then((_) {
+                        debugPrint(
+                            "✅ DEBUG: Emoji updated in RTDB for seat $index");
                       });
 
-                      // ইমোজি রিমুভ লজিক আগের মতোই থাকবে...
+                      // ৩ থেকে ৪ সেকেন্ড পর রিমুভ লজিক
                       Future.delayed(const Duration(seconds: 4), () {
-                        seatRef.update({'showEmoji': false});
+                        if (mounted) {
+                          seatRef.update({'showEmoji': false});
+                          debugPrint(
+                              "🗑️ DEBUG: showEmoji set to false after 4s");
+                        }
                       });
                     }
                   });
             } else {
+              debugPrint(
+                  "🚫 DEBUG: User is NOT on any seat. Showing SnackBar.");
               ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Take seat first")));
             }
@@ -3310,7 +3413,35 @@ void _clearUserLiveStatus() async {
           debugPrint("Wallpaper Error: $e");
         }
       },
-      onMinimize: () => Navigator.pop(context),
+      onMinimize: () {
+        // ১. আগে ফ্ল্যাগটি ট্রু করুন (যাতে dispose বুঝতে পারে এটি মিনিমাইজ)
+        FloatingBubbleService.isMinimized = true;
+
+        // ২. ইমেজ ইউআরএল সেট করা
+        String imageUrl = roomProfileImage.isNotEmpty
+            ? roomProfileImage
+            : 'https://via.placeholder.com/150';
+
+        // ৩. গ্লোবাল বাবল দেখানো
+        FloatingBubbleService.show(
+          context,
+          widget.roomId,
+          imageUrl,
+          widget, // বর্তমান রুম উইজেট (VoiceRoom)
+        );
+
+        // ৪. সবশেষে পপ করুন (রুম পেজ থেকে বের হওয়া)
+        Navigator.of(context).pop();
+
+        // ইউজারকে মেসেজ দেখানো
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("রুম মিনিমাইজ করা হয়েছে"),
+            duration: Duration(seconds: 2),
+            backgroundColor: Colors.pinkAccent,
+          ),
+        );
+      },
       onClearChat: () async {
         try {
           final chatDocs = await FirebaseFirestore.instance
@@ -3362,8 +3493,7 @@ void _clearUserLiveStatus() async {
     );
   }
 
-  
- Widget _buildFloatingPlayer({required bool isDragging}) {
+  Widget _buildFloatingPlayer({required bool isDragging}) {
     final currentUser = FirebaseAuth.instance.currentUser;
 
     return StreamBuilder<QuerySnapshot>(

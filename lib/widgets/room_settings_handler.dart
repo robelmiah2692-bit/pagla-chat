@@ -64,7 +64,6 @@ class RoomSettingsHandler {
                   ),
                 ),
                 const SizedBox(height: 25),
-
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Padding(
@@ -120,7 +119,6 @@ class RoomSettingsHandler {
                   ),
                 ),
                 const SizedBox(height: 25),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -141,7 +139,7 @@ class RoomSettingsHandler {
                         if (image != null) {
                           try {
                             _showMessage(context, "Uploading wallpaper...");
-                            
+
                             var roomDoc = await _firestore
                                 .collection('rooms')
                                 .doc(roomId)
@@ -161,12 +159,15 @@ class RoomSettingsHandler {
                             }
 
                             File file = File(image.path);
-                            String fileName = 'room_wallpapers/$roomId/${DateTime.now().millisecondsSinceEpoch}.jpg';
-                            Reference storageRef = FirebaseStorage.instance.ref().child(fileName);
+                            String fileName =
+                                'room_wallpapers/$roomId/${DateTime.now().millisecondsSinceEpoch}.jpg';
+                            Reference storageRef =
+                                FirebaseStorage.instance.ref().child(fileName);
 
                             UploadTask uploadTask = storageRef.putFile(file);
                             TaskSnapshot snapshot = await uploadTask;
-                            String downloadUrl = await snapshot.ref.getDownloadURL();
+                            String downloadUrl =
+                                await snapshot.ref.getDownloadURL();
 
                             await _firestore
                                 .collection('rooms')
@@ -179,7 +180,8 @@ class RoomSettingsHandler {
                             onSetWallpaper(downloadUrl);
                             _showMessage(context, "New wallpaper updated!");
                           } catch (e) {
-                            _showMessage(context, "Failed to update wallpaper: $e");
+                            _showMessage(
+                                context, "Failed to update wallpaper: $e");
                           }
                         }
                       });
@@ -192,7 +194,10 @@ class RoomSettingsHandler {
                     }),
                     _buildItem(Icons.open_in_full, "Minimize", Colors.green,
                         () {
+                      // শুধু সেটিংস বটমশিটটি বন্ধ করবে
                       Navigator.pop(context);
+
+                      // মিনিমাইজ ফাংশনটি কল করবে
                       onMinimize();
                     }),
                     _buildItem(Icons.logout, "Exit", Colors.redAccent, () {
@@ -212,7 +217,6 @@ class RoomSettingsHandler {
 
   static void _handleFeaturePurchase(BuildContext context, String roomId,
       String featureType, Function onAllowed) async {
-    
     // বটম শীট বন্ধ করা যাতে ডায়ালগ দেখা যায়
     Navigator.of(context).pop();
 
@@ -331,7 +335,8 @@ class RoomSettingsHandler {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         title: const Text("Activate Feature",
             style: TextStyle(color: Colors.white, fontSize: 18)),
-        content: const Text("You don't have an active package for this feature.",
+        content: const Text(
+            "You don't have an active package for this feature.",
             style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
@@ -353,8 +358,7 @@ class RoomSettingsHandler {
 
   static void _showMessage(BuildContext context, String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: const Duration(seconds: 2))
-    );
+        SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
   }
 
   static Widget _buildItem(

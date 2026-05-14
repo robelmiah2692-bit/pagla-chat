@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:ui';
-import 'dart:math'; 
+import 'dart:math';
 import 'screens/voice_room.dart';
 
 // গ্লোবাল ভেরিয়েবল
@@ -17,7 +17,8 @@ class RoomListPage extends StatefulWidget {
   State<RoomListPage> createState() => _RoomListPageState();
 }
 
-class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMixin {
+class _RoomListPageState extends State<RoomListPage>
+    with TickerProviderStateMixin {
   late TabController _tabController;
   late AnimationController _bubbleController;
 
@@ -60,7 +61,8 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
       if (userQuery.docs.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Dont find user!"), backgroundColor: Colors.red),
+            const SnackBar(
+                content: Text("Dont find user!"), backgroundColor: Colors.red),
           );
         }
         return;
@@ -84,7 +86,9 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
       if (existingRoom.docs.isNotEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Alrady you have room!"), backgroundColor: Colors.orange),
+            const SnackBar(
+                content: Text("Alrady you have room!"),
+                backgroundColor: Colors.orange),
           );
         }
         return;
@@ -95,18 +99,22 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
       bool isUnique = false;
       while (!isUnique) {
         newUniqueRoomId = (10000 + Random().nextInt(90000)).toString();
-        var roomCheck = await FirebaseFirestore.instance.collection('rooms').doc(newUniqueRoomId).get();
+        var roomCheck = await FirebaseFirestore.instance
+            .collection('rooms')
+            .doc(newUniqueRoomId)
+            .get();
         if (!roomCheck.exists) isUnique = true;
       }
 
       // ৪. রুমের মেইন ডাটা সেভ
-      final roomRef = FirebaseFirestore.instance.collection('rooms').doc(newUniqueRoomId);
-      
+      final roomRef =
+          FirebaseFirestore.instance.collection('rooms').doc(newUniqueRoomId);
+
       await roomRef.set({
         'roomId': newUniqueRoomId,
         'roomName': roomName,
-        'ownerId': mySixDigitID,      // ৬-ডিজিটের আইডি
-        'ownerAuthId': authUID,       // অথ আইডি ব্যাকআপ
+        'ownerId': mySixDigitID, // ৬-ডিজিটের আইডি
+        'ownerAuthId': authUID, // অথ আইডি ব্যাকআপ
         'ownerName': currentUserName,
         'ownerPic': currentUserPic,
         'userCount': 1,
@@ -115,7 +123,8 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
         'admins': [],
         'followers': [],
         'createdAt': FieldValue.serverTimestamp(),
-        'roomImage': defaultRoomImages[Random().nextInt(defaultRoomImages.length)],
+        'roomImage':
+            defaultRoomImages[Random().nextInt(defaultRoomImages.length)],
       });
 
       // ৫. সিট লিস্ট জেনারেট (১৫টি খালি সিট শুরুতেই তৈরি হবে)
@@ -137,13 +146,15 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Rady your room!"), backgroundColor: Colors.green),
+          const SnackBar(
+              content: Text("Rady your room!"), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent),
+          SnackBar(
+              content: Text("Error: $e"), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -156,19 +167,26 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF151525),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Create Your Fixed Room", style: TextStyle(color: Colors.white, fontSize: 18)),
+        title: const Text("Create Your Fixed Room",
+            style: TextStyle(color: Colors.white, fontSize: 18)),
         content: TextField(
           controller: roomNameController,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: "Enter room name...",
             hintStyle: const TextStyle(color: Colors.white24),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.pinkAccent.withOpacity(0.5))),
-            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.pinkAccent)),
+            enabledBorder: UnderlineInputBorder(
+                borderSide:
+                    BorderSide(color: Colors.pinkAccent.withOpacity(0.5))),
+            focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.pinkAccent)),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel", style: TextStyle(color: Colors.white54))),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel",
+                  style: TextStyle(color: Colors.white54))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
             onPressed: () {
@@ -184,19 +202,23 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     );
   }
 
- @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       // একদম নিচের লেয়ারের ব্যাকগ্রাউন্ড
-      backgroundColor: const Color(0xFF02020A), 
+      backgroundColor: const Color(0xFF02020A),
       appBar: AppBar(
         // অ্যাপবারকে একটু বেগুনি আভাযুক্ত ডার্ক করা হয়েছে
         backgroundColor: const Color(0xFF0A0A25),
         elevation: 0,
-        title: const Text("𝐏𝐚𝐠𝐥𝐚𝐂𝐡𝐚𝐭🥳𝐋𝐢𝐯𝐞ღ`◕‿♫", style: TextStyle(color: Color.fromARGB(255, 226, 242, 5), fontWeight: FontWeight.bold)),
+        title: const Text("𝐏𝐚𝐠𝐥𝐚𝐂𝐡𝐚𝐭🥳𝐋𝐢𝐯𝐞ღ`◕‿♫",
+            style: TextStyle(
+                color: Color.fromARGB(255, 226, 242, 5),
+                fontWeight: FontWeight.bold)),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.purpleAccent, // ছবির বেগুনি থিমের সাথে মিল রেখে
+          indicatorColor:
+              Colors.purpleAccent, // ছবির বেগুনি থিমের সাথে মিল রেখে
           labelColor: Colors.purpleAccent,
           unselectedLabelColor: Colors.white38,
           tabs: const [
@@ -234,7 +256,10 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
                   shape: BoxShape.circle,
                   color: Colors.purple.withOpacity(0.2),
                   boxShadow: [
-                    BoxShadow(color: Colors.purpleAccent.withOpacity(0.1), blurRadius: 100, spreadRadius: 50)
+                    BoxShadow(
+                        color: Colors.purpleAccent.withOpacity(0.1),
+                        blurRadius: 100,
+                        spreadRadius: 50)
                   ],
                 ),
               ),
@@ -254,7 +279,9 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
                     color: Colors.white.withOpacity(Random().nextDouble()),
                     boxShadow: [
                       BoxShadow(
-                        color: index % 7 == 0 ? Colors.purpleAccent : Colors.white70,
+                        color: index % 7 == 0
+                            ? Colors.purpleAccent
+                            : Colors.white70,
                         blurRadius: index % 10 == 0 ? 4 : 0,
                         spreadRadius: 0.5,
                       )
@@ -265,24 +292,26 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
             }),
 
             // ৩. ওপর থেকে আলোর বৃষ্টি (Light Strings) - আপনার প্রথম ছবির স্টাইল
-            ...List.generate(12, (index) => Positioned(
-              top: -10,
-              left: (index * 45.0) % MediaQuery.of(context).size.width,
-              child: Container(
-                width: 1.2,
-                height: 100 + (index * 15.0),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.blueAccent.withOpacity(0.3),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            )),
+            ...List.generate(
+                12,
+                (index) => Positioned(
+                      top: -10,
+                      left: (index * 45.0) % MediaQuery.of(context).size.width,
+                      child: Container(
+                        width: 1.2,
+                        height: 100 + (index * 15.0),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.blueAccent.withOpacity(0.3),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    )),
 
             // মেইন কন্টেন্ট লেয়ার
             Column(
@@ -301,8 +330,6 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
                 ),
               ],
             ),
-            
-            if (activeRoomId != null) _buildFloatingHeartbeatBubble(),
           ],
         ),
       ),
@@ -313,7 +340,9 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
+        if (!snapshot.hasData)
+          return const Center(
+              child: CircularProgressIndicator(color: Colors.pinkAccent));
         var docs = snapshot.data!.docs;
         return _buildGrid(docs);
       },
@@ -322,17 +351,25 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
 
   Widget _buildFollowingRoomList() {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return const Center(child: Text("Login to see following", style: TextStyle(color: Colors.white38)));
+    if (user == null)
+      return const Center(
+          child: Text("Login to see following",
+              style: TextStyle(color: Colors.white38)));
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('rooms')
-          .where('followers', arrayContains: user.uid) 
+          .where('followers', arrayContains: user.uid)
           .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
+        if (!snapshot.hasData)
+          return const Center(
+              child: CircularProgressIndicator(color: Colors.pinkAccent));
         var docs = snapshot.data!.docs;
-        if (docs.isEmpty) return const Center(child: Text("No rooms followed", style: TextStyle(color: Colors.white38)));
+        if (docs.isEmpty)
+          return const Center(
+              child: Text("No rooms followed",
+                  style: TextStyle(color: Colors.white38)));
         return _buildGrid(docs);
       },
     );
@@ -340,21 +377,35 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
 
   Widget _buildMyRoomList() {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null || user.email == null) return const Center(child: Text("Please Login", style: TextStyle(color: Colors.white)));
+    if (user == null || user.email == null)
+      return const Center(
+          child: Text("Please Login", style: TextStyle(color: Colors.white)));
 
     return FutureBuilder<QuerySnapshot>(
       // এখানেও ইমেইল দিয়ে uID খোঁজার রাস্তা রাখা হয়েছে
-      future: FirebaseFirestore.instance.collection('users').where('email', isEqualTo: user.email).limit(1).get(),
+      future: FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: user.email)
+          .limit(1)
+          .get(),
       builder: (context, userSnapshot) {
-        if (!userSnapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
-        if (userSnapshot.data!.docs.isEmpty) return const Center(child: Text("User profile not found"));
+        if (!userSnapshot.hasData)
+          return const Center(
+              child: CircularProgressIndicator(color: Colors.pinkAccent));
+        if (userSnapshot.data!.docs.isEmpty)
+          return const Center(child: Text("User profile not found"));
 
         String myuID = userSnapshot.data!.docs.first['uID'].toString();
 
         return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('rooms').where('ownerId', isEqualTo: myuID).snapshots(),
+          stream: FirebaseFirestore.instance
+              .collection('rooms')
+              .where('ownerId', isEqualTo: myuID)
+              .snapshots(),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
+            if (!snapshot.hasData)
+              return const Center(
+                  child: CircularProgressIndicator(color: Colors.pinkAccent));
             var myRooms = snapshot.data!.docs;
 
             if (myRooms.isNotEmpty) {
@@ -365,9 +416,11 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.meeting_room_outlined, color: Colors.white12, size: 80),
+                  const Icon(Icons.meeting_room_outlined,
+                      color: Colors.white12, size: 80),
                   const SizedBox(height: 15),
-                  const Text("You don't have any room", style: TextStyle(color: Colors.white38)),
+                  const Text("You don't have any room",
+                      style: TextStyle(color: Colors.white38)),
                   const SizedBox(height: 25),
                   ElevatedButton.icon(
                     onPressed: _showCreateRoomDialog,
@@ -376,8 +429,10 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.pinkAccent,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 25, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30)),
                     ),
                   ),
                 ],
@@ -393,7 +448,10 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
     return GridView.builder(
       padding: const EdgeInsets.all(12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1.1,
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.1,
       ),
       itemCount: docs.length,
       itemBuilder: (context, index) {
@@ -402,14 +460,16 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
         String name = data['roomName'] ?? "Public Room";
         int count = data['userCount'] ?? 0;
         String? image = data['roomImage'];
-        
+
         return _buildPremiumGlassCard(roomId, name, count, image, isMyRoomList);
       },
     );
   }
 
- Widget _buildPremiumGlassCard(String id, String name, int count, String? image, bool isMyRoom) {
-    String finalImage = (image != null && image.isNotEmpty) ? image : defaultRoomImages[0];
+  Widget _buildPremiumGlassCard(
+      String id, String name, int count, String? image, bool isMyRoom) {
+    String finalImage =
+        (image != null && image.isNotEmpty) ? image : defaultRoomImages[0];
 
     return GestureDetector(
       onTap: () {
@@ -418,22 +478,24 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
           activeRoomName = name;
           activeRoomImage = finalImage;
         });
-        Navigator.push(context, MaterialPageRoute(builder: (context) => VoiceRoom(roomId: id)));
+        Navigator.push(context,
+            MaterialPageRoute(builder: (context) => VoiceRoom(roomId: id)));
       },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
         child: Container(
           decoration: BoxDecoration(
             border: Border.all(
-              color: isMyRoom ? Colors.amber.withOpacity(0.8) : Colors.white.withOpacity(0.1), 
-              width: isMyRoom ? 2.5 : 1.5
-            ),
+                color: isMyRoom
+                    ? Colors.amber.withOpacity(0.8)
+                    : Colors.white.withOpacity(0.1),
+                width: isMyRoom ? 2.5 : 1.5),
             // এখানে ছবির opacity বাড়িয়ে ০.৯ বা ১.০ করে দিন যাতে পরিষ্কার দেখা যায়
             image: DecorationImage(
-              image: NetworkImage(finalImage), 
-              fit: BoxFit.cover, 
-              opacity: 0.9 // ০.৬ থেকে বাড়িয়ে ০.৯ করা হলো
-            ),
+                image: NetworkImage(finalImage),
+                fit: BoxFit.cover,
+                opacity: 0.9 // ০.৬ থেকে বাড়িয়ে ০.৯ করা হলো
+                ),
           ),
           child: Container(
             // BackdropFilter বাদ দেওয়া হয়েছে যাতে ছবি ঝাপসা না হয়
@@ -455,30 +517,51 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
                   mainAxisAlignment: MainAxisAlignment.end,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, 
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14)),
                     const SizedBox(height: 2),
-                    Text(isMyRoom ? "MY ROOM" : "LIVE", 
-                      style: TextStyle(color: isMyRoom ? Colors.amberAccent : Colors.pinkAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                    Text(isMyRoom ? "MY ROOM" : "LIVE",
+                        style: TextStyle(
+                            color: isMyRoom
+                                ? Colors.amberAccent
+                                : Colors.pinkAccent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold)),
                   ],
                 ),
                 Positioned(
-                  top: 0, right: 0,
+                  top: 0,
+                  right: 0,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(10)),
                     child: Row(
                       children: [
-                        const Icon(Icons.person, size: 12, color: Colors.greenAccent),
-                        Text(" $count", style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        const Icon(Icons.person,
+                            size: 12, color: Colors.greenAccent),
+                        Text(" $count",
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
                 ),
                 if (isMyRoom)
                   const Positioned(
-                    top: 0, left: 0,
-                    child: Icon(Icons.workspace_premium, color: Colors.amber, size: 20),
+                    top: 0,
+                    left: 0,
+                    child: Icon(Icons.workspace_premium,
+                        color: Colors.amber, size: 20),
                   ),
               ],
             ),
@@ -495,7 +578,8 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)]),
+        gradient: const LinearGradient(
+            colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)]),
       ),
       child: const Padding(
         padding: EdgeInsets.all(20),
@@ -503,8 +587,13 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Pagla Chat World", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            Text("Connect with voice & fun", style: TextStyle(color: Colors.white70, fontSize: 12)),
+            Text("Pagla Chat World",
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
+            Text("Connect with voice & fun",
+                style: TextStyle(color: Colors.white70, fontSize: 12)),
           ],
         ),
       ),
@@ -523,7 +612,11 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 15),
-          child: Text("Fun Zone", style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+          child: Text("Fun Zone",
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold)),
         ),
         const SizedBox(height: 10),
         SizedBox(
@@ -544,9 +637,12 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(games[index]['icon'], color: games[index]['color'], size: 24),
+                    Icon(games[index]['icon'],
+                        color: games[index]['color'], size: 24),
                     const SizedBox(height: 5),
-                    Text(games[index]['name'], style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                    Text(games[index]['name'],
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 10)),
                   ],
                 ),
               );
@@ -555,29 +651,6 @@ class _RoomListPageState extends State<RoomListPage> with TickerProviderStateMix
         ),
         const SizedBox(height: 15),
       ],
-    );
-  }
-
-  Widget _buildFloatingHeartbeatBubble() {
-    return Positioned(
-      bottom: 30, right: 20,
-      child: ScaleTransition(
-        scale: Tween(begin: 1.0, end: 1.15).animate(_bubbleController),
-        child: GestureDetector(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => VoiceRoom(roomId: activeRoomId!))),
-          child: Container(
-            width: 60, height: 60,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.pinkAccent, width: 2),
-              image: DecorationImage(image: NetworkImage(activeRoomImage ?? defaultRoomImages[0]), fit: BoxFit.cover),
-            ),
-            child: const Center(
-              child: Icon(Icons.multitrack_audio, size: 20, color: Colors.white),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
