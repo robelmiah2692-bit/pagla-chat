@@ -80,111 +80,143 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
     }
   }
 
-  Future<void> confirmTransfer() async {
-    if (foundUser == null || _amountController.text.isEmpty || receiverFirestoreId == null) return;
+ Future<void> confirmTransfer() async {
+  if (foundUser == null || _amountController.text.isEmpty || receiverFirestoreId == null) return;
 
-    int amount = int.tryParse(_amountController.text) ?? 0;
-    if (amount <= 0) {
-      _showSnackBar("Enter a valid amount", isError: true);
-      return;
-    }
-
-    if (mounted) setState(() => isLoading = true);
-
-    try {
-      int earnedXP = amount ~/ 250; 
-
-      var agentQuery = await FirebaseFirestore.instance
-          .collection('users')
-          .where('authUID', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
-          .limit(1)
-          .get();
-
-      if (agentQuery.docs.isEmpty) throw Exception("Agent record not found!");
-      
-      DocumentReference senderRef = agentQuery.docs.first.reference;
-      DocumentReference receiverRef = FirebaseFirestore.instance.collection('users').doc(receiverFirestoreId!);
-
-      await FirebaseFirestore.instance.runTransaction((transaction) async {
-        DocumentSnapshot senderSnap = await transaction.get(senderRef);
-        if (!senderSnap.exists) throw Exception("Agent data not found!");
-
-        int currentAgencyWallet = (senderSnap.get('agency_wallet') ?? 0).toInt();
-        if (currentAgencyWallet < amount) throw Exception("Insufficient balance!");
-
-        transaction.update(senderRef, {'agency_wallet': currentAgencyWallet - amount});
-
-        transaction.update(receiverRef, {
-          'diamonds': FieldValue.increment(amount),
-          'vip_xp': FieldValue.increment(earnedXP),
-        });
-
-        String chatId = "paglachat_official_$receiverFirestoreId";
-        DocumentReference msgRef = FirebaseFirestore.instance
-            .collection('chats')
-            .doc(chatId)
-            .collection('messages')
-            .doc();
-
-        transaction.set(msgRef, {
-          'senderId': 'paglachat_official',
-          'receiverId': receiverFirestoreId,
-          'text': "You have successfully received $amount Diamonds and $earnedXP XP bonus.",
-          'timestamp': FieldValue.serverTimestamp(),
-          'isRead': false,
-          'type': 'system_msg'
-        });
-
-        transaction.set(FirebaseFirestore.instance.collection('diamond_history').doc(), {
-          'senderId': senderSnap.id, 
-          'receiverId': receiverFirestoreId,
-          'amount': amount,
-          'earnedXP': earnedXP,
-          'type': 'agency_transfer',
-          'timestamp': FieldValue.serverTimestamp(),
-        });
-      });
-
-      _showSnackBar("Success! Diamonds sent.");
-      if (mounted) {
-        setState(() {
-          foundUser = null;
-          receiverFirestoreId = null;
-          _idController.clear();
-          _amountController.clear();
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => isLoading = false);
-      _showSnackBar(e.toString().replaceAll("Exception:", ""), isError: true);
-    }
+  int amount = int.tryParse(_amountController.text) ?? 0;
+  if (amount <= 0) {
+    _showSnackBar("Enter a valid amount", isError: true);
+    return;
   }
 
-  void _showSnackBar(String message, {bool isError = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: isError ? Colors.redAccent : Colors.green),
-    );
-  }
+  if (mounted) setState(() => isLoading = true);
 
-  void _openHistorySheet() async {
+  try {
+    int earnedXP = amount ~/ 250; 
+
+    // ১. এজেন্টকে খুঁজে বের করা (সব আইডি লজিক দিয়ে)
     var agentQuery = await FirebaseFirestore.instance
         .collection('users')
         .where('authUID', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
         .limit(1)
         .get();
-    
-    String agentuID = agentQuery.docs.isNotEmpty ? agentQuery.docs.first.id : currentUserId;
 
+    if (agentQuery.docs.isEmpty) throw Exception("Agent record not found!");
+    
+    DocumentReference senderRef = agentQuery.docs.first.reference;
+    String agentDocId = agentQuery.docs.first.id; // এজেন্টের আসল ডকুমেন্ট আইডি
+    DocumentReference receiverRef = FirebaseFirestore.instance.collection('users').doc(receiverFirestoreId!);
+
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      DocumentSnapshot senderSnap = await transaction.get(senderRef);
+      if (!senderSnap.exists) throw Exception("Agent data not found!");
+
+      int currentAgencyWallet = (senderSnap.get('agency_wallet') ?? 0).toInt();
+      if (currentAgencyWallet < amount) throw Exception("Insufficient balance!");
+
+      // ওয়ালেট আপডেট
+      transaction.update(senderRef, {'agency_wallet': currentAgencyWallet - amount});
+      transaction.update(receiverRef, {
+        'diamonds': FieldValue.increment(amount),
+        'vip_xp': FieldValue.increment(earnedXP),
+      });
+
+     // --- ২. ইউজারের ইনবক্সে অফিশিয়াল মেসেজ পাঠানো ---
+      // আপনার চ্যাট সিস্টেমে chatId যেভাবে তৈরি হয় সেভাবে মেলাতে হবে
+      String chatId = "paglachat_official_$receiverFirestoreId"; 
+      
+      DocumentReference chatDocRef = FirebaseFirestore.instance.collection('chats').doc(chatId);
+      DocumentReference msgRef = chatDocRef.collection('messages').doc();
+
+      // মেসেজ বডি
+      Map<String, dynamic> officialMsg = {
+        'senderId': 'paglachat_official',
+        'receiverId': receiverFirestoreId,
+        'text': "🎉 You've received $amount Diamonds and $earnedXP XP bonus from Official Agency.",
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
+        'type': 'system_msg'
+      };
+
+      // মেসেজ সেট করা
+      transaction.set(msgRef, officialMsg);
+
+      // চ্যাট লিস্টে মেসেজটি দেখানোর জন্য মেইন চ্যাট ডকুমেন্ট আপডেট করা
+      transaction.set(chatDocRef, {
+        'lastMessage': "🎉 Received $amount Diamonds",
+        'lastTimestamp': FieldValue.serverTimestamp(),
+        'users': ['paglachat_official', receiverFirestoreId],
+        'unReadCount': FieldValue.increment(1),
+      }, SetOptions(merge: true));
+
+      // ৩. ডায়মন্ড হিস্ট্রি সেভ করা (এজেন্টের আইডি দিয়ে যাতে সে দেখতে পায়)
+      transaction.set(FirebaseFirestore.instance.collection('diamond_history').doc(), {
+        'senderId': agentDocId, // এখানে ফিক্সড আইডি ব্যবহার করছি
+        'receiverId': receiverFirestoreId,
+        'receiverName': foundUser!['name'] ?? "User", // পরে দেখার সুবিধার জন্য নামও রাখলাম
+        'amount': amount,
+        'earnedXP': earnedXP,
+        'type': 'agency_transfer',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+      
+      // ৪. ইউজারের রিচার্জ হিস্টোরি (ইউজার তার রিচার্জ লিস্টে দেখতে পাবে)
+      DocumentReference rechargeRef = receiverRef.collection('recharge_history').doc();
+      transaction.set(rechargeRef, {
+        'amount': amount,
+        'timestamp': FieldValue.serverTimestamp(),
+        'method': 'Agency Transfer',
+        'status': 'Success'
+      });
+    });
+
+    _showSnackBar("Success! Diamonds sent & User Notified.");
+    if (mounted) {
+      setState(() {
+        foundUser = null;
+        receiverFirestoreId = null;
+        _idController.clear();
+        _amountController.clear();
+        isLoading = false;
+      });
+    }
+  } catch (e) {
+    if (mounted) setState(() => isLoading = false);
+    _showSnackBar(e.toString().replaceAll("Exception:", ""), isError: true);
+  }
+}
+
+  void _openHistorySheet() async {
+  // নিশ্চিত করা হচ্ছে সঠিক এজেন্টের ডকুমেন্ট আইডি নেওয়া হচ্ছে
+  var agentQuery = await FirebaseFirestore.instance
+      .collection('users')
+      .where('authUID', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+      .limit(1)
+      .get();
+  
+  if (agentQuery.docs.isNotEmpty) {
+    String agentDocId = agentQuery.docs.first.id;
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => TransactionHistoryWidget(agentId: agentuID),
+      builder: (context) => TransactionHistoryWidget(agentId: agentDocId),
+    );
+  } else {
+    _showSnackBar("Agent ID not found for history", isError: true);
+  }
+}
+void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.redAccent : Colors.green,
+        behavior: SnackBarBehavior.floating, // একটু স্টাইলিশ দেখানোর জন্য
+      ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -310,7 +342,8 @@ class TransactionHistoryWidget extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 20),
-          const Text("Transaction History", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text("Transaction History", 
+            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
@@ -320,21 +353,57 @@ class TransactionHistoryWidget extends StatelessWidget {
                   .orderBy('timestamp', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                if (snapshot.data!.docs.isEmpty) return const Center(child: Text("No history found", style: TextStyle(color: Colors.white54)));
+                // ১. যদি কোনো এরর আসে (যেমন: ইনডেক্স সমস্যা)
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Text("Error: ${snapshot.error}", 
+                        style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                        textAlign: TextAlign.center),
+                    ),
+                  );
+                }
+
+                // ২. ডাটা লোড হওয়ার সময়
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
+                }
+
+                // ৩. যদি ডাটা খালি থাকে
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(child: Text("No history found", 
+                    style: TextStyle(color: Colors.white54)));
+                }
 
                 return ListView.builder(
                   itemCount: snapshot.data!.docs.length,
                   itemBuilder: (context, index) {
                     var data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
-                    String date = data['timestamp'] != null 
-                        ? DateFormat('dd MMM, hh:mm a').format((data['timestamp'] as Timestamp).toDate()) : "";
+                    
+                    // টাইমস্ট্যাম্প সেফলি হ্যান্ডেল করা
+                    String date = "Unknown Date";
+                    if (data['timestamp'] != null) {
+                      date = DateFormat('dd MMM, hh:mm a').format((data['timestamp'] as Timestamp).toDate());
+                    }
 
                     return ListTile(
-                      leading: const Icon(Icons.diamond, color: Colors.pinkAccent),
-                      title: Text("To ID: ${data['receiverId']}", style: const TextStyle(color: Colors.white, fontSize: 14)),
+                      leading: const CircleAvatar(
+                        backgroundColor: Colors.white10,
+                        child: Icon(Icons.diamond, color: Colors.pinkAccent),
+                      ),
+                      title: Text("Receiver: ${data['receiverName'] ?? data['receiverId']}", 
+                        style: const TextStyle(color: Colors.white, fontSize: 14)),
                       subtitle: Text(date, style: const TextStyle(color: Colors.white38, fontSize: 12)),
-                      trailing: Text("${data['amount']} 💎", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text("${data['amount']} 💎", 
+                            style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 16)),
+                          const Text("Success", style: TextStyle(color: Colors.white24, fontSize: 10)),
+                        ],
+                      ),
                     );
                   },
                 );

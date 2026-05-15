@@ -20,7 +20,7 @@ dependencies:
   firebase_storage: ^13.3.0
   firebase_remote_config: ^6.4.0
   intl: ^0.20.2
-
+  in_app_purchase: ^3.2.0
   # --- গুগল লগইন ---
   google_sign_in: ^7.2.0
 

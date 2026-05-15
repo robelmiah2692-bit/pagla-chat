@@ -5,7 +5,6 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'ludo_view.dart';
 import 'lucky_spin_view.dart';
 
 class GamePanelView extends StatefulWidget {
@@ -25,9 +24,7 @@ class _GamePanelViewState extends State<GamePanelView> {
   String? selectedGame; 
   int userBalance = 0;
   int betAmount = 100;
-  int diceNumber = 1;
   String gameState = "WAITING"; 
-  List<Map<dynamic, dynamic>> players = [];
   List<Map<dynamic, dynamic>> luckyBets = [];
 
   @override
@@ -37,20 +34,42 @@ class _GamePanelViewState extends State<GamePanelView> {
     _listenToData();
   }
 
-  void _listenToData() {
-    final uID = FirebaseAuth.instance.currentUser?.uid;
-    if (uID != null) {
-      FirebaseFirestore.instance
+  // --- ১. ইউজার ডাটা এবং ডাইমন্ড খোঁজার লজিক ---
+  void _listenToData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // ইমেইল বা authUID দিয়ে ইউজার খোঁজা
+      QuerySnapshot userQuery = await FirebaseFirestore.instance
           .collection('users')
-          .doc(uID)
-          .snapshots()
-          .listen((snapshot) {
-        if (snapshot.exists && mounted) {
-          setState(() {
-            userBalance = int.tryParse(snapshot.data()?['diamonds'].toString() ?? "0") ?? 0;
-          });
-        }
-      });
+          .where('authUID', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+
+      // যদি authUID দিয়ে না পায়, তবে ইমেইল দিয়ে খুঁজবে
+      if (userQuery.docs.isEmpty && user.email != null) {
+        userQuery = await FirebaseFirestore.instance
+            .collection('users')
+            .where('email', isEqualTo: user.email)
+            .limit(1)
+            .get();
+      }
+
+      if (userQuery.docs.isNotEmpty) {
+        final docId = userQuery.docs.first.id;
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(docId)
+            .snapshots()
+            .listen((snapshot) {
+          if (snapshot.exists && mounted) {
+            setState(() {
+              // ডাইমন্ড দেখাচ্ছে না সমস্যা সমাধানের জন্য ডাটা টাইপ চেক করা হয়েছে
+              var data = snapshot.data();
+              userBalance = int.tryParse(data?['diamonds']?.toString() ?? "0") ?? 0;
+            });
+          }
+        });
+      }
     }
 
     _subscription = _gameRef.onValue.listen((event) {
@@ -58,12 +77,6 @@ class _GamePanelViewState extends State<GamePanelView> {
       final data = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
       setState(() {
         gameState = data['gameState'] ?? "WAITING";
-        diceNumber = data['diceNumber'] ?? 1;
-        if (data['players'] != null) {
-          players = (data['players'] as Map).values.map((e) => Map<dynamic, dynamic>.from(e)).toList();
-        } else {
-          players = [];
-        }
         if (data['luckyBets'] != null) {
           luckyBets = (data['luckyBets'] as Map).values.map((e) => Map<dynamic, dynamic>.from(e)).toList();
         } else {
@@ -71,58 +84,6 @@ class _GamePanelViewState extends State<GamePanelView> {
         }
       });
     });
-  }
-
-  // লুডু জয়েন করার সময় ডায়মন্ড কাটার লজিক এখানে ঠিক করা হয়েছে
-  void _joinLudo() async {
-    if (gameState == "RUNNING") {
-      _showError("গেম চলছে! এই রাউন্ড শেষ হওয়া পর্যন্ত অপেক্ষা করুন।");
-      return;
-    }
-    if (players.length >= 4) {
-      _showError("রুম ফুল হয়ে গেছে!");
-      return;
-    }
-    
-    if (userBalance < betAmount) {
-      _showError("আপনার পর্যাপ্ত ডায়মন্ড নেই!");
-      return;
-    }
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    bool alreadyJoined = players.any((p) => p['id'] == user.uid);
-    if (!alreadyJoined) {
-      try {
-        // ১. Firestore থেকে ডায়মন্ড কাটা
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-          'diamonds': FieldValue.increment(-betAmount)
-        });
-
-        // ২. Realtime Database-এ প্লেয়ার লিস্টে যোগ করা
-        await _gameRef.child("players").child(user.uid).set({
-          "id": user.uid,
-          "name": user.displayName ?? "Player",
-          "photo": user.photoURL ?? "",
-          "bet": betAmount,
-        });
-        
-        _playSound("https://www.soundjay.com/buttons/sounds/button-3.mp3");
-      } catch (e) {
-        _showError("জয়েন করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
-      }
-    } else {
-      _showError("আপনি ইতিমধ্যে জয়েন করেছেন।");
-    }
-  }
-
-  void _startLudo() {
-    if (players.length < 2) {
-      _showError("কমপক্ষে ২ জন প্লেয়ার লাগবে!");
-      return;
-    }
-    _gameRef.update({"gameState": "RUNNING"});
   }
 
   void _showError(String msg) {
@@ -149,39 +110,22 @@ class _GamePanelViewState extends State<GamePanelView> {
             Column(
               children: [
                 const SizedBox(height: 50), 
-                
                 _buildGameHeader(), 
-
-                if (selectedGame == "LUDO" && gameState == "WAITING")
-                  _buildLudoActionButtons(),
 
                 Expanded(
                   child: selectedGame == null 
                     ? _buildGameLobby() 
-                    : (selectedGame == "LUDO" 
-                        ? LudoView(
-                            gameRef: _gameRef, 
-                            players: players, 
-                            diceNumber: diceNumber, 
-                            isAdmin: widget.isAdmin, 
-                            isFullScreen: true, 
-                            playSound: _playSound,
-                            currentUserId: currentUserId,
-                          )
-                        : LuckySpinView(
-                            gameRef: _gameRef, 
-                            // এখানে userRef হিসেবে সঠিক Realtime Database পাথ অথবা logic হ্যান্ডেল করতে হবে
-                            userRef: FirebaseDatabase.instance.ref("users/$currentUserId"), 
-                            userBalance: userBalance, 
-                            betAmount: betAmount, 
-                            luckyBets: luckyBets, 
-                            playSound: _playSound,
-                          )
+                    : LuckySpinView(
+                        gameRef: _gameRef, 
+                        userRef: FirebaseDatabase.instance.ref("users/$currentUserId"), 
+                        userBalance: userBalance, 
+                        betAmount: betAmount, 
+                        luckyBets: luckyBets, 
+                        playSound: _playSound,
                       ),
                 ),
               ],
             ),
-            
             _buildFloatingNavButtons(),
           ],
         ),
@@ -210,53 +154,32 @@ class _GamePanelViewState extends State<GamePanelView> {
               ],
             ),
           ),
-
           if (selectedGame != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5),
-              decoration: BoxDecoration(
-                color: Colors.black26,
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => setState(() => betAmount = max(100, betAmount - 100)),
-                    icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 26),
-                  ),
-                  Text("$betAmount", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                  IconButton(
-                    onPressed: () => setState(() => betAmount += 100),
-                    icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent, size: 26),
-                  ),
-                ],
-              ),
-            ),
+            _buildBetControls(),
           const SizedBox(width: 50), 
         ],
       ),
     );
   }
 
-  Widget _buildLudoActionButtons() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+  Widget _buildBetControls() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        borderRadius: BorderRadius.circular(25),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          ElevatedButton(
-            onPressed: _joinLudo,
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-            child: const Text("JOIN GAME", style: TextStyle(color: Colors.white)),
+          IconButton(
+            onPressed: () => setState(() => betAmount = max(100, betAmount - 100)),
+            icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 26),
           ),
-          if (widget.isAdmin) ...[
-            const SizedBox(width: 15),
-            ElevatedButton(
-              onPressed: _startLudo,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-              child: const Text("START GAME", style: TextStyle(color: Colors.white)),
-            ),
-          ]
+          Text("$betAmount", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          IconButton(
+            onPressed: () => setState(() => betAmount += 100),
+            icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent, size: 26),
+          ),
         ],
       ),
     );
@@ -277,55 +200,82 @@ class _GamePanelViewState extends State<GamePanelView> {
           top: 45, right: 10,
           child: IconButton(
             icon: const Icon(Icons.close_rounded, color: Colors.white, size: 32),
-            onPressed: () {
-              if (widget.isAdmin || gameState == "WAITING") {
-                Navigator.pop(context);
-              } else {
-                _showError("গেম চলাকালীন রুম থেকে বের হওয়া যাবে না!");
-              }
-            },
+            onPressed: () => Navigator.pop(context),
           ),
         ),
       ],
     );
   }
 
+  // --- ২. গেম লবি আপডেট (লুডু বাদ এবং ৬টি কামিং সোন স্লট) ---
   Widget _buildGameLobby() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Text("SELECT A GAME", style: TextStyle(color: Colors.white54, letterSpacing: 2, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 40),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _gameIcon("LUDO", "assets/images/ludo_logo.png", Colors.blueAccent),
-            const SizedBox(width: 40),
-            _gameIcon("LUCKY", "assets/images/spin_logo.png", Colors.orangeAccent),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _gameIcon(String name, String asset, Color color) {
-    return GestureDetector(
-      onTap: () => setState(() => selectedGame = name),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       child: Column(
         children: [
-          Container(
-            width: 105, height: 105,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: color.withOpacity(0.6), width: 2),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Image.asset(asset, fit: BoxFit.cover),
+          const Text("SELECT A GAME", style: TextStyle(color: Colors.white54, letterSpacing: 2, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 30),
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 3,
+            mainAxisSpacing: 20,
+            crossAxisSpacing: 20,
+            children: [
+              _gameIcon("LUCKY", "assets/images/spin_logo.png", Colors.orangeAccent, false),
+              _gameIcon("CRICKET", "assets/images/coming_soon.png", Colors.grey, true),
+              _gameIcon("POKER", "assets/images/coming_soon.png", Colors.grey, true),
+              _gameIcon("FRUIT", "assets/images/coming_soon.png", Colors.grey, true),
+              _gameIcon("TEEN PATTI", "assets/images/coming_soon.png", Colors.grey, true),
+              _gameIcon("RACING", "assets/images/coming_soon.png", Colors.grey, true),
+              _gameIcon("BATTLE", "assets/images/coming_soon.png", Colors.grey, true),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _gameIcon(String name, String asset, Color color, bool isComingSoon) {
+    return GestureDetector(
+      onTap: () {
+        if (isComingSoon) {
+          _showError("Coming Soon! Stay tuned.");
+        } else {
+          setState(() => selectedGame = name);
+        }
+      },
+      child: Column(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: color.withOpacity(0.4), width: 1.5),
+                color: isComingSoon ? Colors.black38 : Colors.transparent,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(13),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(asset, fit: BoxFit.cover),
+                    if (isComingSoon)
+                      Container(
+                        color: Colors.black54,
+                        child: const Center(
+                          child: Text("Coming\nSoon", 
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 10),
-          Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 5),
+          Text(name, style: TextStyle(color: isComingSoon ? Colors.white38 : Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
         ],
       ),
     );

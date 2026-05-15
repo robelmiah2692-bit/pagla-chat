@@ -451,19 +451,15 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
   void _initEmojiListener() {
   _emojiSubscription?.cancel();
-  debugPrint("📡 [MASTER]: লিসেনার চালু হয়েছে। রুম আইডি: ${widget.roomId}");
+  debugPrint("📡 [LISTENER]: লিসেনার স্টার্ট হয়েছে।");
 
   _emojiSubscription = FirebaseDatabase.instance
       .ref('rooms/${widget.roomId}/seats')
-      .onValue // onChildChanged এর চেয়ে onValue বেশি নিরাপদ অন্যদের ডাটা ধরার জন্য
+      .onValue
       .listen((event) {
-    if (!mounted || event.snapshot.value == null) {
-      debugPrint("🛑 [MASTER]: ডাটাবেজ থেকে কোনো সিট ডাটা পাওয়া যায়নি (Null Snapshot)");
-      return;
-    }
+    if (!mounted || event.snapshot.value == null) return;
 
     final Map<dynamic, dynamic> seatsData = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
-    debugPrint("🔍 [MASTER]: ডাটাবেজে পরিবর্তন দেখা গেছে। মোট সিট ডাটা: ${seatsData.length}");
 
     seatsData.forEach((key, value) {
       int index = int.tryParse(key.toString()) ?? -1;
@@ -472,36 +468,34 @@ class _VoiceRoomState extends State<VoiceRoom> {
         final String? emoji = value["currentEmoji"];
         final bool showEmoji = value["showEmoji"] ?? false;
         
-        // ১. আগে চেক করি ডাটা আসছে কি না
         if (emoji != null && showEmoji == true) {
-          debugPrint("🔥 [DETECTED]: সিট $index এ ইমোজি পাওয়া গেছে! URL: $emoji");
+          debugPrint("🔥 [INCOMING]: সিট $index এর জন্য ইমোজি আসছে...");
 
-          // ২. চেক করি পজিশন আছে কি না (এইটাই আসল ভিলেন হতে পারে)
-          if (index < seatPositions.length) {
+          // পজিশন চেক এবং গ্লোবাল ডিবাগিং
+          if (index >= seatPositions.length) {
+            debugPrint("❌ [CRITICAL]: সিট $index আমাদের লিস্টের (Size: ${seatPositions.length}) বাইরে! পজিশন লিস্ট তৈরি হয়নি।");
+          } else {
             double x = seatPositions[index].dx;
             double y = seatPositions[index].dy;
-            debugPrint("📍 [POSITION]: সিট $index এর পজিশন -> X: $x, Y: $y");
-
+            
             if (x == 0 && y == 0) {
-              debugPrint("❌ [FAIL]: ইমোজি আছে কিন্তু পজিশন (0,0) তাই অন্য ইউজাররা দেখতে পারছে না!");
+              debugPrint("⚠️ [RENDER_ISSUE]: ডাটা আসছে, কিন্তু আপনার ফোনের স্ক্রিন সিট $index এর পজিশন এখনো মাপতে পারেনি (0,0)!");
             } else {
-              debugPrint("✅ [SUCCESS]: সব ঠিক আছে! এখন UI তে দেখা যাওয়ার কথা।");
+              debugPrint("✅ [SUCCESS]: সিট $index এর পজিশন ওকে (X: $x, Y: $y)। এখন রেন্ডার হবে।");
             }
-          } else {
-            debugPrint("⚠️ [RANGE ERROR]: সিট ইনডেক্স $index আমাদের পজিশন লিস্টের বাইরে!");
           }
 
-          // ৩. UI আপডেট
           if (activeEmojis[index] != emoji) {
-            setState(() {
-              activeEmojis[index] = emoji;
-            });
+            if (mounted) {
+              setState(() {
+                activeEmojis[index] = emoji;
+              });
+            }
             
-            // অটো রিমুভ (অন্য ইউজারদের স্ক্রিন থেকে)
             Timer(const Duration(seconds: 4), () {
               if (mounted) {
                 setState(() => activeEmojis.remove(index));
-                debugPrint("🗑️ [CLEANUP]: ৪ সেকেন্ড পর ইমোজি রিমুভ করা হয়েছে।");
+                debugPrint("🗑️ [REMOVE]: সিট $index থেকে ইমোজি মুছে ফেলা হয়েছে।");
               }
             });
           }
@@ -1547,49 +1541,47 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
  List<Widget> _buildFloatingEmojiAnimations() {
+  if (activeEmojis.isEmpty) return [];
+
   return activeEmojis.entries.map((entry) {
-    int seatIndex = entry.key;
+    int seatIndex = entry.key; // আপনার ভেরিয়েবল নাম seatIndex
     String lottieUrl = entry.value;
 
-    // পজিশন সেফটি চেক
+    // ১. রেঞ্জ চেক
     if (seatIndex < 0 || seatIndex >= seatPositions.length) {
-      debugPrint("⚠️ DEBUG: Seat index $seatIndex out of range");
+      // এখানে $index ছিল, তাই লাল দাগ আসছিল। এটাকে $seatIndex করে দিয়েছি।
+      debugPrint("🚫 [UI_BLOCK]: সিট $seatIndex এর পজিশন নেই, তাই উইজেট রেন্ডার করা গেল না।");
       return const SizedBox();
     }
 
-    // সিটের লোকেশন বের করা
     double leftPos = seatPositions[seatIndex].dx;
     double topPos = seatPositions[seatIndex].dy;
 
-    // পজিশন চেক প্রিন্ট (ইমোজি না দেখা গেলে এটি চেক করবেন)
+    // ২. জিরো পজিশন চেক
     if (leftPos == 0 && topPos == 0) {
-      debugPrint("📍 DEBUG: Seat $seatIndex has (0,0) position, hiding emoji.");
+      debugPrint("📍 [UI_BLOCK]: সিট $seatIndex এর পজিশন (0,0)। ইউজার হয়তো স্ক্রিনের কোণায় বা আড়ালে ইমোজি দেখছে।");
       return const SizedBox();
     }
 
     return Positioned(
-      // পজিশন একটু এডজাস্ট করা হয়েছে যাতে সিটের মাথার ঠিক উপরে থাকে
-      left: leftPos - 25, 
+      left: leftPos - 25,
       top: topPos - 60,
+      key: ValueKey('emoji_$seatIndex'), 
       child: IgnorePointer(
         child: SizedBox(
           width: 80,
           height: 80,
           child: Lottie.network(
             lottieUrl,
-            // এখানে key হিসেবে শুধু seatIndex এবং url ব্যবহার করুন 
-            // যাতে প্রতি মিলি-সেকেন্ডে key বদলে এনিমেশন না ভেঙে যায়
-            key: ValueKey('${seatIndex}_$lottieUrl'),
             repeat: false,
             animate: true,
             fit: BoxFit.contain,
-            // ডাটাবেজ থেকে আসা লট্টি ফাইল লোড হতে সময় নিলে একটি ছোট প্রিভিউ বা লোডার
             onLoaded: (composition) {
-              debugPrint("✅ DEBUG: Lottie Loaded for seat $seatIndex");
+              debugPrint("🎬 [ANIMATION]: সিট $seatIndex এ ইমোজি প্লে হচ্ছে!");
             },
             errorBuilder: (context, error, stackTrace) {
-              debugPrint("❌ DEBUG: Lottie Error on seat $seatIndex: $error");
-              return const SizedBox();
+              debugPrint("❌ [LOTTIE_ERROR]: ইমোজি লোড হতে পারেনি: $error");
+              return const Icon(Icons.error, color: Colors.red);
             },
           ),
         ),

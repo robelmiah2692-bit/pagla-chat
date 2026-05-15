@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LuckySpinView extends StatefulWidget {
   final DatabaseReference gameRef;
@@ -34,14 +35,14 @@ class _LuckySpinViewState extends State<LuckySpinView> {
   Timer? _timer;
   List<Map<dynamic, dynamic>> topWinnersList = [];
 
-  final List<Map<String, dynamic>> wheelSegments = [
-    {"label": "777", "mult": 25, "deg": 0, "color": Colors.amber},
-    {"label": "Grapes", "mult": 2, "deg": 300, "color": Colors.purple},
-    {"label": "Apple", "mult": 3, "deg": 240, "color": Colors.red},
-    {"label": "Plum", "mult": 4, "deg": 180, "color": Colors.indigo},
-    {"label": "Strawberry", "mult": 5, "deg": 120, "color": Colors.pink},
-    {"label": "Watermelon", "mult": 1, "deg": 60, "color": Colors.green},
-  ];
+ final List<Map<String, dynamic>> wheelSegments = [
+  {"label": "777", "mult": 25, "deg": 0, "color": Colors.amber},
+  {"label": "Grapes", "mult": 2, "deg": 60, "color": Colors.purple},
+  {"label": "Apple", "mult": 3, "deg": 120, "color": Colors.red},
+  {"label": "Plum", "mult": 4, "deg": 180, "color": Colors.indigo},
+  {"label": "Strawberry", "mult": 5, "deg": 240, "color": Colors.pink},
+  {"label": "Watermelon", "mult": 1, "deg": 300, "color": Colors.green},
+];
 
   @override
   void initState() {
@@ -79,6 +80,44 @@ class _LuckySpinViewState extends State<LuckySpinView> {
     });
   }
 
+  // --- আপডেট করা ডায়মন্ড লজিক (Search by email, authUID, uID) ---
+  Future<void> _updateUserDiamonds(int amount) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final collection = FirebaseFirestore.instance.collection('users');
+      QuerySnapshot? query;
+
+      // ১. authUID দিয়ে খোঁজা
+      query = await collection.where('authUID', isEqualTo: user.uid).limit(1).get();
+
+      // ২. না পাওয়া গেলে uID দিয়ে খোঁজা
+      if (query.docs.isEmpty) {
+        query = await collection.where('uID', isEqualTo: user.uid).limit(1).get();
+      }
+
+      // ৩. তাও না পাওয়া গেলে email দিয়ে খোঁজা
+      if (query.docs.isEmpty && user.email != null) {
+        query = await collection.where('email', isEqualTo: user.email).limit(1).get();
+      }
+
+      // যদি ডকুমেন্ট পাওয়া যায়, তবে আপডেট করা
+      if (query.docs.isNotEmpty) {
+        await collection.doc(query.docs.first.id).update({
+          'diamonds': FieldValue.increment(amount)
+        });
+      } else {
+        // যদি ওপরের কোনো ফিল্ড না থাকে, সরাসরি doc ID হিসেবে চেক করা (Fallback)
+        await collection.doc(user.uid).update({
+          'diamonds': FieldValue.increment(amount)
+        });
+      }
+    } catch (e) {
+      debugPrint("Diamond Update Error: $e");
+    }
+  }
+
   Future<void> _performSpin() async {
     if (isSpinning) return;
     
@@ -88,12 +127,19 @@ class _LuckySpinViewState extends State<LuckySpinView> {
       winLoseStatus = ""; 
     });
 
+    // ১. আগে থেকে উইনার ইনডেক্স সিলেক্ট করা
     int winIdx = Random().nextInt(wheelSegments.length);
     var winResult = wheelSegments[winIdx];
     
-    double targetRot = (2 * pi * 8) + ((360 - winResult['deg']) * pi / 180);
+    // ২. ছবির সাথে মিলানোর ক্যালকুলেশন (আপনার ছবি অনুযায়ী ৭৭৭ থেকে শুরু)
+    // চাকাটি ৮ বার পূর্ণ ঘুরবে, তারপর নির্ধারিত ডিগ্রিতে থামবে
+    // (360 - deg) লজিকটি ব্যবহার করা হয়েছে যাতে কাঁটাটি সঠিক ছবির ওপর থাকে
+    double targetAngle = (360 - winResult['deg']).toDouble();
+    double targetRot = (2 * pi * 8) + (targetAngle * pi / 180);
+    
     setState(() => _rotationAngle += targetRot);
 
+    // ৪ সেকেন্ড এনিমেশন টাইম
     await Future.delayed(const Duration(seconds: 4));
     if (!mounted) return;
 
@@ -106,7 +152,7 @@ class _LuckySpinViewState extends State<LuckySpinView> {
     bool hasWon = false;
     bool hasParticipated = false;
 
-    // ১. চেক করা ইউজার বেট ধরেছে কি না এবং জিতেছে কি না
+    // ৩. চেক করা ইউজার বেট ধরেছে কি না এবং জিতেছে কি না
     for (var bet in widget.luckyBets) {
       if (bet['id'] == myId) {
         hasParticipated = true;
@@ -118,13 +164,13 @@ class _LuckySpinViewState extends State<LuckySpinView> {
       }
     }
 
-    // ২. যদি উইন হয় তবে ডায়মন্ড যোগ করা
+    // ৪. ফলাফল অনুযায়ী ডায়মন্ড আপডেট
     if (hasWon && totalWin > 0) {
       widget.playSound("https://www.soundjay.com/human/sounds/applause-01.mp3");
       setState(() => winLoseStatus = "🎉 WIN! +💎$totalWin");
       
-      // ডায়মন্ড আপডেট
-      await widget.userRef.child("diamonds").set(ServerValue.increment(totalWin));
+      // ডায়মন্ড যোগ করা (email, authUID, uID স্মার্ট সার্চের মাধ্যমে)
+      await _updateUserDiamonds(totalWin);
       
       // উইনার লিস্টে নাম যোগ করা
       await widget.gameRef.child("luckyWinners").push().set({
@@ -137,16 +183,14 @@ class _LuckySpinViewState extends State<LuckySpinView> {
       setState(() => winLoseStatus = "❌ LOSE!");
     }
 
-    // ৩. ক্লিনিং লজিক
+    // ৫. ক্লিনিং লজিক (গেম শেষে বেট রিমুভ করা)
     Future.delayed(const Duration(seconds: 2), () async {
       if (mounted) {
-        // শুধুমাত্র গেম শেষ হলেই বেট ডিলিট করা
         await widget.gameRef.child("luckyBets").remove();
         setState(() => isSpinning = false);
       }
     });
   }
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -238,10 +282,10 @@ class _LuckySpinViewState extends State<LuckySpinView> {
             
             widget.playSound("https://www.soundjay.com/buttons/sounds/button-3.mp3");
             
-            // ডায়মন্ড বিয়োগ করা
-            await widget.userRef.child("diamonds").set(ServerValue.increment(-widget.betAmount));
+            // ডায়মন্ড বিয়োগ করা
+            await _updateUserDiamonds(-widget.betAmount);
             
-            // ফায়ারবেসে বেট জমা দেওয়া
+            // Realtime Database-এ বেট জমা দেওয়া
             await widget.gameRef.child("luckyBets").push().set({
               "id": currentuID,
               "slot": slot,
