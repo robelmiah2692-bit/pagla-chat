@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class GiftService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // সোলমেট গিফট এক্সেপ্ট করার লজিক (সম্পূর্ণ ও সংশোধিত)
+  // সোলমেট গিফট এক্সেপ্ট করার লজিক (সংশোধিত ও ফিক্সড)
   Future<void> acceptSoulmateGift({
     required String myId,
     required String myName,
@@ -13,32 +13,33 @@ class GiftService {
     required String friendImg,
   }) async {
     try {
-      // একটি ব্যাচ তৈরি করছি যাতে সবগুলো অপারেশন একসাথে হয় (Atomic Operation)
       WriteBatch batch = _db.batch();
 
-      // ১. আমার সোলমেট ডকুমেন্ট (soulmates কালেকশনে আমার আইডিতে সেভ হবে)
+      // ১. আমার সোলমেট ডকুমেন্ট (আমার আইডিতে সেভ হবে)
       DocumentReference mySoulmateRef = _db.collection('soulmates').doc(myId);
       batch.set(mySoulmateRef, {
-        'ownerId': myId,
+        'ownerId': myId,          // 🔥 প্রোফাইলের Where কুয়েরির জন্য এটি বাধ্যতামূলক
         'partnerId': friendId,
         'partnerName': friendName,
         'partnerImage': friendImg,
         'status': 'active',
+        'totalGift': 0,           // লেভেল লজিকের জন্য ডিফল্ট ০ পয়েন্ট
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // ২. বন্ধুর সোলমেট ডকুমেন্ট (soulmates কালেকশনে তার আইডিতে আমার তথ্য সেভ হবে)
+      // ২. বন্ধুর সোলমেট ডকুমেন্ট (বন্ধুর আইডিতে আমার তথ্য সেভ হবে)
       DocumentReference friendSoulmateRef = _db.collection('soulmates').doc(friendId);
       batch.set(friendSoulmateRef, {
-        'ownerId': friendId,
+        'ownerId': friendId,        // 🔥 প্রোফাইলের Where কুয়েরির জন্য এটি বাধ্যতামূলক
         'partnerId': myId,
         'partnerName': myName,
         'partnerImage': myImg,
         'status': 'active',
+        'totalGift': 0,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // ৩. আপনার (সেন্ডার/রিসিভার) ইউজার প্রোফাইল আপডেট
+      // ৩. আপনার ইউজার প্রোফাইল আপডেট
       DocumentReference myUserRef = _db.collection('users').doc(myId);
       batch.update(myUserRef, {
         'hasSoulmate': true,
@@ -52,22 +53,19 @@ class GiftService {
         'soulmateId': myId,
       });
 
-      // ৫. সোলমেট রিকোয়েস্টটি এক্সেপ্ট হওয়ার পর সেটি ডিলিট করে দেওয়া
-      // (যেহেতু রিকোয়েস্টটি রিসিভারের আইডিতে জমা ছিল)
+      // ৫. সোলমেট রিকোয়েস্টটি এক্সেপ্ট হওয়ার পর ডিলিট করা
       DocumentReference requestRef = _db.collection('soulmate_requests').doc(myId);
       batch.delete(requestRef);
 
-      // ব্যাচটি সাবমিট করা
       await batch.commit();
       print("Soulmate successfully established and profile updated!");
-
     } catch (e) {
       print("Error saving soulmate: $e");
       rethrow; 
     }
   }
 
-  // রিকোয়েস্ট রিজেক্ট করার লজিক (যদি প্রয়োজন হয়)
+  // রিকোয়েস্ট রিজেক্ট করার লজিক
   Future<void> rejectSoulmateRequest(String myId) async {
     try {
       await _db.collection('soulmate_requests').doc(myId).delete();

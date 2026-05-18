@@ -19,6 +19,7 @@ import 'package:lottie/lottie.dart';
 import 'package:pagla_chat/room_list_page.dart' show RoomListPage;
 import 'package:pagla_chat/room_manager.dart';
 import 'package:pagla_chat/services/floating_bubble_service.dart';
+import 'package:pagla_chat/services/gift_service.dart';
 
 import 'package:pagla_chat/widgets/entry_effect_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -150,6 +151,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String targetType = "";
   String currentSenderName = "";
   String currentReceiverName = "";
+  StreamSubscription? _soulmateListener;
   StreamSubscription? _seatSubscription;
   StreamSubscription? _emojiSubscription;
   String lastProcessedEntryId =
@@ -158,7 +160,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   void initState() {
     super.initState();
     WakelockPlus.enable(); // স্ক্রিন যাতে অফ না হয়
-
+    listenForSoulmateRequests();
     // --- ১. মিনিমাইজড ডাটা রিকভারি লজিক ---
     if (FloatingBubbleService.isMinimized) {
       // যদি বাবল থেকে রুমে ফিরে আসে, তবে ম্যানেজার থেকে আগের ডাটা নিন
@@ -187,7 +189,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     });
 
     _initEmojiListener();
-
+     
     // ৩. এন্ট্রি লজিক (বাবল থেকে ফিরলে এগুলো কল হবে না)
     if (!FloatingBubbleService.isMinimized) {
       _addUserToViewers();
@@ -449,61 +451,225 @@ class _VoiceRoomState extends State<VoiceRoom> {
     }
   }
 
-  void _initEmojiListener() {
-  _emojiSubscription?.cancel();
-  debugPrint("📡 [LISTENER]: লিসেনার স্টার্ট হয়েছে।");
+  Future<void> updateOldRoomsWithDailyPoints() async {
+    try {
+      // ১. ডাটাবেজের সব রুমের ডাটা তুলে আনা হচ্ছে
+      final roomsSnapshot =
+          await FirebaseFirestore.instance.collection('rooms').get();
 
-  _emojiSubscription = FirebaseDatabase.instance
-      .ref('rooms/${widget.roomId}/seats')
-      .onValue
-      .listen((event) {
-    if (!mounted || event.snapshot.value == null) return;
+      final batch = FirebaseFirestore.instance.batch();
+      int updatedCount = 0;
 
-    final Map<dynamic, dynamic> seatsData = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
+      // ২. লুপ চালিয়ে প্রতিটি রুম চেক করা হচ্ছে
+      for (var doc in roomsSnapshot.docs) {
+        final data = doc.data();
 
-    seatsData.forEach((key, value) {
-      int index = int.tryParse(key.toString()) ?? -1;
-      
-      if (index != -1 && value is Map) {
-        final String? emoji = value["currentEmoji"];
-        final bool showEmoji = value["showEmoji"] ?? false;
-        
-        if (emoji != null && showEmoji == true) {
-          debugPrint("🔥 [INCOMING]: সিট $index এর জন্য ইমোজি আসছে...");
-
-          // পজিশন চেক এবং গ্লোবাল ডিবাগিং
-          if (index >= seatPositions.length) {
-            debugPrint("❌ [CRITICAL]: সিট $index আমাদের লিস্টের (Size: ${seatPositions.length}) বাইরে! পজিশন লিস্ট তৈরি হয়নি।");
-          } else {
-            double x = seatPositions[index].dx;
-            double y = seatPositions[index].dy;
-            
-            if (x == 0 && y == 0) {
-              debugPrint("⚠️ [RENDER_ISSUE]: ডাটা আসছে, কিন্তু আপনার ফোনের স্ক্রিন সিট $index এর পজিশন এখনো মাপতে পারেনি (0,0)!");
-            } else {
-              debugPrint("✅ [SUCCESS]: সিট $index এর পজিশন ওকে (X: $x, Y: $y)। এখন রেন্ডার হবে।");
-            }
-          }
-
-          if (activeEmojis[index] != emoji) {
-            if (mounted) {
-              setState(() {
-                activeEmojis[index] = emoji;
-              });
-            }
-            
-            Timer(const Duration(seconds: 4), () {
-              if (mounted) {
-                setState(() => activeEmojis.remove(index));
-                debugPrint("🗑️ [REMOVE]: সিট $index থেকে ইমোজি মুছে ফেলা হয়েছে।");
-              }
-            });
-          }
+        // যদি রুমে 'dailyPoints' ফিল্ডটি আগে থেকে না থাকে, তবেই শুধু আপডেট করবে
+        if (!data.containsKey('dailyPoints')) {
+          batch.update(doc.reference, {
+            'dailyPoints': 0, // ডিফল্ট পয়েন্ট ০ বসবে
+            'ownerImage':
+                data['ownerPic'] ?? '', // ওনারের আগের পিকচারটি এখানে কপি হবে
+            'ownerFrame': '', // ডিফল্ট ফ্রেম ফাঁকা থাকবে
+          });
+          updatedCount++;
         }
       }
+
+      // ৩. এক ক্লিকে ফায়ারবেসের সব পুরাতন রুম আপডেট করা
+      if (updatedCount > 0) {
+        await batch.commit();
+        debugPrint(
+            "🎯 সফল হয়েছে! মোট $updatedCount টি পুরাতন রুম আপডেট করা হয়েছে।");
+      } else {
+        debugPrint("✅ সব রুমে আগে থেকেই ফিল্ড আছে, কোনো রুম বাকি নেই!");
+      }
+    } catch (e) {
+      debugPrint("❌ পুরাতন রুম আপডেট করতে গিয়ে এরর: ${e.toString()}");
+    }
+  }
+
+  void _initEmojiListener() {
+    _emojiSubscription?.cancel();
+    debugPrint("📡 [LISTENER]: লিসেনার স্টার্ট হয়েছে।");
+
+    _emojiSubscription = FirebaseDatabase.instance
+        .ref('rooms/${widget.roomId}/seats')
+        .onValue
+        .listen((event) {
+      if (!mounted || event.snapshot.value == null) return;
+
+      final Map<dynamic, dynamic> seatsData =
+          Map<dynamic, dynamic>.from(event.snapshot.value as Map);
+
+      seatsData.forEach((key, value) {
+        int index = int.tryParse(key.toString()) ?? -1;
+
+        if (index != -1 && value is Map) {
+          final String? emoji = value["currentEmoji"];
+          final bool showEmoji = value["showEmoji"] ?? false;
+
+          if (emoji != null && showEmoji == true) {
+            debugPrint("🔥 [INCOMING]: সিট $index এর জন্য ইমোজি আসছে...");
+
+            // পজিশন চেক এবং গ্লোবাল ডিবাগিং
+            if (index >= seatPositions.length) {
+              debugPrint(
+                  "❌ [CRITICAL]: সিট $index আমাদের লিস্টের (Size: ${seatPositions.length}) বাইরে! পজিশন লিস্ট তৈরি হয়নি।");
+            } else {
+              double x = seatPositions[index].dx;
+              double y = seatPositions[index].dy;
+
+              if (x == 0 && y == 0) {
+                debugPrint(
+                    "⚠️ [RENDER_ISSUE]: ডাটা আসছে, কিন্তু আপনার ফোনের স্ক্রিন সিট $index এর পজিশন এখনো মাপতে পারেনি (0,0)!");
+              } else {
+                debugPrint(
+                    "✅ [SUCCESS]: সিট $index এর পজিশন ওকে (X: $x, Y: $y)। এখন রেন্ডার হবে।");
+              }
+            }
+
+            if (activeEmojis[index] != emoji) {
+              if (mounted) {
+                setState(() {
+                  activeEmojis[index] = emoji;
+                });
+              }
+
+              Timer(const Duration(seconds: 4), () {
+                if (mounted) {
+                  setState(() => activeEmojis.remove(index));
+                  debugPrint(
+                      "🗑️ [REMOVE]: সিট $index থেকে ইমোজি মুছে ফেলা হয়েছে।");
+                }
+              });
+            }
+          }
+        }
+      });
     });
+  }
+
+
+
+
+// 🟢 ১. সোলমেট রিকোয়েস্ট লিসেনার ফাংশন
+void listenForSoulmateRequests() {
+  final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  if (currentUserId.isEmpty) return;
+
+  // আমার আইডিতে কোনো রিকোয়েস্ট আসলে তা রিয়েল-টাইম লিসেন করবে
+  _soulmateListener = FirebaseFirestore.instance
+      .collection('soulmate_requests')
+      .doc(currentUserId)
+      .snapshots()
+      .listen((snapshot) {
+    if (snapshot.exists && snapshot.data() != null) {
+      var data = snapshot.data() as Map<String, dynamic>;
+      
+      if (data['status'] == 'pending') {
+        // স্ক্রিনে পপ-আপ ডায়ালগ শো করা
+        _showSoulmateRequestDialog(data);
+      }
+    }
   });
 }
+
+// 🟢 ২. সোলমেট রিকোয়েস্ট পপ-আপ ডায়ালগ
+void _showSoulmateRequestDialog(Map<String, dynamic> requestData) {
+  final String myId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  
+  // 🔥 সমাধান: সিট লিস্ট (seats) থেকে লুপ চালিয়ে আপনার নিজের সিটের রিয়েল নাম ও ছবি খুঁজে বের করা হচ্ছে
+  String myName = "User";
+  String myImg = "";
+
+  for (var seat in seats) {
+    if (seat["userId"] == myId) {
+      myName = seat["userName"] ?? "User";
+      myImg = seat["userImage"] ?? "";
+      break; // নিজের ডাটা পেয়ে গেলে লুপ স্টপ হবে
+    }
+  }
+
+  // যদি আপনি কোনো সিটে বসে না থাকেন, তবে ব্যাকআপ হিসেবে অথেন্টিকেশন থেকে নাম নেওয়া হবে
+  if (myName == "User" || myName.isEmpty) {
+    myName = FirebaseAuth.instance.currentUser?.displayName ?? "User";
+    myImg = FirebaseAuth.instance.currentUser?.photoURL ?? "";
+  }
+
+  showDialog(
+    context: context,
+    barrierDismissible: false, // রিকোয়েস্ট এক্সেপ্ট বা রিজেক্ট না করা পর্যন্ত কাটবে না
+    builder: (context) => AlertDialog(
+      backgroundColor: const Color(0xFF1E1E2F),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Row(
+        children: [
+          Icon(Icons.favorite, color: Colors.pinkAccent),
+          SizedBox(width: 10),
+          Text("Soulmate Request!", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 40,
+            backgroundImage: NetworkImage(requestData['fromImg'] ?? ''),
+            backgroundColor: Colors.white12,
+            child: (requestData['fromImg'] == null || requestData['fromImg'].toString().isEmpty) 
+                ? const Icon(Icons.person, color: Colors.white) 
+                : null,
+          ),
+          const SizedBox(height: 15),
+          Text(
+            "${requestData['fromName']} wants to be your Soulmate! 💕",
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+        ],
+      ),
+      actionsAlignment: MainAxisAlignment.spaceEvenly,
+      actions: [
+        // রিজেক্ট বাটন
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[800]),
+          onPressed: () async {
+            Navigator.pop(context);
+            await GiftService().rejectSoulmateRequest(myId);
+          },
+          child: const Text("Reject", style: TextStyle(color: Colors.white)),
+        ),
+        // এক্সেপ্ট বাটন
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
+          onPressed: () async {
+            Navigator.pop(context);
+            
+            // 🔥 ডাইরেক্ট আপনার ক্লাসের বা ইমপোর্ট করা GiftService কল করা হলো (লাল দাগ চলে যাবে)
+            await GiftService().acceptSoulmateGift(
+              myId: myId,
+              myName: myName,
+              myImg: myImg,
+              friendId: requestData['fromId'] ?? '',
+              friendName: requestData['fromName'] ?? 'Unknown',
+              friendImg: requestData['fromImg'] ?? '',
+            );
+            
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Congratulations! You are now Soulmates! 🎉"), backgroundColor: Colors.green),
+              );
+            }
+          },
+          child: const Text("Accept", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+      ],
+    ),
+  );
+}
+
+
 // ১. এডমিন বানানো বা রিমুভ করা
   void _toggleAdmin(String targetuID, bool isAlreadyAdmin) {
     FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
@@ -1400,7 +1566,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
       ),
     );
   }
-
+ 
   Widget _buildProfileActionButton({
     required IconData icon,
     required String label,
@@ -1540,55 +1706,58 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
- List<Widget> _buildFloatingEmojiAnimations() {
-  if (activeEmojis.isEmpty) return [];
+  List<Widget> _buildFloatingEmojiAnimations() {
+    if (activeEmojis.isEmpty) return [];
 
-  return activeEmojis.entries.map((entry) {
-    int seatIndex = entry.key; // আপনার ভেরিয়েবল নাম seatIndex
-    String lottieUrl = entry.value;
+    return activeEmojis.entries.map((entry) {
+      int seatIndex = entry.key; // আপনার ভেরিয়েবল নাম seatIndex
+      String lottieUrl = entry.value;
 
-    // ১. রেঞ্জ চেক
-    if (seatIndex < 0 || seatIndex >= seatPositions.length) {
-      // এখানে $index ছিল, তাই লাল দাগ আসছিল। এটাকে $seatIndex করে দিয়েছি।
-      debugPrint("🚫 [UI_BLOCK]: সিট $seatIndex এর পজিশন নেই, তাই উইজেট রেন্ডার করা গেল না।");
-      return const SizedBox();
-    }
+      // ১. রেঞ্জ চেক
+      if (seatIndex < 0 || seatIndex >= seatPositions.length) {
+        // এখানে $index ছিল, তাই লাল দাগ আসছিল। এটাকে $seatIndex করে দিয়েছি।
+        debugPrint(
+            "🚫 [UI_BLOCK]: সিট $seatIndex এর পজিশন নেই, তাই উইজেট রেন্ডার করা গেল না।");
+        return const SizedBox();
+      }
 
-    double leftPos = seatPositions[seatIndex].dx;
-    double topPos = seatPositions[seatIndex].dy;
+      double leftPos = seatPositions[seatIndex].dx;
+      double topPos = seatPositions[seatIndex].dy;
 
-    // ২. জিরো পজিশন চেক
-    if (leftPos == 0 && topPos == 0) {
-      debugPrint("📍 [UI_BLOCK]: সিট $seatIndex এর পজিশন (0,0)। ইউজার হয়তো স্ক্রিনের কোণায় বা আড়ালে ইমোজি দেখছে।");
-      return const SizedBox();
-    }
+      // ২. জিরো পজিশন চেক
+      if (leftPos == 0 && topPos == 0) {
+        debugPrint(
+            "📍 [UI_BLOCK]: সিট $seatIndex এর পজিশন (0,0)। ইউজার হয়তো স্ক্রিনের কোণায় বা আড়ালে ইমোজি দেখছে।");
+        return const SizedBox();
+      }
 
-    return Positioned(
-      left: leftPos - 25,
-      top: topPos - 60,
-      key: ValueKey('emoji_$seatIndex'), 
-      child: IgnorePointer(
-        child: SizedBox(
-          width: 80,
-          height: 80,
-          child: Lottie.network(
-            lottieUrl,
-            repeat: false,
-            animate: true,
-            fit: BoxFit.contain,
-            onLoaded: (composition) {
-              debugPrint("🎬 [ANIMATION]: সিট $seatIndex এ ইমোজি প্লে হচ্ছে!");
-            },
-            errorBuilder: (context, error, stackTrace) {
-              debugPrint("❌ [LOTTIE_ERROR]: ইমোজি লোড হতে পারেনি: $error");
-              return const Icon(Icons.error, color: Colors.red);
-            },
+      return Positioned(
+        left: leftPos - 25,
+        top: topPos - 60,
+        key: ValueKey('emoji_$seatIndex'),
+        child: IgnorePointer(
+          child: SizedBox(
+            width: 80,
+            height: 80,
+            child: Lottie.network(
+              lottieUrl,
+              repeat: false,
+              animate: true,
+              fit: BoxFit.contain,
+              onLoaded: (composition) {
+                debugPrint(
+                    "🎬 [ANIMATION]: সিট $seatIndex এ ইমোজি প্লে হচ্ছে!");
+              },
+              errorBuilder: (context, error, stackTrace) {
+                debugPrint("❌ [LOTTIE_ERROR]: ইমোজি লোড হতে পারেনি: $error");
+                return const Icon(Icons.error, color: Colors.red);
+              },
+            ),
           ),
         ),
-      ),
-    );
-  }).toList();
-}
+      );
+    }).toList();
+  }
 
 // এই উইজেটটি আপনার আইকন বাটন তৈরি করবে
   Widget buildCircularIcon(IconData icon, Color color, VoidCallback onTap) {
@@ -1634,7 +1803,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     _seatSubscription?.cancel();
     _emojiSubscription?.cancel();
     giftTimer?.cancel();
-
+    _soulmateListener?.cancel();
     // ৫. সিটে বসে থাকলে সেটি অটোমেটিক খালি করে দেওয়া
     if (currentSeatIndex != -1) {
       // Firestore এবং Service আপডেট
@@ -2038,7 +2207,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                     );
                   },
                 ),
-
+                
                 // ৩. সেটিংস বাটন
                 IconButton(
                   icon: const Icon(Icons.settings,
@@ -3091,7 +3260,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  Widget _buildAnimatedGiftButton() {
+ Widget _buildAnimatedGiftButton() {
     return TweenAnimationBuilder(
       tween: Tween<double>(begin: 1.0, end: 1.2),
       duration: const Duration(milliseconds: 800),
@@ -3167,9 +3336,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 }
 
                 // ৩. ট্রানজেকশন শুরু
+                int unitPrice = (gift['price'] ?? 0).toInt();
+                int totalAmount = unitPrice * count;
+
                 try {
-                  int unitPrice = (gift['price'] ?? 0).toInt();
-                  int totalAmount = unitPrice * count;
                   bool isFree =
                       (gift['isFree'] == true) || (gift['expiry'] != null);
 
@@ -3215,11 +3385,11 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   });
                 }
 
-                // ৫. ফায়ারবেস রুম ব্যানার আপডেট
-                await FirebaseFirestore.instance
-                    .collection('rooms')
-                    .doc(widget.roomId)
-                    .update({
+                // 🔥 ৫. ফায়ারবেস রুম ব্যানার এবং ডেলি পয়েন্ট আপডেট (২৫০ ডায়মন্ডে ১ পয়েন্ট)
+                int pointsToIncrement = totalAmount ~/ 250; 
+
+                // এখানে পুরাতন মেইন ব্যানার ফিচারের ম্যাপটি তৈরি করা হলো (যাতে আগের ফিচার ঠিক থাকে)
+                Map<String, dynamic> roomUpdateData = {
                   'last_gift': {
                     'image': giftImg,
                     'senderName': senderName,
@@ -3229,21 +3399,46 @@ class _VoiceRoomState extends State<VoiceRoom> {
                     'count': count,
                     'timestamp': DateTime.now().millisecondsSinceEpoch,
                   }
-                });
+                };
 
-                // 🔥 ৬. মেসেজ লিস্টে ছবিসহ গিফট হিস্ট্রি পাঠানো
+                // যদি পয়েন্ট ১ বা তার বেশি হয়, তবেই এই ম্যাপের ভেতর 'dailyPoints' ফিল্ডটি যুক্ত হবে
+                if (pointsToIncrement > 0) {
+                  roomUpdateData['dailyPoints'] = FieldValue.increment(pointsToIncrement);
+                }
+
+                // এবার একটি মাত্র আপডেট রিকোয়েস্টে ব্যানার ও ডেলি পয়েন্ট একসাথে সেভ হবে (কোনো কোড মিস হবে না)
+                await FirebaseFirestore.instance
+                    .collection('rooms')
+                    .doc(widget.roomId)
+                    .update(roomUpdateData);
+
+                // 🔥 ৫.১ টপ গিফটার লিডারবোর্ডের সাব-কালেকশন আপডেট
+                if (pointsToIncrement > 0 && senderDocID.isNotEmpty) {
+                  await FirebaseFirestore.instance
+                      .collection('rooms')
+                      .doc(widget.roomId)
+                      .collection('daily_gifters')
+                      .doc(senderDocID)
+                      .set({
+                    'gifterName': senderName,
+                    'gifterPic': senderImgUrl,
+                    'giftedAmount': FieldValue.increment(pointsToIncrement),
+                  }, SetOptions(merge: true));
+                }
+
+                // 🔥 ৬. মেসেজ লিস্টে ছবিসহ গিফট হিস্ট্রি পাঠানো (পুরাতন ফিচার অক্ষুণ্ন রাখা হলো)
                 await FirebaseFirestore.instance
                     .collection('rooms')
                     .doc(widget.roomId)
                     .collection('messages')
                     .add({
                   'type': 'gift',
-                  'name': senderName, // সেন্ডারের নাম
-                  'senderImage': senderImgUrl, // সেন্ডারের ছবি 🔥
-                  'targetName': target, // রিসিভারের নাম
-                  'receiverImage': receiverImgUrl, // রিসিভারের ছবি 🔥
-                  'giftImage': giftImg, // গিফটের আইকন
-                  'giftCount': count, // গিফটের সংখ্যা
+                  'name': senderName, 
+                  'senderImage': senderImgUrl, 
+                  'targetName': target, 
+                  'receiverImage': receiverImgUrl, 
+                  'giftImage': giftImg, 
+                  'giftCount': count, 
                   'timestamp': FieldValue.serverTimestamp(),
                 });
 

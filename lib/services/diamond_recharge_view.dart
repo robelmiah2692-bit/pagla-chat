@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+// ignore: dependence_on_referenced_packages
+import 'package:in_app_purchase_android/in_app_purchase_android.dart'; // কনসিউম করার জন্য জরুরি
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pagla_chat/pages/agent_transfer_page.dart';
@@ -21,7 +23,7 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
   final InAppPurchase _iap = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
 
-  // ডায়মন্ড প্যাকের ম্যাপ (এখানে আইডি এবং অ্যামাউন্ট সেট করা আছে)
+  // ডায়মন্ড প্যাকের ম্যাপ
   final Map<String, Map<String, dynamic>> _diamondPacks = {
     'gem_pack_6k': {'amount': 6000, 'price': '\$0.99', 'display': '6k 💎'},
     'gem_pack_12k': {'amount': 12000, 'price': '\$1.49', 'display': '12k 💎'},
@@ -61,69 +63,145 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
     super.dispose();
   }
 
-  // পেমেন্ট হ্যান্ডেলার
+  // পেমেন্ট হ্যান্ডেলার (সবচেয়ে গুরুত্বপূর্ণ ফিক্স)
   void _handlePurchaseUpdates(List<PurchaseDetails> purchaseDetailsList) async {
     for (var purchase in purchaseDetailsList) {
-      if (purchase.status == PurchaseStatus.purchased) {
+      if (purchase.status == PurchaseStatus.purchased || purchase.status == PurchaseStatus.restored) {
         int? diamondsToAdd = _diamondPacks[purchase.productID]?['amount'];
         if (diamondsToAdd != null) {
+          // ১. ফায়ারবেসে ডায়মন্ড প্লাস করা হচ্ছে
           await _updateUserDiamonds(diamondsToAdd);
         }
-        if (purchase.pendingCompletePurchase)
+        
+        // ২. এন্ড্রয়েডের জন্য পারচেজটি কনসিউম (খালি) করা হচ্ছে যাতে বারবার কেনা যায়
+        final InAppPurchaseAndroidPlatformAddition androidAddition =
+            _iap.getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
+        await androidAddition.consumePurchase(purchase);
+
+        // ৩. গুগলকে জানানো যে ট্রানজেকশন সফলভাবে শেষ হয়েছে
+        if (purchase.pendingCompletePurchase) {
           await _iap.completePurchase(purchase);
+        }
+      } else if (purchase.status == PurchaseStatus.error) {
+        // কোনো এরর আসলে এখানে হ্যান্ডেল হবে (আপাতত ফাঁকা)
+        debugPrint("Purchase Error: ${purchase.error.toString()}");
       }
     }
   }
 
-  // পেমেন্ট শুরু
+  // পেমেন্ট শুরু (One-time product এর জন্য ফিক্স)
   Future<void> _initiatePurchase(String productId) async {
     final bool available = await _iap.isAvailable();
     if (!available) return;
+    
     final ProductDetailsResponse response =
         await _iap.queryProductDetails({productId});
+        
     if (response.productDetails.isNotEmpty) {
       final PurchaseParam purchaseParam =
           PurchaseParam(productDetails: response.productDetails.first);
-      _iap.buyConsumable(purchaseParam: purchaseParam);
+      
+      // কনসোলের One-time product এর জন্য buyNonConsumable ব্যবহার করতে হবে, 
+      // পরে কোডের ভেতরে আমরা সেটাকে অ্যান্ড্রয়েড লেভেলে ম্যানুয়ালি consume করে দেব।
+      _iap.buyNonConsumable(purchaseParam: purchaseParam);
     }
   }
 
-  // ফায়ারবেস আপডেট
+ // ফায়ারবেস আপডেট (পুরাতন এজেন্সী ট্রান্সফারের হুবহু লজিক অনুযায়ী)
   Future<void> _updateUserDiamonds(int amount) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     final collection = FirebaseFirestore.instance.collection('users');
 
-    // ১. প্রথমে authUID দিয়ে চেক
+    // ১. প্রথমে authUID দিয়ে চেক
     QuerySnapshot query =
         await collection.where('authUID', isEqualTo: user.uid).limit(1).get();
 
-    // ২. যদি না পায়, তবে ইমেইল দিয়ে চেক
+    // ২. যদি না পায়, তবে ইমেইল দিয়ে চেক
     if (query.docs.isEmpty && user.email != null) {
       query =
           await collection.where('email', isEqualTo: user.email).limit(1).get();
     }
 
-    // ৩. যদি তবুও না পায়, তবে uID দিয়ে চেক (আপনার ডাটাবেসের স্ট্রাকচার অনুযায়ী)
+    // ৩. যদি তবুও না পায়, তবে uID দিয়ে চেক
     if (query.docs.isEmpty) {
       query = await collection.where('uID', isEqualTo: user.uid).limit(1).get();
     }
 
     if (query.docs.isNotEmpty) {
-      await collection
-          .doc(query.docs.first.id)
-          .update({'diamonds': FieldValue.increment(amount)});
+      final userDoc = query.docs.first;
+      final String receiverFirestoreId = userDoc.id; // ইউজারের আসল ফায়ারস্টোর ডকুমেন্ট আইডি
+      final DocumentReference receiverRef = collection.doc(receiverFirestoreId);
+
+      // এজেন্সী লজিক অনুযায়ী এক্সপি হিসাব: প্রতি ২৫০ ডায়মন্ডে ১ এক্সপি
+      int earnedXP = amount ~/ 250; 
+      if (earnedXP < 1) earnedXP = 1; // প্যাকের দাম কম হলেও যেন মিনিমাম ১ এক্সপি পায়
+
+      // রাইট অপারেশনগুলো ট্রানজেকশন বা নরমাল ব্যাচ ছাড়াই সেফলি রান করা হচ্ছে
+      try {
+        // ১. ইউজারের মেইন ডক আপডেট (ডায়মন্ড এবং ভিআইপি এক্সপি)
+        await receiverRef.update({
+          'diamonds': FieldValue.increment(amount),
+          'vip_xp': FieldValue.increment(earnedXP), // এজেন্সির মতো হুবহু vip_xp ফিল্ড
+        });
+
+        // ২. ইউজারের ইনবক্সে অফিশিয়াল মেসেজ পাঠানো (পাগলাচ্যাট অফিশিয়াল চ্যাট আইডি লজিক)
+        String chatId = "paglachat_official_$receiverFirestoreId"; 
+        DocumentReference chatDocRef = FirebaseFirestore.instance.collection('chats').doc(chatId);
+        DocumentReference msgRef = chatDocRef.collection('messages').doc();
+
+        Map<String, dynamic> officialMsg = {
+          'senderId': 'paglachat_official',
+          'receiverId': receiverFirestoreId,
+          'text': "🎉 You've received $amount Diamonds and $earnedXP XP bonus from Google Play Recharge.",
+          'timestamp': FieldValue.serverTimestamp(),
+          'isRead': false,
+          'type': 'system_msg' // এজেন্সির মতো হুবহু টাইপ
+        };
+
+        await msgRef.set(officialMsg);
+
+        // চ্যাট লিস্টে মেসেজটি পুশ করা
+        await chatDocRef.set({
+          'lastMessage': "🎉 Received $amount Diamonds",
+          'lastTimestamp': FieldValue.serverTimestamp(),
+          'users': ['paglachat_official', receiverFirestoreId],
+          'unReadCount': FieldValue.increment(1),
+        }, SetOptions(merge: true));
+
+        // ৩. ইউজারের নিজস্ব রিচার্জ হিস্টোরি সাব-কালেকশনে ডাটা সেভ
+        DocumentReference rechargeRef = receiverRef.collection('recharge_history').doc();
+        await rechargeRef.set({
+          'amount': amount,
+          'timestamp': FieldValue.serverTimestamp(),
+          'method': 'Google Play Store', // মেথডের নাম প্লে স্টোর
+          'status': 'Success'
+        });
+
+      } catch (e) {
+        debugPrint("Error updating database with agency logic: ${e.toString()}");
+      }
+      
+      // স্ক্রিনে সফলতার ফ্ল্যাশকার্ড বা মেসেজ
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Success! $amount Diamonds & $earnedXP XP added."),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     print("DEBUG: Full UserData: ${widget.userData}");
-
-    // 🔍 ডিবাগ প্রিন্ট ২: ইজ-এজেন্ট ভ্যালু কী আসছে
     print("DEBUG: Is Agent Value: ${widget.isAgent}");
     print("DEBUG: Is Agent Type: ${widget.isAgent.runtimeType}");
+    
     return Container(
       height: MediaQuery.of(context).size.height * 0.80,
       decoration: BoxDecoration(
@@ -201,7 +279,7 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
         padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFFF60404), Color(0xFFFC0C03)], // ডার্ক রেড ভাইব
+            colors: [Color(0xFFF60404), Color(0xFFFC0C03)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -219,7 +297,6 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
           children: [
             Row(
               children: [
-                // 👛 ওয়ালেট আইকন সেকশন
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
@@ -230,8 +307,6 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
                       color: Colors.amberAccent, size: 32),
                 ),
                 const SizedBox(width: 15),
-
-                // টেক্সট সেকশন
                 const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -251,14 +326,10 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
                     ],
                   ),
                 ),
-
                 const Icon(Icons.verified, color: Colors.cyanAccent, size: 24),
               ],
             ),
-
             const SizedBox(height: 18),
-
-            // সেলিং বাটন
             SizedBox(
               width: double.infinity,
               height: 50,

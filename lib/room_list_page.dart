@@ -73,7 +73,7 @@ class _RoomListPageState extends State<RoomListPage>
       String currentUserName = userData['name'] ?? "Pagla User";
       String currentUserPic = userData['profilePic'] ?? "";
       String authUID = user.uid; // ফায়ারবেস অথ আইডি
-
+      String currentUserFrame = userData['activeFrameUrl'] ?? "";
       if (mySixDigitID.isEmpty) return;
 
       // ২. ইউজার কি আগে রুম বানিয়েছে? (লিমিট চেক)
@@ -117,6 +117,8 @@ class _RoomListPageState extends State<RoomListPage>
         'ownerAuthId': authUID, // অথ আইডি ব্যাকআপ
         'ownerName': currentUserName,
         'ownerPic': currentUserPic,
+        'ownerFrame': currentUserFrame,
+        'dailyPoints': 0,
         'userCount': 1,
         'isLive': true,
         'role': 'owner',

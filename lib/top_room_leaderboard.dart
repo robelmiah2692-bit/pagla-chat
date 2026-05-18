@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
+import 'package:intl/intl.dart';
+import 'package:lottie/lottie.dart';
 
 class TopRoomLeaderboard extends StatefulWidget {
   const TopRoomLeaderboard({super.key});
@@ -10,84 +12,276 @@ class TopRoomLeaderboard extends StatefulWidget {
 }
 
 class _TopRoomLeaderboardState extends State<TopRoomLeaderboard> {
-  // // রাত ১২টার কাউন্টডাউন ভেরিয়েবল
-  Duration _timeUntilReset = Duration.zero;
-  Timer? _timer;
+  bool _isProcessingReward = false;
+  Timer? _rewardCheckTimer;
 
   @override
   void initState() {
     super.initState();
-    _startCountdown();
+    _startRewardCheckCountdown();
   }
 
-  // // বাংলাদেশ সময় রাত ১২টা পর্যন্ত সময় গণনা
-  void _startCountdown() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+  // ব্যাকগ্রাউন্ডে রিওয়ার্ড প্রসেস চেক করার টাইমার (UI-তে কোনো প্রভাব ফেলবে না)
+  void _startRewardCheckCountdown() {
+    _rewardCheckTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       final now = DateTime.now();
       final tomorrow = DateTime(now.year, now.month, now.day + 1);
-      setState(() {
-        _timeUntilReset = tomorrow.difference(now);
-      });
+      final timeUntilReset = tomorrow.difference(now);
+
+      if (timeUntilReset.inSeconds <= 0 && !_isProcessingReward) {
+        _checkAndDistributeRewards();
+      }
     });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _rewardCheckTimer?.cancel();
     super.dispose();
   }
 
-  // // রিওয়ার্ড ক্যালকুলেশন লজিক (প্রতি ১০ হাজার ডায়মন্ডে)
   int calculateReward(int points, int rank) {
-    int units = points ~/ 10000; // // প্রতি ১০ হাজার ইউনিট
+    int units = points ~/ 10000;
+    if (units <= 0) return 0;
     if (rank == 1) return units * 1000;
     if (rank == 2) return units * 600;
     if (rank == 3) return units * 400;
     return 0;
   }
 
+  Future<void> _checkAndDistributeRewards() async {
+    setState(() => _isProcessingReward = true);
+    final String todayKey = DateFormat('yyyy-MM-dd')
+        .format(DateTime.now().subtract(const Duration(days: 1)));
+    final systemRef = FirebaseFirestore.instance
+        .collection('system_control')
+        .doc('room_leaderboard_reset');
+
+    try {
+      final docSnap = await systemRef.get();
+      if (docSnap.exists && docSnap.data()?['lastResetDate'] == todayKey) {
+        return;
+      }
+
+      final topRoomsSnapshot = await FirebaseFirestore.instance
+          .collection('rooms')
+          .orderBy('dailyPoints', descending: true)
+          .get();
+
+      final activeRooms = topRoomsSnapshot.docs
+          .where((doc) {
+            final data = doc.data();
+            return (data['dailyPoints'] ?? 0) > 0;
+          })
+          .toList()
+          .take(3)
+          .toList();
+
+      if (activeRooms.isEmpty) return;
+
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (int i = 0; i < activeRooms.length; i++) {
+        final roomDoc = activeRooms[i];
+        final roomData = roomDoc.data();
+        final String roomId = roomDoc.id;
+        final String ownerId = roomData['ownerId'] ?? "";
+        final int points = roomData['dailyPoints'] ?? 0;
+        final int rank = i + 1;
+
+        final int totalRewardPool = calculateReward(points, rank);
+        if (totalRewardPool <= 0) continue;
+
+        if (ownerId.isNotEmpty) {
+          final ownerRef =
+              FirebaseFirestore.instance.collection('users').doc(ownerId);
+          batch.update(ownerRef, {
+            'diamonds': FieldValue.increment(totalRewardPool),
+            'vip_xp': FieldValue.increment(
+                totalRewardPool ~/ 10 > 0 ? totalRewardPool ~/ 10 : 1),
+          });
+
+          _sendOfficialNotification(batch, ownerId,
+              "🎉 অভিনন্দন! আপনার রুম '${roomData['roomName']}' দৈনিক লিডারবোর্ডে Rank $rank হয়েছে। আপনি পেয়েছেন $totalRewardPool ডায়মন্ড বোনাস!");
+        }
+
+        final topGiftersSnapshot = await FirebaseFirestore.instance
+            .collection('rooms')
+            .doc(roomId)
+            .collection('daily_gifters')
+            .orderBy('giftedAmount', descending: true)
+            .limit(3)
+            .get();
+
+        for (var gifterDoc in topGiftersSnapshot.docs) {
+          final String gifterId = gifterDoc.id;
+          if (gifterId.isNotEmpty) {
+            final gifterRef =
+                FirebaseFirestore.instance.collection('users').doc(gifterId);
+            batch.update(gifterRef, {
+              'diamonds': FieldValue.increment(totalRewardPool),
+              'vip_xp': FieldValue.increment(
+                  totalRewardPool ~/ 10 > 0 ? totalRewardPool ~/ 10 : 1),
+            });
+
+            _sendOfficialNotification(batch, gifterId,
+                "🎉 অভিনন্দন! আপনি '${roomData['roomName']}' রুমে টপ গিফটার হিসেবে অংশ নিয়ে Rank $rank এর রিওয়ার্ড $totalRewardPool ডায়মন্ড বোনাস পেয়েছেন!");
+          }
+        }
+      }
+
+      for (var doc in topRoomsSnapshot.docs) {
+        final data = doc.data();
+        if ((data['dailyPoints'] ?? 0) > 0) {
+          batch.update(doc.reference, {'dailyPoints': 0});
+          final gifters = await doc.reference.collection('daily_gifters').get();
+          for (var gDoc in gifters.docs) {
+            batch.delete(gDoc.reference);
+          }
+        }
+      }
+
+      batch.set(
+          systemRef, {'lastResetDate': todayKey}, SetOptions(merge: true));
+      await batch.commit();
+    } catch (e) {
+      debugPrint("❌ Reward distribution error: ${e.toString()}");
+    } finally {
+      _isProcessingReward = false;
+    }
+  }
+
+  void _sendOfficialNotification(
+      WriteBatch batch, String userId, String messageText) {
+    String chatId = "paglachat_official_$userId";
+    DocumentReference chatDocRef =
+        FirebaseFirestore.instance.collection('chats').doc(chatId);
+    DocumentReference msgRef = chatDocRef.collection('messages').doc();
+
+    batch.set(msgRef, {
+      'senderId': 'paglachat_official',
+      'receiverId': userId,
+      'text': messageText,
+      'timestamp': FieldValue.serverTimestamp(),
+      'isRead': false,
+      'type': 'system_msg'
+    });
+
+    batch.set(
+        chatDocRef,
+        {
+          'lastMessage': "🎉 Room Reward Received",
+          'lastTimestamp': FieldValue.serverTimestamp(),
+          'users': ['paglachat_official', userId],
+          'unReadCount': FieldValue.increment(1),
+        },
+        SetOptions(merge: true));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF070B28), // // প্রিমিয়াম ডার্ক ব্লু থিম
+      backgroundColor: const Color(0xFF070B28),
       appBar: AppBar(
         leading: const BackButton(color: Colors.white),
-        title: const Text("TOP ROOM WEEKLY", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+        title: const Text("TOP ROOM LIVE",
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.help_outline, color: Colors.amber))
-        ],
       ),
+      // 🔥 FutureBuilder পরিবর্তন করে StreamBuilder দেওয়া হলো যাতে রিয়ালটাইম ডাটা স্মুথলি আসে
       body: StreamBuilder<QuerySnapshot>(
-        // // গিফটিং পয়েন্টের ওপর ভিত্তি করে রিয়েল টাইম ডাটা আনা
-        stream: FirebaseFirestore.instance
-            .collection('rooms')
-            .orderBy('dailyPoints', descending: true)
-            .limit(20)
-            .snapshots(),
+        stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Text(
+                  "🔥 স্ক্রিন এরর মেসেজ:\n${snapshot.error}",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold),
+                ),
+              ),
+            );
+          }
 
-          var rooms = snapshot.data!.docs;
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+                child: CircularProgressIndicator(color: Colors.amber));
+          }
+
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(
+              child: Text(
+                "❌ ডাটাবেজে কোনো রুম খুঁজে পাওয়া যায়নি!",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white54, fontSize: 14),
+              ),
+            );
+          }
+
+          var allDocs = snapshot.data!.docs;
+
+          var rooms = allDocs.where((doc) {
+            var data = doc.data() as Map<String, dynamic>? ?? {};
+            int points = data['dailyPoints'] ?? 0;
+            return points > 0;
+          }).toList();
+
+          rooms.sort((a, b) {
+            int pointsA =
+                (a.data() as Map<String, dynamic>)['dailyPoints'] ?? 0;
+            int pointsB =
+                (b.data() as Map<String, dynamic>)['dailyPoints'] ?? 0;
+            return pointsB.compareTo(pointsA);
+          });
+
+          if (rooms.isEmpty) {
+            return Column(
+              children: [
+                const LiveHeaderTimer(), // কাউন্টডাউন টাইমার আলাদা উইজেট হিসেবে থাকবে
+                const Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.tv_off, color: Colors.white24, size: 48),
+                        SizedBox(height: 10),
+                        Text("বর্তমানে কোনো রুমে লাইভ গিফটিং হচ্ছে না",
+                            style:
+                                TextStyle(color: Colors.white38, fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
 
           return Column(
             children: [
-              // // ১. টপ ব্যানার ও কাউন্টডাউন
-              _buildHeaderTimer(),
-
-              // // ২. টপ উইনার বড় কার্ড (ডায়মন্ড বক্স ডিজাইন)
-              if (rooms.isNotEmpty) _buildTopWinnerCard(rooms[0], 1),
-
-              // // ৩. মেইন লিস্ট
+              const LiveHeaderTimer(), // 🔥 শুধু এই টাইমারটুকু প্রতি সেকেন্ডে রিফ্রেশ হবে
+              _buildTopWinnerCard(rooms[0], 1),
               Expanded(
-                child: ListView.builder(
-                  itemCount: rooms.length > 1 ? rooms.length - 1 : 0,
-                  itemBuilder: (context, index) {
-                    return _buildRoomTile(rooms[index + 1], index + 2);
-                  },
-                ),
+                child: rooms.length > 1
+                    ? ListView.builder(
+                        itemCount: rooms.length - 1,
+                        itemBuilder: (context, index) {
+                          return _buildRoomTile(rooms[index + 1], index + 2);
+                        },
+                      )
+                    : const Center(
+                        child: Text("অন্য কোনো রুমে গিফটিং একটিভ নেই",
+                            style: TextStyle(
+                                color: Colors.white24, fontSize: 12))),
               ),
             ],
           );
@@ -96,31 +290,15 @@ class _TopRoomLeaderboardState extends State<TopRoomLeaderboard> {
     );
   }
 
-  Widget _buildHeaderTimer() {
-    String formatDuration(Duration d) {
-      return "${d.inHours.toString().padLeft(2, '0')}H ${d.inMinutes.remainder(60).toString().padLeft(2, '0')}M ${d.inSeconds.remainder(60).toString().padLeft(2, '0')}S";
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.timer, color: Colors.amber, size: 18),
-          const SizedBox(width: 8),
-          Text(
-            "Ends in: ${formatDuration(_timeUntilReset)}",
-            style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildTopWinnerCard(DocumentSnapshot doc, int rank) {
     var data = doc.data() as Map<String, dynamic>;
     int points = data['dailyPoints'] ?? 0;
     int reward = calculateReward(points, rank);
+    String roomId = doc.id;
+    String ownerPhoto = data['ownerPic'] ?? data['ownerImage'] ?? "";
+
+    // 🔥 ফ্রেমের লিংকটি আলাদা ভেরিয়েবলে নেওয়া হলো
+    String frameUrl = data['ownerFrame'] ?? "";
 
     return Container(
       margin: const EdgeInsets.all(15),
@@ -132,34 +310,77 @@ class _TopRoomLeaderboardState extends State<TopRoomLeaderboard> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 15)],
+        boxShadow: [
+          BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 15)
+        ],
       ),
       child: Stack(
         children: [
-          // // ডায়মন্ড বক্স এনিমেশন ব্যাকগ্রাউন্ড (ছবি কল্পনা করে)
           Positioned(
-            right: -10, bottom: -10,
+            right: -10,
+            bottom: -10,
             child: Opacity(
               opacity: 0.5,
-              child: Image.network("https://cdn-icons-png.flaticon.com/512/8146/8146003.png", width: 120), // // ডায়মন্ড বক্স আইকন
+              child: Image.network(
+                  "https://cdn-icons-png.flaticon.com/512/8146/8146003.png",
+                  width: 120,
+                  errorBuilder: (c, e, s) => const SizedBox()),
             ),
           ),
           Padding(
             padding: const EdgeInsets.all(15.0),
             child: Row(
               children: [
-                // // রুম মালিকের ছবি + ফ্রেম
                 Stack(
                   alignment: Alignment.center,
                   children: [
-                    CircleAvatar(radius: 40, backgroundImage: NetworkImage(data['ownerImage'] ?? "")),
-                    if (data['ownerFrame'] != null)
-                      Image.network(data['ownerFrame'], width: 100, height: 100),
-                    Positioned(bottom: 0, child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
-                      child: const Text("TOP 1", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                    ))
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundColor: Colors.white24,
+                      backgroundImage: ownerPhoto.isNotEmpty
+                          ? NetworkImage(ownerPhoto)
+                          : null,
+                      child: ownerPhoto.isEmpty
+                          ? const Icon(Icons.person, color: Colors.white)
+                          : null,
+                    ),
+
+                    // 🔥 ফ্রেমের সাইজ কমানো/বাড়ানো এবং JSON চেনার মেইন লজিক এখানে:
+                    if (frameUrl.isNotEmpty)
+                      frameUrl.toLowerCase().endsWith('.json')
+                          ? Lottie.network(
+                              frameUrl,
+                              width:
+                                  137, // 👈 লটি ফ্রেম বড় করতে চাইলে ১১০ বাড়ান, কমাতে চাইলে কমান
+                              height:
+                                  137, // 👈 লটি ফ্রেম বড় করতে চাইলে ১১০ বাড়ান, কমাতে চাইলে কমান
+                              fit: BoxFit.cover,
+                              errorBuilder: (c, e, s) => const SizedBox(),
+                            )
+                          : Image.network(
+                              frameUrl,
+                              width:
+                                  137, // 👈 ইমেজ ফ্রেম বড় করতে চাইলে ১০০ বাড়ান, কমাতে চাইলে কমান
+                              height:
+                                  137, // 👈 ইমেজ ফ্রেম বড় করতে চাইলে ১০০ বাড়ান, কমাতে চাইলে কমান
+                              fit: BoxFit.cover,
+                              errorBuilder: (c, e, s) => const SizedBox(),
+                            ),
+
+                    Positioned(
+                        bottom: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(10)),
+                          child: const Text("TOP 1",
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold)),
+                        ))
                   ],
                 ),
                 const SizedBox(width: 15),
@@ -168,13 +389,34 @@ class _TopRoomLeaderboardState extends State<TopRoomLeaderboard> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(data['roomName'] ?? "", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF3E2723))),
-                      Text("Owner: ${data['ownerName']}", style: const TextStyle(fontSize: 13, color: Color(0xFF5D4037))),
-                      const SizedBox(height: 10),
+                      Text(data['roomName'] ?? "PaglaChat Room",
+                          style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF3E2723)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                      Text("ID: $roomId",
+                          style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF5D4037),
+                              fontWeight: FontWeight.w600)),
+                      Text("Owner: ${data['ownerName'] ?? 'Unknown'}",
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFF5D4037)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 5),
                       Container(
                         padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(8)),
-                        child: Text("💎 Est. Reward: $reward", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                        decoration: BoxDecoration(
+                            color: Colors.black26,
+                            borderRadius: BorderRadius.circular(8)),
+                        child: Text("💎 Est. Reward: $reward",
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11)),
                       )
                     ],
                   ),
@@ -182,8 +424,14 @@ class _TopRoomLeaderboardState extends State<TopRoomLeaderboard> {
                 Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.local_fire_department, color: Colors.red),
-                    Text("${(points / 1000).toStringAsFixed(1)}k", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const Icon(Icons.diamond,
+                        color: Color(0xFF3E2723), size: 24),
+                    const SizedBox(height: 4),
+                    Text("$points",
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: Color(0xFF3E2723))),
                   ],
                 )
               ],
@@ -198,6 +446,11 @@ class _TopRoomLeaderboardState extends State<TopRoomLeaderboard> {
     var data = doc.data() as Map<String, dynamic>;
     int points = data['dailyPoints'] ?? 0;
     int reward = calculateReward(points, rank);
+    String roomId = doc.id;
+    String ownerPhoto = data['ownerPic'] ?? data['ownerImage'] ?? "";
+
+    // 🔥 ফ্রেমের লিংকটি আলাদা ভেরিয়েবলে নেওয়া হলো
+    String frameUrl = data['ownerFrame'] ?? "";
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
@@ -205,18 +458,51 @@ class _TopRoomLeaderboardState extends State<TopRoomLeaderboard> {
       decoration: BoxDecoration(
         color: const Color(0xFF161B40),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: rank <= 3 ? Colors.amber.withOpacity(0.5) : Colors.white10),
+        border: Border.all(
+            color: rank <= 3 ? Colors.amber.withOpacity(0.5) : Colors.white10),
       ),
       child: Row(
         children: [
-          Text("$rank", style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, fontSize: 16)),
+          Text("$rank",
+              style: const TextStyle(
+                  color: Colors.white54,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15)),
           const SizedBox(width: 15),
           Stack(
             alignment: Alignment.center,
             children: [
-              CircleAvatar(radius: 25, backgroundImage: NetworkImage(data['ownerImage'] ?? "")),
-              if (data['ownerFrame'] != null)
-                Image.network(data['ownerFrame'], width: 65, height: 65),
+              CircleAvatar(
+                radius: 25,
+                backgroundColor: Colors.white12,
+                backgroundImage:
+                    ownerPhoto.isNotEmpty ? NetworkImage(ownerPhoto) : null,
+                child: ownerPhoto.isEmpty
+                    ? const Icon(Icons.person, color: Colors.white30)
+                    : null,
+              ),
+
+              // 🔥 লিস্টের ভেতরের ফ্রেমের সাইজ কমানো/বাড়ানো এবং JSON চেনার মেইন লজিক এখানে:
+              if (frameUrl.isNotEmpty)
+                frameUrl.toLowerCase().endsWith('.json')
+                    ? Lottie.network(
+                        frameUrl,
+                        width:
+                            85, // 👈 লটি ফ্রেম বড়/ছোট করতে চাইলে এই সংখ্যাটি পরিবর্তন করবেন
+                        height:
+                            85, // 👈 লটি ফ্রেম বড়/ছোট করতে চাইলে এই সংখ্যাটি পরিবর্তন করবেন
+                        fit: BoxFit.cover,
+                        errorBuilder: (c, e, s) => const SizedBox(),
+                      )
+                    : Image.network(
+                        frameUrl,
+                        width:
+                            85, // 👈 ইমেজ ফ্রেম বড়/ছোট করতে চাইলে এই সংখ্যাটি পরিবর্তন করবেন
+                        height:
+                            85, // 👈 ইমেজ ফ্রেম বড়/ছোট করতে চাইলে এই সংখ্যাটি পরিবর্তন করবেন
+                        fit: BoxFit.cover,
+                        errorBuilder: (c, e, s) => const SizedBox(),
+                      ),
             ],
           ),
           const SizedBox(width: 12),
@@ -224,8 +510,18 @@ class _TopRoomLeaderboardState extends State<TopRoomLeaderboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(data['roomName'] ?? "", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                Text(data['ownerName'] ?? "", style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                Text(data['roomName'] ?? "PaglaChat Room",
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                Text("ID: $roomId",
+                    style:
+                        const TextStyle(color: Colors.white38, fontSize: 10)),
+                Text(data['ownerName'] ?? "Unknown Owner",
+                    style: const TextStyle(color: Colors.white38, fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -236,13 +532,79 @@ class _TopRoomLeaderboardState extends State<TopRoomLeaderboard> {
                 children: [
                   const Icon(Icons.diamond, color: Colors.blueAccent, size: 14),
                   const SizedBox(width: 4),
-                  Text("${(points / 1000).toStringAsFixed(1)}k", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  Text("$points",
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
                 ],
               ),
-              if (rank <= 3)
-                Text("+$reward Reward", style: const TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+              if (rank <= 3 && reward > 0)
+                Text("+$reward Reward",
+                    style: const TextStyle(
+                        color: Colors.greenAccent,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold)),
             ],
           )
+        ],
+      ),
+    );
+  }
+}
+
+// 🔥 কাউন্টডাউন টাইমার উইজেট সম্পূর্ণ আলাদা করা হলো যাতে পুরো বডি রিফ্রেশ না হয়
+class LiveHeaderTimer extends StatefulWidget {
+  const LiveHeaderTimer({super.key});
+
+  @override
+  State<LiveHeaderTimer> createState() => _LiveHeaderTimerState();
+}
+
+class _LiveHeaderTimerState extends State<LiveHeaderTimer> {
+  Duration _timeUntilReset = Duration.zero;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+  }
+
+  void _startCountdown() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      final now = DateTime.now();
+      final tomorrow = DateTime(now.year, now.month, now.day + 1);
+      if (mounted) {
+        setState(() {
+          _timeUntilReset = tomorrow.difference(now);
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    String formatDuration(Duration d) {
+      return "${d.inHours.toString().padLeft(2, '0')}H ${d.inMinutes.remainder(60).toString().padLeft(2, '0')}M ${d.inSeconds.remainder(60).toString().padLeft(2, '0')}S";
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.timer, color: Colors.amber, size: 18),
+          const SizedBox(width: 8),
+          Text(
+            "Resets in: ${formatDuration(_timeUntilReset)}",
+            style: const TextStyle(
+                color: Colors.amber, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );

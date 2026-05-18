@@ -2630,161 +2630,202 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-// ✅ ৩. প্রিয়জন (Soulmate) ৬ স্লট লজিক
-  Widget _buildSoulmateSection() {
-    final String currentId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    // গিটহাবের সেই সঠিক পারমানেন্ট লিঙ্ক
-    const String soulmateCardUrl =
-        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/soulmatecard.png";
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          child: Text("প্রিয়জন (Soulmates)",
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold)),
-        ),
-        StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('soulmates')
-              .where('ownerId', isEqualTo: currentId)
-              .limit(6)
-              .snapshots(),
-          builder: (context, snapshot) {
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, // ২টা করে সারিতে থাকবে
-                childAspectRatio: 0.82,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: 6, // সবসময় ৬টি ঘর
-              itemBuilder: (context, index) {
-                var dataDoc =
-                    (snapshot.hasData && snapshot.data!.docs.length > index)
-                        ? snapshot.data!.docs[index]
-                        : null;
-                var data = dataDoc?.data() as Map<String, dynamic>?;
+// ✅ ৩. প্রিয়জন (Soulmate) ৬ স্লট মেইন উইজেট
+Widget _buildSoulmateSection() {
+  final String currentId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  // গিটহাবের সেই সঠিক পারমানেন্ট লিঙ্ক
+  const String soulmateCardUrl =
+      "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/soulmatecard.png";
 
-                return GestureDetector(
-                  onLongPress: dataDoc != null
-                      ? () => _showBreakupDialog(data!['partnerId'])
-                      : null,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
-                      image: const DecorationImage(
-                        image: NetworkImage(soulmateCardUrl),
-                        fit: BoxFit.fill,
-                      ),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                child: Text("প্রিয়জন (Soulmates)",
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold)),
+      ),
+      StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('soulmates')
+            .where('ownerId', isEqualTo: currentId)
+            .limit(6)
+            .snapshots(),
+        builder: (context, snapshot) {
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 15),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2, // ২টা করে সারিতে থাকবে
+              childAspectRatio: 0.82,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: 6, // সবসময় ৬টি ঘর থাকবে
+            itemBuilder: (context, index) {
+              var dataDoc =
+                  (snapshot.hasData && snapshot.data!.docs.length > index)
+                      ? snapshot.data!.docs[index]
+                      : null;
+              var data = dataDoc?.data() as Map<String, dynamic>?;
+
+              return GestureDetector(
+                onLongPress: dataDoc != null
+                    ? () => _showBreakupDialog(data!['partnerId'])
+                    : null,
+                child: Container(
+                  // ব্যাকগ্রাউন্ড হিসেবে আপনার দেওয়া লিংক ডিজাইনটি সেট করা হলো
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    image: const DecorationImage(
+                      image: NetworkImage(soulmateCardUrl),
+                      fit: BoxFit.fill,
                     ),
-                    child: data != null
-                        ? _buildFilledSoulmate(data)
-                        : _buildEmptySoulmate(),
                   ),
-                );
-              },
-            );
-          },
+                  // এই কনটেইনারের ভেতরে পার্টনারের প্রোফাইল ও নাম ব্যাকগ্রাউন্ডের উপরে ভেসে উঠবে
+                  child: data != null
+                      ? _buildFilledSoulmate(data)
+                      : _buildEmptySoulmate(),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      const SizedBox(height: 20),
+    ],
+  );
+}
+
+// 🔥 কার্ড যখন একটিভ (ব্যাকগ্রাউন্ড লিংকের উপরে ছবি, নাম ও লেভেল শো করার জন্য সম্পূর্ণ উইজেট)
+Widget _buildFilledSoulmate(Map<String, dynamic> data) {
+  // লেভেল লজিক: প্রতি ৫০০০ ডাইমন্ডে ১ লেভেল (ম্যাক্স ৫০)
+  int totalGift = data['totalGift'] ?? 0;
+  int level = (totalGift / 5000).floor().clamp(1, 50);
+
+  return Column(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      // ১. কার্ডের ভেতরের উপরের ডানদিকের লেভেল ব্যাজ
+      Align(
+        alignment: Alignment.topRight,
+        child: Container(
+          margin: const EdgeInsets.only(right: 12, top: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.redAccent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            "Lv.$level",
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
-        const SizedBox(height: 20),
-      ],
-    );
-  }
+      ),
+      
+      const Spacer(),
+      
+      // ২. পার্টনারের গোল প্রোফাইল ছবি (গোল্ডেন বর্ডার সহ ব্যাকগ্রাউন্ডের উপর সেট)
+      Container(
+        width: 62,
+        height: 62,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.amber, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 5,
+              spreadRadius: 1,
+            )
+          ],
+          image: DecorationImage(
+            image: NetworkImage(data['partnerImage'] ?? ""),
+            fit: BoxFit.cover,
+          ),
+        ),
+      ),
+      
+      const SizedBox(height: 8),
+      
+      // ৩. পার্টনারের নাম (ডিজাইনের ওপর পরিষ্কার দেখার জন্য শ্যাডো ও বোল্ড করা হয়েছে)
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Text(
+          data['partnerName'] ?? "Unknown",
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(
+                color: Colors.black87,
+                offset: Offset(1, 1),
+                blurRadius: 2,
+              ),
+            ],
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      
+      const SizedBox(height: 6),
+      
+      // ৪. সোলমেট ট্যাগ
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white24, width: 0.5),
+        ),
+        child: const Text(
+          "Soulmate",
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 8,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      
+      const SizedBox(height: 15),
+    ],
+  );
+}
 
-// কার্ড যখন এক্টিভ (ছবি ও লেভেল সহ)
-  Widget _buildFilledSoulmate(Map<String, dynamic> data) {
-    // লেভেল লজিক: প্রতি ৫০০০ ডাইমন্ডে ১ লেভেল (ম্যাক্স ৫০)
-    int totalGift = data['totalGift'] ?? 0;
-    int level = (totalGift / 5000).floor().clamp(1, 50);
-
-    return Column(
+// 🔒 কার্ড যখন খালি থাকবে (লক আইকন শো করবে)
+Widget _buildEmptySoulmate() {
+  return Center(
+    child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // উপরের লেভেল ব্যাজ
-        Align(
-          alignment: Alignment.topRight,
-          child: Container(
-            margin: const EdgeInsets.only(right: 8, top: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.redAccent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text("Lv.$level",
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold)),
-          ),
-        ),
-        const Spacer(),
-        // পার্টনারের ছবি
-        Container(
-          width: 58,
-          height: 58,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.amber, width: 2),
-            image: DecorationImage(
-              image: NetworkImage(data['partnerImage'] ?? ""),
-              fit: BoxFit.cover,
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        // নাম
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Text(
-            data['partnerName'] ?? "Unknown",
-            style: const TextStyle(
-                color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+        Icon(
+          Icons.lock_outline,
+          color: Colors.white.withOpacity(0.25),
+          size: 28,
         ),
         const SizedBox(height: 4),
-        // সোলমেট ট্যাগ
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.8),
-              borderRadius: BorderRadius.circular(10)),
-          child: const Text("Soulmate",
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold)),
+        Icon(
+          Icons.add,
+          color: Colors.white.withOpacity(0.2),
+          size: 18,
         ),
-        const SizedBox(height: 12),
       ],
-    );
-  }
-
-// কার্ড যখন খালি (Lock আইকন)
-  Widget _buildEmptySoulmate() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.lock_outline,
-              color: Colors.white.withOpacity(0.2), size: 30),
-          const SizedBox(height: 4),
-          const Icon(Icons.add, color: Colors.white24, size: 20),
-        ],
-      ),
-    );
-  }
-
+    ),
+  );
+}
 // ✅ ৪. রিলেশনশিপ ব্রেকআপ ডায়ালগ (১০০০ ডায়মন্ড লজিক)
   void _showBreakupDialog(String partnerId) {
     showDialog(

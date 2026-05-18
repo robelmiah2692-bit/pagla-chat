@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.pagla_chat"
+    namespace = "com.pagla.chat"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -25,32 +25,47 @@ android {
         }
     }
 
+    // 🎯 হৃদয় ভাই, আপনার নতুন চাবির কনফিগারেশন এখানে সেট করা হলো
+    signingConfigs {
+        create("release") {
+            storeFile = file("upload-keystore.jks") 
+            storePassword = "pagla1234"
+            keyAlias = "pagla-upload"
+            keyPassword = "pagla1234"
+        }
+    }
+
     defaultConfig {
-        applicationId = "com.example.pagla_chat"
-        // যদি notifications এ সমস্যা করে তবে সরাসরি ২১ লিখে দিতে পারেন
+        applicationId = "com.pagla.chat"
         minSdk = flutter.minSdkVersion 
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        
+        // 🎯 গুগল প্লে কনসোলের এরর ফিক্স করার জন্য নতুন নম্বর দেওয়া হলো
+        versionCode = 6
+        versionName = "1.0.2"
         
         multiDexEnabled = true
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            // 🎯 এখানে আপনার আসল চাবি "release" কানেক্ট করে দেওয়া হলো
+            signingConfig = signingConfigs.getByName("release")
+            
+            // 🎯 কোটলিন ফাইলের সঠিক নিয়ম অনুযায়ী সেফটি লক অন করা হলো
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
 
-// সাব-প্রোজেক্টগুলোর (যেমন gallery_saver) JVM Target কনফ্লিক্ট মেটানোর জন্য
+// সাব-প্রোজেক্টগুলোর (যেমন gallery_saver) JVM Target কনф্লিক্ট মেটানোর জন্য
 subprojects {
     afterEvaluate {
         if (project.hasProperty("android")) {
             project.tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
                 compilerOptions {
                     jvmTarget.set(JvmTarget.JVM_1_8)
-                    // প্লাগইনগুলোকে জোর করে ১.৮ এ নামিয়ে আনার কমান্ড
                     freeCompilerArgs.add("-Xjdk-release=1.8")
                 }
             }
@@ -69,6 +84,5 @@ flutter {
 }
 
 dependencies {
-    // এই লাইব্রেরিটি Java 8+ এর নতুন ফিচারগুলো সাপোর্ট করতে সাহায্য করে
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

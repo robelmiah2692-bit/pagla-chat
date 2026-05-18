@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class GiftLogicHelper {
-  
   // ১. ডায়মন্ড ভাগাভাগি লজিক (৪০% রিসিভার, ১০% রুম ওনার)
   static Map<String, int> calculateSplit(int totalPrice) {
     return {
@@ -24,12 +23,13 @@ class GiftLogicHelper {
     final int unitPrice = (gift['price'] ?? 0) as int;
     final int totalPrice = unitPrice * count;
     final Map<String, int> split = calculateSplit(totalPrice);
-    
+
     WriteBatch batch = FirebaseFirestore.instance.batch();
 
     // ক. সেন্ডারের একাউন্ট আপডেট (ডায়মন্ড কাটা + মোট খরচ বাড়ানো)
     if (unitPrice > 0) {
-      DocumentReference senderRef = FirebaseFirestore.instance.collection('users').doc(senderAuthId);
+      DocumentReference senderRef =
+          FirebaseFirestore.instance.collection('users').doc(senderAuthId);
       batch.update(senderRef, {
         'diamonds': FieldValue.increment(-totalPrice),
         'totalSpent': FieldValue.increment(totalPrice),
@@ -37,8 +37,9 @@ class GiftLogicHelper {
     }
 
     // খ. রুমের তথ্য আপডেট (লাস্ট গিফট ব্যানার এবং টোটাল ডায়মন্ড)
-    DocumentReference roomRef = FirebaseFirestore.instance.collection('rooms').doc(roomId);
-    
+    DocumentReference roomRef =
+        FirebaseFirestore.instance.collection('rooms').doc(roomId);
+
     Map<String, dynamic> giftBanner = {
       'id': gift['id'],
       'name': gift['name'],
@@ -58,7 +59,8 @@ class GiftLogicHelper {
 
     // গ. রিসিভারের একাউন্টে ৪০% যোগ করা
     if (targetAuthId != 'All Room' && targetAuthId != 'All Mic') {
-      DocumentReference targetRef = FirebaseFirestore.instance.collection('users').doc(targetAuthId);
+      DocumentReference targetRef =
+          FirebaseFirestore.instance.collection('users').doc(targetAuthId);
       int userAmount = split['userShare'] ?? 0;
       batch.update(targetRef, {
         'diamonds': FieldValue.increment(userAmount),
@@ -67,8 +69,11 @@ class GiftLogicHelper {
     }
 
     // ঘ. রুম ওনারের একাউন্টে ১০% যোগ করা
-    if (roomOwnerAuthId != null && roomOwnerAuthId.isNotEmpty && unitPrice > 0) {
-      DocumentReference ownerRef = FirebaseFirestore.instance.collection('users').doc(roomOwnerAuthId);
+    if (roomOwnerAuthId != null &&
+        roomOwnerAuthId.isNotEmpty &&
+        unitPrice > 0) {
+      DocumentReference ownerRef =
+          FirebaseFirestore.instance.collection('users').doc(roomOwnerAuthId);
       int ownerAmount = split['ownerShare'] ?? 0;
       batch.update(ownerRef, {'diamonds': FieldValue.increment(ownerAmount)});
     }
@@ -76,12 +81,20 @@ class GiftLogicHelper {
     // ট্রানজেকশন সম্পন্ন করা
     await batch.commit();
 
-    // 🔴 ঙ. সোলমেট রিকোয়েস্ট তৈরি (যদি গিফটটি সোলমেট কার্ড হয়)
+    // 🔴 ঙ. সোলমেট রিকোয়েস্ট তৈরি (যদি গিফটটি সোলমেট কার্ড হয়)
     if (gift['id'] == 'soulmate_special') {
-      await FirebaseFirestore.instance.collection('soulmate_requests').doc(targetAuthId).set({
+      await FirebaseFirestore.instance
+          .collection('soulmate_requests')
+          .doc(targetAuthId)
+          .set({
         'fromId': senderAuthId,
         'fromName': senderName,
-        'fromImg': gift['image'] ?? gift['profilePic'] ?? '', 
+        // 🔥 লাল দাগ দূর করতে 'senderPic ??' কেটে শুধু নিচেরগুলো রাখা হলো
+        'fromImg': gift['senderImage'] ??
+            gift['senderPic'] ??
+            gift['image'] ??
+            gift['profilePic'] ??
+            '',
         'timestamp': FieldValue.serverTimestamp(),
         'status': 'pending',
       });
@@ -92,20 +105,20 @@ class GiftLogicHelper {
   // ৩. সিটে থাকা ইউজারদের ফিল্টার (সংশোধিত ভার্সন - ১৫ বার আইডি আসা বন্ধ করবে)
   static List<Map<String, dynamic>> getAllMicUsers(List<dynamic> currentSeats) {
     List<Map<String, dynamic>> micUsers = [];
-    
+
     for (var seat in currentSeats) {
-      if (seat != null && 
-          seat['isOccupied'] == true && 
-          seat['uID'] != null && 
-          seat['uID'].toString() != "0" && 
+      if (seat != null &&
+          seat['isOccupied'] == true &&
+          seat['uID'] != null &&
+          seat['uID'].toString() != "0" &&
           seat['uID'].toString().isNotEmpty) {
-        
-        String longID = seat['authUID']?.toString() ?? seat['uID_long']?.toString() ?? "";
+        String longID =
+            seat['authUID']?.toString() ?? seat['uID_long']?.toString() ?? "";
         String shortID = seat['uID']?.toString() ?? "0";
 
         micUsers.add({
-          'authUID': longID,       
-          'displayID': shortID,    
+          'authUID': longID,
+          'displayID': shortID,
           'name': seat['name'] ?? seat['userName'] ?? 'Unknown',
           'photoUrl': seat['profilePic'] ?? seat['userImage'] ?? '',
         });
@@ -124,14 +137,18 @@ class GiftLogicHelper {
       width: double.infinity,
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Colors.deepPurple, Colors.pink]),
+        gradient:
+            const LinearGradient(colors: [Colors.deepPurple, Colors.pink]),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text("🌟 TOP CHARMING 🌟", 
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text("🌟 TOP CHARMING 🌟",
+              style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16)),
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -139,20 +156,31 @@ class GiftLogicHelper {
               _bannerUserCircle(bannerData['senderName'] ?? "User", "SENDER"),
               Column(
                 children: [
-                  Image.network(bannerData['image'] ?? "", width: 50, height: 50, 
-                    errorBuilder: (c, e, s) => const Icon(Icons.card_giftcard, color: Colors.white)),
-                  Text("x${bannerData['count']}", 
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  Image.network(bannerData['image'] ?? "",
+                      width: 50,
+                      height: 50,
+                      errorBuilder: (c, e, s) =>
+                          const Icon(Icons.card_giftcard, color: Colors.white)),
+                  Text("x${bannerData['count']}",
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold)),
                 ],
               ),
-              _bannerUserCircle(bannerData['targetAuthId'].toString() == "All Room" ? "Room" : "Receiver", "TARGET"),
+              _bannerUserCircle(
+                  bannerData['targetAuthId'].toString() == "All Room"
+                      ? "Room"
+                      : "Receiver",
+                  "TARGET"),
             ],
           ),
           const SizedBox(height: 10),
           TextButton.icon(
             onPressed: onShare,
             icon: const Icon(Icons.share, color: Colors.white, size: 16),
-            label: const Text("Share to Story", style: TextStyle(color: Colors.white)),
+            label: const Text("Share to Story",
+                style: TextStyle(color: Colors.white)),
           )
         ],
       ),
@@ -162,9 +190,14 @@ class GiftLogicHelper {
   static Widget _bannerUserCircle(String name, String label) {
     return Column(
       children: [
-        const CircleAvatar(radius: 20, backgroundColor: Colors.white24, child: Icon(Icons.person, color: Colors.white)),
+        const CircleAvatar(
+            radius: 20,
+            backgroundColor: Colors.white24,
+            child: Icon(Icons.person, color: Colors.white)),
         const SizedBox(height: 5),
-        Text(name, style: const TextStyle(color: Colors.white, fontSize: 11), overflow: TextOverflow.ellipsis),
+        Text(name,
+            style: const TextStyle(color: Colors.white, fontSize: 11),
+            overflow: TextOverflow.ellipsis),
         Text(label, style: const TextStyle(color: Colors.white54, fontSize: 8)),
       ],
     );
@@ -179,7 +212,8 @@ class GiftLogicHelper {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return ListView.builder(
           shrinkWrap: true,
@@ -188,12 +222,17 @@ class GiftLogicHelper {
             final user = micUsers[index];
             return ListTile(
               leading: CircleAvatar(
-                backgroundImage: user['photoUrl'].toString().isNotEmpty 
-                    ? NetworkImage(user['photoUrl']) : null,
-                child: user['photoUrl'].toString().isEmpty ? const Icon(Icons.person) : null,
+                backgroundImage: user['photoUrl'].toString().isNotEmpty
+                    ? NetworkImage(user['photoUrl'])
+                    : null,
+                child: user['photoUrl'].toString().isEmpty
+                    ? const Icon(Icons.person)
+                    : null,
               ),
-              title: Text(user['name'], style: const TextStyle(color: Colors.white)),
-              subtitle: Text("User ID: ${user['displayID']}", style: const TextStyle(color: Colors.white54, fontSize: 10)),
+              title: Text(user['name'],
+                  style: const TextStyle(color: Colors.white)),
+              subtitle: Text("User ID: ${user['displayID']}",
+                  style: const TextStyle(color: Colors.white54, fontSize: 10)),
               onTap: () {
                 onSelected(user['authUID'], user['name']);
                 Navigator.pop(context);
