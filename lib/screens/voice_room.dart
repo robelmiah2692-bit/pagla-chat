@@ -20,6 +20,7 @@ import 'package:pagla_chat/room_list_page.dart' show RoomListPage;
 import 'package:pagla_chat/room_manager.dart';
 import 'package:pagla_chat/services/floating_bubble_service.dart';
 import 'package:pagla_chat/services/gift_service.dart';
+import 'package:pagla_chat/services/marriage_service.dart';
 
 import 'package:pagla_chat/widgets/entry_effect_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -151,6 +152,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String targetType = "";
   String currentSenderName = "";
   String currentReceiverName = "";
+  StreamSubscription<DocumentSnapshot>? _marriageListener;
   StreamSubscription? _soulmateListener;
   StreamSubscription? _seatSubscription;
   StreamSubscription? _emojiSubscription;
@@ -161,6 +163,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     super.initState();
     WakelockPlus.enable(); // স্ক্রিন যাতে অফ না হয়
     listenForSoulmateRequests();
+    listenForMarriageRequests();
     // --- ১. মিনিমাইজড ডাটা রিকভারি লজিক ---
     if (FloatingBubbleService.isMinimized) {
       // যদি বাবল থেকে রুমে ফিরে আসে, তবে ম্যানেজার থেকে আগের ডাটা নিন
@@ -189,7 +192,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     });
 
     _initEmojiListener();
-     
+
     // ৩. এন্ট্রি লজিক (বাবল থেকে ফিরলে এগুলো কল হবে না)
     if (!FloatingBubbleService.isMinimized) {
       _addUserToViewers();
@@ -550,48 +553,191 @@ class _VoiceRoomState extends State<VoiceRoom> {
     });
   }
 
+// 🟢 ১. সোলমেট রিকোয়েস্ট লিসেনার ফাংশন (কোনো লুপ ছাড়া, একদম সেফ)
+  void listenForSoulmateRequests() {
+    final String authUID = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (authUID.isEmpty) return;
 
+    // 🔥 সমাধান: শুরুতে লুপ না চালিয়ে সরাসরি authUID দিয়ে ফায়ারস্টোরে নজর রাখা শুরু করবে।
+    // এর ফলে রুমে ঢোকার সময় seats খালি থাকলেও অ্যাপ বিন্দুমাত্র ক্র্যাশ করবে না!
+    _soulmateListener = FirebaseFirestore.instance
+        .collection('soulmate_requests')
+        .doc(authUID) // সরাসরি ফায়ারবেস UID দিয়ে লিসেন করবে
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.exists && snapshot.data() != null) {
+        var data = snapshot.data() as Map<String, dynamic>;
 
+        if (data['status'] == 'pending') {
+          // স্ক্রিনে পপ-আপ ডায়ালগ শো করা
+          _showSoulmateRequestDialog(data);
+        }
+      }
+    });
+  }
 
-// 🟢 ১. সোলমেট রিকোয়েস্ট লিসেনার ফাংশন
-void listenForSoulmateRequests() {
-  final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-  if (currentUserId.isEmpty) return;
+// 🟢 ২. সোলমেট রিকোয়েস্ট পপ-আপ ডায়ালগ (আইডি জটলা মুক্ত ফিক্সড কোড)
+  void _showSoulmateRequestDialog(Map<String, dynamic> requestData) async {
+    final String authUID = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-  // আমার আইডিতে কোনো রিকোয়েস্ট আসলে তা রিয়েল-টাইম লিসেন করবে
-  _soulmateListener = FirebaseFirestore.instance
-      .collection('soulmate_requests')
-      .doc(currentUserId)
-      .snapshots()
-      .listen((snapshot) {
-    if (snapshot.exists && snapshot.data() != null) {
-      var data = snapshot.data() as Map<String, dynamic>;
-      
-      if (data['status'] == 'pending') {
-        // স্ক্রিনে পপ-আপ ডায়ালগ শো করা
-        _showSoulmateRequestDialog(data);
+    String myName = "User";
+    String myImg = "";
+    String myId =
+        authUID; // ব্যাকআপ ৬ ডিজিটের আইডি না পাওয়া গেলে লম্বা আইডিই থাকবে
+
+    // রুমে থাকা সিট লিস্ট থেকে নিজের ৬ ডিজিটের uID খুঁজে বের করা
+    if (seats.isNotEmpty) {
+      for (var seat in seats) {
+        if (seat["userId"] == authUID || seat["authUID"] == authUID) {
+          myName = seat["userName"] ?? "User";
+          myImg = seat["userImage"] ?? "";
+          if (seat["uID"] != null && seat["uID"].toString().isNotEmpty) {
+            myId = seat["uID"].toString(); // সফলভাবে ৬ ডিজিটের uID পেলাম
+          }
+          break;
+        }
       }
     }
-  });
-}
 
-// 🟢 ২. সোলমেট রিকোয়েস্ট পপ-আপ ডায়ালগ
-void _showSoulmateRequestDialog(Map<String, dynamic> requestData) {
-  final String myId = FirebaseAuth.instance.currentUser?.uid ?? '';
-  
-  // 🔥 সমাধান: সিট লিস্ট (seats) থেকে লুপ চালিয়ে আপনার নিজের সিটের রিয়েল নাম ও ছবি খুঁজে বের করা হচ্ছে
+    if (myName == "User" || myName.isEmpty) {
+      myName = FirebaseAuth.instance.currentUser?.displayName ?? "User";
+      myImg = FirebaseAuth.instance.currentUser?.photoURL ?? "";
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E2F),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.favorite, color: Colors.pinkAccent),
+            SizedBox(width: 10),
+            Text("Soulmate Request!",
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 40,
+              backgroundImage: NetworkImage(requestData['fromImg'] ?? ''),
+              backgroundColor: Colors.white12,
+              child: (requestData['fromImg'] == null ||
+                      requestData['fromImg'].toString().isEmpty)
+                  ? const Icon(Icons.person, color: Colors.white)
+                  : null,
+            ),
+            const SizedBox(height: 15),
+            Text(
+              "${requestData['fromName']} wants to be your Soulmate! 💕",
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ],
+        ),
+        actionsAlignment: MainAxisAlignment.spaceEvenly,
+        actions: [
+          // 🔴 রিজেক্ট বাটন
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[800]),
+            onPressed: () async {
+              Navigator.pop(context);
+              // 🔥 ফিক্স: ডিলিট করার জন্য অবশ্যই নিজের লম্বা authUID পাস করতে হবে
+              await GiftService().rejectSoulmateRequest(authUID);
+            },
+            child: const Text("Reject", style: TextStyle(color: Colors.white)),
+          ),
+          // 🟢 এক্সেপ্ট বাটন
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
+            onPressed: () async {
+              Navigator.pop(context);
+
+              // 🔥 ফিক্স: এক্সেপ্ট মেথডটি যেন ৬ ডিজিটের uID দিয়ে ফায়ারস্টোরে প্রোফাইল ম্যাচ করতে পারে,
+              // কিন্তু কালেকশনের ডকুমেন্ট ডিলিটের সময় যেন ভুল না হয়, তাই myId এর জায়গায় 'authUID' হ্যান্ডেল করতে হবে।
+              // তবে আপনার GiftService-এর ভেতর ডিলিট লজিক 'myId' দিয়ে করা। তাই আমরা 'myId' হিসেবে 'authUID' পাস করব
+              // অথবা GiftService-এর ৫ নম্বর ডিলিট লাইনে requestRef-এর ভেতর 'myId' এর বদলে কারেন্ট ইউজারের লম্বা আইডি ব্যবহার করাই বেস্ট।
+
+              await GiftService().acceptSoulmateGift(
+                myId:
+                    authUID, // 🔥 ফায়ারস্টোরে রিকোয়েস্ট ডকুমেন্ট ডিলিট করার জন্য এখানে লম্বা authUID দেওয়া আবশ্যক!
+                myName: myName,
+                myImg: myImg,
+                friendId: requestData['fromId'] ?? '', // বন্ধুর ৬ ডিজিটের uID
+                friendName: requestData['fromName'] ?? 'Unknown',
+                friendImg: requestData['fromImg'] ?? '',
+              );
+
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content:
+                          Text("Congratulations! You are now Soulmates! 🎉"),
+                      backgroundColor: Colors.green),
+                );
+              }
+            },
+            child: const Text("Accept",
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+// 🟢 ম্যারেজ রিকোয়েস্ট লিসেনার ফাংশন
+  void listenForMarriageRequests() {
+    final String authUID = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (authUID.isEmpty) return;
+
+    _marriageListener = FirebaseFirestore.instance
+        .collection('marriage_requests')
+        .doc(authUID)
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.exists && snapshot.data() != null) {
+        var data = snapshot.data() as Map<String, dynamic>;
+
+        if (data['status'] == 'pending') {
+          // স্ক্রিনে ম্যারেজ পপ-আপ ডায়ালগ শো করা
+          _showMarriageRequestDialog(data);
+        }
+      }
+    });
+  }
+
+bool _isMarriageDialogShowing = false;
+
+// 🟢 ম্যারেজ রিকোয়েস্ট পপ-আপ ডায়ালগ (ক্র্যাশ ও ডাবল-ক্লিক সেফ কোড)
+void _showMarriageRequestDialog(Map<String, dynamic> requestData) async {
+  if (_isMarriageDialogShowing) return;
+  _isMarriageDialogShowing = true;
+
+  final String authUID = FirebaseAuth.instance.currentUser?.uid ?? '';
   String myName = "User";
   String myImg = "";
+  String myId = authUID;
 
-  for (var seat in seats) {
-    if (seat["userId"] == myId) {
-      myName = seat["userName"] ?? "User";
-      myImg = seat["userImage"] ?? "";
-      break; // নিজের ডাটা পেয়ে গেলে লুপ স্টপ হবে
+  if (seats.isNotEmpty) {
+    for (var seat in seats) {
+      if (seat["userId"] == authUID || seat["authUID"] == authUID) {
+        myName = seat["userName"] ?? "User";
+        myImg = seat["userImage"] ?? "";
+        if (seat["uID"] != null && seat["uID"].toString().isNotEmpty) {
+          myId = seat["uID"].toString();
+        }
+        break;
+      }
     }
   }
 
-  // যদি আপনি কোনো সিটে বসে না থাকেন, তবে ব্যাকআপ হিসেবে অথেন্টিকেশন থেকে নাম নেওয়া হবে
   if (myName == "User" || myName.isEmpty) {
     myName = FirebaseAuth.instance.currentUser?.displayName ?? "User";
     myImg = FirebaseAuth.instance.currentUser?.photoURL ?? "";
@@ -599,15 +745,18 @@ void _showSoulmateRequestDialog(Map<String, dynamic> requestData) {
 
   showDialog(
     context: context,
-    barrierDismissible: false, // রিকোয়েস্ট এক্সেপ্ট বা রিজেক্ট না করা পর্যন্ত কাটবে না
-    builder: (context) => AlertDialog(
+    barrierDismissible: false,
+    builder: (dialogContext) => AlertDialog(
       backgroundColor: const Color(0xFF1E1E2F),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Row(
+      title: Row(
         children: [
-          Icon(Icons.favorite, color: Colors.pinkAccent),
-          SizedBox(width: 10),
-          Text("Soulmate Request!", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          Image.network(requestData['ringIcon'] ?? '',
+              width: 30, height: 30,
+              errorBuilder: (_, __, ___) => const Icon(Icons.star, color: Colors.amber)),
+          const SizedBox(width: 10),
+          const Text("Marriage Proposal!",
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
         ],
       ),
       content: Column(
@@ -617,13 +766,10 @@ void _showSoulmateRequestDialog(Map<String, dynamic> requestData) {
             radius: 40,
             backgroundImage: NetworkImage(requestData['fromImg'] ?? ''),
             backgroundColor: Colors.white12,
-            child: (requestData['fromImg'] == null || requestData['fromImg'].toString().isEmpty) 
-                ? const Icon(Icons.person, color: Colors.white) 
-                : null,
           ),
           const SizedBox(height: 15),
           Text(
-            "${requestData['fromName']} wants to be your Soulmate! 💕",
+            "${requestData['fromName']} has proposed to you with ${requestData['ringName']}! 💍💕",
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white, fontSize: 14),
           ),
@@ -631,44 +777,62 @@ void _showSoulmateRequestDialog(Map<String, dynamic> requestData) {
       ),
       actionsAlignment: MainAxisAlignment.spaceEvenly,
       actions: [
-        // রিজেক্ট বাটন
+        // 🔴 Reject Proposal
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[800]),
           onPressed: () async {
-            Navigator.pop(context);
-            await GiftService().rejectSoulmateRequest(myId);
+            _isMarriageDialogShowing = false;
+            Navigator.of(dialogContext).pop();
+            await MarriageService().rejectMarriageRequest(authUID);
           },
           child: const Text("Reject", style: TextStyle(color: Colors.white)),
         ),
-        // এক্সেপ্ট বাটন
+        // 🟢 Accept Proposal
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
           onPressed: () async {
-            Navigator.pop(context);
-            
-            // 🔥 ডাইরেক্ট আপনার ক্লাসের বা ইমপোর্ট করা GiftService কল করা হলো (লাল দাগ চলে যাবে)
-            await GiftService().acceptSoulmateGift(
-              myId: myId,
-              myName: myName,
-              myImg: myImg,
-              friendId: requestData['fromId'] ?? '',
-              friendName: requestData['fromName'] ?? 'Unknown',
-              friendImg: requestData['fromImg'] ?? '',
-            );
-            
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Congratulations! You are now Soulmates! 🎉"), backgroundColor: Colors.green),
+            _isMarriageDialogShowing = false;
+            Navigator.of(dialogContext).pop();
+
+            try {
+              // রিকোয়েস্ট থেকে বন্ধুর লম্বা authUID নেওয়া
+              String friendAuthUID = requestData['fromAuthUID'] ?? '';
+              if (friendAuthUID.isEmpty) {
+                friendAuthUID = requestData['fromId'] ?? ''; // সেফটি ব্যাকআপ
+              }
+
+              await MarriageService().completeMarriage(
+                myId: myId, // নিজের ৬ ডিজিটের uID
+                myAuthUID: authUID, // নিজের লম্বা authUID
+                myName: myName,
+                myImg: myImg,
+                friendId: requestData['fromId'] ?? '', // বন্ধুর ৬ ডিজিটের uID
+                friendAuthUID: friendAuthUID, // বন্ধুর লম্বা authUID
+                friendName: requestData['fromName'] ?? 'Unknown',
+                friendImg: requestData['fromImg'] ?? '',
+                ringName: requestData['ringName'] ?? 'Marriage Ring',
+                ringIcon: requestData['ringIcon'] ?? '',
               );
+
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text("Congratulations! You are now happily Married! 🎉💍"),
+                      backgroundColor: Colors.green),
+                );
+              }
+            } catch (e) {
+              print("Error accepting marriage ring: $e");
             }
           },
           child: const Text("Accept", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
     ),
-  );
+  ).then((_) {
+    _isMarriageDialogShowing = false;
+  });
 }
-
 
 // ১. এডমিন বানানো বা রিমুভ করা
   void _toggleAdmin(String targetuID, bool isAlreadyAdmin) {
@@ -1566,7 +1730,7 @@ void _showSoulmateRequestDialog(Map<String, dynamic> requestData) {
       ),
     );
   }
- 
+
   Widget _buildProfileActionButton({
     required IconData icon,
     required String label,
@@ -1804,6 +1968,7 @@ void _showSoulmateRequestDialog(Map<String, dynamic> requestData) {
     _emojiSubscription?.cancel();
     giftTimer?.cancel();
     _soulmateListener?.cancel();
+    _marriageListener?.cancel();
     // ৫. সিটে বসে থাকলে সেটি অটোমেটিক খালি করে দেওয়া
     if (currentSeatIndex != -1) {
       // Firestore এবং Service আপডেট
@@ -2207,7 +2372,7 @@ void _showSoulmateRequestDialog(Map<String, dynamic> requestData) {
                     );
                   },
                 ),
-                
+
                 // ৩. সেটিংস বাটন
                 IconButton(
                   icon: const Icon(Icons.settings,
@@ -3260,7 +3425,7 @@ void _showSoulmateRequestDialog(Map<String, dynamic> requestData) {
     );
   }
 
- Widget _buildAnimatedGiftButton() {
+  Widget _buildAnimatedGiftButton() {
     return TweenAnimationBuilder(
       tween: Tween<double>(begin: 1.0, end: 1.2),
       duration: const Duration(milliseconds: 800),
@@ -3385,8 +3550,142 @@ void _showSoulmateRequestDialog(Map<String, dynamic> requestData) {
                   });
                 }
 
+// 🔥 ৫. সোলমেট রিকোয়েস্ট প্রসেসর (ফিক্সড কোড - fromAuthUID সহ)
+                if (gift['id'] == 'soulmate_special') {
+                  try {
+                    print(
+                        "💕 সোলমেট গিফট ডিটেক্ট হয়েছে! রিসিভারের লম্বা ফায়ারবেস UID খোঁজা হচ্ছে...");
+
+                    String receiverAuthUID = "";
+
+                    // রুমে থাকা সিট লিস্ট থেকে রিসিভারের আসল লম্বা ফায়ারবেস UID (authUID) খুঁজে বের করার লজিক
+                    if (seats.isNotEmpty) {
+                      for (var seat in seats) {
+                        if (seat["uID"]?.toString() == receiverDocID ||
+                            seat["userId"]?.toString() == receiverDocID ||
+                            seat["authUID"]?.toString() == receiverDocID) {
+                          receiverAuthUID = seat["userId"]?.toString() ??
+                              seat["authUID"]?.toString() ??
+                              '';
+                          break;
+                        }
+                      }
+                    }
+
+                    if (receiverAuthUID.isEmpty) {
+                      receiverAuthUID = receiverDocID;
+                    }
+
+                    // আইডিটি ফায়ারবেসের আসল লম্বা UID (length > 15) হলেই কেবল রিকোয়েস্ট তৈরি হবে
+                    if (receiverAuthUID.isNotEmpty &&
+                        receiverAuthUID.length > 15) {
+                      // ফায়ারস্টোরে সরাসরি সোলমেট না বানিয়ে, 'pending' স্ট্যাটাস দিয়ে রিকোয়েস্ট জমা করা হলো
+                      await FirebaseFirestore.instance
+                          .collection('soulmate_requests')
+                          .doc(
+                              receiverAuthUID) // রিসিভারের লম্বা ফায়ারবেস UID দিয়ে ডকুমেন্ট তৈরি হবে
+                          .set({
+                        'fromId':
+                            senderDocID, // আপনার ৬ ডিজিটের uID (যা প্রোফাইলে সেভ হবে)
+                        'fromAuthUID': FirebaseAuth.instance.currentUser!
+                            .uid, // 🔥 ফিক্স: আপনার নিজের লম্বা আইডি যা এক্সেপ্ট করতে লাগবে!
+                        'fromName': senderName,
+                        'fromImg': senderImgUrl,
+                        'timestamp': FieldValue.serverTimestamp(),
+                        'status': 'pending',
+                      });
+                      print(
+                          "🎯 সোলমেট রিকোয়েস্ট সফলভাবে লম্বা আইডি: $receiverAuthUID এর কাছে পেন্ডিং পাঠানো হয়েছে!");
+                    } else {
+                      print("❌ এরর: রিসিভারের লম্বা authUID পাওয়া যায়নি!");
+                    }
+                  } catch (soulmateError) {
+                    print("Error sending soulmate request: $soulmateError");
+                  }
+                }
+
+                // 🔥 ৫. ম্যারেজ রিং রিকোয়েস্ট প্রসেসর (জেন্ডার চেক ও আইডি ম্যাপিং ফিক্সড কোড)
+if (gift['type'] == 'marriage_ring' || gift['type'] == 'vip_marriage') {
+  try {
+    print("💍 ম্যারেজ রিং ডিটেক্ট হয়েছে! বিপরীত লিঙ্গ ও লম্বা ফায়ারবেস UID চেক করা হচ্ছে...");
+
+    String receiverAuthUID = "";
+    String myGender = "Unknown";
+    String partnerGender = "Unknown";
+    final String myCurrentAuthUID = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+    // ১. সিট লিস্ট থেকে নিজের ও পার্টনারের জেন্ডার এবং পার্টনারের লম্বা ফায়ারবেস UID খুঁজে বের করা
+    if (seats.isNotEmpty) {
+      for (var seat in seats) {
+        // ফিক্স: নিজের লম্বা আইডি (myCurrentAuthUID) দিয়ে সিটে নিজের জেন্ডার খুঁজবো
+        if (seat["userId"] == myCurrentAuthUID || seat["authUID"] == myCurrentAuthUID) {
+          myGender = seat["gender"]?.toString() ?? "Unknown";
+        }
+        
+        // ফিক্স: রিসিভারের ৬ ডিজিটের আইডি (receiverDocID) বা লম্বা আইডি দিয়ে তার জেন্ডার ও লম্বা UID খুঁজবো
+        if (seat["uID"]?.toString() == receiverDocID ||
+            seat["userId"]?.toString() == receiverDocID ||
+            seat["authUID"]?.toString() == receiverDocID) {
+          receiverAuthUID = seat["userId"]?.toString() ??
+              seat["authUID"]?.toString() ??
+              '';
+          partnerGender = seat["gender"]?.toString() ?? "Unknown";
+        }
+      }
+    }
+
+    if (receiverAuthUID.isEmpty) {
+      receiverAuthUID = receiverDocID;
+    }
+
+    print("💍 [DEBUG] আমার জেন্ডার: $myGender, পার্টনারের জেন্ডার: $partnerGender");
+    print("💍 [DEBUG] রিসিভারের লম্বা UID: $receiverAuthUID");
+
+    // ২. একই লিঙ্গের হলে রিং পাঠানো আটকে দেওয়া
+    if (myGender != "Unknown" && partnerGender != "Unknown" &&
+        myGender.trim().toLowerCase() == partnerGender.trim().toLowerCase()) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("দুঃখিত! একই লিঙ্গের আইডি দিয়ে রিং পাঠানো বা বিয়ে সম্ভব নয়। ❌"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return; 
+    }
+
+    // ৩. আইডি সঠিক থাকলে পেন্ডিং রিকোয়েস্ট পাঠানো
+    if (receiverAuthUID.isNotEmpty && receiverAuthUID.length > 15) {
+      String response = await MarriageService().sendMarriageRing(
+        receiverAuthUID: receiverAuthUID,
+        senderDocID: senderDocID, // ৬ ডিজিটের uID
+        senderAuthUID: myCurrentAuthUID, // 🔥 ফিক্স: আপনার নিজের লম্বা authUID পাঠানো হচ্ছে
+        senderName: senderName,
+        senderImgUrl: senderImgUrl,
+        ringName: gift['name'] ?? 'Marriage Ring', 
+        ringIconUrl: gift['icon'] ?? '', 
+        myGender: myGender,
+        partnerGender: partnerGender,
+      );
+
+      if (response != "SUCCESS" && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response), backgroundColor: Colors.red),
+        );
+      } else {
+        print("🎯 ম্যারেজ রিং রিকোয়েস্ট সফলভাবে $receiverAuthUID এর কাছে পেন্ডিং পাঠানো হয়েছে!");
+      }
+    } else {
+      print("❌ এরর: রিসিভারের লম্বা authUID পাওয়া যায়নি বা ইনভ্যালিড!");
+    }
+  } catch (marriageError) {
+    print("Error sending marriage request: $marriageError");
+  }
+}
+
                 // 🔥 ৫. ফায়ারবেস রুম ব্যানার এবং ডেলি পয়েন্ট আপডেট (২৫০ ডায়মন্ডে ১ পয়েন্ট)
-                int pointsToIncrement = totalAmount ~/ 250; 
+                int pointsToIncrement = totalAmount ~/ 250;
 
                 // এখানে পুরাতন মেইন ব্যানার ফিচারের ম্যাপটি তৈরি করা হলো (যাতে আগের ফিচার ঠিক থাকে)
                 Map<String, dynamic> roomUpdateData = {
@@ -3403,7 +3702,8 @@ void _showSoulmateRequestDialog(Map<String, dynamic> requestData) {
 
                 // যদি পয়েন্ট ১ বা তার বেশি হয়, তবেই এই ম্যাপের ভেতর 'dailyPoints' ফিল্ডটি যুক্ত হবে
                 if (pointsToIncrement > 0) {
-                  roomUpdateData['dailyPoints'] = FieldValue.increment(pointsToIncrement);
+                  roomUpdateData['dailyPoints'] =
+                      FieldValue.increment(pointsToIncrement);
                 }
 
                 // এবার একটি মাত্র আপডেট রিকোয়েস্টে ব্যানার ও ডেলি পয়েন্ট একসাথে সেভ হবে (কোনো কোড মিস হবে না)
@@ -3433,12 +3733,12 @@ void _showSoulmateRequestDialog(Map<String, dynamic> requestData) {
                     .collection('messages')
                     .add({
                   'type': 'gift',
-                  'name': senderName, 
-                  'senderImage': senderImgUrl, 
-                  'targetName': target, 
-                  'receiverImage': receiverImgUrl, 
-                  'giftImage': giftImg, 
-                  'giftCount': count, 
+                  'name': senderName,
+                  'senderImage': senderImgUrl,
+                  'targetName': target,
+                  'receiverImage': receiverImgUrl,
+                  'giftImage': giftImg,
+                  'giftCount': count,
                   'timestamp': FieldValue.serverTimestamp(),
                 });
 

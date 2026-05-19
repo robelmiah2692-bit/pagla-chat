@@ -81,27 +81,7 @@ class GiftLogicHelper {
     // ট্রানজেকশন সম্পন্ন করা
     await batch.commit();
 
-    // 🔴 ঙ. সোলমেট রিকোয়েস্ট তৈরি (যদি গিফটটি সোলমেট কার্ড হয়)
-    if (gift['id'] == 'soulmate_special') {
-      await FirebaseFirestore.instance
-          .collection('soulmate_requests')
-          .doc(targetAuthId)
-          .set({
-        'fromId': senderAuthId,
-        'fromName': senderName,
-        // 🔥 লাল দাগ দূর করতে 'senderPic ??' কেটে শুধু নিচেরগুলো রাখা হলো
-        'fromImg': gift['senderImage'] ??
-            gift['senderPic'] ??
-            gift['image'] ??
-            gift['profilePic'] ??
-            '',
-        'timestamp': FieldValue.serverTimestamp(),
-        'status': 'pending',
-      });
-      print("সোলমেট রিকোয়েস্ট পাঠানো হয়েছে!");
-    }
   }
-
   // ৩. সিটে থাকা ইউজারদের ফিল্টার (সংশোধিত ভার্সন - ১৫ বার আইডি আসা বন্ধ করবে)
   static List<Map<String, dynamic>> getAllMicUsers(List<dynamic> currentSeats) {
     List<Map<String, dynamic>> micUsers = [];
