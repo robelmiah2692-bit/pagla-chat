@@ -12,7 +12,7 @@ class LiveViewersList extends StatefulWidget {
 }
 
 class _LiveViewersListState extends State<LiveViewersList> {
-  // স্ট্রীমটিকে একবার ইনিশিয়েট করছি যাতে বারবার নতুন কানেকশন না তৈরি হয়
+  // স্ট্রীমটিকে একবার ইনিশিয়েট করছি যাতে বারবার নতুন কানেকশন না তৈরি হয়
   late Stream<QuerySnapshot> _viewerStream;
 
   @override
@@ -30,9 +30,9 @@ class _LiveViewersListState extends State<LiveViewersList> {
     return StreamBuilder<QuerySnapshot>(
       stream: _viewerStream,
       builder: (context, snapshot) {
-        // এই প্রিন্টটি যদি এখনো খুব দ্রুত আসে, তবে বুঝতে হবে ডাটাবেজে কথা বলার সময় ডাটা কাঁপছে
+        // এই প্রিন্টটি যদি এখনো খুব দ্রুত আসে, তবে বুঝতে হবে ডাটাবেজে কথা বলার সময় ডাটা কাঁপছে
         if (snapshot.hasData) {
-           debugPrint("🚀 ভিউয়ার এরিয়া রেন্ডার হচ্ছে: ${snapshot.data!.docs.length} জন");
+           debugPrint("🚀 ভিউয়ার এরিয়া রেন্ডার হচ্ছে: ${snapshot.data!.docs.length} জন");
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) return const SizedBox();
@@ -46,7 +46,7 @@ class _LiveViewersListState extends State<LiveViewersList> {
               child: SizedBox(
                 height: 40,
                 child: ListView.builder(
-                  // 'physics' যোগ করা হয়েছে স্ক্রলিং স্মুথ করতে
+                  // 'physics' যোগ করা হয়েছে স্ক্রলিং স্মুথ করতে
                   physics: const BouncingScrollPhysics(),
                   scrollDirection: Axis.horizontal,
                   itemCount: docs.length,
@@ -108,7 +108,20 @@ class _ViewerAvatarState extends State<ViewerAvatar> with AutomaticKeepAliveClie
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 3.0),
       child: GestureDetector(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ProfilePage(userId: widget.viewerId))),
+        // 🔥 ফিক্স: এখানে থার্ড ব্র্যাকেট দিয়ে লগ প্রিন্ট দুটি বসানো হয়েছে
+        onTap: () {
+          debugPrint("🚨 [VIEWER CLICK LOG] ভিউয়ার লিস্টের ইউজারে ক্লিক করা হয়েছে!");
+          debugPrint("🔎 [TARGET USER ID] ক্লিক করা ইউজারের ID: ${widget.viewerId}");
+          debugPrint("📂 [ROUTING INFO] আমি এখন 'lib/profile_page.dart' ফাইলের ProfilePage-এ পাঠাচ্ছি।");
+          
+          Navigator.push(
+            context, 
+            MaterialPageRoute(
+              builder: (context) => ProfilePage(userId: widget.viewerId),
+            ),
+          );
+        },
+        
         child: RepaintBoundary( 
           child: CircleAvatar(
             radius: 16,
@@ -122,7 +135,7 @@ class _ViewerAvatarState extends State<ViewerAvatar> with AutomaticKeepAliveClie
                     fit: BoxFit.cover,
                     width: 32,
                     height: 32,
-                    gaplessPlayback: true, // ছবি পরিবর্তনের সময় ঝিলিক মারা বন্ধ করবে
+                    gaplessPlayback: true, // ছবি পরিবর্তনের সময় ঝিলিক মারা বন্ধ করবে
                   ),
                 ),
           ),

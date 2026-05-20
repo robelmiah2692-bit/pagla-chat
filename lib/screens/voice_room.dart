@@ -713,126 +713,134 @@ class _VoiceRoomState extends State<VoiceRoom> {
     });
   }
 
-bool _isMarriageDialogShowing = false;
+  bool _isMarriageDialogShowing = false;
 
 // 🟢 ম্যারেজ রিকোয়েস্ট পপ-আপ ডায়ালগ (ক্র্যাশ ও ডাবল-ক্লিক সেফ কোড)
-void _showMarriageRequestDialog(Map<String, dynamic> requestData) async {
-  if (_isMarriageDialogShowing) return;
-  _isMarriageDialogShowing = true;
+  void _showMarriageRequestDialog(Map<String, dynamic> requestData) async {
+    if (_isMarriageDialogShowing) return;
+    _isMarriageDialogShowing = true;
 
-  final String authUID = FirebaseAuth.instance.currentUser?.uid ?? '';
-  String myName = "User";
-  String myImg = "";
-  String myId = authUID;
+    final String authUID = FirebaseAuth.instance.currentUser?.uid ?? '';
+    String myName = "User";
+    String myImg = "";
+    String myId = authUID;
 
-  if (seats.isNotEmpty) {
-    for (var seat in seats) {
-      if (seat["userId"] == authUID || seat["authUID"] == authUID) {
-        myName = seat["userName"] ?? "User";
-        myImg = seat["userImage"] ?? "";
-        if (seat["uID"] != null && seat["uID"].toString().isNotEmpty) {
-          myId = seat["uID"].toString();
+    if (seats.isNotEmpty) {
+      for (var seat in seats) {
+        if (seat["userId"] == authUID || seat["authUID"] == authUID) {
+          myName = seat["userName"] ?? "User";
+          myImg = seat["userImage"] ?? "";
+          if (seat["uID"] != null && seat["uID"].toString().isNotEmpty) {
+            myId = seat["uID"].toString();
+          }
+          break;
         }
-        break;
       }
     }
-  }
 
-  if (myName == "User" || myName.isEmpty) {
-    myName = FirebaseAuth.instance.currentUser?.displayName ?? "User";
-    myImg = FirebaseAuth.instance.currentUser?.photoURL ?? "";
-  }
+    if (myName == "User" || myName.isEmpty) {
+      myName = FirebaseAuth.instance.currentUser?.displayName ?? "User";
+      myImg = FirebaseAuth.instance.currentUser?.photoURL ?? "";
+    }
 
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (dialogContext) => AlertDialog(
-      backgroundColor: const Color(0xFF1E1E2F),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Row(
-        children: [
-          Image.network(requestData['ringIcon'] ?? '',
-              width: 30, height: 30,
-              errorBuilder: (_, __, ___) => const Icon(Icons.star, color: Colors.amber)),
-          const SizedBox(width: 10),
-          const Text("Marriage Proposal!",
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-        ],
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircleAvatar(
-            radius: 40,
-            backgroundImage: NetworkImage(requestData['fromImg'] ?? ''),
-            backgroundColor: Colors.white12,
-          ),
-          const SizedBox(height: 15),
-          Text(
-            "${requestData['fromName']} has proposed to you with ${requestData['ringName']}! 💍💕",
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-          ),
-        ],
-      ),
-      actionsAlignment: MainAxisAlignment.spaceEvenly,
-      actions: [
-        // 🔴 Reject Proposal
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[800]),
-          onPressed: () async {
-            _isMarriageDialogShowing = false;
-            Navigator.of(dialogContext).pop();
-            await MarriageService().rejectMarriageRequest(authUID);
-          },
-          child: const Text("Reject", style: TextStyle(color: Colors.white)),
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E2F),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Image.network(requestData['ringIcon'] ?? '',
+                width: 30,
+                height: 30,
+                errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.star, color: Colors.amber)),
+            const SizedBox(width: 10),
+            const Text("Marriage Proposal!",
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
+          ],
         ),
-        // 🟢 Accept Proposal
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
-          onPressed: () async {
-            _isMarriageDialogShowing = false;
-            Navigator.of(dialogContext).pop();
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 40,
+              backgroundImage: NetworkImage(requestData['fromImg'] ?? ''),
+              backgroundColor: Colors.white12,
+            ),
+            const SizedBox(height: 15),
+            Text(
+              "${requestData['fromName']} has proposed to you with ${requestData['ringName']}! 💍💕",
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ],
+        ),
+        actionsAlignment: MainAxisAlignment.spaceEvenly,
+        actions: [
+          // 🔴 Reject Proposal
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[800]),
+            onPressed: () async {
+              _isMarriageDialogShowing = false;
+              Navigator.of(dialogContext).pop();
+              await MarriageService().rejectMarriageRequest(authUID);
+            },
+            child: const Text("Reject", style: TextStyle(color: Colors.white)),
+          ),
+          // 🟢 Accept Proposal
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
+            onPressed: () async {
+              _isMarriageDialogShowing = false;
+              Navigator.of(dialogContext).pop();
 
-            try {
-              // রিকোয়েস্ট থেকে বন্ধুর লম্বা authUID নেওয়া
-              String friendAuthUID = requestData['fromAuthUID'] ?? '';
-              if (friendAuthUID.isEmpty) {
-                friendAuthUID = requestData['fromId'] ?? ''; // সেফটি ব্যাকআপ
-              }
+              try {
+                // রিকোয়েস্ট থেকে বন্ধুর লম্বা authUID নেওয়া
+                String friendAuthUID = requestData['fromAuthUID'] ?? '';
+                if (friendAuthUID.isEmpty) {
+                  friendAuthUID = requestData['fromId'] ?? ''; // সেফটি ব্যাকআপ
+                }
 
-              await MarriageService().completeMarriage(
-                myId: myId, // নিজের ৬ ডিজিটের uID
-                myAuthUID: authUID, // নিজের লম্বা authUID
-                myName: myName,
-                myImg: myImg,
-                friendId: requestData['fromId'] ?? '', // বন্ধুর ৬ ডিজিটের uID
-                friendAuthUID: friendAuthUID, // বন্ধুর লম্বা authUID
-                friendName: requestData['fromName'] ?? 'Unknown',
-                friendImg: requestData['fromImg'] ?? '',
-                ringName: requestData['ringName'] ?? 'Marriage Ring',
-                ringIcon: requestData['ringIcon'] ?? '',
-              );
-
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text("Congratulations! You are now happily Married! 🎉💍"),
-                      backgroundColor: Colors.green),
+                await MarriageService().completeMarriage(
+                  myId: myId, // নিজের ৬ ডিজিটের uID
+                  myAuthUID: authUID, // নিজের লম্বা authUID
+                  myName: myName,
+                  myImg: myImg,
+                  friendId: requestData['fromId'] ?? '', // বন্ধুর ৬ ডিজিটের uID
+                  friendAuthUID: friendAuthUID, // বন্ধুর লম্বা authUID
+                  friendName: requestData['fromName'] ?? 'Unknown',
+                  friendImg: requestData['fromImg'] ?? '',
+                  ringName: requestData['ringName'] ?? 'Marriage Ring',
+                  ringIcon: requestData['ringIcon'] ?? '',
                 );
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text(
+                            "Congratulations! You are now happily Married! 🎉💍"),
+                        backgroundColor: Colors.green),
+                  );
+                }
+              } catch (e) {
+                print("Error accepting marriage ring: $e");
               }
-            } catch (e) {
-              print("Error accepting marriage ring: $e");
-            }
-          },
-          child: const Text("Accept", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        ),
-      ],
-    ),
-  ).then((_) {
-    _isMarriageDialogShowing = false;
-  });
-}
+            },
+            child: const Text("Accept",
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    ).then((_) {
+      _isMarriageDialogShowing = false;
+    });
+  }
 
 // ১. এডমিন বানানো বা রিমুভ করা
   void _toggleAdmin(String targetuID, bool isAlreadyAdmin) {
@@ -1509,9 +1517,113 @@ void _showMarriageRequestDialog(Map<String, dynamic> requestData) async {
                           pkManager: pkManager,
                         ),
                       _buildViewerArea(),
+                      // 🔥 widget এর লাল দাগ সম্পূর্ণ ফিক্স করে আপডেটেড কোড
                       Expanded(
                         flex: 2,
-                        child: RepaintBoundary(child: _buildSeatGridArea()),
+                        child: Stack(
+                          clipBehavior: Clip
+                              .none, // যেন হার্ট এনিমেশন বর্ডারের বাইরে গেলেও কেটে না যায়
+                          children: [
+                            // ১. আপনার সম্পূর্ণ আগের অক্ষত সিট এরিয়া (RepaintBoundary সহ)
+                            RepaintBoundary(child: _buildSeatGridArea()),
+
+                            // ২. সোলমেট হার্টের জন্য লাইভ ডাটা লেয়ার
+                            StreamBuilder<DatabaseEvent>(
+                              stream: FirebaseDatabase.instance
+                                  .ref('rooms/${widget.roomId}/seats')
+                                  .onValue,
+                              builder: (context, snapshot) {
+                                List<dynamic> seatsListForOverlay = [];
+                                if (snapshot.hasData &&
+                                    snapshot.data!.snapshot.value != null) {
+                                  final dynamic value =
+                                      snapshot.data!.snapshot.value;
+                                  if (value is Map) {
+                                    for (int i = 0; i < 15; i++) {
+                                      seatsListForOverlay
+                                          .add(value[i.toString()] ?? value[i]);
+                                    }
+                                  } else if (value is List) {
+                                    seatsListForOverlay = value;
+                                  }
+                                }
+
+                                // ফায়ারবেস কারেন্ট ইউজারের লম্বা আইডি
+                                final String currentAuthUID =
+                                    FirebaseAuth.instance.currentUser?.uid ??
+                                        "";
+
+                                // 🔥 ফিক্স: সরাসরি কালেকশন কুয়েরি করা হচ্ছে যেন ডকুমেন্ট আইডি ৬ ডিজিটের হলেও ডাটা নিখুঁতভাবে পাওয়া যায়
+                                return StreamBuilder<QuerySnapshot>(
+                                  stream: FirebaseFirestore.instance
+                                      .collection('users')
+                                      .where('authUID',
+                                          isEqualTo: currentAuthUID)
+                                      .snapshots(),
+                                  builder: (context, userSnapshot) {
+                                    String dynamicPartnerId = "";
+
+                                    // যদি authUID দিয়ে না পায়, তবে ব্যাকআপ হিসেবে userId ফিল্ড দিয়ে খুঁজবে
+                                    if (userSnapshot.hasData &&
+                                        userSnapshot.data!.docs.isNotEmpty) {
+                                      var uDoc = userSnapshot.data!.docs.first
+                                          .data() as Map<String, dynamic>;
+                                      dynamicPartnerId =
+                                          uDoc['soulmateId']?.toString() ??
+                                              uDoc['marriagePartnerId']
+                                                  ?.toString() ??
+                                              "";
+                                    } else {
+                                      // ২য় ব্যাকআপ কুয়েরি বা ডিরেক্ট রিড (যদি আগের কোন সিস্টেমে মিল থাকে)
+                                      return StreamBuilder<QuerySnapshot>(
+                                        stream: FirebaseFirestore.instance
+                                            .collection('users')
+                                            .where('userId',
+                                                isEqualTo: currentAuthUID)
+                                            .snapshots(),
+                                        builder: (context, backupSnapshot) {
+                                          if (backupSnapshot.hasData &&
+                                              backupSnapshot
+                                                  .data!.docs.isNotEmpty) {
+                                            var uDoc = backupSnapshot
+                                                .data!.docs.first
+                                                .data() as Map<String, dynamic>;
+                                            dynamicPartnerId =
+                                                uDoc['soulmateId']
+                                                        ?.toString() ??
+                                                    uDoc['marriagePartnerId']
+                                                        ?.toString() ??
+                                                    "";
+                                          }
+
+                                          print(
+                                              "🔎 [ROOM SCREEN LOG] আমার UID: $currentAuthUID | পার্টনার ID (Backup): '$dynamicPartnerId'");
+
+                                          return SoulmateAnimationService
+                                              .buildSoulmateHeartOverlay(
+                                            seats: seatsListForOverlay,
+                                            myCurrentAuthUID: currentAuthUID,
+                                            myPartnerAuthUID: dynamicPartnerId,
+                                          );
+                                        },
+                                      );
+                                    }
+
+                                    print(
+                                        "🔎 [ROOM SCREEN LOG] আমার UID: $currentAuthUID | পার্টনার ID (Main): '$dynamicPartnerId'");
+
+                                    return SoulmateAnimationService
+                                        .buildSoulmateHeartOverlay(
+                                      seats: seatsListForOverlay,
+                                      myCurrentAuthUID: currentAuthUID,
+                                      myPartnerAuthUID: dynamicPartnerId,
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 10),
 
@@ -2967,11 +3079,11 @@ void _showMarriageRequestDialog(Map<String, dynamic> requestData) async {
                           if (isOccupied && uFrame.isNotEmpty)
                             IgnorePointer(
                               child: OverflowBox(
-                                maxWidth: 150,
-                                maxHeight: 150,
+                                maxWidth: 130,
+                                maxHeight: 130,
                                 child: SizedBox(
-                                  width: 105, // আপনার আগের সাইজ
-                                  height: 105,
+                                  width: 100, // আপনার আগের সাইজ
+                                  height: 100,
                                   child: uFrame.contains('.json') // লটি চেক
                                       ? Lottie.network(
                                           uFrame,
@@ -3604,85 +3716,165 @@ void _showMarriageRequestDialog(Map<String, dynamic> requestData) async {
                   }
                 }
 
-                // 🔥 ৫. ম্যারেজ রিং রিকোয়েস্ট প্রসেসর (জেন্ডার চেক ও আইডি ম্যাপিং ফিক্সড কোড)
-if (gift['type'] == 'marriage_ring' || gift['type'] == 'vip_marriage') {
-  try {
-    print("💍 ম্যারেজ রিং ডিটেক্ট হয়েছে! বিপরীত লিঙ্গ ও লম্বা ফায়ারবেস UID চেক করা হচ্ছে...");
+                // 🔥 ৫. ম্যারেজ রিং রিকোয়েস্ট প্রসেসর (জেন্ডার, সেম পার্টনার ব্যাকপ্যাক ও ওল্ড ম্যারেজ প্রটেকশন লজিক)
+                if (gift['type'] == 'marriage_ring' ||
+                    gift['type'] == 'vip_marriage') {
+                  try {
+                    print(
+                        "💍 ম্যারেজ রিং ডিটেক্ট হয়েছে! পার্টনার স্ট্যাটাস, জেন্ডার ও লম্বা ফায়ারবেস UID চেক করা হচ্ছে...");
 
-    String receiverAuthUID = "";
-    String myGender = "Unknown";
-    String partnerGender = "Unknown";
-    final String myCurrentAuthUID = FirebaseAuth.instance.currentUser?.uid ?? '';
+                    String receiverAuthUID = "";
+                    String myGender = "Unknown";
+                    String partnerGender = "Unknown";
+                    final String myCurrentAuthUID =
+                        FirebaseAuth.instance.currentUser?.uid ?? '';
 
-    // ১. সিট লিস্ট থেকে নিজের ও পার্টনারের জেন্ডার এবং পার্টনারের লম্বা ফায়ারবেস UID খুঁজে বের করা
-    if (seats.isNotEmpty) {
-      for (var seat in seats) {
-        // ফিক্স: নিজের লম্বা আইডি (myCurrentAuthUID) দিয়ে সিটে নিজের জেন্ডার খুঁজবো
-        if (seat["userId"] == myCurrentAuthUID || seat["authUID"] == myCurrentAuthUID) {
-          myGender = seat["gender"]?.toString() ?? "Unknown";
-        }
-        
-        // ফিক্স: রিসিভারের ৬ ডিজিটের আইডি (receiverDocID) বা লম্বা আইডি দিয়ে তার জেন্ডার ও লম্বা UID খুঁজবো
-        if (seat["uID"]?.toString() == receiverDocID ||
-            seat["userId"]?.toString() == receiverDocID ||
-            seat["authUID"]?.toString() == receiverDocID) {
-          receiverAuthUID = seat["userId"]?.toString() ??
-              seat["authUID"]?.toString() ??
-              '';
-          partnerGender = seat["gender"]?.toString() ?? "Unknown";
-        }
-      }
-    }
+                    // ১. সিট লিস্ট থেকে নিজের ও পার্টনারের জেন্ডার এবং পার্টনারের লম্বা ফায়ারবেস UID খুঁজে বের করা
+                    if (seats.isNotEmpty) {
+                      for (var seat in seats) {
+                        if (seat["userId"] == myCurrentAuthUID ||
+                            seat["authUID"] == myCurrentAuthUID) {
+                          myGender = seat["gender"]?.toString() ?? "Unknown";
+                        }
 
-    if (receiverAuthUID.isEmpty) {
-      receiverAuthUID = receiverDocID;
-    }
+                        if (seat["uID"]?.toString() == receiverDocID ||
+                            seat["userId"]?.toString() == receiverDocID ||
+                            seat["authUID"]?.toString() == receiverDocID) {
+                          receiverAuthUID = seat["userId"]?.toString() ??
+                              seat["authUID"]?.toString() ??
+                              '';
+                          partnerGender =
+                              seat["gender"]?.toString() ?? "Unknown";
+                        }
+                      }
+                    }
 
-    print("💍 [DEBUG] আমার জেন্ডার: $myGender, পার্টনারের জেন্ডার: $partnerGender");
-    print("💍 [DEBUG] রিসিভারের লম্বা UID: $receiverAuthUID");
+                    if (receiverAuthUID.isEmpty) {
+                      receiverAuthUID = receiverDocID;
+                    }
 
-    // ২. একই লিঙ্গের হলে রিং পাঠানো আটকে দেওয়া
-    if (myGender != "Unknown" && partnerGender != "Unknown" &&
-        myGender.trim().toLowerCase() == partnerGender.trim().toLowerCase()) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("দুঃখিত! একই লিঙ্গের আইডি দিয়ে রিং পাঠানো বা বিয়ে সম্ভব নয়। ❌"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return; 
-    }
+                    print(
+                        "💍 [DEBUG] আমার জেন্ডার: $myGender, পার্টনারের জেন্ডার: $partnerGender");
+                    print("💍 [DEBUG] রিসিভারের লম্বা UID: $receiverAuthUID");
 
-    // ৩. আইডি সঠিক থাকলে পেন্ডিং রিকোয়েস্ট পাঠানো
-    if (receiverAuthUID.isNotEmpty && receiverAuthUID.length > 15) {
-      String response = await MarriageService().sendMarriageRing(
-        receiverAuthUID: receiverAuthUID,
-        senderDocID: senderDocID, // ৬ ডিজিটের uID
-        senderAuthUID: myCurrentAuthUID, // 🔥 ফিক্স: আপনার নিজের লম্বা authUID পাঠানো হচ্ছে
-        senderName: senderName,
-        senderImgUrl: senderImgUrl,
-        ringName: gift['name'] ?? 'Marriage Ring', 
-        ringIconUrl: gift['icon'] ?? '', 
-        myGender: myGender,
-        partnerGender: partnerGender,
-      );
+                    // ২. একই লিঙ্গের হলে রিং পাঠানো আটকে দেওয়া
+                    if (myGender != "Unknown" &&
+                        partnerGender != "Unknown" &&
+                        myGender.trim().toLowerCase() ==
+                            partnerGender.trim().toLowerCase()) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                                "দুঃখিত! একই লিঙ্গের আইডি দিয়ে রিং পাঠানো বা বিয়ে সম্ভব নয়। ❌"),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                      return;
+                    }
 
-      if (response != "SUCCESS" && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response), backgroundColor: Colors.red),
-        );
-      } else {
-        print("🎯 ম্যারেজ রিং রিকোয়েস্ট সফলভাবে $receiverAuthUID এর কাছে পেন্ডিং পাঠানো হয়েছে!");
-      }
-    } else {
-      print("❌ এরর: রিসিভারের লম্বা authUID পাওয়া যায়নি বা ইনভ্যালিড!");
-    }
-  } catch (marriageError) {
-    print("Error sending marriage request: $marriageError");
-  }
-}
+                    // 🔒 [সিকিউরিটি লজিক]: ডাটাবেজ থেকে চেক করা হচ্ছে ইউজারের অলরেডি কোনো পার্টনার আছে কিনা
+                    var myUserDoc = await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(myCurrentAuthUID)
+                        .get();
+                    var targetUserDoc = await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(receiverAuthUID)
+                        .get();
+
+                    String? myCurrentPartner =
+                        myUserDoc.data()?['marriagePartnerId'];
+                    String? targetCurrentPartner =
+                        targetUserDoc.data()?['marriagePartnerId'];
+
+                    // 👥 কন্ডিশন এ: যদি রিসিভার অলরেডি কারেন্ট ইউজারের নিজেরই পার্টনার হয় (সেম পার্টনার হলে ডিরেক্ট ব্যাকপ্যাক)
+                    if (myCurrentPartner != null &&
+                        myCurrentPartner == receiverAuthUID) {
+                      print(
+                          "🎁 সেম পার্টনার ডিটেক্টেড! রিং সরাসরি 'my_special' ব্যাকপ্যাকে পাঠানো হচ্ছে...");
+
+                      // 🔥 ফিক্স: আপনার _buildMySpecialTab এর ফিল্ড নেমগুলোর সাথে ১০০% মিল রেখে ডাটা ইনসার্ট করা হলো
+                      await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(
+                              receiverAuthUID) // রিসিভার পার্টনারের ব্যাকপ্যাকে যাবে
+                          .collection('my_special')
+                          .add({
+                        'name': gift['name'] ?? 'Marriage Ring',
+                        'image_url': gift['icon'] ??
+                            '', // আপনার ব্যাকপ্যাকের url ভ্যারিয়েবলের সাথে মিল রেখে
+                        'type': 'Marriage Ring', // টাইপ সেট করা হলো
+                        'expiryDate': Timestamp.fromDate(DateTime.now().add(
+                            const Duration(days: 30))), // ডিফল্ট ৩০ দিন মেয়াদ
+                        'receivedAt': FieldValue.serverTimestamp(),
+                      });
+
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                                "আপনার পার্টনারের জন্য রিংটি সরাসরি ব্যাকপ্যাকে (Special) যুক্ত করা হয়েছে! 🎒💍"),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                      return; // ডায়মন্ড ডিস্ট্রিবিউশন লজিক স্কিপ করতে এখানেই রিটার্ন করা হলো (ইউজার ডায়মন্ড পাবে না)
+                    }
+
+                    // 🚫 কন্ডিশন বি: যদি ইউজারের আগে থেকেই অন্য কোনো পার্টনারের সাথে বিয়ে বা রিং থাকে
+                    if ((myCurrentPartner != null &&
+                            myCurrentPartner.isNotEmpty) ||
+                        (targetCurrentPartner != null &&
+                            targetCurrentPartner.isNotEmpty)) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                                "রিং পাঠানো সম্ভব নয়! অলরেডি অন্য পার্টনারের সাথে রিলেশন বিদ্যমান আছে। ❌"),
+                            backgroundColor: Colors.deepOrange,
+                          ),
+                        );
+                      }
+                      return;
+                    }
+
+                    // ৩. নতুন রিলেশনের জন্য পেন্ডিং রিকোয়েস্ট পাঠানো (আইডি সঠিক থাকলে)
+                    if (receiverAuthUID.isNotEmpty &&
+                        receiverAuthUID.length > 15) {
+                      // 💎 [ডায়মন্ড প্রোটেকশন]: রিং গিফটের ক্ষেত্রে কোনো ডায়মন্ড আর্নিং হবে না, শুধু রিং এর ডেটা যাবে
+                      String response =
+                          await MarriageService().sendMarriageRing(
+                        receiverAuthUID: receiverAuthUID,
+                        senderDocID: senderDocID,
+                        senderAuthUID: myCurrentAuthUID,
+                        senderName: senderName,
+                        senderImgUrl: senderImgUrl,
+                        ringName: gift['name'] ?? 'Marriage Ring',
+                        ringIconUrl: gift['icon'] ?? '',
+                        myGender: myGender,
+                        partnerGender: partnerGender,
+                      );
+
+                      if (response != "SUCCESS" && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content: Text(response),
+                              backgroundColor: Colors.red),
+                        );
+                      } else {
+                        print(
+                            "🎯 ম্যারেজ রিং রিকোয়েস্ট সফলভাবে $receiverAuthUID এর কাছে পেন্ডিং পাঠানো হয়েছে!");
+                      }
+                    } else {
+                      print(
+                          "❌ এরর: রিসিভারের লম্বা authUID পাওয়া যায়নি বা ইনভ্যালিড!");
+                    }
+                  } catch (marriageError) {
+                    print("Error sending marriage request: $marriageError");
+                  }
+                }
 
                 // 🔥 ৫. ফায়ারবেস রুম ব্যানার এবং ডেলি পয়েন্ট আপডেট (২৫০ ডায়মন্ডে ১ পয়েন্ট)
                 int pointsToIncrement = totalAmount ~/ 250;

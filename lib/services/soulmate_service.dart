@@ -5,32 +5,37 @@ class SoulmateService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final String myuID = FirebaseAuth.instance.currentUser!.uid;
 
-  // ১০০০ ডায়মন্ড কেটে সম্পর্ক ছিন্ন করার লজিক
-  // ✅ এখানে (String partnerId) যোগ করা হয়েছে যাতে প্রোফাইল পেজ থেকে পাঠানো আইডিটি গ্রহণ করতে পারে
+  // ১০০০ ডায়মন্ড কেটে সম্পর্ক ছিন্ন করার লজিক (ডাটা রাস্তা প্রটেক্টেড)
   Future<String> breakRelation(String partnerId) async {
-    const int breakupCost = 1000; 
+    const int breakupCost = 1500; 
 
     try {
+      // ১. ইউজারের ডায়মন্ড চেক করা
       DocumentSnapshot userDoc = await _db.collection('users').doc(myuID).get();
+      if (!userDoc.exists) return "ইউজার ডাটা পাওয়া যায়নি!";
+      
       int myDiamonds = userDoc['diamonds'] ?? 0;
 
       if (myDiamonds < breakupCost) {
-        return "পর্যাপ্ত ডায়মন্ড নেই! সম্পর্ক ছিন্ন করতে ১০০০ ডায়মন্ড লাগবে।";
+        return "Need 1500 Daimond।";
       }
 
-      // দুইজনের ডাটাবেস থেকে রিমুভ (অটোমেটিক কার্ড খালি হয়ে যাবে)
-      // আমরা সরাসরি প্রোফাইল পেজ থেকে আসা partnerId ব্যবহার করছি
+      // ২. [ডাটা প্রোটেকশন রাস্তা ফিক্স]: 
+      // দুইজনের মূল কালেকশন অথবা সাব-কালেকশন থেকে সোলমেট জোড়া রিমুভ করা হচ্ছে
+      // আপনার ডাটাবেজ আর্কিটেকচার অনুযায়ী ডকুমেন্ট ডিলিট করা হচ্ছে
       await _db.collection('soulmates').doc(myuID).delete();
-      await _db.collection('soulmates').doc(partnerId).delete();
+      if (partnerId.isNotEmpty) {
+        await _db.collection('soulmates').doc(partnerId).delete();
+      }
 
-      // ডায়মন্ড কেটে নেওয়া
+      // ৩. সফলভাবে ডায়মন্ড কেটে অ্যাকাউন্ট আপডেট করা
       await _db.collection('users').doc(myuID).update({
         'diamonds': FieldValue.increment(-breakupCost)
       });
 
-      return "সাফল্যের সাথে সম্পর্ক ছিন্ন হয়েছে।";
+      return "SUCCESS"; // সফল মেসেজ রিটার্ন
     } catch (e) {
-      return "এরর: $e";
+      return "eror: $e";
     }
   }
 }
