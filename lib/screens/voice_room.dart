@@ -21,6 +21,7 @@ import 'package:pagla_chat/room_manager.dart';
 import 'package:pagla_chat/services/floating_bubble_service.dart';
 import 'package:pagla_chat/services/gift_service.dart';
 import 'package:pagla_chat/services/marriage_service.dart';
+import 'package:pagla_chat/services/room_active_manager.dart';
 
 import 'package:pagla_chat/widgets/entry_effect_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -72,6 +73,7 @@ class VoiceRoom extends StatefulWidget {
 
 class _VoiceRoomState extends State<VoiceRoom> {
   // Services
+  final RoomActiveManager _activeManager = RoomActiveManager();
   final RoomService _roomService = RoomService();
   final RoomSyncService _syncService = RoomSyncService();
   final DatabaseService _dbService = DatabaseService();
@@ -182,6 +184,14 @@ class _VoiceRoomState extends State<VoiceRoom> {
     // ২. ইউজার এবং রুম ডাটা চেক
     _fetchMyuID().then((_) {
       if (mounted) {
+        // 🇧🇩 [বাংলা মার্ক]: ইউজার আইডি পাওয়ার পর রিয়েল-টাইম একটিভ এক্সপি টাইমার চালু করা হলো ভাই
+        final String currentUserId =
+            FirebaseAuth.instance.currentUser?.uid ?? "";
+        if (currentUserId.isNotEmpty) {
+          // টাইমার স্টার্ট (প্রতি ১ মিনিটে ১ এক্সপি ডাটাবেজে বাড়িয়ে দিবে ভাই)
+          _activeManager.startTimer(userId: currentUserId);
+        }
+
         // বাবল থেকে ফিরলে লাইভ স্ট্যাটাস নতুন করে আপডেট করার দরকার নেই
         if (!FloatingBubbleService.isMinimized) {
           _updateUserLiveStatus(widget.roomId);
@@ -1002,32 +1012,37 @@ class _VoiceRoomState extends State<VoiceRoom> {
     try {
       // ১. প্রথমে myuID (শর্ট আইডি) দিয়ে চেক এবং আপডেট
       if (myuID.isNotEmpty) {
-        final shortIdRef = FirebaseFirestore.instance.collection('users').doc(myuID);
+        final shortIdRef =
+            FirebaseFirestore.instance.collection('users').doc(myuID);
         final shortIdSnap = await shortIdRef.get();
-        
+
         // 🎯 সেফটি চেক: যদি ফায়ারস্টোরে এই শর্ট আইডির ডক আসলেই থাকে, তবেই আপডেট হবে ভাই
         if (shortIdSnap.exists) {
           await shortIdRef.update({
             'currentRoomId': FieldValue.delete(),
           });
-          debugPrint("🎉 [PaglaChat] myuID ($myuID) এর জন্য রুম স্ট্যাটাস ডিলিট হয়েছে।");
+          debugPrint(
+              "🎉 [PaglaChat] myuID ($myuID) এর জন্য রুম স্ট্যাটাস ডিলিট হয়েছে।");
         }
       }
 
       // ২. এবার authUID (ফায়ারবেস অ্যাথ ইউআইডি) দিয়ে চেক এবং আপডেট
       if (authUID.isNotEmpty && authUID != myuID) {
-        final authIdRef = FirebaseFirestore.instance.collection('users').doc(authUID);
+        final authIdRef =
+            FirebaseFirestore.instance.collection('users').doc(authUID);
         final authIdSnap = await authIdRef.get();
-        
+
         // 🎯 সেফটি চেক: যদি ফায়ারস্টোরে এই অ্যাথ আইডির ডক আসলেই থাকে, তবেই আপডেট হবে
         if (authIdSnap.exists) {
           await authIdRef.update({
             'currentRoomId': FieldValue.delete(),
           });
-          debugPrint("🎉 [PaglaChat] authUID ($authUID) এর জন্য রুম স্ট্যাটাস ডিলিট হয়েছে।");
+          debugPrint(
+              "🎉 [PaglaChat] authUID ($authUID) এর জন্য রুম স্ট্যাটাস ডিলিট হয়েছে।");
         } else {
           // ডক না থাকলে কোনো এরর থ্রো করবে না, জাস্ট লগে ওয়ার্নিং দিয়ে স্কিপ করবে ভাই
-          debugPrint("⚠️ [PaglaChat Warning] users কালেকশনে authUID ($authUID) ডকটি পাওয়া যায়নি, তাই স্কিপ করা হলো।");
+          debugPrint(
+              "⚠️ [PaglaChat Warning] users কালেকশনে authUID ($authUID) ডকটি পাওয়া যায়নি, তাই স্কিপ করা হলো।");
         }
       }
     } catch (e) {
@@ -2095,20 +2110,26 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
     debugPrint("ফুল এক্সিট: রুমের সব লজিক ক্লিনআপ করা হচ্ছে।");
 
+    // 🇧🇩 [বাংলা মার্ক]: ইউজার সম্পূর্ণ এক্সিট করলে রিয়েল-টাইম একটিভ এক্সপি টাইমারটি বন্ধ করা হলো ভাই
+    _activeManager.stopTimer();
+
     // 🇧🇩 [বাংলা মার্ক - ১০০% ফুলপ্রুফ কাউন্ট রিলিজ ফিক্স]:
-    // ইউজার যখন বাবল ছাড়া সরাসরি রুম থেকে বের হবে, তখন ডাটাবেজের মান নিখুঁতভাবে চেক করে কমানো হবে।
-    final roomRef = FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
+    // ইউজার যখন বাবল ছাড়া সরাসরি রুম থেকে বের হবে, তখন ডাটাবেজের মান নিখুঁতভাবে চেক করে কমানো হবে।
+    final roomRef =
+        FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
     roomRef.get().then((doc) {
       if (doc.exists && doc.data() != null) {
         int currentCount = doc.data()?['userCount'] ?? 0;
-        // সেফটি লজিক: যদি কাউন্ট ১ বা তার কম হয়, তবে সরাসরি ০ হবে। আর বেশি থাকলে ১ কমবে।
+        // সেফটি লজিক: যদি কাউন্ট ১ বা তার কম হয়, তবে সরাসরি ০ হবে। আর বেশি থাকলে ১ কমবে।
         int newCount = (currentCount <= 1) ? 0 : (currentCount - 1);
-        
-        roomRef.update({'userCount': newCount})
-           .then((_) => debugPrint("🎉 [PaglaChat] ইউজার বের হয়েছে সফলভাবে, নতুন লাইভ কাউন্ট: $newCount"))
-           .catchError((e) => debugPrint("❌ কাউন্ট আপডেট করতে সমস্যা: $e"));
+
+        roomRef
+            .update({'userCount': newCount})
+            .then((_) => debugPrint(
+                "🎉 [PaglaChat] ইউজার বের হয়েছে সফলভাবে, নতুন লাইভ কাউন্ট: $newCount"))
+            .catchError((e) => debugPrint("❌ কাউন্ট আপডেট করতে সমস্যা: $e"));
       }
-    }).catchError((e) => debugPrint("❌ ফায়ারস্টোর ডাটা রিড করতে সমস্যা: $e"));
+    }).catchError((e) => debugPrint("❌ ফায়ারস্টোর ডাটা রিড করতে সমস্যা: $e"));
 
     // ৩. ভিউয়ার লিস্ট থেকে ব্যবহারকারীকে সরিয়ে ফেলা
     _removeUserFromViewers();
@@ -2155,10 +2176,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
     _audioPlayer.dispose();
     _messageController.dispose();
 
-    // VII. স্ক্রিন অফ হওয়ার পারমিশন রিস্টোর করা (Wakelock বন্ধ করা)
+    // VII. স্ক্রিন অফ হওয়ার পারমিশন রিস্টোর করা (Wakelock বন্ধ করা)
     WakelockPlus.disable();
 
-    // ৭. এগোরা ইঞ্জিন রিলিজ করা
+    // ७. এগোরা ইঞ্জিন রিলিজ করা
     try {
       _agoraManager.engine?.leaveChannel();
       _agoraManager.engine?.release();
@@ -2168,6 +2189,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
     super.dispose();
   }
+
   Widget _buildTopNavBar() {
     final String myAuthId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
@@ -3683,6 +3705,39 @@ class _VoiceRoomState extends State<VoiceRoom> {
                       isFree: isFree,
                       giftName: gift['name'] ?? "Gift",
                     );
+
+                    // 🇧🇩 [বাংলা মার্ক]: গিফট ট্রানজেকশন সফল হওয়ার পর এক্সপি বাড়ানোর রিয়েল-টাইম লজিক
+                    if (!isFree && totalAmount > 0) {
+                      final firestore = FirebaseFirestore.instance;
+
+                      // 🎯 ২৫০ ডায়মন্ড খরচ হলে ১ এক্সপি যোগ হবে (ভাগফল বের করা হলো ভাই)
+                      int calculatedXp = totalAmount ~/ 250;
+
+                      if (calculatedXp > 0) {
+                        // ১. যে গিফট পাঠালো (Sender): তার শুধু গিফট লেভেল এক্সপি (totalGiftXp) বাড়বে ভাই
+                        await firestore
+                            .collection('users')
+                            .doc(senderDocID)
+                            .update({
+                          'totalGiftXp': FieldValue.increment(calculatedXp),
+                        });
+
+                        // ২. যে গিফট রিসিভ করলো (Receiver): তার একটিভ এক্সপি বার (totalActiveXp) বাড়বে ভাই
+                        await firestore
+                            .collection('users')
+                            .doc(receiverDocID)
+                            .update({
+                          'totalActiveXp': FieldValue.increment(calculatedXp),
+                        });
+
+                        // 🔍 [সঠিক লগ]: ভিআইপি টেক্সট সরিয়ে আপনার দেওয়া নতুন ফিচারের নাম সেট করা হলো ভাই
+                        debugPrint(
+                            "🔥 [PaglaChat Level System] XP Updated: Sender +$calculatedXp GiftXP, Receiver +$calculatedXp ActiveXp (ডায়মন্ড খরচ ছিল: $totalAmount)");
+                      } else {
+                        debugPrint(
+                            "ℹ️ [PaglaChat] খরচ করা ডায়মন্ড ২৫০ এর কম হওয়ায় এক্সপি যোগ হয়নি ভাই।");
+                      }
+                    }
                   } else {
                     return;
                   }

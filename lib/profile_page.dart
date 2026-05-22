@@ -71,6 +71,8 @@ class _ProfilePageState extends State<ProfilePage> {
   bool hasSpecialEffect =
       false; // ইউজার কি কোনো স্পেশাল ইফেক্ট অন করে রেখেছে কি না
 
+  int totalActiveXp = 0;
+  int totalGiftXp = 0;
   @override
   void initState() {
     super.initState();
@@ -181,6 +183,25 @@ class _ProfilePageState extends State<ProfilePage> {
                   extraField: 'activeEntryUrl');
             }
           }
+          // 🎯 আপনার setState এর একদম শেষ লাইনে এই প্রিন্টগুলো বসিয়ে দিন ভাই:
+          totalActiveXp = (data['totalActiveXp'] ?? 0).toInt();
+
+// 🇧🇩 [বাংলা মার্ক]: অ্যাক্টিভ এক্সপির জন্য মাস্টার প্রিন্ট লগ ট্র্যাকিং ভাই
+          debugPrint("======== 🎁 [PaglaChat Active XP System] ========");
+          debugPrint(
+              "📥 ডাটাবেজ থেকে প্রাপ্ত totalActiveXp ফিল্ড: ${data['totalActiveXp']}");
+          debugPrint(
+              "📈 ভেরিয়েবলে সেটের পর totalActiveXp ভ্যালু: $totalActiveXp");
+          debugPrint("=================================================");
+          totalGiftXp = (data['totalGiftXp'] ?? 0).toInt();
+
+          // 🇧🇩 [বাংলা মার্ক]: আসল প্রিন্ট লগ ট্র্যাকিং—যার মাধ্যমে এক সেকেন্ডে গোমর ফাঁস হবে!
+          debugPrint("🔥 [প্রিন্ট ১ - ডাটাবেজ ম্যাপ]: " + data.toString());
+          debugPrint("🔥 [প্রিন্ট ২ - ম্যাপের ভেতর totalGiftXp]: " +
+              data['totalGiftXp'].toString());
+          debugPrint(
+              "🔥 [প্রিন্ট ৩ - সেটের পর totalGiftXp ভেরিয়েবল]: $totalGiftXp");
+          debugPrint("🔥 [প্রিন্ট ৪ - কারেন্ট ইউজার আইডি]: $uIDValue");
         });
         debugPrint("✅ ডাটা লোড সম্পন্ন: $uIDValue");
       }
@@ -351,14 +372,14 @@ class _ProfilePageState extends State<ProfilePage> {
   ];
 
   final List<String> vipFrames = [
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/framevip1.png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/framevip2.png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/framevip3.png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/framevip4.png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/framevip5.png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/framevip6.png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/framevip7.png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/framevip8.png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/61c74c52f733af08c0db673462bf2d776cef6a1d/vipframe/framevip%20(1).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/61c74c52f733af08c0db673462bf2d776cef6a1d/vipframe/framevip%20(2).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/61c74c52f733af08c0db673462bf2d776cef6a1d/vipframe/framevip%20(3).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/61c74c52f733af08c0db673462bf2d776cef6a1d/vipframe/framevip%20(4).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/61c74c52f733af08c0db673462bf2d776cef6a1d/vipframe/framevip%20(5).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/61c74c52f733af08c0db673462bf2d776cef6a1d/vipframe/framevip%20(6).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/61c74c52f733af08c0db673462bf2d776cef6a1d/vipframe/framevip%20(7).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/61c74c52f733af08c0db673462bf2d776cef6a1d/vipframe/framevip%20(8).png",
   ];
   // ১. গিটহাবের বেস লিঙ্ক (সব ছবির জন্য কমন)
   final String githubBaseUrl =
@@ -2411,22 +2432,26 @@ class _ProfilePageState extends State<ProfilePage> {
                               }
 
                               // ডাটাবেজের ফিল্ড ম্যাপ করা হচ্ছে যাতে ফ্লেক্সিবল থাকে
-                              String partnerImg = marriageData['partnerProfilePic'] ??
-                                  marriageData['partnerImage'] ??
-                                  '';
-                              String finalPartnerFrame = livePartnerFrame.trim().isNotEmpty
-                                  ? livePartnerFrame
-                                  : (marriageData['activeFrameUrl'] ??
-                                      marriageData['partnerFrameUrl'] ??
-                                      '');
+                              String partnerImg =
+                                  marriageData['partnerProfilePic'] ??
+                                      marriageData['partnerImage'] ??
+                                      '';
+                              String finalPartnerFrame =
+                                  livePartnerFrame.trim().isNotEmpty
+                                      ? livePartnerFrame
+                                      : (marriageData['activeFrameUrl'] ??
+                                          marriageData['partnerFrameUrl'] ??
+                                          '');
 
                               // 🔍 [প্রিন্ট ১]: বিবাহিত প্রোফাইলের সমস্ত ইমেজ লিংক টেস্ট
-                              debugPrint("====== 💍 [MARRIAGE LIVE URLS] ======");
+                              debugPrint(
+                                  "====== 💍 [MARRIAGE LIVE URLS] ======");
                               debugPrint("My Image: '$userImageURL'");
                               debugPrint("My Frame: '$activeFrameUrl'");
                               debugPrint("Partner Image: '$partnerImg'");
                               debugPrint("Partner Frame: '$finalPartnerFrame'");
-                              debugPrint("Ring Icon: '${marriageData['ringIconUrl'] ?? marriageData['ringIcon']}'");
+                              debugPrint(
+                                  "Ring Icon: '${marriageData['ringIconUrl'] ?? marriageData['ringIcon']}'");
 
                               Map<String, dynamic> formattedMarriageData = {
                                 'ringIcon': marriageData['ringIconUrl'] ??
@@ -2450,7 +2475,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         }
 
                         // 👤 যদি সিঙ্গেল হয় (কোনো পার্টনার না থাকে), তবে শুধু নিজের পুরাতন প্রোফাইল পিকচারটি দেখাব
-                        
+
                         // 🔍 [প্রিন্ট ২]: সিঙ্গেল প্রোফাইলের সমস্ত ইমেজ লিংক টেস্ট
                         debugPrint("====== 👤 [SINGLE USER URLS] ======");
                         debugPrint("My Image: '$userImageURL'");
@@ -2466,16 +2491,19 @@ class _ProfilePageState extends State<ProfilePage> {
                                 child: CircleAvatar(
                                   radius: 50,
                                   backgroundColor: Colors.grey[900],
-                                  backgroundImage: (userImageURL.isNotEmpty && !userImageURL.startsWith('file:'))
+                                  backgroundImage: (userImageURL.isNotEmpty &&
+                                          !userImageURL.startsWith('file:'))
                                       ? NetworkImage(userImageURL)
                                       : null,
-                                  child: (userImageURL.isEmpty || userImageURL.startsWith('file:'))
+                                  child: (userImageURL.isEmpty ||
+                                          userImageURL.startsWith('file:'))
                                       ? const Icon(Icons.person,
                                           size: 50, color: Colors.white)
                                       : null,
                                 ),
                               ),
-                              if (activeFrameUrl.isNotEmpty && !activeFrameUrl.startsWith('file:'))
+                              if (activeFrameUrl.isNotEmpty &&
+                                  !activeFrameUrl.startsWith('file:'))
                                 IgnorePointer(
                                   child: SizedBox(
                                     width: 0,
@@ -2491,13 +2519,15 @@ class _ProfilePageState extends State<ProfilePage> {
                                               child: Lottie.network(
                                                 activeFrameUrl,
                                                 fit: BoxFit.contain,
-                                                errorBuilder: (c, e, s) => const SizedBox(),
+                                                errorBuilder: (c, e, s) =>
+                                                    const SizedBox(),
                                               ),
                                             )
                                           : Image.network(
                                               activeFrameUrl,
                                               fit: BoxFit.contain,
-                                              errorBuilder: (c, e, s) => const SizedBox(),
+                                              errorBuilder: (c, e, s) =>
+                                                  const SizedBox(),
                                             ),
                                     ),
                                   ),
@@ -2557,9 +2587,18 @@ class _ProfilePageState extends State<ProfilePage> {
                         child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              if (vipLevel > 0 && getVipBadge(vipLevel).toString().isNotEmpty && !getVipBadge(vipLevel).toString().startsWith('file:'))
+                              if (vipLevel > 0 &&
+                                  getVipBadge(vipLevel).toString().isNotEmpty &&
+                                  !getVipBadge(vipLevel)
+                                      .toString()
+                                      .startsWith('file:'))
                                 Image.network(getVipBadge(vipLevel),
-                                    width: 45, height: 45, errorBuilder: (c, e, s) => const Icon(Icons.stars_rounded, color: Colors.white24, size: 40))
+                                    width: 45,
+                                    height: 45,
+                                    errorBuilder: (c, e, s) => const Icon(
+                                        Icons.stars_rounded,
+                                        color: Colors.white24,
+                                        size: 40))
                               else
                                 const Icon(Icons.stars_rounded,
                                     color: Colors.white24, size: 40),
@@ -2577,50 +2616,119 @@ class _ProfilePageState extends State<ProfilePage> {
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold)),
                                   const SizedBox(height: 8),
-                                  // 🔥 আগুনের মতো জ্বলজ্বলে ডাইনামিক প্রগ্রেস বার লজিক
+                                  // 🔥 [আগুনের মতো জ্বলজ্বলে ডাইনামিক প্রগ্রেস বার]:
+                                  // Shimmer দিয়ে আগুনের তরঙ্গ এবং মাথায় আলাদা আগুনের শিখা
                                   LayoutBuilder(
                                     builder: (context, constraints) {
-                                      final double maxWidth = constraints.maxWidth;
-                                      final double barWidth = maxWidth * progressValue;
+                                      final double maxWidth =
+                                          constraints.maxWidth;
+                                      final double barWidth =
+                                          maxWidth * progressValue;
 
                                       return Container(
-                                        height: 10, // বারের হাইট সামান্য বাড়ানো হলো সৌন্দর্যের জন্য
+                                        height:
+                                            12, // সামান্য মোটা করা হলো যাতে ইফেক্টটি ভালো দেখা যায় ভাই
                                         width: maxWidth,
                                         decoration: BoxDecoration(
-                                          color: Colors.white10,
-                                          borderRadius: BorderRadius.circular(10),
+                                          color: Colors
+                                              .white10, // বারের ব্যাকগ্রাউন্ড
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          border: Border.all(
+                                              color:
+                                                  Colors.white.withOpacity(0.2),
+                                              width: 1), // বারের ধারালো বর্ডার
                                         ),
-                                        child: Stack(
-                                          children: [
-                                            if (barWidth > 0)
-                                              Positioned(
-                                                left: 0,
-                                                top: 0,
-                                                bottom: 0,
-                                                width: barWidth,
-                                                child: ClipRRect(
-                                                  borderRadius: BorderRadius.circular(10),
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          child: Stack(
+                                            children: [
+                                              // ১. মূল গোল্ডেন এবং আগুনের রঙের তরঙ্গ (Shimmer Gradient)
+                                              if (barWidth > 0)
+                                                Positioned(
+                                                  left: 0,
+                                                  top: 0,
+                                                  bottom: 0,
+                                                  width: barWidth,
                                                   child: Shimmer.fromColors(
-                                                    baseColor: Colors.amber, // আপনার আসল কালার ভাই
-                                                    highlightColor: const Color(0xFFFFE082), // আগুনের জ্বলজ্বলে আভা (Light Amber)
-                                                    period: const Duration(milliseconds: 1500), // অ্যানিমেশন স্পিড
+                                                    baseColor: const Color(
+                                                        0xFFFFD700), // মূল গোল্ডেন কালার
+                                                    highlightColor: const Color(
+                                                        0xFFFF4500), // আগুনের তরঙ্গ (Orange-Red)
+                                                    period: const Duration(
+                                                        milliseconds:
+                                                            1500), // অ্যানিমেশন স্পিড
                                                     child: Container(
                                                       decoration: BoxDecoration(
-                                                        color: Colors.amber,
-                                                        borderRadius: BorderRadius.circular(10),
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                            color: Colors.amber.withOpacity(0.5),
-                                                            blurRadius: 6,
-                                                            spreadRadius: 1,
-                                                          ),
-                                                        ],
+                                                        // গ্রেডিয়েন্ট দেওয়া হলো যাতে শুরু থেকে মাথায় কালার চেঞ্জ হয়
+                                                        gradient:
+                                                            LinearGradient(
+                                                          colors: const [
+                                                            Color(
+                                                                0xFFFFC107), // শুরু গোল্ডেন
+                                                            Color(
+                                                                0xFFFFD700), // মাছ গোল্ডেন
+                                                          ],
+                                                        ),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(10),
                                                       ),
                                                     ),
                                                   ),
                                                 ),
-                                              ),
-                                          ],
+                                              // ২. মাথায় সেই জ্বলজ্বলে আগুনের শিখা বা বিন্দু (The Glowing Fire Head)
+                                              // এটি একদম মাথায় স্থির থেকে জ্বলজ্বল করবে
+                                              if (barWidth > 0)
+                                                Positioned(
+                                                  left: barWidth -
+                                                      10, // মাথার বিন্দুটি ঠিক প্রগ্রেসের শেষ মাথায় বসবে
+                                                  top: 0,
+                                                  bottom: 0,
+                                                  child: Center(
+                                                    child: Shimmer.fromColors(
+                                                      baseColor: const Color(
+                                                          0xFFFF4500), // আগুনের বিন্দুর বেস (Orange-Red)
+                                                      highlightColor: Colors
+                                                          .yellowAccent, // বিন্দুর জ্বলজ্বল (Yellow)
+                                                      period: const Duration(
+                                                          milliseconds:
+                                                              500), // দ্রুত জ্বলজ্বল
+                                                      child: Container(
+                                                        width: 10,
+                                                        height: 10,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          shape:
+                                                              BoxShape.circle,
+                                                          color: Colors.orange,
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color: Colors
+                                                                  .redAccent
+                                                                  .withOpacity(
+                                                                      0.8),
+                                                              blurRadius: 6,
+                                                              spreadRadius:
+                                                                  2, // বিন্দুর চারপাশে আগুনের আভা
+                                                            ),
+                                                            BoxShadow(
+                                                              color: Colors
+                                                                  .orange
+                                                                  .withOpacity(
+                                                                      0.6),
+                                                              blurRadius: 10,
+                                                              spreadRadius: 4,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
                                         ),
                                       );
                                     },
@@ -2628,22 +2736,34 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ],
                               )),
                               const SizedBox(width: 15),
-                              if (hasPremiumCard && (premiumBadgeUrl ?? '').toString().isNotEmpty && !premiumBadgeUrl.toString().startsWith('file:'))
+                              if (hasPremiumCard &&
+                                  (premiumBadgeUrl ?? '')
+                                      .toString()
+                                      .isNotEmpty &&
+                                  !premiumBadgeUrl
+                                      .toString()
+                                      .startsWith('file:'))
                                 Image.network(premiumBadgeUrl,
-                                    width: 45, height: 45, errorBuilder: (c, e, s) => const SizedBox(width: 45))
+                                    width: 45,
+                                    height: 45,
+                                    errorBuilder: (c, e, s) =>
+                                        const SizedBox(width: 45))
                               else
                                 const SizedBox(width: 45),
                             ])),
-
                     const SizedBox(height: 15),
 
-                    // 🇧🇩 [বাংলা মার্ক - নতুন ২টা এক্সপি বার যুক্তকরণ লজিক]:
+// 🇧🇩 [বাংলা মার্ক]: ম্যাপের বদলে ডিরেক্ট আপডেট হওয়া ভেরিয়েবল পাস—এবার ১০০% কাজ করবে ভাই
                     ActiveLevelBar(
-                        totalActiveXp: userData['totalActiveXp'] ?? 0),
+                        totalActiveXp:
+                            totalActiveXp), // 👈 userData['totalActiveXp'] কেটে শুধু totalActiveXp
 
-                    const SizedBox(height: 5), // দুটি বারের মাঝখানে একটু গ্যাপ
+                    const SizedBox(height: 5),
 
-                    GiftLevelBar(totalGiftXp: userData['totalGiftXp'] ?? 0),
+                    GiftLevelBar(
+                        totalGiftXp:
+                            totalGiftXp), // 👈 userData['totalGiftXp'] কেটে শুধু totalGiftXp
+
                     const SizedBox(height: 25),
 
                     // Followers & Following
@@ -2725,7 +2845,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Container(
                     width: MediaQuery.of(context).size.width,
                     height: MediaQuery.of(context).size.height,
-                    decoration: (activeSpecialUrl != null && activeSpecialUrl.toString().isNotEmpty && !activeSpecialUrl.toString().startsWith('file:'))
+                    decoration: (activeSpecialUrl != null &&
+                            activeSpecialUrl.toString().isNotEmpty &&
+                            !activeSpecialUrl.toString().startsWith('file:'))
                         ? BoxDecoration(
                             image: DecorationImage(
                               image: NetworkImage(activeSpecialUrl),
