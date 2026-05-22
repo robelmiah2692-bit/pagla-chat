@@ -21,7 +21,9 @@ class _RoomListPageState extends State<RoomListPage>
     with TickerProviderStateMixin {
   late TabController _tabController;
   late AnimationController _bubbleController;
-
+  late AnimationController _colorAnimationController;
+  late Animation<Color?> _colorTween;
+  String? currentLoggedInUID;
   final List<String> defaultRoomImages = [
     "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500",
     "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500",
@@ -32,16 +34,35 @@ class _RoomListPageState extends State<RoomListPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    
     _bubbleController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat(reverse: true);
+
+    // 🇧🇩 [বাংলা মার্ক - অটো কালার চেঞ্জিং অ্যানিমেশন শুরু]:
+    // অ্যাপবারের টেক্সট ৩ সেকেন্ড পর পর অটো স্মুথ কালার চেঞ্জ করার জন্য কন্ট্রোলার ভাই
+    _colorAnimationController = AnimationController(
+      duration: const Duration(seconds: 3), 
+      vsync: this,
+    )..repeat(reverse: true); // কালার লুপ আকারে চলতেই থাকবে
+
+    // 🎨 আপনার সেই হলুদ কালার থেকে নিয়ন স্কাই ব্লু কালারের ট্রানজিশন
+    _colorTween = ColorTween(
+      begin: const Color.fromARGB(255, 226, 242, 5), 
+      end: Colors.cyanAccent, 
+    ).animate(_colorAnimationController);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _bubbleController.dispose();
+    
+    // 🇧🇩 [বাংলা মার্ক - মেমোরি ক্লিনআপ]:
+    // অ্যাপবারের কালার অ্যানিমেশন কন্ট্রোলারটি মেমোরি থেকে সম্পূর্ণ রিলিজ করে দেওয়া হলো ভাই
+    _colorAnimationController.dispose(); 
+    
     super.dispose();
   }
 
@@ -203,31 +224,87 @@ class _RoomListPageState extends State<RoomListPage>
       ),
     );
   }
-
-  @override
+@override
   Widget build(BuildContext context) {
     return Scaffold(
-      // একদম নিচের লেয়ারের ব্যাকগ্রাউন্ড
       backgroundColor: const Color(0xFF02020A),
+      
+     // 🧱 [appBar আপডেট]: আপনার হোম পেজের মতো হুবহু গ্লাস ক্যাপসুল ও রেনবো টেক্সট ডিজাইন
       appBar: AppBar(
-        // অ্যাপবারকে একটু বেগুনি আভাযুক্ত ডার্ক করা হয়েছে
         backgroundColor: const Color(0xFF0A0A25),
         elevation: 0,
-        title: const Text("𝐏𝐚𝐠𝐥𝐚𝐂𝐡𝐚𝐭🥳𝐋𝐢𝐯𝐞ღ`◕‿♫",
-            style: TextStyle(
-                color: Color.fromARGB(255, 226, 242, 5),
-                fontWeight: FontWeight.bold)),
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor:
-              Colors.purpleAccent, // ছবির বেগুনি থিমের সাথে মিল রেখে
-          labelColor: Colors.purpleAccent,
-          unselectedLabelColor: Colors.white38,
-          tabs: const [
-            Tab(text: "Live Room"),
-            Tab(text: "Following"),
-            Tab(text: "My Room"),
-          ],
+        centerTitle: true, // টাইটেলটি একদম মাঝখানে থাকবে ভাই
+        
+        // ✨ [গ্লাস ক্যাপসুল ডিজাইন]: হোম পেজের মতো সুন্দর রাউন্ড বর্ডার ও কাঁচের ব্যাকগ্রাউন্ড
+        title: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            color: Colors.white.withOpacity(0.08), // হালকা সাদা গ্লাস অপাসিটি
+            border: Border.all(
+              color: Colors.white.withOpacity(0.15), // চারপাশের গ্লাস বর্ডার
+              width: 1.2,
+            ),
+          ),
+          
+          // 🔮 [অটো কালার শিফটিং লজিক]: ShaderMask দিয়ে কালারগুলো লেখার ওপর দিয়ে নেচে বেড়াবে
+          child: AnimatedBuilder(
+            animation: _colorAnimationController, // আপনার তৈরি করা সেই কন্ট্রোলার
+            builder: (context, child) {
+              return ShaderMask(
+                shaderCallback: (bounds) => LinearGradient(
+                  colors: const [
+                    Colors.amberAccent,
+                    Colors.cyanAccent,
+                    Colors.purpleAccent,
+                    Colors.amberAccent
+                  ],
+                  stops: [
+                    _colorAnimationController.value - 0.2,
+                    _colorAnimationController.value,
+                    _colorAnimationController.value + 0.2,
+                    _colorAnimationController.value + 0.4
+                  ],
+                ).createShader(bounds),
+                child: const Text(
+                  "𝐏𝐚𝐠𝐥𝐚𝐂𝐡𝐚𝐭🥳𝐋𝐢𝐯𝐞ღ`◕‿♫",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    color: Colors.white, // ShaderMask এর কারণে এটি রেনবো কালার হয়ে যাবে
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        
+        // 📏 [ট্যাব বার ও নিচের গ্লাস বর্ডার]:
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Container(
+            decoration: BoxDecoration(
+              // আপনার হোম পেজের নিচের দিকের সেই সুন্দর চিকন কাঁচের বর্ডার রেখা ভাই
+              border: Border(
+                bottom: BorderSide(
+                  color: Colors.white.withOpacity(0.12), 
+                  width: 1.2,
+                ),
+              ),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              indicatorColor: Colors.purpleAccent, 
+              labelColor: Colors.purpleAccent,
+              unselectedLabelColor: Colors.white38,
+              tabs: const [
+                Tab(text: "Live Room"),
+                Tab(text: "Following"),
+                Tab(text: "My Room"),
+              ],
+            ),
+          ),
         ),
       ),
       body: Container(
@@ -325,7 +402,7 @@ class _RoomListPageState extends State<RoomListPage>
                     controller: _tabController,
                     children: [
                       _buildLiveRoomList(),
-                      _buildFollowingRoomList(),
+                     _buildFollowingRoomList(currentLoggedInUID),
                       _buildMyRoomList(),
                     ],
                   ),
@@ -351,32 +428,71 @@ class _RoomListPageState extends State<RoomListPage>
     );
   }
 
-  Widget _buildFollowingRoomList() {
+ // 🇧🇩 [বাংলা মার্ক]: নতুন ১০০% ফিক্সড ফলোইং রুম মেথড (কোনো আইডি লেট বা নাল প্রবলেম হবে না)
+  Widget _buildFollowingRoomList(String? targetUID) {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null)
+    if (user == null || user.email == null) {
       return const Center(
           child: Text("Login to see following",
               style: TextStyle(color: Colors.white38)));
+    }
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('rooms')
-          .where('followers', arrayContains: user.uid)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData)
+    // 🎯 এখানে আমরা ডিরেক্ট FutureBuilder দিয়ে ইউজারের ইমেইল দিয়ে ফায়ারস্টোর থেকে তার uID (যেমন: 454488) ইনস্ট্যান্ট তুলে আনবো ভাই
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: user.email)
+          .limit(1)
+          .get(),
+      builder: (context, userSnapshot) {
+        if (userSnapshot.connectionState == ConnectionState.waiting) {
           return const Center(
-              child: CircularProgressIndicator(color: Colors.pinkAccent));
-        var docs = snapshot.data!.docs;
-        if (docs.isEmpty)
+              child: CircularProgressIndicator(color: Colors.purpleAccent));
+        }
+
+        if (!userSnapshot.hasData || userSnapshot.data!.docs.isEmpty) {
           return const Center(
-              child: Text("No rooms followed",
-                  style: TextStyle(color: Colors.white38)));
-        return _buildGrid(docs);
+              child: Text("User profile not found", style: TextStyle(color: Colors.white38)));
+        }
+
+        // 🚀 ইউজারের আসল শর্ট uID (যেমন: "454488") সফলভাবে সংগৃহীত হলো ভাই
+        String liveUserUID = userSnapshot.data!.docs.first['uID'].toString();
+        
+        debugPrint("🎉 [PaglaChat Master] ইনস্ট্যান্ট uID পাওয়া গেছে: $liveUserUID");
+
+        // 🎯 এখন এই uID দিয়ে আমরা সরাসরি রুমের ফলোয়ার লিস্টের স্ট্রিম চালাবো
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('rooms')
+              .where('followers', arrayContains: liveUserUID)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                  child: CircularProgressIndicator(color: Colors.pinkAccent));
+            }
+
+            if (!snapshot.hasData) {
+              return const Center(
+                  child: Text("No data found", style: TextStyle(color: Colors.white38)));
+            }
+
+            var docs = snapshot.data!.docs;
+
+            debugPrint("🎉 [PaglaChat Master] ফলো করা মোট রুম সংখ্যা: ${docs.length} টি");
+
+            if (docs.isEmpty) {
+              return const Center(
+                  child: Text("No rooms followed",
+                      style: TextStyle(color: Colors.white38)));
+            }
+
+            return _buildGrid(docs);
+          },
+        );
       },
     );
   }
-
   Widget _buildMyRoomList() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || user.email == null)
@@ -446,6 +562,7 @@ class _RoomListPageState extends State<RoomListPage>
     );
   }
 
+  // 🇧🇩 [বাংলা মার্ক]: গ্রিড ভিউ মেথড
   Widget _buildGrid(List<DocumentSnapshot> docs, {bool isMyRoomList = false}) {
     return GridView.builder(
       padding: const EdgeInsets.all(12),
@@ -468,6 +585,7 @@ class _RoomListPageState extends State<RoomListPage>
     );
   }
 
+  // 🇧🇩 [বাংলা মার্ক - ১০০% লাইভ কাউন্ট, লাল/সবুজ ইন্ডিকেটর ও LIVE টেক্সট ফিক্সড]
   Widget _buildPremiumGlassCard(
       String id, String name, int count, String? image, bool isMyRoom) {
     String finalImage =
@@ -492,17 +610,13 @@ class _RoomListPageState extends State<RoomListPage>
                     ? Colors.amber.withOpacity(0.8)
                     : Colors.white.withOpacity(0.1),
                 width: isMyRoom ? 2.5 : 1.5),
-            // এখানে ছবির opacity বাড়িয়ে ০.৯ বা ১.০ করে দিন যাতে পরিষ্কার দেখা যায়
             image: DecorationImage(
                 image: NetworkImage(finalImage),
                 fit: BoxFit.cover,
-                opacity: 0.9 // ০.৬ থেকে বাড়িয়ে ০.৯ করা হলো
-                ),
+                opacity: 0.9),
           ),
           child: Container(
-            // BackdropFilter বাদ দেওয়া হয়েছে যাতে ছবি ঝাপসা না হয়
             decoration: BoxDecoration(
-              // ছবির ওপর হালকা একটি গ্রাডিয়েন্ট শ্যাডো যাতে নিচের লেখা স্পষ্ট হয়
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -515,6 +629,7 @@ class _RoomListPageState extends State<RoomListPage>
             padding: const EdgeInsets.all(12),
             child: Stack(
               children: [
+                // 🇧🇩 বাম পাশের নিচে রুমের নাম ও টাইটেল
                 Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,7 +642,7 @@ class _RoomListPageState extends State<RoomListPage>
                             fontWeight: FontWeight.bold,
                             fontSize: 14)),
                     const SizedBox(height: 2),
-                    Text(isMyRoom ? "MY ROOM" : "LIVE",
+                    Text(isMyRoom ? "MY ROOM" : "PAGLA LIVE",
                         style: TextStyle(
                             color: isMyRoom
                                 ? Colors.amberAccent
@@ -536,28 +651,61 @@ class _RoomListPageState extends State<RoomListPage>
                             fontWeight: FontWeight.bold)),
                   ],
                 ),
+
+                // 🎯 [ডান পাশের টপ কর্নার]: আপনার চাহিদামতো রিয়েল-টাইম লাইভ ইন্ডিকেটর লেআউট
                 Positioned(
                   top: 0,
                   right: 0,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(10)),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.person,
-                            size: 12, color: Colors.greenAccent),
-                        Text(" $count",
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold)),
-                      ],
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      // ১. কাউন্ট এবং ডায়নামিক লাল/সবুজ লাইট বক্স
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(10)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // 🟢/🔴 লাইভ ইন্ডিকেটর: মানুষ থাকলে সবুজ (Green), ০ জন হলে লাল (Red)
+                            Icon(
+                              Icons.circle,
+                              size: 10,
+                              color: count > 0 ? Colors.greenAccent : Colors.redAccent,
+                            ),
+                            const SizedBox(width: 5),
+                            // লাইভ মানুষের আসল কাউন্ট সংখ্যা
+                            Text("$count",
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      
+                      // ২. কাউন্টের ঠিক নিচে আপনার বলা সুন্দর 'LIVE' ব্যাজ টেক্সট
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: count > 0 ? Colors.red.withOpacity(0.85) : Colors.grey.withOpacity(0.4),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          "LIVE",
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                
                 if (isMyRoom)
                   const Positioned(
                     top: 0,
@@ -573,31 +721,104 @@ class _RoomListPageState extends State<RoomListPage>
     );
   }
 
+  // 🇧🇩 [বাংলা মার্ক - প্রিমিয়াম গ্লাস বর্ডার ও ওয়ার্ল্ড ম্যাপ আইকন ব্যানার ফিক্স]
   Widget _buildBanner() {
     return Container(
-      margin: const EdgeInsets.all(15),
+      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
       height: 100,
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
+        // 🎨 আপনার স্ক্রিনশটের মতো নিখুঁত পার্পেল-ব্লু মিক্সড গ্রাডিয়েন্ট
         gradient: const LinearGradient(
-            colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)]),
+          colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        // ✨ [গ্লাস বর্ডার ইফেক্ট]: হালকা ও উজ্জ্বল নিয়ন শেডের মিক্স বর্ডার, যা গ্লাসের মতো রিফ্লেক্ট করবে
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2), 
+          width: 1.5,
+        ),
+        // হালকা নিয়ন গ্লো শ্যাডো
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF8E2DE2).withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: const Padding(
-        padding: EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Pagla Chat World",
-                style: TextStyle(
+      child: Stack(
+        children: [
+          // 🎯 ডান পাশের খালি জায়গায় ওয়ার্ল্ড ম্যাপ আইকন (আপনার স্ক্রিনশটের ডিজাইনের মতো)
+          Positioned(
+            right: 15,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // আইকনের পেছনের হালকা গ্লোয়িং কক্ষপথ সার্কেল
+                  Container(
+                    width: 65,
+                    height: 65,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.cyanAccent.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  // 🌍 মূল ওয়ার্ল্ড ম্যাপ গ্লোয়িং আইকন
+                  Icon(
+                    Icons.public, // বিশ্ব মানচিত্রের আইকন
+                    size: 48,
+                    color: Colors.cyanAccent.withOpacity(0.75), // স্ক্রিনশটের মতো নিয়ন লাইট ব্লু শেড
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 📝 বাম পাশের টেক্সট এরিয়া
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Pagla Chat World",
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
-                    fontWeight: FontWeight.bold)),
-            Text("Connect with voice & fun",
-                style: TextStyle(color: Colors.white70, fontSize: 12)),
-          ],
-        ),
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                    // টেক্সটের নিচে হালকা শ্যাডো যাতে প্রফেশনাল লাগে
+                    shadows: [
+                      Shadow(
+                        color: Colors.black45,
+                        offset: Offset(1, 1),
+                        blurRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Connect with voice & fun",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.85), 
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

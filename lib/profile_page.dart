@@ -2,7 +2,9 @@ import 'package:intl/intl.dart';
 import 'package:pagla_chat/services/diamond_recharge_view.dart';
 import 'package:pagla_chat/services/follow_service.dart';
 import 'package:pagla_chat/services/soulmate_detail_page.dart';
-
+import 'package:pagla_chat/widgets/active_level_bar.dart';
+import 'package:pagla_chat/widgets/gift_level_bar.dart';
+import 'package:shimmer/shimmer.dart';
 import 'widgets/animated_frame.dart'; // পাথটি আপনার ফোল্ডার অনুযায়ী ঠিক করে নিন
 import 'package:firebase_storage/firebase_storage.dart';
 import 'vip_service.dart'; // ফাইলের নাম অনুযায়ী
@@ -187,8 +189,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   } // <--- loadUserData এখানে শেষ
 
-
-void _checkCurrentFollowStatus(String tId) async {
+  void _checkCurrentFollowStatus(String tId) async {
     bool status = await FollowService().checkIfFollowing(tId);
     setState(() {
       isFollowing = status;
@@ -198,18 +199,20 @@ void _checkCurrentFollowStatus(String tId) async {
   void _toggleFollowWithId(String tId) async {
     // 🛠️ সরাসরি পাস হওয়া আইডি ব্যবহার করায় আর কোনো লাল দাগ আসবে না
     bool currentStatus = await FollowService().toggleFollowUser(tId);
-    
+
     setState(() {
       isFollowing = currentStatus;
       if (currentStatus) {
-        followers += 1; 
+        followers += 1;
       } else {
-        followers -= 1; 
+        followers -= 1;
       }
     });
 
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(currentStatus ? "You started following!" : "Unfollowed successfully!"),
+      content: Text(currentStatus
+          ? "You started following!"
+          : "Unfollowed successfully!"),
       backgroundColor: currentStatus ? Colors.pinkAccent : Colors.blueGrey,
       duration: const Duration(seconds: 1),
     ));
@@ -1966,156 +1969,159 @@ void _checkCurrentFollowStatus(String tId) async {
     );
   }
 
- Widget _buildMySpecialTab() {
-  return StreamBuilder<QuerySnapshot>(
-    stream: FirebaseFirestore.instance
-        .collection('users')
-        .doc(uIDValue)
-        .collection('my_special')
-        .snapshots(),
-    builder: (context, snapshot) {
-      if (!snapshot.hasData)
-        return const Center(child: CircularProgressIndicator());
+  Widget _buildMySpecialTab() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uIDValue)
+          .collection('my_special')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData)
+          return const Center(child: CircularProgressIndicator());
 
-      var mySpecialItems = snapshot.data!.docs;
-      if (mySpecialItems.isEmpty) {
-        return const Center(
-          child: Text("No have any special",
-              style: TextStyle(color: Colors.blueGrey, fontSize: 16)),
-        );
-      }
+        var mySpecialItems = snapshot.data!.docs;
+        if (mySpecialItems.isEmpty) {
+          return const Center(
+            child: Text("No have any special",
+                style: TextStyle(color: Colors.blueGrey, fontSize: 16)),
+          );
+        }
 
-      return GridView.builder(
-        padding: const EdgeInsets.all(12),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.70,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10),
-        itemCount: mySpecialItems.length,
-        itemBuilder: (context, index) {
-          var data = mySpecialItems[index].data() as Map<String, dynamic>;
-          String url = data['image_url'] ?? "";
-          String name = data['name'] ?? "Special Item";
-          String type = data['type'] ?? "Effect";
+        return GridView.builder(
+          padding: const EdgeInsets.all(12),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.70,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10),
+          itemCount: mySpecialItems.length,
+          itemBuilder: (context, index) {
+            var data = mySpecialItems[index].data() as Map<String, dynamic>;
+            String url = data['image_url'] ?? "";
+            String name = data['name'] ?? "Special Item";
+            String type = data['type'] ?? "Effect";
 
-          // 🔥 পিকড অবস্থা চেক করার লজিক
-          bool isPicked = (activeSpecialUrl == url);
+            // 🔥 পিকড অবস্থা চেক করার লজিক
+            bool isPicked = (activeSpecialUrl == url);
 
-          Timestamp? expiryTimestamp = data['expiryDate'] as Timestamp?;
-          DateTime expiryDate = expiryTimestamp?.toDate() ?? DateTime.now();
-          Duration remaining = expiryDate.difference(DateTime.now());
+            Timestamp? expiryTimestamp = data['expiryDate'] as Timestamp?;
+            DateTime expiryDate = expiryTimestamp?.toDate() ?? DateTime.now();
+            Duration remaining = expiryDate.difference(DateTime.now());
 
-          String timeText = remaining.inDays > 0
-              ? "${remaining.inDays} days left"
-              : "${remaining.inHours} hours left";
+            String timeText = remaining.inDays > 0
+                ? "${remaining.inDays} days left"
+                : "${remaining.inHours} hours left";
 
-          return Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(
-                  color: isPicked ? Colors.purpleAccent : Colors.purple.shade50,
-                  width: 2),
-              boxShadow: [
-                const BoxShadow(color: Colors.black12, blurRadius: 5)
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: url.toLowerCase().endsWith('.json')
-                        ? Lottie.network(url, fit: BoxFit.contain)
-                        : Image.network(
-                            url,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.broken_image,
-                                    color: Colors.grey),
-                          ),
-                  ),
-                ),
-                Text(name,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: Colors.purple)),
-                Text(type,
-                    style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Text(timeText,
-                      style: TextStyle(
-                          color: remaining.inDays < 2
-                              ? Colors.red
-                              : Colors.blueGrey,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500)),
-                ),
-                Padding(
-                  padding:
-                      const EdgeInsets.only(bottom: 10, left: 8, right: 8),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 30,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            isPicked ? Colors.redAccent : Colors.purpleAccent,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                        elevation: 0,
-                      ),
-                      onPressed: () async {
-                        // 🔄 পিক করলে পুরাতন রিং/ইউআরএল মুছে নতুনটা দিয়ে রিপ্লেস হবে
-                        String newUrl = isPicked ? "" : url;
-                        bool newStatus = !isPicked;
-
-                        await FirebaseFirestore.instance
-                            .collection('users')
-                            .doc(uIDValue)
-                            .update({
-                          'activeSpecialUrl': newUrl,
-                          'hasSpecialEffect': newStatus,
-                          // এক্সট্রা ট্র্যাক রাখার জন্য রিং এর নামও আপডেট করে দেওয়া হলো
-                          'activeSpecialName': isPicked ? "" : name, 
-                        });
-
-                        setState(() {
-                          activeSpecialUrl = newUrl;
-                          hasSpecialEffect = newStatus;
-                        });
-
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(isPicked 
-                                  ? "$name Unpicked successfully!" 
-                                  : "$name Picked! Old item replaced successfully! 💍✨"),
-                              backgroundColor: isPicked ? Colors.orange : Colors.purple,
-                              duration: const Duration(seconds: 1),
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                    color:
+                        isPicked ? Colors.purpleAccent : Colors.purple.shade50,
+                    width: 2),
+                boxShadow: [
+                  const BoxShadow(color: Colors.black12, blurRadius: 5)
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: url.toLowerCase().endsWith('.json')
+                          ? Lottie.network(url, fit: BoxFit.contain)
+                          : Image.network(
+                              url,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.broken_image,
+                                      color: Colors.grey),
                             ),
-                          );
-                        }
-                      },
-                      child: Text(isPicked ? "Unpick" : "Pick",
-                          style: const TextStyle(
-                              fontSize: 11, fontWeight: FontWeight.bold)),
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+                  Text(name,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.purple)),
+                  Text(type,
+                      style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(timeText,
+                        style: TextStyle(
+                            color: remaining.inDays < 2
+                                ? Colors.red
+                                : Colors.blueGrey,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500)),
+                  ),
+                  Padding(
+                    padding:
+                        const EdgeInsets.only(bottom: 10, left: 8, right: 8),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 30,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              isPicked ? Colors.redAccent : Colors.purpleAccent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                        onPressed: () async {
+                          // 🔄 পিক করলে পুরাতন রিং/ইউআরএল মুছে নতুনটা দিয়ে রিপ্লেস হবে
+                          String newUrl = isPicked ? "" : url;
+                          bool newStatus = !isPicked;
+
+                          await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(uIDValue)
+                              .update({
+                            'activeSpecialUrl': newUrl,
+                            'hasSpecialEffect': newStatus,
+                            // এক্সট্রা ট্র্যাক রাখার জন্য রিং এর নামও আপডেট করে দেওয়া হলো
+                            'activeSpecialName': isPicked ? "" : name,
+                          });
+
+                          setState(() {
+                            activeSpecialUrl = newUrl;
+                            hasSpecialEffect = newStatus;
+                          });
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(isPicked
+                                    ? "$name Unpicked successfully!"
+                                    : "$name Picked! Old item replaced successfully! 💍✨"),
+                                backgroundColor:
+                                    isPicked ? Colors.orange : Colors.purple,
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          }
+                        },
+                        child: Text(isPicked ? "Unpick" : "Pick",
+                            style: const TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildMyFramesTab() {
     int currentLevel = getVipLevel();
 
@@ -2405,20 +2411,29 @@ void _checkCurrentFollowStatus(String tId) async {
                               }
 
                               // ডাটাবেজের ফিল্ড ম্যাপ করা হচ্ছে যাতে ফ্লেক্সিবল থাকে
+                              String partnerImg = marriageData['partnerProfilePic'] ??
+                                  marriageData['partnerImage'] ??
+                                  '';
+                              String finalPartnerFrame = livePartnerFrame.trim().isNotEmpty
+                                  ? livePartnerFrame
+                                  : (marriageData['activeFrameUrl'] ??
+                                      marriageData['partnerFrameUrl'] ??
+                                      '');
+
+                              // 🔍 [প্রিন্ট ১]: বিবাহিত প্রোফাইলের সমস্ত ইমেজ লিংক টেস্ট
+                              debugPrint("====== 💍 [MARRIAGE LIVE URLS] ======");
+                              debugPrint("My Image: '$userImageURL'");
+                              debugPrint("My Frame: '$activeFrameUrl'");
+                              debugPrint("Partner Image: '$partnerImg'");
+                              debugPrint("Partner Frame: '$finalPartnerFrame'");
+                              debugPrint("Ring Icon: '${marriageData['ringIconUrl'] ?? marriageData['ringIcon']}'");
+
                               Map<String, dynamic> formattedMarriageData = {
                                 'ringIcon': marriageData['ringIconUrl'] ??
                                     marriageData['ringIcon'],
-                                'partnerImage':
-                                    marriageData['partnerProfilePic'] ??
-                                        marriageData['partnerImage'] ??
-                                        '',
+                                'partnerImage': partnerImg,
                                 // 🔥 পার্টনারের ফ্রেম এখন সরাসরি 'users' কালেকশন থেকে লাইভ আসছে, তাই কখনো মিস হবে না
-                                'partnerFrameUrl':
-                                    livePartnerFrame.trim().isNotEmpty
-                                        ? livePartnerFrame
-                                        : (marriageData['activeFrameUrl'] ??
-                                            marriageData['partnerFrameUrl'] ??
-                                            ''),
+                                'partnerFrameUrl': finalPartnerFrame,
                               };
 
                               return Center(
@@ -2435,6 +2450,12 @@ void _checkCurrentFollowStatus(String tId) async {
                         }
 
                         // 👤 যদি সিঙ্গেল হয় (কোনো পার্টনার না থাকে), তবে শুধু নিজের পুরাতন প্রোফাইল পিকচারটি দেখাব
+                        
+                        // 🔍 [প্রিন্ট ২]: সিঙ্গেল প্রোফাইলের সমস্ত ইমেজ লিংক টেস্ট
+                        debugPrint("====== 👤 [SINGLE USER URLS] ======");
+                        debugPrint("My Image: '$userImageURL'");
+                        debugPrint("My Frame: '$activeFrameUrl'");
+
                         return Center(
                           child: Stack(
                             alignment: Alignment.center,
@@ -2445,16 +2466,16 @@ void _checkCurrentFollowStatus(String tId) async {
                                 child: CircleAvatar(
                                   radius: 50,
                                   backgroundColor: Colors.grey[900],
-                                  backgroundImage: (userImageURL.isNotEmpty)
+                                  backgroundImage: (userImageURL.isNotEmpty && !userImageURL.startsWith('file:'))
                                       ? NetworkImage(userImageURL)
                                       : null,
-                                  child: (userImageURL.isEmpty)
+                                  child: (userImageURL.isEmpty || userImageURL.startsWith('file:'))
                                       ? const Icon(Icons.person,
                                           size: 50, color: Colors.white)
                                       : null,
                                 ),
                               ),
-                              if (activeFrameUrl.isNotEmpty)
+                              if (activeFrameUrl.isNotEmpty && !activeFrameUrl.startsWith('file:'))
                                 IgnorePointer(
                                   child: SizedBox(
                                     width: 0,
@@ -2470,11 +2491,13 @@ void _checkCurrentFollowStatus(String tId) async {
                                               child: Lottie.network(
                                                 activeFrameUrl,
                                                 fit: BoxFit.contain,
+                                                errorBuilder: (c, e, s) => const SizedBox(),
                                               ),
                                             )
                                           : Image.network(
                                               activeFrameUrl,
                                               fit: BoxFit.contain,
+                                              errorBuilder: (c, e, s) => const SizedBox(),
                                             ),
                                     ),
                                   ),
@@ -2487,7 +2510,7 @@ void _checkCurrentFollowStatus(String tId) async {
 
                     const SizedBox(height: 15),
 
-                    // --- নামের গ্লাস বর্ডার باکس ---
+                    // --- নামের গ্লাস বর্ডার বক্স ---
                     GestureDetector(
                       onTap: isMe ? () => _editName(userData) : null,
                       child: Container(
@@ -2505,7 +2528,7 @@ void _checkCurrentFollowStatus(String tId) async {
                               color: Colors.purpleAccent.withOpacity(0.15),
                               blurRadius: 15,
                               spreadRadius: 2,
-                        ),
+                            ),
                           ],
                         ),
                         child: Text(
@@ -2534,9 +2557,9 @@ void _checkCurrentFollowStatus(String tId) async {
                         child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              if (vipLevel > 0)
+                              if (vipLevel > 0 && getVipBadge(vipLevel).toString().isNotEmpty && !getVipBadge(vipLevel).toString().startsWith('file:'))
                                 Image.network(getVipBadge(vipLevel),
-                                    width: 45, height: 45)
+                                    width: 45, height: 45, errorBuilder: (c, e, s) => const Icon(Icons.stars_rounded, color: Colors.white24, size: 40))
                               else
                                 const Icon(Icons.stars_rounded,
                                     color: Colors.white24, size: 40),
@@ -2554,29 +2577,76 @@ void _checkCurrentFollowStatus(String tId) async {
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold)),
                                   const SizedBox(height: 8),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: LinearProgressIndicator(
-                                      value: progressValue,
-                                      minHeight: 8,
-                                      valueColor: const AlwaysStoppedAnimation(
-                                          Colors.amber),
-                                      backgroundColor: Colors.white10,
-                                    ),
+                                  // 🔥 আগুনের মতো জ্বলজ্বলে ডাইনামিক প্রগ্রেস বার লজিক
+                                  LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final double maxWidth = constraints.maxWidth;
+                                      final double barWidth = maxWidth * progressValue;
+
+                                      return Container(
+                                        height: 10, // বারের হাইট সামান্য বাড়ানো হলো সৌন্দর্যের জন্য
+                                        width: maxWidth,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white10,
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Stack(
+                                          children: [
+                                            if (barWidth > 0)
+                                              Positioned(
+                                                left: 0,
+                                                top: 0,
+                                                bottom: 0,
+                                                width: barWidth,
+                                                child: ClipRRect(
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  child: Shimmer.fromColors(
+                                                    baseColor: Colors.amber, // আপনার আসল কালার ভাই
+                                                    highlightColor: const Color(0xFFFFE082), // আগুনের জ্বলজ্বলে আভা (Light Amber)
+                                                    period: const Duration(milliseconds: 1500), // অ্যানিমেশন স্পিড
+                                                    child: Container(
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.amber,
+                                                        borderRadius: BorderRadius.circular(10),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.amber.withOpacity(0.5),
+                                                            blurRadius: 6,
+                                                            spreadRadius: 1,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ],
                               )),
                               const SizedBox(width: 15),
-                              if (hasPremiumCard)
+                              if (hasPremiumCard && (premiumBadgeUrl ?? '').toString().isNotEmpty && !premiumBadgeUrl.toString().startsWith('file:'))
                                 Image.network(premiumBadgeUrl,
-                                    width: 45, height: 45)
+                                    width: 45, height: 45, errorBuilder: (c, e, s) => const SizedBox(width: 45))
                               else
                                 const SizedBox(width: 45),
                             ])),
 
+                    const SizedBox(height: 15),
+
+                    // 🇧🇩 [বাংলা মার্ক - নতুন ২টা এক্সপি বার যুক্তকরণ লজিক]:
+                    ActiveLevelBar(
+                        totalActiveXp: userData['totalActiveXp'] ?? 0),
+
+                    const SizedBox(height: 5), // দুটি বারের মাঝখানে একটু গ্যাপ
+
+                    GiftLevelBar(totalGiftXp: userData['totalGiftXp'] ?? 0),
                     const SizedBox(height: 25),
 
-                    // ফলোয়ার ও ফলোয়িং
+                    // Followers & Following
                     Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                       _buildStat("Followers", followers, targetUserId, context),
                       const SizedBox(width: 25),
@@ -2617,7 +2687,7 @@ void _checkCurrentFollowStatus(String tId) async {
 
                     const SizedBox(height: 35),
 
-                    // 💎 অ্যাকশন বক্সগুলো (ডায়মন্ড, প্রিমিয়াম, ব্যাকপ্যাক) শুধুমাত্র নিজের প্রোফাইলে দেখাবে
+                    // 💎 অ্যাকশন বক্সগুলো (ডায়মন্ড, প্রিমিয়াম, ব্যাকপ্যাক) শুধুমাত্র নিজের প্রোফাইলে দেখাবে
                     if (isMe) ...[
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -2634,8 +2704,8 @@ void _checkCurrentFollowStatus(String tId) async {
                     ],
 
                     const SizedBox(height: 30),
-                    
-                    // ❤️ সোলমেট সেকশন এখন কন্ডিশন ছাড়া বাইরে আনা হলো, যাতে নিজের এবং অন্যের সবার প্রোফাইলেই সম্পূর্ণ সোলমেট প্যানেলটি লাইভ দেখা যায়
+
+                    // ❤️ সোলমেট সেকশন
                     _buildSoulmateSection(),
 
                     const SizedBox(height: 30),
@@ -2644,17 +2714,25 @@ void _checkCurrentFollowStatus(String tId) async {
               ), // SingleChildScrollView শেষ
 
               // --- ফুল পেজ ফ্রেম ---
+              // 🔍 [প্রিন্ট ৩]: ব্যাকগ্রাউন্ড ফুল পেজ ফ্রেমের লিংক টেস্ট
+              () {
+                debugPrint("====== 🖼️ [FULL PAGE FRAME URL] ======");
+                debugPrint("Active Special URL: '$activeSpecialUrl'");
+                return const SizedBox();
+              }(),
               Positioned.fill(
                 child: IgnorePointer(
                   child: Container(
                     width: MediaQuery.of(context).size.width,
                     height: MediaQuery.of(context).size.height,
-                    decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: NetworkImage(activeSpecialUrl),
-                        fit: BoxFit.fill,
-                      ),
-                    ),
+                    decoration: (activeSpecialUrl != null && activeSpecialUrl.toString().isNotEmpty && !activeSpecialUrl.toString().startsWith('file:'))
+                        ? BoxDecoration(
+                            image: DecorationImage(
+                              image: NetworkImage(activeSpecialUrl),
+                              fit: BoxFit.fill,
+                            ),
+                          )
+                        : null,
                   ),
                 ),
               ),
@@ -2664,6 +2742,7 @@ void _checkCurrentFollowStatus(String tId) async {
       }, // StreamBuilder builder শেষ
     ); // StreamBuilder শেষ
   }
+
   // ফলোয়ার/ফলোয়িং লিস্ট সিকিউরিটি লজিক
   Widget _buildStat(String label, int value, String uID, BuildContext context) {
     final String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
@@ -2734,7 +2813,7 @@ void _checkCurrentFollowStatus(String tId) async {
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          child: Text("Hart (Soulmates)",
+          child: Text("𝐇𝐚𝐫𝐭—̳͟͞͞💗(𝐒𝐨𝐮𝐥𝐦𝐚𝐭𝐞𝐬)",
               style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -2793,118 +2872,118 @@ void _checkCurrentFollowStatus(String tId) async {
   }
 
 // 🔥 কার্ড যখন একটিভ (ব্যাকগ্রাউন্ড লিংকের উপরে ছবি, নাম ও লেভেল শো করার জন্য সম্পূর্ণ উইজেট)
-Widget _buildFilledSoulmate(Map<String, dynamic> data) {
-  // লেভেল লজিক: প্রতি ৫০০০ ডাইমন্ডে ১ লেভেল (ম্যাক্স ৫০)
-  int totalGift = data['totalGift'] ?? 0;
-  int level = (totalGift / 5000).floor().clamp(1, 50);
+  Widget _buildFilledSoulmate(Map<String, dynamic> data) {
+    // লেভেল লজিক: প্রতি ৫০০০ ডাইমন্ডে ১ লেভেল (ম্যাক্স ৫০)
+    int totalGift = data['totalGift'] ?? 0;
+    int level = (totalGift / 5000).floor().clamp(1, 50);
 
-  return GestureDetector(
-    onTap: () {
-      // 🚀 আপনার পাস করা 'data' ম্যাপটি হুবহু নতুন পেজে চলে যাবে, ডাটার রাস্তা একদম সেম থাকবে
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => SoulmateDetailPage(soulmateData: data),
-        ),
-      );
-    },
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // ১. কার্ডের ভেতরের উপরের ডানদিকের লেভেল ব্যাজ
-        Align(
-          alignment: Alignment.topRight,
-          child: Container(
-            margin: const EdgeInsets.only(right: 12, top: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.redAccent,
-              borderRadius: BorderRadius.circular(8),
+    return GestureDetector(
+      onTap: () {
+        // 🚀 আপনার পাস করা 'data' ম্যাপটি হুবহু নতুন পেজে চলে যাবে, ডাটার রাস্তা একদম সেম থাকবে
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SoulmateDetailPage(soulmateData: data),
+          ),
+        );
+      },
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // ১. কার্ডের ভেতরের উপরের ডানদিকের লেভেল ব্যাজ
+          Align(
+            alignment: Alignment.topRight,
+            child: Container(
+              margin: const EdgeInsets.only(right: 12, top: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.redAccent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                "Lv.$level",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
+          ),
+
+          const Spacer(),
+
+          // ২. পার্টনারের গোল প্রোফাইল ছবি (গোল্ডেন বর্ডার সহ ব্যাকগ্রাউন্ডের উপর সেট)
+          Container(
+            width: 62,
+            height: 62,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.amber, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 5,
+                  spreadRadius: 1,
+                )
+              ],
+              image: DecorationImage(
+                image: NetworkImage(data['partnerImage'] ?? ""),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // ৩. পার্টনারের নাম (ডিজাইনের ওপর পরিষ্কার দেখার জন্য শ্যাডো ও বোল্ড করা হয়েছে)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Text(
-              "Lv.$level",
+              data['partnerName'] ?? "Unknown",
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 9,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                shadows: [
+                  Shadow(
+                    color: Colors.black87,
+                    offset: Offset(1, 1),
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+
+          const SizedBox(height: 6),
+
+          // ৪. সোলমেট ট্যাগ
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white24, width: 0.5),
+            ),
+            child: const Text(
+              "Soulmate",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 8,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
-        ),
 
-        const Spacer(),
-
-        // ২. পার্টনারের গোল প্রোফাইল ছবি (গোল্ডেন বর্ডার সহ ব্যাকগ্রাউন্ডের উপর সেট)
-        Container(
-          width: 62,
-          height: 62,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.amber, width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 5,
-                spreadRadius: 1,
-              )
-            ],
-            image: DecorationImage(
-              image: NetworkImage(data['partnerImage'] ?? ""),
-              fit: BoxFit.cover,
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 8),
-
-        // ৩. পার্টনারের নাম (ডিজাইনের ওপর পরিষ্কার দেখার জন্য শ্যাডো ও বোল্ড করা হয়েছে)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Text(
-            data['partnerName'] ?? "Unknown",
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              shadows: [
-                Shadow(
-                  color: Colors.black87,
-                  offset: Offset(1, 1),
-                  blurRadius: 2,
-                ),
-              ],
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-
-        const SizedBox(height: 6),
-
-        // ৪. সোলমেট ট্যাগ
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-          decoration: BoxDecoration(
-            color: Colors.orange.withOpacity(0.9),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.white24, width: 0.5),
-          ),
-          child: const Text(
-            "Soulmate",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 8,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 15),
-      ],
-    ),
-  );
-}
+          const SizedBox(height: 15),
+        ],
+      ),
+    );
+  }
 
 // 🔒 কার্ড যখন খালি থাকবে (লক আইকন শো করবে)
   Widget _buildEmptySoulmate() {
@@ -2927,36 +3006,38 @@ Widget _buildFilledSoulmate(Map<String, dynamic> data) {
       ),
     );
   }
+
 // ✅ রিলেশনশিপ ব্রেকআপ ডায়ালগ (পুরাতন লজিক অক্ষুণ্ণ রাখা হলো)
-void _showBreakupDialog(String partnerId) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      backgroundColor: const Color(0xFF1E1E2F),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      title: const Text("Sure end relationship ?",
-          style: TextStyle(color: Colors.white, fontSize: 16)),
-      content: const Text("End relationship need 1500 daimond",
-          style: TextStyle(color: Colors.white70)),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel")),
-        TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              String response =
-                  await SoulmateService().breakRelation(partnerId);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(response),
-                  backgroundColor: Colors.pinkAccent));
-            },
-            child:
-                const Text("Yes", style: TextStyle(color: Colors.redAccent))),
-      ],
-    ),
-  );
-}
+  void _showBreakupDialog(String partnerId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E2F),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: const Text("Sure end relationship ?",
+            style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: const Text("End relationship need 1500 daimond",
+            style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel")),
+          TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                String response =
+                    await SoulmateService().breakRelation(partnerId);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(response),
+                    backgroundColor: Colors.pinkAccent));
+              },
+              child:
+                  const Text("Yes", style: TextStyle(color: Colors.redAccent))),
+        ],
+      ),
+    );
+  }
+
 // ✅ ৫. প্রিমিয়াম ম্যারেজ হেডার (চারপাশে সমান গোল ফ্রেম সাইজ কন্ট্রোল ১০০% ফিক্সড)
   Widget _buildMarriageHeader(BuildContext context, Map<String, dynamic> data,
       String myImg, String myFrame, Map<String, dynamic> rawMarriageDoc) {
@@ -3051,7 +3132,6 @@ void _showBreakupDialog(String partnerId) {
                       .toString()
                       .trim();
 
-                  
                   // ২. জোরপূর্বক ম্যাপের ভেতর ডাটা ইনজেক্ট করে দেওয়া হলো যাতে বটমশিট খালি না পায়
                   updatedMarriageDoc['myImage'] = finalMyImage;
                   updatedMarriageDoc['myName'] = finalMyName;
@@ -3138,206 +3218,239 @@ void _showBreakupDialog(String partnerId) {
   }
 
 // 💔 ম্যারেজ ডিটেইলস এবং ডিভোর্স বটম শিট (পপআপ বার)
-void _showDivorceBottomSheet(
-    BuildContext context, Map<String, dynamic> marriageData) {
-  final MarriageService _marriageService = MarriageService();
+  void _showDivorceBottomSheet(
+      BuildContext context, Map<String, dynamic> marriageData) {
+    final MarriageService _marriageService = MarriageService();
 
-  // বিয়ের তারিখ ফরম্যাট করা
-  String marriageDate = "Unknown";
-  if (marriageData['marriedAt'] != null) {
-    Timestamp timestamp = marriageData['marriedAt'];
-    marriageDate =
-        DateFormat('dd MMM yyyy, hh:mm a').format(timestamp.toDate());
-  }
+    // বিয়ের তারিখ ফরম্যাট করা
+    String marriageDate = "Unknown";
+    if (marriageData['marriedAt'] != null) {
+      Timestamp timestamp = marriageData['marriedAt'];
+      marriageDate =
+          DateFormat('dd MMM yyyy, hh:mm a').format(timestamp.toDate());
+    }
 
-  // 👥 পার্টনারের তথ্য (যা ঠিকঠাক আসতেছিল)
-  String partnerAuthUID = marriageData['partnerAuthUID'] ?? '';
-  String partnerName = marriageData['partnerName'] ?? 'Partner';
-  String partnerImage = marriageData['partnerImage'] ?? '';
-  String ringName = marriageData['ringName'] ?? 'Wedding Ring';
+    // 👥 পার্টনারের তথ্য (যা ঠিকঠাক আসতেছিল)
+    String partnerAuthUID = marriageData['partnerAuthUID'] ?? '';
+    String partnerName = marriageData['partnerName'] ?? 'Partner';
+    String partnerImage = marriageData['partnerImage'] ?? '';
+    String ringName = marriageData['ringName'] ?? 'Wedding Ring';
 
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.grey[950],
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-    ),
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (BuildContext context, setState) {
-          return Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 5,
-                  decoration: BoxDecoration(
-                      color: Colors.grey[700],
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-                const SizedBox(height: 20),
-                Text("💍 $ringName 💍",
-                    style: const TextStyle(
-                        color: Colors.amber,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(height: 15),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[950],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, setState) {
+            return Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 5,
+                    decoration: BoxDecoration(
+                        color: Colors.grey[700],
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  const SizedBox(height: 20),
+                  Text("💍 $ringName 💍",
+                      style: const TextStyle(
+                          color: Colors.amber,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 15),
 
-                // 👥 ২ জনের ছবি ও নাম পাশাপাশি গ্রাফিক্স
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    // 👤 [১০০% ডিরেক্ট ফিক্স]: কোনো ডাটাবেজ ম্যাপের ভরসায় না থেকে সরাসরি আপনার স্ক্রিনের ভ্যারিয়েবল রিড করবে
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircleAvatar(
-                            radius: 35,
-                            backgroundColor: Colors.grey[900],
-                            child: ClipOval(
-                              // 🔥 আপনার প্রিন্ট লগে আসা গিটহাবের আসল লাইভ ছবি (myImg) সরাসরি এখানে বসানো হলো
-                              child: Image.network(
-                                "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/femalepic%20(46).jpg",
-                                width: 70,
-                                height: 70,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const Icon(Icons.person, color: Colors.white, size: 35),
+                  // 👥 ২ জনের ছবি ও নাম পাশাপাশি গ্রাফিক্স
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      // 👤 [১০০% ডিরেক্ট ফিক্স]: কোনো ডাটাবেজ ম্যাপের ভরসায় না থেকে সরাসরি আপনার স্ক্রিনের ভ্যারিয়েবল রিড করবে
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircleAvatar(
+                              radius: 35,
+                              backgroundColor: Colors.grey[900],
+                              child: ClipOval(
+                                // 🔥 আপনার প্রিন্ট লগে আসা গিটহাবের আসল লাইভ ছবি (myImg) সরাসরি এখানে বসানো হলো
+                                child: Image.network(
+                                  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/femalepic%20(46).jpg",
+                                  width: 70,
+                                  height: 70,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Icon(Icons.person,
+                                          color: Colors.white, size: 35),
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          // 🔥 আপনার ফায়ারস্টোরের আসল নাম (Arisha) সরাসরি এখানে প্রিন্ট হবে
-                          const Text(
-                            "Arisha",
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    // ❤️ মাঝখানের লাভ আইকন
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 5),
-                      child: Icon(Icons.favorite, color: Colors.red, size: 35),
-                    ),
-                    
-                    // 👥 পার্টনার (ডান পাশে)
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircleAvatar(
-                            radius: 35,
-                            backgroundColor: Colors.grey[900],
-                            child: ClipOval(
-                              child: partnerImage.trim().isEmpty
-                                  ? const Icon(Icons.person, color: Colors.white, size: 35)
-                                  : Image.network(
-                                      partnerImage.trim(),
-                                      width: 70,
-                                      height: 70,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) =>
-                                          const Icon(Icons.person, color: Colors.white, size: 35),
-                                    ),
+                            const SizedBox(height: 8),
+                            // 🔥 আপনার ফায়ারস্টোরের আসল নাম (Arisha) সরাসরি এখানে প্রিন্ট হবে
+                            const Text(
+                              "Arisha",
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            partnerName,
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 25),
-                
-                // 🗓️ বিয়ের তারিখ সেকশন (ওভারফ্লো প্রোটেক্টেড)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-                  decoration: BoxDecoration(color: Colors.grey[900], borderRadius: BorderRadius.circular(12)),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.calendar_month, color: Colors.pinkAccent, size: 20),
-                      const SizedBox(width: 10),
-                      Flexible(
-                        child: Text(
-                          "Marriage Date: $marriageDate", 
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500),
+
+                      // ❤️ মাঝখানের লাভ আইকন
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 5),
+                        child:
+                            Icon(Icons.favorite, color: Colors.red, size: 35),
+                      ),
+
+                      // 👥 পার্টনার (ডান পাশে)
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircleAvatar(
+                              radius: 35,
+                              backgroundColor: Colors.grey[900],
+                              child: ClipOval(
+                                child: partnerImage.trim().isEmpty
+                                    ? const Icon(Icons.person,
+                                        color: Colors.white, size: 35)
+                                    : Image.network(
+                                        partnerImage.trim(),
+                                        width: 70,
+                                        height: 70,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                const Icon(Icons.person,
+                                                    color: Colors.white,
+                                                    size: 35),
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              partnerName,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 25),
-                
-                // 💔 ডিভোর্স বাটন লজিক
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
-                    minimumSize: const Size(double.infinity, 50),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                  ),
-                  icon: const Icon(Icons.heart_broken, color: Colors.white),
-                  label: const Text("Divorce Cost(3000 💎)", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                  onPressed: () async {
-                    bool confirm = await showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        backgroundColor: Colors.grey[900],
-                        title: const Text("Divorce Confarmetion", style: TextStyle(color: Colors.white)),
-                        content: const Text("Are You Sure?", style: TextStyle(color: Colors.grey)),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("No")),
-                          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("yes", style: TextStyle(color: Colors.red))),
-                        ],
-                      ),
-                    ) ?? false;
+                  const SizedBox(height: 25),
 
-                    if (confirm) {
-                      Navigator.pop(context);
-                      String res = await _marriageService.processDivorce(partnerAuthUID);
-                      if (res == "SUCCESS") {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("💔 Divorce Complited!"), backgroundColor: Colors.green),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(res), backgroundColor: Colors.red),
-                        );
+                  // 🗓️ বিয়ের তারিখ সেকশন (ওভারফ্লো প্রোটেক্টেড)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 15, vertical: 10),
+                    decoration: BoxDecoration(
+                        color: Colors.grey[900],
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.calendar_month,
+                            color: Colors.pinkAccent, size: 20),
+                        const SizedBox(width: 10),
+                        Flexible(
+                          child: Text(
+                            "Marriage Date: $marriageDate",
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 25),
+
+                  // 💔 ডিভোর্স বাটন লজিক
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15)),
+                    ),
+                    icon: const Icon(Icons.heart_broken, color: Colors.white),
+                    label: const Text("Divorce Cost(3000 💎)",
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold)),
+                    onPressed: () async {
+                      bool confirm = await showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              backgroundColor: Colors.grey[900],
+                              title: const Text("Divorce Confarmetion",
+                                  style: TextStyle(color: Colors.white)),
+                              content: const Text("Are You Sure?",
+                                  style: TextStyle(color: Colors.grey)),
+                              actions: [
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text("No")),
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    child: const Text("yes",
+                                        style: TextStyle(color: Colors.red))),
+                              ],
+                            ),
+                          ) ??
+                          false;
+
+                      if (confirm) {
+                        Navigator.pop(context);
+                        String res = await _marriageService
+                            .processDivorce(partnerAuthUID);
+                        if (res == "SUCCESS") {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text("💔 Divorce Complited!"),
+                                backgroundColor: Colors.green),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                content: Text(res),
+                                backgroundColor: Colors.red),
+                          );
+                        }
                       }
-                    }
-                  },
-                ),
-                const SizedBox(height: 10),
-              ],
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 }
 
 class RainbowCascadePainter extends CustomPainter {

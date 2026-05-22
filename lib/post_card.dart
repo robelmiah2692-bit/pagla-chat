@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:ui';
-
 import 'package:lottie/lottie.dart'; // গ্লাস ইফেক্টের জন্য
 
 class PostCard extends StatelessWidget {
@@ -31,28 +30,22 @@ class PostCard extends StatelessWidget {
           context: context,
           builder: (context) => AlertDialog(
             backgroundColor: const Color(0xFF1A1A1A),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             title: const Text("Delete post",
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold)),
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             content: const Text("Are you sure delete this post?",
                 style: TextStyle(color: Colors.white70)),
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: const Text("No",
-                      style: TextStyle(color: Colors.white54))),
+                  child: const Text("No", style: TextStyle(color: Colors.white54))),
               TextButton(
                   onPressed: () => Navigator.pop(context, true),
                   child: const Text("Yes",
-                      style: TextStyle(
-                          color: Colors.redAccent,
-                          fontWeight: FontWeight.bold))),
+                      style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))),
             ],
           ),
-        ) ??
-        false;
+        ) ?? false;
 
     if (confirm) {
       try {
@@ -76,15 +69,10 @@ class PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-
-    // আপনার Firestore স্ট্রাকচার অনুযায়ী userId চেক করা
-    // এখানে story-র userId এবং current user-এর authUID বা email কুয়েরি থেকে আসা ID চেক করা হচ্ছে
     final List likes = data['likes'] ?? [];
 
-    // মালিকানা চেক করার জন্য: আপনার স্ক্রিনশটে `uID` (String) আছে।
-    // যদি stories কালেকশনে userId হিসেবে ৬ ডিজিটের আইডি থাকে, তবে তা মেলানো হবে।
-    bool isOwner =
-        (data['authUID'] == user?.uid || data['userId'] == user?.uid);
+    // মালিকানা চেক করার জন্য
+    bool isOwner = (data['authUID'] == user?.uid || data['userId'] == user?.uid);
 
     const Color premiumGold = Color(0xFFFFD700);
     const Color cyanOwner = Color(0xFF00FBFF);
@@ -118,10 +106,8 @@ class PostCard extends StatelessWidget {
                 ListTile(
                   leading: Stack(
                     alignment: Alignment.center,
-                    clipBehavior:
-                        Clip.none, // ফ্রেম যেন প্রোফাইলের বাইরে যেতে পারে
+                    clipBehavior: Clip.none,
                     children: [
-                      // ১. প্রোফাইল পিকচার কন্টেইনার
                       Container(
                         padding: const EdgeInsets.all(1.5),
                         decoration: BoxDecoration(
@@ -140,14 +126,11 @@ class PostCard extends StatelessWidget {
                           ),
                         ),
                       ),
-
-                      // ২. ফ্রেম লজিক (Positioned.fill এবং Transform.scale ব্যবহার করা হয়েছে)
                       if (data['activeFrameUrl'] != null &&
                           data['activeFrameUrl'].toString().isNotEmpty)
                         Positioned.fill(
                           child: Transform.scale(
-                            scale:
-                                2.2, // 🔥 এই মানটি বাড়িয়ে কমিয়ে ফ্রেম আরও বড় বা ছোট করতে পারবেন
+                            scale: 2.2,
                             child: IgnorePointer(
                               child: data['activeFrameUrl']
                                       .toString()
@@ -155,16 +138,14 @@ class PostCard extends StatelessWidget {
                                   ? Lottie.network(
                                       data['activeFrameUrl'],
                                       fit: BoxFit.contain,
-                                      errorBuilder:
-                                          (context, error, stackTrace) =>
-                                              const SizedBox(),
+                                      errorBuilder: (context, error, stackTrace) =>
+                                          const SizedBox(),
                                     )
                                   : Image.network(
                                       data['activeFrameUrl'],
                                       fit: BoxFit.contain,
-                                      errorBuilder:
-                                          (context, error, stackTrace) =>
-                                              const SizedBox(),
+                                      errorBuilder: (context, error, stackTrace) =>
+                                          const SizedBox(),
                                     ),
                             ),
                           ),
@@ -186,8 +167,7 @@ class PostCard extends StatelessWidget {
                     ],
                   ),
                   subtitle: Text(_getTimeAgo(data['timestamp']),
-                      style:
-                          const TextStyle(color: Colors.white38, fontSize: 10)),
+                      style: const TextStyle(color: Colors.white38, fontSize: 10)),
                   trailing: IconButton(
                     icon: const Icon(Icons.more_horiz, color: Colors.white70),
                     onPressed: () {
@@ -196,8 +176,7 @@ class PostCard extends StatelessWidget {
                           context: context,
                           backgroundColor: const Color(0xFF121212),
                           shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(
-                                  top: Radius.circular(25))),
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
                           builder: (context) => SafeArea(
                             child: Wrap(
                               children: [
@@ -213,8 +192,7 @@ class PostCard extends StatelessWidget {
                                   },
                                 ),
                                 ListTile(
-                                  leading: const Icon(Icons.close,
-                                      color: Colors.white38),
+                                  leading: const Icon(Icons.close, color: Colors.white38),
                                   title: const Text("Cancel",
                                       style: TextStyle(color: Colors.white38)),
                                   onTap: () => Navigator.pop(context),
@@ -225,37 +203,29 @@ class PostCard extends StatelessWidget {
                         );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text("Only post owner can delete this")),
+                          const SnackBar(content: Text("Only post owner can delete this")),
                         );
                       }
                     },
                   ),
                 ),
-                if (data['caption'] != null &&
-                    data['caption'].toString().isNotEmpty)
+                if (data['caption'] != null && data['caption'].toString().isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(
-                        left: 18, right: 18, bottom: 10, top: 2),
+                    padding: const EdgeInsets.only(left: 18, right: 18, bottom: 10, top: 2),
                     child: Text(
                       data['caption'],
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 14, height: 1.4),
+                      style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
                     ),
                   ),
-                if (data['storyImage'] != null &&
-                    data['storyImage'].toString().isNotEmpty)
+                if (data['storyImage'] != null && data['storyImage'].toString().isNotEmpty)
                   Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(18),
                       child: Container(
                         width: double.infinity,
-                        constraints: const BoxConstraints(
-                            minHeight: 200, maxHeight: 500),
-                        decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.03)),
+                        constraints: const BoxConstraints(minHeight: 200, maxHeight: 500),
+                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.03)),
                         child: Image.network(
                           data['storyImage'],
                           width: double.infinity,
@@ -268,8 +238,7 @@ class PostCard extends StatelessWidget {
                                     child: CircularProgressIndicator(
                                         color: cyanOwner, strokeWidth: 2)));
                           },
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
+                          errorBuilder: (context, error, stackTrace) => Container(
                             height: 150,
                             color: Colors.white10,
                             child: const Center(
@@ -284,12 +253,10 @@ class PostCard extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(18, 10, 18, 5),
                   child: Row(
                     children: [
-                      const Icon(Icons.favorite,
-                          color: Colors.redAccent, size: 14),
+                      const Icon(Icons.favorite, color: Colors.redAccent, size: 14),
                       const SizedBox(width: 6),
                       Text("${likes.length} People liked",
-                          style: const TextStyle(
-                              color: Colors.white38, fontSize: 11)),
+                          style: const TextStyle(color: Colors.white38, fontSize: 11)),
                     ],
                   ),
                 ),
@@ -301,22 +268,23 @@ class PostCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     _buildVIPBtn(
-                        likes.contains(user?.uid)
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        likes.contains(user?.uid)
-                            ? Colors.redAccent
-                            : Colors.white70,
+                        likes.contains(user?.uid) ? Icons.favorite : Icons.favorite_border,
+                        likes.contains(user?.uid) ? Colors.redAccent : Colors.white70,
                         "Like", () {
-                      if (postId != null && user != null)
-                        _toggleLike(postId!, user.uid, likes);
+                      if (postId != null && user != null) {
+                        // 💡 রিয়েল-টাইম কাউন্টারের ম্যাচিং ফিক্স করতে সরাসরি আসল Firebase UID বের করে পাস করা হলো ভাই
+                        String postOwnerUID = (data['authUID'] ?? data['userId'] ?? '').toString();
+                        _toggleLike(postId!, postOwnerUID, likes);
+                      }
                     }),
-                    _buildVIPBtn(Icons.chat_bubble_outline_rounded,
-                        Colors.white70, "Comment", () {
-                      if (postId != null) _showCommentSheet(context, postId!);
+                    _buildVIPBtn(Icons.chat_bubble_outline_rounded, Colors.white70, "Comment", () {
+                      if (postId != null) {
+                        // 💡 কমেন্ট শিটেও কাস্টম লেখার আইডির বদলে সরাসরি আসল Firebase UID পাস করা হলো ভাই
+                        String postOwnerUID = (data['authUID'] ?? data['userId'] ?? '').toString();
+                        _showCommentSheet(context, postId!, postOwnerUID);
+                      }
                     }),
-                    _buildVIPBtn(
-                        Icons.share_rounded, Colors.white70, "Share", () {}),
+                    _buildVIPBtn(Icons.share_rounded, Colors.white70, "Share", () {}),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -328,8 +296,7 @@ class PostCard extends StatelessWidget {
     );
   }
 
-  Widget _buildVIPBtn(
-      IconData icon, Color color, String text, VoidCallback onTap) {
+  Widget _buildVIPBtn(IconData icon, Color color, String text, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(15),
@@ -341,30 +308,82 @@ class PostCard extends StatelessWidget {
             const SizedBox(width: 6),
             Text(text,
                 style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500)),
+                    color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)),
           ],
         ),
       ),
     );
   }
 
-  void _toggleLike(String pId, String uID, List currentLikes) {
-    DocumentReference ref =
-        FirebaseFirestore.instance.collection('stories').doc(pId);
-    if (currentLikes.contains(uID)) {
+  void _toggleLike(String pId, String postOwnerId, List currentLikes) async {
+    DocumentReference ref = FirebaseFirestore.instance.collection('stories').doc(pId);
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    bool isLiking = !currentLikes.contains(currentUser.uid);
+
+    if (!isLiking) {
       ref.update({
-        'likes': FieldValue.arrayRemove([uID])
+        'likes': FieldValue.arrayRemove([currentUser.uid])
       });
     } else {
       ref.update({
-        'likes': FieldValue.arrayUnion([uID])
+        'likes': FieldValue.arrayUnion([currentUser.uid])
       });
+
+      try {
+        final senderQuery = await FirebaseFirestore.instance
+            .collection('users')
+            .where('email', isEqualTo: currentUser.email)
+            .get();
+
+        String sName = "Someone";
+        String sPic = "";
+
+        if (senderQuery.docs.isNotEmpty) {
+          var sData = senderQuery.docs.first.data();
+          sName = sData['name'] ?? "Someone";
+          sPic = sData['profilePic'] ?? "";
+        }
+
+        // 💡 যদি সরাসরি পাঠানো আইডিটি আসল Firebase UID হয় (gDGBd9Xt...), তবে তা সরাসরি ব্যবহার হবে
+        String targetAuthUID = postOwnerId;
+
+        // ব্যাকআপ চেক: যদি পাঠানো আইডিটি ভুলবশত কাস্টম আইডি হয়, তবে ডাটাবেজ থেকে আসল authUID খুঁজে নেবে
+        if (!postOwnerId.startsWith(RegExp(r'[0-9a-zA-Z]{20,}'))) {
+          final ownerQuery = await FirebaseFirestore.instance
+              .collection('users')
+              .where('uID', isEqualTo: postOwnerId)
+              .get();
+
+          if (ownerQuery.docs.isNotEmpty) {
+            targetAuthUID = ownerQuery.docs.first.data()['authUID'] ?? postOwnerId;
+          }
+        }
+
+        String pImage = (data['storyImage'] ?? '').toString();
+
+        if (targetAuthUID.isNotEmpty && targetAuthUID != currentUser.uid) {
+          await FirebaseFirestore.instance.collection('notifications').add({
+            'receiverId': targetAuthUID, // বারের লাইভ রিডার আইডির সাথে ১০০% ম্যাচড!
+            'senderId': currentUser.uid,
+            'senderName': sName,
+            'senderPic': sPic,
+            'type': 'like',
+            'commentText': '',
+            'postImage': pImage,
+            'isRead': false,
+            'timestamp': FieldValue.serverTimestamp(),
+          });
+          debugPrint("✅ [PaglaChat] সফলভাবে লাইক নোটিফিকেশন কালেকশনে ফিল্ডসহ ডাটা পাঠানো হয়েছে!");
+        }
+      } catch (e) {
+        debugPrint("❌ [PaglaChat] লাইক নোটিফিকেশন পাঠাতে এরর: $e");
+      }
     }
   }
 
-  void _showCommentSheet(BuildContext context, String pId) {
+  void _showCommentSheet(BuildContext context, String pId, String postOwnerId) {
     final TextEditingController _commentController = TextEditingController();
     showModalBottomSheet(
       context: context,
@@ -375,24 +394,17 @@ class PostCard extends StatelessWidget {
       builder: (context) => Padding(
         padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
-            top: 20,
-            left: 15,
-            right: 15),
+            top: 20, left: 15, right: 15),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-                width: 40,
-                height: 4,
+                width: 40, height: 4,
                 decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(10))),
+                    color: Colors.white24, borderRadius: BorderRadius.circular(10))),
             const SizedBox(height: 15),
             const Text("COMMENTS",
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2)),
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
             const SizedBox(height: 15),
             SizedBox(
               height: 350,
@@ -404,34 +416,26 @@ class PostCard extends StatelessWidget {
                     .orderBy('timestamp', descending: false)
                     .snapshots(),
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData)
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator(color: Color(0xFF00FBFF)));
+                  }
+                  if (snapshot.data!.docs.isEmpty) {
                     return const Center(
-                        child: CircularProgressIndicator(
-                            color: Color(0xFF00FBFF)));
-                  if (snapshot.data!.docs.isEmpty)
-                    return const Center(
-                        child: Text("No comments yet",
-                            style: TextStyle(color: Colors.white38)));
+                        child: Text("No comments yet", style: TextStyle(color: Colors.white38)));
+                  }
                   return ListView(
                     children: snapshot.data!.docs.map((doc) {
-                      Map<String, dynamic> cData =
-                          doc.data() as Map<String, dynamic>;
+                      Map<String, dynamic> cData = doc.data() as Map<String, dynamic>;
                       return ListTile(
                         leading: CircleAvatar(
                             radius: 16,
-                            backgroundImage: NetworkImage(cData['userImage'] !=
-                                        null &&
-                                    cData['userImage'] != ""
+                            backgroundImage: NetworkImage(cData['userImage'] != null && cData['userImage'] != ""
                                 ? cData['userImage']
                                 : "https://www.w3schools.com/howto/img_avatar.png")),
                         title: Text(cData['userName'] ?? "User",
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold)),
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                         subtitle: Text(cData['text'] ?? "",
-                            style: const TextStyle(
-                                color: Colors.white70, fontSize: 13)),
+                            style: const TextStyle(color: Colors.white70, fontSize: 13)),
                       );
                     }).toList(),
                   );
@@ -448,16 +452,16 @@ class PostCard extends StatelessWidget {
                   fillColor: Colors.white.withOpacity(0.05),
                   hintText: "Add a comment...",
                   hintStyle: const TextStyle(color: Colors.white38),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide.none),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
                   suffixIcon: IconButton(
-                    icon: const Icon(Icons.send_rounded,
-                        color: Color(0xFF00FBFF)),
+                    icon: const Icon(Icons.send_rounded, color: Color(0xFF00FBFF)),
                     onPressed: () => _submitComment(
-                        pId, _commentController.text, _commentController),
+                        pId, 
+                        _commentController.text, 
+                        _commentController, 
+                        postOwnerId
+                    ),
                   ),
                 ),
               ),
@@ -470,36 +474,56 @@ class PostCard extends StatelessWidget {
   }
 
   void _submitComment(
-      String pId, String text, TextEditingController controller) async {
+      String pId, String text, TextEditingController controller, String postOwnerId) async {
     if (text.trim().isEmpty) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // আপনার স্ক্রিনশট অনুযায়ী ৬ ডিজিটের ডকুমেন্ট খুঁজে নাম ও ছবি বের করা
-    final userQuery = await FirebaseFirestore.instance
-        .collection('users')
-        .where('email', isEqualTo: user.email)
-        .get();
+    try {
+      final userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: user.email)
+          .get();
 
-    String name = "User";
-    String image = "";
+      String name = "User";
+      String image = "";
 
-    if (userQuery.docs.isNotEmpty) {
-      var userData = userQuery.docs.first.data();
-      name = userData['name'] ?? "User";
-      image = userData['profilePic'] ?? "";
+      if (userQuery.docs.isNotEmpty) {
+        var userData = userQuery.docs.first.data();
+        name = userData['name'] ?? "User";
+        image = userData['profilePic'] ?? "";
+      }
+
+      // ১. কমেন্ট সাবমিট
+      await FirebaseFirestore.instance
+          .collection('stories')
+          .doc(pId)
+          .collection('comments')
+          .add({
+        'text': text.trim(),
+        'userName': name,
+        'userImage': image,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      // ২. নোটিফিকেশন ডাটাবেজে পাঠানো (Receiver ID সিঙ্কড উইথ আসল UID)
+      if (postOwnerId.isNotEmpty && postOwnerId != user.uid) {
+        await FirebaseFirestore.instance.collection('notifications').add({
+          'receiverId': postOwnerId,  // 💡 রিসিভারের আসল Firebase UID (gDGBd9Xt...)
+          'senderId': user.uid,
+          'senderName': name,
+          'senderPic': image,
+          'type': 'comment',
+          'commentText': text.trim(),
+          'isRead': false,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+        debugPrint("✅ [PaglaChat] সফলভাবে কমেন্ট নোটিফিকেশন ফিল্ডসহ ডাটা পাঠানো হয়েছে ভাই!");
+      }
+
+      controller.clear();
+    } catch (e) {
+      debugPrint("❌ [PaglaChat] কমেন্ট নোটিফিকেশন পাঠাতে এরর: $e");
     }
-
-    await FirebaseFirestore.instance
-        .collection('stories')
-        .doc(pId)
-        .collection('comments')
-        .add({
-      'text': text.trim(),
-      'userName': name,
-      'userImage': image,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
-    controller.clear();
   }
 }

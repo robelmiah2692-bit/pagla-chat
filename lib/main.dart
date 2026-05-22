@@ -143,7 +143,6 @@ class _SplashScreenState extends State<SplashScreen> {
       
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        // ইমেইল দিয়ে সার্চ করে সঠিক uID খুঁজে বের করা
         var userDoc = await FirebaseFirestore.instance
             .collection('users')
             .where('email', isEqualTo: user.email)
@@ -151,13 +150,19 @@ class _SplashScreenState extends State<SplashScreen> {
             .get();
 
         if (userDoc.docs.isNotEmpty) {
-          AppData.myID = userDoc.docs.first.id; // পাথ হিসেবে uID সেট
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+          AppData.myID = userDoc.docs.first.id; 
+          if (mounted) {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainNavigation()));
+          }
         } else {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const CreateProfilePage()));
+          if (mounted) {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const CreateProfilePage()));
+          }
         }
       } else {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+        if (mounted) {
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+        }
       }
     });
   }
@@ -218,7 +223,6 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
     }
 
     try {
-      // পাথ হবে uID (users/123456)
       await firestore.collection('users').doc(finaluID).set({
         'uID': finaluID,
         'name': _nameController.text.trim(),
@@ -227,8 +231,8 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
         'email': user?.email,
         'uid': user?.uid,
         'authUID': user?.uid, 
-        'diamonds': 200,      // শুরুতে ফিক্সড ডাইমন্ড
-        'vip_xp': 0,         // VIP XP যোগ করা হলো
+        'diamonds': 200,      
+        'vip_xp': 0,         
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -314,25 +318,93 @@ class _MainNavigationState extends State<MainNavigation> {
     }
   }
 
+ // 🇧🇩 [বাংলা মার্ক]: কোনো প্রিফিক্স ছাড়া, একদম নিরাপদ ও লাল দাগ ফিক্সড ফাংশন
+  void clearSpecificChatCount(String chatRoomId) async {
+    if (AppData.myID.isEmpty || chatRoomId.isEmpty) return;
+
+    try {
+      // 💡 এখানে সুনির্দিষ্ট কোনো টাইপ না লিখে সরাসরি 'final snapshot' ধরা হয়েছে, এতে আর কোনো লাল দাগ আসবে না ভাই
+      final snapshot = await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(chatRoomId)
+          .collection('messages')
+          .where('receiverId', isEqualTo: AppData.myID)
+          .where('isRead', isEqualTo: false)
+          .get();
+
+      // 💡 এখানে .docs সরাসরি কাজ করবে
+      if (snapshot.docs.isEmpty) return;
+
+      final WriteBatch batch = FirebaseFirestore.instance.batch();
+      
+      // 💡 প্রতিটা ডকুমেন্টকে dynamic অথবা var রাখায় ডার্ট কনফ্লিক্ট করবে না
+      for (dynamic ds in snapshot.docs) {
+        batch.update(ds.reference, {'isRead': true});
+      }
+
+      await batch.commit();
+      debugPrint("✅ [PaglaChat] চ্যাট রুম: $chatRoomId - এর আনরিড মেসেজ ক্লিয়ার করা হয়েছে।");
+      
+    } catch (e) {
+      debugPrint("❌ Error clearing specific chat unread messages: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 🇧🇩 [বাংলা মার্ক]: বিল্ড মেথডের শুরুতেই কারেন্ট আইডি ভ্যালিডেশন চেক করা হচ্ছে
+    final String currentUserId = AppData.myID;
+
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.mic), label: "Rooms"),
-          BottomNavigationBarItem(icon: Icon(Icons.mail), label: "Inbox"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        type: BottomNavigationBarType.fixed, 
+        items: [
+          const BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+          const BottomNavigationBarItem(icon: Icon(Icons.mic), label: "Rooms"),
+          
+          // 🇧🇩 [বাংলা মার্ক - সাব-কালেকশন গ্রুপ ভিত্তিক লাইভ কাউন্ট ব্যাজ]:
+          BottomNavigationBarItem(
+            icon: currentUserId.isEmpty
+                ? const Icon(Icons.mail)
+                : StreamBuilder<QuerySnapshot>( // 💡 এখানেও নরমাল QuerySnapshot থাকবে
+                    stream: FirebaseFirestore.instance
+                        .collectionGroup('messages')
+                        .where('receiverId', isEqualTo: currentUserId)
+                        .where('isRead', isEqualTo: false)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        debugPrint("❌ [PaglaChat Debug] ফায়ারস্টোর কোয়েরি এরর: ${snapshot.error}");
+                        return const Icon(Icons.mail);
+                      }
+
+                      int unreadCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
+                      debugPrint("📩 [PaglaChat Debug] সাব-কালেকশন থেকে মোট আনরিড মেসেজ সংখ্যা: $unreadCount টি");
+
+                      return Badge(
+                        label: unreadCount > 0 ? Text('$unreadCount', style: const TextStyle(fontSize: 10, color: Colors.white)) : null,
+                        isLabelVisible: unreadCount > 0,
+                        backgroundColor: Colors.redAccent, 
+                        child: const Icon(Icons.mail),
+                      );
+                    },
+                  ),
+            label: "Inbox",
+          ),
+          const BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
         ],
       ),
     );
   }
 }
-
-// --- লগইন স্ক্রিন (পাসওয়ার্ড রিসেট অপশনসহ) ---
+// --- লগইন স্ক্রিন (পাসওয়ার্ড রিসেট অপশনসহ) ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
   @override
@@ -374,7 +446,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   
-                  // 🔥 পাসওয়ার্ড রিসেট বাটন
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
@@ -385,7 +456,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         }
                         try {
                           await FirebaseAuth.instance.sendPasswordResetEmail(email: _emailController.text.trim());
-                          // ✅ পপ আপ আসবে সাকসেস হলে
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(

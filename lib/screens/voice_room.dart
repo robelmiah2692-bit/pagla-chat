@@ -197,6 +197,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
     if (!FloatingBubbleService.isMinimized) {
       _addUserToViewers();
       showMyOwnEntry();
+
+      // 🇧🇩 [বাংলা মার্ক - লাইভ কাউন্ট ফিক্স]:
+      // ইউজার যখন সম্পূর্ণ নতুনভাবে রুমে পা রাখবে, তখনই ফায়ারস্টোরে এই রুমের ইউজার কাউন্ট ১ বেড়ে যাবে ভাই।
+      FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
+        'userCount': FieldValue.increment(1),
+      }).catchError(
+          (e) => debugPrint("❌ রুমে ঢোকার সময় কাউন্ট বাড়াতে সমস্যা: $e"));
     }
 
     // ৪. ফায়ারস্টোর রুম লিসেনার
@@ -988,27 +995,44 @@ class _VoiceRoomState extends State<VoiceRoom> {
     print("---------------------------------------");
   }
 
+  // 🇧🇩 [বাংলা মার্ক - ১০০% ফিক্সড ও সেফটি প্রুফ স্ট্যাটাস ক্লিন মেথড]
   void _clearUserLiveStatus() async {
     String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
 
     try {
-      // রুম থেকে বের হওয়ার সময় ডাটা মুছে দিবে
+      // ১. প্রথমে myuID (শর্ট আইডি) দিয়ে চেক এবং আপডেট
       if (myuID.isNotEmpty) {
-        await FirebaseFirestore.instance.collection('users').doc(myuID).update({
-          'currentRoomId': FieldValue.delete(),
-        });
+        final shortIdRef = FirebaseFirestore.instance.collection('users').doc(myuID);
+        final shortIdSnap = await shortIdRef.get();
+        
+        // 🎯 সেফটি চেক: যদি ফায়ারস্টোরে এই শর্ট আইডির ডক আসলেই থাকে, তবেই আপডেট হবে ভাই
+        if (shortIdSnap.exists) {
+          await shortIdRef.update({
+            'currentRoomId': FieldValue.delete(),
+          });
+          debugPrint("🎉 [PaglaChat] myuID ($myuID) এর জন্য রুম স্ট্যাটাস ডিলিট হয়েছে।");
+        }
       }
 
+      // ২. এবার authUID (ফায়ারবেস অ্যাথ ইউআইডি) দিয়ে চেক এবং আপডেট
       if (authUID.isNotEmpty && authUID != myuID) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(authUID)
-            .update({
-          'currentRoomId': FieldValue.delete(),
-        });
+        final authIdRef = FirebaseFirestore.instance.collection('users').doc(authUID);
+        final authIdSnap = await authIdRef.get();
+        
+        // 🎯 সেফটি চেক: যদি ফায়ারস্টোরে এই অ্যাথ আইডির ডক আসলেই থাকে, তবেই আপডেট হবে
+        if (authIdSnap.exists) {
+          await authIdRef.update({
+            'currentRoomId': FieldValue.delete(),
+          });
+          debugPrint("🎉 [PaglaChat] authUID ($authUID) এর জন্য রুম স্ট্যাটাস ডিলিট হয়েছে।");
+        } else {
+          // ডক না থাকলে কোনো এরর থ্রো করবে না, জাস্ট লগে ওয়ার্নিং দিয়ে স্কিপ করবে ভাই
+          debugPrint("⚠️ [PaglaChat Warning] users কালেকশনে authUID ($authUID) ডকটি পাওয়া যায়নি, তাই স্কিপ করা হলো।");
+        }
       }
     } catch (e) {
-      print("❌ Error clearing status: $e");
+      // এখন আর মেইন এরর আসবে না, তাও কোনো সমস্যা হলে লগে দেখতে পাবেন
+      debugPrint("❌ Error clearing status: $e");
     }
   }
 
@@ -2071,6 +2095,21 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
     debugPrint("ফুল এক্সিট: রুমের সব লজিক ক্লিনআপ করা হচ্ছে।");
 
+    // 🇧🇩 [বাংলা মার্ক - ১০০% ফুলপ্রুফ কাউন্ট রিলিজ ফিক্স]:
+    // ইউজার যখন বাবল ছাড়া সরাসরি রুম থেকে বের হবে, তখন ডাটাবেজের মান নিখুঁতভাবে চেক করে কমানো হবে।
+    final roomRef = FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
+    roomRef.get().then((doc) {
+      if (doc.exists && doc.data() != null) {
+        int currentCount = doc.data()?['userCount'] ?? 0;
+        // সেফটি লজিক: যদি কাউন্ট ১ বা তার কম হয়, তবে সরাসরি ০ হবে। আর বেশি থাকলে ১ কমবে।
+        int newCount = (currentCount <= 1) ? 0 : (currentCount - 1);
+        
+        roomRef.update({'userCount': newCount})
+           .then((_) => debugPrint("🎉 [PaglaChat] ইউজার বের হয়েছে সফলভাবে, নতুন লাইভ কাউন্ট: $newCount"))
+           .catchError((e) => debugPrint("❌ কাউন্ট আপডেট করতে সমস্যা: $e"));
+      }
+    }).catchError((e) => debugPrint("❌ ফায়ারস্টোর ডাটা রিড করতে সমস্যা: $e"));
+
     // ৩. ভিউয়ার লিস্ট থেকে ব্যবহারকারীকে সরিয়ে ফেলা
     _removeUserFromViewers();
     _clearUserLiveStatus();
@@ -2081,6 +2120,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     giftTimer?.cancel();
     _soulmateListener?.cancel();
     _marriageListener?.cancel();
+
     // ৫. সিটে বসে থাকলে সেটি অটোমেটিক খালি করে দেওয়া
     if (currentSeatIndex != -1) {
       // Firestore এবং Service আপডেট
@@ -2110,10 +2150,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
           .remove();
     }
 
-    // ৬. কন্ট্রোলার এবং পিকে ম্যানেজার বন্ধ করা
+    //6. কন্ট্রোলার এবং পিকে ম্যানেজার বন্ধ করা
     if (isPKActive) pkManager.stopPK();
     _audioPlayer.dispose();
     _messageController.dispose();
+
+    // VII. স্ক্রিন অফ হওয়ার পারমিশন রিস্টোর করা (Wakelock বন্ধ করা)
+    WakelockPlus.disable();
 
     // ৭. এগোরা ইঞ্জিন রিলিজ করা
     try {
@@ -2125,7 +2168,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
     super.dispose();
   }
-
   Widget _buildTopNavBar() {
     final String myAuthId = FirebaseAuth.instance.currentUser?.uid ?? "";
 

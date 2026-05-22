@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // 💡 কারেন্ট ইউজার ভেরিফিকেশনের জন্য যুক্ত করা হলো
 import 'package:pagla_chat/profile_page.dart';
 
 // এই ক্লাসটি এখন একদম আলাদা, তাই এটি কাঁপবে না
@@ -30,7 +31,6 @@ class _LiveViewersListState extends State<LiveViewersList> {
     return StreamBuilder<QuerySnapshot>(
       stream: _viewerStream,
       builder: (context, snapshot) {
-        // এই প্রিন্টটি যদি এখনো খুব দ্রুত আসে, তবে বুঝতে হবে ডাটাবেজে কথা বলার সময় ডাটা কাঁপছে
         if (snapshot.hasData) {
            debugPrint("🚀 ভিউয়ার এরিয়া রেন্ডার হচ্ছে: ${snapshot.data!.docs.length} জন");
         }
@@ -46,7 +46,6 @@ class _LiveViewersListState extends State<LiveViewersList> {
               child: SizedBox(
                 height: 40,
                 child: ListView.builder(
-                  // 'physics' যোগ করা হয়েছে স্ক্রলিং স্মুথ করতে
                   physics: const BouncingScrollPhysics(),
                   scrollDirection: Axis.horizontal,
                   itemCount: docs.length,
@@ -55,14 +54,19 @@ class _LiveViewersListState extends State<LiveViewersList> {
                   cacheExtent: 1000, 
                   itemBuilder: (context, index) {
                     final data = docs[index].data() as Map<String, dynamic>;
-                    final uID = data['uID']?.toString() ?? docs[index].id;
+                    
+                    // 🔍 [মাস্টার আইডি ফিল্টার]: ফিল্ডের অগ্রাধিকার সেট করা হলো যাতে ভুল আইডি পাস না হয়
+                    // আপনার ডাটাবেজ অনুযায়ী ডকুমেন্ট আইডি (docs[index].id) হচ্ছে লম্বা AuthUID
+                    final String actualAuthUID = docs[index].id;
+                                                 
                     final img = data['profilePic'] ?? data['userImage'] ?? '';
+                    final name = data['userName'] ?? data['name'] ?? 'Unknown';
 
-                    // ValueKey এবং RepaintBoundary কাঁপাকাঁপি বন্ধের প্রধান অস্ত্র
                     return ViewerAvatar(
-                      key: ValueKey("viewer_$uID"), 
-                      viewerId: uID,
+                      key: ValueKey("viewer_$actualAuthUID"), 
+                      viewerId: actualAuthUID,
                       profileImage: img,
+                      viewerName: name, // নাম প্রিন্ট ট্র্যাকিং এর জন্য পাস করা হলো
                     );
                   },
                 ),
@@ -90,7 +94,13 @@ class _LiveViewersListState extends State<LiveViewersList> {
 class ViewerAvatar extends StatefulWidget {
   final String viewerId;
   final String profileImage;
-  const ViewerAvatar({super.key, required this.viewerId, required this.profileImage});
+  final String viewerName; // ট্র্যাকিং ভ্যারিয়েবল
+  const ViewerAvatar({
+    super.key, 
+    required this.viewerId, 
+    required this.profileImage,
+    required this.viewerName,
+  });
 
   @override
   State<ViewerAvatar> createState() => _ViewerAvatarState();
@@ -108,16 +118,43 @@ class _ViewerAvatarState extends State<ViewerAvatar> with AutomaticKeepAliveClie
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 3.0),
       child: GestureDetector(
-        // 🔥 ফিক্স: এখানে থার্ড ব্র্যাকেট দিয়ে লগ প্রিন্ট দুটি বসানো হয়েছে
-        onTap: () {
-          debugPrint("🚨 [VIEWER CLICK LOG] ভিউয়ার লিস্টের ইউজারে ক্লিক করা হয়েছে!");
-          debugPrint("🔎 [TARGET USER ID] ক্লিক করা ইউজারের ID: ${widget.viewerId}");
-          debugPrint("📂 [ROUTING INFO] আমি এখন 'lib/profile_page.dart' ফাইলের ProfilePage-এ পাঠাচ্ছি।");
+        onTap: () async {
+          String myCurrentUid = FirebaseAuth.instance.currentUser?.uid ?? "";
           
+          // 🔄 [ইউজার আইডি ট্র্যাকিং ফিক্স]: লম্বা AuthID দিয়ে users কালেকশন থেকে ৬-ডিজিটের uID বের করার লজিক
+          String finalIdToPass = widget.viewerId;
+          
+          try {
+            var userQuery = await FirebaseFirestore.instance
+                .collection('users')
+                .where('authUID', isEqualTo: widget.viewerId) // আপনার রাস্তা: email, authUID, users, uID
+                .limit(1)
+                .get();
+
+            if (userQuery.docs.isNotEmpty) {
+              // ৬-ডিজিটের ছোট uID ফিল্ডটি রিড করা হচ্ছে
+              finalIdToPass = userQuery.docs.first.data()['uID']?.toString() ?? userQuery.docs.first.id;
+            }
+          } catch (e) {
+            debugPrint("❌ Users কালেকশন থেকে uID লোড করতে ব্যর্থ: $e");
+          }
+          
+          // 🔥 [মাস্টার প্রিন্ট লগ]: এই প্রিন্টটি টার্মিনালে চেক করুন, জট একদম খুলে যাবে!
+          debugPrint("=========================================================");
+          debugPrint("🚨 [VIEWER CLICKED] ভিউয়ার লিস্টে ক্লিক করা হয়েছে!");
+          debugPrint("👤 ক্লিক করা ভিউয়ারের নাম: ${widget.viewerName}");
+          debugPrint("🆔 ক্লিক করা ভিউয়ারের লম্বা Auth ID: ${widget.viewerId}");
+          debugPrint("🎯 Users কালেকশন থেকে প্রাপ্ত ৬-ডিজিটের uID (Target ID): $finalIdToPass");
+          debugPrint("🔑 আমার নিজের লগইন আইডি (My Current ID): $myCurrentUid");
+          debugPrint("📢 মেলানো হচ্ছে: $finalIdToPass == $myCurrentUid ? নিজের প্রোফাইল : অন্যের প্রোফাইল");
+          debugPrint("📂 [ROUTING] ProfilePage-এ এই আইডিটি পাঠানো হচ্ছে -> $finalIdToPass");
+          debugPrint("=========================================================");
+          
+          if (!mounted) return;
           Navigator.push(
             context, 
             MaterialPageRoute(
-              builder: (context) => ProfilePage(userId: widget.viewerId),
+              builder: (context) => ProfilePage(userId: finalIdToPass),
             ),
           );
         },
@@ -135,7 +172,7 @@ class _ViewerAvatarState extends State<ViewerAvatar> with AutomaticKeepAliveClie
                     fit: BoxFit.cover,
                     width: 32,
                     height: 32,
-                    gaplessPlayback: true, // ছবি পরিবর্তনের সময় ঝিলিক মারা বন্ধ করবে
+                    gaplessPlayback: true,
                   ),
                 ),
           ),
