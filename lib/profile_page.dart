@@ -2753,11 +2753,12 @@ class _ProfilePageState extends State<ProfilePage> {
                             ])),
                     const SizedBox(height: 15),
 
-// 🇧🇩 [বাংলা মার্ক]: ম্যাপের বদলে ডিরেক্ট আপডেট হওয়া ভেরিয়েবল পাস—এবার ১০০% কাজ করবে ভাই
+// 🇧🇩 [বাংলা মার্ক]: ValueKey যোগ করা হলো—ডাটা আসার সাথে সাথে স্ক্রিন রিয়েল-টাইমে আপডেট হবে ভাই!
                     ActiveLevelBar(
-                        totalActiveXp:
-                            totalActiveXp), // 👈 userData['totalActiveXp'] কেটে শুধু totalActiveXp
-
+                      key: ValueKey(
+                          totalActiveXp), // 👈 এই কি (Key) ভ্যালু পরিবর্তনের সাথে সাথে বার সচল করবে
+                      totalActiveXp: totalActiveXp,
+                    ),
                     const SizedBox(height: 5),
 
                     GiftLevelBar(
@@ -3233,16 +3234,11 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
 
-            // 💍 ম্যারেজ রিং আইকন (ঠিক মাঝখানে, ক্লিকেবল ডিভোর্স ও ডিটেইলস পপআপ)
+           // 💍 ম্যারেজ রিং আইকন (ঠিক মাঝখানে, ক্লিকেবল ডিভোর্স ও ডিটেইলস পপআপ)
             Positioned(
               child: GestureDetector(
                 onTap: () {
-                  // ১. অরিজিনাল ম্যারেজ ডক থেকে একটি লোকাল কপি তৈরি
-                  Map<String, dynamic> updatedMarriageDoc =
-                      Map<String, dynamic>.from(rawMarriageDoc);
-
-                  // 🔍 [১০০% গ্যারান্টি রিয়েল ফিল্ড ট্র্যাকিং]:
-                  // আপনার ফায়ারস্টোর স্ক্রিনশট অনুযায়ী নিজের ছবি 'profilePic' এবং নাম 'name' ফিল্ডে আছে।
+                  // 👤 নিজের লাইভ ছবি ট্র্যাকিং
                   String finalMyImage =
                       (myImg != null && myImg.toString().trim().isNotEmpty)
                           ? myImg.toString().trim()
@@ -3250,15 +3246,46 @@ class _ProfilePageState extends State<ProfilePage> {
                               .toString()
                               .trim();
 
-                  String finalMyName = (data['name'] ?? data['myName'] ?? 'Me')
-                      .toString()
-                      .trim();
+                  // 🔍 [১০০% গ্যারান্টি রিয়েল নাম ফিল্ড ট্র্যাকিং]:
+                  // আপনার পেজের লোকাল ভ্যারিয়েবল, snapshots বা ডাটা ম্যাপের সব সম্ভাব্য ফিল্ড চেক করা হচ্ছে
+                  String finalMyName = 'No Name';
+                  if (data != null) {
+                    finalMyName = data['name'] ?? 
+                                  data['username'] ?? 
+                                  data['nickName'] ?? 
+                                  data['myName'] ?? 
+                                  '';
+                  }
+                  
+                  // যদি উপরের ম্যাপে নাম না পাওয়া যায়, তবে উইজেটের লোকাল ভ্যারিয়েবল চেক করবে
+                  if (finalMyName.trim().isEmpty || finalMyName == 'No Name') {
+                    finalMyName = (rawMarriageDoc['myName'] ?? '').toString();
+                  }
+                  
+                  // সবশেষেও খালি থাকলে একটি সুন্দর ডিফল্ট নাম দিবে (যেমন: 'App Owner' বা আপনার নাম)
+                  if (finalMyName.trim().isEmpty) {
+                    finalMyName = 'User'; 
+                  }
 
-                  // ২. জোরপূর্বক ম্যাপের ভেতর ডাটা ইনজেক্ট করে দেওয়া হলো যাতে বটমশিট খালি না পায়
-                  updatedMarriageDoc['myImage'] = finalMyImage;
-                  updatedMarriageDoc['myName'] = finalMyName;
-                  // 🛑 রিং এর উপর ক্লিক করলে ডিভোর্স বটম শিট ওপেন হবে
-                  _showDivorceBottomSheet(context, rawMarriageDoc);
+                  finalMyName = finalMyName.trim();
+                  
+                  // 🆔 ফায়ারস্টোর ডকুমেন্টের আইডি বের করা হলো
+                  String partnerAuthUID = rawMarriageDoc['partnerAuthUID'] ?? '';
+                  String currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                  
+                  String marriageDocId = rawMarriageDoc['marriageId'] ?? 
+                                         rawMarriageDoc['id'] ?? 
+                                         rawMarriageDoc['docId'] ?? 
+                                         "${currentUid}_$partnerAuthUID";
+
+                  // 🛑 ম্যারেজ বটম শিট ওপেন (সরাসরি নিখুঁত নাম ও ছবি সহ প্যারামিটার পাস)
+                  _showDivorceBottomSheet(
+                    context: context,
+                    marriageData: rawMarriageDoc,
+                    marriageDocId: marriageDocId,
+                    myName: finalMyName,
+                    myImage: finalMyImage,
+                  );
                 },
                 child: Image.network(
                   ringIconUrl,
@@ -3277,7 +3304,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-
   Widget _buildUserWithFrame(String imageUrl, String frameUrl, double radius,
       double lottieMultiplier, double imageMultiplier) {
     double profileSize = radius * 2;
@@ -3338,11 +3364,17 @@ class _ProfilePageState extends State<ProfilePage> {
       ],
     );
   }
-
 // 💔 ম্যারেজ ডিটেইলস এবং ডিভোর্স বটম শিট (পপআপ বার)
-  void _showDivorceBottomSheet(
-      BuildContext context, Map<String, dynamic> marriageData) {
+  void _showDivorceBottomSheet({
+    required BuildContext context,
+    required Map<String, dynamic> marriageData,
+    required String marriageDocId,
+    required String myName,
+    required String myImage,
+  }) {
     final MarriageService _marriageService = MarriageService();
+    final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+    final FirebaseAuth _auth = FirebaseAuth.instance;
 
     // বিয়ের তারিখ ফরম্যাট করা
     String marriageDate = "Unknown";
@@ -3352,11 +3384,13 @@ class _ProfilePageState extends State<ProfilePage> {
           DateFormat('dd MMM yyyy, hh:mm a').format(timestamp.toDate());
     }
 
-    // 👥 পার্টনারের তথ্য (যা ঠিকঠাক আসতেছিল)
+    // 👥 পার্টনারের তথ্য
     String partnerAuthUID = marriageData['partnerAuthUID'] ?? '';
     String partnerName = marriageData['partnerName'] ?? 'Partner';
     String partnerImage = marriageData['partnerImage'] ?? '';
     String ringName = marriageData['ringName'] ?? 'Wedding Ring';
+
+    String currentUid = _auth.currentUser?.uid ?? '';
 
     showModalBottomSheet(
       context: context,
@@ -3391,7 +3425,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      // 👤 [১০০% ডিরেক্ট ফিক্স]: কোনো ডাটাবেজ ম্যাপের ভরসায় না থেকে সরাসরি আপনার স্ক্রিনের ভ্যারিয়েবল রিড করবে
+                      // 👤 নিজের প্রোফাইল (বাম পাশে) - এখন পাঠানো নাম সরাসরি বসবে
                       Expanded(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -3400,26 +3434,29 @@ class _ProfilePageState extends State<ProfilePage> {
                               radius: 35,
                               backgroundColor: Colors.grey[900],
                               child: ClipOval(
-                                // 🔥 আপনার প্রিন্ট লগে আসা গিটহাবের আসল লাইভ ছবি (myImg) সরাসরি এখানে বসানো হলো
-                                child: Image.network(
-                                  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/femalepic%20(46).jpg",
-                                  width: 70,
-                                  height: 70,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      const Icon(Icons.person,
-                                          color: Colors.white, size: 35),
-                                ),
+                                child: myImage.trim().isEmpty
+                                    ? const Icon(Icons.person,
+                                        color: Colors.white, size: 35)
+                                    : Image.network(
+                                        myImage.trim(),
+                                        width: 70,
+                                        height: 70,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                const Icon(Icons.person,
+                                                    color: Colors.white,
+                                                    size: 35),
+                                      ),
                               ),
                             ),
                             const SizedBox(height: 8),
-                            // 🔥 আপনার ফায়ারস্টোরের আসল নাম (Arisha) সরাসরি এখানে প্রিন্ট হবে
-                            const Text(
-                              "Arisha",
+                            Text(
+                              myName, // 👈 এখানে সরাসরি পাস করা নাম বসবে, আর 'Me' আসবে না
                               textAlign: TextAlign.center,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                              style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13),
@@ -3435,7 +3472,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             Icon(Icons.favorite, color: Colors.red, size: 35),
                       ),
 
-                      // 👥 পার্টনার (ডান পাশে)
+                      // 👥 পার্টনারের প্রোফাইল (ডান পাশে)
                       Expanded(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -3478,7 +3515,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 25),
 
-                  // 🗓️ বিয়ের তারিখ সেকশন (ওভারফ্লো প্রোটেক্টেড)
+                  // 🗓️ বিয়ের তারিখ সেকশন
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 15, vertical: 10),
@@ -3506,7 +3543,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 25),
 
-                  // 💔 ডিভোর্স বাটন লজিক
+                  // 💔 ডিভোর্স বাতন লজিক
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.redAccent,
@@ -3521,43 +3558,90 @@ class _ProfilePageState extends State<ProfilePage> {
                             fontSize: 16,
                             fontWeight: FontWeight.bold)),
                     onPressed: () async {
+                      if (currentUid.isEmpty) return;
+
                       bool confirm = await showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              backgroundColor: Colors.grey[900],
-                              title: const Text("Divorce Confarmetion",
-                                  style: TextStyle(color: Colors.white)),
-                              content: const Text("Are You Sure?",
-                                  style: TextStyle(color: Colors.grey)),
-                              actions: [
-                                TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, false),
-                                    child: const Text("No")),
-                                TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, true),
-                                    child: const Text("yes",
-                                        style: TextStyle(color: Colors.red))),
-                              ],
-                            ),
-                          ) ??
-                          false;
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  backgroundColor: Colors.grey[900],
+                                  title: const Text("Divorce Confirmation",
+                                      style: TextStyle(color: Colors.white)),
+                                  content: const Text("Are You Sure? 3000 Diamonds will be deducted.",
+                                      style: TextStyle(color: Colors.grey)),
+                                  actions: [
+                                    TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, false),
+                                        child: const Text("No")),
+                                    TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, true),
+                                        child: const Text("Yes",
+                                            style: TextStyle(color: Colors.red))),
+                                  ],
+                                ),
+                              ) ??
+                              false;
 
                       if (confirm) {
-                        Navigator.pop(context);
-                        String res = await _marriageService
-                            .processDivorce(partnerAuthUID);
-                        if (res == "SUCCESS") {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text("💔 Divorce Complited!"),
-                                backgroundColor: Colors.green),
-                          );
-                        } else {
+                        Navigator.pop(context); // বটম শিট বন্ধ
+
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) => const Center(
+                              child: CircularProgressIndicator(
+                                  color: Colors.redAccent)),
+                        );
+
+                        try {
+                          DocumentReference userRef =
+                              _firestore.collection('users').doc(currentUid);
+
+                          bool hasEnoughDiamonds = false;
+
+                          await _firestore.runTransaction((transaction) async {
+                            DocumentSnapshot userSnapshot =
+                                await transaction.get(userRef);
+
+                            if (!userSnapshot.exists) {
+                              throw "User not found!";
+                            }
+
+                            var uData = userSnapshot.data() as Map<String, dynamic>;
+                            int currentDiamonds = uData['diamonds'] ?? 0;
+
+                            if (currentDiamonds < 3000) {
+                              throw "Insufficient Diamonds! You need 3000 💎";
+                            }
+
+                            transaction.update(userRef, {
+                              'diamonds': currentDiamonds - 3000,
+                            });
+                            hasEnoughDiamonds = true;
+                          });
+
+                          if (hasEnoughDiamonds) {
+                            await _firestore
+                                .collection('marriages')
+                                .doc(marriageDocId)
+                                .delete();
+
+                            Navigator.pop(context); // লোডিং বন্ধ
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text("💔 Divorce Completed Successfully! 3000 💎 Charged."),
+                                  backgroundColor: Colors.green),
+                            );
+                          }
+                        } catch (e) {
+                          if (Navigator.canPop(context)) {
+                            Navigator.pop(context); // লোডিং বন্ধ
+                          }
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                                content: Text(res),
+                                content: Text("❌ Error: ${e.toString()}"),
                                 backgroundColor: Colors.red),
                           );
                         }

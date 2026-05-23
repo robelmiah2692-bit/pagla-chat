@@ -183,23 +183,27 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
     // ২. ইউজার এবং রুম ডাটা চেক
     _fetchMyuID().then((_) {
-      if (mounted) {
-        // 🇧🇩 [বাংলা মার্ক]: ইউজার আইডি পাওয়ার পর রিয়েল-টাইম একটিভ এক্সপি টাইমার চালু করা হলো ভাই
-        final String currentUserId =
-            FirebaseAuth.instance.currentUser?.uid ?? "";
-        if (currentUserId.isNotEmpty) {
-          // টাইমার স্টার্ট (প্রতি ১ মিনিটে ১ এক্সপি ডাটাবেজে বাড়িয়ে দিবে ভাই)
-          _activeManager.startTimer(userId: currentUserId);
-        }
+      // 🇧🇩 [বাংলা মার্ক]: bool লজিক চেক—ইউজার রুমে আছে এবং আইডি ফাঁকা না থাকলে টাইমার চলবে ভাই
+      bool isUserValidForXp = uID.isNotEmpty && FirebaseAuth.instance.currentUser != null;
 
-        // বাবল থেকে ফিরলে লাইভ স্ট্যাটাস নতুন করে আপডেট করার দরকার নেই
-        if (!FloatingBubbleService.isMinimized) {
-          _updateUserLiveStatus(widget.roomId);
-          _fetchRoomData();
-          _checkIfFollowing();
-        }
+      if (isUserValidForXp) { 
+        // 🎯 আপনার ক্লাসের আসল 'uID' ভেরিয়েবলটি পাস করা হলো ভাই
+        _activeManager.startTimer(
+          uID: uID,                                              // আপনার ৬ ডিজিটের ইউজার আইডি (যেমন: 978051)
+          authUID: FirebaseAuth.instance.currentUser?.uid ?? "", // ফায়ারবেসের লম্বা আইডি
+          email: FirebaseAuth.instance.currentUser?.email ?? "", // ইউজারের রেজিস্টার্ড ইমেইল
+          minutesInterval: 20,                                   // আপনার শর্ত অনুযায়ী ২০ মিনিট
+          xpAmount: 1,                                           // প্রতি ইন্টারভালে ১ এক্সপি
+        );
       }
-    });
+    
+      // বাবল থেকে ফিরলে লাইভ স্ট্যাটাস নতুন করে আপডেট করার দরকার নেই
+      if (!FloatingBubbleService.isMinimized) {
+        _updateUserLiveStatus(widget.roomId);
+        _fetchRoomData();
+        _checkIfFollowing();
+      }
+    }); // 👈 🎯 ব্র্যাকেটের জোড়া এখানে পারফেক্টলি শেষ হলো ভাই, লাল দাগ উধাও!
 
     _initEmojiListener();
 
