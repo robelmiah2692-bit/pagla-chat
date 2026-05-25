@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
-// 🇧🇩 [বাংলা মার্ক]: অ্যাক্টিভ লেভেল উইজেট - নতুন গাণিতিক সূত্র এবং গ্লো পয়েন্ট ১০০% ফিক্সড ভাই
 class ActiveLevelBar extends StatefulWidget {
   final int totalActiveXp;
 
@@ -31,38 +30,35 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    int xpValue = widget.totalActiveXp; // ডাটাবেজ থেকে আসা টোটাল অ্যাক্টিভ এক্সপি
+    int xpValue = widget.totalActiveXp;
 
-    // 🎯 ১ থেকে ৫০ লেভেল পর্যন্ত ২০০ করে বাড়ার গাণিতিক সূত্র ভাই
+    // নতুন লজিক: লেভেল ১ = ৮০০০, লেভেল ২ = ১০০০০, লেভেল ৩ = ১২০০০...
     int level = 1;
-    int remainingXp = xpValue;
-    int currentLevelRequiredXp = 1000; // লেভেল ১ এর জন্য বেস ১০০০ এক্সপি
+    int currentLevelRequiredXp = 8000; 
 
-    // লুপ চালিয়ে প্রতি লেভেলের ২০০ বাড়তি টার্গেট মাইনাস করে নিখুঁত কারেন্ট লেভেল বের করা ভাই
+    // লেভেল ক্যালকুলেশন লুপ
+    int remainingXp = xpValue;
     while (remainingXp >= currentLevelRequiredXp && level < 50) {
       remainingXp -= currentLevelRequiredXp;
       level++;
-      currentLevelRequiredXp = 1000 + ((level - 1) * 200); // প্রতি লেভেলে টার্গেট ২০০ করে বাড়বে
+      currentLevelRequiredXp += 2000; // প্রতি লেভেলে ২০০০ করে বাড়ছে
     }
 
-    // যদি ইউজার সর্বোচ্চ ৫০ লেভেলে পৌঁছে যায়
+    // সর্বোচ্চ লেভেল ৫০ লিমিট করা
     if (level >= 50) {
       level = 50;
-      currentLevelRequiredXp = 1000 + (49 * 200); // ৫০ লেভেলের টার্গেট (১০,৮০০ এক্সপি)
-      remainingXp = currentLevelRequiredXp; // বার ফুল দেখাবে ভাই
+      currentLevelRequiredXp = 8000 + (49 * 2000); 
+      remainingXp = currentLevelRequiredXp; 
     }
 
-    // 🇧🇩 [বাংলা মার্ক]: int টু double নিখুঁত রেশিও কনভার্ট ভাই (যাতে বার ০ না দেখায়)
+    // প্রোগ্রেস ক্যালকুলেশন
     double progress = (currentLevelRequiredXp > 0)
         ? (remainingXp.toDouble() / currentLevelRequiredXp.toDouble()).clamp(0.0, 1.0)
         : 0.0;
 
-    // 🇧🇩 [মাস্টার প্রিন্ট]: অ্যাক্টিভ এক্সপির লাইভ ট্র্যাকিং লগ ভাই
+    // ডিবাগ লগ
     debugPrint("======== ❤️ [PaglaChat Active Level System] ========");
-    debugPrint("📥 ইনপুট প্রাপ্ত totalActiveXp: $xpValue");
-    debugPrint("🆙 বর্তমান অ্যাক্টিভ লেভেল: Lv.$level");
-    debugPrint("📊 লেভেলের এক্সপি প্রোগ্রেস: $remainingXp / $currentLevelRequiredXp XP");
-    debugPrint("📈 বারের পারসেন্টেজ (Ratio): ${(progress * 100).toStringAsFixed(1)}%");
+    debugPrint("📥 ইনপুট: $xpValue XP | 🆙 লেভেল: Lv.$level | 📊 প্রোগ্রেস: $remainingXp / $currentLevelRequiredXp XP");
     debugPrint("====================================================");
 
     Color heartColor = Colors.pinkAccent;
@@ -74,7 +70,6 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
       padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 5),
       child: Row(
         children: [
-          // ❤️ ডাইনামিক লাভ ব্যাজ
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             decoration: BoxDecoration(
@@ -95,8 +90,6 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
             ),
           ),
           const SizedBox(width: 8),
-
-          // 🔥 প্রোগ্রেস বার এবং টেক্সট
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,8 +109,6 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
                   ],
                 ),
                 const SizedBox(height: 4),
-                
-                // 🎨 প্রোগ্রেস বার লজিক (লেআউট উইডথ বাগ ফিক্সড)
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final double maxWidth = constraints.maxWidth;
@@ -136,7 +127,6 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
                         child: Stack(
                           clipBehavior: Clip.none,
                           children: [
-                            // ১. পুরাতন স্থির কমলা-লাল গ্রেডিয়েন্ট (আপনার ডিজাইন ভাই)
                             if (progress > 0)
                               Container(
                                 width: barWidth,
@@ -149,8 +139,6 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                            
-                            // ২. 🔥 মাথার ঠিক শেষ প্রান্তে আগুনের জ্বলজ্বলে ঝলক (Glow Point)
                             if (barWidth > 4)
                               Positioned(
                                 left: barWidth - 8,

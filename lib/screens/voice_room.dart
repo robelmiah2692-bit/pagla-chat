@@ -22,6 +22,7 @@ import 'package:pagla_chat/services/floating_bubble_service.dart';
 import 'package:pagla_chat/services/gift_service.dart';
 import 'package:pagla_chat/services/marriage_service.dart';
 import 'package:pagla_chat/services/room_active_manager.dart';
+import 'package:pagla_chat/services/soulmate_xp_service.dart';
 
 import 'package:pagla_chat/widgets/entry_effect_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -184,19 +185,22 @@ class _VoiceRoomState extends State<VoiceRoom> {
     // ২. ইউজার এবং রুম ডাটা চেক
     _fetchMyuID().then((_) {
       // 🇧🇩 [বাংলা মার্ক]: bool লজিক চেক—ইউজার রুমে আছে এবং আইডি ফাঁকা না থাকলে টাইমার চলবে ভাই
-      bool isUserValidForXp = uID.isNotEmpty && FirebaseAuth.instance.currentUser != null;
+      bool isUserValidForXp =
+          uID.isNotEmpty && FirebaseAuth.instance.currentUser != null;
 
-      if (isUserValidForXp) { 
+      if (isUserValidForXp) {
         // 🎯 আপনার ক্লাসের আসল 'uID' ভেরিয়েবলটি পাস করা হলো ভাই
         _activeManager.startTimer(
-          uID: uID,                                              // আপনার ৬ ডিজিটের ইউজার আইডি (যেমন: 978051)
-          authUID: FirebaseAuth.instance.currentUser?.uid ?? "", // ফায়ারবেসের লম্বা আইডি
-          email: FirebaseAuth.instance.currentUser?.email ?? "", // ইউজারের রেজিস্টার্ড ইমেইল
-          minutesInterval: 20,                                   // আপনার শর্ত অনুযায়ী ২০ মিনিট
-          xpAmount: 1,                                           // প্রতি ইন্টারভালে ১ এক্সপি
+          uID: uID, // আপনার ৬ ডিজিটের ইউজার আইডি (যেমন: 978051)
+          authUID: FirebaseAuth.instance.currentUser?.uid ??
+              "", // ফায়ারবেসের লম্বা আইডি
+          email: FirebaseAuth.instance.currentUser?.email ??
+              "", // ইউজারের রেজিস্টার্ড ইমেইল
+          minutesInterval: 20, // আপনার শর্ত অনুযায়ী ২০ মিনিট
+          xpAmount: 1, // প্রতি ইন্টারভালে ১ এক্সপি
         );
       }
-    
+
       // বাবল থেকে ফিরলে লাইভ স্ট্যাটাস নতুন করে আপডেট করার দরকার নেই
       if (!FloatingBubbleService.isMinimized) {
         _updateUserLiveStatus(widget.roomId);
@@ -3715,7 +3719,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                       final firestore = FirebaseFirestore.instance;
 
                       // 🎯 ২৫০ ডায়মন্ড খরচ হলে ১ এক্সপি যোগ হবে (ভাগফল বের করা হলো ভাই)
-                      int calculatedXp = totalAmount ~/ 250;
+                      int calculatedXp = totalAmount ~/ 700;
 
                       if (calculatedXp > 0) {
                         // ১. যে গিফট পাঠালো (Sender): তার শুধু গিফট লেভেল এক্সপি (totalGiftXp) বাড়বে ভাই
@@ -3763,15 +3767,16 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   });
                 }
 
-// 🔥 ৫. সোলমেট রিকোয়েস্ট প্রসেসর (ফিক্সড কোড - fromAuthUID সহ)
+                // ১. একদম শুরুতে এই ভ্যারিয়েবলটি তৈরি করে নিন
+                bool isFree =
+                    (gift['isFree'] == true) || (gift['expiry'] != null);
+                // 🔥 ৫. সোলমেট রিকোয়েস্ট ও এক্সপি আপডেট প্রসেসর
                 if (gift['id'] == 'soulmate_special') {
                   try {
                     print(
                         "💕 সোলমেট গিফট ডিটেক্ট হয়েছে! রিসিভারের লম্বা ফায়ারবেস UID খোঁজা হচ্ছে...");
-
                     String receiverAuthUID = "";
 
-                    // রুমে থাকা সিট লিস্ট থেকে রিসিভারের আসল লম্বা ফায়ারবেস UID (authUID) খুঁজে বের করার লজিক
                     if (seats.isNotEmpty) {
                       for (var seat in seats) {
                         if (seat["uID"]?.toString() == receiverDocID ||
@@ -3784,39 +3789,62 @@ class _VoiceRoomState extends State<VoiceRoom> {
                         }
                       }
                     }
-
-                    if (receiverAuthUID.isEmpty) {
+                    if (receiverAuthUID.isEmpty)
                       receiverAuthUID = receiverDocID;
-                    }
 
-                    // আইডিটি ফায়ারবেসের আসল লম্বা UID (length > 15) হলেই কেবল রিকোয়েস্ট তৈরি হবে
                     if (receiverAuthUID.isNotEmpty &&
                         receiverAuthUID.length > 15) {
-                      // ফায়ারস্টোরে সরাসরি সোলমেট না বানিয়ে, 'pending' স্ট্যাটাস দিয়ে রিকোয়েস্ট জমা করা হলো
                       await FirebaseFirestore.instance
                           .collection('soulmate_requests')
-                          .doc(
-                              receiverAuthUID) // রিসিভারের লম্বা ফায়ারবেস UID দিয়ে ডকুমেন্ট তৈরি হবে
+                          .doc(receiverAuthUID)
                           .set({
-                        'fromId':
-                            senderDocID, // আপনার ৬ ডিজিটের uID (যা প্রোফাইলে সেভ হবে)
-                        'fromAuthUID': FirebaseAuth.instance.currentUser!
-                            .uid, // 🔥 ফিক্স: আপনার নিজের লম্বা আইডি যা এক্সেপ্ট করতে লাগবে!
+                        'fromId': senderDocID,
+                        'fromAuthUID': FirebaseAuth.instance.currentUser!.uid,
                         'fromName': senderName,
                         'fromImg': senderImgUrl,
                         'timestamp': FieldValue.serverTimestamp(),
                         'status': 'pending',
                       });
-                      print(
-                          "🎯 সোলমেট রিকোয়েস্ট সফলভাবে লম্বা আইডি: $receiverAuthUID এর কাছে পেন্ডিং পাঠানো হয়েছে!");
-                    } else {
-                      print("❌ এরর: রিসিভারের লম্বা authUID পাওয়া যায়নি!");
+                      print("🎯 সোলমেট রিকোয়েস্ট সফলভাবে পাঠানো হয়েছে!");
                     }
                   } catch (soulmateError) {
                     print("Error sending soulmate request: $soulmateError");
                   }
-                }
+                } else {
+                  // 🔥 সোলমেট এক্সপি আপডেট লজিক
+                  if (!isFree &&
+                      totalAmount > 0 &&
+                      target != "All Room" &&
+                      target != "All Mic") {
+                    // আপনার আগের লুপ কোড, যা থেকে আপনি receiverDocID এর ৬ ডিজিটের আইডি পাচ্ছেন
+                    String receiverSixDigitId = "";
+                    if (seats.isNotEmpty) {
+                      for (var seat in seats) {
+                        if (seat["uID"]?.toString() == receiverDocID ||
+                            seat["userId"]?.toString() == receiverDocID ||
+                            seat["authUID"]?.toString() == receiverDocID) {
+                          // লুপ থেকেই সরাসরি ৬ ডিজিটের আইডি (uID) সেট করুন
+                          receiverSixDigitId = seat["uID"]?.toString() ?? "";
+                          break;
+                        }
+                      }
+                    }
 
+                    // যদি লুপ থেকে না পাওয়া যায়, তবে receiverDocID কে ব্যবহার করুন
+                    if (receiverSixDigitId.isEmpty)
+                      receiverSixDigitId = receiverDocID;
+
+                    // সেন্ডারের আইডি (আপনার কাছে নিশ্চয়ই 'senderDocID' বা similar কোনো ভেরিয়েবল আছে)
+                    String senderSixDigitId = senderDocID;
+
+                    // সরাসরি ৬ ডিজিটের আইডি দিয়ে ফাংশন কল করুন, কোনো নতুন কুয়েরি লাগবে না
+                    if (senderSixDigitId.isNotEmpty &&
+                        receiverSixDigitId.isNotEmpty) {
+                      SoulmateXpService.updateSoulmateXP(
+                          senderSixDigitId, receiverSixDigitId, totalAmount);
+                    }
+                  }
+                }
                 // 🔥 ৫. ম্যারেজ রিং রিকোয়েস্ট প্রসেসর (জেন্ডার, সেম পার্টনার ব্যাকপ্যাক ও ওল্ড ম্যারেজ প্রটেকশন লজিক)
                 if (gift['type'] == 'marriage_ring' ||
                     gift['type'] == 'vip_marriage') {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
-// 🇧🇩 [বাংলা মার্ক]: গিফট লেভেল উইজেট - লেআউট বাগ এবং গ্লো পয়েন্ট ১০০% ফিক্সড ভাই
+// 🇧🇩 [বাংলা মার্ক]: গিফট লেভেল উইজেট - আপডেট লজিক (Lv1=8000, +2000 per level)
 class GiftLevelBar extends StatefulWidget {
   final int totalGiftXp;
 
@@ -32,39 +32,34 @@ class _GiftLevelBarState extends State<GiftLevelBar>
 
   @override
   Widget build(BuildContext context) {
-    int xpValue = widget.totalGiftXp; // ডাটাবেজ থেকে আসা টোটাল এক্সপি
+    int xpValue = widget.totalGiftXp;
 
-    // 🎯 ১ থেকে ৫০ লেভেল পর্যন্ত ২০০ করে বাড়ার গাণিতিক সূত্র ভাই
+    // নতুন লজিক: লেভেল ১ = ৮০০০, লেভেল ২ = ১০০০০, লেভেল ৩ = ১২০০০...
     int level = 1;
+    int currentLevelRequiredXp = 8000;
     int remainingXp = xpValue;
-    int currentLevelRequiredXp = 1000; // লেভেল ১ এর জন্য বেস ১০০০ এক্সপি
 
-    // লুপ চালিয়ে নিখুঁত লেভেল বের করা ভাই
+    // লুপ চালিয়ে নিখুঁত লেভেল ও অবশিষ্ট এক্সপি বের করা
     while (remainingXp >= currentLevelRequiredXp && level < 50) {
       remainingXp -= currentLevelRequiredXp;
       level++;
-      currentLevelRequiredXp = 1000 + ((level - 1) * 200); // প্রতি লেভেলে ২০০ করে টার্গেট বাড়বে
+      currentLevelRequiredXp += 2000; // প্রতি লেভেলে ২০০০ করে টার্গেট বাড়বে
     }
 
-    // যদি ইউজার সর্বোচ্চ ৫০ লেভেলে পৌঁছে যায়
+    // যদি ইউজার সর্বোচ্চ ৫০ লেভেলে পৌঁছে যায়
     if (level >= 50) {
       level = 50;
-      currentLevelRequiredXp = 1000 + (49 * 200); // ৫০ লেভেলের টার্গেট (১০,৮০০ এক্সপি)
-      remainingXp = currentLevelRequiredXp; // বার ফুল দেখাবে ভাই
+      currentLevelRequiredXp = 8000 + (49 * 2000);
+      remainingXp = currentLevelRequiredXp;
     }
 
-    // 🇧🇩 [বাংলা মার্ক]: int টু double কনভার্ট ফিক্স লজিক ভাই (এবার বার ১০০% শো করবে)
-double progress = (currentLevelRequiredXp > 0)
-    ? (remainingXp.toDouble() / currentLevelRequiredXp.toDouble()).clamp(0.0, 1.0)
-    : 0.0;
+    // 🇧🇩 প্রোগ্রেস ক্যালকুলেশন
+    double progress = (currentLevelRequiredXp > 0)
+        ? (remainingXp.toDouble() / currentLevelRequiredXp.toDouble()).clamp(0.0, 1.0)
+        : 0.0;
 
-    // 🇧🇩 [মাস্টার প্রিন্ট]: ডাটাবেজ পাথ ও রিয়েল-টাইম ডাটা ট্র্যাকিং লগ ভাই
-    debugPrint("======== 👑 [PaglaChat Level System] ========");
-    debugPrint("📌 ডাটা সোর্স পাথ: users -> uID / authUID / email");
-    debugPrint("📥 ডাটাবেজ থেকে প্রাপ্ত totalGiftXp: $xpValue");
-    debugPrint("🆙 বর্তমান লেভেল: Lv.$level");
-    debugPrint("📊 লেভেলের এক্সপি প্রোগ্রেস: $remainingXp / $currentLevelRequiredXp XP");
-    debugPrint("📈 বারের পারসেন্টেজ (Ratio): ${(progress * 100).toStringAsFixed(1)}%");
+    debugPrint("======== 👑 [PaglaChat Gift Level System] ========");
+    debugPrint("📥 ইনপুট: $xpValue XP | 🆙 লেভেল: Lv.$level | 📊 প্রোগ্রেস: $remainingXp / $currentLevelRequiredXp XP");
     debugPrint("=============================================");
 
     Color roseColor = Colors.purpleAccent;
@@ -76,7 +71,6 @@ double progress = (currentLevelRequiredXp > 0)
       padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 5),
       child: Row(
         children: [
-          // 🌹 ডাইমানিক গোলাপ ফুল ব্যাজ
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             decoration: BoxDecoration(
@@ -100,8 +94,6 @@ double progress = (currentLevelRequiredXp > 0)
             ),
           ),
           const SizedBox(width: 8),
-
-          // 🔥 প্রোগ্রেস বার এবং টেক্সট
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,8 +117,6 @@ double progress = (currentLevelRequiredXp > 0)
                   ],
                 ),
                 const SizedBox(height: 4),
-
-                // 🎨 প্রোগ্রেস বার লজিক (উইডথ বাগ ফিক্সড)
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final double maxWidth = constraints.maxWidth;
@@ -146,7 +136,6 @@ double progress = (currentLevelRequiredXp > 0)
                         child: Stack(
                           clipBehavior: Clip.none,
                           children: [
-                            // ১. স্থির বেগুনি গ্রেডিয়েন্ট (ফ্লেক্সিবল সাইজিং লজিক ভাই)
                             if (progress > 0)
                               Container(
                                 width: barWidth,
@@ -163,8 +152,6 @@ double progress = (currentLevelRequiredXp > 0)
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-
-                            // ২. 🔥 মাথার শেষ প্রান্তে জ্বলজ্বলে আগুনের ঝলক (Glow Point)
                             if (barWidth > 4)
                               Positioned(
                                 left: barWidth - 8,

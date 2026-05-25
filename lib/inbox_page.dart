@@ -231,14 +231,20 @@ class _InboxPageState extends State<InboxPage> {
     }));
 
     // ৫. সর্টিং করা
+    // ৫. সর্টিং লজিক (নিখুঁত করার জন্য এটি আপডেট করুন)
     results.sort((a, b) {
       final Map<String, dynamic> aData = a['data'] as Map<String, dynamic>;
       final Map<String, dynamic> bData = b['data'] as Map<String, dynamic>;
+
+      // অফিশিয়াল চ্যাট সব সময় সবার উপরে থাকবে
       if (aData['uID'] == "paglachat_official") return -1;
       if (bData['uID'] == "paglachat_official") return 1;
-      return (b['lastTs'] as Timestamp).compareTo(a['lastTs'] as Timestamp);
-    });
 
+      // লাস্ট মেসেজের টাইম অনুযায়ী সর্ট (সবচেয়ে নতুন সবার উপরে)
+      Timestamp aTime = a['lastTs'] as Timestamp;
+      Timestamp bTime = b['lastTs'] as Timestamp;
+      return bTime.compareTo(aTime); // descending order
+    });
     yield results;
   }
 
@@ -261,9 +267,12 @@ class _InboxPageState extends State<InboxPage> {
         ? "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/favicon.png"
         : (userData['profilePic'] ?? "");
 
-    String? frameUrl = isOfficial
-        ? null
-        : userData['activeFrame']; // অফিশিয়ালের ফ্রেম লাগবে না
+    // এখানে অফিশিয়াল ফ্রেমের লিঙ্কটি যোগ করুন
+String officialFrameUrl = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/officialframe.png";
+
+String? frameUrl = isOfficial 
+    ? officialFrameUrl // অফিশিয়াল হলে ফ্রেম লিঙ্কটি আসবে
+    : userData['activeFrameUrl']; // সাধারণ ইউজার হলে তার নিজস্ব ফ্রেম আসবে
     String? currentRoomId = userData['currentRoomId'];
     bool isLive = currentRoomId != null && currentRoomId.toString().isNotEmpty;
 

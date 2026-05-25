@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-import 'soulmate_service.dart'; // আপনার সার্ভিস ফাইলের পাথ দিন
+import 'soulmate_service.dart';
 
 class SoulmateDetailPage extends StatelessWidget {
   final Map<String, dynamic> soulmateData;
@@ -10,27 +11,36 @@ class SoulmateDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ১. আপনার পুরাতন লেভেল লজিক হুবহু এক রাখা হয়েছে
+    // 🎯 নতুন লেভেল লজিক: লেভেল ১ = ৮০০০, এরপর প্রতি লেভেলে ২০০০ করে বাড়বে
     int totalGift = soulmateData['totalGift'] ?? 0;
-    int level = (totalGift / 5000).floor().clamp(1, 50);
-    
-    // লেভেল বার প্রোগ্রেস হিসাব (৫০০০ গিফটে ১ লেভেল বার)
-    int currentLevelBase = (level - 1) * 5000;
-    int currentProgressGifts = totalGift - currentLevelBase;
-    double progressPercent = (currentProgressGifts / 5000).clamp(0.0, 1.0);
-    if (level >= 50) progressPercent = 1.0;
+    int level = 1;
+    int currentLevelBase = 8000;
+    int remainingXp = totalGift;
 
-    // ২. বন্ধুত্বের লাইভ তারিখ ও সময় ফরম্যাট
+    while (remainingXp >= currentLevelBase && level < 50) {
+      remainingXp -= currentLevelBase;
+      level++;
+      currentLevelBase += 2000;
+    }
+
+    if (level >= 50) {
+      level = 50;
+      currentLevelBase = 8000 + (49 * 2000);
+      remainingXp = currentLevelBase;
+    }
+
+    double progressPercent = (remainingXp / currentLevelBase).clamp(0.0, 1.0);
+
     String friendshipDate = "Unknown";
     if (soulmateData['createdAt'] != null) {
       Timestamp timestamp = soulmateData['createdAt'];
       friendshipDate = DateFormat('dd MMM yyyy, hh:mm a').format(timestamp.toDate());
     }
 
-    // ৩. আপনার ডাটা ম্যাপের অরিজিনাল রাস্তা অনুযায়ী পার্টনারের ডাটা রিড
     String partnerId = soulmateData['partnerId'] ?? '';
     String partnerName = soulmateData['partnerName'] ?? 'Unknown';
     String partnerImage = soulmateData['partnerImage'] ?? '';
+    String myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(
       backgroundColor: const Color(0xFF12121A),
@@ -49,69 +59,37 @@ class SoulmateDetailPage extends StatelessWidget {
                 style: const TextStyle(color: Colors.amber, fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 30),
 
-            // 👥 দুইজনের নাম ও ছবি পাশাপাশি শো
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                // 👤 ইউজার নিজে (বাম পাশে)
                 Expanded(
-                  child: Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 40,
-                        backgroundColor: Colors.grey[900],
-                        child: ClipOval(
-                          child: Image.network(
-                            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/femalepic%20(46).jpg",
-                            width: 80,
-                            height: 80,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white, size: 40),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        "Arisha",
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                      ),
-                    ],
+                  child: FutureBuilder<QuerySnapshot>(
+                    future: FirebaseFirestore.instance.collection('users').where('uid', isEqualTo: myUid).limit(1).get(),
+                    builder: (context, userSnapshot) {
+                      String myName = "Loading...";
+                      String myImage = "";
+                      if (userSnapshot.hasData && userSnapshot.data!.docs.isNotEmpty) {
+                        var userData = userSnapshot.data!.docs.first.data() as Map<String, dynamic>;
+                        myName = userData['name'] ?? 'No Name';
+                        myImage = userData['profilePic'] ?? userData['image'] ?? '';
+                      }
+                      return Column(
+                        children: [
+                          CircleAvatar(radius: 40, backgroundColor: Colors.grey[900], child: ClipOval(child: myImage.isEmpty ? const Icon(Icons.person, color: Colors.white, size: 40) : Image.network(myImage, width: 80, height: 80, fit: BoxFit.cover))),
+                          const SizedBox(height: 10),
+                          Text(myName, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                        ],
+                      );
+                    },
                   ),
                 ),
-
-                // 💖 মাঝখানে লাভ আইকন
                 const Icon(Icons.favorite, color: Colors.pinkAccent, size: 40),
-
-                // 👥 পার্টনার (ডান পাশে - অরিজিনাল ডাটা রাস্তা)
                 Expanded(
                   child: Column(
                     children: [
-                      CircleAvatar(
-                        radius: 40,
-                        backgroundColor: Colors.grey[900],
-                        child: ClipOval(
-                          child: partnerImage.isEmpty
-                              ? const Icon(Icons.person, color: Colors.white, size: 40)
-                              : Image.network(
-                                  partnerImage,
-                                  width: 80,
-                                  height: 80,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: Colors.white, size: 40),
-                                ),
-                        ),
-                      ),
+                      CircleAvatar(radius: 40, backgroundColor: Colors.grey[900], child: ClipOval(child: partnerImage.isEmpty ? const Icon(Icons.person, color: Colors.white, size: 40) : Image.network(partnerImage, width: 80, height: 80, fit: BoxFit.cover))),
                       const SizedBox(height: 10),
-                      Text(
-                        partnerName,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                      ),
+                      Text(partnerName, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                     ],
                   ),
                 ),
@@ -119,68 +97,56 @@ class SoulmateDetailPage extends StatelessWidget {
             ),
 
             const SizedBox(height: 40),
-
-            // 📊 লাইভ লেভেল প্রোগ্রেস বার (গিফটের সাথে সাথে বাড়বে)
+            // 📊 নতুন ডিজাইন করা প্রোগ্রেস বার
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(color: const Color(0xFF1E1E2F), borderRadius: BorderRadius.circular(15)),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Text("Level Progress (Lv.$level)", style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                    Text("$remainingXp / $currentLevelBase XP", style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold)),
+                  ]),
+                  const SizedBox(height: 15),
+                  Stack(
+                    clipBehavior: Clip.none,
                     children: [
-                      Text("Level Progress (Lv.$level)", style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                      Text("$totalGift / ${level * 5000} 💎", style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: LinearProgressIndicator(
+                          value: progressPercent,
+                          minHeight: 12,
+                          backgroundColor: Colors.grey[800],
+                          valueColor: const AlwaysStoppedAnimation<Color>(Colors.orangeAccent),
+                        ),
+                      ),
+                      // প্রোগ্রেস বারের সামনে লাভ আইকন
+                      Positioned(
+                        right: -5,
+                        top: -5,
+                        child: Icon(Icons.favorite, color: Colors.redAccent, size: 22),
+                      ),
                     ],
-                  ),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: LinearProgressIndicator(
-                      value: progressPercent,
-                      minHeight: 12,
-                      backgroundColor: Colors.grey[800],
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.orangeAccent),
-                    ),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 20),
-
-            // 🗓️ বন্ধুত্বের লাইভ তারিখ ও সময় সেকশন
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(color: const Color(0xFF1E1E2F), borderRadius: BorderRadius.circular(15)),
-              child: Row(
-                children: [
-                  const Icon(Icons.calendar_month, color: Colors.pinkAccent, size: 24),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text("Start Hart:", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                        const SizedBox(height: 2),
-                        Text(friendshipDate, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              child: Row(children: [
+                const Icon(Icons.calendar_month, color: Colors.pinkAccent, size: 24),
+                const SizedBox(width: 15),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text("Start Hart:", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  Text(friendshipDate, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
+                ]),
+              ]),
             ),
-
             const SizedBox(height: 50),
-
-            // 💔 সম্পর্ক ছিন্ন করার বাটন
             ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                minimumSize: const Size(double.infinity, 52),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, minimumSize: const Size(double.infinity, 52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
               icon: const Icon(Icons.heart_broken, color: Colors.white),
               label: const Text("End Hart (1500 💎)", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
               onPressed: () => _showBreakupDetailPageDialog(context, partnerId),
@@ -191,7 +157,6 @@ class SoulmateDetailPage extends StatelessWidget {
     );
   }
 
-  // আপনার অরিজিনাল ডায়ালগ লজিকটি এখানেও যুক্ত করা হলো যাতে এখান থেকেও সম্পর্ক ব্রেক করা যায়
   void _showBreakupDetailPageDialog(BuildContext context, String partnerId) {
     showDialog(
       context: context,
@@ -199,16 +164,15 @@ class SoulmateDetailPage extends StatelessWidget {
         backgroundColor: const Color(0xFF1E1E2F),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         title: const Text("Sure end relationship ?", style: TextStyle(color: Colors.white, fontSize: 16)),
-        content: const Text("End relationship need 1k daimond", style: TextStyle(color: Colors.white70)),
+        content: const Text("End relationship need 1500 daimond", style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text("Cancel")),
           TextButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
               String response = await SoulmateService().breakRelation(partnerId);
-              Navigator.pop(context); // পেজ ক্লোজ করে মেইন প্রোফাইলে ব্যাক করবে
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(response), backgroundColor: Colors.pinkAccent));
+              Navigator.pop(context); 
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response), backgroundColor: Colors.pinkAccent));
             },
             child: const Text("Yes", style: TextStyle(color: Colors.redAccent)),
           ),

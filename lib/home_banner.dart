@@ -13,7 +13,9 @@ class _HomeBannerState extends State<HomeBanner> {
   // 🇧🇩 [বাংলা মার্ক]: ব্যানারের লিংকগুলো এখন এই আলাদা ফাইলের ভেতরে থাকবে ভাই
   final List<String> _bannerList = [
     "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premium_banner.png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/74ed04fd0a4869652ab10f0386dd8997c1421ac5/benar%20(6).png"
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/74ed04fd0a4869652ab10f0386dd8997c1421ac5/benar%20(6).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/officialbenar.png",
+  
   ];
 
   int _currentBannerIndex = 0;

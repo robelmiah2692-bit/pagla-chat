@@ -20,7 +20,7 @@ class MarriageService {
     // ❌ একই লিঙ্গের জুটি হলে বিয়ে বা রিং পাঠানো যাবে না
     if (myGender != "Unknown" && partnerGender != "Unknown" && 
         myGender.trim().toLowerCase() == partnerGender.trim().toLowerCase()) {
-      return "দুঃখিত! বিয়ে শুধুমাত্র বিপরীত লিঙ্গের ইউজারদের মধ্যে সম্ভব। ❌";
+      return "দুঃখিত! বিয়ে শুধুমাত্র বিপরীত লিঙ্গের ইউজারদের মধ্যে সম্ভব。❌";
     }
 
     try {
@@ -33,7 +33,7 @@ class MarriageService {
       // ❌ নতুন লজিক: চেক করা হচ্ছে রিসিভার অলরেডি বিবাহিত কিনা
       DocumentSnapshot receiverMarriageCheck = await _db.collection('marriages').doc(receiverAuthUID).get();
       if (receiverMarriageCheck.exists) {
-        return "উক্ত ইউজারটি অলরেডি বিবাহিত! উনি সিঙ্গেল না হওয়া পর্যন্ত রিং পাঠানো যাবে না। ❌";
+        return "উক্ত ইউজারটি অলরেডি বিবাহিত! উনি সিঙ্গেল না হওয়া পর্যন্ত রিং পাঠানো যাবে না। ❌";
       }
 
       // রিসিভারের লম্বা আইডির ডকুমেন্টে 'pending' রিকোয়েস্ট তৈরি হবে
@@ -53,7 +53,7 @@ class MarriageService {
     }
   }
 
-  // 🎉 বিয়ে সম্পন্ন করার লজিক (Accept Ring) - [পুরাতন প্যারামিটার ১০০% অক্ষত রাখা হয়েছে]
+  // 🎉 বিয়ে সম্পন্ন করার লজিক (Accept Ring) - [ফিল্ড ট্র্যাকিং ১০০% ফিক্সড করা হয়েছে]
   Future<void> completeMarriage({
     required String myId,          // নিজের ৬ ডিজিটের uID
     required String myAuthUID,     // নিজের লম্বা authUID
@@ -71,9 +71,12 @@ class MarriageService {
     // ১. নিজের ম্যারেজ ডাটাবেস আপডেট (বটমশিটের জন্য নিজের নাম ও ইমেজসহ ডকে সেভ হচ্ছে)
     DocumentReference myMarriageRef = _db.collection('marriages').doc(myAuthUID);
     batch.set(myMarriageRef, {
+      'marriageId': myAuthUID,       // 🆔 ডকুমেন্টের নিজস্ব আইডি ট্র্যাক করার জন্য সেভ করা হলো
       'myAuthUID': myAuthUID,
       'myName': myName,
       'myImage': myImg,
+      'profilePic': myImg,           // ব্যাকআপ ফিল্ড হিসেবে প্রোফাইল পিকচার ট্র্যাক করা হলো
+      'name': myName,                // ব্যাকআপ ফিল্ড হিসেবে নাম ট্র্যাক করা হলো
       'partnerId': friendId,          // ৬ ডিজিটের আইডি
       'partnerAuthUID': friendAuthUID, // লম্বা আইডি
       'partnerName': friendName,
@@ -86,9 +89,12 @@ class MarriageService {
     // ২. পার্টনারের ম্যারেজ ডাটাবেস আপডেট
     DocumentReference partnerMarriageRef = _db.collection('marriages').doc(friendAuthUID);
     batch.set(partnerMarriageRef, {
+      'marriageId': friendAuthUID,   // 🆔 পার্টনারের ডকুমেন্টের আইডি
       'myAuthUID': friendAuthUID,
       'myName': friendName,
       'myImage': friendImg,
+      'profilePic': friendImg,
+      'name': friendName,
       'partnerId': myId,              // ৬ ডিজিটের আইডি
       'partnerAuthUID': myAuthUID,     // লম্বা আইডি
       'partnerName': myName,
@@ -98,12 +104,12 @@ class MarriageService {
       'marriedAt': FieldValue.serverTimestamp(),
     });
 
-    // ৩. সোলমেটের মতো পেন্ডিং রিকোয়েস্ট ডকুমেন্টটি ডিলিট করে দেওয়া (যাতে পপ-আপ চলে যায়)
+    // ৩. পেন্ডিং রিকোয়েস্ট документটি ডিলিট করে দেওয়া (যাতে পপ-আপ চলে যায়)
     DocumentReference requestRef = _db.collection('marriage_requests').doc(myAuthUID);
     batch.delete(requestRef);
 
     await batch.commit();
-    print("✅ Marrige complited!");
+    print("✅ Marrige completed and fields synced!");
   }
 
   // 🔴 রিজেক্ট লজিক (রিকোয়েস্ট কালেকশন থেকে মুছে ফেলা)
@@ -111,29 +117,17 @@ class MarriageService {
     await _db.collection('marriage_requests').doc(myAuthUID).delete();
   }
 
-  // 💔 ডিভোর্স লজিক (২০০০ ডায়মন্ড কেটে রেকর্ড ডিলিট করা)
+  // 💔 ডিভোর্স লজিক (লাল দাগ ফিক্সড এবং ইউআই ট্রানজেকশনের সাথে এলাইন করা হয়েছে)
   Future<String> processDivorce(String partnerAuthUID) async {
-    const int divorceCost = 3000;
-    
     try {
-      DocumentSnapshot userDoc = await _db.collection('users').doc(currentAuthUID).get();
-      int currentDiamonds = userDoc['diamonds'] ?? 0;
-
-      if (currentDiamonds < divorceCost) {
-        return "need 3000 Diamond।";
-      }
-
       WriteBatch batch = _db.batch();
 
-      // ডায়মন্ড কেটে নেওয়া
-      DocumentReference userRef = _db.collection('users').doc(currentAuthUID);
-      batch.update(userRef, {
-        'diamonds': FieldValue.increment(-divorceCost)
-      });
-
-      // দুইজনের বিয়ের রেকর্ড মুছে ফেলা
+      // দুইজনের বিয়ের রেকর্ড সম্পূর্ণ মুছে ফেলা
       batch.delete(_db.collection('marriages').doc(currentAuthUID));
-      batch.delete(_db.collection('marriages').doc(partnerAuthUID));
+      
+      if (partnerAuthUID.isNotEmpty) {
+        batch.delete(_db.collection('marriages').doc(partnerAuthUID));
+      }
 
       await batch.commit();
       return "SUCCESS";

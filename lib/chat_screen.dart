@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:pagla_chat/profile_page.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
@@ -335,76 +336,33 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _showProfile(BuildContext context, String userId) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const SizedBox(height: 150);
-          final userData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-          final String name =
-              userData['name'] ?? userData['userName'] ?? 'User';
-          final String pic =
-              userData['profilePic'] ?? userData['userImage'] ?? '';
-          final bool isVIP = userData['isVIP'] ?? false;
-          final bool isFollowing =
-              (userData['followerList'] ?? []).contains(currentUserId);
+  void _onProfileTap(BuildContext context, String userId) async {
+    // ১. ভিউয়ার লিস্টের মতো করে ৬-ডিজিটের সঠিক uID খুঁজে বের করার লজিক
+    String finalIdToPass = userId;
 
-          return Container(
-            padding: const EdgeInsets.all(25),
-            decoration: const BoxDecoration(
-                color: Color(0xFF1E1E2F),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(40))),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircleAvatar(
-                    radius: 55,
-                    backgroundColor: const Color.fromARGB(108, 237, 91, 140),
-                    child: CircleAvatar(
-                        radius: 52,
-                        backgroundImage:
-                            pic.isNotEmpty ? NetworkImage(pic) : null)),
-                const SizedBox(height: 15),
-                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(name,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold)),
-                  if (isVIP)
-                    const Icon(Icons.verified, color: Colors.amber, size: 22),
-                ]),
-                const SizedBox(height: 20),
-                Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _statWidget("Followers", userData['followers'] ?? 0),
-                      _statWidget("Following", userData['following'] ?? 0),
-                    ]),
-                const SizedBox(height: 30),
-                if (userId != currentUserId)
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            isFollowing ? Colors.grey : Colors.pinkAccent,
-                        minimumSize: const Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15))),
-                    onPressed: () => _toggleFollow(userId, isFollowing),
-                    child: Text(isFollowing ? "Unfollow" : "Follow",
-                        style: const TextStyle(color: Colors.white)),
-                  ),
-              ],
-            ),
-          );
-        },
+    try {
+      // সরাসরি users কালেকশনে কুয়েরি করা হচ্ছে
+      var userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('authUID', isEqualTo: userId)
+          .limit(1)
+          .get();
+
+      if (userQuery.docs.isNotEmpty) {
+        // ৬-ডিজিটের ছোট uID ফিল্ডটি রিড করা হচ্ছে
+        finalIdToPass =
+            userQuery.docs.first.data()['uID']?.toString() ?? userId;
+      }
+    } catch (e) {
+      debugPrint("❌ চ্যাট রুম থেকে প্রোফাইলে যেতে ব্যর্থ: $e");
+    }
+
+    // ২. পুরনো ModalBottomSheet মুছে ফেলে সরাসরি ProfilePage-এ নেভিগেট করা
+    if (!context.mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProfilePage(userId: finalIdToPass),
       ),
     );
   }
@@ -546,61 +504,62 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildMessageBubble(Map<String, dynamic> data, bool isMe) {
-  String type = data['type'] ?? 'text';
-  
-  // 🔥 ফিক্স ১: ডাটাবেসে 'message' না থাকলে যেন 'text' ফিল্ড থেকে রিচার্জের লেখাটা নেয়
-  String msg = data['message'] ?? data['text'] ?? ''; 
+    String type = data['type'] ?? 'text';
 
-  // 🔥 ফিক্স ২: অফিশিয়াল মেসেজ যেন ভুল করে আপনার নিজের (isMe) বাবলের ভেতরে না ঢুকে যায়
-  bool isOfficial = data['senderId'] == 'paglachat_official' || type == 'system_msg';
-  bool finalIsMe = isMe && !isOfficial;
+    // 🔥 ফিক্স ১: ডাটাবেসে 'message' না থাকলে যেন 'text' ফিল্ড থেকে রিচার্জের লেখাটা নেয়
+    String msg = data['message'] ?? data['text'] ?? '';
 
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 15),
-    child: Row(
-      mainAxisAlignment:
-          finalIsMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        // বাম পাশের অবতার (যদি নিজের মেসেজ না হয়)
-        if (!finalIsMe)
-          _chatAvatar(
-              data['senderId'] ?? 'paglachat_official', 
-              data['senderImage'] ?? '',
-              data['senderName'] ?? 'Official'
-          ),
-        const SizedBox(width: 10),
-        Flexible(
-          child: GestureDetector(
-            onLongPress: () => _downloadMedia(msg, type),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                // অফিশিয়াল মেসেজের ব্যাকগ্রাউন্ড একটু আলাদা ডিপ কালার দিলে ফুটবে সুন্দর
-                color: finalIsMe
-                    ? const Color.fromARGB(171, 241, 97, 145)
-                    : isOfficial 
-                        ? const Color(0xFF251F3D) // অফিশিয়াল এর জন্য স্পেশাল ডার্ক পার্পল ভাইব
-                        : const Color(0xFF1E1E2F),
-                borderRadius: BorderRadius.circular(15),
-                // অফিশিয়াল মেসেজের চারপাশ গোল্ডেন বর্ডার দিলে আরও রয়্যাল লাগবে
-                border: isOfficial 
-                    ? Border.all(color: Colors.amberAccent.withOpacity(0.4), width: 1)
-                    : null,
+    // 🔥 ফিক্স ২: অফিশিয়াল মেসেজ যেন ভুল করে আপনার নিজের (isMe) বাবলের ভেতরে না ঢুকে যায়
+    bool isOfficial =
+        data['senderId'] == 'paglachat_official' || type == 'system_msg';
+    bool finalIsMe = isMe && !isOfficial;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: Row(
+        mainAxisAlignment:
+            finalIsMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // বাম পাশের অবতার (যদি নিজের মেসেজ না হয়)
+          if (!finalIsMe)
+            _chatAvatar(data['senderId'] ?? 'paglachat_official',
+                data['senderImage'] ?? '', data['senderName'] ?? 'Official'),
+          const SizedBox(width: 10),
+          Flexible(
+            child: GestureDetector(
+              onLongPress: () => _downloadMedia(msg, type),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  // অফিশিয়াল মেসেজের ব্যাকগ্রাউন্ড একটু আলাদা ডিপ কালার দিলে ফুটবে সুন্দর
+                  color: finalIsMe
+                      ? const Color.fromARGB(171, 241, 97, 145)
+                      : isOfficial
+                          ? const Color(
+                              0xFF251F3D) // অফিশিয়াল এর জন্য স্পেশাল ডার্ক পার্পল ভাইব
+                          : const Color(0xFF1E1E2F),
+                  borderRadius: BorderRadius.circular(15),
+                  // অফিশিয়াল মেসেজের চারপাশ গোল্ডেন বর্ডার দিলে আরও রয়্যাল লাগবে
+                  border: isOfficial
+                      ? Border.all(
+                          color: Colors.amberAccent.withOpacity(0.4), width: 1)
+                      : null,
+                ),
+                child: _buildTypeContent(type, msg),
               ),
-              child: _buildTypeContent(type, msg),
             ),
           ),
-        ),
-        const SizedBox(width: 10),
-        // ডান পাশের অবতার (যদি নিজের মেসেজ হয়)
-        if (finalIsMe)
-          _chatAvatar(currentUserId, data['senderImage'] ?? '',
-              data['senderName'] ?? 'U'),
-      ],
-    ),
-  );
-}
+          const SizedBox(width: 10),
+          // ডান পাশের অবতার (যদি নিজের মেসেজ হয়)
+          if (finalIsMe)
+            _chatAvatar(currentUserId, data['senderImage'] ?? '',
+                data['senderName'] ?? 'U'),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTypeContent(String type, String msg) {
     if (type == 'image') {
       return ClipRRect(
@@ -644,59 +603,62 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _chatAvatar(String uID, String url, String name) {
-  // 🔥 ফিক্স: আইডি যদি অফিশিয়াল হয়, তবে ফায়ারবেস চেক ছাড়াই সরাসরি গিটহাবের রয়্যাল লোগো দেখাবে
-  if (uID == 'paglachat_official' || name == 'Official') {
-    const String officialPic = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/favicon.png";
-    return GestureDetector(
-      onTap: () => _showProfile(context, uID),
-      child: const CircleAvatar(
-        radius: 20,
-        backgroundImage: NetworkImage(officialPic),
-      ),
+    // 🔥 ফিক্স: আইডি যদি অফিশিয়াল হয়, তবে ফায়ারবেস চেক ছাড়াই সরাসরি গিটহাবের রয়্যাল লোগো দেখাবে
+    if (uID == 'paglachat_official' || name == 'Official') {
+      const String officialPic =
+          "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/favicon.png";
+      return GestureDetector(
+        onTap: () =>
+            _onProfileTap(context, uID), // এখানে নতুন ফাংশনটি কল করা হলো
+        child: const CircleAvatar(
+          radius: 20,
+          backgroundImage: NetworkImage(officialPic),
+        ),
+      );
+    }
+
+    // --- সাধারণ ইউজারদের জন্য আপনার আগের লজিক একদম হুবহু ১00% এক থাকবে ---
+    return StreamBuilder<DocumentSnapshot>(
+      stream:
+          FirebaseFirestore.instance.collection('users').doc(uID).snapshots(),
+      builder: (context, snapshot) {
+        bool isLive = false;
+        if (snapshot.hasData && snapshot.data?.data() != null) {
+          var d = snapshot.data!.data() as Map<String, dynamic>;
+          isLive = d['currentRoomId'] != null &&
+              d['currentRoomId'].toString().isNotEmpty;
+        }
+
+        return GestureDetector(
+          onTap: () => _onProfileTap(context, uID),
+          child: Stack(
+            children: [
+              CircleAvatar(
+                  radius: 20,
+                  backgroundImage: url.isNotEmpty ? NetworkImage(url) : null,
+                  child: url.isEmpty
+                      ? Text(name.isNotEmpty ? name[0] : 'U')
+                      : null),
+              if (isLive)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5)),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  // --- সাধারণ ইউজারদের জন্য আপনার আগের লজিক একদম হুবহু ১00% এক থাকবে ---
-  return StreamBuilder<DocumentSnapshot>(
-    stream:
-        FirebaseFirestore.instance.collection('users').doc(uID).snapshots(),
-    builder: (context, snapshot) {
-      bool isLive = false;
-      if (snapshot.hasData && snapshot.data?.data() != null) {
-        var d = snapshot.data!.data() as Map<String, dynamic>;
-        isLive = d['currentRoomId'] != null &&
-            d['currentRoomId'].toString().isNotEmpty;
-      }
-
-      return GestureDetector(
-        onTap: () => _showProfile(context, uID),
-        child: Stack(
-          children: [
-            CircleAvatar(
-                radius: 20,
-                backgroundImage: url.isNotEmpty ? NetworkImage(url) : null,
-                child: url.isEmpty
-                    ? Text(name.isNotEmpty ? name[0] : 'U')
-                    : null),
-            if (isLive)
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5)),
-                ),
-              ),
-          ],
-        ),
-      );
-    },
-  );
-}
   Widget _inputSection() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),

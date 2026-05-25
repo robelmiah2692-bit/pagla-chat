@@ -1,4 +1,7 @@
 import 'package:intl/intl.dart';
+import 'package:pagla_chat/auth_service.dart';
+import 'package:pagla_chat/help_desk_page.dart';
+import 'package:pagla_chat/privacy_policy_page.dart';
 import 'package:pagla_chat/services/diamond_recharge_view.dart';
 import 'package:pagla_chat/services/follow_service.dart';
 import 'package:pagla_chat/services/soulmate_detail_page.dart';
@@ -372,14 +375,14 @@ class _ProfilePageState extends State<ProfilePage> {
   ];
 
   final List<String> vipFrames = [
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/61c74c52f733af08c0db673462bf2d776cef6a1d/vipframe/framevip%20(1).png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/61c74c52f733af08c0db673462bf2d776cef6a1d/vipframe/framevip%20(2).png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/61c74c52f733af08c0db673462bf2d776cef6a1d/vipframe/framevip%20(3).png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/61c74c52f733af08c0db673462bf2d776cef6a1d/vipframe/framevip%20(4).png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/61c74c52f733af08c0db673462bf2d776cef6a1d/vipframe/framevip%20(5).png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/61c74c52f733af08c0db673462bf2d776cef6a1d/vipframe/framevip%20(6).png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/61c74c52f733af08c0db673462bf2d776cef6a1d/vipframe/framevip%20(7).png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/61c74c52f733af08c0db673462bf2d776cef6a1d/vipframe/framevip%20(8).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20(1).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20(2).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20(3).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20(4).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20(5).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20(6).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20(7).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20(8).png",
   ];
   // ১. গিটহাবের বেস লিঙ্ক (সব ছবির জন্য কমন)
   final String githubBaseUrl =
@@ -696,51 +699,70 @@ class _ProfilePageState extends State<ProfilePage> {
                       _showAgePicker();
                     }),
 
-                // ২. প্রাইভেসি পলিসি (Privacy Policy) - নতুন যোগ করা হয়েছে
                 ListTile(
-                    leading:
-                        const Icon(Icons.security, color: Colors.blueAccent),
-                    title: const Text("Privacy Policy",
-                        style: TextStyle(
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w500)),
-                    onTap: () {
-                      Navigator.pop(context);
-                      // আপনার পলিসি পেইজের নেভিগেশন এখানে দিবেন
-                    }),
+                  leading: const Icon(Icons.security, color: Colors.blueAccent),
+                  title: const Text("Privacy Policy",
+                      style: TextStyle(
+                          color: Colors.black87, fontWeight: FontWeight.w500)),
+                  onTap: () {
+                    Navigator.pop(context); // ড্রয়ার বন্ধ হবে
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => PrivacyPolicyPage()),
+                    );
+                  },
+                ),
 
-                // ৩. হেল্প ডেস্ক (Help Desk) - নতুন যোগ করা হয়েছে
+                // ৩. হেল্প ডেস্ক (Help Desk) - নেভিগেশনসহ আপডেট করা হয়েছে
                 ListTile(
-                    leading:
-                        const Icon(Icons.support_agent, color: Colors.green),
-                    title: const Text("Help Desk",
-                        style: TextStyle(
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w500)),
-                    onTap: () {
-                      Navigator.pop(context);
-                      // হেল্প ডেস্ক পেইজের নেভিগেশন এখানে দিবেন
-                    }),
-
-                // ৪. লগআউট (Logout)
-                ListTile(
-                    leading: const Icon(Icons.logout, color: Colors.redAccent),
-                    title: const Text("Logout",
-                        style: TextStyle(
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.bold)),
-                    onTap: () {
-                      FirebaseAuth.instance.signOut();
-                      Navigator.pop(context);
-                    }),
-                const SizedBox(height: 10),
-              ],
-            ),
-          ],
-        ),
+                  leading: const Icon(Icons.support_agent, color: Colors.green),
+                  title: const Text(
+                    "Help Desk",
+                    style: TextStyle(
+                        color: Colors.black87, fontWeight: FontWeight.w500),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context); // ড্রয়ার বন্ধ হবে
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const HelpDeskPage()),
+                    );
+                  },
+                ),
+               // ৪. লগআউট (Logout)
+ListTile(
+  leading: const Icon(Icons.logout, color: Colors.redAccent),
+  title: const Text(
+    "Logout",
+    style: TextStyle(
+      color: Colors.redAccent,
+      fontWeight: FontWeight.bold,
+    ),
+  ),
+  onTap: () async {
+    // AuthService ব্যবহার করে লগআউট
+    await AuthService().signOut();
+    
+    // হ্যাং হওয়া রোধ করতে আগের সব স্ক্রিন মুছে দিয়ে LoginScreen-এ পাঠানো
+    if (context.mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (route) => false,
+      );
+    }
+  },
+),
+const SizedBox(height: 10),
+            ],
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showFreeAvatars() {
     List<String> avatars = (gender == "Male") ? maleAvatars : femaleAvatars;
@@ -1091,26 +1113,44 @@ class _ProfilePageState extends State<ProfilePage> {
       {
         "name": "Royal Gold 4 Star",
         "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/frame%20(1).json",
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/frame%20saling/royelframe%20(1).png",
         "price": "7000"
       },
       {
         "name": "Royal Gold",
         "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/frame%20(2).json",
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/frame%20saling/royelframe%20(2).png",
         "price": "20000"
       },
       {
         "name": "Royal 3 Star",
         "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/frame%20(3).json", // যদি লটি হয়
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/frame%20saling/royelframe%20(3).png", // যদি লটি হয়
         "price": "8000"
+      },
+      {
+        "name": "Royal 7",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/frame%20saling/royelframe%20(4).png", // যদি লটি হয়
+        "price": "9000"
+      },
+      {
+        "name": "Royal 11 Star",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/frame%20saling/royelframe%20(5).png", // যদি লটি হয়
+        "price": "10000"
+      },
+      {
+        "name": "Royal 7 Star",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/frame%20saling/royelframe%20(6).png", // যদি লটি হয়
+        "price": "11000"
       },
       {
         "name": "Queen Blue",
         "url":
             "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/framequin.png", // যদি লটি হয়
-        "price": "10000"
+        "price": "10500"
       },
     ];
 
@@ -1464,8 +1504,71 @@ class _ProfilePageState extends State<ProfilePage> {
       {
         "name": "Full Page Love",
         "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/pageframe.png",
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/pageframe/page%20frame%20(1).png",
+        "price": "20000",
+        "type": "Profile Page"
+      },
+      {
+        "name": "Lovly frame",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/pageframe/page%20frame%20(2).png",
+        "price": "22000",
+        "type": "Profile Page"
+      },
+      {
+        "name": "frame blu",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/pageframe/page%20frame%20(3).png",
+        "price": "23000",
+        "type": "Profile Page"
+      },
+      {
+        "name": "red love",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/pageframe/page%20frame%20(3).png",
         "price": "25000",
+        "type": "Profile Page"
+      },
+      {
+        "name": "lovly frame",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/pageframe/page%20frame%20(4).png",
+        "price": "26000",
+        "type": "Profile Page"
+      },
+      {
+        "name": "super frame",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/pageframe/page%20frame%20(5).png",
+        "price": "27000",
+        "type": "Profile Page"
+      },
+      {
+        "name": "nion love",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/pageframe/page%20frame%20(6).png",
+        "price": "28000",
+        "type": "Profile Page"
+      },
+      {
+        "name": "jum love",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/pageframe/page%20frame%20(7).png",
+        "price": "29000",
+        "type": "Profile Page"
+      },
+      {
+        "name": "parpale love",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/pageframe/page%20frame%20(8).png",
+        "price": "30000",
+        "type": "Profile Page"
+      },
+      {
+        "name": "my frame f",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/pageframe/page%20frame%20(9).png",
+        "price": "31000",
         "type": "Profile Page"
       },
     ];
@@ -2176,7 +2279,7 @@ class _ProfilePageState extends State<ProfilePage> {
         // ৩. VIP লেভেল অনুযায়ী ফ্রেম চেক (আপনার আগের লজিক)
         if (currentLevel >= 1 && currentLevel <= 8) {
           String vipFrameUrl =
-              "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/framevip$currentLevel.png";
+              "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20($currentLevel).png";
           String vipExpiry = premiumUntilDate != null
               ? "${premiumUntilDate!.day}/${premiumUntilDate!.month}/${premiumUntilDate!.year}"
               : "Permanent";
@@ -3234,51 +3337,91 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
 
-           // 💍 ম্যারেজ রিং আইকন (ঠিক মাঝখানে, ক্লিকেবল ডিভোর্স ও ডিটেইলস পপআপ)
+            // 💍 ম্যারেজ রিং আইকন (ঠিক মাঝখানে, ক্লিকেবল ডিভোর্স ও ডিটেইলস পপআপ)
             Positioned(
               child: GestureDetector(
-                onTap: () {
-                  // 👤 নিজের লাইভ ছবি ট্র্যাকিং
-                  String finalMyImage =
-                      (myImg != null && myImg.toString().trim().isNotEmpty)
-                          ? myImg.toString().trim()
-                          : (data['profilePic'] ?? data['myImage'] ?? '')
-                              .toString()
-                              .trim();
+                onTap: () async {
+                  print(
+                      "=================== 🔍 DEBUG START ===================");
 
-                  // 🔍 [১০০% গ্যারান্টি রিয়েল নাম ফিল্ড ট্র্যাকিং]:
-                  // আপনার পেজের লোকাল ভ্যারিয়েবল, snapshots বা ডাটা ম্যাপের সব সম্ভাব্য ফিল্ড চেক করা হচ্ছে
-                  String finalMyName = 'No Name';
-                  if (data != null) {
-                    finalMyName = data['name'] ?? 
-                                  data['username'] ?? 
-                                  data['nickName'] ?? 
-                                  data['myName'] ?? 
-                                  '';
+                  // 🆔 কারেন্ট ইউজারের UID এবং পার্টনারের UID বের করা হলো
+                  String currentUid =
+                      FirebaseAuth.instance.currentUser?.uid ?? '';
+                  String partnerAuthUID =
+                      rawMarriageDoc['partnerAuthUID'] ?? '';
+                  print("[Debug] Current User Auth UID: $currentUid");
+
+                  // ফায়ারস্টোর ডকুমেন্টের আইডি নিশ্চিত করা
+                  String marriageDocId = rawMarriageDoc['marriageId'] ??
+                      rawMarriageDoc['id'] ??
+                      rawMarriageDoc['docId'] ??
+                      "${currentUid}_$partnerAuthUID";
+
+                  String finalMyName = '';
+                  String finalMyImage = '';
+
+                  // 🔍 [১০০% ফিক্সড লজিক: where কুয়েরি ব্যবহার]:
+                  // যেহেতু ডকুমেন্ট আইডি ৬ ডিজিটের, তাই আমরা uid ফিল্ড দিয়ে সার্চ করছি
+                  try {
+                    if (currentUid.isNotEmpty) {
+                      QuerySnapshot userQuery = await FirebaseFirestore.instance
+                          .collection(
+                              'users') // 🔥 আপনার স্ক্রিনশট অনুযায়ী কালেকশনের নাম users
+                          .where('uid',
+                              isEqualTo:
+                                  currentUid) // লম্বা আইডি দিয়ে ডাটাবেজে ফিল্টার
+                          .limit(1)
+                          .get();
+
+                      if (userQuery.docs.isNotEmpty) {
+                        var uData =
+                            userQuery.docs.first.data() as Map<String, dynamic>;
+                        print("[Debug] Live Database Data Found: $uData");
+
+                        // ডাটাবেজের ফিল্ড অনুযায়ী নাম ও ছবি ফিল্টারিং
+                        finalMyName = uData['name'] ??
+                            uData['username'] ??
+                            uData['nickName'] ??
+                            '';
+                        finalMyImage = uData['profilePic'] ??
+                            uData['image'] ??
+                            uData['avatar'] ??
+                            '';
+                      } else {
+                        print("[Debug] ❌ User not found with uid: $currentUid");
+                      }
+                    }
+                  } catch (e) {
+                    print("[Debug] Firestore Error: $e");
                   }
-                  
-                  // যদি উপরের ম্যাপে নাম না পাওয়া যায়, তবে উইজেটের লোকাল ভ্যারিয়েবল চেক করবে
-                  if (finalMyName.trim().isEmpty || finalMyName == 'No Name') {
-                    finalMyName = (rawMarriageDoc['myName'] ?? '').toString();
-                  }
-                  
-                  // সবশেষেও খালি থাকলে একটি সুন্দর ডিফল্ট নাম দিবে (যেমন: 'App Owner' বা আপনার নাম)
+
+                  // 🔐 ব্যাকআপ লজিক ১: ফায়ারস্টোরে না পাওয়া গেলে ফায়ারবেস আউথ প্রোফাইল চেক করবে
                   if (finalMyName.trim().isEmpty) {
-                    finalMyName = 'User'; 
+                    finalMyName =
+                        FirebaseAuth.instance.currentUser?.displayName ?? '';
+                  }
+                  if (finalMyImage.trim().isEmpty) {
+                    finalMyImage =
+                        FirebaseAuth.instance.currentUser?.photoURL ?? '';
+                  }
+
+                  // 🔐 ব্যাকআপ লজিক ২: যদি কারেন্ট পেজের উইজেটের ভেতর কোনো নাম থেকে থাকে
+                  if (finalMyName.trim().isEmpty && data != null) {
+                    finalMyName = data['name'] ?? data['username'] ?? '';
+                  }
+
+                  // 👑 চূড়ান্ত ব্যাকআপ নাম (খালি থাকলে)
+                  if (finalMyName.trim().isEmpty) {
+                    finalMyName = "User";
                   }
 
                   finalMyName = finalMyName.trim();
-                  
-                  // 🆔 ফায়ারস্টোর ডকুমেন্টের আইডি বের করা হলো
-                  String partnerAuthUID = rawMarriageDoc['partnerAuthUID'] ?? '';
-                  String currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-                  
-                  String marriageDocId = rawMarriageDoc['marriageId'] ?? 
-                                         rawMarriageDoc['id'] ?? 
-                                         rawMarriageDoc['docId'] ?? 
-                                         "${currentUid}_$partnerAuthUID";
+                  finalMyImage = finalMyImage.trim();
 
-                  // 🛑 ম্যারেজ বটম শিট ওপেন (সরাসরি নিখুঁত নাম ও ছবি সহ প্যারামিটার পাস)
+                  print("[Debug] 🏆 FINAL NAME TO PASS: $finalMyName");
+                  print("=================== 🔍 DEBUG END ===================");
+
+                  // 🛑 ম্যারেজ বটম শিট ওপেন (সরাসরি ডেটাবেজ থেকে লাইভ তুলে আনা নাম ও ছবি পাস করা হলো)
                   _showDivorceBottomSheet(
                     context: context,
                     marriageData: rawMarriageDoc,
@@ -3304,6 +3447,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+
   Widget _buildUserWithFrame(String imageUrl, String frameUrl, double radius,
       double lottieMultiplier, double imageMultiplier) {
     double profileSize = radius * 2;
@@ -3364,6 +3508,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ],
     );
   }
+
 // 💔 ম্যারেজ ডিটেইলস এবং ডিভোর্স বটম শিট (পপআপ বার)
   void _showDivorceBottomSheet({
     required BuildContext context,
@@ -3372,7 +3517,6 @@ class _ProfilePageState extends State<ProfilePage> {
     required String myName,
     required String myImage,
   }) {
-    final MarriageService _marriageService = MarriageService();
     final FirebaseFirestore _firestore = FirebaseFirestore.instance;
     final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -3425,7 +3569,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      // 👤 নিজের প্রোফাইল (বাম পাশে) - এখন পাঠানো নাম সরাসরি বসবে
+                      // 👤 নিজের প্রোফাইল (বাম পাশে)
                       Expanded(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -3452,7 +3596,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              myName, // 👈 এখানে সরাসরি পাস করা নাম বসবে, আর 'Me' আসবে না
+                              myName,
                               textAlign: TextAlign.center,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -3543,7 +3687,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 25),
 
-                  // 💔 ডিভোর্স বাতন লজিক
+                  // 💔 ডিভোর্স বাটন লজিক (১০০% ফিক্সড এবং হ্যাং ইস্যু মুক্ত)
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.redAccent,
@@ -3561,31 +3705,34 @@ class _ProfilePageState extends State<ProfilePage> {
                       if (currentUid.isEmpty) return;
 
                       bool confirm = await showDialog(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  backgroundColor: Colors.grey[900],
-                                  title: const Text("Divorce Confirmation",
-                                      style: TextStyle(color: Colors.white)),
-                                  content: const Text("Are You Sure? 3000 Diamonds will be deducted.",
-                                      style: TextStyle(color: Colors.grey)),
-                                  actions: [
-                                    TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(context, false),
-                                        child: const Text("No")),
-                                    TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(context, true),
-                                        child: const Text("Yes",
-                                            style: TextStyle(color: Colors.red))),
-                                  ],
-                                ),
-                              ) ??
-                              false;
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                    backgroundColor: Colors.grey[900],
+                                    title: const Text("Divorce Confirmation",
+                                        style: TextStyle(color: Colors.white)),
+                                    content: const Text(
+                                        "Are You Sure? 3000 Diamonds will be deducted.",
+                                        style: TextStyle(color: Colors.grey)),
+                                    actions: [
+                                      TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, false),
+                                          child: const Text("No")),
+                                      TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, true),
+                                          child: const Text("Yes",
+                                              style: TextStyle(
+                                                  color: Colors.red))),
+                                    ],
+                                  )) ??
+                          false;
 
                       if (confirm) {
-                        Navigator.pop(context); // বটম শিট বন্ধ
+                        // ❌ সাবধান: এখানে আগে Navigator.pop(context) কল করা যাবে না।
+                        // করলে কনটেক্সট ডেড হয়ে যাবে এবং অ্যাপ হ্যাং করবে।
 
+                        // ⏳ লোডিং ডায়ালগ ওপেন
                         showDialog(
                           context: context,
                           barrierDismissible: false,
@@ -3595,21 +3742,36 @@ class _ProfilePageState extends State<ProfilePage> {
                         );
 
                         try {
+                          print("==== 🔍 DIVORCE DEBUG START ====");
+
+                          // ১. সঠিক ইউজার ডকুমেন্ট খোঁজা (where কুয়েরি দিয়ে)
+                          QuerySnapshot userQuery = await _firestore
+                              .collection('users')
+                              .where('uid', isEqualTo: currentUid)
+                              .limit(1)
+                              .get();
+
+                          if (userQuery.docs.isEmpty) {
+                            throw "User document not found in database!";
+                          }
+
                           DocumentReference userRef =
-                              _firestore.collection('users').doc(currentUid);
+                              userQuery.docs.first.reference;
+                          print("[Debug] User DocRef Found: ${userRef.id}");
 
-                          bool hasEnoughDiamonds = false;
-
+                          // ২. ডায়মন্ড চেক এবং কাটা (Transaction)
                           await _firestore.runTransaction((transaction) async {
                             DocumentSnapshot userSnapshot =
                                 await transaction.get(userRef);
 
                             if (!userSnapshot.exists) {
-                              throw "User not found!";
+                              throw "User snapshot does not exist!";
                             }
 
-                            var uData = userSnapshot.data() as Map<String, dynamic>;
+                            var uData =
+                                userSnapshot.data() as Map<String, dynamic>;
                             int currentDiamonds = uData['diamonds'] ?? 0;
+                            print("[Debug] Current Diamonds: $currentDiamonds");
 
                             if (currentDiamonds < 3000) {
                               throw "Insufficient Diamonds! You need 3000 💎";
@@ -3618,30 +3780,45 @@ class _ProfilePageState extends State<ProfilePage> {
                             transaction.update(userRef, {
                               'diamonds': currentDiamonds - 3000,
                             });
-                            hasEnoughDiamonds = true;
                           });
 
-                          if (hasEnoughDiamonds) {
-                            await _firestore
+                          print("[Debug] Diamonds deducted successfully!");
+
+                          // ৩. দুইজনের ম্যারেজ রেকর্ড মুছে ফেলা (আপনার এবং পার্টনারের)
+                          WriteBatch batch = _firestore.batch();
+                          batch.delete(_firestore
+                              .collection('marriages')
+                              .doc(currentUid));
+                          if (partnerAuthUID.isNotEmpty) {
+                            batch.delete(_firestore
                                 .collection('marriages')
-                                .doc(marriageDocId)
-                                .delete();
-
-                            Navigator.pop(context); // লোডিং বন্ধ
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text("💔 Divorce Completed Successfully! 3000 💎 Charged."),
-                                  backgroundColor: Colors.green),
-                            );
+                                .doc(partnerAuthUID));
                           }
+                          await batch.commit();
+
+                          print("[Debug] Both marriage records deleted!");
+                          print("==== 🔍 DIVORCE DEBUG END ====");
+
+                          // ৪. সাবধানে ডায়ালগ এবং বটম শিট বন্ধ করা
+                          Navigator.pop(context); // প্রথমে লোডিং ডায়ালগ বন্ধ
+                          Navigator.pop(context); // এরপর বটম শিট বন্ধ
+
+                          // ৫. সাকসেস মেসেজ
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    "💔 Divorce Completed Successfully! 3000 💎 Charged."),
+                                backgroundColor: Colors.green),
+                          );
                         } catch (e) {
-                          if (Navigator.canPop(context)) {
-                            Navigator.pop(context); // লোডিং বন্ধ
-                          }
+                          print("[Debug] ❌ Error in Divorce: $e");
+
+                          // এরর হলেও যাতে হ্যাং না হয়, সেজন্য লোডিংটা বন্ধ করতে হবে
+                          Navigator.pop(context);
+
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                                content: Text("❌ Error: ${e.toString()}"),
+                                content: Text("❌ Error: $e"),
                                 backgroundColor: Colors.red),
                           );
                         }
