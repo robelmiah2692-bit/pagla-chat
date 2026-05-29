@@ -11,7 +11,7 @@ class SoulmateDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🎯 নতুন লেভেল লজিক: লেভেল ১ = ৮০০০, এরপর প্রতি লেভেলে ২০০০ করে বাড়বে
+    // 🎯 নতুন লেভেল লজিক: লেভেল ১ = ৮০০০, এরপর প্রতি লেভেলে ২০০০ করে বাড়বে
     int totalGift = soulmateData['totalGift'] ?? 0;
     int level = 1;
     int currentLevelBase = 8000;
@@ -41,6 +41,11 @@ class SoulmateDetailPage extends StatelessWidget {
     String partnerName = soulmateData['partnerName'] ?? 'Unknown';
     String partnerImage = soulmateData['partnerImage'] ?? '';
     String myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    
+    // 🎯 লজিক: বর্তমান ইউজার কি এই রিলেশনের পার্টনার?
+    // আমরা soulmateData থেকে 'uid' (যে সোলমেট রিকোয়েস্ট পাঠিয়েছিল) এবং 'partnerId' চেক করছি
+    String ownerId = soulmateData['uid'] ?? '';
+    bool isPartner = (myUid == ownerId || myUid == partnerId);
 
     return Scaffold(
       backgroundColor: const Color(0xFF12121A),
@@ -97,7 +102,6 @@ class SoulmateDetailPage extends StatelessWidget {
             ),
 
             const SizedBox(height: 40),
-            // 📊 নতুন ডিজাইন করা প্রোগ্রেস বার
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(color: const Color(0xFF1E1E2F), borderRadius: BorderRadius.circular(15)),
@@ -120,7 +124,6 @@ class SoulmateDetailPage extends StatelessWidget {
                           valueColor: const AlwaysStoppedAnimation<Color>(Colors.orangeAccent),
                         ),
                       ),
-                      // প্রোগ্রেস বারের সামনে লাভ আইকন
                       Positioned(
                         right: -5,
                         top: -5,
@@ -144,13 +147,17 @@ class SoulmateDetailPage extends StatelessWidget {
                 ]),
               ]),
             ),
-            const SizedBox(height: 50),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, minimumSize: const Size(double.infinity, 52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-              icon: const Icon(Icons.heart_broken, color: Colors.white),
-              label: const Text("End Hart (1500 💎)", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-              onPressed: () => _showBreakupDetailPageDialog(context, partnerId),
-            ),
+            
+            // 🎯 শুধুমাত্র পার্টনার হলে ব্রেকআপ বাটন দেখাবে
+            if (isPartner) ...[
+              const SizedBox(height: 50),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, minimumSize: const Size(double.infinity, 52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                icon: const Icon(Icons.heart_broken, color: Colors.white),
+                label: const Text("End Hart (1500 💎)", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                onPressed: () => _showBreakupDetailPageDialog(context, partnerId),
+              ),
+            ],
           ],
         ),
       ),

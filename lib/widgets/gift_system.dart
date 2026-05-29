@@ -38,7 +38,9 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   String? selectedTargetId;
   String? selectedTargetName;
   String? selectedTargetImage;
-
+ final ScrollController _boxScrollController = ScrollController();
+  bool isRandomBoxSelected = false; // বক্স সিলেক্ট হয়েছে কি না
+  List<dynamic> randomGiftPool = []; // ৬টি গিফটের লিস্ট
   late List<Map<String, dynamic>> dynamicFreeGifts;
   Timer? _timer;
 
@@ -66,24 +68,26 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   void dispose() {
     _timer?.cancel();
     super.dispose();
+  _boxScrollController.dispose();
+  
   }
 
   void _showUserSelectionList() {
     // শুধুমাত্র যাদের uID আছে তাদের ফিল্টার করা (isOccupied চেক করার দরকার নেই যদি uID থাকে)
     List activeUsers = widget.currentSeats.where((s) {
       if (s == null) return false;
-      
+
       // সিটের ভেতর uID বা userId বা uid আছে কি না তা দেখা হচ্ছে
       // কারণ সিটে ইউজার থাকলে অবশ্যই একটা আইডি থাকবে
       var userId = s['uID'] ?? s['userId'] ?? s['uid'];
-      
+
       return userId != null && userId.toString().trim().isNotEmpty;
     }).toList();
 
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF0F0F1E),
-      isScrollControlled: true, 
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
@@ -99,13 +103,18 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
               Container(
                 width: 40,
                 height: 4,
-                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2)),
               ),
               const SizedBox(height: 15),
               const Text("Select User from Seats",
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
-              
+
               activeUsers.isEmpty
                   ? const Padding(
                       padding: EdgeInsets.all(40.0),
@@ -120,25 +129,39 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                           var seat = activeUsers[index];
 
                           // ডাটাবেজ কী (Key) অনুযায়ী ডাটা নেওয়া (মাল্টিপল অপশন চেক)
-                          String uID = (seat['uID'] ?? seat['userId'] ?? seat['uid'] ?? "").toString();
-                          String name = seat['name'] ?? seat['userName'] ?? "User";
-                          String img = seat['profilePic'] ?? seat['image'] ?? seat['userImage'] ?? "";
+                          String uID = (seat['uID'] ??
+                                  seat['userId'] ??
+                                  seat['uid'] ??
+                                  "")
+                              .toString();
+                          String name =
+                              seat['name'] ?? seat['userName'] ?? "User";
+                          String img = seat['profilePic'] ??
+                              seat['image'] ??
+                              seat['userImage'] ??
+                              "";
 
                           return ListTile(
                             leading: CircleAvatar(
                               backgroundColor: Colors.white10,
-                              backgroundImage: img.isNotEmpty ? NetworkImage(img) : null,
-                              child: img.isEmpty ? const Icon(Icons.person, color: Colors.white24) : null,
+                              backgroundImage:
+                                  img.isNotEmpty ? NetworkImage(img) : null,
+                              child: img.isEmpty
+                                  ? const Icon(Icons.person,
+                                      color: Colors.white24)
+                                  : null,
                             ),
-                            title: Text(name, style: const TextStyle(color: Colors.white)),
+                            title: Text(name,
+                                style: const TextStyle(color: Colors.white)),
                             subtitle: Text("ID: $uID",
-                                style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                                style: const TextStyle(
+                                    color: Colors.white38, fontSize: 11)),
                             onTap: () {
                               setState(() {
                                 selectedTargetId = uID;
                                 selectedTargetName = name;
                                 selectedTargetImage = img;
-                                targetType = name; 
+                                targetType = name;
                               });
                               Navigator.pop(context);
                             },
@@ -212,6 +235,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
             ),
             const SizedBox(height: 10),
             _buildHeader(),
+            _buildRandomBoxPreview(),
             _buildTargetSelector(),
             const TabBar(
               isScrollable: true,
@@ -370,6 +394,65 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     );
   }
 
+Widget _buildRandomBoxPreview() {
+  if (!isRandomBoxSelected || randomGiftPool.isEmpty) {
+    return const SizedBox.shrink();
+  }
+
+  // নিরবচ্ছিন্ন ঘোরার লজিক
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (_boxScrollController.hasClients) {
+      if (_boxScrollController.position.pixels >= _boxScrollController.position.maxScrollExtent) {
+        _boxScrollController.jumpTo(0);
+      }
+      _boxScrollController.animateTo(
+        _boxScrollController.position.pixels + 50,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.linear,
+      );
+    }
+  });
+
+  return Container(
+    height: 60,
+    margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+    padding: const EdgeInsets.all(5),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.05),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: Colors.pinkAccent.withOpacity(0.5)),
+    ),
+    child: ListView.builder(
+      controller: _boxScrollController,
+      scrollDirection: Axis.horizontal,
+      itemCount: randomGiftPool.length,
+      itemBuilder: (context, index) {
+        var gift = randomGiftPool[index];
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.pinkAccent.withOpacity(0.5), width: 2),
+            color: Colors.white10,
+          ),
+          // প্যাডিং বাদ দিয়ে সরাসরি ClipRRect ব্যবহার করুন
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20), 
+            child: Image.network(
+              gift['image'] ?? gift['icon'] ?? "", 
+              fit: BoxFit.cover, // ইমেজ বলের সাথে ফিট হয়ে যাবে
+              width: 35,
+              height: 35,
+              errorBuilder: (c, e, s) => const Icon(Icons.card_giftcard, color: Colors.white24),
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
   Widget _buildGrid(List gifts, {bool isFreeTab = false}) {
     return GridView.builder(
       padding: const EdgeInsets.all(15),
@@ -388,7 +471,48 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
         bool isJson = giftPath.toLowerCase().endsWith('.json');
 
         return GestureDetector(
-          onTap: () => setState(() => selectedGift = gift),
+          onTap: () {
+            setState(() {
+              // ১. পুরাতন সিলেক্ট লজিক (সব গিফটের জন্য কমন)
+              selectedGift = gift;
+
+              // ২. এখানে সব রেন্ডম বক্সের আইডিগুলো লিস্টে রাখুন
+              // ভবিষ্যতে নতুন বক্স যোগ করলে শুধু এখানে আইডিটি কমা দিয়ে লিখে দেবেন
+              List<String> randomBoxIds = [
+                'random_box_id',
+                'box_1_id',
+                'box_2_id',
+                    'box_3_id',
+                    'box_4_id',
+                    'box_5_id',
+                    'box_6_id',
+                    'box_7_id',
+                    'box_8_id',
+                    'box_9_id',
+                    'box_10_id',
+                   'box_11_id',
+              'box_12_id',
+              'box_13_id',
+              'box_14_id',
+              'box_15_id',
+              'box_16_id',
+              'box_17_id',
+              'box_18_id',
+              'box_19_id',
+             
+              ];
+
+              // ৩. চেক করছি গিফটটি কি এই লিস্টের কোনো বক্স কি না
+              if (randomBoxIds.contains(gift['id'])) {
+                isRandomBoxSelected = true;
+                randomGiftPool = gift['gifts'] ?? []; // গিফট পুল সেট করছি
+              } else {
+                // যদি সাধারণ গিফট হয়
+                isRandomBoxSelected = false;
+                randomGiftPool = [];
+              }
+            });
+          },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             decoration: BoxDecoration(
@@ -531,10 +655,23 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   }
 
   void _handleSendAction() {
-    int unitPrice = (selectedGift!['price'] ?? 0) as int;
-    bool isFree =
-        selectedGift!['expiry'] != null; // এক্সপায়ারি থাকলে এটি ফ্রি গিফট
+    Map<String, dynamic> giftToSend;
 
+    // ১. রেন্ডম বক্স লজিক: রেন্ডম বক্স সিলেক্ট করা থাকলে পুল থেকে একটি গিফট বাছাই হবে
+    if (isRandomBoxSelected && randomGiftPool.isNotEmpty) {
+      final random = DateTime.now().millisecondsSinceEpoch;
+      giftToSend = randomGiftPool[random % randomGiftPool.length];
+    } else {
+      // সাধারণ গিফট হলে সরাসরি সিলেক্টেড গিফটটি নেয়া হবে
+      if (selectedGift == null) return;
+      giftToSend = selectedGift!;
+    }
+
+    // ২. গিফট প্রাইস এবং ফ্রি চেক
+    int unitPrice = (giftToSend['price'] ?? 0) as int;
+    bool isFree = giftToSend['expiry'] != null;
+
+    // ৩. মাল্টিপ্লায়ার ক্যালকুলেশন
     int multiplier = 1;
     if (targetType == "All Mic") {
       multiplier = widget.currentSeats.where((s) => s != null).length;
@@ -544,6 +681,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
 
     int totalPrice = unitPrice * selectedCount * multiplier;
 
+    // ৪. ডাইমন্ড ব্যালেন্স চেক
     if (!isFree && widget.diamondBalance < totalPrice) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           backgroundColor: Colors.redAccent,
@@ -552,14 +690,14 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       return;
     }
 
-    // ফ্রি গিফট শুধুমাত্র নির্দিষ্ট একজনকে পাঠানো যাবে
+    // ৫. ফ্রি গিফট লিমিটেশন চেক
     if (isFree && targetType != "Target") {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text("Free gifts can only be sent to a specific user!")));
       return;
     }
 
-    // ✅ রুম ডারটের লজিকের সাথে মিল রেখে নাম পাঠানো হচ্ছে যাতে ছবি লোড হয়
+    // ৬. টার্গেট ভ্যালু সেট করা
     String finalTargetValue;
     if (targetType == "All Room" || targetType == "All Mic") {
       finalTargetValue = targetType;
@@ -567,15 +705,18 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       finalTargetValue = selectedTargetName ?? "Target";
     }
 
-    widget.onGiftSend(selectedGift!, selectedCount, finalTargetValue);
+    // ৭. গিফট পাঠানো
+    widget.onGiftSend(giftToSend, selectedCount, finalTargetValue);
 
+    // ৮. রিমুভাল লজিক (ফ্রি গিফট হলে লিস্ট থেকে সরানো)
     if (isFree) {
       setState(() {
-        // লিস্ট থেকে গিফটটি সরিয়ে ফেলা
-        dynamicFreeGifts.removeWhere((g) => g['id'] == selectedGift!['id']);
+        dynamicFreeGifts.removeWhere((g) => g['id'] == giftToSend['id']);
         selectedGift = null;
+        isRandomBoxSelected = false; // রিসেট করা
       });
     }
+
     Navigator.pop(context);
   }
 

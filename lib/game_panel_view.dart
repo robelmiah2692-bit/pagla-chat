@@ -5,6 +5,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:pagla_chat/game_webview_view.dart';
 import 'lucky_spin_view.dart';
 
 class GamePanelView extends StatefulWidget {
@@ -207,79 +208,89 @@ class _GamePanelViewState extends State<GamePanelView> {
     );
   }
 
-  // --- ২. গেম লবি আপডেট (লুডু বাদ এবং ৬টি কামিং সোন স্লট) ---
-  Widget _buildGameLobby() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Column(
-        children: [
-          const Text("SELECT A GAME", style: TextStyle(color: Colors.white54, letterSpacing: 2, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 30),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 3,
-            mainAxisSpacing: 20,
-            crossAxisSpacing: 20,
-            children: [
-              _gameIcon("LUCKY", "assets/images/spin_logo.png", Colors.orangeAccent, false),
-              _gameIcon("CRICKET", "assets/images/coming_soon.png", Colors.grey, true),
-              _gameIcon("POKER", "assets/images/coming_soon.png", Colors.grey, true),
-              _gameIcon("FRUIT", "assets/images/coming_soon.png", Colors.grey, true),
-              _gameIcon("TEEN PATTI", "assets/images/coming_soon.png", Colors.grey, true),
-              _gameIcon("RACING", "assets/images/coming_soon.png", Colors.grey, true),
-              _gameIcon("BATTLE", "assets/images/coming_soon.png", Colors.grey, true),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  // --- ২. গেম লবি আপডেট ---
+Widget _buildGameLobby() {
+  return SingleChildScrollView(
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+    child: Column(
+      children: [
+        const Text("SELECT A GAME", style: TextStyle(color: Colors.white54, letterSpacing: 2, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 30),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 3,
+          mainAxisSpacing: 20,
+          crossAxisSpacing: 20,
+          children: [
+            // LUCKY গেমটি আগের মতোই থাকবে
+            _gameIcon("LUCKY", "assets/images/spin_logo.png", Colors.orangeAccent, false, null),
+            // অন্য গেমগুলো লিঙ্কসহ (এখানে আপনার সঠিক HTML লিঙ্ক বসান)
+            _gameIcon("Spain2", "assets/images/poker.png", Colors.blueAccent, false, "https://robelmiah2692-bit.github.io/Games_paglachat1/index.html"),
+            _gameIcon("FRUIT", "assets/images/coming_soon.png", Colors.grey, true, null),
+            _gameIcon("TEEN PATTI", "assets/images/coming_soon.png", Colors.grey, true, null),
+            _gameIcon("RACING", "assets/images/coming_soon.png", Colors.grey, true, null),
+            _gameIcon("BATTLE", "assets/images/coming_soon.png", Colors.grey, true, null),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
-  Widget _gameIcon(String name, String asset, Color color, bool isComingSoon) {
-    return GestureDetector(
-      onTap: () {
-        if (isComingSoon) {
-          _showError("Coming Soon! Stay tuned.");
-        } else {
-          setState(() => selectedGame = name);
-        }
-      },
-      child: Column(
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: color.withOpacity(0.4), width: 1.5),
-                color: isComingSoon ? Colors.black38 : Colors.transparent,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(13),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.asset(asset, fit: BoxFit.cover),
-                    if (isComingSoon)
-                      Container(
-                        color: Colors.black54,
-                        child: const Center(
-                          child: Text("Coming\nSoon", 
+Widget _gameIcon(String name, String asset, Color color, bool isComingSoon, String? gameUrl) {
+  return GestureDetector(
+    onTap: () {
+      if (isComingSoon) {
+        _showError("Coming Soon! Stay tuned.");
+      } else if (gameUrl != null) {
+        // নতুন ফাইলে তৈরি করা WebGameHandler বা WebView ব্যবহার করে ওপেন করুন
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GameWebViewView(gameUrl: gameUrl, gameName: name),
+          ),
+        );
+      } else {
+        // যদি এটি LUCKY গেম হয়
+        setState(() => selectedGame = name);
+      }
+    },
+    child: Column(
+      children: [
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: color.withOpacity(0.4), width: 1.5),
+              color: isComingSoon ? Colors.black38 : Colors.transparent,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(13),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(asset, fit: BoxFit.cover),
+                  if (isComingSoon)
+                    Container(
+                      color: Colors.black54,
+                      child: const Center(
+                        child: Text("Coming\nSoon", 
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
-                        ),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
           ),
-          const SizedBox(height: 5),
-          Text(name, style: TextStyle(color: isComingSoon ? Colors.white38 : Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
+        ),
+        const SizedBox(height: 5),
+        Text(name, style: TextStyle(color: isComingSoon ? Colors.white38 : Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+      ],
+    ),
+  );
+}
 
   @override
   void dispose() { _subscription?.cancel(); _audioPlayer.dispose(); super.dispose(); }

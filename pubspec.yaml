@@ -23,7 +23,7 @@ dependencies:
   in_app_purchase: ^3.2.0
   # --- গুগল লগইন ---
   google_sign_in: ^7.2.0
-
+  marquee: ^2.3.0
   # --- নোটিফিকেশন ---
   flutter_local_notifications: ^21.0.0
 
@@ -40,6 +40,7 @@ dependencies:
   
   path_provider: ^2.1.2    
   path: ^1.9.0             
+  dio: ^5.0.0
   
   # ✅ মিডিয়া সেভ করার প্যাকেজ
   gal: 2.3.2
@@ -69,7 +70,7 @@ dependencies:
   # --- স্প্ল্যাশ স্ক্রিন ---
   flutter_native_splash: ^2.4.0
   shimmer: ^3.0.0
-
+webview_flutter: ^4.10.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -1,3 +1,4 @@
+import 'dart:math'; // নতুন বক্স লজিকের জন্য
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -10,6 +11,14 @@ class GiftLogicHelper {
     };
   }
 
+  // --- NEW BOX LOGIC --- (নতুন যোগ করা হয়েছে)
+  static Map<String, dynamic> pickRandomGiftFromBox(List<dynamic> giftsInBox) {
+    final _random = Random();
+    final randomList = List.from(giftsInBox)..shuffle(_random);
+    return randomList.first;
+  }
+  // ---------------------
+
   // ২. গিফট প্রসেসিং (সোলমেট রিকোয়েস্ট লজিকসহ)
   static Future<void> processGift({
     required String senderAuthId, // লগইন করা ইউজারের লম্বা uID
@@ -19,10 +28,26 @@ class GiftLogicHelper {
     required String roomId,
     required String senderName,
     required String? roomOwnerAuthId, // রুম ওনারের লম্বা uID
+    required String senderImage,
+    required String receiverImage,
+    required String giftName,
   }) async {
+    // --- NEW BOX LOGIC --- (নতুন যোগ করা হয়েছে)
+    bool isBox = gift.containsKey('gifts') && gift['gifts'] is List;
+    Map<String, dynamic> finalGiftData = gift;
     final int unitPrice = (gift['price'] ?? 0) as int;
+    int effectiveUnitPrice = unitPrice;
+
+    if (isBox) {
+      final randomGift = pickRandomGiftFromBox(gift['gifts']);
+      finalGiftData = randomGift;
+      effectiveUnitPrice = (randomGift['price'] ?? 0).toInt();
+    }
+    // ---------------------
+
     final int totalPrice = unitPrice * count;
-    final Map<String, int> split = calculateSplit(totalPrice);
+    final int effectiveTotalPrice = effectiveUnitPrice * count;
+    final Map<String, int> split = calculateSplit(effectiveTotalPrice);
 
     WriteBatch batch = FirebaseFirestore.instance.batch();
 
@@ -41,11 +66,15 @@ class GiftLogicHelper {
         FirebaseFirestore.instance.collection('rooms').doc(roomId);
 
     Map<String, dynamic> giftBanner = {
-      'id': gift['id'],
-      'name': gift['name'],
-      'image': gift['image'] ?? gift['profilePic'] ?? gift['icon'],
+      'id': finalGiftData['id'],
+      'name': finalGiftData['name'],
+      'image': finalGiftData['image'] ??
+          finalGiftData['profilePic'] ??
+          finalGiftData['icon'],
       'senderAuthId': senderAuthId,
       'senderName': senderName,
+      'senderImage': senderImage,    // নতুন যোগ করা হলো
+      'receiverImage': receiverImage, // নতুন যোগ করা হলো
       'targetAuthId': targetAuthId,
       'count': count,
       'totalPrice': totalPrice,
@@ -64,7 +93,7 @@ class GiftLogicHelper {
       int userAmount = split['userShare'] ?? 0;
       batch.update(targetRef, {
         'diamonds': FieldValue.increment(userAmount),
-        'receivedDiamonds': FieldValue.increment(totalPrice),
+        'receivedDiamonds': FieldValue.increment(effectiveTotalPrice),
       });
     }
 
@@ -80,9 +109,9 @@ class GiftLogicHelper {
 
     // ট্রানজেকশন সম্পন্ন করা
     await batch.commit();
-
   }
-  // ৩. সিটে থাকা ইউজারদের ফিল্টার (সংশোধিত ভার্সন - ১৫ বার আইডি আসা বন্ধ করবে)
+
+  // ৩. সিটে থাকা ইউজারদের ফিল্টার (সংশোধিত ভার্সন)
   static List<Map<String, dynamic>> getAllMicUsers(List<dynamic> currentSeats) {
     List<Map<String, dynamic>> micUsers = [];
 

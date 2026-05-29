@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'top_room_leaderboard.dart';
 import 'dart:ui'; // Glass effect এর জন্য লাগবে
@@ -186,6 +187,8 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools> with SingleTicker
   }
 }
 
+
+
 // ---------------------------------------------------------
 // গিফট কাউন্টার ভাসমান ব্যানার (Glass Ranking View)
 // ---------------------------------------------------------
@@ -194,9 +197,17 @@ class GiftCalculatorBanner extends StatefulWidget {
   final int minutes;
   final String theme;
   final List<dynamic> seats;
+  final String roomId; // রুম আইডি পাস করা জরুরি
   final VoidCallback onClose;
 
-  const GiftCalculatorBanner({super.key, required this.minutes, required this.theme, required this.seats, required this.onClose});
+  const GiftCalculatorBanner({
+    super.key,
+    required this.minutes,
+    required this.theme,
+    required this.seats,
+    required this.roomId,
+    required this.onClose,
+  });
 
   @override
   State<GiftCalculatorBanner> createState() => _GiftCalculatorBannerState();
@@ -205,13 +216,40 @@ class GiftCalculatorBanner extends StatefulWidget {
 class _GiftCalculatorBannerState extends State<GiftCalculatorBanner> {
   late Timer _timer;
   int _secondsRemaining = 0;
-  Map<String, int> scores = {}; 
+  Map<String, int> scores = {};
+  StreamSubscription? _giftSubscription;
 
   @override
   void initState() {
     super.initState();
     _secondsRemaining = widget.minutes * 60;
     _startTimer();
+    _listenToGiftUpdates();
+  }
+
+  void _listenToGiftUpdates() {
+    _giftSubscription = FirebaseFirestore.instance
+        .collection('rooms')
+        .doc(widget.roomId)
+        .snapshots()
+        .listen((snapshot) {
+      if (!mounted || !snapshot.exists) return;
+
+      var data = snapshot.data();
+      if (data != null && data.containsKey('last_gift')) {
+        var giftData = data['last_gift'];
+        
+        // এখানে আপনার ডাটাবেস স্ট্রাকচার অনুযায়ী uID এবং count নেয়া হচ্ছে
+        String userId = giftData['uID']?.toString() ?? "";
+        int currentCount = int.tryParse(giftData['count']?.toString() ?? "0") ?? 0;
+
+        if (userId.isNotEmpty) {
+          setState(() {
+            scores[userId] = currentCount;
+          });
+        }
+      }
+    });
   }
 
   void _startTimer() {
@@ -220,7 +258,6 @@ class _GiftCalculatorBannerState extends State<GiftCalculatorBanner> {
         setState(() => _secondsRemaining--);
       } else {
         _timer.cancel();
-        // উইনার ডায়ালগ লজিক
       }
     });
   }
@@ -228,11 +265,24 @@ class _GiftCalculatorBannerState extends State<GiftCalculatorBanner> {
   @override
   void dispose() {
     _timer.cancel();
+    _giftSubscription?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // ১. ফিল্টার করা: যারা সিটে আছে এবং গিফট পেয়েছে
+    final activeParticipants = widget.seats
+        .where((s) => s != null && s['uID'] != null && (s['isOccupied'] == true))
+        .toList();
+
+    // ২. সর্ট করা: বেশি গিফট পাওয়া ইউজার উপরে থাকবে
+    activeParticipants.sort((a, b) {
+      int scoreA = scores[a['uID'].toString()] ?? 0;
+      int scoreB = scores[b['uID'].toString()] ?? 0;
+      return scoreB.compareTo(scoreA);
+    });
+
     String timeStr = "${(_secondsRemaining ~/ 60).toString().padLeft(2, '0')}:${(_secondsRemaining % 60).toString().padLeft(2, '0')}";
 
     return Material(
@@ -258,10 +308,19 @@ class _GiftCalculatorBannerState extends State<GiftCalculatorBanner> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(child: Text(widget.theme.isEmpty ? "GIFT COUNT" : widget.theme, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 11), overflow: TextOverflow.ellipsis)),
+                      Expanded(
+                        child: Text(
+                          widget.theme.isEmpty ? "GIFT COUNT" : widget.theme,
+                          style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 11),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       Text(timeStr, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       const SizedBox(width: 5),
-                      GestureDetector(onTap: widget.onClose, child: const Icon(Icons.close, color: Colors.white70, size: 16)),
+                      GestureDetector(
+                        onTap: widget.onClose,
+                        child: const Icon(Icons.close, color: Colors.white70, size: 16),
+                      ),
                     ],
                   ),
                 ),
@@ -270,15 +329,23 @@ class _GiftCalculatorBannerState extends State<GiftCalculatorBanner> {
                   constraints: const BoxConstraints(maxHeight: 200),
                   child: ListView.builder(
                     shrinkWrap: true,
-                    itemCount: widget.seats.length,
+                    itemCount: activeParticipants.length,
                     itemBuilder: (context, index) {
-                      final seat = widget.seats[index];
-                      if (seat == null || seat['uID'] == null) return const SizedBox.shrink();
+                      final seat = activeParticipants[index];
+                      String uID = seat['uID'].toString();
                       return ListTile(
                         dense: true,
-                        leading: CircleAvatar(radius: 12, backgroundImage: NetworkImage(seat['userImage'] ?? "")),
+                        leading: CircleAvatar(
+                          radius: 12,
+                          backgroundImage: seat['userImage'] != null && seat['userImage'].isNotEmpty
+                              ? NetworkImage(seat['userImage'])
+                              : null,
+                        ),
                         title: Text(seat['userName'] ?? "User", style: const TextStyle(color: Colors.white, fontSize: 10)),
-                        trailing: Text("${scores[seat['uID']] ?? 0} 💎", style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
+                        trailing: Text(
+                          "${scores[uID] ?? 0} 💎",
+                          style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
                       );
                     },
                   ),

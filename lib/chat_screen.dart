@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:pagla_chat/profile_page.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -10,6 +11,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:gal/gal.dart';
 import 'dart:io';
 import 'screens/voice_room.dart';
+import 'package:flutter/foundation.dart'; // এই লাইনটি যোগ করুন
+import 'dart:typed_data';
+import 'chat_actions.dart';
 
 class ChatScreen extends StatefulWidget {
   final String receiverId;
@@ -35,16 +39,56 @@ class _ChatScreenState extends State<ChatScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isRecording = false;
   String currentSixDigitId = "";
+  // ব্লক স্ট্যাটাস চেক করার জন্য একটি বুলিয়ান
+  bool isBlocked = false;
+  List myBlockedUsers = [];
 
   @override
   void initState() {
     super.initState();
-    _getMySixDigitId(); // অ্যাপ ওপেন হওয়ার সাথে সাথে আপনার আইডি লোড হবে
+    // ১. অ্যাপ ওপেন হওয়ার সাথে সাথেই এই ইনিশিয়েলাইজেশন শুরু হবে
+    _initializeChat();
   }
 
-// আপনার নিজের ৬-ডিজিটের uID খুঁজে বের করার ফাংশন
-  void _getMySixDigitId() async {
+// এটি অবশ্যই Future<void> হতে হবে যাতে await করা যায়
+  Future<void> _initializeChat() async {
+    // ২. আইডি লোড হওয়া পর্যন্ত অপেক্ষা করুন
+    await _getMySixDigitId();
+
+    print("INIT: Current ID is now: $currentSixDigitId");
+
+    // ৩. আইডি আসার পর ব্লক লিস্ট লোড করুন
+    _loadBlockedList();
+  }
+
+  void _loadBlockedList() {
+    if (currentSixDigitId.isEmpty) {
+      print("Error: আইডি পাওয়া যায়নি, ব্লক লিস্ট লোড হবে না।");
+      return;
+    }
+
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentSixDigitId)
+        .snapshots()
+        .listen((doc) {
+      if (doc.exists) {
+        var data = doc.data() as Map<String, dynamic>;
+        setState(() {
+          myBlockedUsers = List.from(data['blockedUsers'] ?? []);
+          isBlocked = myBlockedUsers.contains(widget.receiverId);
+          print("ব্লক লিস্ট সফলভাবে আপডেট হয়েছে: $myBlockedUsers");
+        });
+      }
+    });
+  }
+
+// এই ফাংশনটিও Future<void> করে দিয়েছি যাতে await কাজ করে
+  Future<void> _getMySixDigitId() async {
     final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+
+    // যদি authUID খালি থাকে তবে আর সামনে আগাবে না
+    if (authUID.isEmpty) return;
 
     final userDoc = await FirebaseFirestore.instance
         .collection('users')
@@ -54,7 +98,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (userDoc.docs.isNotEmpty) {
       setState(() {
-        // ডাটাবেজ থেকে আপনার uID ভেরিয়েবলে সেট করা হচ্ছে
+        // ডাটাবেজ থেকে আপনার uID ভেরিয়েবলে সেট করা হচ্ছে
         currentSixDigitId = userDoc.docs.first.data()['uID']?.toString() ?? "";
       });
     }
@@ -82,12 +126,25 @@ class _ChatScreenState extends State<ChatScreen> {
 
   // --- মিডিয়া অ্যাকশন (ডায়মন্ড ও এক্সপায়ারি চেক) ---
   void _handleMediaAction() async {
-    // এখানে ডাটাবেস থেকে ইউজারের বর্তমান অবস্থা চেক করা হচ্ছে
-    final userDoc = await FirebaseFirestore.instance
+    String? authUID = FirebaseAuth.instance.currentUser?.uid;
+    if (authUID == null) return;
+
+    // ১. Firestore-এ ৬ ডিজিটের আইডি খুঁজে বের করা (authUID ব্যবহার করে)
+    // কারণ আপনার Firestore-এ authUID ফিল্ডটি আছে
+    final userQuery = await FirebaseFirestore.instance
         .collection('users')
-        .doc(currentUserId)
+        .where('authUID', isEqualTo: authUID)
+        .limit(1)
         .get();
-    final userData = userDoc.data() as Map<String, dynamic>? ?? {};
+
+    if (userQuery.docs.isEmpty) {
+      debugPrint("User document not found!");
+      return;
+    }
+
+    // ২. ডকুমেন্টের আইডি (যা ৬ ডিজিটের) পাওয়া গেল
+    String sixDigitUID = userQuery.docs.first.id;
+    final userData = userQuery.docs.first.data();
 
     DateTime now = DateTime.now();
     Timestamp? expiry = userData['media_expiry'];
@@ -96,7 +153,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (expiry != null && expiry.toDate().isAfter(now)) {
       _showMediaOptions();
     } else {
-      _showPurchaseDialog(diamonds);
+      // ৩. এখন ৬ ডিজিটের আইডি পাঠানো হচ্ছে
+      _showPurchaseDialog(diamonds, sixDigitUID);
     }
   }
 
@@ -244,7 +302,13 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageController.clear();
   }
 
-  void _showPurchaseDialog(int currentDiamonds) {
+  void _showPurchaseDialog(int currentDiamonds, String myUID) {
+    // myUID হলো ইউজারের ৬ ডিজিটের ইউনিক আইডি
+    if (myUID.isEmpty) {
+      debugPrint("Error: User ID is empty");
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -252,7 +316,7 @@ class _ChatScreenState extends State<ChatScreen> {
         title: const Text("Unlock Media Feature",
             style: TextStyle(color: Colors.white)),
         content: Text(
-            "Buy 1 month access for 6,000 Diamonds.\nYour Balance: $currentDiamonds",
+            "Buy 1 month access for 15,000 Diamonds.\nYour Balance: $currentDiamonds",
             style: const TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
@@ -262,18 +326,30 @@ class _ChatScreenState extends State<ChatScreen> {
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color.fromARGB(107, 238, 57, 117)),
             onPressed: () async {
-              if (currentDiamonds >= 6000) {
-                DateTime expiryDate =
-                    DateTime.now().add(const Duration(days: 30));
-                await FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(currentUserId)
-                    .update({
-                  'diamonds': FieldValue.increment(-6000),
-                  'media_expiry': Timestamp.fromDate(expiryDate),
-                });
-                Navigator.pop(context);
-                _showMediaOptions();
+              if (currentDiamonds >= 15000) {
+                try {
+                  DateTime expiryDate =
+                      DateTime.now().add(const Duration(days: 30));
+
+                  // এখানে সরাসরি ৬ ডিজিটের uID ব্যবহার করে আপডেট করা হচ্ছে
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(myUID) // আউথ আইডি নয়, এখানে ৬ ডিজিটের uID কাজ করবে
+                      .update({
+                    'diamonds': FieldValue.increment(-15000),
+                    'media_expiry': Timestamp.fromDate(expiryDate),
+                  });
+
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    _showMediaOptions();
+                  }
+                } catch (e) {
+                  debugPrint("Error purchasing media: $e");
+                }
+              } else {
+                debugPrint("Not enough diamonds");
+                // আপনি এখানে একটি SnackBar দেখাতে পারেন
               }
             },
             child: const Text("Buy Now"),
@@ -419,14 +495,48 @@ class _ChatScreenState extends State<ChatScreen> {
               title: Text(widget.receiverName,
                   style: const TextStyle(
                       color: Colors.white, fontWeight: FontWeight.bold)),
-              backgroundColor:
-                  Colors.transparent, // ব্যাকগ্রাউন্ডের সাথে মিশিয়ে দেওয়া হয়েছে
+              backgroundColor: Colors.transparent,
               elevation: 0,
               iconTheme: const IconThemeData(color: Colors.white),
               actions: [
-                IconButton(
-                    icon: const Icon(Icons.more_vert, color: Colors.white70),
-                    onPressed: () {}),
+                // এই PopupMenuButton টি নতুন করে বসবে
+                PopupMenuButton<String>(
+                  color: const Color(0xFF1E1E2F),
+                  icon: const Icon(Icons.more_vert, color: Colors.white70),
+                  onSelected: (value) async {
+                    String roomId =
+                        getChatRoomId(); // আপনার তৈরি করা চ্যাট রুম আইডি
+                    if (value == 'block') {
+                      await ChatActions.blockUser(context, currentSixDigitId,
+                          widget.receiverId, roomId);
+                      setState(() => isBlocked = true);
+                      _loadBlockedList();
+                    } else if (value == 'unblock') {
+                      await ChatActions.unblockUser(context, currentSixDigitId,
+                          widget.receiverId, roomId);
+                      setState(() => isBlocked = false);
+                      _loadBlockedList();
+                    } else if (value == 'report') {
+                      ChatActions.reportUser(
+                          context, currentSixDigitId, widget.receiverId);
+                    }
+                  },
+                  itemBuilder: (BuildContext context) => [
+                    PopupMenuItem(
+                      value: isBlocked ? 'unblock' : 'block',
+                      child: Text(isBlocked ? "Unblock User" : "Block User",
+                          style: TextStyle(
+                              color: isBlocked
+                                  ? Colors.greenAccent
+                                  : Colors.redAccent)),
+                    ),
+                    const PopupMenuItem(
+                      value: 'report',
+                      child: Text("Report User",
+                          style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
               ],
             ),
 
@@ -475,7 +585,22 @@ class _ChatScreenState extends State<ChatScreen> {
                         itemBuilder: (context, index) {
                           final data =
                               docs[index].data() as Map<String, dynamic>;
-                          // লম্বা আইডি দিয়ে চেক করা হচ্ছে কে পাঠিয়েছে
+
+                          // প্রিন্ট দিয়ে দেখুন কোন আইডি মেসেজ পাঠাচ্ছে
+                          print("Message from: ${data['senderuID']}");
+
+                          // ১. আইডি স্ট্রিং এ কনভার্ট করুন (যাতে টাইপ এরর না হয়)
+                          String senderId = data['senderuID']?.toString() ?? "";
+
+                          // ২. ব্লকড ইউজার চেক করুন
+                          bool isBlockedNow = myBlockedUsers.contains(senderId);
+
+                          // ৩. যদি ব্লক থাকে, তবে সাথে সাথে হাইড করুন
+                          if (isBlockedNow) {
+                            return const SizedBox.shrink();
+                          }
+
+                          // ৪. ব্লক না থাকলে মেসেজ দেখান
                           final bool isMe = data['senderId'] ==
                               FirebaseAuth.instance.currentUser?.uid;
                           return _buildMessageBubble(data, isMe);
@@ -505,11 +630,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildMessageBubble(Map<String, dynamic> data, bool isMe) {
     String type = data['type'] ?? 'text';
-
-    // 🔥 ফিক্স ১: ডাটাবেসে 'message' না থাকলে যেন 'text' ফিল্ড থেকে রিচার্জের লেখাটা নেয়
     String msg = data['message'] ?? data['text'] ?? '';
+    bool isRead = data['isRead'] ?? false; // মেসেজ রিড স্ট্যাটাস
 
-    // 🔥 ফিক্স ২: অফিশিয়াল মেসেজ যেন ভুল করে আপনার নিজের (isMe) বাবলের ভেতরে না ঢুকে যায়
     bool isOfficial =
         data['senderId'] == 'paglachat_official' || type == 'system_msg';
     bool finalIsMe = isMe && !isOfficial;
@@ -521,37 +644,64 @@ class _ChatScreenState extends State<ChatScreen> {
             finalIsMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // বাম পাশের অবতার (যদি নিজের মেসেজ না হয়)
           if (!finalIsMe)
             _chatAvatar(data['senderId'] ?? 'paglachat_official',
                 data['senderImage'] ?? '', data['senderName'] ?? 'Official'),
           const SizedBox(width: 10),
           Flexible(
-            child: GestureDetector(
-              onLongPress: () => _downloadMedia(msg, type),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  // অফিশিয়াল মেসেজের ব্যাকগ্রাউন্ড একটু আলাদা ডিপ কালার দিলে ফুটবে সুন্দর
-                  color: finalIsMe
-                      ? const Color.fromARGB(171, 241, 97, 145)
-                      : isOfficial
-                          ? const Color(
-                              0xFF251F3D) // অফিশিয়াল এর জন্য স্পেশাল ডার্ক পার্পল ভাইব
-                          : const Color(0xFF1E1E2F),
-                  borderRadius: BorderRadius.circular(15),
-                  // অফিশিয়াল মেসেজের চারপাশ গোল্ডেন বর্ডার দিলে আরও রয়্যাল লাগবে
-                  border: isOfficial
-                      ? Border.all(
-                          color: Colors.amberAccent.withOpacity(0.4), width: 1)
-                      : null,
+            child: Column(
+              crossAxisAlignment:
+                  finalIsMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  onLongPress: () => _downloadMedia(msg, type),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: finalIsMe
+                          ? const Color.fromARGB(171, 241, 97, 145)
+                          : isOfficial
+                              ? const Color(0xFF251F3D)
+                              : const Color(0xFF1E1E2F),
+                      borderRadius: BorderRadius.circular(15),
+                      border: isOfficial
+                          ? Border.all(
+                              color: Colors.amberAccent.withOpacity(0.4),
+                              width: 1)
+                          : null,
+                    ),
+                    child: _buildTypeContent(type, msg),
+                  ),
                 ),
-                child: _buildTypeContent(type, msg),
-              ),
+
+                // 🔥 তারিখ এবং সময় দেখানোর আপডেট লজিক
+                if (data['timestamp'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
+                    child: Text(
+                      DateFormat('dd MMM, hh:mm a')
+                          .format((data['timestamp'] as Timestamp).toDate()),
+                      style: const TextStyle(
+                          color: Colors.white30,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500),
+                    ),
+                  ),
+
+                // টিক চিহ্ন যোগ করা হলো
+                if (finalIsMe)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, right: 4),
+                    child: Icon(
+                      Icons.done_all,
+                      size: 14,
+                      color: isRead ? Colors.greenAccent : Colors.white60,
+                    ),
+                  ),
+              ],
             ),
           ),
           const SizedBox(width: 10),
-          // ডান পাশের অবতার (যদি নিজের মেসেজ হয়)
           if (finalIsMe)
             _chatAvatar(currentUserId, data['senderImage'] ?? '',
                 data['senderName'] ?? 'U'),
@@ -585,20 +735,46 @@ class _ChatScreenState extends State<ChatScreen> {
     return Text(msg, style: const TextStyle(color: Colors.white, fontSize: 16));
   }
 
-  void _downloadMedia(String url, String type) async {
+  Future<void> _downloadMedia(String url, String type) async {
     try {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Downloading...")));
+
+      // ১. ফাইলটি ডাউনলোড করার জন্য HttpClient ব্যবহার করছি
+      final HttpClient httpClient = HttpClient();
+      final HttpClientRequest request = await httpClient.getUrl(Uri.parse(url));
+      final HttpClientResponse response = await request.close();
+
+      // ২. ডাউনলোড করা ডাটা বাইট আকারে পড়া
+      final Uint8List bytes =
+          await consolidateHttpClientResponseBytes(response);
+
+      // ৩. টেম্পোরারি ফাইল পাথ তৈরি করা
+      final dir = await getTemporaryDirectory();
+      final String extension = type == 'image' ? 'jpg' : 'mp4';
+      final file = File(
+          '${dir.path}/temp_${DateTime.now().millisecondsSinceEpoch}.$extension');
+
+      // ৪. ফাইলটি সেভ করা
+      await file.writeAsBytes(bytes);
+
+      // ৫. গ্যালারিতে সেভ করা
       if (type == 'image') {
-        await Gal.putImage(url);
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Image Saved to Gallery!")));
-      } else if (type == 'video') {
-        await Gal.putVideo(url);
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Video Saved to Gallery!")));
+        await Gal.putImage(file.path);
+      } else {
+        await Gal.putVideo(file.path);
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text("${type == 'image' ? 'Image' : 'Video'} Saved!")));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Save failed: $e")));
+      debugPrint("Error: $e");
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Save failed: $e")));
+      }
     }
   }
 
@@ -660,6 +836,18 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _inputSection() {
+    // এই ইফ ব্লকটি নতুন করে যোগ করুন
+    if (isBlocked) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        alignment: Alignment.center,
+        child: const Text(
+          "You have blocked this user.",
+          style:
+              TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
       decoration: const BoxDecoration(
