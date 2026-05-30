@@ -215,117 +215,150 @@ class RoomSettingsHandler {
     );
   }
 
-  static void _handleFeaturePurchase(BuildContext context, String roomId,
-      String featureType, Function onAllowed) async {
-    // বটম শীট বন্ধ করা যাতে ডায়ালগ দেখা যায়
-    Navigator.of(context).pop();
-
-    final User? user = _auth.currentUser;
-    if (user == null) return;
-
-    try {
-      // আপনার ডাটাবেস অনুযায়ী authUID দিয়ে ইউজার খুঁজে বের করা
-      var userQuery = await _firestore
-          .collection('users')
-          .where('authUID', isEqualTo: user.uid)
-          .limit(1)
-          .get();
-
-      if (userQuery.docs.isEmpty) {
-        _showMessage(context, "User profile not found!");
-        return;
-      }
-
-      var userDoc = userQuery.docs.first;
-      var userRef = userDoc.reference;
-
-      var roomRef = _firestore.collection('rooms').doc(roomId);
-      var roomSnap = await roomRef.get();
-      if (!roomSnap.exists) return;
-
-      var roomData = roomSnap.data();
-      var packageData = roomData?[featureType + '_package'];
-      bool hasActivePackage = false;
-
-      if (packageData != null && packageData['expiry'] != null) {
-        DateTime expiry = (packageData['expiry'] as Timestamp).toDate();
-        if (DateTime.now().isBefore(expiry)) {
-          hasActivePackage = true;
-        }
-      }
-
-      if (hasActivePackage) {
-        if (featureType == "room_lock") {
-          _showPasswordDialog(context, onAllowed);
-        } else {
-          onAllowed();
-        }
-      } else {
-        _showPurchaseDialog(context, (int hours, int diamonds) async {
-          int myDiamonds = userDoc.data()['diamonds'] ?? 0;
-
-          if (myDiamonds >= diamonds) {
-            // ডায়মন্ড কাটা এবং প্যাকেজ আপডেট করা
-            await userRef.update({'diamonds': myDiamonds - diamonds});
-            await roomRef.update({
-              featureType + '_package': {
-                'expiry': Timestamp.fromDate(
-                    DateTime.now().add(Duration(hours: hours))),
-                'boughtAt': FieldValue.serverTimestamp(),
-              }
-            });
-
-            if (featureType == "room_lock") {
-              _showPasswordDialog(context, onAllowed);
-            } else {
-              onAllowed();
-            }
-          } else {
-            _showMessage(context, "Insufficient Diamonds!");
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint("Purchase Error: $e");
-    }
+  static void _handleFeaturePurchase(BuildContext context, String roomId, String featureType, Function onAllowed) async {
+  final User? user = _auth.currentUser;
+  if (user == null) {
+    _showMessage(context, "Please login first!");
+    return;
   }
 
-  static void _showPasswordDialog(BuildContext context, Function onConfirm) {
-    TextEditingController passController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (dContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text("Set Room Password",
-            style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: passController,
-          keyboardType: TextInputType.number,
-          maxLength: 4,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: "Enter 4 digit code",
-            hintStyle: TextStyle(color: Colors.white24),
-            counterStyle: TextStyle(color: Colors.white60),
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(dContext),
-              child: const Text("Cancel")),
-          TextButton(
-              onPressed: () {
-                if (passController.text.length == 4) {
-                  Navigator.pop(dContext);
-                  onConfirm();
-                }
+  try {
+    // ১. ইউজার ডাটা এবং রুম ডাটা আনা
+    var userQuery = await _firestore.collection('users')
+        .where(Filter.or(Filter('authUID', isEqualTo: user.uid), Filter('uID', isEqualTo: user.uid)))
+        .limit(1).get();
+    
+    if (userQuery.docs.isEmpty) return;
+    var userDoc = userQuery.docs.first;
+    var roomRef = _firestore.collection('rooms').doc(roomId);
+    var roomSnap = await roomRef.get();
+    if (!roomSnap.exists) return;
+    var roomData = roomSnap.data() as Map<String, dynamic>;
+
+    // ২. মালিকানা যাচাই
+    String currentUserUID = userDoc.data()['uID'] ?? "";
+    String roomOwnerId = roomData['ownerId'] ?? "";
+    bool isOwner = (roomOwnerId == currentUserUID);
+
+    // ৩. যদি মালিক হয়, তবে সে সরাসরি লক ম্যানেজ করতে পারবে (প্যাকেজ চেক ছাড়া)
+    if (isOwner && featureType == "room_lock") {
+      _showManageLockDialog(context, roomId, roomData);
+      return;
+    }
+
+    // ৪. যদি মালিক না হয়, তবে সাধারণ প্যাকেজ চেক লজিক
+    var packageData = roomData[featureType + '_package'];
+    bool hasActivePackage = false;
+    if (packageData != null && packageData['expiry'] != null) {
+      DateTime expiry = (packageData['expiry'] as Timestamp).toDate();
+      if (DateTime.now().isBefore(expiry)) hasActivePackage = true;
+    }
+
+    if (hasActivePackage) {
+      onAllowed();
+    } else {
+      _showPurchaseDialog(context, (int hours, int diamonds) async {
+        int myDiamonds = (userDoc.data()['diamonds'] ?? 0).toInt();
+        if (myDiamonds >= diamonds) {
+          await _firestore.collection('users').doc(userDoc.id).update({'diamonds': myDiamonds - diamonds});
+          await roomRef.update({
+            featureType + '_package': {
+              'expiry': Timestamp.fromDate(DateTime.now().add(Duration(hours: hours))),
+              'boughtAt': FieldValue.serverTimestamp(),
+            }
+          });
+          onAllowed();
+        } else {
+          _showMessage(context, "Insufficient Diamonds!");
+        }
+      });
+    }
+  } catch (e) {
+    debugPrint("Purchase Error: $e");
+  }
+}
+
+// মালিকের জন্য আলাদা ম্যানেজ ডায়ালগ (লক/আনলক/চেঞ্জ পাস)
+static void _showManageLockDialog(BuildContext context, String roomId, Map<String, dynamic> roomData) {
+  bool isLocked = roomData['isLocked'] ?? false;
+  
+  showDialog(
+    context: context,
+    builder: (dContext) => AlertDialog(
+      backgroundColor: const Color(0xFF0F0C29),
+      title: const Text("Manage Room Lock", style: TextStyle(color: Colors.white)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isLocked)
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+              onPressed: () async {
+                await FirebaseFirestore.instance.collection('rooms').doc(roomId).update({'isLocked': false});
+                Navigator.pop(dContext);
               },
-              child: const Text("Set")),
+              child: const Text("Unlock Room"),
+            ),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dContext);
+              _showPasswordDialog(context, roomId, () {}); // নতুন পাসওয়ার্ড সেট
+            },
+            child: Text(isLocked ? "Change Password" : "Set Password"),
+          ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
+  static void _showPasswordDialog(BuildContext context, String roomId, Function onConfirm) {
+  TextEditingController passController = TextEditingController();
+  showDialog(
+    context: context,
+    builder: (dContext) => AlertDialog(
+      backgroundColor: const Color(0xFF0F0C29),
+      title: const Text("Set Room Password", style: TextStyle(color: Colors.white)),
+      content: TextField(
+        controller: passController,
+        keyboardType: TextInputType.number,
+        maxLength: 4,
+        style: const TextStyle(color: Colors.white),
+        decoration: const InputDecoration(
+          hintText: "Enter 4 digit code",
+          hintStyle: TextStyle(color: Colors.white24),
+          counterStyle: TextStyle(color: Colors.white60),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(dContext),
+            child: const Text("Cancel")),
+        TextButton(
+            onPressed: () async {
+              if (passController.text.length == 4) {
+                // এখানে ডাটাবেজে আপডেট করছি
+                try {
+                  await FirebaseFirestore.instance
+                      .collection('rooms')
+                      .doc(roomId)
+                      .update({
+                    'isLocked': true,
+                    'password': passController.text,
+                  });
+                  Navigator.pop(dContext);
+                  onConfirm(); // এটি লকের আইকন আপডেট করার জন্য
+                } catch (e) {
+                  _showMessage(context, "Failed to lock: $e");
+                }
+              }
+            },
+            child: const Text("Set")),
+      ],
+    ),
+  );
+}
   static void _showPurchaseDialog(
       BuildContext context, Function(int, int) onBuy) {
     showDialog(
@@ -342,19 +375,52 @@ class RoomSettingsHandler {
           TextButton(
               onPressed: () {
                 Navigator.pop(dContext);
-                onBuy(24, 200);
+                onBuy(24, 400);
               },
-              child: const Text("24 Hours (200 💎)")),
+              child: const Text("24 Hours (400 💎)")),
           TextButton(
               onPressed: () {
                 Navigator.pop(dContext);
-                onBuy(720, 3500);
+                onBuy(720, 9000);
               },
-              child: const Text("30 Days (3500 💎)")),
+              child: const Text("30 Days (9000 💎)")),
         ],
       ),
     );
   }
+
+// এটি আপনার RoomSettingsHandler ক্লাসে বসান
+static void showJoinPasswordDialog(BuildContext context, String roomId, String correctPassword, Function onJoinSuccess) {
+  TextEditingController joinController = TextEditingController();
+  showDialog(
+    context: context,
+    builder: (dContext) => AlertDialog(
+      backgroundColor: const Color(0xFF1A1A2E),
+      title: const Text("Enter Room Password", style: TextStyle(color: Colors.white)),
+      content: TextField(
+        controller: joinController,
+        keyboardType: TextInputType.number,
+        maxLength: 4,
+        style: const TextStyle(color: Colors.white),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dContext), child: const Text("Cancel")),
+        TextButton(
+          onPressed: () {
+            if (joinController.text == correctPassword) {
+              Navigator.pop(dContext);
+              onJoinSuccess(); // পাসওয়ার্ড সঠিক হলে রুমে ঢুকবে
+            } else {
+              _showMessage(context, "Wrong Password!");
+            }
+          },
+          child: const Text("Join"),
+        ),
+      ],
+    ),
+  );
+}
+
 
   static void _showMessage(BuildContext context, String msg) {
     ScaffoldMessenger.of(context).showSnackBar(

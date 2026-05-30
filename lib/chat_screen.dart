@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:pagla_chat/profile_page.dart';
+import 'package:pagla_chat/widgets/room_settings_handler.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
@@ -360,58 +361,75 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildLiveRoomBar() {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.receiverId)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data?.data() == null)
-          return const SizedBox.shrink();
-        var userData = snapshot.data!.data() as Map<String, dynamic>;
-        String? roomId = userData['currentRoomId'];
-        String roomName = userData['currentRoomName'] ?? 'Voice Room';
+  return StreamBuilder<DocumentSnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('users')
+        .doc(widget.receiverId)
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (!snapshot.hasData || snapshot.data?.data() == null)
+        return const SizedBox.shrink();
+      
+      var userData = snapshot.data!.data() as Map<String, dynamic>;
+      String? roomId = userData['currentRoomId'];
+      String roomName = userData['currentRoomName'] ?? 'Voice Room';
 
-        if (roomId == null || roomId.isEmpty) return const SizedBox.shrink();
+      if (roomId == null || roomId.isEmpty) return const SizedBox.shrink();
 
-        return Container(
-          padding: const EdgeInsets.all(12),
-          margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-                colors: [Color.fromARGB(131, 242, 92, 142), Colors.deepPurple]),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.live_tv, color: Colors.white, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                  child: Text("${widget.receiverName} is Live in: $roomName",
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold))),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.pinkAccent,
-                    shape: const StadiumBorder()),
-                onPressed: () {
-                  Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => VoiceRoom(roomId: roomId)));
-                },
-                child: const Text("Join", style: TextStyle(fontSize: 11)),
-              )
-            ],
-          ),
-        );
-      },
-    );
-  }
-
+      return Container(
+        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+              colors: [Color.fromARGB(131, 242, 92, 142), Colors.deepPurple]),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.live_tv, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+                child: Text("${widget.receiverName} is Live in: $roomName",
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold))),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.pinkAccent,
+                  shape: const StadiumBorder()),
+              onPressed: () async {
+                // লক চেক করার লজিক
+                var roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(roomId).get();
+                if (!roomDoc.exists) return;
+                
+                var data = roomDoc.data() as Map<String, dynamic>;
+                bool isLocked = data['isLocked'] ?? false;
+                String password = data['password'] ?? "";
+                String ownerId = data['ownerId'] ?? "";
+                
+                // এখানে আপনার অ্যাপের মালিকানা চেক (uID)
+                String myUID = FirebaseAuth.instance.currentUser?.uid ?? ""; 
+                
+                if (isLocked && ownerId != myUID) {
+                  // লক থাকলে পাসওয়ার্ড চাইবে
+                  RoomSettingsHandler.showJoinPasswordDialog(context, roomId, password, () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => VoiceRoom(roomId: roomId)));
+                  });
+                } else {
+                  // লক না থাকলে বা মালিক হলে সরাসরি ঢুকবে
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => VoiceRoom(roomId: roomId)));
+                }
+              },
+              child: const Text("Join", style: TextStyle(fontSize: 11)),
+            )
+          ],
+        ),
+      );
+    },
+  );
+}
   void _onProfileTap(BuildContext context, String userId) async {
     // ১. ভিউয়ার লিস্টের মতো করে ৬-ডিজিটের সঠিক uID খুঁজে বের করার লজিক
     String finalIdToPass = userId;

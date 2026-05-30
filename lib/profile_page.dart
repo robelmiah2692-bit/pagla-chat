@@ -1,5 +1,4 @@
 import 'package:intl/intl.dart';
-import 'package:pagla_chat/auth_service.dart';
 import 'package:pagla_chat/help_desk_page.dart';
 import 'package:pagla_chat/privacy_policy_page.dart';
 import 'package:pagla_chat/services/diamond_recharge_view.dart';
@@ -731,38 +730,25 @@ class _ProfilePageState extends State<ProfilePage> {
                     );
                   },
                 ),
-               // ৪. লগআউট (Logout)
-ListTile(
-  leading: const Icon(Icons.logout, color: Colors.redAccent),
-  title: const Text(
-    "Logout",
-    style: TextStyle(
-      color: Colors.redAccent,
-      fontWeight: FontWeight.bold,
-    ),
-  ),
-  onTap: () async {
-    // AuthService ব্যবহার করে লগআউট
-    await AuthService().signOut();
-    
-    // হ্যাং হওয়া রোধ করতে আগের সব স্ক্রিন মুছে দিয়ে LoginScreen-এ পাঠানো
-    if (context.mounted) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-        (route) => false,
-      );
-    }
-  },
-),
-const SizedBox(height: 10),
-            ],
-          ),
-        ],
+                // ৪. লগআউট (Logout)
+                ListTile(
+                    leading: const Icon(Icons.logout, color: Colors.redAccent),
+                    title: const Text("Logout",
+                        style: TextStyle(
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.bold)),
+                    onTap: () {
+                      FirebaseAuth.instance.signOut();
+                      Navigator.pop(context);
+                    }),
+                const SizedBox(height: 10),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   void _showFreeAvatars() {
     List<String> avatars = (gender == "Male") ? maleAvatars : femaleAvatars;
@@ -1275,223 +1261,85 @@ const SizedBox(height: 10),
       },
     );
   }
+Widget _buildEntryStoreTab() {
+  // সাময়িকভাবে সবগুলোর isActive: false করে দেওয়া হয়েছে
+  final List<Map<String, dynamic>> entryList = [
+    {"name": "Royal Entry 1", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/9994c4424e1097e9ff6c21d70b37b97ac341dd9c/entry%20(1).json", "price": "7000", "isActive": false},
+    {"name": "Royal Entry 2", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(2).json", "price": "8000", "isActive": false},
+    {"name": "Royal Entry 3", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(3).json", "price": "8000", "isActive": false},
+    {"name": "Royal Entry 4", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(4).json", "price": "8000", "isActive": false},
+    {"name": "Royal Entry 5", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(5).json", "price": "5000", "isActive": false},
+    {"name": "Royal Entry 6", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(6).json", "price": "16000", "isActive": false},
+    {"name": "Royal Entry 7", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(7).json", "price": "18000", "isActive": false},
+    {"name": "Royal Entry 8", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(8).json", "price": "15000", "isActive": false},
+    {"name": "Royal Entry 9", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(9).json", "price": "20000", "isActive": false},
+    {"name": "Royal Entry 10", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(10).json", "price": "4000", "isActive": false},
+    {"name": "Royal Entry 11", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(11).json", "price": "9000", "isActive": false},
+    {"name": "Royal Entry 12", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(12).json", "price": "8000", "isActive": false},
+    {"name": "Royal Entry 13", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(13).json", "price": "9000", "isActive": false},
+    {"name": "Royal Entry 14", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(14).json", "price": "11000", "isActive": false},
+    {"name": "Royal Entry 15", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(15).json", "price": "13000", "isActive": false},
+  ];
 
-  Widget _buildEntryStoreTab() {
-    final List<Map<String, String>> entryList = [
-      {
-        "name": "Royal Entry 1",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/9994c4424e1097e9ff6c21d70b37b97ac341dd9c/entry%20(1).json",
-        "price": "7000"
-      },
-      {
-        "name": "Royal Entry 2",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(2).json",
-        "price": "8000"
-      },
-      {
-        "name": "Royal Entry 3",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(3).json",
-        "price": "8000"
-      },
-      {
-        "name": "Royal Entry 4",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(4).json",
-        "price": "8000"
-      },
-      {
-        "name": "Royal Entry 5",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(5).json",
-        "price": "5000"
-      },
-      {
-        "name": "Royal Entry 6",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(6).json",
-        "price": "16000"
-      },
-      {
-        "name": "Royal Entry 7",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(7).json",
-        "price": "18000"
-      },
-      {
-        "name": "Royal Entry 8",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(8).json",
-        "price": "15000"
-      },
-      {
-        "name": "Royal Entry 9",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(9).json",
-        "price": "20000"
-      },
-      {
-        "name": "Royal Entry 10",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(10).json",
-        "price": "4000"
-      },
-      {
-        "name": "Royal Entry 11",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(11).json",
-        "price": "9000"
-      },
-      {
-        "name": "Royal Entry 12",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(12).json",
-        "price": "8000"
-      },
-      {
-        "name": "Royal Entry 13",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(13).json",
-        "price": "9000"
-      },
-      {
-        "name": "Royal Entry 14",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(14).json",
-        "price": "11000"
-      },
-      {
-        "name": "Royal Entry 15",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(15).json",
-        "price": "13000"
-      },
-    ];
+  // শুধুমাত্র active আইটেমগুলো ফিল্টার করে নিচ্ছি
+  final activeList = entryList.where((item) => item['isActive'] == true).toList();
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(15),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.72,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12),
-      itemCount: entryList.length,
-      itemBuilder: (context, index) {
-        var item = entryList[index];
-        int itemPrice = int.parse(item['price']!);
-        String url = item['url']!;
-
-        return Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.9),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.cyan, width: 2),
-            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
-          ),
-          child: Column(
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: url.endsWith('.json')
-                      ? Lottie.network(url, fit: BoxFit.contain)
-                      : Image.network(url,
-                          fit: BoxFit.contain,
-                          errorBuilder: (c, e, s) => const Icon(
-                              Icons.auto_awesome,
-                              size: 40,
-                              color: Colors.cyan)),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(item['name']!,
-                  style: const TextStyle(
-                      color: Colors.blueAccent,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold)),
-              Text("${item['price']} 💎",
-                  style: const TextStyle(
-                      color: Colors.blueGrey,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                height: 35,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.cyan,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () async {
-                    if (diamonds >= itemPrice) {
-                      try {
-                        DateTime now = DateTime.now();
-                        DateTime expiry = now.add(const Duration(days: 15));
-
-                        // --- ডায়মন্ড কাটা এবং ব্যাকপ্যাকে পাঠানোর আসল লজিক শুরু ---
-                        WriteBatch batch = FirebaseFirestore.instance.batch();
-                        DocumentReference userRef = FirebaseFirestore.instance
-                            .collection('users')
-                            .doc(uIDValue);
-
-                        // ব্যাকপ্যাকের জন্য সাব-কালেকশন রেফারেন্স
-                        DocumentReference backpackRef =
-                            userRef.collection('myEntries').doc(item['name']);
-
-                        // ১. ডায়মন্ড আপডেট
-                        batch.update(userRef, {
-                          'diamonds': FieldValue.increment(-itemPrice),
-                        });
-
-                        // ২. ব্যাকপ্যাকে এন্ট্রি সেভ করা (যাতে পরে ব্যাকপ্যাক থেকে Pick করা যায়)
-                        batch.set(backpackRef, {
-                          'name': item['name'],
-                          'url': url,
-                          'expiryDate': Timestamp.fromDate(expiry),
-                          'isPicked': true, // কেনার সাথে সাথে পিক হয়ে যাবে
-                        });
-
-                        await batch.commit();
-                        // --- লজিক শেষ ---
-
-                        setState(() {
-                          diamonds -= itemPrice;
-                          activeEntryUrl = url;
-                        });
-
-                        Navigator.pop(context); // স্টোর বন্ধ করা
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              backgroundColor: Colors.green,
-                              content: Text("Bought & Added to Backpack!")),
-                        );
-                      } catch (e) {
-                        debugPrint("Buy Error: $e");
-                      }
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            backgroundColor: Colors.redAccent,
-                            content: Text("Not enough diamonds!")),
-                      );
-                    }
-                  },
-                  child: const Text("BUY",
-                      style: TextStyle(color: Colors.white, fontSize: 12)),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  if (activeList.isEmpty) {
+    return const Center(child: Text("Store is currently under maintenance.", style: TextStyle(color: Colors.grey)));
   }
 
+  return GridView.builder(
+    padding: const EdgeInsets.all(15),
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2, childAspectRatio: 0.72, crossAxisSpacing: 12, mainAxisSpacing: 12),
+    itemCount: activeList.length,
+    itemBuilder: (context, index) {
+      var item = activeList[index];
+      int itemPrice = int.parse(item['price']!);
+      String url = item['url']!;
+
+      return Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.cyan, width: 2),
+        ),
+        child: Column(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: url.endsWith('.json')
+                    ? Lottie.network(url, fit: BoxFit.contain)
+                    : Image.network(url, fit: BoxFit.contain),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(item['name']!, style: const TextStyle(color: Colors.blueAccent, fontSize: 13, fontWeight: FontWeight.bold)),
+            Text("${item['price']} 💎", style: const TextStyle(color: Colors.blueGrey, fontSize: 11, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              height: 35,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.cyan, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                onPressed: () async {
+                  if (diamonds >= itemPrice) {
+                    // ক্রয় লজিক...
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Not enough diamonds!")));
+                  }
+                },
+                child: const Text("BUY", style: TextStyle(color: Colors.white, fontSize: 12)),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
   Widget _buildSpecialStoreTab() {
     final List<Map<String, String>> specialList = [
       {

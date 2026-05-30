@@ -399,7 +399,7 @@ Widget _buildRandomBoxPreview() {
     return const SizedBox.shrink();
   }
 
-  // নিরবচ্ছিন্ন ঘোরার লজিক
+  // স্ক্রলিং লজিক একই থাকবে
   WidgetsBinding.instance.addPostFrameCallback((_) {
     if (_boxScrollController.hasClients) {
       if (_boxScrollController.position.pixels >= _boxScrollController.position.maxScrollExtent) {
@@ -414,13 +414,15 @@ Widget _buildRandomBoxPreview() {
   });
 
   return Container(
-    height: 60,
-    margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-    padding: const EdgeInsets.all(5),
+    height: 75,
+    margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
     decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.05),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: Colors.pinkAccent.withOpacity(0.5)),
+      color: Colors.black.withOpacity(0.3), // গ্লাস ইফেক্টের জন্য ডার্ক টিন্ট
+      borderRadius: BorderRadius.circular(25),
+      border: Border.all(color: Colors.pinkAccent.withOpacity(0.4), width: 1.5),
+      boxShadow: [
+        BoxShadow(color: Colors.pinkAccent.withOpacity(0.1), blurRadius: 10, spreadRadius: 1)
+      ],
     ),
     child: ListView.builder(
       controller: _boxScrollController,
@@ -429,23 +431,31 @@ Widget _buildRandomBoxPreview() {
       itemBuilder: (context, index) {
         var gift = randomGiftPool[index];
         return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          width: 40,
-          height: 40,
+          margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          width: 55, // বল সাইজ সামান্য বাড়ানো হয়েছে
+          height: 55,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.pinkAccent.withOpacity(0.5), width: 2),
-            color: Colors.white10,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.white.withOpacity(0.2), Colors.transparent],
+            ),
+            border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
           ),
-          // প্যাডিং বাদ দিয়ে সরাসরি ClipRRect ব্যবহার করুন
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20), 
-            child: Image.network(
-              gift['image'] ?? gift['icon'] ?? "", 
-              fit: BoxFit.cover, // ইমেজ বলের সাথে ফিট হয়ে যাবে
-              width: 35,
-              height: 35,
-              errorBuilder: (c, e, s) => const Icon(Icons.card_giftcard, color: Colors.white24),
+          child: Container(
+            margin: const EdgeInsets.all(3), // ইমেজের চারপাশ গ্লো করার জন্য
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.black26,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(30),
+              child: Image.network(
+                gift['image'] ?? gift['icon'] ?? "",
+                fit: BoxFit.cover,
+                errorBuilder: (c, e, s) => const Icon(Icons.card_giftcard, color: Colors.white24, size: 20),
+              ),
             ),
           ),
         );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:pagla_chat/widgets/room_settings_handler.dart';
 import 'dart:ui';
 import 'chat_screen.dart';
 import 'screens/voice_room.dart';
@@ -268,11 +269,12 @@ class _InboxPageState extends State<InboxPage> {
         : (userData['profilePic'] ?? "");
 
     // এখানে অফিশিয়াল ফ্রেমের লিঙ্কটি যোগ করুন
-String officialFrameUrl = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/officialframe.png";
+    String officialFrameUrl =
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/officialframe.png";
 
-String? frameUrl = isOfficial 
-    ? officialFrameUrl // অফিশিয়াল হলে ফ্রেম লিঙ্কটি আসবে
-    : userData['activeFrameUrl']; // সাধারণ ইউজার হলে তার নিজস্ব ফ্রেম আসবে
+    String? frameUrl = isOfficial
+        ? officialFrameUrl // অফিশিয়াল হলে ফ্রেম লিঙ্কটি আসবে
+        : userData['activeFrameUrl']; // সাধারণ ইউজার হলে তার নিজস্ব ফ্রেম আসবে
     String? currentRoomId = userData['currentRoomId'];
     bool isLive = currentRoomId != null && currentRoomId.toString().isNotEmpty;
 
@@ -285,15 +287,6 @@ String? frameUrl = isOfficial
       // সাধারণ ইউজার হলে ফায়ারবেস থেকে আসা অরিজিনাল সর্ট করা চ্যাট আইডি-ই থাকবে
       finalChatId = chatId;
     }
-
-    // --- ডিবাগ প্রিন্ট শুরু ---
-    print("--- Inbox User Check: $name ---");
-    print("User ID in Database: $userId");
-    print("Correct Chat ID used: $finalChatId");
-    print("Current Room ID found: '$currentRoomId'");
-    print("Is Live Status: $isLive");
-    print("------------------------------------------");
-    // --- ডিবাগ প্রিন্ট শেষ ---
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
       child: ClipRRect(
@@ -367,18 +360,46 @@ String? frameUrl = isOfficial
                           ),
                         ),
                       ),
-                    // ৪. লাইভ বাটন (নতুন যোগ করা হয়েছে - বরতমান রুমে যাওয়ার জন্য)
-                    if (isLive)
+                    // ৪. লাইভ বাটন - আপডেট করা লজিক
+                    if (isLive && currentRoomId != null)
                       Positioned(
                         bottom: 0,
                         child: GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      VoiceRoom(roomId: currentRoomId!),
-                                ));
+                          onTap: () async {
+                            // এখানে সরাসরি নেভিগেট না করে ডাটাবেস চেক করা হচ্ছে
+                            var roomDoc = await FirebaseFirestore.instance
+                                .collection('rooms')
+                                .doc(currentRoomId)
+                                .get();
+                            if (!roomDoc.exists) return;
+
+                            var data = roomDoc.data() as Map<String, dynamic>;
+                            bool isLocked = data['isLocked'] ?? false;
+                            String password = data['password'] ?? "";
+                            String ownerId = data['ownerId'] ?? "";
+
+                            // আপনার লোকাল ইউজার আইডি চেক (উদাহরণস্বরূপ)
+                            String myUID =
+                                FirebaseAuth.instance.currentUser?.uid ?? "";
+
+                            if (isLocked && ownerId != myUID) {
+                              // লক থাকলে পাসওয়ার্ড চাইবে
+                              RoomSettingsHandler.showJoinPasswordDialog(
+                                  context, currentRoomId!, password, () {
+                                Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) =>
+                                            VoiceRoom(roomId: currentRoomId!)));
+                              });
+                            } else {
+                              // লক না থাকলে বা মালিক হলে সরাসরি রুমে ঢুকবে
+                              Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          VoiceRoom(roomId: currentRoomId!)));
+                            }
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(

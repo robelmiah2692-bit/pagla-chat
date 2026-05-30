@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:pagla_chat/widgets/room_settings_handler.dart';
 import 'dart:ui';
 import 'dart:math';
 import 'screens/voice_room.dart';
@@ -585,142 +586,120 @@ class _RoomListPageState extends State<RoomListPage>
     );
   }
 
-  // 🇧🇩 [বাংলা মার্ক - ১০০% লাইভ কাউন্ট, লাল/সবুজ ইন্ডিকেটর ও LIVE টেক্সট ফিক্সড]
-  Widget _buildPremiumGlassCard(
-      String id, String name, int count, String? image, bool isMyRoom) {
-    String finalImage =
-        (image != null && image.isNotEmpty) ? image : defaultRoomImages[0];
+ // আপনার আগের কোডের জায়গায় এই নতুন ভার্সনটি ব্যবহার করুন
+Widget _buildPremiumGlassCard(String id, String name, int count, String? image, bool isMyRoom) {
+  String finalImage = (image != null && image.isNotEmpty) ? image : defaultRoomImages[0];
 
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          activeRoomId = id;
-          activeRoomName = name;
-          activeRoomImage = finalImage;
-        });
-        Navigator.push(context,
-            MaterialPageRoute(builder: (context) => VoiceRoom(roomId: id)));
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(
-                color: isMyRoom
-                    ? Colors.amber.withOpacity(0.8)
-                    : Colors.white.withOpacity(0.1),
-                width: isMyRoom ? 2.5 : 1.5),
-            image: DecorationImage(
-                image: NetworkImage(finalImage),
-                fit: BoxFit.cover,
-                opacity: 0.9),
-          ),
+  // ডাটাবেস থেকে রিয়েল-টাইম আপডেট পাওয়ার জন্য StreamBuilder ব্যবহার করছি
+  return StreamBuilder<DocumentSnapshot>(
+    stream: FirebaseFirestore.instance.collection('rooms').doc(id).snapshots(),
+    builder: (context, snapshot) {
+      bool isLocked = false;
+      String roomPassword = "";
+      
+      if (snapshot.hasData && snapshot.data!.exists) {
+        var data = snapshot.data!.data() as Map<String, dynamic>;
+        isLocked = data['isLocked'] ?? false;
+        roomPassword = data['password'] ?? "";
+      }
+
+      return GestureDetector(
+        onTap: () {
+          if (isLocked) {
+            // লক থাকলে পাসওয়ার্ড চাইবে
+            RoomSettingsHandler.showJoinPasswordDialog(context, id, roomPassword, () {
+              // সঠিক পাসওয়ার্ড দিলে রুমে ঢুকবে
+              _navigateToRoom(id, name, finalImage);
+            });
+          } else {
+            // লক না থাকলে সরাসরি ঢুকবে
+            _navigateToRoom(id, name, finalImage);
+          }
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
           child: Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Colors.black.withOpacity(0.7),
+              border: Border.all(
+                  color: isMyRoom ? Colors.amber.withOpacity(0.8) : Colors.white.withOpacity(0.1),
+                  width: isMyRoom ? 2.5 : 1.5),
+              image: DecorationImage(
+                  image: NetworkImage(finalImage),
+                  fit: BoxFit.cover,
+                  opacity: 0.9),
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+                ),
+              ),
+              padding: const EdgeInsets.all(12),
+              child: Stack(
+                children: [
+                  // আগের মতোই নাম ও টাইটেল
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                      const SizedBox(height: 2),
+                      Text(isMyRoom ? "MY ROOM" : "PAGLA LIVE", style: TextStyle(color: isMyRoom ? Colors.amberAccent : Colors.pinkAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+
+                  // ডান পাশে লাইভ ইন্ডিকেটর ও লক আইকন
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10)),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.circle, size: 10, color: count > 0 ? Colors.greenAccent : Colors.redAccent),
+                              const SizedBox(width: 5),
+                              Text("$count", style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                        if (isLocked) 
+                          const Padding(
+                            padding: EdgeInsets.only(top: 5),
+                            child: Icon(Icons.lock, color: Colors.amber, size: 16),
+                          ),
+                      ],
+                    ),
+                  ),
+                  
+                  // প্রিমিয়াম আইকন
+                  if (isMyRoom)
+                    const Positioned(top: 0, left: 0, child: Icon(Icons.workspace_premium, color: Colors.amber, size: 20)),
                 ],
               ),
             ),
-            padding: const EdgeInsets.all(12),
-            child: Stack(
-              children: [
-                // 🇧🇩 বাম পাশের নিচে রুমের নাম ও টাইটেল
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14)),
-                    const SizedBox(height: 2),
-                    Text(isMyRoom ? "MY ROOM" : "PAGLA LIVE",
-                        style: TextStyle(
-                            color: isMyRoom
-                                ? Colors.amberAccent
-                                : Colors.pinkAccent,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold)),
-                  ],
-                ),
-
-                // 🎯 [ডান পাশের টপ কর্নার]: আপনার চাহিদামতো রিয়েল-টাইম লাইভ ইন্ডিকেটর লেআউট
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      // ১. কাউন্ট এবং ডায়নামিক লাল/সবুজ লাইট বক্স
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(10)),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // 🟢/🔴 লাইভ ইন্ডিকেটর: মানুষ থাকলে সবুজ (Green), ০ জন হলে লাল (Red)
-                            Icon(
-                              Icons.circle,
-                              size: 10,
-                              color: count > 0 ? Colors.greenAccent : Colors.redAccent,
-                            ),
-                            const SizedBox(width: 5),
-                            // লাইভ মানুষের আসল কাউন্ট সংখ্যা
-                            Text("$count",
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      
-                      // ২. কাউন্টের ঠিক নিচে আপনার বলা সুন্দর 'LIVE' ব্যাজ টেক্সট
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: count > 0 ? Colors.red.withOpacity(0.85) : Colors.grey.withOpacity(0.4),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          "LIVE",
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                if (isMyRoom)
-                  const Positioned(
-                    top: 0,
-                    left: 0,
-                    child: Icon(Icons.workspace_premium,
-                        color: Colors.amber, size: 20),
-                  ),
-              ],
-            ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 
+// রুমে নেভিগেট করার জন্য এই আলাদা মেথডটি তৈরি রাখুন
+void _navigateToRoom(String id, String name, String image) {
+  setState(() {
+    activeRoomId = id;
+    activeRoomName = name;
+    activeRoomImage = image;
+  });
+  Navigator.push(context, MaterialPageRoute(builder: (context) => VoiceRoom(roomId: id)));
+}
   // 🇧🇩 [বাংলা মার্ক - প্রিমিয়াম গ্লাস বর্ডার ও ওয়ার্ল্ড ম্যাপ আইকন ব্যানার ফিক্স]
   Widget _buildBanner() {
     return Container(
