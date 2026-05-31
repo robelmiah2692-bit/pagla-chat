@@ -5,7 +5,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:pagla_chat/game_webview_view.dart';
+import 'package:pagla_chat/crazy_fruit_game.dart';
 import 'lucky_spin_view.dart';
 
 class GamePanelView extends StatefulWidget {
@@ -22,10 +22,10 @@ class _GamePanelViewState extends State<GamePanelView> {
   StreamSubscription? _subscription;
   final AudioPlayer _audioPlayer = AudioPlayer();
 
-  String? selectedGame; 
+  String? selectedGame;
   int userBalance = 0;
   int betAmount = 100;
-  String gameState = "WAITING"; 
+  String gameState = "WAITING";
   List<Map<dynamic, dynamic>> luckyBets = [];
 
   @override
@@ -66,7 +66,8 @@ class _GamePanelViewState extends State<GamePanelView> {
             setState(() {
               // ডাইমন্ড দেখাচ্ছে না সমস্যা সমাধানের জন্য ডাটা টাইপ চেক করা হয়েছে
               var data = snapshot.data();
-              userBalance = int.tryParse(data?['diamonds']?.toString() ?? "0") ?? 0;
+              userBalance =
+                  int.tryParse(data?['diamonds']?.toString() ?? "0") ?? 0;
             });
           }
         });
@@ -79,7 +80,10 @@ class _GamePanelViewState extends State<GamePanelView> {
       setState(() {
         gameState = data['gameState'] ?? "WAITING";
         if (data['luckyBets'] != null) {
-          luckyBets = (data['luckyBets'] as Map).values.map((e) => Map<dynamic, dynamic>.from(e)).toList();
+          luckyBets = (data['luckyBets'] as Map)
+              .values
+              .map((e) => Map<dynamic, dynamic>.from(e))
+              .toList();
         } else {
           luckyBets = [];
         }
@@ -88,7 +92,8 @@ class _GamePanelViewState extends State<GamePanelView> {
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.redAccent));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.redAccent));
   }
 
   void _playSound(String url) async => await _audioPlayer.play(UrlSource(url));
@@ -96,34 +101,45 @@ class _GamePanelViewState extends State<GamePanelView> {
   @override
   Widget build(BuildContext context) {
     final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
-    
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
         width: MediaQuery.of(context).size.width,
         height: MediaQuery.of(context).size.height,
+        // আপনার দেওয়া ছবির কালার প্যালেট অনুযায়ী গোল্ডেন-রেড গ্রেডিয়েন্ট
         decoration: const BoxDecoration(
-          color: Color(0xFF0F0F1E),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(
+                  0xFF8B0000), // গাঢ় লাল (Dark Red - ছবির ব্যাকগ্রাউন্ডের মতো)
+              Color(0xFFD4AF37), // উজ্জ্বল সোনালি (Gold - বর্ডারের মতো)
+              Color(0xFF1A0A0A), // একদম নিচে গাঢ় কালো-লাল ফিনিশ
+            ],
+            stops: [0.0, 0.5, 1.0],
+          ),
           borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
         ),
         child: Stack(
           children: [
             Column(
               children: [
-                const SizedBox(height: 50), 
-                _buildGameHeader(), 
-
+                const SizedBox(height: 50),
+                _buildGameHeader(),
                 Expanded(
-                  child: selectedGame == null 
-                    ? _buildGameLobby() 
-                    : LuckySpinView(
-                        gameRef: _gameRef, 
-                        userRef: FirebaseDatabase.instance.ref("users/$currentUserId"), 
-                        userBalance: userBalance, 
-                        betAmount: betAmount, 
-                        luckyBets: luckyBets, 
-                        playSound: _playSound,
-                      ),
+                  child: selectedGame == null
+                      ? _buildGameLobby()
+                      : LuckySpinView(
+                          gameRef: _gameRef,
+                          userRef: FirebaseDatabase.instance
+                              .ref("users/$currentUserId"),
+                          userBalance: userBalance,
+                          betAmount: betAmount,
+                          luckyBets: luckyBets,
+                          playSound: _playSound,
+                        ),
                 ),
               ],
             ),
@@ -151,13 +167,14 @@ class _GamePanelViewState extends State<GamePanelView> {
               children: [
                 const Icon(Icons.diamond, color: Colors.cyanAccent, size: 20),
                 const SizedBox(width: 5),
-                Text("$userBalance", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                Text("$userBalance",
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
-          if (selectedGame != null)
-            _buildBetControls(),
-          const SizedBox(width: 50), 
+          if (selectedGame != null) _buildBetControls(),
+          const SizedBox(width: 50),
         ],
       ),
     );
@@ -173,13 +190,20 @@ class _GamePanelViewState extends State<GamePanelView> {
       child: Row(
         children: [
           IconButton(
-            onPressed: () => setState(() => betAmount = max(100, betAmount - 100)),
-            icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 26),
+            onPressed: () =>
+                setState(() => betAmount = max(100, betAmount - 100)),
+            icon: const Icon(Icons.remove_circle_outline,
+                color: Colors.redAccent, size: 26),
           ),
-          Text("$betAmount", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          Text("$betAmount",
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold)),
           IconButton(
             onPressed: () => setState(() => betAmount += 100),
-            icon: const Icon(Icons.add_circle_outline, color: Colors.greenAccent, size: 26),
+            icon: const Icon(Icons.add_circle_outline,
+                color: Colors.greenAccent, size: 26),
           ),
         ],
       ),
@@ -191,16 +215,20 @@ class _GamePanelViewState extends State<GamePanelView> {
       children: [
         if (selectedGame != null)
           Positioned(
-            top: 45, left: 10,
+            top: 45,
+            left: 10,
             child: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 24),
+              icon: const Icon(Icons.arrow_back_ios_new,
+                  color: Colors.white, size: 24),
               onPressed: () => setState(() => selectedGame = null),
             ),
           ),
         Positioned(
-          top: 45, right: 10,
+          top: 45,
+          right: 10,
           child: IconButton(
-            icon: const Icon(Icons.close_rounded, color: Colors.white, size: 32),
+            icon:
+                const Icon(Icons.close_rounded, color: Colors.white, size: 32),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -208,13 +236,17 @@ class _GamePanelViewState extends State<GamePanelView> {
     );
   }
 
-  // --- ২. গেম লবি আপডেট ---
+ // --- ২. গেম লবি আপডেট (সংশোধিত) ---
 Widget _buildGameLobby() {
   return SingleChildScrollView(
     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
     child: Column(
       children: [
-        const Text("SELECT A GAME", style: TextStyle(color: Colors.white54, letterSpacing: 2, fontWeight: FontWeight.bold)),
+        const Text("SELECT A GAME",
+            style: TextStyle(
+                color: Colors.white54,
+                letterSpacing: 2,
+                fontWeight: FontWeight.bold)),
         const SizedBox(height: 30),
         GridView.count(
           shrinkWrap: true,
@@ -223,14 +255,14 @@ Widget _buildGameLobby() {
           mainAxisSpacing: 20,
           crossAxisSpacing: 20,
           children: [
-            // LUCKY গেমটি আগের মতোই থাকবে
-            _gameIcon("LUCKY", "assets/images/spin_logo.png", Colors.orangeAccent, false, null),
-            // অন্য গেমগুলো লিঙ্কসহ (এখানে আপনার সঠিক HTML লিঙ্ক বসান)
-            _gameIcon("Spain2", "assets/images/poker.png", Colors.blueAccent, false, "https://robelmiah2692-bit.github.io/Games_paglachat1/index.html"),
-            _gameIcon("FRUIT", "assets/images/coming_soon.png", Colors.grey, true, null),
-            _gameIcon("TEEN PATTI", "assets/images/coming_soon.png", Colors.grey, true, null),
-            _gameIcon("RACING", "assets/images/coming_soon.png", Colors.grey, true, null),
-            _gameIcon("BATTLE", "assets/images/coming_soon.png", Colors.grey, true, null),
+            // LUCKY গেমটি আগের মতোই
+            _gameIcon("LUCKY", "assets/images/spin_logo.png", Colors.orangeAccent, false),
+            // নতুন CRAZY FRUIT গেম (কোনো url নেই)
+            _gameIcon("CRAZY FRUIT", "assets/images/crazyfrut.png", Colors.yellow, false),
+            _gameIcon("FRUIT", "assets/images/coming_soon.png", Colors.grey, true),
+            _gameIcon("TEEN PATTI", "assets/images/coming_soon.png", Colors.grey, true),
+            _gameIcon("RACING", "assets/images/coming_soon.png", Colors.grey, true),
+            _gameIcon("BATTLE", "assets/images/coming_soon.png", Colors.grey, true),
           ],
         ),
       ],
@@ -238,21 +270,35 @@ Widget _buildGameLobby() {
   );
 }
 
-Widget _gameIcon(String name, String asset, Color color, bool isComingSoon, String? gameUrl) {
+// --- সংশোধিত গেম আইকন ফাংশন ---
+Widget _gameIcon(String name, String asset, Color color, bool isComingSoon) {
   return GestureDetector(
     onTap: () {
       if (isComingSoon) {
         _showError("Coming Soon! Stay tuned.");
-      } else if (gameUrl != null) {
-        // নতুন ফাইলে তৈরি করা WebGameHandler বা WebView ব্যবহার করে ওপেন করুন
+      } else if (name == "CRAZY FRUIT") {
+        // এখানে আপনার নেটিভ ফ্লাটার গেমের ক্লাসটি বসবে
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => GameWebViewView(gameUrl: gameUrl, gameName: name),
+            builder: (context) => CrazyFruitGame(
+              userBalance: userBalance,
+              onUpdateBalance: (newBalance) {
+                // ফায়ারবেস আপডেট লজিক
+                FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(FirebaseAuth.instance.currentUser?.uid)
+                    .update({'diamonds': newBalance.toString()});
+              },
+            ),
           ),
         );
+      } else if (name == "LUCKY") {
+        // আপনার আগের "LUCKY" গেমের নেভিগেশন লজিক (এটি মুছে গিয়েছিল)
+        setState(() => selectedGame = name);
+      
       } else {
-        // যদি এটি LUCKY গেম হয়
+        // অন্যান্য গেমের জন্য
         setState(() => selectedGame = name);
       }
     },
@@ -275,9 +321,12 @@ Widget _gameIcon(String name, String asset, Color color, bool isComingSoon, Stri
                     Container(
                       color: Colors.black54,
                       child: const Center(
-                        child: Text("Coming\nSoon", 
+                        child: Text("Coming\nSoon",
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
+                            style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold)),
                       ),
                     ),
                 ],
@@ -286,12 +335,19 @@ Widget _gameIcon(String name, String asset, Color color, bool isComingSoon, Stri
           ),
         ),
         const SizedBox(height: 5),
-        Text(name, style: TextStyle(color: isComingSoon ? Colors.white38 : Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+        Text(name,
+            style: TextStyle(
+                color: isComingSoon ? Colors.white38 : Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold)),
       ],
     ),
   );
 }
-
   @override
-  void dispose() { _subscription?.cancel(); _audioPlayer.dispose(); super.dispose(); }
+  void dispose() {
+    _subscription?.cancel();
+    _audioPlayer.dispose();
+    super.dispose();
+  }
 }
