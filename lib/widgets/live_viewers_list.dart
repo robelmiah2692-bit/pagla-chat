@@ -32,7 +32,7 @@ class _LiveViewersListState extends State<LiveViewersList> {
       stream: _viewerStream,
       builder: (context, snapshot) {
         if (snapshot.hasData) {
-           debugPrint("🚀 ভিউয়ার এরিয়া রেন্ডার হচ্ছে: ${snapshot.data!.docs.length} জন");
+           
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) return const SizedBox();
@@ -139,16 +139,6 @@ class _ViewerAvatarState extends State<ViewerAvatar> with AutomaticKeepAliveClie
             debugPrint("❌ Users কালেকশন থেকে uID লোড করতে ব্যর্থ: $e");
           }
           
-          // 🔥 [মাস্টার প্রিন্ট লগ]: এই প্রিন্টটি টার্মিনালে চেক করুন, জট একদম খুলে যাবে!
-          debugPrint("=========================================================");
-          debugPrint("🚨 [VIEWER CLICKED] ভিউয়ার লিস্টে ক্লিক করা হয়েছে!");
-          debugPrint("👤 ক্লিক করা ভিউয়ারের নাম: ${widget.viewerName}");
-          debugPrint("🆔 ক্লিক করা ভিউয়ারের লম্বা Auth ID: ${widget.viewerId}");
-          debugPrint("🎯 Users কালেকশন থেকে প্রাপ্ত ৬-ডিজিটের uID (Target ID): $finalIdToPass");
-          debugPrint("🔑 আমার নিজের লগইন আইডি (My Current ID): $myCurrentUid");
-          debugPrint("📢 মেলানো হচ্ছে: $finalIdToPass == $myCurrentUid ? নিজের প্রোফাইল : অন্যের প্রোফাইল");
-          debugPrint("📂 [ROUTING] ProfilePage-এ এই আইডিটি পাঠানো হচ্ছে -> $finalIdToPass");
-          debugPrint("=========================================================");
           
           if (!mounted) return;
           Navigator.push(

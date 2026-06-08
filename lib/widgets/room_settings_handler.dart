@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:io';
@@ -134,11 +135,24 @@ class RoomSettingsHandler {
                           () async {
                         final ImagePicker picker = ImagePicker();
                         final XFile? image = await picker.pickImage(
-                            source: ImageSource.gallery, imageQuality: 70);
+                            source: ImageSource
+                                .gallery); // কোয়ালিটি রিমুভ করেছি কারণ নিচে কম্প্রেস হবে
 
                         if (image != null) {
                           try {
-                            _showMessage(context, "Uploading wallpaper...");
+                            _showMessage(
+                                context, "Optimizing and uploading...");
+
+                            // কম্প্রেস লজিক
+                            final compressedBytes =
+                                await FlutterImageCompress.compressWithFile(
+                              image.path,
+                              quality: 60,
+                              minWidth: 800,
+                              minHeight: 800,
+                            );
+
+                            if (compressedBytes == null) return;
 
                             var roomDoc = await _firestore
                                 .collection('rooms')
@@ -158,13 +172,14 @@ class RoomSettingsHandler {
                               }
                             }
 
-                            File file = File(image.path);
                             String fileName =
                                 'room_wallpapers/$roomId/${DateTime.now().millisecondsSinceEpoch}.jpg';
                             Reference storageRef =
                                 FirebaseStorage.instance.ref().child(fileName);
 
-                            UploadTask uploadTask = storageRef.putFile(file);
+                            // কম্প্রেসড বাইটস আপলোড
+                            UploadTask uploadTask =
+                                storageRef.putData(compressedBytes);
                             TaskSnapshot snapshot = await uploadTask;
                             String downloadUrl =
                                 await snapshot.ref.getDownloadURL();
@@ -201,8 +216,8 @@ class RoomSettingsHandler {
                       onMinimize();
                     }),
                     _buildItem(Icons.logout, "Exit", Colors.redAccent, () {
-                      Navigator.pop(context);
-                      _showExitDialog(context, onLeave);
+                      // সরাসরি রুমের মেইন এক্সিট লজিক কল করুন, সেটিংস মেনু ভেতরেই হ্যান্ডেল হবে
+                      onLeave();
                     }),
                   ],
                 ),
@@ -215,150 +230,168 @@ class RoomSettingsHandler {
     );
   }
 
-  static void _handleFeaturePurchase(BuildContext context, String roomId, String featureType, Function onAllowed) async {
-  final User? user = _auth.currentUser;
-  if (user == null) {
-    _showMessage(context, "Please login first!");
-    return;
-  }
-
-  try {
-    // ১. ইউজার ডাটা এবং রুম ডাটা আনা
-    var userQuery = await _firestore.collection('users')
-        .where(Filter.or(Filter('authUID', isEqualTo: user.uid), Filter('uID', isEqualTo: user.uid)))
-        .limit(1).get();
-    
-    if (userQuery.docs.isEmpty) return;
-    var userDoc = userQuery.docs.first;
-    var roomRef = _firestore.collection('rooms').doc(roomId);
-    var roomSnap = await roomRef.get();
-    if (!roomSnap.exists) return;
-    var roomData = roomSnap.data() as Map<String, dynamic>;
-
-    // ২. মালিকানা যাচাই
-    String currentUserUID = userDoc.data()['uID'] ?? "";
-    String roomOwnerId = roomData['ownerId'] ?? "";
-    bool isOwner = (roomOwnerId == currentUserUID);
-
-    // ৩. যদি মালিক হয়, তবে সে সরাসরি লক ম্যানেজ করতে পারবে (প্যাকেজ চেক ছাড়া)
-    if (isOwner && featureType == "room_lock") {
-      _showManageLockDialog(context, roomId, roomData);
+  static void _handleFeaturePurchase(BuildContext context, String roomId,
+      String featureType, Function onAllowed) async {
+    final User? user = _auth.currentUser;
+    if (user == null) {
+      _showMessage(context, "Please login first!");
       return;
     }
 
-    // ৪. যদি মালিক না হয়, তবে সাধারণ প্যাকেজ চেক লজিক
-    var packageData = roomData[featureType + '_package'];
-    bool hasActivePackage = false;
-    if (packageData != null && packageData['expiry'] != null) {
-      DateTime expiry = (packageData['expiry'] as Timestamp).toDate();
-      if (DateTime.now().isBefore(expiry)) hasActivePackage = true;
-    }
+    try {
+      // ১. ইউজার ডাটা এবং রুম ডাটা আনা
+      var userQuery = await _firestore
+          .collection('users')
+          .where(Filter.or(Filter('authUID', isEqualTo: user.uid),
+              Filter('uID', isEqualTo: user.uid)))
+          .limit(1)
+          .get();
 
-    if (hasActivePackage) {
-      onAllowed();
-    } else {
-      _showPurchaseDialog(context, (int hours, int diamonds) async {
-        int myDiamonds = (userDoc.data()['diamonds'] ?? 0).toInt();
-        if (myDiamonds >= diamonds) {
-          await _firestore.collection('users').doc(userDoc.id).update({'diamonds': myDiamonds - diamonds});
-          await roomRef.update({
-            featureType + '_package': {
-              'expiry': Timestamp.fromDate(DateTime.now().add(Duration(hours: hours))),
-              'boughtAt': FieldValue.serverTimestamp(),
-            }
-          });
-          onAllowed();
-        } else {
-          _showMessage(context, "Insufficient Diamonds!");
-        }
-      });
+      if (userQuery.docs.isEmpty) return;
+      var userDoc = userQuery.docs.first;
+      var roomRef = _firestore.collection('rooms').doc(roomId);
+      var roomSnap = await roomRef.get();
+      if (!roomSnap.exists) return;
+      var roomData = roomSnap.data() as Map<String, dynamic>;
+
+      // ২. মালিকানা যাচাই
+      String currentUserUID = userDoc.data()['uID'] ?? "";
+      String roomOwnerId = roomData['ownerId'] ?? "";
+      bool isOwner = (roomOwnerId == currentUserUID);
+
+      // ৩. যদি মালিক হয়, তবে সে সরাসরি লক ম্যানেজ করতে পারবে (প্যাকেজ চেক ছাড়া)
+      if (isOwner && featureType == "room_lock") {
+        _showManageLockDialog(context, roomId, roomData);
+        return;
+      }
+
+      // ৪. যদি মালিক না হয়, তবে সাধারণ প্যাকেজ চেক লজিক
+      var packageData = roomData[featureType + '_package'];
+      bool hasActivePackage = false;
+      if (packageData != null && packageData['expiry'] != null) {
+        DateTime expiry = (packageData['expiry'] as Timestamp).toDate();
+        if (DateTime.now().isBefore(expiry)) hasActivePackage = true;
+      }
+
+      if (hasActivePackage) {
+        onAllowed();
+      } else {
+        _showPurchaseDialog(context, (int hours, int diamonds) async {
+          int myDiamonds = (userDoc.data()['diamonds'] ?? 0).toInt();
+          if (myDiamonds >= diamonds) {
+            await _firestore
+                .collection('users')
+                .doc(userDoc.id)
+                .update({'diamonds': myDiamonds - diamonds});
+            await roomRef.update({
+              featureType + '_package': {
+                'expiry': Timestamp.fromDate(
+                    DateTime.now().add(Duration(hours: hours))),
+                'boughtAt': FieldValue.serverTimestamp(),
+              }
+            });
+            onAllowed();
+          } else {
+            _showMessage(context, "Insufficient Diamonds!");
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Purchase Error: $e");
     }
-  } catch (e) {
-    debugPrint("Purchase Error: $e");
   }
-}
 
 // মালিকের জন্য আলাদা ম্যানেজ ডায়ালগ (লক/আনলক/চেঞ্জ পাস)
-static void _showManageLockDialog(BuildContext context, String roomId, Map<String, dynamic> roomData) {
-  bool isLocked = roomData['isLocked'] ?? false;
-  
-  showDialog(
-    context: context,
-    builder: (dContext) => AlertDialog(
-      backgroundColor: const Color(0xFF0F0C29),
-      title: const Text("Manage Room Lock", style: TextStyle(color: Colors.white)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isLocked)
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-              onPressed: () async {
-                await FirebaseFirestore.instance.collection('rooms').doc(roomId).update({'isLocked': false});
-                Navigator.pop(dContext);
-              },
-              child: const Text("Unlock Room"),
-            ),
-          const SizedBox(height: 10),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(dContext);
-              _showPasswordDialog(context, roomId, () {}); // নতুন পাসওয়ার্ড সেট
-            },
-            child: Text(isLocked ? "Change Password" : "Set Password"),
-          ),
-        ],
-      ),
-    ),
-  );
-}
+  static void _showManageLockDialog(
+      BuildContext context, String roomId, Map<String, dynamic> roomData) {
+    bool isLocked = roomData['isLocked'] ?? false;
 
-  static void _showPasswordDialog(BuildContext context, String roomId, Function onConfirm) {
-  TextEditingController passController = TextEditingController();
-  showDialog(
-    context: context,
-    builder: (dContext) => AlertDialog(
-      backgroundColor: const Color(0xFF0F0C29),
-      title: const Text("Set Room Password", style: TextStyle(color: Colors.white)),
-      content: TextField(
-        controller: passController,
-        keyboardType: TextInputType.number,
-        maxLength: 4,
-        style: const TextStyle(color: Colors.white),
-        decoration: const InputDecoration(
-          hintText: "Enter 4 digit code",
-          hintStyle: TextStyle(color: Colors.white24),
-          counterStyle: TextStyle(color: Colors.white60),
-        ),
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(dContext),
-            child: const Text("Cancel")),
-        TextButton(
-            onPressed: () async {
-              if (passController.text.length == 4) {
-                // এখানে ডাটাবেজে আপডেট করছি
-                try {
+    showDialog(
+      context: context,
+      builder: (dContext) => AlertDialog(
+        backgroundColor: const Color(0xFF0F0C29),
+        title: const Text("Manage Room Lock",
+            style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isLocked)
+              ElevatedButton(
+                style:
+                    ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                onPressed: () async {
                   await FirebaseFirestore.instance
                       .collection('rooms')
                       .doc(roomId)
-                      .update({
-                    'isLocked': true,
-                    'password': passController.text,
-                  });
+                      .update({'isLocked': false});
                   Navigator.pop(dContext);
-                  onConfirm(); // এটি লকের আইকন আপডেট করার জন্য
-                } catch (e) {
-                  _showMessage(context, "Failed to lock: $e");
+                },
+                child: const Text("Unlock Room"),
+              ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(dContext);
+                _showPasswordDialog(
+                    context, roomId, () {}); // নতুন পাসওয়ার্ড সেট
+              },
+              child: Text(isLocked ? "Change Password" : "Set Password"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static void _showPasswordDialog(
+      BuildContext context, String roomId, Function onConfirm) {
+    TextEditingController passController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dContext) => AlertDialog(
+        backgroundColor: const Color(0xFF0F0C29),
+        title: const Text("Set Room Password",
+            style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: passController,
+          keyboardType: TextInputType.number,
+          maxLength: 4,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: "Enter 4 digit code",
+            hintStyle: TextStyle(color: Colors.white24),
+            counterStyle: TextStyle(color: Colors.white60),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dContext),
+              child: const Text("Cancel")),
+          TextButton(
+              onPressed: () async {
+                if (passController.text.length == 4) {
+                  // এখানে ডাটাবেজে আপডেট করছি
+                  try {
+                    await FirebaseFirestore.instance
+                        .collection('rooms')
+                        .doc(roomId)
+                        .update({
+                      'isLocked': true,
+                      'password': passController.text,
+                    });
+                    Navigator.pop(dContext);
+                    onConfirm(); // এটি লকের আইকন আপডেট করার জন্য
+                  } catch (e) {
+                    _showMessage(context, "Failed to lock: $e");
+                  }
                 }
-              }
-            },
-            child: const Text("Set")),
-      ],
-    ),
-  );
-}
+              },
+              child: const Text("Set")),
+        ],
+      ),
+    );
+  }
+
   static void _showPurchaseDialog(
       BuildContext context, Function(int, int) onBuy) {
     showDialog(
@@ -390,37 +423,40 @@ static void _showManageLockDialog(BuildContext context, String roomId, Map<Strin
   }
 
 // এটি আপনার RoomSettingsHandler ক্লাসে বসান
-static void showJoinPasswordDialog(BuildContext context, String roomId, String correctPassword, Function onJoinSuccess) {
-  TextEditingController joinController = TextEditingController();
-  showDialog(
-    context: context,
-    builder: (dContext) => AlertDialog(
-      backgroundColor: const Color(0xFF1A1A2E),
-      title: const Text("Enter Room Password", style: TextStyle(color: Colors.white)),
-      content: TextField(
-        controller: joinController,
-        keyboardType: TextInputType.number,
-        maxLength: 4,
-        style: const TextStyle(color: Colors.white),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(dContext), child: const Text("Cancel")),
-        TextButton(
-          onPressed: () {
-            if (joinController.text == correctPassword) {
-              Navigator.pop(dContext);
-              onJoinSuccess(); // পাসওয়ার্ড সঠিক হলে রুমে ঢুকবে
-            } else {
-              _showMessage(context, "Wrong Password!");
-            }
-          },
-          child: const Text("Join"),
+  static void showJoinPasswordDialog(BuildContext context, String roomId,
+      String correctPassword, Function onJoinSuccess) {
+    TextEditingController joinController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text("Enter Room Password",
+            style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: joinController,
+          keyboardType: TextInputType.number,
+          maxLength: 4,
+          style: const TextStyle(color: Colors.white),
         ),
-      ],
-    ),
-  );
-}
-
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dContext),
+              child: const Text("Cancel")),
+          TextButton(
+            onPressed: () {
+              if (joinController.text == correctPassword) {
+                Navigator.pop(dContext);
+                onJoinSuccess(); // পাসওয়ার্ড সঠিক হলে রুমে ঢুকবে
+              } else {
+                _showMessage(context, "Wrong Password!");
+              }
+            },
+            child: const Text("Join"),
+          ),
+        ],
+      ),
+    );
+  }
 
   static void _showMessage(BuildContext context, String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -444,22 +480,28 @@ static void showJoinPasswordDialog(BuildContext context, String roomId, String c
     );
   }
 
-  static void _showExitDialog(BuildContext context, VoidCallback onConfirm) {
+  static void showExitDialog(
+      BuildContext context, Future<void> Function() onConfirm) {
     showDialog(
       context: context,
+      barrierDismissible: false, // ডাটা ক্লিন হওয়ার আগে যেন বের না হতে পারে
       builder: (dContext) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
         title: const Text("Exit Room?", style: TextStyle(color: Colors.white)),
-        content: const Text("Are you sure you want to leave the room?",
+        content: const Text("Are you sure you want to leave?",
             style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(dContext),
               child: const Text("Cancel")),
           TextButton(
-              onPressed: () {
-                Navigator.pop(dContext);
-                onConfirm();
+              onPressed: () async {
+                // Confirm বাটনে ক্লিক করলে লজিক রান হবে
+                await onConfirm();
+                // লজিক শেষ হলে ডায়ালগ বন্ধ হবে
+                if (Navigator.canPop(dContext)) {
+                  Navigator.pop(dContext);
+                }
               },
               child: const Text("Confirm",
                   style: TextStyle(color: Colors.redAccent))),

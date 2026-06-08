@@ -13,8 +13,6 @@ class NotificationPanel extends StatelessWidget {
     final currentUser = FirebaseAuth.instance.currentUser;
     final myUid = currentUser?.uid ?? '';
 
-    debugPrint("🔍 [PaglaChat] NotificationPanel ওপেন হয়েছে। আমার আসল UID (receiverId): $myUid");
-
     return Container(
       height: MediaQuery.of(context).size.height * 0.75, 
       decoration: const BoxDecoration(
@@ -50,7 +48,7 @@ class NotificationPanel extends StatelessWidget {
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.hasError) {
-                      debugPrint("❌ [PaglaChat] ফায়ারস্টোর এরর: ${snapshot.error}");
+                     
                       return Center(child: Text("Error: ${snapshot.error}", style: const TextStyle(color: Colors.red)));
                     }
 
@@ -84,7 +82,7 @@ class NotificationPanel extends StatelessWidget {
                       return tsB.compareTo(tsA);
                     });
 
-                    debugPrint("📩 [PaglaChat] ফিল্টার করার পর মোট লাইক/কমেন্ট নোটিফিকেশন পাওয়া গেছে: ${notifDocs.length} টি");
+                  
 
                     if (notifDocs.isEmpty) {
                       return const Center(
@@ -121,7 +119,7 @@ class NotificationPanel extends StatelessWidget {
                             leading: GestureDetector(
                               onTap: () {
                                 if (senderId.isNotEmpty) {
-                                  debugPrint("➡️ [PaglaChat] প্রোফাইল ওপেন ক্লিক আইডি: $senderId");
+                                
                                 }
                               },
                               child: CircleAvatar(

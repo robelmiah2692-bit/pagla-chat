@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'dart:io';
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
@@ -15,7 +16,9 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 
 // Third Party Packages
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:lottie/lottie.dart';
+import 'package:pagla_chat/room_exit_handler.dart';
 import 'package:pagla_chat/room_list_page.dart' show RoomListPage;
 import 'package:pagla_chat/room_manager.dart';
 import 'package:pagla_chat/services/floating_bubble_service.dart';
@@ -113,7 +116,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String myPersonalAvatar = "";
   bool isOwner = false;
   String displayUserID = "Hridoy";
-  String roomName = "পাগলা চ্যাট রুম";
+  String roomName = "paglachat_room";
   int followerCount = 0;
   String roomProfileImage = '';
   bool isFollowing = false;
@@ -150,7 +153,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
   List<Map<String, String>> chatMessages = [];
   bool isGiftAnimating = false;
   String currentGiftImage = "";
-  late List<Map<String, dynamic>> seats;
+  // late বাদ দিয়ে দিন
+  List<Map<String, dynamic>> seats = [];
   bool _isMeTalkingNow = false; // এটি লাল দাগ দূর করবে
   // Timer & Gift Logic
   bool isCountingGifts = false;
@@ -175,8 +179,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
     if (FloatingBubbleService.isMinimized) {
       // যদি বাবল থেকে রুমে ফিরে আসে, তবে ম্যানেজার থেকে আগের ডাটা নিন
       currentSeatIndex = RoomManager().currentSeatIndex;
-      debugPrint("মিনিমাইজড মোড থেকে ফিরেছি। সিট নম্বর: $currentSeatIndex");
-
       // রুমে ফিরে আসার পর বাবল স্ট্যাটাস রিসেট করুন
       FloatingBubbleService.isMinimized = false;
       FloatingBubbleService.hide();
@@ -207,8 +209,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
           // যদি আপনি নির্দিষ্ট কোনো ইউজারের জন্য স্কোর রাখতে চান, তবে এখানে সেই ইউজার আইডি বসাতে হবে
           // আপাতত রুমের গ্লোবাল কাউন্ট হিসেবে এটি সেভ করছি
           scores['global_room_gift'] = currentCount;
-          debugPrint(
-              "✅ [Firestore Debug] Updated Global Gift Count: $currentCount");
         });
       }
     });
@@ -343,6 +343,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
               if (seats[index]["userId"] ==
                   FirebaseAuth.instance.currentUser?.uid) {
                 currentSeatIndex = index;
+                listenForMarriageRequests();
               }
             }
           });
@@ -397,6 +398,51 @@ class _VoiceRoomState extends State<VoiceRoom> {
         }
       } catch (e) {
         debugPrint("Agora Error: $e");
+      }
+    });
+
+    FirebaseFirestore.instance
+        .collection('rooms')
+        .doc(widget.roomId)
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.exists && mounted) {
+        var data = snapshot.data() as Map<String, dynamic>;
+        bool isActive = data['isActive'] ?? true;
+
+        // চেক করুন myuID খালি কি না
+        if (myuID.isEmpty) return; // আইডি না আসা পর্যন্ত পপ-আপ দেখাবে না
+
+        String dbOwnerId = data['ownerId']?.toString() ?? "";
+        List<dynamic> adminListFromDb = data['admins'] ?? [];
+        List<String> adminIds =
+            adminListFromDb.map((e) => e.toString()).toList();
+
+        bool isOwnerOrAdmin = (myuID == dbOwnerId || adminIds.contains(myuID));
+
+        if (!isActive && !isOwnerOrAdmin) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: const Color(0xFF1A1A2E),
+              title: const Text("Room Ended",
+                  style: TextStyle(color: Colors.white)),
+              content: const Text("The owner has closed the room.",
+                  style: TextStyle(color: Colors.white70)),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text("OK",
+                      style: TextStyle(color: Colors.blueAccent)),
+                ),
+              ],
+            ),
+          );
+        }
       }
     });
   }
@@ -479,15 +525,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
             isAdmin = false;
           }
         });
-
-        // ৫. ডিবাগ প্রিন্ট - এটি দেখে আপনি বুঝবেন আপনার আইডি কখন আসছে
-        print("---------------------------");
-        print("ROOM REFRESHED");
-        print("My local uID: '$myuID'"); // এটি খালি থাকলে এডমিন কাজ করবে না
-        print("Is Owner: $isOwner");
-        print("Is Admin: $isAdmin");
-        print("Admin List: $newAdminList");
-        print("---------------------------");
       }
     });
   }
@@ -504,8 +541,34 @@ class _VoiceRoomState extends State<VoiceRoom> {
         setState(() {
           myuID = userDoc.docs.first.data()['uID']?.toString() ?? "";
         });
+        await _ensureRoomIsActive();
+
         // আইডি পাওয়ার পর লিসেনার চালু করুন
         _listenForKickSignal();
+      }
+    }
+  }
+
+  Future<void> _ensureRoomIsActive() async {
+    final roomRef =
+        FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
+    final doc = await roomRef.get();
+
+    if (doc.exists) {
+      var data = doc.data() as Map<String, dynamic>;
+      String dbOwnerId = data['ownerId']?.toString() ?? "";
+      List<dynamic> adminListFromDb = data['admins'] ?? [];
+      List<String> adminIds = adminListFromDb.map((e) => e.toString()).toList();
+
+      // বর্তমান ইউজার মালিক বা অ্যাডমিন কি না চেক
+      // এখানে 'myuID' ব্যবহার করা হয়েছে যা আপনি _fetchMyuID() থেকে পাচ্ছেন
+      bool isMeOwnerOrAdmin = (myuID == dbOwnerId || adminIds.contains(myuID));
+
+      // মালিক বা অ্যাডমিন ঢুকলে রুম অ্যাক্টিভ করে দিন
+      if (isMeOwnerOrAdmin) {
+        await roomRef.update({'isActive': true});
+        debugPrint(
+            "DEBUG: Owner/Admin ($myuID) entered. Room activated automatically.");
       }
     }
   }
@@ -538,19 +601,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
       // ৩. এক ক্লিকে ফায়ারবেসের সব পুরাতন রুম আপডেট করা
       if (updatedCount > 0) {
         await batch.commit();
-        debugPrint(
-            "🎯 সফল হয়েছে! মোট $updatedCount টি পুরাতন রুম আপডেট করা হয়েছে।");
-      } else {
-        debugPrint("✅ সব রুমে আগে থেকেই ফিল্ড আছে, কোনো রুম বাকি নেই!");
       }
-    } catch (e) {
-      debugPrint("❌ পুরাতন রুম আপডেট করতে গিয়ে এরর: ${e.toString()}");
-    }
+    } catch (e) {}
   }
 
   void _initEmojiListener() {
     _emojiSubscription?.cancel();
-    debugPrint("📡 [LISTENER]: লিসেনার স্টার্ট হয়েছে।");
 
     _emojiSubscription = FirebaseDatabase.instance
         .ref('rooms/${widget.roomId}/seats')
@@ -569,23 +625,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
           final bool showEmoji = value["showEmoji"] ?? false;
 
           if (emoji != null && showEmoji == true) {
-            debugPrint("🔥 [INCOMING]: সিট $index এর জন্য ইমোজি আসছে...");
-
             // পজিশন চেক এবং গ্লোবাল ডিবাগিং
             if (index >= seatPositions.length) {
-              debugPrint(
-                  "❌ [CRITICAL]: সিট $index আমাদের লিস্টের (Size: ${seatPositions.length}) বাইরে! পজিশন লিস্ট তৈরি হয়নি।");
             } else {
               double x = seatPositions[index].dx;
               double y = seatPositions[index].dy;
 
-              if (x == 0 && y == 0) {
-                debugPrint(
-                    "⚠️ [RENDER_ISSUE]: ডাটা আসছে, কিন্তু আপনার ফোনের স্ক্রিন সিট $index এর পজিশন এখনো মাপতে পারেনি (0,0)!");
-              } else {
-                debugPrint(
-                    "✅ [SUCCESS]: সিট $index এর পজিশন ওকে (X: $x, Y: $y)। এখন রেন্ডার হবে।");
-              }
+              if (x == 0 && y == 0) {}
             }
 
             if (activeEmojis[index] != emoji) {
@@ -598,8 +644,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
               Timer(const Duration(seconds: 4), () {
                 if (mounted) {
                   setState(() => activeEmojis.remove(index));
-                  debugPrint(
-                      "🗑️ [REMOVE]: সিট $index থেকে ইমোজি মুছে ফেলা হয়েছে।");
                 }
               });
             }
@@ -714,11 +758,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
             onPressed: () async {
               Navigator.pop(context);
-
-              // 🔥 ফিক্স: এক্সেপ্ট মেথডটি যেন ৬ ডিজিটের uID দিয়ে ফায়ারস্টোরে প্রোফাইল ম্যাচ করতে পারে,
-              // কিন্তু কালেকশনের ডকুমেন্ট ডিলিটের সময় যেন ভুল না হয়, তাই myId এর জায়গায় 'authUID' হ্যান্ডেল করতে হবে।
-              // তবে আপনার GiftService-এর ভেতর ডিলিট লজিক 'myId' দিয়ে করা। তাই আমরা 'myId' হিসেবে 'authUID' পাস করব
-              // অথবা GiftService-এর ৫ নম্বর ডিলিট লাইনে requestRef-এর ভেতর 'myId' এর বদলে কারেন্ট ইউজারের লম্বা আইডি ব্যবহার করাই বেস্ট।
 
               await GiftService().acceptSoulmateGift(
                 myId:
@@ -1013,8 +1052,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
   void _updateUserLiveStatus(String roomId) async {
     String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-    print("---------- LIVE STATUS DEBUG ----------");
-
     try {
       // ১. আপনার ৬-ডিজিটের uID দিয়ে আপডেট ট্রাই করবে।
       // .update ব্যবহার করা হয়েছে যাতে নতুন কোনো খালি আইডি তৈরি না হয়।
@@ -1034,14 +1071,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
             .update({
           'currentRoomId': roomId,
         });
-        print("✅ Status Updated for AuthUID: $authUID");
       }
     } catch (e) {
       // যদি আইডি খুঁজে না পায় তবে এখানে আসবে, কিন্তু নতুন হিবিজিবি আইডি তৈরি হবে না।
-      print(
-          "ℹ️ Firestore Update Note: নির্দিষ্ট আইডিটি পাওয়া যায়নি, তাই নতুন কোনো ডকুমেন্ট তৈরি করা হয়নি।");
     }
-    print("---------------------------------------");
   }
 
   // 🇧🇩 [বাংলা মার্ক - ১০০% ফিক্সড ও সেফটি প্রুফ স্ট্যাটাস ক্লিন মেথড]
@@ -1060,8 +1093,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
           await shortIdRef.update({
             'currentRoomId': FieldValue.delete(),
           });
-          debugPrint(
-              "🎉 [PaglaChat] myuID ($myuID) এর জন্য রুম স্ট্যাটাস ডিলিট হয়েছে।");
         }
       }
 
@@ -1076,12 +1107,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
           await authIdRef.update({
             'currentRoomId': FieldValue.delete(),
           });
-          debugPrint(
-              "🎉 [PaglaChat] authUID ($authUID) এর জন্য রুম স্ট্যাটাস ডিলিট হয়েছে।");
-        } else {
-          // ডক না থাকলে কোনো এরর থ্রো করবে না, জাস্ট লগে ওয়ার্নিং দিয়ে স্কিপ করবে ভাই
-          debugPrint(
-              "⚠️ [PaglaChat Warning] users কালেকশনে authUID ($authUID) ডকটি পাওয়া যায়নি, তাই স্কিপ করা হলো।");
         }
       }
     } catch (e) {
@@ -1184,8 +1209,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
           'type': 'entry',
           'timestamp': FieldValue.serverTimestamp(),
         });
-
-        debugPrint("🚀 এন্ট্রি ডাটা রুম এবং মেসেজে পাঠানো হয়েছে!");
       }
     } catch (e) {
       debugPrint("Entry Error: $e");
@@ -1536,9 +1559,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 var lastEntry = roomData['lastEntry'];
                 String currentEntryId = lastEntry['entryId']?.toString() ?? "";
 
-                // প্রিন্ট দিয়ে চেক করুন কন্ডিশন কেন কাজ করছে না
-                // debugPrint("Current: $currentEntryId, Last: $lastProcessedEntryId, Showing: $showEntryEffect");
-
                 if (currentEntryId.isNotEmpty &&
                     currentEntryId != lastProcessedEntryId) {
                   String? effectLink = lastEntry['activeEntryUrl'];
@@ -1568,18 +1588,20 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 Positioned.fill(
                   child: RepaintBoundary(
                     child: (wallpaperUrl != null && wallpaperUrl.isNotEmpty)
-                        ? Image.network(
-                            wallpaperUrl,
+                        ? CachedNetworkImage(
+                            imageUrl: wallpaperUrl,
                             fit: BoxFit.cover,
                             color: Colors.black.withOpacity(0.2),
                             colorBlendMode: BlendMode.darken,
-                            errorBuilder: (context, error, stackTrace) =>
+                            // লোডিং বা এরর হলে ব্যাকআপ হিসেবে যা দেখাবে
+                            placeholder: (context, url) =>
+                                Container(color: const Color(0xFF0B1222)),
+                            errorWidget: (context, url, error) =>
                                 Container(color: const Color(0xFF0B1222)),
                           )
                         : Container(color: const Color(0xFF0B1222)),
                   ),
                 ),
-
                 // ২. মেইন UI
                 SafeArea(
                   child: Column(
@@ -1625,12 +1647,11 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                   }
                                 }
 
-                                // ফায়ারবেস কারেন্ট ইউজারের লম্বা আইডি
                                 final String currentAuthUID =
                                     FirebaseAuth.instance.currentUser?.uid ??
                                         "";
 
-                                // 🔥 ফিক্স: সরাসরি কালেকশন কুয়েরি করা হচ্ছে যেন ডকুমেন্ট আইডি ৬ ডিজিটের হলেও ডাটা নিখুঁতভাবে পাওয়া যায়
+                                // কুয়েরি ১: authUID দিয়ে খোঁজা
                                 return StreamBuilder<QuerySnapshot>(
                                   stream: FirebaseFirestore.instance
                                       .collection('users')
@@ -1638,20 +1659,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                           isEqualTo: currentAuthUID)
                                       .snapshots(),
                                   builder: (context, userSnapshot) {
-                                    String dynamicPartnerId = "";
-
-                                    // যদি authUID দিয়ে না পায়, তবে ব্যাকআপ হিসেবে userId ফিল্ড দিয়ে খুঁজবে
-                                    if (userSnapshot.hasData &&
-                                        userSnapshot.data!.docs.isNotEmpty) {
-                                      var uDoc = userSnapshot.data!.docs.first
-                                          .data() as Map<String, dynamic>;
-                                      dynamicPartnerId =
-                                          uDoc['soulmateId']?.toString() ??
-                                              uDoc['marriagePartnerId']
-                                                  ?.toString() ??
-                                              "";
-                                    } else {
-                                      // ২য় ব্যাকআপ কুয়েরি বা ডিরেক্ট রিড (যদি আগের কোন সিস্টেমে মিল থাকে)
+                                    // যদি ডাটা না থাকে, তবে ব্যাকআপ কুয়েরি রান করবে
+                                    if (!userSnapshot.hasData ||
+                                        userSnapshot.data!.docs.isEmpty) {
                                       return StreamBuilder<QuerySnapshot>(
                                         stream: FirebaseFirestore.instance
                                             .collection('users')
@@ -1659,12 +1669,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                                 isEqualTo: currentAuthUID)
                                             .snapshots(),
                                         builder: (context, backupSnapshot) {
+                                          String dynamicPartnerId = "";
+                                          String finalUserDocId =
+                                              ""; // ৬ ডিজিটের আইডি
+
                                           if (backupSnapshot.hasData &&
                                               backupSnapshot
                                                   .data!.docs.isNotEmpty) {
                                             var uDoc = backupSnapshot
                                                 .data!.docs.first
                                                 .data() as Map<String, dynamic>;
+                                            finalUserDocId = backupSnapshot
+                                                .data!.docs.first.id;
                                             dynamicPartnerId =
                                                 uDoc['soulmateId']
                                                         ?.toString() ??
@@ -1673,26 +1689,30 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                                     "";
                                           }
 
-                                          print(
-                                              "🔎 [ROOM SCREEN LOG] আমার UID: $currentAuthUID | পার্টনার ID (Backup): '$dynamicPartnerId'");
-
                                           return SoulmateAnimationService
                                               .buildSoulmateHeartOverlay(
                                             seats: seatsListForOverlay,
-                                            myCurrentAuthUID: currentAuthUID,
+                                            myCurrentAuthUID: finalUserDocId,
                                             myPartnerAuthUID: dynamicPartnerId,
                                           );
                                         },
                                       );
                                     }
 
-                                    print(
-                                        "🔎 [ROOM SCREEN LOG] আমার UID: $currentAuthUID | পার্টনার ID (Main): '$dynamicPartnerId'");
+                                    // যদি প্রথম কুয়েরিতে ডাটা পায়
+                                    var uDoc = userSnapshot.data!.docs.first
+                                        .data() as Map<String, dynamic>;
+                                    String finalUserDocId =
+                                        userSnapshot.data!.docs.first.id;
+                                    String dynamicPartnerId = uDoc['soulmateId']
+                                            ?.toString() ??
+                                        uDoc['marriagePartnerId']?.toString() ??
+                                        "";
 
                                     return SoulmateAnimationService
                                         .buildSoulmateHeartOverlay(
                                       seats: seatsListForOverlay,
-                                      myCurrentAuthUID: currentAuthUID,
+                                      myCurrentAuthUID: finalUserDocId,
                                       myPartnerAuthUID: dynamicPartnerId,
                                     );
                                   },
@@ -1875,14 +1895,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                       child: _buildFloatingPlayer(isDragging: false),
                     ),
                   ),
-                // ৬. টুলস ও ওভারলে
-
-                FloatingRoomTools(
-                  onGiftCountStart: (minutes, theme) =>
-                      _startGiftCounting(minutes, theme),
-                  seats: seats,
-                ),
-                // Stack এর ভেতর এই অংশটি বসান:
 
                 // আপনার Stack এর ভেতরে এই অংশটি এভাবে আপডেট করুন:
 
@@ -2112,8 +2124,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
       // ১. রেঞ্জ চেক
       if (seatIndex < 0 || seatIndex >= seatPositions.length) {
         // এখানে $index ছিল, তাই লাল দাগ আসছিল। এটাকে $seatIndex করে দিয়েছি।
-        debugPrint(
-            "🚫 [UI_BLOCK]: সিট $seatIndex এর পজিশন নেই, তাই উইজেট রেন্ডার করা গেল না।");
         return const SizedBox();
       }
 
@@ -2122,8 +2132,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
       // ২. জিরো পজিশন চেক
       if (leftPos == 0 && topPos == 0) {
-        debugPrint(
-            "📍 [UI_BLOCK]: সিট $seatIndex এর পজিশন (0,0)। ইউজার হয়তো স্ক্রিনের কোণায় বা আড়ালে ইমোজি দেখছে।");
         return const SizedBox();
       }
 
@@ -2140,12 +2148,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
               repeat: false,
               animate: true,
               fit: BoxFit.contain,
-              onLoaded: (composition) {
-                debugPrint(
-                    "🎬 [ANIMATION]: সিট $seatIndex এ ইমোজি প্লে হচ্ছে!");
-              },
+              onLoaded: (composition) {},
               errorBuilder: (context, error, stackTrace) {
-                debugPrint("❌ [LOTTIE_ERROR]: ইমোজি লোড হতে পারেনি: $error");
                 return const Icon(Icons.error, color: Colors.red);
               },
             ),
@@ -2179,22 +2183,15 @@ class _VoiceRoomState extends State<VoiceRoom> {
     // ১. চেক করছি বাবল কি স্ক্রিনে আছে?
     // যদি থাকে, তবে আমরা ডাটাবেস আপডেট বা এগোরা বন্ধ কিছুই করবো না।
     if (FloatingBubbleService.isMinimized) {
-      debugPrint("মিনিমাইজড মোড: রুম ব্যাকগ্রাউন্ডে সচল রাখা হচ্ছে।");
-
       // নোট: এখানে return করার মানে হলো নিচের কোনো ক্লিনআপ কোড এক্সিকিউট হবে না।
       // ফলে আপনার Firestore বা Realtime Database এ সিট খালি হবে না।
       super.dispose();
       return;
     }
 
-    // --- ২. যদি বাবল না থাকে (ইউজার যখন সরাসরি Exit বাটন চেপে বের হবে) ---
-
-    debugPrint("ফুল এক্সিট: রুমের সব লজিক ক্লিনআপ করা হচ্ছে।");
-
     // 🇧🇩 [বাংলা মার্ক]: ইউজার সম্পূর্ণ এক্সিট করলে রিয়েল-টাইম একটিভ এক্সপি টাইমারটি বন্ধ করা হলো ভাই
     _activeManager.stopTimer();
 
-    // 🇧🇩 [বাংলা মার্ক - ১০০% ফুলপ্রুফ কাউন্ট রিলিজ ফিক্স]:
     // ইউজার যখন বাবল ছাড়া সরাসরি রুম থেকে বের হবে, তখন ডাটাবেজের মান নিখুঁতভাবে চেক করে কমানো হবে।
     final roomRef =
         FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
@@ -2204,13 +2201,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
         // সেফটি লজিক: যদি কাউন্ট ১ বা তার কম হয়, তবে সরাসরি ০ হবে। আর বেশি থাকলে ১ কমবে।
         int newCount = (currentCount <= 1) ? 0 : (currentCount - 1);
 
-        roomRef
-            .update({'userCount': newCount})
-            .then((_) => debugPrint(
-                "🎉 [PaglaChat] ইউজার বের হয়েছে সফলভাবে, নতুন লাইভ কাউন্ট: $newCount"))
-            .catchError((e) => debugPrint("❌ কাউন্ট আপডেট করতে সমস্যা: $e"));
+        roomRef.update({'userCount': newCount}).catchError((e) {
+          // এরর হ্যান্ডেলিং এর জন্য প্রিন্ট বাদ দেওয়া হলো
+        });
       }
-    }).catchError((e) => debugPrint("❌ ফায়ারস্টোর ডাটা রিড করতে সমস্যা: $e"));
+    }).catchError((e) {
+      // এরর হ্যান্ডেলিং এর জন্য প্রিন্ট বাদ দেওয়া হলো
+    });
 
     // ৩. ভিউয়ার লিস্ট থেকে ব্যবহারকারীকে সরিয়ে ফেলা
     _removeUserFromViewers();
@@ -2362,7 +2359,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                       radius: 20,
                       backgroundColor: Colors.white12,
                       backgroundImage: roomProfileImage.isNotEmpty
-                          ? NetworkImage(roomProfileImage)
+                          ? CachedNetworkImageProvider(roomProfileImage)
                           : null,
                       child: roomProfileImage.isEmpty
                           ? const Icon(Icons.camera_alt,
@@ -2505,7 +2502,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                         onPressed: () async {
                           final currentUser = FirebaseAuth.instance.currentUser;
                           if (currentUser == null) {
-                            print("ইউজার লগইন করা নেই!");
                             return;
                           }
 
@@ -2519,18 +2515,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                 .get();
 
                             if (userQuery.docs.isEmpty) {
-                              print(
-                                  "Error: আপনার প্রোফাইলে কোনো ৬-ডিজিটের uID খুঁজে পাওয়া যায়নি!");
                               return;
                             }
 
                             // ২. নিশ্চিতভাবে আপনার ৬-ডিজিটের আইডিটি নেওয়া হলো
                             // এখানে documentID ই আপনার কাস্টম uID
                             String activeUserID = userQuery.docs.first.id;
-
-                            // কনসোলে চেক করার জন্য প্রিন্ট (আপনি এটি দেখতে পারবেন)
-                            print(
-                                "ফলো বাটনে ক্লিক করা ইউজারের আসল আইডি: $activeUserID");
 
                             var roomRef = FirebaseFirestore.instance
                                 .collection('rooms')
@@ -2550,8 +2540,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
                             // মালিক নিজে নিজেকে ফলো করতে পারবে না
                             if (activeUserID == owneruIDFromDb) {
-                              print(
-                                  "আপনি এই রুমের মালিক, তাই নিজেকে ফলো করতে পারবেন না।");
                               return;
                             }
 
@@ -2644,7 +2632,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  // --- ১. মেইন সিট গ্রিড এরিয়া (সংশোধিত) ---
   // --- ১. মেইন সিট গ্রিড এরিয়া (স্থায়ী ফিক্স) ---
   Widget _buildSeatGridArea() {
     return StreamBuilder<DatabaseEvent>(
@@ -2740,17 +2727,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   // ১. চেক করা: ইউজার কি বর্তমানে এই সিটেই বসা?
                   if (currentSeatIndex == index) {
                     _showLeaveConfirmation(index);
-                    return;
-                  }
-
-                  // ৩. VIP চেক
-                  if (!isOwner && isVipSeat && (userRole != "VIP")) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text(
-                          "This is a VIP King Seat! Upgrade to VIP to sit here."),
-                      backgroundColor: Colors.amber,
-                      behavior: SnackBarBehavior.floating,
-                    ));
                     return;
                   }
 
@@ -3171,11 +3147,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min, // ✅ কন্টেন্ট অনুযায়ী সাইজ হবে
                   children: [
-                    // ✅ RepaintBoundary যোগ করা হয়েছে যাতে VoiceRipple শুধু নিজের এরিয়া রেন্ডার করে
                     // এর ফলে ভিউয়ার লিস্ট বা পাশের উইজেটগুলো কাঁপবে না।
                     RepaintBoundary(
                       child: VoiceRipple(
                         isTalking: isTalking,
+                        isMicOn:
+                            isMicOn, // তোমার কাছে থাকা মাইকের স্টেট ভেরিয়েবলটি এখানে দাও
+                        isOccupied: isOccupied,
                         child: Stack(
                           alignment: Alignment.center,
                           clipBehavior: Clip.none,
@@ -3336,7 +3314,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
           buildCircularIcon(Icons.emoji_emotions_outlined,
               const Color.fromARGB(255, 250, 143, 2), () async {
             final String authId = FirebaseAuth.instance.currentUser?.uid ?? "";
-            debugPrint("🔘 DEBUG: Emoji Button Clicked by AuthID: $authId");
 
             // ইউজারের আইডি বের করা
             var userSnap = await FirebaseFirestore.instance
@@ -3346,12 +3323,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 .get();
 
             if (userSnap.docs.isEmpty) {
-              debugPrint("❌ DEBUG: User not found in Firestore!");
               return;
             }
 
             String myActualId = userSnap.docs.first.id;
-            debugPrint("👤 DEBUG: Found MyActualID: $myActualId");
 
             // 🔥 সিটে চেক করার সময় লক ডাটা থাকলেও যেন ইউজারকে খুঁজে পায়
             int mySeatIndex = seats.indexWhere((s) {
@@ -3360,17 +3335,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
               return uID.toString() == myActualId;
             });
 
-            debugPrint("🪑 DEBUG: Seat Search Result Index: $mySeatIndex");
-
             if (mySeatIndex != -1) {
               EmojiHandler.showPicker(
                   context: context,
                   seatIndex: mySeatIndex,
                   onEmojiSelected: (index, url) {
                     if (index != -1 && url != null) {
-                      debugPrint(
-                          "🎭 DEBUG: Emoji Selected: $url for Seat: $index");
-
                       DatabaseReference seatRef = FirebaseDatabase.instance
                           .ref('rooms/${widget.roomId}/seats/$index');
 
@@ -3379,30 +3349,23 @@ class _VoiceRoomState extends State<VoiceRoom> {
                         'currentEmoji': url,
                         'showEmoji': true,
                         'emojiTime': ServerValue.timestamp,
-                      }).then((_) {
-                        debugPrint(
-                            "✅ DEBUG: Emoji updated in RTDB for seat $index");
-                      });
+                      }).then((_) {});
 
                       // ৩ থেকে ৪ সেকেন্ড পর রিমুভ লজিক
                       Future.delayed(const Duration(seconds: 4), () {
                         if (mounted) {
                           seatRef.update({'showEmoji': false});
-                          debugPrint(
-                              "🗑️ DEBUG: showEmoji set to false after 4s");
                         }
                       });
                     }
                   });
             } else {
-              debugPrint(
-                  "🚫 DEBUG: User is NOT on any seat. Showing SnackBar.");
               ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Take seat first")));
             }
           }),
 
-          const SizedBox(width: 8),
+          const SizedBox(width: 5),
 
           // ২. আপনার চাওয়া নতুন ফিচার: সরাসরি মেসেজ ইনপুট এরিয়া বদলে শুধু ✉️ বাটন
           _buildCircularIcon(
@@ -3411,15 +3374,29 @@ class _VoiceRoomState extends State<VoiceRoom> {
             _showChatInputBottomSheet();
           }),
 
-          const SizedBox(width: 8),
+          const SizedBox(width: 5),
 
-          // ৩. রুম মোড বাটন 🏩
-          _buildCircularIcon(Icons.hotel, Colors.purpleAccent,
-              () {}), // <--- এখানে একটা কমা বা সেমিকোলন নিশ্চিত করুন এবং ব্র্যাকেট খেয়াল করুন
+          _buildCircularIcon(Icons.star, Colors.purpleAccent, () {
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              builder: (context) => Container(
+                decoration: const BoxDecoration(
+                  color: Color(0xFF1A1A2E),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                // এখানে সরাসরি আপনার রুম পেজের মূল ফাংশন _startGiftCounting টি পাস করে দিন
+                child: FloatingRoomTools(
+                  onGiftCountStart: (minutes, theme) {
+                    _startGiftCounting(minutes, theme); // সরাসরি ফাংশন কল করুন
+                  },
+                  seats: seats, // এটি আপনার স্টেট ভেরিয়েবল বা লিস্ট
+                ),
+              ),
+            );
+          }),
+          const SizedBox(width: 5),
 
-          const SizedBox(width: 4),
-
-          // ৪. রুম সাউন্ড বাটন
           GestureDetector(
             onTap: () {
               setState(() {
@@ -3429,8 +3406,21 @@ class _VoiceRoomState extends State<VoiceRoom> {
             },
             child: Container(
               padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                  color: Colors.black45, shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1), // গ্লাস কালার
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3), // বর্ডার গ্লাস ইফেক্ট
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
               child: Icon(
                 isRoomMuted ? Icons.volume_off : Icons.volume_up,
                 color: isRoomMuted ? Colors.redAccent : Colors.greenAccent,
@@ -3438,102 +3428,154 @@ class _VoiceRoomState extends State<VoiceRoom> {
               ),
             ),
           ),
+          const SizedBox(width: 5),
 
-          const SizedBox(width: 4),
-
-          // ৫. মাইক কন্ট্রোল বাটন
-          IconButton(
-            constraints: const BoxConstraints(),
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            icon: Icon(
-              isMicOn ? Icons.mic : Icons.mic_off,
-              color: isMicOn ? Colors.greenAccent : Colors.redAccent,
-              size: 22,
+          // ৫. মাইক কন্ট্রোল বাটন (গ্লাস বর্ডারসহ)
+          Container(
+            padding: const EdgeInsets.all(8), // বাটন সাইজ ঠিক রাখতে প্যাডিং
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1), // গ্লাস ব্যাকগ্রাউন্ড
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3), // গ্লাস বর্ডার
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+              ],
             ),
-            onPressed: () async {
-              if (currentSeatIndex == -1) return;
-              try {
-                HapticFeedback.lightImpact();
-              } catch (_) {}
-              bool newMicState = !isMicOn;
-              try {
-                if (_agoraManager.engine != null) {
-                  await _agoraManager.toggleMic(!newMicState);
-                }
-                FirebaseDatabase.instance
-                    .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
-                    .update({'isMicOn': newMicState});
-                if (mounted) {
-                  setState(() {
-                    isMicOn = newMicState;
-                    if (!newMicState &&
-                        currentSeatIndex >= 0 &&
-                        currentSeatIndex < seats.length) {
-                      seats[currentSeatIndex]["isTalking"] = false;
-                    }
-                  });
-                }
-              } catch (e) {
-                debugPrint("Mic Toggle Error: $e");
-              }
-            },
-          ),
+            child: GestureDetector(
+              onTap: () async {
+                if (currentSeatIndex == -1) return;
+                try {
+                  HapticFeedback.lightImpact();
+                } catch (_) {}
 
-          // ৬. মিউজিক বাটন
-          IconButton(
-            constraints: const BoxConstraints(),
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            icon: Icon(Icons.music_note,
+                bool newMicState = !isMicOn;
+                try {
+                  if (_agoraManager.engine != null) {
+                    await _agoraManager.toggleMic(!newMicState);
+                  }
+                  FirebaseDatabase.instance
+                      .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
+                      .update({'isMicOn': newMicState});
+
+                  if (mounted) {
+                    setState(() {
+                      isMicOn = newMicState;
+                      if (!newMicState &&
+                          currentSeatIndex >= 0 &&
+                          currentSeatIndex < seats.length) {
+                        seats[currentSeatIndex]["isTalking"] = false;
+                      }
+                    });
+                  }
+                } catch (e) {
+                  debugPrint("Mic Toggle Error: $e");
+                }
+              },
+              child: Icon(
+                isMicOn ? Icons.mic : Icons.mic_off,
+                color: isMicOn ? Colors.greenAccent : Colors.redAccent,
+                size: 22,
+              ),
+            ),
+          ),
+          
+          const SizedBox(width: 5),
+          // ৬. মিউজিক বাটন (গ্লাস বর্ডারসহ)
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: GestureDetector(
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  isScrollControlled: true,
+                  builder: (context) => MusicPlayerWidget(
+                    onMusicSelect: (path) async {
+                      setState(() {
+                        currentMusicUrl = path;
+                        isFloatingPlayerVisible = true;
+                        isRoomMusicPlaying = true;
+                      });
+                      try {
+                        await _agoraManager.engine.stopAudioMixing();
+                        await _agoraManager.engine.startAudioMixing(
+                            filePath: path, loopback: false, cycle: 1);
+                        await _agoraManager.engine.adjustAudioMixingVolume(100);
+                      } catch (e) {
+                        debugPrint("Music Error: $e");
+                      }
+                    },
+                    onVolumeChange: (volume) => _agoraManager.engine
+                        .adjustAudioMixingVolume(volume.toInt()),
+                  ),
+                );
+              },
+              child: Icon(
+                Icons.music_note,
                 color: isFloatingPlayerVisible
                     ? const Color.fromARGB(255, 164, 86, 243)
                     : const Color.fromARGB(255, 117, 225, 244),
-                size: 22),
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                backgroundColor: Colors.transparent,
-                isScrollControlled: true,
-                builder: (context) => MusicPlayerWidget(
-                  onMusicSelect: (path) async {
-                    setState(() {
-                      currentMusicUrl = path;
-                      isFloatingPlayerVisible = true;
-                      isRoomMusicPlaying = true;
-                    });
-                    try {
-                      await _agoraManager.engine.stopAudioMixing();
-                      await _agoraManager.engine.startAudioMixing(
-                          filePath: path, loopback: false, cycle: 1);
-                      await _agoraManager.engine.adjustAudioMixingVolume(100);
-                    } catch (e) {
-                      debugPrint("Music Error: $e");
-                    }
-                  },
-                  onVolumeChange: (volume) => _agoraManager.engine
-                      .adjustAudioMixingVolume(volume.toInt()),
-                ),
-              );
-            },
+                size: 22,
+              ),
+            ),
           ),
 
           // ৭. এনিমেটেড গিফট বাটন 🎁 (নড়াচড়া করার ফিচার সহ)
           _buildAnimatedGiftButton(),
 
-          // ৮. গেম বাটন 🎮
-          IconButton(
-            constraints: const BoxConstraints(),
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            icon: const Icon(Icons.videogame_asset,
-                color: Colors.orange, size: 22),
-            onPressed: () => showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              useSafeArea: false,
-              backgroundColor: Colors.transparent,
-              builder: (c) => SizedBox(
-                height: MediaQuery.of(context).size.height,
-                child: GamePanelView(roomId: widget.roomId),
+          // ৮. গেম বাটন 🎮 (গ্লাস বর্ডারসহ)
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 1.5,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: GestureDetector(
+              onTap: () => showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: false,
+                backgroundColor: Colors.transparent,
+                builder: (c) => SizedBox(
+                  height: MediaQuery.of(context).size.height,
+                  child: GamePanelView(roomId: widget.roomId),
+                ),
+              ),
+              child: const Icon(Icons.videogame_asset,
+                  color: Colors.orange, size: 22),
             ),
           ),
         ],
@@ -3831,14 +3873,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                             .update({
                           'totalActiveXp': FieldValue.increment(calculatedXp),
                         });
-
-                        // 🔍 [সঠিক লগ]: ভিআইপি টেক্সট সরিয়ে আপনার দেওয়া নতুন ফিচারের নাম সেট করা হলো ভাই
-                        debugPrint(
-                            "🔥 [PaglaChat Level System] XP Updated: Sender +$calculatedXp GiftXP, Receiver +$calculatedXp ActiveXp (ডায়মন্ড খরচ ছিল: $totalAmount)");
-                      } else {
-                        debugPrint(
-                            "ℹ️ [PaglaChat] খরচ করা ডায়মন্ড ২৫০ এর কম হওয়ায় এক্সপি যোগ হয়নি ভাই।");
-                      }
+                      } else {}
                     }
                   } else {
                     return;
@@ -3868,9 +3903,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                       // আপনার ডাটাবেস স্ট্রাকচার অনুযায়ী: seats.0.giftCount
                       'seats.$seatIndex.giftCount': FieldValue.increment(count),
                     });
-
-                    debugPrint(
-                        "🔥 [Seat Counter] সিট ইনডেক্স $seatIndex এ $count টি গিফট যোগ হয়েছে।");
                   }
                 }
                 // ৪. সফল হলে UI আপডেট
@@ -3892,8 +3924,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 // 🔥 ৫. সোলমেট রিকোয়েস্ট ও এক্সপি আপডেট প্রসেসর
                 if (gift['id'] == 'soulmate_special') {
                   try {
-                    print(
-                        "💕 সোলমেট গিফট ডিটেক্ট হয়েছে! রিসিভারের লম্বা ফায়ারবেস UID খোঁজা হচ্ছে...");
                     String receiverAuthUID = "";
 
                     if (seats.isNotEmpty) {
@@ -3924,11 +3954,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
                         'timestamp': FieldValue.serverTimestamp(),
                         'status': 'pending',
                       });
-                      print("🎯 সোলমেট রিকোয়েস্ট সফলভাবে পাঠানো হয়েছে!");
                     }
-                  } catch (soulmateError) {
-                    print("Error sending soulmate request: $soulmateError");
-                  }
+                  } catch (soulmateError) {}
                 } else {
                   // 🔥 সোলমেট এক্সপি আপডেট লজিক
                   if (!isFree &&
@@ -4123,7 +4150,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                     print("Error sending marriage request: $marriageError");
                   }
                 }
-
                 // 🔥 ৫. ফায়ারবেস রুম ব্যানার এবং ডেলি পয়েন্ট আপডেট (২৫০ ডায়মন্ডে ১ পয়েন্ট)
                 int pointsToIncrement = totalAmount ~/ 250;
 
@@ -4195,21 +4221,31 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
 // হেল্পার বাটন ফাংশন
-  Widget _buildCircularIcon(IconData icon, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withOpacity(0.1),
-          border: Border.all(color: Colors.white24),
-        ),
-        child: Icon(icon, color: color, size: 22),
+Widget _buildCircularIcon(IconData icon, Color color, VoidCallback onTap) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withOpacity(0.1),
+        border: Border.all(color: Colors.white24),
       ),
-    );
-  }
-
+      // এখানে আইকনের পরিবর্তে কন্ডিশন বসানো হলো
+      child: icon == Icons.star 
+          ? const Row(
+              mainAxisSize: MainAxisSize.min, // বাটন সাইজ ঠিক রাখার জন্য
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text("PK", style: TextStyle(color: Color.fromARGB(255, 68, 151, 246), fontWeight: FontWeight.bold, fontSize: 10)),
+                SizedBox(width: 2), // লেখা ও স্টারের মাঝে গ্যাপ
+                Icon(Icons.star, size: 10, color: Color.fromARGB(255, 246, 226, 4)),
+              ],
+            )
+          : Icon(icon, color: color, size: 22),
+    ),
+  );
+}
   Widget _buildViewerArea() {
     return Container(
       height: 50,
@@ -4270,7 +4306,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   void _showSettings() {
     RoomSettingsHandler.showSettings(
       context: context,
-      roomId: widget.roomId, // বিল্ড এরর ফিক্সের জন্য এটি দরকার
+      roomId: widget.roomId,
       isLocked: isRoomLocked,
       onToggleLock: () async {
         setState(() => isRoomLocked = !isRoomLocked);
@@ -4282,58 +4318,53 @@ class _VoiceRoomState extends State<VoiceRoom> {
       onSetWallpaper: (path) async {
         if (path.isEmpty) return;
         try {
-          setState(() => roomWallpaperPath = path);
-
-          // ১. পুরাতন ওয়ালপেপার ডিলিট করার লজিক
           final roomDoc = await FirebaseFirestore.instance
               .collection('rooms')
               .doc(widget.roomId)
               .get();
+
           if (roomDoc.exists) {
             String? oldUrl = roomDoc.data()?['roomWallpaper'];
-            // যদি আগে থেকেই কোনো ওয়ালপেপার থাকে এবং সেটি যদি ফায়ারবেস স্টোরেজের হয়
             if (oldUrl != null &&
                 oldUrl.isNotEmpty &&
                 oldUrl.contains('firebase')) {
               try {
                 await FirebaseStorage.instance.refFromURL(oldUrl).delete();
-                debugPrint("🗑️ পুরাতন ওয়ালপেপার ডিলিট হয়েছে");
-              } catch (e) {
-                debugPrint("Old wallpaper delete error: $e");
-              }
+              } catch (e) {}
             }
           }
 
-          // ২. নতুন ফাইল আপলোড লজিক
-          String fileName =
-              'wallpapers/${widget.roomId}.jpg'; // ফাইলনেম ফিক্সড রাখলে রিপ্লেস হতে সুবিধা হয়
+          // নতুন ইমেজ কম্প্রেস ও আপলোড লজিক
+          final compressedBytes = await FlutterImageCompress.compressWithFile(
+            path,
+            quality: 60,
+            minWidth: 800,
+            minHeight: 800,
+          );
+
+          if (compressedBytes == null) return;
+
+          String fileName = 'wallpapers/${widget.roomId}.jpg';
           var storageRef = FirebaseStorage.instance.ref().child(fileName);
 
-          final XFile imageFile = XFile(path);
-          final bytes = await imageFile.readAsBytes();
-
           UploadTask uploadTask = storageRef.putData(
-            bytes,
+            compressedBytes,
             SettableMetadata(contentType: 'image/jpeg'),
           );
 
           var snapshot = await uploadTask;
           String downloadUrl = await snapshot.ref.getDownloadURL();
 
-          // ৩. ডাটাবেস আপডেট
           await FirebaseFirestore.instance
               .collection('rooms')
               .doc(widget.roomId)
               .update({'roomWallpaper': downloadUrl, 'wallpaper': downloadUrl});
 
-          setState(() {
-            roomWallpaperPath = downloadUrl;
-          });
+          setState(() => roomWallpaperPath = downloadUrl);
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text("Wallpaper updated and old one deleted!")),
+              const SnackBar(content: Text("Wallpaper updated!")),
             );
           }
         } catch (e) {
@@ -4341,30 +4372,17 @@ class _VoiceRoomState extends State<VoiceRoom> {
         }
       },
       onMinimize: () {
-        // ১. আগে ফ্ল্যাগটি ট্রু করুন (যাতে dispose বুঝতে পারে এটি মিনিমাইজ)
         FloatingBubbleService.isMinimized = true;
-
-        // ২. ইমেজ ইউআরএল সেট করা
         String imageUrl = roomProfileImage.isNotEmpty
             ? roomProfileImage
             : 'https://via.placeholder.com/150';
 
-        // ৩. গ্লোবাল বাবল দেখানো
-        FloatingBubbleService.show(
-          context,
-          widget.roomId,
-          imageUrl,
-          widget, // বর্তমান রুম উইজেট (VoiceRoom)
-        );
-
-        // ৪. সবশেষে পপ করুন (রুম পেজ থেকে বের হওয়া)
+        FloatingBubbleService.show(context, widget.roomId, imageUrl, widget);
         Navigator.of(context).pop();
 
-        // ইউজারকে মেসেজ দেখানো
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("রুম মিনিমাইজ করা হয়েছে"),
-            duration: Duration(seconds: 2),
+            content: Text("রুম মিনিমাইজ করা হয়েছে"),
             backgroundColor: Colors.pinkAccent,
           ),
         );
@@ -4389,9 +4407,21 @@ class _VoiceRoomState extends State<VoiceRoom> {
           debugPrint("Error clearing chat: $e");
         }
       },
-      onLeave: () {
-        _agoraManager.engine.leaveChannel();
-        Navigator.pop(context);
+      onLeave: () async {
+        RoomSettingsHandler.showExitDialog(context, () async {
+          // ১. ডাটা ক্লিন বা রিমুভ করার লজিক
+          await RoomExitHandler.handleExit(widget.roomId, myuID.toString(),
+              adminList.map((e) => e.toString()).toList(), ownerId.toString());
+
+          // ২. আগোরা চ্যানেল লিভ করুন
+          await _agoraManager.engine.leaveChannel();
+
+          // ৩. সরাসরি পেজ থেকে বের হয়ে যান, কোনো শর্ত ছাড়াই
+          if (mounted) {
+            Navigator.of(context).pop(); // ডায়ালগ ক্লোজ
+            Navigator.of(context).pop(); // রুম পেজ ক্লোজ
+          }
+        });
       },
     );
   }
@@ -4399,22 +4429,28 @@ class _VoiceRoomState extends State<VoiceRoom> {
   Widget _buildRoomBanner(Map<String, dynamic> roomData) {
     String bannerUrl = roomData['bannerUrl'] ?? "";
 
-    if (bannerUrl.isEmpty) return SizedBox.shrink();
+    if (bannerUrl.isEmpty) return const SizedBox.shrink();
 
     return Material(
-      // টাচ কাজ করার জন্য মেটেরিয়াল দরকার
       color: Colors.transparent,
       child: Container(
-        width: 150, // ভাসমান ব্যানারের জন্য ছোট সাইজ ভালো দেখায়
+        width: 150,
         height: 80,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          image: DecorationImage(
-            image: NetworkImage(bannerUrl),
-            fit: BoxFit.cover,
-          ),
           border: Border.all(color: Colors.white24),
-          boxShadow: [BoxShadow(color: Colors.black45, blurRadius: 4)],
+          boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 4)],
+        ),
+        // CachedNetworkImage ব্যবহার করে পারফরম্যান্স বৃদ্ধি
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: CachedNetworkImage(
+            imageUrl: bannerUrl,
+            fit: BoxFit.cover,
+            placeholder: (context, url) =>
+                const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            errorWidget: (context, url, error) => const Icon(Icons.error),
+          ),
         ),
       ),
     );
@@ -4442,17 +4478,17 @@ class _VoiceRoomState extends State<VoiceRoom> {
         return Material(
           color: Colors.transparent,
           child: Container(
-            width: 260,
-            padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
+            width: 260 * 0.6, // ৬০% সাইজ
+            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 9),
             decoration: BoxDecoration(
               color: const Color(0xFF0D0D1F).withOpacity(0.98),
-              borderRadius: BorderRadius.circular(30),
+              borderRadius: BorderRadius.circular(18), // ১৮ (৩০ এর ৬০%)
               border: Border.all(color: Colors.white10),
               boxShadow: [
                 BoxShadow(
                     color: Colors.black.withOpacity(0.6),
-                    blurRadius: 25,
-                    spreadRadius: 5),
+                    blurRadius: 15, // ১৫ (২৫ এর ৬০%)
+                    spreadRadius: 3), // ৩ (৫ এর ৬০%)
               ],
             ),
             child: Column(
@@ -4463,7 +4499,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Icon(Icons.music_note,
-                        color: Colors.pinkAccent, size: 18),
+                        color: Colors.pinkAccent, size: 10.8), // ১৮ * ০.৬
                     GestureDetector(
                       onTap: () {
                         setState(() {
@@ -4473,14 +4509,14 @@ class _VoiceRoomState extends State<VoiceRoom> {
                         _agoraManager.engine.stopAudioMixing();
                       },
                       child: const Icon(Icons.close,
-                          color: Colors.white38, size: 20),
+                          color: Colors.white38, size: 12), // ১২ (২০ এর ৬০%)
                     ),
                   ],
                 ),
 
-                // প্রোফাইল ও এনিমেশন এরিয়া (ফিক্সড হাইট)
+                // প্রোফাইল এরিয়া
                 SizedBox(
-                  height: 140,
+                  height: 140 * 0.6, // ৮৪
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
@@ -4491,11 +4527,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
                             3, (index) => SmoothRotatingHeart(index: index)),
                       ],
                       Container(
-                        width: 90,
-                        height: 90,
+                        width: 90 * 0.6, // ৫৪
+                        height: 90 * 0.6, // ৫৪
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white24, width: 2),
+                          border: Border.all(
+                              color: Colors.white24, width: 1.2), // ২ এর ৬০%
                         ),
                         child: ClipOval(
                           child: Image.network(
@@ -4503,7 +4540,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) =>
                                 const Icon(Icons.person,
-                                    color: Colors.white, size: 50),
+                                    color: Colors.white, size: 30), // ৫০ এর ৬০%
                           ),
                         ),
                       ),
@@ -4514,20 +4551,20 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 Text("ID: $displayID",
                     style: const TextStyle(
                         color: Colors.cyanAccent,
-                        fontSize: 11,
+                        fontSize: 6.6, // ১১ এর ৬০%
                         fontWeight: FontWeight.bold)),
-                const SizedBox(height: 5),
+                const SizedBox(height: 3), // ৫ এর ৬০%
                 const Text("Now Playing...",
                     style: TextStyle(
                         color: Colors.white,
-                        fontSize: 14,
+                        fontSize: 8.4, // ১৪ এর ৬০%
                         fontWeight: FontWeight.w500)),
 
-                const SizedBox(height: 15),
+                const SizedBox(height: 9), // ১৫ এর ৬০%
 
-                // ভিজুয়ালাইজার এরিয়া (ফিক্সড হাইট ২৫)
+                // ভিজুয়ালাইজার এরিয়া
                 SizedBox(
-                  height: 25,
+                  height: 15, // ২৫ এর ৬০%
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -4538,24 +4575,19 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   ),
                 ),
 
-                const SizedBox(height: 25),
+                const SizedBox(height: 15), // ২৫ এর ৬০%
 
-                // কন্ট্রোল এরিয়া - নেক্সট বাটন বাদে দুই পাশে লাইট ইফেক্ট
+                // কন্ট্রোল এরিয়া
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // বাম পাশের লাইট ইফেক্ট
                     _buildSideLight(Colors.pinkAccent),
-
-                    const SizedBox(width: 20),
-
-                    // প্লে/পজ বাটন (লজিক আপডেট করা হয়েছে)
+                    const SizedBox(width: 12), // ২০ এর ৬০%
                     GestureDetector(
                       onTap: () async {
                         if (isRoomMusicPlaying) {
                           await _agoraManager.engine.pauseAudioMixing();
                         } else {
-                          // যদি আগে কখনো স্টার্ট না হয়ে থাকে তবে স্টার্ট করবে, নয়তো রেজুউম করবে
                           await _agoraManager.engine.resumeAudioMixing();
                         }
                         setState(() {
@@ -4563,8 +4595,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
                         });
                       },
                       child: Container(
-                        width: 60,
-                        height: 60,
+                        width: 36, // ৬০ এর ৬০%
+                        height: 36, // ৬০ এর ৬০%
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: const LinearGradient(
@@ -4578,8 +4610,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                         ? Colors.pinkAccent
                                         : Colors.blueAccent)
                                     .withOpacity(0.5),
-                                blurRadius: 15,
-                                spreadRadius: 2)
+                                blurRadius: 9, // ১৫ এর ৬০%
+                                spreadRadius: 1.2), // ২ এর ৬০%
                           ],
                         ),
                         child: Icon(
@@ -4587,13 +4619,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                 ? Icons.pause_rounded
                                 : Icons.play_arrow_rounded,
                             color: Colors.white,
-                            size: 35),
+                            size: 21), // ৩৫ এর ৬০%
                       ),
                     ),
-
-                    const SizedBox(width: 20),
-
-                    // ডান পাশের লাইট ইফেক্ট
+                    const SizedBox(width: 12), // ২০ এর ৬০%
                     _buildSideLight(Colors.cyanAccent),
                   ],
                 ),
@@ -4605,18 +4634,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-// দুই পাশের লাইট ইফেক্ট উইজেট
+// সাইড লাইট আপডেট
   Widget _buildSideLight(Color color) {
     return Container(
-      width: 40,
-      height: 4,
+      width: 24, // ৪০ এর ৬০%
+      height: 2.4, // ৪ এর ৬০%
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         boxShadow: [
           BoxShadow(
             color: color.withOpacity(0.8),
-            blurRadius: 12,
-            spreadRadius: 2,
+            blurRadius: 7.2, // ১২ এর ৬০%
+            spreadRadius: 1.2, // ২ এর ৬০%
           ),
         ],
         color: color,

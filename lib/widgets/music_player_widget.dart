@@ -58,33 +58,47 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
     });
   }
 
-  // --- এরর মুক্ত pickMusic মেথড ---
   Future<void> pickMusic() async {
-    try {
-      // সরাসরি FilePicker.platform.pickFiles কল করার পরিবর্তে 
-      // রেজাল্টটি আগে নিয়ে চেক করা হচ্ছে।
-      FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.audio,
-        allowMultiple: true,
-      );
+  try {
+    // এখানে ফাইল পিকারকে মাল্টিপল মোডে ফোর্স করা হচ্ছে
+   FilePickerResult? result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['mp3', 'wav', 'aac', 'ogg'],
+      allowMultiple: true, // এটিই মাল্টিপল সিলেকশন এনাবল করে
+      // কিছু ডিভাইসে নিচের এই প্যারামিটারগুলো মাল্টি-সিলেকশন নিশ্চিত করতে সাহায্য করে
+      withReadStream: true,
+      withData: false, 
+    );
 
-      if (result != null) {
-        final prefs = await SharedPreferences.getInstance();
-        setState(() {
-          for (var file in result.files) {
-            if (file.path != null && !savedMusicPaths.contains(file.path)) {
-              savedMusicNames.add(file.name);
-              savedMusicPaths.add(file.path!);
-            }
+    if (result != null && result.files.isNotEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      
+      bool addedNew = false;
+      setState(() {
+        for (var file in result.files) {
+          // চেক করছি যেন ডুপ্লিকেট না হয়
+          if (file.path != null && !savedMusicPaths.contains(file.path)) {
+            savedMusicNames.add(file.name);
+            savedMusicPaths.add(file.path!);
+            addedNew = true;
           }
-        });
+        }
+      });
+
+      if (addedNew) {
         await prefs.setStringList('my_music_names', savedMusicNames);
         await prefs.setStringList('my_music_paths', savedMusicPaths);
+        
+        // ইউজারকে জানানোর জন্য একটা ছোট মেসেজ দিতে পারো
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("${result.files.length} টি গান যুক্ত হয়েছে!"))
+        );
       }
-    } catch (e) {
-      debugPrint("File Picker Error: $e");
     }
+  } catch (e) {
+    debugPrint("File Picker Error: $e");
   }
+}
 
   Future<void> deleteMusic(int index) async {
     final prefs = await SharedPreferences.getInstance();

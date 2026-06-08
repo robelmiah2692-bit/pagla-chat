@@ -417,17 +417,29 @@ class _RoomListPageState extends State<RoomListPage>
   }
 
   Widget _buildLiveRoomList() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData)
-          return const Center(
-              child: CircularProgressIndicator(color: Colors.pinkAccent));
-        var docs = snapshot.data!.docs;
-        return _buildGrid(docs);
-      },
-    );
-  }
+  return StreamBuilder<QuerySnapshot>(
+    // এখানে 'where' ফিল্টার যোগ করা হয়েছে যা শুধুমাত্র isActive = true রুমগুলো আনবে
+    stream: FirebaseFirestore.instance
+        .collection('rooms')
+        .where('isActive', isEqualTo: true) 
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(
+            child: CircularProgressIndicator(color: Colors.pinkAccent));
+      }
+      
+      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        return const Center(
+            child: Text("No live rooms at the moment", 
+                style: TextStyle(color: Colors.white70)));
+      }
+
+      var docs = snapshot.data!.docs;
+      return _buildGrid(docs);
+    },
+  );
+}
 
  // 🇧🇩 [বাংলা মার্ক]: নতুন ১০০% ফিক্সড ফলোইং রুম মেথড (কোনো আইডি লেট বা নাল প্রবলেম হবে না)
   Widget _buildFollowingRoomList(String? targetUID) {
@@ -459,7 +471,7 @@ class _RoomListPageState extends State<RoomListPage>
         // 🚀 ইউজারের আসল শর্ট uID (যেমন: "454488") সফলভাবে সংগৃহীত হলো ভাই
         String liveUserUID = userSnapshot.data!.docs.first['uID'].toString();
         
-        debugPrint("🎉 [PaglaChat Master] ইনস্ট্যান্ট uID পাওয়া গেছে: $liveUserUID");
+       
 
         // 🎯 এখন এই uID দিয়ে আমরা সরাসরি রুমের ফলোয়ার লিস্টের স্ট্রিম চালাবো
         return StreamBuilder<QuerySnapshot>(
@@ -480,7 +492,7 @@ class _RoomListPageState extends State<RoomListPage>
 
             var docs = snapshot.data!.docs;
 
-            debugPrint("🎉 [PaglaChat Master] ফলো করা মোট রুম সংখ্যা: ${docs.length} টি");
+           
 
             if (docs.isEmpty) {
               return const Center(
@@ -495,74 +507,76 @@ class _RoomListPageState extends State<RoomListPage>
     );
   }
   Widget _buildMyRoomList() {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null || user.email == null)
-      return const Center(
-          child: Text("Please Login", style: TextStyle(color: Colors.white)));
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null || user.email == null)
+    return const Center(
+        child: Text("Please Login", style: TextStyle(color: Colors.white)));
 
-    return FutureBuilder<QuerySnapshot>(
-      // এখানেও ইমেইল দিয়ে uID খোঁজার রাস্তা রাখা হয়েছে
-      future: FirebaseFirestore.instance
-          .collection('users')
-          .where('email', isEqualTo: user.email)
-          .limit(1)
-          .get(),
-      builder: (context, userSnapshot) {
-        if (!userSnapshot.hasData)
-          return const Center(
-              child: CircularProgressIndicator(color: Colors.pinkAccent));
-        if (userSnapshot.data!.docs.isEmpty)
-          return const Center(child: Text("User profile not found"));
+  return FutureBuilder<QuerySnapshot>(
+    future: FirebaseFirestore.instance
+        .collection('users')
+        .where('email', isEqualTo: user.email)
+        .limit(1)
+        .get(),
+    builder: (context, userSnapshot) {
+      if (!userSnapshot.hasData)
+        return const Center(
+            child: CircularProgressIndicator(color: Colors.pinkAccent));
+      if (userSnapshot.data!.docs.isEmpty)
+        return const Center(child: Text("User profile not found"));
 
-        String myuID = userSnapshot.data!.docs.first['uID'].toString();
+      String myuID = userSnapshot.data!.docs.first['uID'].toString();
 
-        return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('rooms')
-              .where('ownerId', isEqualTo: myuID)
-              .snapshots(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData)
-              return const Center(
-                  child: CircularProgressIndicator(color: Colors.pinkAccent));
-            var myRooms = snapshot.data!.docs;
+      return StreamBuilder<QuerySnapshot>(
+        // পুরো কালেকশন থেকে ডাটা আনছি যেন ক্লায়েন্ট সাইডে ফিল্টার করতে পারি
+        stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData)
+            return const Center(
+                child: CircularProgressIndicator(color: Colors.pinkAccent));
 
-            if (myRooms.isNotEmpty) {
-              return _buildGrid(myRooms, isMyRoomList: true);
-            }
+          // এখানে ফিল্টার করছি: ইউজার কি owner? নাকি admin লিস্টে আছে?
+          var myRooms = snapshot.data!.docs.where((doc) {
+            var data = doc.data() as Map<String, dynamic>;
+            String ownerId = data['ownerId']?.toString() ?? "";
+            List<dynamic> admins = data['admins'] ?? [];
+            List<String> adminList = admins.map((e) => e.toString()).toList();
+            
+            return ownerId == myuID || adminList.contains(myuID);
+          }).toList();
 
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.meeting_room_outlined,
-                      color: Colors.white12, size: 80),
-                  const SizedBox(height: 15),
-                  const Text("You don't have any room",
-                      style: TextStyle(color: Colors.white38)),
-                  const SizedBox(height: 25),
-                  ElevatedButton.icon(
-                    onPressed: _showCreateRoomDialog,
-                    icon: const Icon(Icons.add),
-                    label: const Text("Create Your Room"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.pinkAccent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 25, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30)),
-                    ),
+          if (myRooms.isNotEmpty) {
+            return _buildGrid(myRooms, isMyRoomList: true);
+          }
+
+          // রুম না থাকলে আগের ডিজাইনটিই দেখাবে
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.meeting_room_outlined, color: Colors.white12, size: 80),
+                const SizedBox(height: 15),
+                const Text("You don't have any room", style: TextStyle(color: Colors.white38)),
+                const SizedBox(height: 25),
+                ElevatedButton.icon(
+                  onPressed: _showCreateRoomDialog,
+                  icon: const Icon(Icons.add),
+                  label: const Text("Create Your Room"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.pinkAccent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                   ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
   // 🇧🇩 [বাংলা মার্ক]: গ্রিড ভিউ মেথড
   Widget _buildGrid(List<DocumentSnapshot> docs, {bool isMyRoomList = false}) {
     return GridView.builder(

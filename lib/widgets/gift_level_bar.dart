@@ -58,9 +58,7 @@ class _GiftLevelBarState extends State<GiftLevelBar>
         ? (remainingXp.toDouble() / currentLevelRequiredXp.toDouble()).clamp(0.0, 1.0)
         : 0.0;
 
-    debugPrint("======== 👑 [PaglaChat Gift Level System] ========");
-    debugPrint("📥 ইনপুট: $xpValue XP | 🆙 লেভেল: Lv.$level | 📊 প্রোগ্রেস: $remainingXp / $currentLevelRequiredXp XP");
-    debugPrint("=============================================");
+   
 
     Color roseColor = Colors.purpleAccent;
     if (level >= 10 && level < 20) roseColor = const Color(0xFFFF00FF);

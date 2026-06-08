@@ -5,12 +5,17 @@ class VoiceRipple extends StatefulWidget {
   final Widget child;
   final bool isTalking;
   final int seatIndex;
+  // নতুন প্যারামিটারগুলো এখানে যোগ করলাম
+  final bool isMicOn;
+  final bool isOccupied;
 
   const VoiceRipple({
     super.key,
     required this.child,
     required this.isTalking,
     this.seatIndex = 0,
+    required this.isMicOn,
+    required this.isOccupied,
   });
 
   @override
@@ -65,18 +70,16 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
     Color currentColor = rippleColors[widget.seatIndex % rippleColors.length];
 
     return SizedBox(
-      width: 65, // সিটের মূল উইডথ অনুযায়ী সেট করা
-      height: 65, // সিটের মূল হাইট অনুযায়ী সেট করা
+      width: 65,
+      height: 65,
       child: Stack(
         alignment: Alignment.center,
-        clipBehavior: Clip.none, // এর ফলে নাম নিচে থাকলেও কেটে যাবে না
+        clipBehavior: Clip.none,
         children: [
           if (widget.isTalking) ...[
-            // ১. গ্লসি রিপেল লেয়ার
             _buildGlossyRipple(0.0, currentColor),
             _buildGlossyRipple(0.5, currentColor),
 
-            // ২. জিকিমিকি ঘুরন্ত ইফেক্ট
             AnimatedBuilder(
               animation: _controller,
               builder: (context, child) {
@@ -100,10 +103,44 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
               },
             ),
           ],
-          
-          // ৩. মূল অবতার/সিট (সবার উপরে থাকবে)
-          Center(
-            child: widget.child,
+
+          // ৩. মূল অবতার এবং মাইক আইকন (এনিমেটেড)
+          Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              Center(child: widget.child),
+              if (widget.isOccupied)
+                Positioned(
+                  bottom: 2,
+                  right: 2,
+                  child: AnimatedBuilder(
+                    animation: _controller,
+                    builder: (context, child) {
+                      double scale = widget.isTalking ? (1.0 + (_controller.value * 0.2)) : 1.0;
+                      return Transform.scale(
+                        scale: scale,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.7),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: widget.isTalking ? currentColor : Colors.white24,
+                              width: 0.5,
+                            ),
+                          ),
+                          child: Icon(
+                            widget.isMicOn ? Icons.mic : Icons.mic_off,
+                            color: widget.isMicOn ? (widget.isTalking ? currentColor : Colors.greenAccent) : Colors.redAccent,
+                            size: 11,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -116,7 +153,7 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
       builder: (context, child) {
         double progress = (_controller.value + delay) % 1.0;
         return Transform.scale(
-          scale: 1.0 + (progress * 0.6), // একটু বেশি ছড়াবে গ্লসি লুকের জন্য
+          scale: 1.0 + (progress * 0.6),
           child: Opacity(
             opacity: (1.0 - progress).clamp(0.0, 1.0),
             child: Container(
@@ -124,25 +161,17 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
               height: 60,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                // গ্লসি গ্রেডিয়েন্ট ইফেক্ট
                 gradient: RadialGradient(
                   colors: [
-                    color.withOpacity(0.0), // ভেতরে খালি
-                    color.withOpacity(0.3), // মাঝখানে হালকা গ্লস
-                    color.withOpacity(0.0), // শেষে মিশে যাবে
+                    color.withOpacity(0.0),
+                    color.withOpacity(0.3),
+                    color.withOpacity(0.0),
                   ],
                   stops: const [0.4, 0.8, 1.0],
                 ),
-                border: Border.all(
-                  color: color.withOpacity(0.4),
-                  width: 2,
-                ),
+                border: Border.all(color: color.withOpacity(0.4), width: 2),
                 boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.2),
-                    blurRadius: 10,
-                    spreadRadius: 2,
-                  )
+                  BoxShadow(color: color.withOpacity(0.2), blurRadius: 10, spreadRadius: 2)
                 ],
               ),
             ),

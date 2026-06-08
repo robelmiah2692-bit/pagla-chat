@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -118,64 +119,65 @@ class _HomePageState extends State<HomePage>
   }
 
   // 🇧🇩 [বাংলা মার্ক]: কাউন্ট বাটন ক্লিয়ার করার অপ্টিমাইজড মেথড (আইডি সিঙ্কড ফিক্স)
-Future<void> _clearNotificationCount() async {
-  // ১. কারেন্ট ইউজার অবজেক্ট নেওয়া হচ্ছে
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) return; 
+  Future<void> _clearNotificationCount() async {
+    // ১. কারেন্ট ইউজার অবজেক্ট নেওয়া হচ্ছে
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-  try {
-    // ২. সরাসরি আসল ফায়ারবেস UID (user.uid) দিয়ে কোয়েরি করা হচ্ছে ভাই
-    final snapshot = await FirebaseFirestore.instance
-        .collection('notifications')
-        .where('receiverId', isEqualTo: user.uid)
-        .get();
-
-    final batch = FirebaseFirestore.instance.batch();
-    bool hasUpdates = false;
-
-    for (var doc in snapshot.docs) {
-      final data = doc.data();
-      final type = data['type'] ?? '';
-      final isRead = data['isRead'] ?? false;
-
-      if ((type == 'like' || type == 'comment') && isRead == false) {
-        batch.update(doc.reference, {'isRead': true});
-        hasUpdates = true;
-      }
-    }
-
-    if (hasUpdates) {
-      await batch.commit();
-      debugPrint("🧹 [PaglaChat] সব আনরিড নোটিফিকেশন ক্লিয়ার করা হয়েছে ভাই!");
-    }
-  } catch (e) {
-    debugPrint("❌ [PaglaChat] কাউন্ট ক্লিয়ার এরর: $e");
-  }
-}
-  Future<void> _pickImage(Function setModalState) async {
     try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 70,
-      );
+      // ২. সরাসরি আসল ফায়ারবেস UID (user.uid) দিয়ে কোয়েরি করা হচ্ছে ভাই
+      final snapshot = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('receiverId', isEqualTo: user.uid)
+          .get();
 
-      if (image != null) {
-        if (kIsWeb) {
-          final bytes = await image.readAsBytes();
-          setModalState(() {
-            _webImageBytes = bytes;
-            _pickedImage = image;
-          });
-        } else {
-          setModalState(() {
-            _pickedImage = image;
-          });
+      final batch = FirebaseFirestore.instance.batch();
+      bool hasUpdates = false;
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final type = data['type'] ?? '';
+        final isRead = data['isRead'] ?? false;
+
+        if ((type == 'like' || type == 'comment') && isRead == false) {
+          batch.update(doc.reference, {'isRead': true});
+          hasUpdates = true;
         }
       }
-    } catch (e) {
-      debugPrint("Error picking image: $e");
-    }
+
+      if (hasUpdates) {
+        await batch.commit();
+      }
+    } catch (e) {}
   }
+
+  Future<void> _pickImage(Function setModalState) async {
+  try {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    
+    if (image != null) {
+      // কম্প্রেস করা হচ্ছে
+      final compressedFile = await FlutterImageCompress.compressWithFile(
+        image.path,
+        minWidth: 800,
+        minHeight: 800,
+        quality: 70,
+      );
+
+      setModalState(() {
+        if (kIsWeb) {
+          _webImageBytes = compressedFile;
+          _pickedImage = image;
+        } else {
+          // মোবাইল হলে কম্প্রেসড ফাইলটি ব্যবহার করুন
+          _pickedImage = image; 
+        }
+      });
+    }
+  } catch (e) {
+    debugPrint("Error picking image: $e");
+  }
+}
 
   void _showPostModal() {
     _captionController.clear();

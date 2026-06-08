@@ -1,4 +1,6 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
+import 'package:pagla_chat/auth_service.dart';
 import 'package:pagla_chat/help_desk_page.dart';
 import 'package:pagla_chat/privacy_policy_page.dart';
 import 'package:pagla_chat/services/diamond_recharge_view.dart';
@@ -188,28 +190,10 @@ class _ProfilePageState extends State<ProfilePage> {
           // 🎯 আপনার setState এর একদম শেষ লাইনে এই প্রিন্টগুলো বসিয়ে দিন ভাই:
           totalActiveXp = (data['totalActiveXp'] ?? 0).toInt();
 
-// 🇧🇩 [বাংলা মার্ক]: অ্যাক্টিভ এক্সপির জন্য মাস্টার প্রিন্ট লগ ট্র্যাকিং ভাই
-          debugPrint("======== 🎁 [PaglaChat Active XP System] ========");
-          debugPrint(
-              "📥 ডাটাবেজ থেকে প্রাপ্ত totalActiveXp ফিল্ড: ${data['totalActiveXp']}");
-          debugPrint(
-              "📈 ভেরিয়েবলে সেটের পর totalActiveXp ভ্যালু: $totalActiveXp");
-          debugPrint("=================================================");
           totalGiftXp = (data['totalGiftXp'] ?? 0).toInt();
-
-          // 🇧🇩 [বাংলা মার্ক]: আসল প্রিন্ট লগ ট্র্যাকিং—যার মাধ্যমে এক সেকেন্ডে গোমর ফাঁস হবে!
-          debugPrint("🔥 [প্রিন্ট ১ - ডাটাবেজ ম্যাপ]: " + data.toString());
-          debugPrint("🔥 [প্রিন্ট ২ - ম্যাপের ভেতর totalGiftXp]: " +
-              data['totalGiftXp'].toString());
-          debugPrint(
-              "🔥 [প্রিন্ট ৩ - সেটের পর totalGiftXp ভেরিয়েবল]: $totalGiftXp");
-          debugPrint("🔥 [প্রিন্ট ৪ - কারেন্ট ইউজার আইডি]: $uIDValue");
         });
-        debugPrint("✅ ডাটা লোড সম্পন্ন: $uIDValue");
       }
-    } catch (e) {
-      debugPrint("Firebase Search Error: $e");
-    }
+    } catch (e) {}
   } // <--- loadUserData এখানে শেষ
 
   void _checkCurrentFollowStatus(String tId) async {
@@ -260,7 +244,6 @@ class _ProfilePageState extends State<ProfilePage> {
           .collection('users')
           .doc(uIDValue)
           .update(updateData);
-      debugPrint("🔥 $boolField এর মেয়াদ শেষ! ক্লিয়ার করা হয়েছে।");
     } catch (e) {
       debugPrint("Error clearing data: $e");
     }
@@ -732,15 +715,29 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 // ৪. লগআউট (Logout)
                 ListTile(
-                    leading: const Icon(Icons.logout, color: Colors.redAccent),
-                    title: const Text("Logout",
-                        style: TextStyle(
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.bold)),
-                    onTap: () {
-                      FirebaseAuth.instance.signOut();
-                      Navigator.pop(context);
-                    }),
+                  leading: const Icon(Icons.logout, color: Colors.redAccent),
+                  title: const Text(
+                    "Logout",
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onTap: () async {
+                    // AuthService ব্যবহার করে লগআউট
+                    await AuthService().signOut();
+
+                    // হ্যাং হওয়া রোধ করতে আগের সব স্ক্রিন মুছে দিয়ে LoginScreen-এ পাঠানো
+                    if (context.mounted) {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const LoginScreen()),
+                        (route) => false,
+                      );
+                    }
+                  },
+                ),
                 const SizedBox(height: 10),
               ],
             ),
@@ -920,60 +917,74 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _handleProfileUpdate(File newFile) async {
     try {
-      // ✅ সবথেকে গুরুত্বপূর্ণ পরিবর্তন: Auth uID ব্যবহার করা
-      String uID = FirebaseAuth.instance.currentUser!.uid;
+      // ১. আপনার লোকাল ভেরিয়েবল বা স্টেট থেকে আইডি নিন (স্ক্রিনশট অনুযায়ী আপনার আইডি হলো '454488')
+      // নিশ্চিত করুন যে এই 'uIDValue' বা যেই ভেরিয়েবলে আপনার আইডি আছে, সেটি সঠিক।
+      String targetUID = uIDValue.toString();
+
       String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
       String fileName = 'profile_$timestamp.jpg';
 
-      // ১. স্টোরেজ রেফারেন্স
-      Reference storageFolder =
-          FirebaseStorage.instance.ref().child('user_profiles').child(uID);
+      // ২. স্টোরেজ রেফারেন্স (এখানেও FirebaseAuth UID এর বদলে আপনার 'targetUID' ব্যবহার করুন)
+      Reference storageFolder = FirebaseStorage.instance
+          .ref()
+          .child('user_profiles')
+          .child(targetUID);
       Reference newStorageRef = storageFolder.child(fileName);
 
-      // ২. ছবি আপলোড (putFile সরাসরি কাজ করবে যদি পাথ ঠিক থাকে)
+      // ৩. ছবি আপলোড
       UploadTask uploadTask = newStorageRef.putFile(
           newFile, SettableMetadata(contentType: 'image/jpeg'));
-
       TaskSnapshot snapshot = await uploadTask;
       String newDownloadUrl = await snapshot.ref.getDownloadURL();
 
-      // ৩. ফায়ারস্টোর আপডেট (ডকুমেন্ট আইডি হিসেবে uID নিশ্চিত করা হয়েছে)
-      await FirebaseFirestore.instance.collection('users').doc(uID).update({
-        'profilePic': newDownloadUrl,
-      });
+      // ৪. গুরুত্বপূর্ণ পরিবর্তন: কোয়েরি করে সঠিক ডকুমেন্টটি খুঁজে বের করা
+      // এখানে আমরা 'uID' ফিল্ডটি চেক করছি যা আপনার ডাটাবেসে আছে
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('uID', isEqualTo: targetUID)
+          .limit(1)
+          .get();
 
-      // ৪. ইউজার ইন্টারফেস রিয়েল টাইম আপডেট
+      if (querySnapshot.docs.isNotEmpty) {
+        // সঠিক ডকুমেন্ট পাওয়া গেছে, এখন আপডেট করুন
+        String docId = querySnapshot.docs.first.id;
+        await FirebaseFirestore.instance.collection('users').doc(docId).update({
+          'profilePic': newDownloadUrl,
+        });
+      } else {
+        // যদি ডাটাবেসে ডকুমেন্ট না থাকে, তবে নতুন করে তৈরি করুন
+        await FirebaseFirestore.instance.collection('users').add({
+          'uID': targetUID,
+          'profilePic': newDownloadUrl,
+        });
+      }
+
+      // ৫. ইন্টারফেস আপডেট
       if (mounted) {
         setState(() {
           userImageURL = newDownloadUrl;
         });
       }
 
-      // ৫. পুরাতন ফাইল ডিলিট করার লজিক (নিরাপদভাবে)
+      // ৬. পুরাতন ফাইল ডিলিট করার লজিক
       final ListResult result = await storageFolder.listAll();
       for (var item in result.items) {
         if (item.name != fileName) {
-          await item
-              .delete()
-              .catchError((e) => debugPrint("Old file delete failed: $e"));
+          await item.delete();
         }
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text("Profile updated successfully!"),
-              backgroundColor: Colors.green),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("Profile updated successfully!"),
+            backgroundColor: Colors.green));
       }
     } catch (e) {
       debugPrint("Update Error: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text("Error: ${e.toString()}"),
-              backgroundColor: Colors.redAccent),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text("Error: ${e.toString()}"),
+            backgroundColor: Colors.redAccent));
       }
     }
   }
@@ -1261,85 +1272,223 @@ class _ProfilePageState extends State<ProfilePage> {
       },
     );
   }
-Widget _buildEntryStoreTab() {
-  // সাময়িকভাবে সবগুলোর isActive: false করে দেওয়া হয়েছে
-  final List<Map<String, dynamic>> entryList = [
-    {"name": "Royal Entry 1", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/9994c4424e1097e9ff6c21d70b37b97ac341dd9c/entry%20(1).json", "price": "7000", "isActive": false},
-    {"name": "Royal Entry 2", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(2).json", "price": "8000", "isActive": false},
-    {"name": "Royal Entry 3", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(3).json", "price": "8000", "isActive": false},
-    {"name": "Royal Entry 4", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(4).json", "price": "8000", "isActive": false},
-    {"name": "Royal Entry 5", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(5).json", "price": "5000", "isActive": false},
-    {"name": "Royal Entry 6", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(6).json", "price": "16000", "isActive": false},
-    {"name": "Royal Entry 7", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(7).json", "price": "18000", "isActive": false},
-    {"name": "Royal Entry 8", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(8).json", "price": "15000", "isActive": false},
-    {"name": "Royal Entry 9", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(9).json", "price": "20000", "isActive": false},
-    {"name": "Royal Entry 10", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(10).json", "price": "4000", "isActive": false},
-    {"name": "Royal Entry 11", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(11).json", "price": "9000", "isActive": false},
-    {"name": "Royal Entry 12", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(12).json", "price": "8000", "isActive": false},
-    {"name": "Royal Entry 13", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(13).json", "price": "9000", "isActive": false},
-    {"name": "Royal Entry 14", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(14).json", "price": "11000", "isActive": false},
-    {"name": "Royal Entry 15", "url": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(15).json", "price": "13000", "isActive": false},
-  ];
 
-  // শুধুমাত্র active আইটেমগুলো ফিল্টার করে নিচ্ছি
-  final activeList = entryList.where((item) => item['isActive'] == true).toList();
+  Widget _buildEntryStoreTab() {
+    final List<Map<String, String>> entryList = [
+      {
+        "name": "Royal Entry 1",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/9994c4424e1097e9ff6c21d70b37b97ac341dd9c/entry%20(1).json",
+        "price": "7000"
+      },
+      {
+        "name": "Royal Entry 2",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(2).json",
+        "price": "8000"
+      },
+      {
+        "name": "Royal Entry 3",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(3).json",
+        "price": "8000"
+      },
+      {
+        "name": "Royal Entry 4",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(4).json",
+        "price": "8000"
+      },
+      {
+        "name": "Royal Entry 5",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(5).json",
+        "price": "5000"
+      },
+      {
+        "name": "Royal Entry 6",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(6).json",
+        "price": "16000"
+      },
+      {
+        "name": "Royal Entry 7",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(7).json",
+        "price": "18000"
+      },
+      {
+        "name": "Royal Entry 8",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(8).json",
+        "price": "15000"
+      },
+      {
+        "name": "Royal Entry 9",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(9).json",
+        "price": "20000"
+      },
+      {
+        "name": "Royal Entry 10",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(10).json",
+        "price": "4000"
+      },
+      {
+        "name": "Royal Entry 11",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(11).json",
+        "price": "9000"
+      },
+      {
+        "name": "Royal Entry 12",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(12).json",
+        "price": "8000"
+      },
+      {
+        "name": "Royal Entry 13",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(13).json",
+        "price": "9000"
+      },
+      {
+        "name": "Royal Entry 14",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(14).json",
+        "price": "11000"
+      },
+      {
+        "name": "Royal Entry 15",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(15).json",
+        "price": "13000"
+      },
+    ];
 
-  if (activeList.isEmpty) {
-    return const Center(child: Text("Store is currently under maintenance.", style: TextStyle(color: Colors.grey)));
+    return GridView.builder(
+      padding: const EdgeInsets.all(15),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.72,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12),
+      itemCount: entryList.length,
+      itemBuilder: (context, index) {
+        var item = entryList[index];
+        int itemPrice = int.parse(item['price']!);
+        String url = item['url']!;
+
+        return Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.cyan, width: 2),
+            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
+          ),
+          child: Column(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: url.endsWith('.json')
+                      ? Lottie.network(url, fit: BoxFit.contain)
+                      : Image.network(url,
+                          fit: BoxFit.contain,
+                          errorBuilder: (c, e, s) => const Icon(
+                              Icons.auto_awesome,
+                              size: 40,
+                              color: Colors.cyan)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(item['name']!,
+                  style: const TextStyle(
+                      color: Colors.blueAccent,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold)),
+              Text("${item['price']} 💎",
+                  style: const TextStyle(
+                      color: Colors.blueGrey,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                height: 35,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.cyan,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    if (diamonds >= itemPrice) {
+                      try {
+                        DateTime now = DateTime.now();
+                        DateTime expiry = now.add(const Duration(days: 15));
+
+                        // --- ডায়মন্ড কাটা এবং ব্যাকপ্যাকে পাঠানোর আসল লজিক শুরু ---
+                        WriteBatch batch = FirebaseFirestore.instance.batch();
+                        DocumentReference userRef = FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(uIDValue);
+
+                        // ব্যাকপ্যাকের জন্য সাব-কালেকশন রেফারেন্স
+                        DocumentReference backpackRef =
+                            userRef.collection('myEntries').doc(item['name']);
+
+                        // ১. ডায়মন্ড আপডেট
+                        batch.update(userRef, {
+                          'diamonds': FieldValue.increment(-itemPrice),
+                        });
+
+                        // ২. ব্যাকপ্যাকে এন্ট্রি সেভ করা (যাতে পরে ব্যাকপ্যাক থেকে Pick করা যায়)
+                        batch.set(backpackRef, {
+                          'name': item['name'],
+                          'url': url,
+                          'expiryDate': Timestamp.fromDate(expiry),
+                          'isPicked': true, // কেনার সাথে সাথে পিক হয়ে যাবে
+                        });
+
+                        await batch.commit();
+                        // --- লজিক শেষ ---
+
+                        setState(() {
+                          diamonds -= itemPrice;
+                          activeEntryUrl = url;
+                        });
+
+                        Navigator.pop(context); // স্টোর বন্ধ করা
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              backgroundColor: Colors.green,
+                              content: Text("Bought & Added to Backpack!")),
+                        );
+                      } catch (e) {
+                        debugPrint("Buy Error: $e");
+                      }
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            backgroundColor: Colors.redAccent,
+                            content: Text("Not enough diamonds!")),
+                      );
+                    }
+                  },
+                  child: const Text("BUY",
+                      style: TextStyle(color: Colors.white, fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
-  return GridView.builder(
-    padding: const EdgeInsets.all(15),
-    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, childAspectRatio: 0.72, crossAxisSpacing: 12, mainAxisSpacing: 12),
-    itemCount: activeList.length,
-    itemBuilder: (context, index) {
-      var item = activeList[index];
-      int itemPrice = int.parse(item['price']!);
-      String url = item['url']!;
-
-      return Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.cyan, width: 2),
-        ),
-        child: Column(
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: url.endsWith('.json')
-                    ? Lottie.network(url, fit: BoxFit.contain)
-                    : Image.network(url, fit: BoxFit.contain),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(item['name']!, style: const TextStyle(color: Colors.blueAccent, fontSize: 13, fontWeight: FontWeight.bold)),
-            Text("${item['price']} 💎", style: const TextStyle(color: Colors.blueGrey, fontSize: 11, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              height: 35,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.cyan, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                onPressed: () async {
-                  if (diamonds >= itemPrice) {
-                    // ক্রয় লজিক...
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Not enough diamonds!")));
-                  }
-                },
-                child: const Text("BUY", style: TextStyle(color: Colors.white, fontSize: 12)),
-              ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
   Widget _buildSpecialStoreTab() {
     final List<Map<String, String>> specialList = [
       {
@@ -2351,6 +2500,8 @@ Widget _buildEntryStoreTab() {
                           .doc(targetUserId)
                           .snapshots(),
                       builder: (context, marriageSnapshot) {
+                        
+                        
                         // যদি ইউজার বিবাহিত হয় (marriages কালেকশনে ডাটা থাকে)
                         if (marriageSnapshot.hasData &&
                             marriageSnapshot.data!.exists) {
@@ -2364,67 +2515,58 @@ Widget _buildEntryStoreTab() {
                               '';
 
                           // 🔄 ২. পার্টনারের আইডি ব্যবহার করে সরাসরি 'users' কালেকশন থেকে তার রিয়েল-টাইম ফ্রেম রিড করা হচ্ছে
+                          // পার্টনারের আইডি ব্যবহার করে সরাসরি 'users' কালেকশন থেকে ডাটা নেওয়া হচ্ছে
                           return StreamBuilder<DocumentSnapshot>(
                             stream: FirebaseFirestore.instance
                                 .collection('users')
-                                .doc(partnerUid)
+                                .doc(partnerUid) // পার্টনারের লাইভ ইউজার ডক
                                 .snapshots(),
                             builder: (context, userSnapshot) {
-                              String livePartnerFrame = '';
-
-                              // পার্টনারের ইউজার ডক থেকে তার একদম কারেন্ট একটিভ ফ্রেমের লিংক নেওয়া হচ্ছে
+                              // পার্টনারের লাইভ ডাটা
+                              var partnerData = {};
                               if (userSnapshot.hasData &&
                                   userSnapshot.data!.exists) {
-                                var userData = userSnapshot.data!.data()
+                                partnerData = userSnapshot.data!.data()
                                     as Map<String, dynamic>;
-                                livePartnerFrame = userData['activeFrameUrl'] ??
-                                    userData['activeFrame'] ??
-                                    '';
                               }
 
-                              // ডাটাবেজের ফিল্ড ম্যাপ করা হচ্ছে যাতে ফ্লেক্সিবল থাকে
-                              String partnerImg =
-                                  marriageData['partnerProfilePic'] ??
-                                      marriageData['partnerImage'] ??
+                              // 🔥 এখানে ভুল ছিল: আমরা marriageData থেকে না নিয়ে partnerData থেকে ডাটা নেবো
+                              String partnerImg = partnerData['profilePic'] ??
+                                  marriageData['partnerImage'] ??
+                                  '';
+                              String livePartnerFrame =
+                                  partnerData['activeFrameUrl'] ??
+                                      partnerData['activeFrame'] ??
                                       '';
-                              String finalPartnerFrame =
-                                  livePartnerFrame.trim().isNotEmpty
-                                      ? livePartnerFrame
-                                      : (marriageData['activeFrameUrl'] ??
-                                          marriageData['partnerFrameUrl'] ??
-                                          '');
 
-                              // 🔍 [প্রিন্ট ১]: বিবাহিত প্রোফাইলের সমস্ত ইমেজ লিংক টেস্ট
-                              debugPrint(
-                                  "====== 💍 [MARRIAGE LIVE URLS] ======");
-                              debugPrint("My Image: '$userImageURL'");
-                              debugPrint("My Frame: '$activeFrameUrl'");
-                              debugPrint("Partner Image: '$partnerImg'");
-                              debugPrint("Partner Frame: '$finalPartnerFrame'");
-                              debugPrint(
-                                  "Ring Icon: '${marriageData['ringIconUrl'] ?? marriageData['ringIcon']}'");
+                              // ফ্রেমের জন্য লজিক: লাইভ ফ্রেম না থাকলে পুরাতন বা ম্যারেজ ডাটা থেকে নিবে
+                              String finalPartnerFrame =
+                                  livePartnerFrame.isNotEmpty
+                                      ? livePartnerFrame
+                                      : (marriageData['partnerFrameUrl'] ?? '');
 
                               Map<String, dynamic> formattedMarriageData = {
                                 'ringIcon': marriageData['ringIconUrl'] ??
                                     marriageData['ringIcon'],
-                                'partnerImage': partnerImg,
-                                // 🔥 পার্টনারের ফ্রেম এখন সরাসরি 'users' কালেকশন থেকে লাইভ আসছে, তাই কখনো মিস হবে না
-                                'partnerFrameUrl': finalPartnerFrame,
+                                'partnerImage':
+                                    partnerImg, // এখানে এখন পার্টনারের লাইভ প্রোফাইল পিক আসবে
+                                'partnerFrameUrl':
+                                    finalPartnerFrame, // এখানে পার্টনারের লাইভ ফ্রেম আসবে
                               };
 
                               return Center(
                                 child: _buildMarriageHeader(
-                                  context, // ১. বটমশিট ওপেন করার জন্য context পাস করা হলো
-                                  formattedMarriageData, // ২. ফরম্যাটেড ডাটা ম্যাপ
-                                  userImageURL, // ৩. আপনার নিজের ইমেজ
-                                  activeFrameUrl, // ৪. আপনার নিজের একটিভ ফ্রেম
-                                  marriageData, // ৫. ফায়ারস্টোরের আসল র-ডক (বিয়ের তারিখ ও ছবির ডেটার জন্য)
+                                  context,
+                                  formattedMarriageData,
+                                  userImageURL,
+                                  activeFrameUrl,
+                                  marriageData,
+                                  isMe,
                                 ),
                               );
                             },
                           );
                         }
-
                         // 👤 যদি সিঙ্গেল হয় (কোনো পার্টনার না থাকে), তবে শুধু নিজের পুরাতন প্রোফাইল পিকচারটি দেখাব
 
                         // 🔍 [প্রিন্ট ২]: সিঙ্গেল প্রোফাইলের সমস্ত ইমেজ লিংক টেস্ট
@@ -2567,7 +2709,6 @@ Widget _buildEntryStoreTab() {
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold)),
                                   const SizedBox(height: 8),
-                                  // 🔥 [আগুনের মতো জ্বলজ্বলে ডাইনামিক প্রগ্রেস বার]:
                                   // Shimmer দিয়ে আগুনের তরঙ্গ এবং মাথায় আলাদা আগুনের শিখা
                                   LayoutBuilder(
                                     builder: (context, constraints) {
@@ -2788,8 +2929,6 @@ Widget _buildEntryStoreTab() {
               // --- ফুল পেজ ফ্রেম ---
               // 🔍 [প্রিন্ট ৩]: ব্যাকগ্রাউন্ড ফুল পেজ ফ্রেমের লিংক টেস্ট
               () {
-                debugPrint("====== 🖼️ [FULL PAGE FRAME URL] ======");
-                debugPrint("Active Special URL: '$activeSpecialUrl'");
                 return const SizedBox();
               }(),
               Positioned.fill(
@@ -2868,17 +3007,13 @@ Widget _buildEntryStoreTab() {
     );
   }
 
-// ✅ ৩. প্রিয়জন (Soulmate) ৬ স্লট মেইন উইজেট
+// ✅ ৩. প্রিয়জন (Soulmate) ৬ স্লট মেইন উইজেট (আপডেট করা)
   Widget _buildSoulmateSection() {
-    // 🔥 সমাধান: লাল দাগ দূর করতে widget.userData কেটে সরাসরি 'uIDValue' এবং ব্যাকআপ চেক রাখা হলো
     String currentId = uIDValue.toString().trim();
-
-    // একদম শেষে কোনো কারণে uIDValue ফাঁকা থাকলে কারেন্ট লগইন করা ইউজারের লম্বা UID ব্যাকআপ হিসেবে নেবে
     if (currentId.isEmpty) {
       currentId = FirebaseAuth.instance.currentUser?.uid ?? '';
     }
 
-    // গิตহাবের সেই সঠিক পারমানেন্ট লিঙ্ক
     const String soulmateCardUrl =
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/soulmatecard.png";
 
@@ -2893,48 +3028,46 @@ Widget _buildEntryStoreTab() {
                   fontSize: 18,
                   fontWeight: FontWeight.bold)),
         ),
-        StreamBuilder<QuerySnapshot>(
-          // 🔥 মালিকের আইডি (ownerId) এখন আপনার প্রোফাইলের ৬ ডিজিটের আসল uID দিয়ে ডেটা লোড করবে
+        StreamBuilder<DocumentSnapshot>(
+          // সরাসরি নিজের ডকুমেন্ট থেকে সোলমেট আইডিগুলোর অ্যারে নিচ্ছি
           stream: FirebaseFirestore.instance
-              .collection('soulmates')
-              .where('ownerId', isEqualTo: currentId)
-              .limit(6)
+              .collection('users')
+              .doc(currentId)
               .snapshots(),
           builder: (context, snapshot) {
+            if (!snapshot.hasData || !snapshot.data!.exists) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            var userData = snapshot.data!.data() as Map<String, dynamic>;
+            List<dynamic> soulmatesList = userData['soulmates'] ?? [];
+
             return GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 15),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, // ২টা করে সারিতে থাকবে
+                crossAxisCount: 2,
                 childAspectRatio: 0.82,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
               ),
-              itemCount: 6, // সবসময় ৬টি ঘর থাকবে
+              itemCount: 6, // সবসময় ৬টি ঘর
               itemBuilder: (context, index) {
-                var dataDoc =
-                    (snapshot.hasData && snapshot.data!.docs.length > index)
-                        ? snapshot.data!.docs[index]
-                        : null;
-                var data = dataDoc?.data() as Map<String, dynamic>?;
+                bool hasData = index < soulmatesList.length;
 
-                return GestureDetector(
-                  onLongPress: dataDoc != null
-                      ? () => _showBreakupDialog(data!['partnerId'])
-                      : null,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
-                      image: const DecorationImage(
-                        image: NetworkImage(soulmateCardUrl),
-                        fit: BoxFit.fill,
-                      ),
+                return Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    image: const DecorationImage(
+                      image: NetworkImage(soulmateCardUrl),
+                      fit: BoxFit.fill,
                     ),
-                    child: data != null
-                        ? _buildFilledSoulmate(data)
-                        : _buildEmptySoulmate(),
                   ),
+                  child: hasData
+                      ? _buildFilledSoulmateFromId(soulmatesList[
+                          index]) // আইডি থেকে পার্টনারের ডাটা লোড হবে
+                      : _buildEmptySoulmate(),
                 );
               },
             );
@@ -2945,26 +3078,60 @@ Widget _buildEntryStoreTab() {
     );
   }
 
-// 🔥 কার্ড যখন একটিভ (ব্যাকগ্রাউন্ড লিংকের উপরে ছবি, নাম ও লেভেল শো করার জন্য সম্পূর্ণ উইজেট)
+// 💡 হেল্পার উইজেট: আইডি থেকে পার্টনারের ডাটা লোড করবে
+  Widget _buildFilledSoulmateFromId(String partnerUid) {
+    return FutureBuilder<DocumentSnapshot>(
+      future:
+          FirebaseFirestore.instance.collection('users').doc(partnerUid).get(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+        }
+        var partnerData = snapshot.data!.data() as Map<String, dynamic>;
+
+        // এখানে partnerData থেকেই সব তথ্য নেওয়া হচ্ছে, যা আগে ঠিক ছিল
+        Map<String, dynamic> displayData = {
+          'partnerName': partnerData['name'] ?? 'Unknown',
+          'partnerImage':
+              partnerData['image'] ?? partnerData['profilePic'] ?? '',
+          'totalGift': partnerData['totalGift'] ?? 0,
+          // ব্রেকআপ বাটন কাজ করার জন্য পার্টনারের আইডিটি এখানে যোগ করে দিলাম
+          'partnerId': partnerUid,
+          'ownerId': uIDValue,
+        };
+
+        return _buildFilledSoulmate(displayData);
+      },
+    );
+  }
+
+// 🔥 কার্ড উইজেট
   Widget _buildFilledSoulmate(Map<String, dynamic> data) {
-    // লেভেল লজিক: প্রতি ৫০০০ ডাইমন্ডে ১ লেভেল (ম্যাক্স ৫০)
     int totalGift = data['totalGift'] ?? 0;
     int level = (totalGift / 5000).floor().clamp(1, 50);
 
     return GestureDetector(
       onTap: () {
-        // 🚀 আপনার পাস করা 'data' ম্যাপটি হুবহু নতুন পেজে চলে যাবে, ডাটার রাস্তা একদম সেম থাকবে
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => SoulmateDetailPage(soulmateData: data),
+            builder: (context) => SoulmateDetailPage(
+              soulmateData: data,
+              uIDValue: uIDValue, // আপনার গ্লোবাল ইউজার আইডি
+            ),
           ),
         );
+      },
+      // 🔥 ব্রেকআপ বাটন ট্রিগার করার জন্য লং প্রেস
+      onLongPress: () {
+        String partnerId = data['partnerId'] ?? '';
+        if (partnerId.isNotEmpty) {
+          _showBreakupDialog(partnerId);
+        }
       },
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // ১. কার্ডের ভেতরের উপরের ডানদিকের লেভেল ব্যাজ
           Align(
             alignment: Alignment.topRight,
             child: Container(
@@ -2974,85 +3141,53 @@ Widget _buildEntryStoreTab() {
                 color: Colors.redAccent,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                "Lv.$level",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              child: Text("Lv.$level",
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold)),
             ),
           ),
-
           const Spacer(),
-
-          // ২. পার্টনারের গোল প্রোফাইল ছবি (গোল্ডেন বর্ডার সহ ব্যাকগ্রাউন্ডের উপর সেট)
           Container(
             width: 62,
             height: 62,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: Colors.amber, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 5,
-                  spreadRadius: 1,
-                )
-              ],
               image: DecorationImage(
                 image: NetworkImage(data['partnerImage'] ?? ""),
                 fit: BoxFit.cover,
               ),
             ),
           ),
-
           const SizedBox(height: 8),
-
-          // ৩. পার্টনারের নাম (ডিজাইনের ওপর পরিষ্কার দেখার জন্য শ্যাডো ও বোল্ড করা হয়েছে)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Text(
               data['partnerName'] ?? "Unknown",
               style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                shadows: [
-                  Shadow(
-                    color: Colors.black87,
-                    offset: Offset(1, 1),
-                    blurRadius: 2,
-                  ),
-                ],
-              ),
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
-
           const SizedBox(height: 6),
-
-          // ৪. সোলমেট ট্যাগ
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
             decoration: BoxDecoration(
               color: Colors.orange.withOpacity(0.9),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white24, width: 0.5),
             ),
-            child: const Text(
-              "Soulmate",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            child: const Text("Soulmate",
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold)),
           ),
-
           const SizedBox(height: 15),
         ],
       ),
@@ -3113,8 +3248,13 @@ Widget _buildEntryStoreTab() {
   }
 
 // ✅ ৫. প্রিমিয়াম ম্যারেজ হেডার (চারপাশে সমান গোল ফ্রেম সাইজ কন্ট্রোল ১০০% ফিক্সড)
-  Widget _buildMarriageHeader(BuildContext context, Map<String, dynamic> data,
-      String myImg, String myFrame, Map<String, dynamic> rawMarriageDoc) {
+  Widget _buildMarriageHeader(
+      BuildContext context,
+      Map<String, dynamic> data,
+      String myImg,
+      String myFrame,
+      Map<String, dynamic> rawMarriageDoc,
+      bool isMe) {
     String ringIconUrl = data['ringIcon'] ??
         data['ringIconUrl'] ??
         "https://i.ibb.co/ring-sample.png";
@@ -3168,8 +3308,12 @@ Widget _buildEntryStoreTab() {
               top: 0,
               bottom: 0,
               child: Center(
-                child: _buildUserWithFrame(myImg, myFrame, avatarRadius,
-                    lottieMultiplier, imageMultiplier),
+                child: GestureDetector(
+                  onTap:
+                      isMe ? _pickProfileImage : null, // এখন আর লাল দাগ আসবে না
+                  child: _buildUserWithFrame(myImg, myFrame, avatarRadius,
+                      lottieMultiplier, imageMultiplier),
+                ),
               ),
             ),
 

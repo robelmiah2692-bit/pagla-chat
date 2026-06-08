@@ -10,38 +10,32 @@ class RoomActiveManager {
   /// [uID] = ৬ ডিজিটের ইউজার আইডি (যা ডকুমেন্ট আইডি হিসেবে কাজ করবে)
   /// [authUID] = ফায়ারবেস অথেন্টিকেশনের লম্বা UID
   /// [email] = ইউজারের ইমেইল এড্রেস
-  void startTimer({
-    required String uID, 
-    required String authUID, 
-    required String email, 
-    int minutesInterval = 20, 
-    int xpAmount = 1
-  }) {
+  void startTimer(
+      {required String uID,
+      required String authUID,
+      required String email,
+      int minutesInterval = 20,
+      int xpAmount = 1}) {
     // সেফটির জন্য আগের কোনো টাইমার চালু থাকলে তা বন্ধ করে নেওয়া ভাই
     stopTimer();
 
     if (uID.isEmpty) {
-      debugPrint("❌ [RoomActiveManager]: ৬ ডিজিটের uID ফাঁকা! টাইমার চালু হলো না।");
       return;
     }
 
-    debugPrint("⏳ [RoomActiveManager]: ৬ ডিজিটের ID: $uID এর জন্য একটিভ এক্সপি টাইমার শুরু হলো...");
-
-    _activeXpTimer = Timer.periodic(Duration(minutes: minutesInterval), (timer) async {
+    _activeXpTimer =
+        Timer.periodic(Duration(minutes: minutesInterval), (timer) async {
       try {
         // 🎯 SetOptions(merge: true) ব্যবহারের কারণে পুরাতন কোনো ফিল্ড ডিলিট বা মিস হবে না ভাই।
         // যদি ডাটাবেজে ফিল্ড আগে থেকে নাও থাকে, তবে সে নতুন করে এগুলো তৈরি করে নেবে।
         await FirebaseFirestore.instance.collection('users').doc(uID).set({
-          'totalActiveXp': FieldValue.increment(xpAmount), // এক্সপি ১ করে বাড়বে ভাই
-          'uID': uID,                                      // ৬ ডিজিটের আইডি সুরক্ষিত থাকবে
-          'authUID': authUID,                              // ফায়ারবেস অথ আইডি সুরক্ষিত থাকবে
-          'email': email,                                  // ইউজারের ইমেইল সুরক্ষিত থাকবে
+          'totalActiveXp':
+              FieldValue.increment(xpAmount), // এক্সপি ১ করে বাড়বে ভাই
+          'uID': uID, // ৬ ডিজিটের আইডি সুরক্ষিত থাকবে
+          'authUID': authUID, // ফায়ারবেস অথ আইডি সুরক্ষিত থাকবে
+          'email': email, // ইউজারের ইমেইল সুরক্ষিত থাকবে
         }, SetOptions(merge: true));
-        
-        debugPrint("🕒 [PaglaChat] রুমে $minutesInterval মিনিট একটিভ থাকার জন্য uID: $uID তে $xpAmount XP যোগ হয়েছে এবং সকল ফিল্ড চেক সম্পন্ন!");
-      } catch (e) {
-        debugPrint("❌ [RoomActiveManager Error]: $e");
-      }
+      } catch (e) {}
     });
   }
 
@@ -50,7 +44,6 @@ class RoomActiveManager {
     if (_activeXpTimer != null) {
       _activeXpTimer!.cancel();
       _activeXpTimer = null;
-      debugPrint("🛑 [PaglaChat] একটিভ এক্সপি টাইমার সফলভাবে বন্ধ হয়েছে।");
     }
   }
 }

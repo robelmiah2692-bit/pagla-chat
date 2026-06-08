@@ -11,7 +11,7 @@ import 'package:universal_html/html.dart' as html;
 import 'package:universal_html/js.dart' as js;
 
 class AgoraManager {
-  RtcEngine? _engine; 
+  RtcEngine? _engine;
   bool _isInitialized = false;
   final String appId = "32133508104045b687aae00c5ccc59a5";
   Timer? _keepAliveTimer;
@@ -20,25 +20,21 @@ class AgoraManager {
   bool _isMicMutedLocal = false; // মাইকের বর্তমান অবস্থা ট্র্যাকিং
   bool _isMusicPlaying = false; // মিউজিক বাজছে কি না ট্র্যাকিং
   Function(bool)? onTalkingStatusChanged;
-  
+
   // ✅ সব রিমোট ইউজারের অডিও মিউট বা আনমিউট করার জন্য
   Future<void> muteAllRemoteAudio(bool mute) async {
     if (_engine != null) {
       try {
         await _engine!.muteAllRemoteAudioStreams(mute);
-        debugPrint("All remote audio ${mute ? 'muted' : 'unmuted'}");
-      } catch (e) {
-        debugPrint("Error in muteAllRemoteAudio: $e");
-      }
-    } else {
-      debugPrint("Agora engine is null, skipping mute action.");
-    }
+      } catch (e) {}
+    } 
   }
 
   // 🔔 রিপেল এনিমেশনের ভলিউম স্ট্রিম
-  final StreamController<List<AudioVolumeInfo>> _volumeStreamController = 
+  final StreamController<List<AudioVolumeInfo>> _volumeStreamController =
       StreamController<List<AudioVolumeInfo>>.broadcast();
-  Stream<List<AudioVolumeInfo>> get volumeStream => _volumeStreamController.stream;
+  Stream<List<AudioVolumeInfo>> get volumeStream =>
+      _volumeStreamController.stream;
 
   // ✅ ফিক্সড গেটার: এটি এখন বিল্ড এরর দেবে না
   RtcEngine get engine {
@@ -52,7 +48,7 @@ class AgoraManager {
 
   Future<void> initAgora() async {
     if (_isInitialized && _engine != null) return;
-    
+
     _engine = createAgoraRtcEngine();
 
     try {
@@ -69,7 +65,7 @@ class AgoraManager {
 
       if (kIsWeb) {
         await _engine!.setParameters('{"rtc.audio.force_confirm_hello": true}');
-        await _engine!.setParameters('{"che.audio.opensl": true}'); 
+        await _engine!.setParameters('{"che.audio.opensl": true}');
         await _engine!.setParameters('{"che.audio.specify.codec": "OPUS"}');
       }
 
@@ -80,28 +76,25 @@ class AgoraManager {
       );
 
       _engine!.registerEventHandler(RtcEngineEventHandler(
-        onJoinChannelSuccess: (connection, elapsed) {
-          debugPrint("✅ এগোরা কানেক্টেড! uid: ${connection.localUid}");
-          _localuID = connection.localUid;
-          forceResumeAudio(); 
-        },
-        onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
-          // 🔥 এই স্ট্রিম ব্যবহারের ফলে ভিউয়ার লিস্টের ডাটাবেজ রিবিল্ড হবে না
-          _volumeStreamController.add(speakers);
-        },
-        onAudioMixingStateChanged: (AudioMixingStateType state, AudioMixingReasonType reason) {
-          _isMusicPlaying = (state == AudioMixingStateType.audioMixingStatePlaying);
-        },
-        onError: (err, msg) {
-          debugPrint("❌ এগোরা এরর: $err - $msg");
-        }
-      ));
+          onJoinChannelSuccess: (connection, elapsed) {
+            _localuID = connection.localUid;
+            forceResumeAudio();
+          },
+          onAudioVolumeIndication:
+              (connection, speakers, speakerNumber, totalVolume) {
+            // 🔥 এই স্ট্রিম ব্যবহারের ফলে ভিউয়ার লিস্টের ডাটাবেজ রিবিল্ড হবে না
+            _volumeStreamController.add(speakers);
+          },
+          onAudioMixingStateChanged:
+              (AudioMixingStateType state, AudioMixingReasonType reason) {
+            _isMusicPlaying =
+                (state == AudioMixingStateType.audioMixingStatePlaying);
+          },
+          onError: (err, msg) {}));
 
       await _engine!.enableAudio();
       _isInitialized = true;
-    } catch (e) {
-      debugPrint("❌ ইনিশিয়ালাইজ ফেল: $e");
-    }
+    } catch (e) {}
   }
 
   // --- মিউজিক ফিচারসমূহ ---
@@ -110,13 +103,11 @@ class AgoraManager {
     try {
       await _engine!.startAudioMixing(
         filePath: filePath,
-        loopback: true, 
-        cycle: -1, 
+        loopback: true,
+        cycle: -1,
       );
       _isMusicPlaying = true;
-    } catch (e) {
-      debugPrint("❌ মিউজিক প্লে এরর: $e");
-    }
+    } catch (e) {}
   }
 
   Future<void> stopMusic() async {
@@ -161,22 +152,22 @@ class AgoraManager {
   Future<void> joinAsListener(String channelName, [String? fireuID]) async {
     if (!_isInitialized || _engine == null) await initAgora();
 
-    _localuID = (fireuID != null && fireuID.isNotEmpty) 
-        ? (fireuID.hashCode.abs() % 1000000) 
+    _localuID = (fireuID != null && fireuID.isNotEmpty)
+        ? (fireuID.hashCode.abs() % 1000000)
         : (Random().nextInt(899999) + 100000);
 
     await _engine!.joinChannel(
       token: "",
-      channelId: channelName.trim(), 
+      channelId: channelName.trim(),
       uid: _localuID!,
       options: const ChannelMediaOptions(
         clientRoleType: ClientRoleType.clientRoleAudience,
-        publishMicrophoneTrack: false, 
-        autoSubscribeAudio: true,      
+        publishMicrophoneTrack: false,
+        autoSubscribeAudio: true,
       ),
     );
-    
-    await _engine!.enableLocalAudio(false); 
+
+    await _engine!.enableLocalAudio(false);
     _shouldBeBroadcasting = false;
     await forceResumeAudio();
   }
@@ -184,8 +175,8 @@ class AgoraManager {
   Future<void> becomeBroadcaster() async {
     if (_engine == null) await initAgora();
     _shouldBeBroadcasting = true;
-    _isMicMutedLocal = false; 
-    
+    _isMicMutedLocal = false;
+
     if (!kIsWeb) {
       var status = await Permission.microphone.status;
       if (!status.isGranted) {
@@ -193,7 +184,7 @@ class AgoraManager {
       }
     }
 
-    await _engine!.enableLocalAudio(true); 
+    await _engine!.enableLocalAudio(true);
     await _engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     await _ensureAudioPublishing();
 
@@ -202,23 +193,23 @@ class AgoraManager {
 
   Future<void> _ensureAudioPublishing() async {
     if (_engine == null) return;
-    
+
     await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
-      publishMicrophoneTrack: !_isMicMutedLocal, 
+      publishMicrophoneTrack: !_isMicMutedLocal,
       autoSubscribeAudio: true,
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
     ));
 
     await _engine!.enableLocalAudio(!_isMicMutedLocal);
-    
+
     if (!_isMicMutedLocal) {
-      await _engine!.adjustRecordingSignalVolume(150); 
+      await _engine!.adjustRecordingSignalVolume(150);
     }
   }
 
   Future<void> toggleMic(bool isMute) async {
     if (_engine == null) return;
-    _isMicMutedLocal = isMute; 
+    _isMicMutedLocal = isMute;
     await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
       publishMicrophoneTrack: !isMute,
     ));
@@ -229,13 +220,13 @@ class AgoraManager {
     if (_engine == null) return;
     _shouldBeBroadcasting = false;
     _keepAliveTimer?.cancel();
-    await stopMusic(); 
+    await stopMusic();
     await _engine!.setClientRole(role: ClientRoleType.clientRoleAudience);
     await _engine!.updateChannelMediaOptions(const ChannelMediaOptions(
       publishMicrophoneTrack: false,
       autoSubscribeAudio: true,
     ));
-    await _engine!.enableLocalAudio(false); 
+    await _engine!.enableLocalAudio(false);
   }
 
   Future<void> leaveRoom() async {

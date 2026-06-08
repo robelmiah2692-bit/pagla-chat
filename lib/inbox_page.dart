@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:lottie/lottie.dart';
 import 'package:pagla_chat/widgets/room_settings_handler.dart';
 import 'dart:ui';
 import 'chat_screen.dart';
@@ -40,11 +41,7 @@ class _InboxPageState extends State<InboxPage> {
           await doc.reference.update({'isRead': true});
         }
       }
-
-      print("✅ মেসেজ ক্লিন সফল: $chatId");
-    } catch (e) {
-      debugPrint("❌ ক্লিন এরর: $e");
-    }
+    } catch (e) {}
   }
 
   @override
@@ -268,13 +265,25 @@ class _InboxPageState extends State<InboxPage> {
         ? "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/favicon.png"
         : (userData['profilePic'] ?? "");
 
-    // এখানে অফিশিয়াল ফ্রেমের লিঙ্কটি যোগ করুন
+    // ১. এখানে অফিশিয়াল ফ্রেমের লিঙ্ক
     String officialFrameUrl =
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/officialframe.png";
 
-    String? frameUrl = isOfficial
-        ? officialFrameUrl // অফিশিয়াল হলে ফ্রেম লিঙ্কটি আসবে
-        : userData['activeFrameUrl']; // সাধারণ ইউজার হলে তার নিজস্ব ফ্রেম আসবে
+// ২. ডাটাবেস বা JSON থেকে ফ্রেমের লিঙ্ক নেওয়া (userData তে ফ্রেমের কী বা নাম বুঝে নিন)
+    String? dbFrameUrl = isOfficial ? null : userData['activeFrameUrl'];
+    String? jsonFrameUrl =
+        userData['activeFrameUrl']; // আপনার JSON এ যে কী (key) ব্যবহার করেছেন
+
+// ৩. কার্যকর লজিক: অফিশিয়াল > ডাটাবেস > JSON
+    String effectiveFrameUrl = "";
+
+    if (isOfficial) {
+      effectiveFrameUrl = officialFrameUrl;
+    } else if (dbFrameUrl != null && dbFrameUrl.isNotEmpty) {
+      effectiveFrameUrl = dbFrameUrl;
+    } else if (jsonFrameUrl != null && jsonFrameUrl.isNotEmpty) {
+      effectiveFrameUrl = jsonFrameUrl;
+    }
     String? currentRoomId = userData['currentRoomId'];
     bool isLive = currentRoomId != null && currentRoomId.toString().isNotEmpty;
 
@@ -331,19 +340,33 @@ class _InboxPageState extends State<InboxPage> {
                           : null,
                     ),
                     // ২. ইউজার ফ্রেম (নতুন যোগ করা হয়েছে)
-                    // ২. ইউজার ফ্রেম (বড় সাইজ কিন্তু নামের গ্যাপ বাড়াবে না)
-                    if (frameUrl != null && frameUrl.isNotEmpty)
+// ২. ইউজার ফ্রেম (লটি ও ইমেজ আলাদা সাইজ কন্ট্রোল)
+                    if (effectiveFrameUrl.isNotEmpty)
                       Positioned(
-                        top: -35, // ফ্রেমের পজিশন অ্যাডজাস্ট করার জন্য
+                        top: -35,
                         left: -35,
                         right: -35,
                         bottom: -35,
-                        child: Image.network(
-                          frameUrl,
-                          width: 100,
-                          height: 100,
-                          fit: BoxFit.contain,
-                        ),
+                        child: effectiveFrameUrl.contains('.json')
+                            ? SizedBox(
+                                width: 70, // লটির উইথ
+                                height: 70, // লটির হাইট
+                                child: Lottie.network(
+                                  effectiveFrameUrl,
+                                  fit: BoxFit.contain,
+                                  // লটির জন্য যদি স্কেল অ্যাডজাস্ট করতে চান, এখানে করতে পারবেন
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const SizedBox.shrink(),
+                                ),
+                              )
+                            : Image.network(
+                                effectiveFrameUrl,
+                                width: 100, // ইমেজের উইথ
+                                height: 100, // ইমেজের হাইট
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const SizedBox.shrink(),
+                              ),
                       ),
                     // ৩. অনলাইন স্ট্যাটাস (পুরাতন লজিক - সবুজ ডট)
                     if (userData['isOnline'] == true)

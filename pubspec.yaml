@@ -23,7 +23,7 @@ dependencies:
   in_app_purchase: ^3.2.0
   # --- গুগল লগইন ---
   google_sign_in: ^7.2.0
-  marquee: ^2.3.0
+  
   # --- নোটিফিকেশন ---
   flutter_local_notifications: ^21.0.0
 
@@ -61,6 +61,7 @@ dependencies:
   uuid: ^4.3.3
 
   # --- ইউটিলিটি ও ডিজাইন ---
+  flutter_image_compress: ^2.3.0
   cached_network_image: ^3.3.1
   file_picker: ^11.0.2
   image_picker: ^1.1.1

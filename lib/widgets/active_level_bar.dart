@@ -56,10 +56,7 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
         ? (remainingXp.toDouble() / currentLevelRequiredXp.toDouble()).clamp(0.0, 1.0)
         : 0.0;
 
-    // ডিবাগ লগ
-    debugPrint("======== ❤️ [PaglaChat Active Level System] ========");
-    debugPrint("📥 ইনপুট: $xpValue XP | 🆙 লেভেল: Lv.$level | 📊 প্রোগ্রেস: $remainingXp / $currentLevelRequiredXp XP");
-    debugPrint("====================================================");
+    
 
     Color heartColor = Colors.pinkAccent;
     if (level >= 10 && level < 20) heartColor = const Color(0xFFFF00FF);

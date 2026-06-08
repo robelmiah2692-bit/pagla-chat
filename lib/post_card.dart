@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -118,12 +119,7 @@ class PostCard extends StatelessWidget {
                       final String targetAuthUID =
                           data['authUID'] ?? data['userId'] ?? '';
 
-                      // 🔍 প্রিন্ট ১: পোস্ট থেকে প্রাপ্ত আইডি দেখা
-                      debugPrint(
-                          "🔍 [DEBUG] Target AuthUID/UserID from Post: $targetAuthUID");
-
                       if (targetAuthUID.isEmpty) {
-                        debugPrint("❌ [DEBUG] targetAuthUID খালি!");
                         return;
                       }
 
@@ -138,24 +134,10 @@ class PostCard extends StatelessWidget {
 
                         if (userQuery.docs.isNotEmpty) {
                           finalIdToPass = userQuery.docs.first.id;
-                          // 🔍 প্রিন্ট ২: ডাটাবেজে আইডি পাওয়া গেলে
-                          debugPrint(
-                              "✅ [DEBUG] User Found! Doc ID: $finalIdToPass");
-                        } else {
-                          // 🔍 প্রিন্ট ৩: ইউজার না পাওয়া গেলে
-                          debugPrint(
-                              "⚠️ [DEBUG] No user document found for this authUID in 'users' collection.");
                         }
-                      } catch (e) {
-                        debugPrint("❌ [DEBUG] আইডি কনভার্ট করতে ব্যর্থ: $e");
-                      }
+                      } catch (e) {}
 
                       if (!context.mounted) return;
-
-                      // 🔍 প্রিন্ট ৪: ফাইনাল আইডি যা প্রোফাইল পেজে যাচ্ছে
-                      debugPrint(
-                          "🚀 [DEBUG] Navigating to ProfilePage with ID: $finalIdToPass");
-
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -302,25 +284,24 @@ class PostCard extends StatelessWidget {
                             minHeight: 200, maxHeight: 500),
                         decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.03)),
-                        child: Image.network(
-                          data['storyImage'],
+                        child: CachedNetworkImage(
+                          imageUrl: data['storyImage'],
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return const SizedBox(
-                                height: 200,
-                                child: Center(
-                                    child: CircularProgressIndicator(
-                                        color: cyanOwner, strokeWidth: 2)));
-                          },
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
+                          placeholder: (context, url) => const SizedBox(
+                            height: 200,
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                  color: cyanOwner, strokeWidth: 2),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
                             height: 150,
                             color: Colors.white10,
                             child: const Center(
-                                child: Icon(Icons.broken_image_outlined,
-                                    color: Colors.white24, size: 40)),
+                              child: Icon(Icons.broken_image_outlined,
+                                  color: Colors.white24, size: 40),
+                            ),
                           ),
                         ),
                       ),
@@ -470,12 +451,8 @@ class PostCard extends StatelessWidget {
             'isRead': false,
             'timestamp': FieldValue.serverTimestamp(),
           });
-          debugPrint(
-              "✅ [PaglaChat] সফলভাবে লাইক নোটিফিকেশন কালেকশনে ফিল্ডসহ ডাটা পাঠানো হয়েছে!");
         }
-      } catch (e) {
-        debugPrint("❌ [PaglaChat] লাইক নোটিফিকেশন পাঠাতে এরর: $e");
-      }
+      } catch (e) {}
     }
   }
 
@@ -635,13 +612,9 @@ class PostCard extends StatelessWidget {
           'isRead': false,
           'timestamp': FieldValue.serverTimestamp(),
         });
-        debugPrint(
-            "✅ [PaglaChat] সফলভাবে কমেন্ট নোটিফিকেশন ফিল্ডসহ ডাটা পাঠানো হয়েছে ভাই!");
       }
 
       controller.clear();
-    } catch (e) {
-      debugPrint("❌ [PaglaChat] কমেন্ট নোটিফিকেশন পাঠাতে এরর: $e");
-    }
+    } catch (e) {}
   }
 }
