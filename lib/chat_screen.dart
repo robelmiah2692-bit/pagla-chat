@@ -470,26 +470,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _toggleFollow(String targetuID, bool isFollowing) async {
-    var myRef =
-        FirebaseFirestore.instance.collection('users').doc(currentUserId);
-    var targetRef =
-        FirebaseFirestore.instance.collection('users').doc(targetuID);
-    if (isFollowing) {
-      await targetRef.update({
-        'followers': FieldValue.increment(-1),
-        'followerList': FieldValue.arrayRemove([currentUserId])
-      });
-      await myRef.update({'following': FieldValue.increment(-1)});
-    } else {
-      await targetRef.update({
-        'followers': FieldValue.increment(1),
-        'followerList': FieldValue.arrayUnion([currentUserId])
-      });
-      await myRef.update({'following': FieldValue.increment(1)});
-    }
-  }
-
+  
   Widget _statWidget(String label, dynamic count) {
     return Column(children: [
       Text(count.toString(),

@@ -45,6 +45,11 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final DatabaseService _dbService = DatabaseService();
   // ... বাকি ভেরিয়েবলগুলো এখানে থাকবে
+
+  String sixDigitProfileID = ""; // এটি ক্লাসের শুরুতে ভেরিয়েবল হিসেবে যোগ করুন
+  // ক্লাসের একদম উপরে এই ভেরিয়েবলটি যোগ করুন
+  String myAuthUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+  String mySixDigitUID = ""; // এটি আপনার নিজের ৬ ডিজিটের আইডি
   // এই ভেরিয়েবলগুলো ক্লাসের একদম উপরে (build মেথডের বাইরে) যোগ করুন
   bool hasEntryEffect = false;
   DateTime? entryUntilDate;
@@ -75,6 +80,10 @@ class _ProfilePageState extends State<ProfilePage> {
   bool hasSpecialEffect =
       false; // ইউজার কি কোনো স্পেশাল ইফেক্ট অন করে রেখেছে কি না
 
+  bool isMarried = false;
+  String partnerUid = '';
+  String marriageDocId = '';
+
   int totalActiveXp = 0;
   int totalGiftXp = 0;
   @override
@@ -89,50 +98,70 @@ class _ProfilePageState extends State<ProfilePage> {
     User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
 
+    // ১. নিজের আইডিটি আগে থেকেই একটি আলাদা ভেরিয়েবলে নিশ্চিত করুন (ফলো বাটনের জন্য)
+    // যদি আপনার কাছে অন্য কোনো গ্লোবাল ভেরিয়েবল থাকে তবে সেটিও ব্যবহার করতে পারেন
+    String myUidForFollow = currentUser.uid;
+
+    // অন্য ইউজারের প্রোফাইল দেখার জন্য টার্গেট আইডি নির্ধারণ
+    String targetId = widget.userId ?? currentUser.uid;
+
     try {
       DocumentSnapshot? userDoc;
       final collection = FirebaseFirestore.instance.collection('users');
 
-      // ১. uID দিয়ে চেক
-      var docById = await collection.doc(currentUser.uid).get();
-      if (docById.exists) {
-        userDoc = docById;
+      // ২. প্রোফাইল ডাটা লোড লজিক
+      if (widget.userId != null) {
+        // অন্যের প্রোফাইল হলে সরাসরি আইডি দিয়ে ডাটা আনা
+        userDoc = await collection.doc(targetId).get();
+      } else {
+        // নিজের প্রোফাইল হলে আপনার সেই ৪টি কুয়েরি লজিক
+        var docById = await collection.doc(currentUser.uid).get();
+        if (docById.exists) {
+          userDoc = docById;
+        }
+        if (userDoc == null) {
+          var queryAuth = await collection
+              .where('authUID', isEqualTo: currentUser.uid)
+              .limit(1)
+              .get();
+          if (queryAuth.docs.isNotEmpty) userDoc = queryAuth.docs.first;
+        }
+        if (userDoc == null && currentUser.email != null) {
+          var queryEmail = await collection
+              .where('email', isEqualTo: currentUser.email)
+              .limit(1)
+              .get();
+          if (queryEmail.docs.isNotEmpty) userDoc = queryEmail.docs.first;
+        }
+        if (userDoc == null) {
+          var queryuIDField = await collection
+              .where('uID', isEqualTo: currentUser.uid)
+              .limit(1)
+              .get();
+          if (queryuIDField.docs.isNotEmpty) userDoc = queryuIDField.docs.first;
+        }
       }
 
-      // ২. authUID দিয়ে চেক
-      if (userDoc == null) {
-        var queryAuth = await collection
-            .where('authUID', isEqualTo: currentUser.uid)
-            .limit(1)
-            .get();
-        if (queryAuth.docs.isNotEmpty) userDoc = queryAuth.docs.first;
-      }
-
-      // ৩. email দিয়ে চেক
-      if (userDoc == null && currentUser.email != null) {
-        var queryEmail = await collection
-            .where('email', isEqualTo: currentUser.email)
-            .limit(1)
-            .get();
-        if (queryEmail.docs.isNotEmpty) userDoc = queryEmail.docs.first;
-      }
-
-      // ৪. uID ফিল্ড দিয়ে চেক
-      if (userDoc == null) {
-        var queryuIDField = await collection
-            .where('uID', isEqualTo: currentUser.uid)
-            .limit(1)
-            .get();
-        if (queryuIDField.docs.isNotEmpty) userDoc = queryuIDField.docs.first;
-      }
-
-      // --- ডাটা পাওয়ার পর ভেরিয়েবলে সেট করা ---
+      // --- ডাটা পাওয়ার পর ভেরিয়েবলে সেট করা ---
       if (userDoc != null && userDoc.exists && mounted) {
         var data = userDoc.data() as Map<String, dynamic>;
         DateTime now = DateTime.now();
 
+        // গুরুত্বপূর্ণ: নিজের আইডি যদি খালি থাকে, তবেই আমরা তা ডাটাবেস থেকে আবার রিফ্রেশ করব
+        if (widget.userId != null && mySixDigitUID.isEmpty) {
+          _refreshMyOwnUID(currentUser);
+        }
         setState(() {
           uIDValue = userDoc!.id;
+          sixDigitProfileID = data['uID'] ?? userDoc!.id;
+
+          // নিজের আইডি সেট করার লজিক (এটি আপনার পুরনো লজিকই থাকছে)
+          if (currentUser.uid != null &&
+              (userDoc!.id == currentUser.uid ||
+                  data['authUID'] == currentUser.uid)) {
+            mySixDigitUID = userDoc!.id;
+          }
+
           isAgent = data['isAgent'] == true;
           userName = data['name'] ?? data['userName'] ?? "Pagla User";
           userImageURL = data['profilePic'] ?? "";
@@ -145,7 +174,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
           diamonds = (data['diamonds'] ?? 200).toInt();
           xp = (data['vip_xp'] ?? 0).toInt();
-
           followers = (data['followers'] ?? 0).toInt();
           following = (data['following'] ?? 0).toInt();
           isVIP = data['isVIP'] ?? false;
@@ -160,9 +188,9 @@ class _ProfilePageState extends State<ProfilePage> {
             }
           }
 
+          // ২. Frame ও Special Effect
           activeSpecialUrl = data['activeSpecialUrl'] ?? "";
           hasSpecialEffect = data['hasSpecialEffect'] ?? false;
-          // ২. Frame এক্সপায়ারি
           hasFreeFrame = data['hasFreeFrame'] ?? false;
           activeFrameUrl = data['activeFrameUrl'] ?? "";
           if (data['frameUntil'] != null) {
@@ -187,42 +215,81 @@ class _ProfilePageState extends State<ProfilePage> {
                   extraField: 'activeEntryUrl');
             }
           }
-          // 🎯 আপনার setState এর একদম শেষ লাইনে এই প্রিন্টগুলো বসিয়ে দিন ভাই:
-          totalActiveXp = (data['totalActiveXp'] ?? 0).toInt();
 
+          isMarried = data['isMarried'] ?? false;
+          partnerUid = data['partnerUid'] ?? '';
+          marriageDocId = data['marriageDocId'] ?? '';
+
+          // এক্সপি লজিক
+          totalActiveXp = (data['totalActiveXp'] ?? 0).toInt();
           totalGiftXp = (data['totalGiftXp'] ?? 0).toInt();
         });
-      }
-    } catch (e) {}
-  } // <--- loadUserData এখানে শেষ
 
-  void _checkCurrentFollowStatus(String tId) async {
-    bool status = await FollowService().checkIfFollowing(tId);
-    setState(() {
-      isFollowing = status;
-    });
+        // ফলো বাটন চেক করার ফাংশন কল
+        _checkInitialStatus();
+      }
+    } catch (e) {
+      print("Error loading data: $e");
+    }
   }
 
-  void _toggleFollowWithId(String tId) async {
-    // 🛠️ সরাসরি পাস হওয়া আইডি ব্যবহার করায় আর কোনো লাল দাগ আসবে না
-    bool currentStatus = await FollowService().toggleFollowUser(tId);
+// ২. আলাদা ফাংশন যা শুধু আপনার নিজের আইডি খুঁজে বের করবে
+  void _refreshMyOwnUID(User currentUser) async {
+    final collection = FirebaseFirestore.instance.collection('users');
+    var query = await collection
+        .where('authUID', isEqualTo: currentUser.uid)
+        .limit(1)
+        .get();
+    if (query.docs.isNotEmpty) {
+      setState(() {
+        mySixDigitUID = query.docs.first.id;
+        print("DEBUG: নিজের আইডি রিকভার করা হয়েছে: $mySixDigitUID");
+      });
+    }
+  }
 
-    setState(() {
-      isFollowing = currentStatus;
-      if (currentStatus) {
-        followers += 1;
-      } else {
-        followers -= 1;
+// ৩. ফলো বাটন চেক করার লজিক
+  void _checkInitialStatus() async {
+    // অন্যের প্রোফাইল এবং প্রোফাইল আইডি নিশ্চিত করা
+    if (widget.userId == null) return;
+
+    // যদি mySixDigitUID খালি থাকে, তবুও যেন অ্যাপ ক্র্যাশ না করে
+    String myId = mySixDigitUID.isNotEmpty
+        ? mySixDigitUID
+        : FirebaseAuth.instance.currentUser!.uid;
+
+    print("DEBUG CHECK: ProfileUID: ${widget.userId}, MyUID: $myId");
+
+    bool following =
+        await FollowService().checkIfFollowing(widget.userId!, myId);
+
+    if (mounted) {
+      setState(() {
+        isFollowing = following;
+      });
+    }
+  }
+
+// ২. ডাটা ফেচ করার ফাংশন
+  void _fetchUserData() async {
+    if (uIDValue.isEmpty) return;
+
+    try {
+      // সরাসরি ৬ ডিজিটের আইডি (uIDValue) দিয়ে সার্চ করুন
+      var userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uIDValue)
+          .get();
+
+      if (userDoc.exists && mounted) {
+        setState(() {
+          followers = userDoc.data()?['followers'] ?? 0;
+          following = userDoc.data()?['following'] ?? 0;
+        });
       }
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(currentStatus
-          ? "You started following!"
-          : "Unfollowed successfully!"),
-      backgroundColor: currentStatus ? Colors.pinkAccent : Colors.blueGrey,
-      duration: const Duration(seconds: 1),
-    ));
+    } catch (e) {
+      print("ডাটা ফেচ এরর: $e");
+    }
   }
 
   // ডাটাবেজ থেকে মেয়াদ শেষ হওয়া ডাটা মুছে ফেলার ফাংশন (এটি বাইরে থাকবে)
@@ -554,26 +621,6 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ),
     );
-  }
-
-  void _toggleFollow() async {
-    String myuID = FirebaseAuth.instance.currentUser!.uid;
-    String targetuID = uIDValue;
-    var followRef = FirebaseFirestore.instance.collection('users');
-    if (isFollowing) {
-      await followRef
-          .doc(myuID)
-          .update({'following': FieldValue.increment(-1)});
-      await followRef
-          .doc(targetuID)
-          .update({'followers': FieldValue.increment(-1)});
-    } else {
-      await followRef.doc(myuID).update({'following': FieldValue.increment(1)});
-      await followRef
-          .doc(targetuID)
-          .update({'followers': FieldValue.increment(1)});
-    }
-    setState(() => isFollowing = !isFollowing);
   }
 
   void _showAgePicker() {
@@ -2444,9 +2491,12 @@ class _ProfilePageState extends State<ProfilePage> {
           vipExpiry = userData['vipExpiry'] ?? 0;
           userImageURL = userData['profilePic'] ?? "";
           gender = userData['gender'] ?? "Unfixed";
-          hasPremiumCard = userData['hasPremium'] ?? false;
+          hasPremiumCard = userData['hasPremiumCard'] ?? false;
           followers = userData['followers'] ?? 0;
           following = userData['following'] ?? 0;
+          isMarried = userData['isMarried'] ?? false;
+          partnerUid = userData['partnerUid'] ?? '';
+          marriageDocId = userData['marriageDocId'] ?? '';
         }
 
         // ভিআইপি লেভেল এবং পরবর্তী টার্গেট ক্যালকুলেশন
@@ -2497,11 +2547,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     StreamBuilder<DocumentSnapshot>(
                       stream: FirebaseFirestore.instance
                           .collection('marriages')
-                          .doc(targetUserId)
+                          .doc(marriageDocId.isNotEmpty ? marriageDocId : targetUserId)
                           .snapshots(),
                       builder: (context, marriageSnapshot) {
-                        
-                        
                         // যদি ইউজার বিবাহিত হয় (marriages কালেকশনে ডাটা থাকে)
                         if (marriageSnapshot.hasData &&
                             marriageSnapshot.data!.exists) {
@@ -2567,12 +2615,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             },
                           );
                         }
-                        // 👤 যদি সিঙ্গেল হয় (কোনো পার্টনার না থাকে), তবে শুধু নিজের পুরাতন প্রোফাইল পিকচারটি দেখাব
-
-                        // 🔍 [প্রিন্ট ২]: সিঙ্গেল প্রোফাইলের সমস্ত ইমেজ লিংক টেস্ট
-                        debugPrint("====== 👤 [SINGLE USER URLS] ======");
-                        debugPrint("My Image: '$userImageURL'");
-                        debugPrint("My Frame: '$activeFrameUrl'");
+                        // 👤 যদি সিঙ্গেল হয় (কোনো পার্টনার না থাকে), তবে শুধু নিজের পুরাতন প্রোফাইল পিকচারটি দেখা
 
                         return Center(
                           child: Stack(
@@ -2861,18 +2904,43 @@ class _ProfilePageState extends State<ProfilePage> {
 
                     // Followers & Following
                     Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      _buildStat("Followers", followers, targetUserId, context),
+                      _buildStat(
+                          "Followers", followers, sixDigitProfileID, context),
                       const SizedBox(width: 25),
                       if (!isMe) ...[
                         ElevatedButton(
-                          onPressed: _toggleFollow,
+                          onPressed: () async {
+                            // সার্ভিস কল
+                            bool nowFollowing = await FollowService()
+                                .toggleFollowUser(targetUserId, mySixDigitUID);
+
+                            if (mounted) {
+                              setState(() {
+                                isFollowing = nowFollowing;
+                                // কাউন্ট আপডেট লজিক
+                                if (nowFollowing) {
+                                  followers += 1;
+                                } else {
+                                  followers =
+                                      (followers > 0) ? followers - 1 : 0;
+                                }
+                              });
+                            }
+                          },
                           style: ElevatedButton.styleFrom(
-                              backgroundColor: isFollowing
-                                  ? Colors.blueGrey
-                                  : Colors.pinkAccent,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20))),
-                          child: Text(isFollowing ? "Friend" : "Follow",
+                            // এখানে কালার লজিক: ফ্রেন্ড থাকলে blueGrey, না থাকলে pinkAccent
+                            backgroundColor: isFollowing
+                                ? Colors.blueGrey
+                                : Colors.pinkAccent,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                          ),
+                          child: Text(
+                              // টেক্সট লজিক: এখন এটি চেক করবে ফ্রেন্ড নাকি শুধু ফলোইং
+                              // মনে রাখবেন: 'isFollowing' চেক করে আপনি বুঝতে পারছেন আপনি তাকে ফলো করছেন।
+                              // যদি সে-ও আপনাকে ফলো করে থাকে, তবেই এখানে "Friend" দেখাবে।
+                              // এটি নিশ্চিত করতে হলে আপনার `init` ফাংশনে চেক করতে হবে সে আপনাকে ফলো করে কি না।
+                              isFollowing ? "Friend" : "Follow",
                               style: const TextStyle(color: Colors.white)),
                         ),
                         const SizedBox(width: 10),
@@ -2895,7 +2963,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                     style: TextStyle(
                                         color: Colors.white54, fontSize: 10)))),
                       const SizedBox(width: 25),
-                      _buildStat("Following", following, targetUserId, context),
+                      // Row-এর ভেতরে targetUserId এর বদলে uIDValue পাস করুন
+                      _buildStat(
+                          "Following", following, sixDigitProfileID, context),
                     ]),
 
                     const SizedBox(height: 35),
@@ -2956,22 +3026,33 @@ class _ProfilePageState extends State<ProfilePage> {
     ); // StreamBuilder শেষ
   }
 
-  // ফলোয়ার/ফলোয়িং লিস্ট সিকিউরিটি লজিক
-  Widget _buildStat(String label, int value, String uID, BuildContext context) {
-    final String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
+  Widget _buildStat(
+      String label, int value, String profileUID, BuildContext context) {
+    print(
+        "DEBUG CHECK: Label: $label, MySixDigitUID: '$mySixDigitUID', ProfileUID: '$profileUID'");
+
+    // logic: যদি আমার নিজের আইডি (mySixDigitUID) এবং বর্তমানে যে প্রোফাইলটি দেখছি তার আইডি (profileUID) সমান হয়, তবেই লিস্ট দেখা যাবে।
+    bool isMyProfile = (mySixDigitUID == profileUID);
+
     return GestureDetector(
       onTap: () {
-        if (myId == uID) {
+        // এই প্রিন্টটি দেখুন কনসোলে কী আসে
+        print("DEBUG TAP: Label is '$label', IsMyProfile is $isMyProfile");
+        if (isMyProfile) {
           Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) =>
-                      UserListScreen(title: label, userId: uID)));
+            context,
+            MaterialPageRoute(
+              builder: (context) => UserListScreen(
+                  title: label,
+                  userId: profileUID,
+                  mySixDigitUID: mySixDigitUID),
+            ),
+          );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content:
-                  Text("You not possible to see $label others parson List!"),
-              backgroundColor: Colors.redAccent));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("You can only see your own list!"),
+            backgroundColor: Colors.redAccent,
+          ));
         }
       },
       child: Column(children: [

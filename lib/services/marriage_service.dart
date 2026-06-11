@@ -99,16 +99,31 @@ class MarriageService {
       'marriedAt': FieldValue.serverTimestamp(),
     });
 
-    // ২. [NEW] ইউজারের নিজস্ব ডাটায় ম্যারেজ স্ট্যাটাস আপডেট
-    batch.update(_db.collection('users').doc(myId), {
-      'isMarried': true,
-      'partnerUid': friendAuthUID,
-    });
+    // আপনার বর্তমান batch কোডটি এভাবে আপডেট করুন
+String marriageDocId = friendAuthUID; // যেহেতু আপনি বন্ধুটির AuthUID দিয়েই ডক বানাচ্ছেন
 
-    batch.update(_db.collection('users').doc(friendId), {
-      'isMarried': true,
-      'partnerUid': myAuthUID,
-    });
+batch.set(partnerMarriageRef, {
+  'marriageId': marriageDocId, // এটিই আপনার সেই ID
+  'myAuthUID': friendAuthUID,
+  // ... বাকি ফিল্ডগুলো (myName, myImage ইত্যাদি)
+  'partnerAuthUID': myAuthUID,
+  'marriedAt': FieldValue.serverTimestamp(),
+});
+
+// ২. ইউজারের নিজস্ব ডাটায় ম্যারেজ স্ট্যাটাস এবং marriageDocId আপডেট
+batch.update(_db.collection('users').doc(myId), {
+  'isMarried': true,
+  'partnerUid': friendAuthUID,
+  'marriageDocId': marriageDocId, // নতুন ফিল্ড: এটিই রিং লোড করতে সাহায্য করবে
+});
+
+batch.update(_db.collection('users').doc(friendId), {
+  'isMarried': true,
+  'partnerUid': myAuthUID,
+  'marriageDocId': marriageDocId, // নতুন ফিল্ড: পার্টনারের প্রোফাইলেও এটি থাকবে
+});
+
+
 
     // ৩. পেন্ডিং রিকোয়েস্ট ডিলিট
     batch.delete(_db.collection('marriage_requests').doc(myAuthUID));

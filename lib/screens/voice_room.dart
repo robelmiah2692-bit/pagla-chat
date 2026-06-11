@@ -4028,9 +4028,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                       receiverAuthUID = receiverDocID;
                     }
 
-                    print(
-                        "💍 [DEBUG] আমার জেন্ডার: $myGender, পার্টনারের জেন্ডার: $partnerGender");
-                    print("💍 [DEBUG] রিসিভারের লম্বা UID: $receiverAuthUID");
+                    
 
                     // ২. একই লিঙ্গের হলে রিং পাঠানো আটকে দেওয়া
                     if (myGender != "Unknown" &&
