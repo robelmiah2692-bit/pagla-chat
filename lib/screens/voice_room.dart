@@ -5,7 +5,6 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 // Firebase & Agora
 import 'package:firebase_auth/firebase_auth.dart';
@@ -19,7 +18,6 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:lottie/lottie.dart';
 import 'package:pagla_chat/room_exit_handler.dart';
-import 'package:pagla_chat/room_list_page.dart' show RoomListPage;
 import 'package:pagla_chat/room_manager.dart';
 import 'package:pagla_chat/services/floating_bubble_service.dart';
 import 'package:pagla_chat/services/gift_logic_helper.dart';
@@ -33,17 +31,13 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:image_picker/image_picker.dart';
 
 // Your Project Files (Paths simplified, ensure they match your project)
-import 'package:pagla_chat/widgets/user_profile_dialog.dart';
 import 'package:pagla_chat/room_follower_sheet.dart';
-import '../services/gift_transaction_helper.dart';
 import 'package:pagla_chat/inbox_page.dart';
 import 'package:pagla_chat/widgets/voice_ripple.dart';
 import '../services/room_service.dart';
 import 'package:pagla_chat/room_sync_service.dart';
 import 'package:pagla_chat/services/database_service.dart';
 import 'package:pagla_chat/services/soulmate_animation_service.dart';
-import 'package:pagla_chat/services/agora_status_checker.dart';
-import 'package:pagla_chat/services/seat_sync_service.dart';
 import 'package:pagla_chat/widgets/live_viewers_list.dart';
 import '../pk_battle_view.dart';
 import '../pk_winner_dialog.dart';
@@ -51,10 +45,6 @@ import '../game_panel_view.dart';
 import '../vs_pk_manager.dart';
 import '../floating_room_tools.dart';
 import '../gift_rank_dialog.dart';
-import '../top_room_leaderboard.dart';
-import '../personal_pk_view.dart';
-import '../vs_pk_view.dart';
-import '../live_notification_service.dart';
 import 'package:pagla_chat/services/agora_manager.dart';
 import '../widgets/emoji_handler.dart';
 import '../widgets/gift_overlay_handler.dart';
@@ -365,38 +355,36 @@ class _VoiceRoomState extends State<VoiceRoom> {
         }
 
         final engine = _agoraManager.engine;
-        if (engine != null) {
-          await engine.enableAudioVolumeIndication(
-              interval: 250, smooth: 3, reportVad: true);
+        await engine.enableAudioVolumeIndication(
+            interval: 250, smooth: 3, reportVad: true);
 
-          engine.registerEventHandler(
-            RtcEngineEventHandler(
-              onAudioVolumeIndication:
-                  (connection, speakers, totalVolume, speakerNumber) {
-                if (!mounted) return;
+        engine.registerEventHandler(
+          RtcEngineEventHandler(
+            onAudioVolumeIndication:
+                (connection, speakers, totalVolume, speakerNumber) {
+              if (!mounted) return;
 
-                bool isMeTalking = false;
-                for (var speaker in speakers) {
-                  if (speaker.uid == 0 && (speaker.volume ?? 0) > 15) {
-                    isMeTalking = true;
-                    break;
-                  }
+              bool isMeTalking = false;
+              for (var speaker in speakers) {
+                if (speaker.uid == 0 && (speaker.volume ?? 0) > 15) {
+                  isMeTalking = true;
+                  break;
                 }
+              }
 
-                if (_isMeTalkingNow != isMeTalking) {
-                  // 🔥 রিপেল ফিরিয়ে আনার জন্য লোকাল স্টেট আপডেট
-                  setState(() {
-                    _isMeTalkingNow = isMeTalking;
-                  });
+              if (_isMeTalkingNow != isMeTalking) {
+                // 🔥 রিপেল ফিরিয়ে আনার জন্য লোকাল স্টেট আপডেট
+                setState(() {
+                  _isMeTalkingNow = isMeTalking;
+                });
 
-                  // ডাটাবেজ আপডেট (আপনার পুরাতন কোড অনুযায়ী)
-                  _updateTalkingStatus(isMeTalking);
-                }
-              },
-            ),
-          );
-        }
-      } catch (e) {
+                // ডাটাবেজ আপডেট (আপনার পুরাতন কোড অনুযায়ী)
+                _updateTalkingStatus(isMeTalking);
+              }
+            },
+          ),
+        );
+            } catch (e) {
         debugPrint("Agora Error: $e");
       }
     });
@@ -1240,7 +1228,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     // ১. সরাসরি সিট থেকে ডাটা নিয়ে কপি তৈরি করা
     // এখানে list.where ব্যবহার করে শুধু যারা সিটে বসে আছে (isOccupied) তাদের নেওয়া ভালো
     List<Map<String, dynamic>> seatData = seats
-        .where((s) => s != null && s['isOccupied'] == true)
+        .where((s) => s['isOccupied'] == true)
         .map((s) => Map<String, dynamic>.from(s))
         .toList();
 
@@ -2259,8 +2247,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
     // ७. এগোরা ইঞ্জিন রিলিজ করা
     try {
-      _agoraManager.engine?.leaveChannel();
-      _agoraManager.engine?.release();
+      _agoraManager.engine.leaveChannel();
+      _agoraManager.engine.release();
     } catch (e) {
       debugPrint("Agora Dispose Error: $e");
     }
@@ -3092,9 +3080,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
                                                     // ৩. যদি এডমিন নিজেই নিজের সিটে বসা থাকে, তবে সরাসরি তার এগোরা মাইক অফ হবে
                                                     if (seatUserId ==
-                                                            currentUserId &&
-                                                        _agoraManager.engine !=
-                                                            null) {
+                                                            currentUserId) {
                                                       await _agoraManager
                                                           .toggleMic(
                                                               !newMicStatus);
@@ -3330,7 +3316,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
             // 🔥 সিটে চেক করার সময় লক ডাটা থাকলেও যেন ইউজারকে খুঁজে পায়
             int mySeatIndex = seats.indexWhere((s) {
-              if (s == null) return false;
               var uID = s['uID'] ?? s['userId'] ?? s['uid'];
               return uID.toString() == myActualId;
             });
@@ -3340,7 +3325,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   context: context,
                   seatIndex: mySeatIndex,
                   onEmojiSelected: (index, url) {
-                    if (index != -1 && url != null) {
+                    if (index != -1) {
                       DatabaseReference seatRef = FirebaseDatabase.instance
                           .ref('rooms/${widget.roomId}/seats/$index');
 
@@ -3457,10 +3442,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
                 bool newMicState = !isMicOn;
                 try {
-                  if (_agoraManager.engine != null) {
-                    await _agoraManager.toggleMic(!newMicState);
-                  }
-                  FirebaseDatabase.instance
+                  await _agoraManager.toggleMic(!newMicState);
+                                  FirebaseDatabase.instance
                       .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
                       .update({'isMicOn': newMicState});
 
@@ -3801,12 +3784,11 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 } else {
                   var targetSeat = seats.firstWhere(
                     (s) =>
-                        s != null &&
                         (s['userName'] == target || s['name'] == target),
                     orElse: () => <String, dynamic>{},
                   );
 
-                  if (targetSeat != null && targetSeat.isNotEmpty) {
+                  if (targetSeat.isNotEmpty) {
                     receiverImgUrl = targetSeat['profilePic'] ??
                         targetSeat['userImage'] ??
                         "";
@@ -3890,7 +3872,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                     target != "All Mic") {
                   // ১. আপনার সিট লিস্ট থেকে রিসিভারের ইনডেক্স খুঁজে বের করুন
                   int seatIndex = seats.indexWhere((s) =>
-                      s != null &&
                       (s['uID']?.toString() == receiverDocID ||
                           s['userId']?.toString() == receiverDocID));
 
@@ -4726,10 +4707,8 @@ Widget _buildCircularIcon(IconData icon, Color color, VoidCallback onTap) {
   // একদম নিচের দিকে, শেষ ব্র্যাকেটের একটু উপরে এই ফাংশনটি বসান
   void _leaveRoomInternally() async {
     try {
-      if (_agoraManager.engine != null) {
-        await _agoraManager.engine?.leaveChannel();
-      }
-      if (currentSeatIndex != -1) {
+      await _agoraManager.engine.leaveChannel();
+          if (currentSeatIndex != -1) {
         FirebaseDatabase.instance
             .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
             .update({

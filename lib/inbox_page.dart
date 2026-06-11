@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -71,26 +72,27 @@ class _InboxPageState extends State<InboxPage> {
   }
 
   Widget _buildAppBar() {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text("Inbox",
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1)),
-          IconButton(
-            icon: const Icon(Icons.notifications_active,
-                color: Colors.pinkAccent),
-            onPressed: () {},
-          )
-        ],
+  return Container(
+    margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+    height: 100,
+    width: double.infinity,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(20),
+      // CachedNetworkImageProvider ব্যবহার করা হয়েছে যাতে ইমেজ ক্যাশ হয়
+      image: const DecorationImage(
+        image: CachedNetworkImageProvider(
+          "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/inboxbenar.png",
+        ),
+        fit: BoxFit.fill,
       ),
-    );
-  }
+      // গোল্ডেন বর্ডার
+      border: Border.all(
+        color: Colors.amber.shade700,
+        width: 2,
+      ),
+    ),
+  );
+}
 
   Widget _buildSearchBar() {
     return Padding(
@@ -102,7 +104,7 @@ class _InboxPageState extends State<InboxPage> {
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.05),
-              border: Border.all(color: Colors.white10),
+              border: Border.all(color: const Color.fromARGB(104, 9, 43, 233)),
               borderRadius: BorderRadius.circular(20),
             ),
             child: TextField(
@@ -340,7 +342,6 @@ class _InboxPageState extends State<InboxPage> {
                           : null,
                     ),
                     // ২. ইউজার ফ্রেম (নতুন যোগ করা হয়েছে)
-// ২. ইউজার ফ্রেম (লটি ও ইমেজ আলাদা সাইজ কন্ট্রোল)
                     if (effectiveFrameUrl.isNotEmpty)
                       Positioned(
                         top: -35,
@@ -384,7 +385,7 @@ class _InboxPageState extends State<InboxPage> {
                         ),
                       ),
                     // ৪. লাইভ বাটন - আপডেট করা লজিক
-                    if (isLive && currentRoomId != null)
+                    if (isLive)
                       Positioned(
                         bottom: 0,
                         child: GestureDetector(
@@ -408,12 +409,12 @@ class _InboxPageState extends State<InboxPage> {
                             if (isLocked && ownerId != myUID) {
                               // লক থাকলে পাসওয়ার্ড চাইবে
                               RoomSettingsHandler.showJoinPasswordDialog(
-                                  context, currentRoomId!, password, () {
+                                  context, currentRoomId, password, () {
                                 Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                         builder: (context) =>
-                                            VoiceRoom(roomId: currentRoomId!)));
+                                            VoiceRoom(roomId: currentRoomId)));
                               });
                             } else {
                               // লক না থাকলে বা মালিক হলে সরাসরি রুমে ঢুকবে
@@ -421,7 +422,7 @@ class _InboxPageState extends State<InboxPage> {
                                   context,
                                   MaterialPageRoute(
                                       builder: (context) =>
-                                          VoiceRoom(roomId: currentRoomId!)));
+                                          VoiceRoom(roomId: currentRoomId)));
                             }
                           },
                           child: Container(

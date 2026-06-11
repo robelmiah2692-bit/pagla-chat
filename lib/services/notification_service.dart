@@ -1,154 +1,83 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+@pragma('vm:entry-point')
+void _firebaseMessagingBackgroundHandler(NotificationResponse details) {
+  print("🔔 ব্যাকগ্রাউন্ড থেকে ক্লিক হয়েছে");
+}
+
 class NotificationService {
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
 
-  // অ্যান্ড্রয়েডের জন্য হাই ইম্পর্টেন্স চ্যানেল
-  static const AndroidNotificationChannel channel = AndroidNotificationChannel(
-    'high_importance_channel', // ID
-    'High Importance Notifications', // Title
-    description: 'This channel is used for important notifications.',
-    importance: Importance.max,
-    playSound: true,
-  );
-
-  // 🔥 আপনার দেওয়া সেই চাবি (Server Key)
-  static const String _serverKey = '85d1bd7016f3125ef1dc50f06b5801d48697d58d';
-
   Future<void> initNotification() async {
-    // ১. পারমিশন রিকোয়েস্ট
-    await _fcm.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    await _fcm.requestPermission(alert: true, badge: true, sound: true);
 
-    // ২. টোকেন নেওয়া এবং ডাটাবেসে সেভ করা
     String? token = await _fcm.getToken();
-    if (token != null) {
-      _saveTokenToFirestore(token);
-    }
+    if (token != null) _saveTokenToFirestore(token);
 
-    // ৩. টোকেন রিফ্রেশ হলে আপডেট করা
-    _fcm.onTokenRefresh.listen(_saveTokenToFirestore);
+    const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initSettings = InitializationSettings(android: androidSettings);
 
-    // ৪. লোকাল নোটিফিকেশন চ্যানেল সেটআপ
-    const AndroidInitializationSettings androidSettings = 
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-        
-    const InitializationSettings initSettings = 
-        InitializationSettings(android: androidSettings);
-        
-    await _localNotifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
-
-    // ✅ এখানে ফিক্স করা হয়েছে: initializationSettings নাম ব্যবহার করে
     await _localNotifications.initialize(
       settings: initSettings,
-      onDidReceiveNotificationResponse: ( details) {
-        // নোটিফিকেশনে ক্লিক করলে এখানে লজিক লিখবেন
-        print("🔔 ক্লিক করা হয়েছে: ${details.payload}");
+      onDidReceiveNotificationResponse: (details) {
+        print("🔔 ক্লিক করা হয়েছে");
       },
+      onDidReceiveBackgroundNotificationResponse: _firebaseMessagingBackgroundHandler,
     );
 
-    // ৫. ফরগ্রাউন্ড লিসেনার (অ্যাপ খোলা থাকা অবস্থায়)
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       if (message.notification != null) {
-        display(message);
+        _showLocalNotification(message);
       }
     });
-
-    // ৬. ব্যাকগ্রাউন্ডে থাকা অবস্থায় ক্লিক করলে হ্যান্ডেল করা
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        print("🚀 ব্যাকগ্রাউন্ড থেকে অ্যাপ ওপেন হয়েছে: ${message.data}");
-    });
   }
 
-  // --- ডাটাবেসে টোকেন সেভ করার ফাংশন ---
   void _saveTokenToFirestore(String token) async {
+    // এখানে আপনার সেই ৬ ডিজিটের আইডিটি লাগবে যা আপনার ডাটাবেসের ডকুমেন্টের নাম।
+    // আমি আউথ থেকে সরাসরি UID নিচ্ছি না, বরং আপনার ডাটাবেসের ওই ৬ ডিজিটের আইডিটি পাওয়ার চেষ্টা করছি।
+    
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-        'fcmToken': token,
-      }).catchError((e) => print("Token Update Error: $e"));
-    }
-  }
-
-  // --- 🔥 সকল নোটিফিকেশন পাঠানোর মেইন ফাংশন ---
-  static Future<void> sendNotificationToUser({
-    required String receiverToken,
-    required String title,
-    required String body,
-    Map<String, dynamic>? extraData,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('https://fcm.googleapis.com/fcm/send'),
-        headers: <String, String>{
-          'Content-Type': 'application/json',
-          'Authorization': 'key=$_serverKey', 
-        },
-        body: jsonEncode(<String, dynamic>{
-          'notification': <String, dynamic>{
-            'body': body, 
-            'title': title,
-            'android_channel_id': 'high_importance_channel',
-            'sound': 'default',
-          },
-          'priority': 'high',
-          'data': extraData ?? <String, dynamic>{
-            'click_action': 'FLUTTER_NOTIFICATION_CLICK',
-          },
-          'to': receiverToken,
-        }),
-      );
-      print("🚀 নোটিফিকেশন স্ট্যাটাস: ${response.body}");
-    } catch (e) {
-      print("❌ পাঠাতে সমস্যা হয়েছে: $e");
-    }
-  }
-
-  // --- লাইভ রুম বা টপিক সাবস্ক্রাইব ---
-  Future<void> subscribeToTopic(String topicName) async {
-    await _fcm.subscribeToTopic(topicName);
-    print("✅ Subscribed to topic: $topicName");
-  }
-
-  // ৫. নোটিফিকেশন দেখানোর ফাংশন (Display)
-  static void display(RemoteMessage message) async {
-    try {
-      final int id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      // এখানে আপনার অ্যাপে যে ৬ ডিজিটের আইডিটি লজিক্যালি আছে সেটি দিন। 
+      // আমি ধরে নিচ্ছি আপনার অ্যাপের কোনো স্টেট ম্যানেজমেন্টে বা কোথাও এই আইডিটি আছে।
+      // যদি আপনার কাছে আইডিটি সরাসরি না থাকে, তবে Firestore থেকে সার্চ করে নিতে হবে।
       
-      NotificationDetails notificationDetails = NotificationDetails(
-        android: AndroidNotificationDetails(
-          channel.id,
-          channel.name,
-          channelDescription: channel.description,
-          importance: Importance.max,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
-          playSound: true,
-          styleInformation: BigTextStyleInformation(message.notification?.body ?? ""),
-        ),
-      );
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: user.email) // যদি ইমেইল দিয়ে ৬ ডিজিটের আইডি মেলানো যায়
+          .limit(1)
+          .get();
 
-      // ✅ এখানে ফিক্স করা হয়েছে: id, title, body এবং notificationDetails ঠিকভাবে পাস করা হয়েছে
-      await FlutterLocalNotificationsPlugin().show(
-        id: id,
-        title: message.notification?.title ?? "নতুন মেসেজ",
-        body: message.notification?.body ?? "",
-        notificationDetails: notificationDetails,
-        payload: message.data['route'], 
-      );
-    } catch (e) {
-      print("❌ ডিসপ্লে এরর: $e");
+      if (querySnapshot.docs.isNotEmpty) {
+        String docId = querySnapshot.docs.first.id; // এটাই সেই ৬ ডিজিটের আইডি
+        
+        await FirebaseFirestore.instance.collection('users').doc(docId).set(
+            {'fcmToken': token}, SetOptions(merge: true));
+            
+        print("✅ সফলভাবে আপডেট হয়েছে: $docId");
+      } else {
+        print("⚠️ ডকুমেন্ট পাওয়া যায়নি, নতুন কিছু তৈরি করা হবে না।");
+      }
     }
+  }
+
+  Future<void> _showLocalNotification(RemoteMessage message) async {
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'high_importance_channel',
+      'High Importance Notifications',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+
+    await _localNotifications.show(
+      id: message.hashCode,
+      title: message.notification?.title,
+      body: message.notification?.body,
+      notificationDetails: const NotificationDetails(android: androidDetails),
+    );
   }
 }

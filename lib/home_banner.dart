@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class HomeBanner extends StatefulWidget {
   const HomeBanner({super.key});
@@ -10,12 +11,11 @@ class HomeBanner extends StatefulWidget {
 }
 
 class _HomeBannerState extends State<HomeBanner> {
-  // 🇧🇩 [বাংলা মার্ক]: ব্যানারের লিংকগুলো এখন এই আলাদা ফাইলের ভেতরে থাকবে ভাই
   final List<String> _bannerList = [
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premium_banner.png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/homebenar2.png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/homebenar1.png",
     "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/74ed04fd0a4869652ab10f0386dd8997c1421ac5/benar%20(6).png",
     "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/officialbenar.png",
-  
   ];
 
   int _currentBannerIndex = 0;
@@ -24,7 +24,6 @@ class _HomeBannerState extends State<HomeBanner> {
   @override
   void initState() {
     super.initState();
-    // 🇧🇩 [বাংলা মার্ক]: টাইমারটি মেইন পেজ থেকে এখানে চলে আসলো। এখন setState শুধু এই ব্যানার উইজেটকেই রি-বিল্ড করবে
     if (_bannerList.length > 1) {
       _bannerTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
         if (mounted) {
@@ -38,17 +37,17 @@ class _HomeBannerState extends State<HomeBanner> {
 
   @override
   void dispose() {
-    _bannerTimer?.cancel(); // 🇧🇩 [বাংলা মার্ক]: মেমোরি লিক বন্ধ করতে টাইমার এখানে ডিসপোজ হলো
+    _bannerTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AspectRatio(
-      aspectRatio: 1024 / 500, // 💡 ব্যানার নিখুঁত সাইজে রাখার রেশিও
+      aspectRatio: 1024 / 500,
       child: Stack(
         children: [
-          // ক) মেইন ব্যানার ইমেজ (যা অন্য কাউকে ডিস্টার্ব না করে নিজে নিজে চেঞ্জ হবে)
+          // ক) মেইন ব্যানার ইমেজ (CachedNetworkImage ব্যবহার করে)
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -63,19 +62,18 @@ class _HomeBannerState extends State<HomeBanner> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(20),
-                child: Image.network(
-                  _bannerList[_currentBannerIndex],
+                child: CachedNetworkImage(
+                  imageUrl: _bannerList[_currentBannerIndex],
                   fit: BoxFit.cover,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return const Center(child: CircularProgressIndicator(color: Colors.white24));
-                  },
+                  placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(color: Colors.white24)),
+                  errorWidget: (context, url, error) => const Icon(Icons.error),
                 ),
               ),
             ),
           ),
 
-          // খ) ব্যানারের ওপর ডানদিকের কোনায় লাইভ ইউজারদের ছবির স্ট্যাক ও কাউন্ট
+          // খ) ব্যানারের ওপর ডানদিকের কোনায় লাইভ ইউজারদের স্ট্যাক
           Positioned(
             bottom: 12,
             right: 12,
@@ -118,9 +116,6 @@ class _HomeBannerState extends State<HomeBanner> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(color: Colors.pinkAccent, width: 1.5),
-                                  boxShadow: [
-                                    BoxShadow(color: Colors.pinkAccent.withOpacity(0.4), blurRadius: 4),
-                                  ],
                                 ),
                                 child: CircleAvatar(
                                   radius: 12,
@@ -129,12 +124,12 @@ class _HomeBannerState extends State<HomeBanner> {
                                       ? const Icon(Icons.person, size: 12, color: Colors.white)
                                       : ClipRRect(
                                           borderRadius: BorderRadius.circular(12),
-                                          child: Image.network(
-                                            userPic,
+                                          child: CachedNetworkImage(
+                                            imageUrl: userPic,
                                             width: 24,
                                             height: 24,
                                             fit: BoxFit.cover,
-                                            errorBuilder: (c, e, s) => const Icon(Icons.person, size: 12, color: Colors.white),
+                                            errorWidget: (c, e, s) => const Icon(Icons.person, size: 12, color: Colors.white),
                                           ),
                                         ),
                                 ),

@@ -1,8 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:lottie/lottie.dart';
 import 'package:pagla_chat/widgets/room_settings_handler.dart';
-import 'dart:ui';
 import 'dart:math';
 import 'screens/voice_room.dart';
 
@@ -35,7 +36,7 @@ class _RoomListPageState extends State<RoomListPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    
+
     _bubbleController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
@@ -44,14 +45,14 @@ class _RoomListPageState extends State<RoomListPage>
     // 🇧🇩 [বাংলা মার্ক - অটো কালার চেঞ্জিং অ্যানিমেশন শুরু]:
     // অ্যাপবারের টেক্সট ৩ সেকেন্ড পর পর অটো স্মুথ কালার চেঞ্জ করার জন্য কন্ট্রোলার ভাই
     _colorAnimationController = AnimationController(
-      duration: const Duration(seconds: 3), 
+      duration: const Duration(seconds: 3),
       vsync: this,
     )..repeat(reverse: true); // কালার লুপ আকারে চলতেই থাকবে
 
     // 🎨 আপনার সেই হলুদ কালার থেকে নিয়ন স্কাই ব্লু কালারের ট্রানজিশন
     _colorTween = ColorTween(
-      begin: const Color.fromARGB(255, 226, 242, 5), 
-      end: Colors.cyanAccent, 
+      begin: const Color.fromARGB(255, 226, 242, 5),
+      end: Colors.cyanAccent,
     ).animate(_colorAnimationController);
   }
 
@@ -59,11 +60,11 @@ class _RoomListPageState extends State<RoomListPage>
   void dispose() {
     _tabController.dispose();
     _bubbleController.dispose();
-    
+
     // 🇧🇩 [বাংলা মার্ক - মেমোরি ক্লিনআপ]:
     // অ্যাপবারের কালার অ্যানিমেশন কন্ট্রোলারটি মেমোরি থেকে সম্পূর্ণ রিলিজ করে দেওয়া হলো ভাই
-    _colorAnimationController.dispose(); 
-    
+    _colorAnimationController.dispose();
+
     super.dispose();
   }
 
@@ -91,6 +92,19 @@ class _RoomListPageState extends State<RoomListPage>
       }
 
       var userData = userQuery.docs.first.data();
+      // --- নতুন কন্ডিশন: ১৬০০০ এক্সপি চেক ---
+      int activeXp = userData['totalActiveXp'] ?? 0;
+      if (activeXp < 16000) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text("active level 5 user only!"),
+                backgroundColor: Colors.red),
+          );
+        }
+        return; // এখানে লজিক থেমে যাবে
+      }
+
       String mySixDigitID = userData['uID']?.toString() ?? "";
       String currentUserName = userData['name'] ?? "Pagla User";
       String currentUserPic = userData['profilePic'] ?? "";
@@ -225,17 +239,18 @@ class _RoomListPageState extends State<RoomListPage>
       ),
     );
   }
-@override
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF02020A),
-      
-     // 🧱 [appBar আপডেট]: আপনার হোম পেজের মতো হুবহু গ্লাস ক্যাপসুল ও রেনবো টেক্সট ডিজাইন
+
+      // 🧱 [appBar আপডেট]: আপনার হোম পেজের মতো হুবহু গ্লাস ক্যাপসুল ও রেনবো টেক্সট ডিজাইন
       appBar: AppBar(
         backgroundColor: const Color(0xFF0A0A25),
         elevation: 0,
         centerTitle: true, // টাইটেলটি একদম মাঝখানে থাকবে ভাই
-        
+
         // ✨ [গ্লাস ক্যাপসুল ডিজাইন]: হোম পেজের মতো সুন্দর রাউন্ড বর্ডার ও কাঁচের ব্যাকগ্রাউন্ড
         title: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
@@ -247,10 +262,11 @@ class _RoomListPageState extends State<RoomListPage>
               width: 1.2,
             ),
           ),
-          
+
           // 🔮 [অটো কালার শিফটিং লজিক]: ShaderMask দিয়ে কালারগুলো লেখার ওপর দিয়ে নেচে বেড়াবে
           child: AnimatedBuilder(
-            animation: _colorAnimationController, // আপনার তৈরি করা সেই কন্ট্রোলার
+            animation:
+                _colorAnimationController, // আপনার তৈরি করা সেই কন্ট্রোলার
             builder: (context, child) {
               return ShaderMask(
                 shaderCallback: (bounds) => LinearGradient(
@@ -272,7 +288,8 @@ class _RoomListPageState extends State<RoomListPage>
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: 16,
-                    color: Colors.white, // ShaderMask এর কারণে এটি রেনবো কালার হয়ে যাবে
+                    color: Colors
+                        .white, // ShaderMask এর কারণে এটি রেনবো কালার হয়ে যাবে
                     letterSpacing: 1.1,
                   ),
                 ),
@@ -280,7 +297,7 @@ class _RoomListPageState extends State<RoomListPage>
             },
           ),
         ),
-        
+
         // 📏 [ট্যাব বার ও নিচের গ্লাস বর্ডার]:
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
@@ -289,14 +306,14 @@ class _RoomListPageState extends State<RoomListPage>
               // আপনার হোম পেজের নিচের দিকের সেই সুন্দর চিকন কাঁচের বর্ডার রেখা ভাই
               border: Border(
                 bottom: BorderSide(
-                  color: Colors.white.withOpacity(0.12), 
+                  color: Colors.white.withOpacity(0.12),
                   width: 1.2,
                 ),
               ),
             ),
             child: TabBar(
               controller: _tabController,
-              indicatorColor: Colors.purpleAccent, 
+              indicatorColor: Colors.purpleAccent,
               labelColor: Colors.purpleAccent,
               unselectedLabelColor: Colors.white38,
               tabs: const [
@@ -397,13 +414,13 @@ class _RoomListPageState extends State<RoomListPage>
             Column(
               children: [
                 _buildBanner(),
-                _buildGamesSection(),
+                _buildTopSpendersSection(),
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
                     children: [
                       _buildLiveRoomList(),
-                     _buildFollowingRoomList(currentLoggedInUID),
+                      _buildFollowingRoomList(currentLoggedInUID),
                       _buildMyRoomList(),
                     ],
                   ),
@@ -417,31 +434,31 @@ class _RoomListPageState extends State<RoomListPage>
   }
 
   Widget _buildLiveRoomList() {
-  return StreamBuilder<QuerySnapshot>(
-    // এখানে 'where' ফিল্টার যোগ করা হয়েছে যা শুধুমাত্র isActive = true রুমগুলো আনবে
-    stream: FirebaseFirestore.instance
-        .collection('rooms')
-        .where('isActive', isEqualTo: true) 
-        .snapshots(),
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting) {
-        return const Center(
-            child: CircularProgressIndicator(color: Colors.pinkAccent));
-      }
-      
-      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-        return const Center(
-            child: Text("No live rooms at the moment", 
-                style: TextStyle(color: Colors.white70)));
-      }
+    return StreamBuilder<QuerySnapshot>(
+      // এখানে 'where' ফিল্টার যোগ করা হয়েছে যা শুধুমাত্র isActive = true রুমগুলো আনবে
+      stream: FirebaseFirestore.instance
+          .collection('rooms')
+          .where('isActive', isEqualTo: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+              child: CircularProgressIndicator(color: Colors.pinkAccent));
+        }
 
-      var docs = snapshot.data!.docs;
-      return _buildGrid(docs);
-    },
-  );
-}
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(
+              child: Text("No live rooms at the moment",
+                  style: TextStyle(color: Colors.white70)));
+        }
 
- // 🇧🇩 [বাংলা মার্ক]: নতুন ১০০% ফিক্সড ফলোইং রুম মেথড (কোনো আইডি লেট বা নাল প্রবলেম হবে না)
+        var docs = snapshot.data!.docs;
+        return _buildGrid(docs);
+      },
+    );
+  }
+
+  // 🇧🇩 [বাংলা মার্ক]: নতুন ১০০% ফিক্সড ফলোইং রুম মেথড (কোনো আইডি লেট বা নাল প্রবলেম হবে না)
   Widget _buildFollowingRoomList(String? targetUID) {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || user.email == null) {
@@ -465,13 +482,12 @@ class _RoomListPageState extends State<RoomListPage>
 
         if (!userSnapshot.hasData || userSnapshot.data!.docs.isEmpty) {
           return const Center(
-              child: Text("User profile not found", style: TextStyle(color: Colors.white38)));
+              child: Text("User profile not found",
+                  style: TextStyle(color: Colors.white38)));
         }
 
         // 🚀 ইউজারের আসল শর্ট uID (যেমন: "454488") সফলভাবে সংগৃহীত হলো ভাই
         String liveUserUID = userSnapshot.data!.docs.first['uID'].toString();
-        
-       
 
         // 🎯 এখন এই uID দিয়ে আমরা সরাসরি রুমের ফলোয়ার লিস্টের স্ট্রিম চালাবো
         return StreamBuilder<QuerySnapshot>(
@@ -487,12 +503,11 @@ class _RoomListPageState extends State<RoomListPage>
 
             if (!snapshot.hasData) {
               return const Center(
-                  child: Text("No data found", style: TextStyle(color: Colors.white38)));
+                  child: Text("No data found",
+                      style: TextStyle(color: Colors.white38)));
             }
 
             var docs = snapshot.data!.docs;
-
-           
 
             if (docs.isEmpty) {
               return const Center(
@@ -506,77 +521,83 @@ class _RoomListPageState extends State<RoomListPage>
       },
     );
   }
+
   Widget _buildMyRoomList() {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null || user.email == null)
-    return const Center(
-        child: Text("Please Login", style: TextStyle(color: Colors.white)));
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.email == null)
+      return const Center(
+          child: Text("Please Login", style: TextStyle(color: Colors.white)));
 
-  return FutureBuilder<QuerySnapshot>(
-    future: FirebaseFirestore.instance
-        .collection('users')
-        .where('email', isEqualTo: user.email)
-        .limit(1)
-        .get(),
-    builder: (context, userSnapshot) {
-      if (!userSnapshot.hasData)
-        return const Center(
-            child: CircularProgressIndicator(color: Colors.pinkAccent));
-      if (userSnapshot.data!.docs.isEmpty)
-        return const Center(child: Text("User profile not found"));
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: user.email)
+          .limit(1)
+          .get(),
+      builder: (context, userSnapshot) {
+        if (!userSnapshot.hasData)
+          return const Center(
+              child: CircularProgressIndicator(color: Colors.pinkAccent));
+        if (userSnapshot.data!.docs.isEmpty)
+          return const Center(child: Text("User profile not found"));
 
-      String myuID = userSnapshot.data!.docs.first['uID'].toString();
+        String myuID = userSnapshot.data!.docs.first['uID'].toString();
 
-      return StreamBuilder<QuerySnapshot>(
-        // পুরো কালেকশন থেকে ডাটা আনছি যেন ক্লায়েন্ট সাইডে ফিল্টার করতে পারি
-        stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData)
-            return const Center(
-                child: CircularProgressIndicator(color: Colors.pinkAccent));
+        return StreamBuilder<QuerySnapshot>(
+          // পুরো কালেকশন থেকে ডাটা আনছি যেন ক্লায়েন্ট সাইডে ফিল্টার করতে পারি
+          stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData)
+              return const Center(
+                  child: CircularProgressIndicator(color: Colors.pinkAccent));
 
-          // এখানে ফিল্টার করছি: ইউজার কি owner? নাকি admin লিস্টে আছে?
-          var myRooms = snapshot.data!.docs.where((doc) {
-            var data = doc.data() as Map<String, dynamic>;
-            String ownerId = data['ownerId']?.toString() ?? "";
-            List<dynamic> admins = data['admins'] ?? [];
-            List<String> adminList = admins.map((e) => e.toString()).toList();
-            
-            return ownerId == myuID || adminList.contains(myuID);
-          }).toList();
+            // এখানে ফিল্টার করছি: ইউজার কি owner? নাকি admin লিস্টে আছে?
+            var myRooms = snapshot.data!.docs.where((doc) {
+              var data = doc.data() as Map<String, dynamic>;
+              String ownerId = data['ownerId']?.toString() ?? "";
+              List<dynamic> admins = data['admins'] ?? [];
+              List<String> adminList = admins.map((e) => e.toString()).toList();
 
-          if (myRooms.isNotEmpty) {
-            return _buildGrid(myRooms, isMyRoomList: true);
-          }
+              return ownerId == myuID || adminList.contains(myuID);
+            }).toList();
 
-          // রুম না থাকলে আগের ডিজাইনটিই দেখাবে
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.meeting_room_outlined, color: Colors.white12, size: 80),
-                const SizedBox(height: 15),
-                const Text("You don't have any room", style: TextStyle(color: Colors.white38)),
-                const SizedBox(height: 25),
-                ElevatedButton.icon(
-                  onPressed: _showCreateRoomDialog,
-                  icon: const Icon(Icons.add),
-                  label: const Text("Create Your Room"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.pinkAccent,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+            if (myRooms.isNotEmpty) {
+              return _buildGrid(myRooms, isMyRoomList: true);
+            }
+
+            // রুম না থাকলে আগের ডিজাইনটিই দেখাবে
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.meeting_room_outlined,
+                      color: Colors.white12, size: 80),
+                  const SizedBox(height: 15),
+                  const Text("You don't have any room",
+                      style: TextStyle(color: Colors.white38)),
+                  const SizedBox(height: 25),
+                  ElevatedButton.icon(
+                    onPressed: _showCreateRoomDialog,
+                    icon: const Icon(Icons.add),
+                    label: const Text("Create Your Room"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.pinkAccent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 25, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30)),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   // 🇧🇩 [বাংলা মার্ক]: গ্রিড ভিউ মেথড
   Widget _buildGrid(List<DocumentSnapshot> docs, {bool isMyRoomList = false}) {
     return GridView.builder(
@@ -600,267 +621,272 @@ class _RoomListPageState extends State<RoomListPage>
     );
   }
 
- // আপনার আগের কোডের জায়গায় এই নতুন ভার্সনটি ব্যবহার করুন
-Widget _buildPremiumGlassCard(String id, String name, int count, String? image, bool isMyRoom) {
-  String finalImage = (image != null && image.isNotEmpty) ? image : defaultRoomImages[0];
+  // আপনার আগের কোডের জায়গায় এই নতুন ভার্সনটি ব্যবহার করুন
+  Widget _buildPremiumGlassCard(
+      String id, String name, int count, String? image, bool isMyRoom) {
+    String finalImage =
+        (image != null && image.isNotEmpty) ? image : defaultRoomImages[0];
 
-  // ডাটাবেস থেকে রিয়েল-টাইম আপডেট পাওয়ার জন্য StreamBuilder ব্যবহার করছি
-  return StreamBuilder<DocumentSnapshot>(
-    stream: FirebaseFirestore.instance.collection('rooms').doc(id).snapshots(),
-    builder: (context, snapshot) {
-      bool isLocked = false;
-      String roomPassword = "";
-      
-      if (snapshot.hasData && snapshot.data!.exists) {
-        var data = snapshot.data!.data() as Map<String, dynamic>;
-        isLocked = data['isLocked'] ?? false;
-        roomPassword = data['password'] ?? "";
-      }
+    // ডাটাবেস থেকে রিয়েল-টাইম আপডেট পাওয়ার জন্য StreamBuilder ব্যবহার করছি
+    return StreamBuilder<DocumentSnapshot>(
+      stream:
+          FirebaseFirestore.instance.collection('rooms').doc(id).snapshots(),
+      builder: (context, snapshot) {
+        bool isLocked = false;
+        String roomPassword = "";
 
-      return GestureDetector(
-        onTap: () {
-          if (isLocked) {
-            // লক থাকলে পাসওয়ার্ড চাইবে
-            RoomSettingsHandler.showJoinPasswordDialog(context, id, roomPassword, () {
-              // সঠিক পাসওয়ার্ড দিলে রুমে ঢুকবে
+        if (snapshot.hasData && snapshot.data!.exists) {
+          var data = snapshot.data!.data() as Map<String, dynamic>;
+          isLocked = data['isLocked'] ?? false;
+          roomPassword = data['password'] ?? "";
+        }
+
+        return GestureDetector(
+          onTap: () {
+            if (isLocked) {
+              // লক থাকলে পাসওয়ার্ড চাইবে
+              RoomSettingsHandler.showJoinPasswordDialog(
+                  context, id, roomPassword, () {
+                // সঠিক পাসওয়ার্ড দিলে রুমে ঢুকবে
+                _navigateToRoom(id, name, finalImage);
+              });
+            } else {
+              // লক না থাকলে সরাসরি ঢুকবে
               _navigateToRoom(id, name, finalImage);
-            });
-          } else {
-            // লক না থাকলে সরাসরি ঢুকবে
-            _navigateToRoom(id, name, finalImage);
-          }
-        },
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(
-                  color: isMyRoom ? Colors.amber.withOpacity(0.8) : Colors.white.withOpacity(0.1),
-                  width: isMyRoom ? 2.5 : 1.5),
-              image: DecorationImage(
-                  image: NetworkImage(finalImage),
-                  fit: BoxFit.cover,
-                  opacity: 0.9),
-            ),
+            }
+          },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
             child: Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
-                ),
+                border: Border.all(
+                    color: isMyRoom
+                        ? Colors.amber.withOpacity(0.8)
+                        : Colors.white.withOpacity(0.1),
+                    width: isMyRoom ? 2.5 : 1.5),
+                image: DecorationImage(
+                    image: NetworkImage(finalImage),
+                    fit: BoxFit.cover,
+                    opacity: 0.9),
               ),
-              padding: const EdgeInsets.all(12),
-              child: Stack(
-                children: [
-                  // আগের মতোই নাম ও টাইটেল
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                      const SizedBox(height: 2),
-                      Text(isMyRoom ? "MY ROOM" : "PAGLA LIVE", style: TextStyle(color: isMyRoom ? Colors.amberAccent : Colors.pinkAccent, fontSize: 10, fontWeight: FontWeight.bold)),
-                    ],
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
                   ),
-
-                  // ডান পাশে লাইভ ইন্ডিকেটর ও লক আইকন
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                ),
+                padding: const EdgeInsets.all(12),
+                child: Stack(
+                  children: [
+                    // আগের মতোই নাম ও টাইটেল
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10)),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.circle, size: 10, color: count > 0 ? Colors.greenAccent : Colors.redAccent),
-                              const SizedBox(width: 5),
-                              Text("$count", style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                        ),
-                        if (isLocked) 
-                          const Padding(
-                            padding: EdgeInsets.only(top: 5),
-                            child: Icon(Icons.lock, color: Colors.amber, size: 16),
-                          ),
+                        Text(name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14)),
+                        const SizedBox(height: 2),
+                        Text(isMyRoom ? "MY ROOM" : "PAGLA LIVE",
+                            style: TextStyle(
+                                color: isMyRoom
+                                    ? Colors.amberAccent
+                                    : Colors.pinkAccent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold)),
                       ],
                     ),
-                  ),
-                  
-                  // প্রিমিয়াম আইকন
-                  if (isMyRoom)
-                    const Positioned(top: 0, left: 0, child: Icon(Icons.workspace_premium, color: Colors.amber, size: 20)),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    },
-  );
-}
 
-// রুমে নেভিগেট করার জন্য এই আলাদা মেথডটি তৈরি রাখুন
-void _navigateToRoom(String id, String name, String image) {
-  setState(() {
-    activeRoomId = id;
-    activeRoomName = name;
-    activeRoomImage = image;
-  });
-  Navigator.push(context, MaterialPageRoute(builder: (context) => VoiceRoom(roomId: id)));
-}
-  // 🇧🇩 [বাংলা মার্ক - প্রিমিয়াম গ্লাস বর্ডার ও ওয়ার্ল্ড ম্যাপ আইকন ব্যানার ফিক্স]
-  Widget _buildBanner() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-      height: 100,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        // 🎨 আপনার স্ক্রিনশটের মতো নিখুঁত পার্পেল-ব্লু মিক্সড গ্রাডিয়েন্ট
-        gradient: const LinearGradient(
-          colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        // ✨ [গ্লাস বর্ডার ইফেক্ট]: হালকা ও উজ্জ্বল নিয়ন শেডের মিক্স বর্ডার, যা গ্লাসের মতো রিফ্লেক্ট করবে
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2), 
-          width: 1.5,
-        ),
-        // হালকা নিয়ন গ্লো শ্যাডো
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8E2DE2).withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          // 🎯 ডান পাশের খালি জায়গায় ওয়ার্ল্ড ম্যাপ আইকন (আপনার স্ক্রিনশটের ডিজাইনের মতো)
-          Positioned(
-            right: 15,
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // আইকনের পেছনের হালকা গ্লোয়িং কক্ষপথ সার্কেল
-                  Container(
-                    width: 65,
-                    height: 65,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.cyanAccent.withOpacity(0.3),
-                        width: 1,
+                    // ডান পাশে লাইভ ইন্ডিকেটর ও লক আইকন
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(10)),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.circle,
+                                    size: 10,
+                                    color: count > 0
+                                        ? Colors.greenAccent
+                                        : Colors.redAccent),
+                                const SizedBox(width: 5),
+                                Text("$count",
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                          if (isLocked)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 5),
+                              child: Icon(Icons.lock,
+                                  color: Colors.amber, size: 16),
+                            ),
+                        ],
                       ),
                     ),
-                  ),
-                  // 🌍 মূল ওয়ার্ল্ড ম্যাপ গ্লোয়িং আইকন
-                  Icon(
-                    Icons.public, // বিশ্ব মানচিত্রের আইকন
-                    size: 48,
-                    color: Colors.cyanAccent.withOpacity(0.75), // স্ক্রিনশটের মতো নিয়ন লাইট ব্লু শেড
-                  ),
-                ],
+
+                    // প্রিমিয়াম আইকন
+                    if (isMyRoom)
+                      const Positioned(
+                          top: 0,
+                          left: 0,
+                          child: Icon(Icons.workspace_premium,
+                              color: Colors.amber, size: 20)),
+                  ],
+                ),
               ),
             ),
           ),
-
-          // 📝 বাম পাশের টেক্সট এরিয়া
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Pagla Chat World",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                    // টেক্সটের নিচে হালকা শ্যাডো যাতে প্রফেশনাল লাগে
-                    shadows: [
-                      Shadow(
-                        color: Colors.black45,
-                        offset: Offset(1, 1),
-                        blurRadius: 2,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "Connect with voice & fun",
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.85), 
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildGamesSection() {
-    final List<Map<String, dynamic>> games = [
-      {"name": "Ludo", "icon": Icons.casino, "color": Colors.orange},
-      {"name": "Spin", "icon": Icons.ads_click, "color": Colors.blue},
-      {"name": "Fruit", "icon": Icons.apple, "color": Colors.redAccent},
-      {"name": "Bolt", "icon": Icons.bolt, "color": Colors.yellow},
-    ];
+// রুমে নেভিগেট করার জন্য এই আলাদা মেথডটি তৈরি রাখুন
+  void _navigateToRoom(String id, String name, String image) {
+    setState(() {
+      activeRoomId = id;
+      activeRoomName = name;
+      activeRoomImage = image;
+    });
+    Navigator.push(context,
+        MaterialPageRoute(builder: (context) => VoiceRoom(roomId: id)));
+  }
+
+ Widget _buildBanner() {
+  return Container(
+    margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+    height: 100,
+    width: double.infinity,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(20),
+      // ক্যাশড ইমেজ সিস্টেম যুক্ত করা হয়েছে
+      image: const DecorationImage(
+        image: CachedNetworkImageProvider(
+          "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/roomlistbenar.png",
+        ),
+        fit: BoxFit.fill,
+      ),
+      // গোল্ডেন বর্ডার
+      border: Border.all(
+        color: Colors.amber.shade700,
+        width: 2,
+      ),
+    ),
+  );
+}
+
+  Widget _buildTopSpendersSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 15),
-          child: Text("Fun Zone",
+          child: Text("Top Live Spenders",
               style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
+                  color: Color.fromARGB(255, 6, 250, 209),
+                  fontSize: 16,
                   fontWeight: FontWeight.bold)),
         ),
         const SizedBox(height: 10),
-        SizedBox(
-          height: 80,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            itemCount: games.length,
-            itemBuilder: (context, index) {
-              return Container(
-                width: 80,
-                margin: const EdgeInsets.only(right: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(games[index]['icon'],
-                        color: games[index]['color'], size: 24),
-                    const SizedBox(height: 5),
-                    Text(games[index]['name'],
-                        style: const TextStyle(
-                            color: Colors.white70, fontSize: 10)),
-                  ],
-                ),
+        // গোল্ডেন ফ্রেম ব্যাকগ্রাউন্ড
+        Container(
+          height: 110,
+          margin: const EdgeInsets.symmetric(horizontal: 10),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 8), // সাইড গ্যাপ ঠিক রাখা হলো
+          decoration: BoxDecoration(
+            image: const DecorationImage(
+              image: CachedNetworkImageProvider("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/topuser.png"),
+              fit: BoxFit.fill,
+            ),
+            border: Border.all(color: Colors.amber.shade700, width: 2),
+            borderRadius: BorderRadius.circular(20),
+            color: Colors.black.withOpacity(0.3),
+          ),
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .orderBy('totalSpent', descending: true)
+                .limit(5)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              var topUsers = snapshot.data!.docs;
+
+              return ListView.builder(
+                scrollDirection: Axis.horizontal,
+                // গ্যাপ সমান রাখতে physics যোগ করা হয়েছে
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(left: 10),
+                itemCount: topUsers.length,
+                itemBuilder: (context, index) {
+                  var userData = topUsers[index].data() as Map<String, dynamic>;
+                  String name = userData['name'] ?? "User";
+                  String pic = userData['profilePic'] ?? "";
+                  String frame = userData['activeFrameUrl'] ?? "";
+
+                  return Container(
+                    width: (MediaQuery.of(context).size.width - 60) /
+                        5, // স্ক্রিন অনুযায়ী সমান জায়গা ভাগ
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CircleAvatar(
+                              radius: 26,
+                              backgroundImage:
+                                  pic.isNotEmpty ? NetworkImage(pic) : null,
+                              child: pic.isEmpty
+                                  ? const Icon(Icons.person, size: 26)
+                                  : null,
+                            ),
+                            // ফ্রেম লজিক: Lottie অথবা Image
+                            if (frame.isNotEmpty)
+                              SizedBox(
+                                width: 80,
+                                height: 80,
+                                child: frame.toLowerCase().endsWith('.json')
+                                    ? Lottie.network(frame)
+                                    : Image.network(frame, fit: BoxFit.contain),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(name,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                  );
+                },
               );
             },
           ),

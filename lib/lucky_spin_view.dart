@@ -144,7 +144,7 @@ class _LuckySpinViewState extends State<LuckySpinView> {
             .limit(1)
             .get();
 
-      if (query != null && query.docs.isNotEmpty) {
+      if (query.docs.isNotEmpty) {
         await collection
             .doc(query.docs.first.id)
             .update({'diamonds': FieldValue.increment(amount)});

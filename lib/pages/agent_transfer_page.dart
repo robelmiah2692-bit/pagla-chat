@@ -48,7 +48,7 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
             .get();
         
         if (queryRes.docs.isNotEmpty) {
-          _processFoundUser(queryRes.docs.first.data() as Map<String, dynamic>, queryRes.docs.first.id);
+          _processFoundUser(queryRes.docs.first.data(), queryRes.docs.first.id);
           return;
         }
       }

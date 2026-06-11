@@ -9,13 +9,11 @@ import 'package:pagla_chat/services/soulmate_detail_page.dart';
 import 'package:pagla_chat/widgets/active_level_bar.dart';
 import 'package:pagla_chat/widgets/gift_level_bar.dart';
 import 'package:shimmer/shimmer.dart';
-import 'widgets/animated_frame.dart'; // পাথটি আপনার ফোল্ডার অনুযায়ী ঠিক করে নিন
+// পাথটি আপনার ফোল্ডার অনুযায়ী ঠিক করে নিন
 import 'package:firebase_storage/firebase_storage.dart';
-import 'vip_service.dart'; // ফাইলের নাম অনুযায়ী
+// ফাইলের নাম অনুযায়ী
 import 'dart:math' as math;
 import 'dart:io';
-import 'package:universal_html/html.dart' as html;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -25,9 +23,6 @@ import 'package:pagla_chat/user_list_screen.dart';
 import 'chat_screen.dart';
 import 'package:pagla_chat/services/database_service.dart';
 import 'package:pagla_chat/services/soulmate_service.dart';
-import 'package:pagla_chat/services/marriage_service.dart';
-import 'package:pagla_chat/pages/agent_transfer_page.dart';
-import 'dart:math';
 import 'package:lottie/lottie.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -153,13 +148,12 @@ class _ProfilePageState extends State<ProfilePage> {
         }
         setState(() {
           uIDValue = userDoc!.id;
-          sixDigitProfileID = data['uID'] ?? userDoc!.id;
+          sixDigitProfileID = data['uID'] ?? userDoc.id;
 
           // নিজের আইডি সেট করার লজিক (এটি আপনার পুরনো লজিকই থাকছে)
-          if (currentUser.uid != null &&
-              (userDoc!.id == currentUser.uid ||
-                  data['authUID'] == currentUser.uid)) {
-            mySixDigitUID = userDoc!.id;
+          if ((userDoc.id == currentUser.uid ||
+              data['authUID'] == currentUser.uid)) {
+            mySixDigitUID = userDoc.id;
           }
 
           isAgent = data['isAgent'] == true;
@@ -295,7 +289,7 @@ class _ProfilePageState extends State<ProfilePage> {
   // ডাটাবেজ থেকে মেয়াদ শেষ হওয়া ডাটা মুছে ফেলার ফাংশন (এটি বাইরে থাকবে)
   void _clearExpiredData(String boolField, String dateField,
       {String? extraField}) async {
-    if (uIDValue == null || uIDValue.isEmpty) return;
+    if (uIDValue.isEmpty) return;
 
     Map<String, dynamic> updateData = {
       boolField: false,
@@ -1699,8 +1693,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         // Firebase অপারেশন
                         WriteBatch batch = FirebaseFirestore.instance.batch();
 
-                        if (uIDValue == null) return;
-
                         DocumentReference userRef = FirebaseFirestore.instance
                             .collection('users')
                             .doc(uIDValue);
@@ -2137,159 +2129,181 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildMySpecialTab() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(uIDValue)
-          .collection('my_special')
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData)
-          return const Center(child: CircularProgressIndicator());
+ Widget _buildMySpecialTab() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('users')
+        .doc(uIDValue)
+        .collection('my_special')
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (!snapshot.hasData)
+        return const Center(child: CircularProgressIndicator());
 
-        var mySpecialItems = snapshot.data!.docs;
-        if (mySpecialItems.isEmpty) {
-          return const Center(
-            child: Text("No have any special",
-                style: TextStyle(color: Colors.blueGrey, fontSize: 16)),
-          );
-        }
-
-        return GridView.builder(
-          padding: const EdgeInsets.all(12),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.70,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10),
-          itemCount: mySpecialItems.length,
-          itemBuilder: (context, index) {
-            var data = mySpecialItems[index].data() as Map<String, dynamic>;
-            String url = data['image_url'] ?? "";
-            String name = data['name'] ?? "Special Item";
-            String type = data['type'] ?? "Effect";
-
-            // 🔥 পিকড অবস্থা চেক করার লজিক
-            bool isPicked = (activeSpecialUrl == url);
-
-            Timestamp? expiryTimestamp = data['expiryDate'] as Timestamp?;
-            DateTime expiryDate = expiryTimestamp?.toDate() ?? DateTime.now();
-            Duration remaining = expiryDate.difference(DateTime.now());
-
-            String timeText = remaining.inDays > 0
-                ? "${remaining.inDays} days left"
-                : "${remaining.inHours} hours left";
-
-            return Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(
-                    color:
-                        isPicked ? Colors.purpleAccent : Colors.purple.shade50,
-                    width: 2),
-                boxShadow: [
-                  const BoxShadow(color: Colors.black12, blurRadius: 5)
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: url.toLowerCase().endsWith('.json')
-                          ? Lottie.network(url, fit: BoxFit.contain)
-                          : Image.network(
-                              url,
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(Icons.broken_image,
-                                      color: Colors.grey),
-                            ),
-                    ),
-                  ),
-                  Text(name,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: Colors.purple)),
-                  Text(type,
-                      style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Text(timeText,
-                        style: TextStyle(
-                            color: remaining.inDays < 2
-                                ? Colors.red
-                                : Colors.blueGrey,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500)),
-                  ),
-                  Padding(
-                    padding:
-                        const EdgeInsets.only(bottom: 10, left: 8, right: 8),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 30,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              isPicked ? Colors.redAccent : Colors.purpleAccent,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          elevation: 0,
-                        ),
-                        onPressed: () async {
-                          // 🔄 পিক করলে পুরাতন রিং/ইউআরএল মুছে নতুনটা দিয়ে রিপ্লেস হবে
-                          String newUrl = isPicked ? "" : url;
-                          bool newStatus = !isPicked;
-
-                          await FirebaseFirestore.instance
-                              .collection('users')
-                              .doc(uIDValue)
-                              .update({
-                            'activeSpecialUrl': newUrl,
-                            'hasSpecialEffect': newStatus,
-                            // এক্সট্রা ট্র্যাক রাখার জন্য রিং এর নামও আপডেট করে দেওয়া হলো
-                            'activeSpecialName': isPicked ? "" : name,
-                          });
-
-                          setState(() {
-                            activeSpecialUrl = newUrl;
-                            hasSpecialEffect = newStatus;
-                          });
-
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(isPicked
-                                    ? "$name Unpicked successfully!"
-                                    : "$name Picked! Old item replaced successfully! 💍✨"),
-                                backgroundColor:
-                                    isPicked ? Colors.orange : Colors.purple,
-                                duration: const Duration(seconds: 1),
-                              ),
-                            );
-                          }
-                        },
-                        child: Text(isPicked ? "Unpick" : "Pick",
-                            style: const TextStyle(
-                                fontSize: 11, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+      var mySpecialItems = snapshot.data!.docs;
+      if (mySpecialItems.isEmpty) {
+        return const Center(
+          child: Text("No have any special",
+              style: TextStyle(color: Colors.blueGrey, fontSize: 16)),
         );
-      },
-    );
-  }
+      }
 
+      return GridView.builder(
+        padding: const EdgeInsets.all(12),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.70,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10),
+        itemCount: mySpecialItems.length,
+        itemBuilder: (context, index) {
+          var data = mySpecialItems[index].data() as Map<String, dynamic>;
+          String url = data['image_url'] ?? "";
+          String name = data['name'] ?? "Special Item";
+          String type = data['type'] ?? "Effect";
+
+          bool isPicked = (activeSpecialUrl == url);
+
+          Timestamp? expiryTimestamp = data['expiryDate'] as Timestamp?;
+          DateTime expiryDate = expiryTimestamp?.toDate() ?? DateTime.now();
+          Duration remaining = expiryDate.difference(DateTime.now());
+
+          String timeText = remaining.inDays > 0
+              ? "${remaining.inDays} days left"
+              : "${remaining.inHours} hours left";
+
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(
+                  color: isPicked ? Colors.purpleAccent : Colors.purple.shade50,
+                  width: 2),
+              boxShadow: [
+                const BoxShadow(color: Colors.black12, blurRadius: 5)
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: url.toLowerCase().endsWith('.json')
+                        ? Lottie.network(url, fit: BoxFit.contain)
+                        : Image.network(
+                            url,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(Icons.broken_image,
+                                    color: Colors.grey),
+                          ),
+                  ),
+                ),
+                Text(name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Colors.purple)),
+                Text(type,
+                    style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(timeText,
+                      style: TextStyle(
+                          color: remaining.inDays < 2
+                              ? Colors.red
+                              : Colors.blueGrey,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500)),
+                ),
+                Padding(
+                  padding:
+                      const EdgeInsets.only(bottom: 10, left: 8, right: 8),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 30,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            isPicked ? Colors.redAccent : Colors.purpleAccent,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        elevation: 0,
+                      ),
+                      onPressed: () async {
+                        String newUrl = isPicked ? "" : url;
+                        bool newStatus = !isPicked;
+                        String newName = isPicked ? "" : name;
+
+                        // ১. ইউজার কালেকশন আপডেট
+                        await FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(uIDValue)
+                            .update({
+                          'activeSpecialUrl': newUrl,
+                          'hasSpecialEffect': newStatus,
+                          'activeSpecialName': newName,
+                        });
+
+                        // ২. ম্যারেজ কালেকশন আপডেট করার লজিক
+                        QuerySnapshot marriageQuery = await FirebaseFirestore.instance
+                            .collection('marriages')
+                            .where('myAuthUID', isEqualTo: uIDValue)
+                            .limit(1)
+                            .get();
+
+                        if (marriageQuery.docs.isEmpty) {
+                          marriageQuery = await FirebaseFirestore.instance
+                              .collection('marriages')
+                              .where('partnerAuthUID', isEqualTo: uIDValue)
+                              .limit(1)
+                              .get();
+                        }
+
+                        if (marriageQuery.docs.isNotEmpty) {
+                          String marriageDocId = marriageQuery.docs.first.id;
+                          await FirebaseFirestore.instance
+                              .collection('marriages')
+                              .doc(marriageDocId)
+                              .update({
+                            'ringIcon': newUrl,
+                            'ringName': newName,
+                          });
+                        }
+
+                        // ৩. লোকাল স্টেট আপডেট
+                        setState(() {
+                          activeSpecialUrl = newUrl;
+                          hasSpecialEffect = newStatus;
+                        });
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(isPicked
+                                  ? "$name Unpicked!"
+                                  : "$name Picked & Applied! 💍✨"),
+                              backgroundColor: isPicked ? Colors.orange : Colors.purple,
+                            ),
+                          );
+                        }
+                      },
+                      child: Text(isPicked ? "Unpick" : "Pick",
+                          style: const TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
   Widget _buildMyFramesTab() {
     int currentLevel = getVipLevel();
 
@@ -2547,7 +2561,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     StreamBuilder<DocumentSnapshot>(
                       stream: FirebaseFirestore.instance
                           .collection('marriages')
-                          .doc(marriageDocId.isNotEmpty ? marriageDocId : targetUserId)
+                          .doc(marriageDocId.isNotEmpty
+                              ? marriageDocId
+                              : targetUserId)
                           .snapshots(),
                       builder: (context, marriageSnapshot) {
                         // যদি ইউজার বিবাহিত হয় (marriages কালেকশনে ডাটা থাকে)
@@ -2715,7 +2731,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             color: Color.fromARGB(255, 4, 189, 251),
                             fontSize: 13,
                             fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 5),
 
                     // VIP এবং ডাইনামিক XP প্রগ্রেস বার সেকশন
                     Padding(
@@ -2886,7 +2902,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               else
                                 const SizedBox(width: 45),
                             ])),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 5),
 
 // 🇧🇩 [বাংলা মার্ক]: ValueKey যোগ করা হলো—ডাটা আসার সাথে সাথে স্ক্রিন রিয়েল-টাইমে আপডেট হবে ভাই!
                     ActiveLevelBar(
@@ -2900,7 +2916,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         totalGiftXp:
                             totalGiftXp), // 👈 userData['totalGiftXp'] কেটে শুধু totalGiftXp
 
-                    const SizedBox(height: 25),
+                    const SizedBox(height: 5),
 
                     // Followers & Following
                     Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -2968,7 +2984,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           "Following", following, sixDigitProfileID, context),
                     ]),
 
-                    const SizedBox(height: 35),
+                    const SizedBox(height: 15),
 
                     // 💎 অ্যাকশন বক্সগুলো (ডায়মন্ড, প্রিমিয়াম, ব্যাকপ্যাক) শুধুমাত্র নিজের প্রোফাইলে দেখাবে
                     if (isMe) ...[
@@ -2986,7 +3002,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 25),
                     ],
 
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 0),
 
                     // ❤️ সোলমেট সেকশন
                     _buildSoulmateSection(),
@@ -3006,8 +3022,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Container(
                     width: MediaQuery.of(context).size.width,
                     height: MediaQuery.of(context).size.height,
-                    decoration: (activeSpecialUrl != null &&
-                            activeSpecialUrl.toString().isNotEmpty &&
+                    decoration: (activeSpecialUrl.toString().isNotEmpty &&
                             !activeSpecialUrl.toString().startsWith('file:'))
                         ? BoxDecoration(
                             image: DecorationImage(
@@ -3102,7 +3117,7 @@ class _ProfilePageState extends State<ProfilePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 0),
           child: Text("𝐇𝐚𝐫𝐭—̳͟͞͞💗(𝐒𝐨𝐮𝐥𝐦𝐚𝐭𝐞𝐬)",
               style: TextStyle(
                   color: Colors.white,
@@ -3141,7 +3156,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(18),
                     image: const DecorationImage(
-                      image: NetworkImage(soulmateCardUrl),
+                      image: CachedNetworkImageProvider(soulmateCardUrl),
                       fit: BoxFit.fill,
                     ),
                   ),
@@ -3374,27 +3389,26 @@ class _ProfilePageState extends State<ProfilePage> {
         myFrameSize > partnerFrameSize ? myFrameSize : partnerFrameSize;
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
-      alignment: Alignment.center,
+      padding: EdgeInsets.zero, // কোনো প্যাডিং রাখা হলো না
+      alignment: Alignment.topCenter, // কন্টেন্ট ওপরের দিকে থাকবে
+      constraints:
+          BoxConstraints(maxHeight: totalHeight), // হাইট ফিক্সড করে দিলাম
       child: SizedBox(
         width: totalWidth,
         height: totalHeight,
         child: Stack(
-          alignment: Alignment.center,
-          clipBehavior: Clip.none,
+          alignment: Alignment
+              .topCenter, // স্ট্যাকের ভেতরেও আইটেমগুলো ওপরের দিকে থাকবে
+          clipBehavior: Clip.none, // এটি খুব জরুরি, ফ্রেম যেন কেটে না যায়
           children: [
             // ১. নিজের প্রোফাইল ছবি ও ফ্রেম
             Positioned(
               left: (totalWidth / 2) - myFrameSize + (overlapDistance / 2),
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: GestureDetector(
-                  onTap:
-                      isMe ? _pickProfileImage : null, // এখন আর লাল দাগ আসবে না
-                  child: _buildUserWithFrame(myImg, myFrame, avatarRadius,
-                      lottieMultiplier, imageMultiplier),
-                ),
+              top: 0, // ওপর থেকে ০ পজিশনে
+              child: GestureDetector(
+                onTap: isMe ? _pickProfileImage : null,
+                child: _buildUserWithFrame(myImg, myFrame, avatarRadius,
+                    lottieMultiplier, imageMultiplier),
               ),
             ),
 
@@ -3412,6 +3426,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
             // 💍 ম্যারেজ রিং আইকন (ঠিক মাঝখানে, ক্লিকেবল ডিভোর্স ও ডিটেইলস পপআপ)
             Positioned(
+              top: 15,
               child: GestureDetector(
                 onTap: () async {
                   print(
@@ -3479,7 +3494,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   }
 
                   // 🔐 ব্যাকআপ লজিক ২: যদি কারেন্ট পেজের উইজেটের ভেতর কোনো নাম থেকে থাকে
-                  if (finalMyName.trim().isEmpty && data != null) {
+                  if (finalMyName.trim().isEmpty) {
                     finalMyName = data['name'] ?? data['username'] ?? '';
                   }
 
