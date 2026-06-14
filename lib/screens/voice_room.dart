@@ -17,6 +17,9 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:lottie/lottie.dart';
+
+import 'package:pagla_chat/pk_manager.dart';
+import 'package:pagla_chat/protected_users.dart';
 import 'package:pagla_chat/room_exit_handler.dart';
 import 'package:pagla_chat/room_manager.dart';
 import 'package:pagla_chat/services/floating_bubble_service.dart';
@@ -84,7 +87,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   Map<String, dynamic> roomData = {};
   Map<String, int> roomScores = {};
   Map<int, String> activeEmojis = {};
-
+  Offset pkBannerOffset = const Offset(20, 150);
   Map<String, int> scores =
       {}; // এই লাইনটি ক্লাসের একদম উপরে অন্যান্য ভেরিয়েবলের সাথে লিখুন
   List<Offset> seatPositions = List.generate(15, (index) => Offset.zero);
@@ -121,7 +124,10 @@ class _VoiceRoomState extends State<VoiceRoom> {
   // PK Battle Info
   int blueTeamPoints = 0;
   int redTeamPoints = 0;
-  bool isPKActive = false;
+  bool isPKActive = false; // পিকে চলছে কি না
+  bool _lastPKStatus = false;
+  Map<String, dynamic>? currentPKData; // পিকের ডাটা
+  int pkDuration = 0;
   late VSPKManager pkManager;
   int pkSeconds = 300;
   int currentGiftCount = 0;
@@ -135,7 +141,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
   String currentMusicUrl = "";
   Offset playerPosition = const Offset(150, 400);
   bool isRoomMusicPlaying = false;
-
+  bool isPKEnding = false; // এটি এন্ড লজিক লক করার জন্য
   // Realtime States
   Map<String, dynamic> currentUserData = {};
   int currentSeatIndex = -1;
@@ -384,7 +390,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
             },
           ),
         );
-            } catch (e) {
+      } catch (e) {
         debugPrint("Agora Error: $e");
       }
     });
@@ -937,20 +943,30 @@ class _VoiceRoomState extends State<VoiceRoom> {
   void _kickUserFromRoom(String targetuID) async {
     if (targetuID.isEmpty) return;
 
+    // নতুন ফিচার: প্রোটেকশন চেক
+    if (protectedUserIds.contains(targetuID)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              "This user is an official member of PaglaChat, you cannot kick them!"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return; // এখান থেকেই ফাংশন বন্ধ হয়ে যাবে, কিক হবে না
+    }
+
     try {
-      // ১. ফায়ারস্টোরে কিক লিস্টে জমা করা এবং ফলোয়ার থেকে সরানো
+      // ১. ফায়ারস্টোরে কিক লিস্টে জমা করা...
       await FirebaseFirestore.instance
           .collection('rooms')
           .doc(widget.roomId)
           .update({
         'kickedUsers': FieldValue.arrayUnion([targetuID]),
         'followers': FieldValue.arrayRemove([targetuID]),
-        'admins':
-            FieldValue.arrayRemove([targetuID]), // এডমিন থাকলে তাকেও সরাতে হবে
+        'admins': FieldValue.arrayRemove([targetuID]),
       });
 
-      // ২. রিয়েল-টাইম ডাটাবেসে একটি কিক সিগন্যাল পাঠানো
-      // যাতে ইউজার অ্যাপে থাকা অবস্থায় সাথে সাথে রুম থেকে বের হয়ে যায়
+      // ২. রিয়েল-টাইম ডাটাবেসে কিক সিগন্যাল...
       await FirebaseDatabase.instance
           .ref('rooms/${widget.roomId}/kickSignal/$targetuID')
           .set({
@@ -1472,16 +1488,42 @@ class _VoiceRoomState extends State<VoiceRoom> {
     }
   }
 
+  void _startPKBattle(
+      Map<String, dynamic> u1, Map<String, dynamic> u2, int duration) {
+    // ডাটাবেজে পিকে স্ট্যাটাস আপডেট করুন যাতে সবাই দেখতে পায়
+    FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
+      'isPKActive': true,
+      'pkData': {
+        'u1': u1,
+        'u2': u2,
+        'duration': duration,
+        'score1': 0, // শুরুতে স্কোর ০
+        'score2': 0,
+        'startTime': FieldValue.serverTimestamp(),
+      }
+    });
+  }
+
   void _endPKBattle() {
     if (!mounted) return;
-    String winner = blueTeamPoints > redTeamPoints ? "BLUE" : "RED";
+
+    // বর্তমান স্কোর ডাটাবেজ থেকে আসা ভেরিয়েবল থেকে নিন (যা অলরেডি currentPKData তে আছে)
+    int finalBlue =
+        int.tryParse(currentPKData?['score1']?.toString() ?? "0") ?? 0;
+    int finalRed =
+        int.tryParse(currentPKData?['score2']?.toString() ?? "0") ?? 0;
+
+    String winner = finalBlue > finalRed ? "BLUE" : "RED";
+
     showDialog(
       context: context,
       builder: (context) => PKWinnerDialog(
-          winnerTeam: winner,
-          bluePoints: blueTeamPoints,
-          redPoints: redTeamPoints),
+        winnerTeam: winner,
+        bluePoints: finalBlue, // লোকাল ভেরিয়েবলের বদলে ফাইনাল ভ্যালু পাঠান
+        redPoints: finalRed,
+      ),
     );
+
     setState(() => isPKActive = false);
   }
 
@@ -1504,10 +1546,29 @@ class _VoiceRoomState extends State<VoiceRoom> {
             Map<String, dynamic> roomData = {};
 
             if (snapshot.hasData && snapshot.data!.exists) {
-              roomData = snapshot.data!.data() as Map<String, dynamic>;
+              Map<String, dynamic> roomData =
+                  snapshot.data!.data() as Map<String, dynamic>;
+
+              // ১. ডেটা আপডেট (সরাসরি ভেরিয়েবল আপডেট, বিল্ড মেথড নিজেই স্টেট রিফ্রেশ করবে)
               wallpaperUrl = roomData['currentWallpaper'];
-              debugPrint(
-                  "DEBUG: Room update received. lastEntry ID: ${roomData['lastEntry']?['entryId']}");
+              bool newIsPKActive = roomData['isPKActive'] ?? false;
+              Map<String, dynamic>? newPKData = roomData['pkData'];
+
+              // ২. পিকের স্ট্যাটাস চেঞ্জ হলে লজিক হ্যান্ডেল করা
+              if (_lastPKStatus == true && newIsPKActive == false) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _endPKBattle();
+                });
+              }
+
+              // ৩. আপডেট লোকাল ভেরিয়েবলগুলো
+              isPKActive = newIsPKActive;
+              currentPKData = newPKData;
+              pkDuration = currentPKData?['duration'] ?? 0;
+              blueTeamPoints = (currentPKData?['score1'] ?? 0);
+              redTeamPoints = (currentPKData?['score2'] ?? 0);
+
+              _lastPKStatus = newIsPKActive;
               // --- গিফট অ্যানিমেশনের লজিক ---
               var lastGift = roomData['last_gift'];
               if (lastGift != null) {
@@ -1596,13 +1657,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                     children: [
                       const SizedBox(height: 40),
                       _buildTopNavBar(),
-                      if (isPKActive)
-                        PKBattleView(
-                          bluePoints: blueTeamPoints,
-                          redPoints: redTeamPoints,
-                          pkSeconds: pkSeconds,
-                          pkManager: pkManager,
-                        ),
+
                       _buildViewerArea(),
                       // 🔥 widget এর লাল দাগ সম্পূর্ণ ফিক্স করে আপডেটেড কোড
                       Expanded(
@@ -1884,7 +1939,88 @@ class _VoiceRoomState extends State<VoiceRoom> {
                     ),
                   ),
 
-                // আপনার Stack এর ভেতরে এই অংশটি এভাবে আপডেট করুন:
+                if (isPKActive && currentPKData != null)
+                  Positioned(
+                    left: pkBannerOffset.dx,
+                    top: pkBannerOffset.dy,
+                    child: GestureDetector(
+                      onPanUpdate: (details) {
+                        setState(() {
+                          pkBannerOffset = Offset(
+                            pkBannerOffset.dx + details.delta.dx,
+                            pkBannerOffset.dy + details.delta.dy,
+                          );
+                        });
+                      },
+                      child: SizedBox(
+                        width: MediaQuery.of(context).size.width * 0.9,
+                        child: PersonalPKView(
+                          // ৩. এখানে Key যোগ করুন, এটি টাইমার এবং উইজেট লাইফসাইকেল ঠিক রাখবে
+                          key: const ValueKey('active_pk_view'),
+                          user1: currentPKData!['u1'],
+                          user2: currentPKData!['u2'],
+                          duration: pkDuration,
+                          score1: int.tryParse(
+                                  currentPKData!['score1']?.toString() ??
+                                      "0") ??
+                              0,
+                          score2: int.tryParse(
+                                  currentPKData!['score2']?.toString() ??
+                                      "0") ??
+                              0,
+                          onTimerEnd: () async {
+                            // ৪. আরও শক্তিশালী চেক: যদি অলরেডি পপআপ দেখানোর প্রসেস চলছে
+                            if (isPKEnding) return;
+
+                            setState(() {
+                              isPKEnding = true;
+                            });
+
+                            // ডাটাবেজে আপডেট পাঠানোর আগে ভ্যালুগুলো সেভ করে নিন
+                            int finalScore1 = int.tryParse(
+                                    currentPKData!['score1']?.toString() ??
+                                        "0") ??
+                                0;
+                            int finalScore2 = int.tryParse(
+                                    currentPKData!['score2']?.toString() ??
+                                        "0") ??
+                                0;
+
+                            try {
+                              // Firebase আপডেট
+                              await FirebaseFirestore.instance
+                                  .collection('rooms')
+                                  .doc(widget.roomId)
+                                  .update({
+                                'isPKActive': false,
+                                'pkData': FieldValue.delete(),
+                              });
+                            } catch (e) {
+                              debugPrint("Error ending PK: $e");
+                            }
+
+                            String winner =
+                                finalScore1 >= finalScore2 ? "BLUE" : "RED";
+
+                            if (mounted) {
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) => PKWinnerDialog(
+                                  winnerTeam: winner,
+                                  bluePoints: finalScore1,
+                                  redPoints: finalScore2,
+                                ),
+                              ).then((_) {
+                                // পপআপ বন্ধ হওয়ার পর ফ্ল্যাগ রিসেট
+                                isPKEnding = false;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
 
                 if (isGiftCounting)
                   Positioned(
@@ -3080,7 +3216,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
                                                     // ৩. যদি এডমিন নিজেই নিজের সিটে বসা থাকে, তবে সরাসরি তার এগোরা মাইক অফ হবে
                                                     if (seatUserId ==
-                                                            currentUserId) {
+                                                        currentUserId) {
                                                       await _agoraManager
                                                           .toggleMic(
                                                               !newMicStatus);
@@ -3364,18 +3500,20 @@ class _VoiceRoomState extends State<VoiceRoom> {
           _buildCircularIcon(Icons.star, Colors.purpleAccent, () {
             showModalBottomSheet(
               context: context,
+              isScrollControlled: true,
               backgroundColor: Colors.transparent,
               builder: (context) => Container(
                 decoration: const BoxDecoration(
                   color: Color(0xFF1A1A2E),
                   borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 ),
-                // এখানে সরাসরি আপনার রুম পেজের মূল ফাংশন _startGiftCounting টি পাস করে দিন
                 child: FloatingRoomTools(
                   onGiftCountStart: (minutes, theme) {
-                    _startGiftCounting(minutes, theme); // সরাসরি ফাংশন কল করুন
+                    _startGiftCounting(minutes, theme);
                   },
-                  seats: seats, // এটি আপনার স্টেট ভেরিয়েবল বা লিস্ট
+                  seats: seats, // এখানে seatedUsers এর বদলে seats দিন
+                  isPKActive: isPKActive,
+                  onStartPK: _startPKBattle,
                 ),
               ),
             );
@@ -3443,7 +3581,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                 bool newMicState = !isMicOn;
                 try {
                   await _agoraManager.toggleMic(!newMicState);
-                                  FirebaseDatabase.instance
+                  FirebaseDatabase.instance
                       .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
                       .update({'isMicOn': newMicState});
 
@@ -3468,7 +3606,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
               ),
             ),
           ),
-          
+
           const SizedBox(width: 5),
           // ৬. মিউজিক বাটন (গ্লাস বর্ডারসহ)
           Container(
@@ -3783,8 +3921,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   receiverDocID = target;
                 } else {
                   var targetSeat = seats.firstWhere(
-                    (s) =>
-                        (s['userName'] == target || s['name'] == target),
+                    (s) => (s['userName'] == target || s['name'] == target),
                     orElse: () => <String, dynamic>{},
                   );
 
@@ -3832,6 +3969,30 @@ class _VoiceRoomState extends State<VoiceRoom> {
                       giftName: gift['name'] ?? "Gift",
                     );
 
+// --- এইখানে পিকে স্কোর আপডেটের লজিক বসান ---
+                    if (isPKActive && currentPKData != null) {
+                      if (receiverDocID ==
+                              currentPKData!['u1']?['uID']?.toString() ||
+                          receiverDocID ==
+                              currentPKData!['u1']?['userId']?.toString()) {
+                        await FirebaseFirestore.instance
+                            .collection('rooms')
+                            .doc(widget.roomId)
+                            .update({
+                          'pkData.score1': FieldValue.increment(totalAmount),
+                        });
+                      } else if (receiverDocID ==
+                              currentPKData!['u2']?['uID']?.toString() ||
+                          receiverDocID ==
+                              currentPKData!['u2']?['userId']?.toString()) {
+                        await FirebaseFirestore.instance
+                            .collection('rooms')
+                            .doc(widget.roomId)
+                            .update({
+                          'pkData.score2': FieldValue.increment(totalAmount),
+                        });
+                      }
+                    }
                     // 🇧🇩 [বাংলা মার্ক]: গিফট ট্রানজেকশন সফল হওয়ার পর এক্সপি বাড়ানোর রিয়েল-টাইম লজিক
                     if (!isFree && totalAmount > 0) {
                       final firestore = FirebaseFirestore.instance;
@@ -4008,8 +4169,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                     if (receiverAuthUID.isEmpty) {
                       receiverAuthUID = receiverDocID;
                     }
-
-                    
 
                     // ২. একই লিঙ্গের হলে রিং পাঠানো আটকে দেওয়া
                     if (myGender != "Unknown" &&
@@ -4200,31 +4359,37 @@ class _VoiceRoomState extends State<VoiceRoom> {
   }
 
 // হেল্পার বাটন ফাংশন
-Widget _buildCircularIcon(IconData icon, Color color, VoidCallback onTap) {
-  return GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white.withOpacity(0.1),
-        border: Border.all(color: Colors.white24),
+  Widget _buildCircularIcon(IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withOpacity(0.1),
+          border: Border.all(color: Colors.white24),
+        ),
+        // এখানে আইকনের পরিবর্তে কন্ডিশন বসানো হলো
+        child: icon == Icons.star
+            ? const Row(
+                mainAxisSize: MainAxisSize.min, // বাটন সাইজ ঠিক রাখার জন্য
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text("PK",
+                      style: TextStyle(
+                          color: Color.fromARGB(255, 68, 151, 246),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10)),
+                  SizedBox(width: 2), // লেখা ও স্টারের মাঝে গ্যাপ
+                  Icon(Icons.star,
+                      size: 10, color: Color.fromARGB(255, 246, 226, 4)),
+                ],
+              )
+            : Icon(icon, color: color, size: 22),
       ),
-      // এখানে আইকনের পরিবর্তে কন্ডিশন বসানো হলো
-      child: icon == Icons.star 
-          ? const Row(
-              mainAxisSize: MainAxisSize.min, // বাটন সাইজ ঠিক রাখার জন্য
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text("PK", style: TextStyle(color: Color.fromARGB(255, 68, 151, 246), fontWeight: FontWeight.bold, fontSize: 10)),
-                SizedBox(width: 2), // লেখা ও স্টারের মাঝে গ্যাপ
-                Icon(Icons.star, size: 10, color: Color.fromARGB(255, 246, 226, 4)),
-              ],
-            )
-          : Icon(icon, color: color, size: 22),
-    ),
-  );
-}
+    );
+  }
+
   Widget _buildViewerArea() {
     return Container(
       height: 50,
@@ -4283,10 +4448,16 @@ Widget _buildCircularIcon(IconData icon, Color color, VoidCallback onTap) {
   }
 
   void _showSettings() {
+    // এখানে মালিকানা এবং এডমিনশিপ যাচাই করছি
+    bool isOwner = (ownerId.toString() == myuID.toString());
+    bool isAdmin = (adminList.contains(myuID.toString()));
+
     RoomSettingsHandler.showSettings(
       context: context,
       roomId: widget.roomId,
       isLocked: isRoomLocked,
+      isOwner: isOwner, // যুক্ত করা হয়েছে
+      isAdmin: isAdmin, // যুক্ত করা হয়েছে
       onToggleLock: () async {
         setState(() => isRoomLocked = !isRoomLocked);
         await FirebaseFirestore.instance
@@ -4313,7 +4484,6 @@ Widget _buildCircularIcon(IconData icon, Color color, VoidCallback onTap) {
             }
           }
 
-          // নতুন ইমেজ কম্প্রেস ও আপলোড লজিক
           final compressedBytes = await FlutterImageCompress.compressWithFile(
             path,
             quality: 60,
@@ -4388,17 +4558,14 @@ Widget _buildCircularIcon(IconData icon, Color color, VoidCallback onTap) {
       },
       onLeave: () async {
         RoomSettingsHandler.showExitDialog(context, () async {
-          // ১. ডাটা ক্লিন বা রিমুভ করার লজিক
           await RoomExitHandler.handleExit(widget.roomId, myuID.toString(),
               adminList.map((e) => e.toString()).toList(), ownerId.toString());
 
-          // ২. আগোরা চ্যানেল লিভ করুন
           await _agoraManager.engine.leaveChannel();
 
-          // ৩. সরাসরি পেজ থেকে বের হয়ে যান, কোনো শর্ত ছাড়াই
           if (mounted) {
-            Navigator.of(context).pop(); // ডায়ালগ ক্লোজ
-            Navigator.of(context).pop(); // রুম পেজ ক্লোজ
+            Navigator.of(context).pop();
+            Navigator.of(context).pop();
           }
         });
       },
@@ -4708,7 +4875,7 @@ Widget _buildCircularIcon(IconData icon, Color color, VoidCallback onTap) {
   void _leaveRoomInternally() async {
     try {
       await _agoraManager.engine.leaveChannel();
-          if (currentSeatIndex != -1) {
+      if (currentSeatIndex != -1) {
         FirebaseDatabase.instance
             .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
             .update({

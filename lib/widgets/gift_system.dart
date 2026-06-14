@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:pagla_chat/data/romantic_gifts.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
@@ -37,7 +38,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   String? selectedTargetId;
   String? selectedTargetName;
   String? selectedTargetImage;
- final ScrollController _boxScrollController = ScrollController();
+  final ScrollController _boxScrollController = ScrollController();
   bool isRandomBoxSelected = false; // বক্স সিলেক্ট হয়েছে কি না
   List<dynamic> randomGiftPool = []; // ৬টি গিফটের লিস্ট
   late List<Map<String, dynamic>> dynamicFreeGifts;
@@ -67,8 +68,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   void dispose() {
     _timer?.cancel();
     super.dispose();
-  _boxScrollController.dispose();
-  
+    _boxScrollController.dispose();
   }
 
   void _showUserSelectionList() {
@@ -393,75 +393,83 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     );
   }
 
-Widget _buildRandomBoxPreview() {
-  if (!isRandomBoxSelected || randomGiftPool.isEmpty) {
-    return const SizedBox.shrink();
-  }
-
-  // স্ক্রলিং লজিক একই থাকবে
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (_boxScrollController.hasClients) {
-      if (_boxScrollController.position.pixels >= _boxScrollController.position.maxScrollExtent) {
-        _boxScrollController.jumpTo(0);
-      }
-      _boxScrollController.animateTo(
-        _boxScrollController.position.pixels + 50,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.linear,
-      );
+  Widget _buildRandomBoxPreview() {
+    if (!isRandomBoxSelected || randomGiftPool.isEmpty) {
+      return const SizedBox.shrink();
     }
-  });
 
-  return Container(
-    height: 75,
-    margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-    decoration: BoxDecoration(
-      color: Colors.black.withOpacity(0.3), // গ্লাস ইফেক্টের জন্য ডার্ক টিন্ট
-      borderRadius: BorderRadius.circular(25),
-      border: Border.all(color: Colors.pinkAccent.withOpacity(0.4), width: 1.5),
-      boxShadow: [
-        BoxShadow(color: Colors.pinkAccent.withOpacity(0.1), blurRadius: 10, spreadRadius: 1)
-      ],
-    ),
-    child: ListView.builder(
-      controller: _boxScrollController,
-      scrollDirection: Axis.horizontal,
-      itemCount: randomGiftPool.length,
-      itemBuilder: (context, index) {
-        var gift = randomGiftPool[index];
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-          width: 55, // বল সাইজ সামান্য বাড়ানো হয়েছে
-          height: 55,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.white.withOpacity(0.2), Colors.transparent],
-            ),
-            border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
-          ),
-          child: Container(
-            margin: const EdgeInsets.all(3), // ইমেজের চারপাশ গ্লো করার জন্য
-            decoration: const BoxDecoration(
+    // স্ক্রলিং লজিক একই থাকবে
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_boxScrollController.hasClients) {
+        if (_boxScrollController.position.pixels >=
+            _boxScrollController.position.maxScrollExtent) {
+          _boxScrollController.jumpTo(0);
+        }
+        _boxScrollController.animateTo(
+          _boxScrollController.position.pixels + 50,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.linear,
+        );
+      }
+    });
+
+    return Container(
+      height: 75,
+      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.3), // গ্লাস ইফেক্টের জন্য ডার্ক টিন্ট
+        borderRadius: BorderRadius.circular(25),
+        border:
+            Border.all(color: Colors.pinkAccent.withOpacity(0.4), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.pinkAccent.withOpacity(0.1),
+              blurRadius: 10,
+              spreadRadius: 1)
+        ],
+      ),
+      child: ListView.builder(
+        controller: _boxScrollController,
+        scrollDirection: Axis.horizontal,
+        itemCount: randomGiftPool.length,
+        itemBuilder: (context, index) {
+          var gift = randomGiftPool[index];
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            width: 55, // বল সাইজ সামান্য বাড়ানো হয়েছে
+            height: 55,
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.black26,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Colors.white.withOpacity(0.2), Colors.transparent],
+              ),
+              border:
+                  Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(30),
-              child: Image.network(
-                gift['image'] ?? gift['icon'] ?? "",
-                fit: BoxFit.cover,
-                errorBuilder: (c, e, s) => const Icon(Icons.card_giftcard, color: Colors.white24, size: 20),
+            child: Container(
+              margin: const EdgeInsets.all(3), // ইমেজের চারপাশ গ্লো করার জন্য
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.black26,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: CachedNetworkImage(
+                  imageUrl: gift['image'] ?? gift['icon'] ?? "",
+                  fit: BoxFit.cover,
+                  errorWidget: (c, u, e) => const Icon(Icons.card_giftcard,
+                      color: Colors.white24, size: 20),
+                ),
               ),
             ),
-          ),
-        );
-      },
-    ),
-  );
-}
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildGrid(List gifts, {bool isFreeTab = false}) {
     return GridView.builder(
       padding: const EdgeInsets.all(15),
@@ -491,24 +499,23 @@ Widget _buildRandomBoxPreview() {
                 'random_box_id',
                 'box_1_id',
                 'box_2_id',
-                    'box_3_id',
-                    'box_4_id',
-                    'box_5_id',
-                    'box_6_id',
-                    'box_7_id',
-                    'box_8_id',
-                    'box_9_id',
-                    'box_10_id',
-                   'box_11_id',
-              'box_12_id',
-              'box_13_id',
-              'box_14_id',
-              'box_15_id',
-              'box_16_id',
-              'box_17_id',
-              'box_18_id',
-              'box_19_id',
-             
+                'box_3_id',
+                'box_4_id',
+                'box_5_id',
+                'box_6_id',
+                'box_7_id',
+                'box_8_id',
+                'box_9_id',
+                'box_10_id',
+                'box_11_id',
+                'box_12_id',
+                'box_13_id',
+                'box_14_id',
+                'box_15_id',
+                'box_16_id',
+                'box_17_id',
+                'box_18_id',
+                'box_19_id',
               ];
 
               // ৩. চেক করছি গিফটটি কি এই লিস্টের কোনো বক্স কি না
@@ -550,11 +557,10 @@ Widget _buildRandomBoxPreview() {
                     child: isJson
                         ? Lottie.asset(giftPath,
                             repeat: true, fit: BoxFit.contain)
-                        : Image.network(
-                            giftPath,
-                            fit: BoxFit
-                                .cover, // এইটা ছবিকে পুরো বর্ডার পর্যন্ত টেনে বড় করবে
-                            errorBuilder: (c, e, s) => const Icon(
+                        : CachedNetworkImage(
+                            imageUrl: giftPath,
+                            fit: BoxFit.cover,
+                            errorWidget: (c, u, e) => const Icon(
                                 Icons.card_giftcard,
                                 color: Colors.white24),
                           ),

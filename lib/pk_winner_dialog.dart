@@ -68,7 +68,7 @@ class PKWinnerDialog extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   ),
                   onPressed: () => Navigator.pop(context),
-                  child: const Text("অসাধারণ!", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: const Text("wonderful!", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),

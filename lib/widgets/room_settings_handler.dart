@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
@@ -12,6 +13,8 @@ class RoomSettingsHandler {
   static void showSettings({
     required BuildContext context,
     required bool isLocked,
+    required bool isOwner, // নতুন প্যারামিটার
+    required bool isAdmin, // নতুন প্যারামিটার
     required String roomId,
     required VoidCallback onToggleLock,
     required Function(String) onSetWallpaper,
@@ -64,6 +67,7 @@ class RoomSettingsHandler {
                   ),
                 ),
                 const SizedBox(height: 25),
+                if (isOwner || isAdmin) ...[
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Padding(
@@ -107,7 +111,7 @@ class RoomSettingsHandler {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: Colors.white24),
                             image: DecorationImage(
-                              image: NetworkImage(wallUrl),
+                              image: CachedNetworkImageProvider(wallUrl),
                               fit: BoxFit.cover,
                             ),
                           ),
@@ -119,14 +123,17 @@ class RoomSettingsHandler {
                   ),
                 ),
                 const SizedBox(height: 25),
+                ],
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
+                    if (isOwner || isAdmin)
                     _buildItem(isLocked ? Icons.lock : Icons.lock_open,
                         isLocked ? "Unlock" : "Lock", Colors.amber, () {
                       _handleFeaturePurchase(
                           context, roomId, "room_lock", onToggleLock);
                     }),
+                    if (isOwner || isAdmin)
                     _buildItem(
                         Icons.add_photo_alternate, "Gallery", Colors.cyanAccent,
                         () async {
@@ -200,6 +207,7 @@ class RoomSettingsHandler {
                         }
                       });
                     }),
+                   if (isOwner || isAdmin) 
                     _buildItem(
                         Icons.delete_sweep, "Clear Chat", Colors.orangeAccent,
                         () {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -31,6 +33,14 @@ class _RoomListPageState extends State<RoomListPage>
     "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500",
     "https://images.unsplash.com/photo-1514525253361-bee87187046c?w=500",
   ];
+final PageController _pageController = PageController();
+Timer? _timer;
+final List<String> _bannerUrls = [
+  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/roomlistbenar.png",
+  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/roomlistbenar2.png", // এখানে দ্বিতীয় লিংক বসান
+  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/daimondbenar.png", // এখানে তৃতীয় লিংক বসান
+];
+
 
   @override
   void initState() {
@@ -54,10 +64,22 @@ class _RoomListPageState extends State<RoomListPage>
       begin: const Color.fromARGB(255, 226, 242, 5),
       end: Colors.cyanAccent,
     ).animate(_colorAnimationController);
-  }
-
+  
+   _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
+    if (_pageController.hasClients) {
+      int nextPage = (_pageController.page?.toInt() ?? 0) + 1;
+      if (nextPage >= _bannerUrls.length) nextPage = 0;
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    }
+  });
+}
   @override
   void dispose() {
+    _timer?.cancel();
     _tabController.dispose();
     _bubbleController.dispose();
 
@@ -771,29 +793,32 @@ class _RoomListPageState extends State<RoomListPage>
         MaterialPageRoute(builder: (context) => VoiceRoom(roomId: id)));
   }
 
- Widget _buildBanner() {
-  return Container(
-    margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+ // ৪. ব্যানার বিল্ড ফাংশনটি এভাবে আপডেট করুন
+Widget _buildBanner() {
+  return SizedBox(
     height: 100,
-    width: double.infinity,
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(20),
-      // ক্যাশড ইমেজ সিস্টেম যুক্ত করা হয়েছে
-      image: const DecorationImage(
-        image: CachedNetworkImageProvider(
-          "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/roomlistbenar.png",
-        ),
-        fit: BoxFit.fill,
-      ),
-      // গোল্ডেন বর্ডার
-      border: Border.all(
-        color: Colors.amber.shade700,
-        width: 2,
-      ),
+    child: PageView.builder(
+      controller: _pageController,
+      itemCount: _bannerUrls.length,
+      itemBuilder: (context, index) {
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.amber.shade700,
+              width: 2,
+            ),
+            image: DecorationImage(
+              image: CachedNetworkImageProvider(_bannerUrls[index]),
+              fit: BoxFit.fill,
+            ),
+          ),
+        );
+      },
     ),
   );
 }
-
   Widget _buildTopSpendersSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

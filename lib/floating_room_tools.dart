@@ -1,24 +1,33 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:pagla_chat/pk_manager.dart';
+
+import 'package:pagla_chat/vs_pk_view.dart';
 import 'top_room_leaderboard.dart';
 import 'dart:ui'; // Glass effect এর জন্য লাগবে
 
 class FloatingRoomTools extends StatefulWidget {
   final Function(int minutes, String theme) onGiftCountStart;
   final List<dynamic> seats;
+  final bool isPKActive; // নতুন
+  final Function(Map<String, dynamic> u1, Map<String, dynamic> u2, int duration)
+      onStartPK; // নতুন
 
   const FloatingRoomTools({
     super.key,
     required this.onGiftCountStart,
     required this.seats,
+    required this.isPKActive,
+    required this.onStartPK,
   });
 
   @override
   State<FloatingRoomTools> createState() => _FloatingRoomToolsState();
 }
 
-class _FloatingRoomToolsState extends State<FloatingRoomTools> with SingleTickerProviderStateMixin {
+class _FloatingRoomToolsState extends State<FloatingRoomTools>
+    with SingleTickerProviderStateMixin {
   Offset position = const Offset(10, 200);
   late AnimationController _gradientController;
   final TextEditingController _themeController = TextEditingController();
@@ -49,15 +58,24 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools> with SingleTicker
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) => Container(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + 20, left: 20, right: 20, top: 20),
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                left: 20,
+                right: 20,
+                top: 20),
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A2E).withOpacity(0.9),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(30)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text("START GIFT COUNT", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 18)),
+                const Text("START GIFT COUNT",
+                    style: TextStyle(
+                        color: Colors.amber,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18)),
                 const SizedBox(height: 20),
                 // থিম ইনপুট (ইউজার নিজের ইচ্ছা মতো লিখবে)
                 TextField(
@@ -68,7 +86,8 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools> with SingleTicker
                     hintStyle: const TextStyle(color: Colors.white54),
                     filled: true,
                     fillColor: Colors.white10,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15)),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -84,7 +103,9 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools> with SingleTicker
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber,
+                      foregroundColor: Colors.black),
                   onPressed: () {
                     widget.onGiftCountStart(tempTime, _themeController.text);
                     Navigator.pop(context);
@@ -137,8 +158,10 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools> with SingleTicker
                   end: Alignment.bottomRight,
                   colors: [
                     Colors.white.withOpacity(0.2),
-                    Colors.blueAccent.withOpacity(0.1 + (_gradientController.value * 0.2)),
-                    Colors.purpleAccent.withOpacity(0.1 + ((1 - _gradientController.value) * 0.2)),
+                    Colors.blueAccent
+                        .withOpacity(0.1 + (_gradientController.value * 0.2)),
+                    Colors.purpleAccent.withOpacity(
+                        0.1 + ((1 - _gradientController.value) * 0.2)),
                   ],
                 ),
                 border: Border.all(color: Colors.white.withOpacity(0.2)),
@@ -151,22 +174,49 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools> with SingleTicker
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _toolIcon(Icons.timer_outlined, "Gift Count", Colors.orangeAccent, () => _showTimeSelector(context)),
+          _toolIcon(Icons.timer_outlined, "Gift Count", Colors.orangeAccent,
+              () => _showTimeSelector(context)),
           const SizedBox(height: 15),
-          _toolIcon(Icons.emoji_events_outlined, "Top Room", Colors.yellowAccent, () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const TopRoomLeaderboard()));
+          _toolIcon(
+              Icons.emoji_events_outlined, "Top Room", Colors.yellowAccent, () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const TopRoomLeaderboard()));
           }),
           const SizedBox(height: 15),
-          _toolIcon(Icons.bolt, "Personal PK", Colors.blueAccent, () {}),
-          const SizedBox(height: 15),
-          _toolIcon(Icons.whatshot, "VS PK", Colors.redAccent, () {}),
+          _toolIcon(Icons.bolt, "Vs/Pk", Colors.blueAccent, () {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) => PKSetupView(
+                // এখানে .cast<Map<String, dynamic>>() যোগ করে দিন
+                seatedUsers: widget.seats.cast<Map<String, dynamic>>(),
+                onStart: (u1, u2, time) {
+                  Navigator.pop(context);
+                  widget.onStartPK(u1, u2, time);
+                },
+              ),
+            );
+          }),
+          // VS PK বাটন
+          _toolIcon(Icons.whatshot, "Tem/pk", Colors.redAccent, () {
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              builder: (context) => const VSPKView(),
+            );
+          }),
         ],
       ),
     );
   }
 
-  Widget _toolIcon(IconData icon, String label, Color color, VoidCallback onTap) {
+  Widget _toolIcon(
+      IconData icon, String label, Color color, VoidCallback onTap) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Column(
         children: [
@@ -180,14 +230,16 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools> with SingleTicker
             child: Icon(icon, color: color, size: 22),
           ),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+          Text(label,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 }
-
-
 
 // ---------------------------------------------------------
 // গিফট কাউন্টার ভাসমান ব্যানার (Glass Ranking View)
@@ -238,10 +290,11 @@ class _GiftCalculatorBannerState extends State<GiftCalculatorBanner> {
       var data = snapshot.data();
       if (data != null && data.containsKey('last_gift')) {
         var giftData = data['last_gift'];
-        
+
         // এখানে আপনার ডাটাবেস স্ট্রাকচার অনুযায়ী uID এবং count নেয়া হচ্ছে
         String userId = giftData['uID']?.toString() ?? "";
-        int currentCount = int.tryParse(giftData['count']?.toString() ?? "0") ?? 0;
+        int currentCount =
+            int.tryParse(giftData['count']?.toString() ?? "0") ?? 0;
 
         if (userId.isNotEmpty) {
           setState(() {
@@ -273,7 +326,8 @@ class _GiftCalculatorBannerState extends State<GiftCalculatorBanner> {
   Widget build(BuildContext context) {
     // ১. ফিল্টার করা: যারা সিটে আছে এবং গিফট পেয়েছে
     final activeParticipants = widget.seats
-        .where((s) => s != null && s['uID'] != null && (s['isOccupied'] == true))
+        .where(
+            (s) => s != null && s['uID'] != null && (s['isOccupied'] == true))
         .toList();
 
     // ২. সর্ট করা: বেশি গিফট পাওয়া ইউজার উপরে থাকবে
@@ -283,7 +337,8 @@ class _GiftCalculatorBannerState extends State<GiftCalculatorBanner> {
       return scoreB.compareTo(scoreA);
     });
 
-    String timeStr = "${(_secondsRemaining ~/ 60).toString().padLeft(2, '0')}:${(_secondsRemaining % 60).toString().padLeft(2, '0')}";
+    String timeStr =
+        "${(_secondsRemaining ~/ 60).toString().padLeft(2, '0')}:${(_secondsRemaining % 60).toString().padLeft(2, '0')}";
 
     return Material(
       color: Colors.transparent,
@@ -303,23 +358,32 @@ class _GiftCalculatorBannerState extends State<GiftCalculatorBanner> {
               children: [
                 // হেডার
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(color: Colors.amber.withOpacity(0.2)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration:
+                      BoxDecoration(color: Colors.amber.withOpacity(0.2)),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
                         child: Text(
                           widget.theme.isEmpty ? "GIFT COUNT" : widget.theme,
-                          style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 11),
+                          style: const TextStyle(
+                              color: Colors.amber,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Text(timeStr, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      Text(timeStr,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold)),
                       const SizedBox(width: 5),
                       GestureDetector(
                         onTap: widget.onClose,
-                        child: const Icon(Icons.close, color: Colors.white70, size: 16),
+                        child: const Icon(Icons.close,
+                            color: Colors.white70, size: 16),
                       ),
                     ],
                   ),
@@ -337,14 +401,20 @@ class _GiftCalculatorBannerState extends State<GiftCalculatorBanner> {
                         dense: true,
                         leading: CircleAvatar(
                           radius: 12,
-                          backgroundImage: seat['userImage'] != null && seat['userImage'].isNotEmpty
+                          backgroundImage: seat['userImage'] != null &&
+                                  seat['userImage'].isNotEmpty
                               ? NetworkImage(seat['userImage'])
                               : null,
                         ),
-                        title: Text(seat['userName'] ?? "User", style: const TextStyle(color: Colors.white, fontSize: 10)),
+                        title: Text(seat['userName'] ?? "User",
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 10)),
                         trailing: Text(
                           "${scores[uID] ?? 0} 💎",
-                          style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              color: Colors.amber,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold),
                         ),
                       );
                     },
