@@ -340,6 +340,10 @@ List<Map<String, dynamic>> classicGifts = [
   {'id': 'lx3', 'name': 'Luxury 3', 'price': 19060, 'image': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/luxury%20(3).jpg', 'type': 'lighting'},
   {'id': 'lx4', 'name': 'Luxury 4', 'price': 56940, 'image': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/luxury%20(4).jpg', 'type': 'lighting'},
   ]
+
+
+
+
 },
 
 

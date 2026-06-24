@@ -17,6 +17,7 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:lottie/lottie.dart';
+import 'package:pagla_chat/VideoGiftOverlay.dart';
 
 import 'package:pagla_chat/pk_manager.dart';
 import 'package:pagla_chat/protected_users.dart';
@@ -165,6 +166,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
   StreamSubscription? _emojiSubscription;
   String lastProcessedEntryId =
       ""; // এটি চেক করবে কোন আইডিটা লাস্ট প্রসেস হয়েছে
+  String? activeGlobalVideoUrl;
+  StreamSubscription? _videoGiftSubscription;
   @override
   void initState() {
     super.initState();
@@ -238,6 +241,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
     _initEmojiListener();
 
+    // ভিডিও লিসেনার চালু করার আগে পুরনো ডাটা মুছে দিন
+    FirebaseDatabase.instance
+        .ref('rooms/${widget.roomId}/latestVideoGift')
+        .remove();
+
+    _initGlobalVideoGiftListener();
     // ৩. এন্ট্রি লজিক (বাবল থেকে ফিরলে এগুলো কল হবে না)
     if (!FloatingBubbleService.isMinimized) {
       _addUserToViewers();
@@ -599,51 +608,92 @@ class _VoiceRoomState extends State<VoiceRoom> {
     } catch (e) {}
   }
 
+  // মেইন রুমের স্টেট ক্লাসে এটি রাখুন
   void _initEmojiListener() {
     _emojiSubscription?.cancel();
 
     _emojiSubscription = FirebaseDatabase.instance
         .ref('rooms/${widget.roomId}/seats')
-        .onValue
+        .onValue // onChildChanged থেকে onValue-তে পরিবর্তন করলাম
         .listen((event) {
-      if (!mounted || event.snapshot.value == null) return;
+      if (!mounted) return;
 
-      final Map<dynamic, dynamic> seatsData =
-          Map<dynamic, dynamic>.from(event.snapshot.value as Map);
+      final data = event.snapshot.value;
+      if (data is! Map) return;
+
+      // সিটের ডাটা থেকে চেক করছি
+      Map<dynamic, dynamic> seatsData = data;
 
       seatsData.forEach((key, value) {
-        int index = int.tryParse(key.toString()) ?? -1;
+        if (value is Map && value.containsKey('currentEmoji')) {
+          int index = int.tryParse(key.toString()) ?? -1;
+          String? emojiUrl = value['currentEmoji'];
 
-        if (index != -1 && value is Map) {
-          final String? emoji = value["currentEmoji"];
-          final bool showEmoji = value["showEmoji"] ?? false;
+          if (index != -1 && emojiUrl != null && emojiUrl.isNotEmpty) {
+            // ইমোজি রেন্ডার করার লজিক
+            if (activeEmojis[index] != emojiUrl) {
+              setState(() {
+                activeEmojis[index] = emojiUrl;
+              });
 
-          if (emoji != null && showEmoji == true) {
-            // পজিশন চেক এবং গ্লোবাল ডিবাগিং
-            if (index >= seatPositions.length) {
-            } else {
-              double x = seatPositions[index].dx;
-              double y = seatPositions[index].dy;
-
-              if (x == 0 && y == 0) {}
-            }
-
-            if (activeEmojis[index] != emoji) {
-              if (mounted) {
-                setState(() {
-                  activeEmojis[index] = emoji;
-                });
-              }
-
-              Timer(const Duration(seconds: 4), () {
+              // ৪ সেকেন্ড পর রিমুভ করার লজিক
+              Future.delayed(const Duration(seconds: 4), () {
                 if (mounted) {
-                  setState(() => activeEmojis.remove(index));
+                  // ডাটাবেস থেকে রিমুভ করার দরকার নেই, শুধু লোকাল ম্যাপ থেকে রিমুভ হবে
+                  setState(() {
+                    activeEmojis.remove(index);
+                  });
                 }
               });
             }
           }
         }
       });
+    });
+  }
+
+  DatabaseReference get _videoGiftRef =>
+      FirebaseDatabase.instance.ref('${widget.roomId}/latestVideoGift');
+  void _initGlobalVideoGiftListener() {
+    _videoGiftSubscription =
+        _videoGiftRef.onValue.listen((DatabaseEvent event) {
+      if (!mounted) return;
+
+      final data = event.snapshot.value;
+
+      // ডাটা না থাকলে বা ভিডিও না থাকলে থামিয়ে দিন
+      if (data == null) return;
+
+      if (data is Map) {
+        String? videoUrl = data['url']?.toString();
+
+        // শুধুমাত্র তখনই ভিডিও দেখাবে যদি ভিডিওর URL নাল না হয়
+        if (videoUrl != null && videoUrl.isNotEmpty) {
+          // ভিডিওর বয়স চেক করুন (যদি ভিডিওটি ১ মিনিটের বেশি পুরনো হয়, তবে লোড করবেন না)
+          int sendTime = int.tryParse(data['sendTime']?.toString() ?? '0') ?? 0;
+          int currentTime = DateTime.now().millisecondsSinceEpoch;
+
+          if (currentTime - sendTime < 60000) {
+            // ১ মিনিট (60,000 ms) এর মধ্যে হলে দেখাবে
+            setState(() {
+              activeGlobalVideoUrl = videoUrl;
+            });
+          }
+        }
+      }
+    });
+  }
+
+  void sendRoomVideoGift(String giftUrl) {
+    // ১. আপনার বর্তমান Realtime Database কোড (এটি যা আছে তা-ই থাকবে)
+    FirebaseDatabase.instance.ref('${widget.roomId}/latestVideoGift').set({
+      'url': giftUrl,
+      'sendTime': ServerValue.timestamp,
+    });
+
+    // ২. শুধুমাত্র এই একটি বাড়তি লাইন যোগ করুন (এটি সবাইকে ভিডিওটি দেখাতে সাহায্য করবে)
+    FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
+      'latestVideoGift': {'url': giftUrl}
     });
   }
 
@@ -1149,6 +1199,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => GiftBottomSheet(
+        roomId: widget.roomId,
         diamondBalance: currentBalance,
         currentSeats: List.from(seats),
         onGiftSend: (gift, count, target) async {
@@ -1437,32 +1488,36 @@ class _VoiceRoomState extends State<VoiceRoom> {
   bool _lastTalkingStatus = false;
 
   void updateSeatPosition(int index, GlobalKey key) {
-    // ফ্রেম রেন্ডার হওয়ার পর পজিশন নেওয়ার জন্য এটি নিরাপদ
+    // ১. কি (key) নাল কি না চেক করুন
+    if (key.currentContext == null) return;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      try {
-        final RenderBox? renderBox =
-            key.currentContext?.findRenderObject() as RenderBox?;
-        if (renderBox != null && renderBox.hasSize) {
-          final position = renderBox.localToGlobal(Offset.zero);
-          final size = renderBox.size;
-          double centerX = position.dx + (size.width / 2);
-          double centerY = position.dy + (size.height / 2);
+      final RenderBox? renderBox =
+          key.currentContext?.findRenderObject() as RenderBox?;
 
-          final RenderBox? roomBox = context.findRenderObject() as RenderBox?;
-          if (roomBox != null) {
-            Offset newPosition =
-                roomBox.globalToLocal(Offset(centerX, centerY));
+      // রুমের রেফারেন্স পাওয়ার জন্য আরও নিরাপদ উপায়:
+      // (context এর জায়গায় সরাসরি Scaffold বা প্রধান স্ট্যাকের কি ব্যবহার করা ভালো)
+      final RenderBox? roomBox = context.findRenderObject() as RenderBox?;
 
-            // 🔥 টিপস: যদি পজিশন আগে থেকেই একই থাকে, তবে setState কল করার দরকার নেই
-            if (seatPositions[index] != newPosition) {
-              setState(() {
-                seatPositions[index] = newPosition;
-              });
-            }
-          }
+      if (renderBox != null && roomBox != null) {
+        // সিটের পজিশন ক্যালকুলেট করুন
+        final position =
+            renderBox.localToGlobal(Offset.zero, ancestor: roomBox);
+        final size = renderBox.size;
+
+        Offset newPosition = Offset(
+          position.dx + (size.width / 2),
+          position.dy + (size.height / 2),
+        );
+
+        // ২. শুধুমাত্র পজিশন পরিবর্তন হলেই সেট স্টেট করবেন
+        if (seatPositions[index] != newPosition) {
+          setState(() {
+            seatPositions[index] = newPosition;
+            // প্রিন্ট দিয়ে কনফার্ম করুন পজিশন ঠিকমতো সেট হলো কি না
+            print("DEBUG_POS: Seat $index updated to $newPosition");
+          });
         }
-      } catch (e) {
-        debugPrint("Position Update Error: $e");
       }
     });
   }
@@ -1549,6 +1604,11 @@ class _VoiceRoomState extends State<VoiceRoom> {
               Map<String, dynamic> roomData =
                   snapshot.data!.data() as Map<String, dynamic>;
 
+              // Firestore এ আপনার ফিল্ডের নাম যদি 'latestVideoGift' হয়:
+              var videoData = roomData['latestVideoGift'];
+              String? activeGlobalVideoUrl =
+                  videoData != null ? videoData['url'] : null;
+
               // ১. ডেটা আপডেট (সরাসরি ভেরিয়েবল আপডেট, বিল্ড মেথড নিজেই স্টেট রিফ্রেশ করবে)
               wallpaperUrl = roomData['currentWallpaper'];
               bool newIsPKActive = roomData['isPKActive'] ?? false;
@@ -1594,6 +1654,15 @@ class _VoiceRoomState extends State<VoiceRoom> {
                         currentReceiverImage = lastGift['receiverImage'] ?? '';
                         isGiftAnimating = true;
                       });
+
+                      // গিফট দেখানোর পর ফায়ারস্টোরে গিফট ফিল্ডটি খালি করে দিন
+                      FirebaseFirestore.instance
+                          .collection('rooms')
+                          .doc(widget.roomId)
+                          .update({
+                        'last_gift': FieldValue.delete(),
+                      });
+
                       Timer(const Duration(seconds: 5), () {
                         if (mounted) setState(() => isGiftAnimating = false);
                       });
@@ -1659,7 +1728,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                       _buildTopNavBar(),
 
                       _buildViewerArea(),
-                      // 🔥 widget এর লাল দাগ সম্পূর্ণ ফিক্স করে আপডেটেড কোড
                       Expanded(
                         flex: 2,
                         child: Stack(
@@ -1712,9 +1780,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                                 isEqualTo: currentAuthUID)
                                             .snapshots(),
                                         builder: (context, backupSnapshot) {
-                                          String dynamicPartnerId = "";
-                                          String finalUserDocId =
-                                              ""; // ৬ ডিজিটের আইডি
+                                          List<dynamic> soulmatesList = [];
+                                          String finalUserDocId = "";
 
                                           if (backupSnapshot.hasData &&
                                               backupSnapshot
@@ -1724,19 +1791,19 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                                 .data() as Map<String, dynamic>;
                                             finalUserDocId = backupSnapshot
                                                 .data!.docs.first.id;
-                                            dynamicPartnerId =
-                                                uDoc['soulmateId']
-                                                        ?.toString() ??
-                                                    uDoc['marriagePartnerId']
-                                                        ?.toString() ??
-                                                    "";
+                                            // ডাটাবেজের 'soulmates' এরেটিকে সরাসরি লিস্ট হিসেবে নিচ্ছি
+                                            soulmatesList =
+                                                uDoc['soulmates'] is List
+                                                    ? uDoc['soulmates']
+                                                    : [];
                                           }
 
                                           return SoulmateAnimationService
                                               .buildSoulmateHeartOverlay(
                                             seats: seatsListForOverlay,
                                             myCurrentAuthUID: finalUserDocId,
-                                            myPartnerAuthUID: dynamicPartnerId,
+                                            mySoulmatesList:
+                                                soulmatesList, // লিস্ট পাস করলাম
                                           );
                                         },
                                       );
@@ -1747,16 +1814,18 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                         .data() as Map<String, dynamic>;
                                     String finalUserDocId =
                                         userSnapshot.data!.docs.first.id;
-                                    String dynamicPartnerId = uDoc['soulmateId']
-                                            ?.toString() ??
-                                        uDoc['marriagePartnerId']?.toString() ??
-                                        "";
+                                    // ডাটাবেজের 'soulmates' এরেটিকে সরাসরি লিস্ট হিসেবে নিচ্ছি
+                                    List<dynamic> soulmatesList =
+                                        uDoc['soulmates'] is List
+                                            ? uDoc['soulmates']
+                                            : [];
 
                                     return SoulmateAnimationService
                                         .buildSoulmateHeartOverlay(
                                       seats: seatsListForOverlay,
                                       myCurrentAuthUID: finalUserDocId,
-                                      myPartnerAuthUID: dynamicPartnerId,
+                                      mySoulmatesList:
+                                          soulmatesList, // লিস্ট পাস করলাম
                                     );
                                   },
                                 );
@@ -2063,18 +2132,58 @@ class _VoiceRoomState extends State<VoiceRoom> {
                       ),
                     ),
                   ),
-                IgnorePointer(
-                  child: GiftOverlayHandler(
-                    isGiftAnimating: isGiftAnimating,
-                    currentGiftImage: currentGiftImage,
-                    isFullScreenBinding: isGiftAnimating,
-                    senderImage: currentSenderImage,
-                    receiverImage: currentReceiverImage,
-                    senderName: currentSenderName,
-                    receiverName: targetType,
-                  ),
-                ),
 
+// ১. ইমেজ গিফট ওভারলে (ভিডিও থাকলে এটি সম্পূর্ণ বন্ধ থাকবে)
+                if ((activeGlobalVideoUrl == null ||
+                        activeGlobalVideoUrl!.isEmpty) &&
+                    isGiftAnimating &&
+                    currentGiftImage.isNotEmpty)
+                  IgnorePointer(
+                    child: GiftOverlayHandler(
+                      isGiftAnimating: isGiftAnimating,
+                      currentGiftImage: currentGiftImage,
+                      isFullScreenBinding: isGiftAnimating,
+                      senderImage: currentSenderImage,
+                      receiverImage: currentReceiverImage,
+                      senderName: currentSenderName,
+                      receiverName: targetType,
+                    ),
+                  ),
+
+// ২. ভিডিও গিফট ওভারলে (এখানেও কঠোর কন্ডিশন ব্যবহার করা হয়েছে)
+                if (activeGlobalVideoUrl != null &&
+                    activeGlobalVideoUrl!.isNotEmpty)
+                  Positioned.fill(
+                    child: Material(
+                      color: Colors.black.withOpacity(
+                          0.5), // থাম্বনেইল যেন ব্যাকগ্রাউন্ডের সাথে মিশে না যায়
+                      child: VideoGiftOverlay(
+                        url: activeGlobalVideoUrl!,
+                        onFinished: () async {
+                          // রিমুভাল লজিক
+                          await FirebaseDatabase.instance
+                              .ref('rooms/${widget.roomId}/latestVideoGift')
+                              .remove();
+
+                          await FirebaseFirestore.instance
+                              .collection('rooms')
+                              .doc(widget.roomId)
+                              .update({'latestVideoGift': FieldValue.delete()});
+
+                          if (mounted) {
+                            setState(() {
+                              // সব স্টেট পরিষ্কার করা হলো
+                              activeGlobalVideoUrl = null;
+                              isGiftAnimating = false;
+                              currentGiftImage = "";
+                              currentSenderImage = "";
+                              currentReceiverImage = "";
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ),
                 if (showEntryEffect && currentEntryEffect != null)
                   EntryEffectHandler(
                     userName: entryUserName ?? "User",
@@ -2242,40 +2351,31 @@ class _VoiceRoomState extends State<VoiceRoom> {
     if (activeEmojis.isEmpty) return [];
 
     return activeEmojis.entries.map((entry) {
-      int seatIndex = entry.key; // আপনার ভেরিয়েবল নাম seatIndex
+      int seatIndex = entry.key;
       String lottieUrl = entry.value;
 
-      // ১. রেঞ্জ চেক
-      if (seatIndex < 0 || seatIndex >= seatPositions.length) {
-        // এখানে $index ছিল, তাই লাল দাগ আসছিল। এটাকে $seatIndex করে দিয়েছি।
+      if (seatIndex < 0 || seatIndex >= seatPositions.length)
         return const SizedBox();
-      }
 
       double leftPos = seatPositions[seatIndex].dx;
       double topPos = seatPositions[seatIndex].dy;
 
-      // ২. জিরো পজিশন চেক
-      if (leftPos == 0 && topPos == 0) {
-        return const SizedBox();
-      }
-
       return Positioned(
-        left: leftPos - 25,
-        top: topPos - 60,
-        key: ValueKey('emoji_$seatIndex'),
-        child: IgnorePointer(
-          child: SizedBox(
-            width: 80,
-            height: 80,
-            child: Lottie.network(
-              lottieUrl,
-              repeat: false,
-              animate: true,
-              fit: BoxFit.contain,
-              onLoaded: (composition) {},
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(Icons.error, color: Colors.red);
-              },
+        left: leftPos - 40,
+        top: topPos - 80,
+        child: Material(
+          // 🔥 নতুন সংযোজন: এটি লেয়ারটিকে সবার উপরে নিয়ে আসবে
+          color: Colors.transparent,
+          child: IgnorePointer(
+            child: SizedBox(
+              width: 80,
+              height: 80,
+              child: Lottie.network(
+                lottieUrl,
+                repeat: false,
+                animate: true,
+                errorBuilder: (ctx, err, stack) => const SizedBox(),
+              ),
             ),
           ),
         ),
@@ -2343,6 +2443,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
     giftTimer?.cancel();
     _soulmateListener?.cancel();
     _marriageListener?.cancel();
+    _videoGiftSubscription?.cancel();
 
     // ৫. সিটে বসে থাকলে সেটি অটোমেটিক খালি করে দেওয়া
     if (currentSeatIndex != -1) {
@@ -3426,65 +3527,69 @@ class _VoiceRoomState extends State<VoiceRoom> {
     );
   }
 
-  // ১. অ্যাকশন বার (অন্য সকল ফিচার ঠিক রেখে আপডেট করা)
   Widget _buildBottomActionArea() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       child: Row(
         children: [
           // ১. ইমোজি বাটন 😄
-          buildCircularIcon(Icons.emoji_emotions_outlined,
-              const Color.fromARGB(255, 250, 143, 2), () async {
-            final String authId = FirebaseAuth.instance.currentUser?.uid ?? "";
+          buildCircularIcon(
+            Icons.emoji_emotions_outlined,
+            const Color.fromARGB(255, 250, 143, 2),
+            () async {
+              final String currentAuthUid =
+                  FirebaseAuth.instance.currentUser?.uid ?? "";
 
-            // ইউজারের আইডি বের করা
-            var userSnap = await FirebaseFirestore.instance
-                .collection('users')
-                .where('authUID', isEqualTo: authId)
-                .limit(1)
-                .get();
+              // Firestore থেকে ইউজার আইডি বের করা
+              var userSnap = await FirebaseFirestore.instance
+                  .collection('users')
+                  .where('authUID', isEqualTo: currentAuthUid)
+                  .limit(1)
+                  .get();
 
-            if (userSnap.docs.isEmpty) {
-              return;
-            }
+              if (userSnap.docs.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("User profile not found!")));
+                return;
+              }
 
-            String myActualId = userSnap.docs.first.id;
+              String myActualId = userSnap.docs.first.id;
 
-            // 🔥 সিটে চেক করার সময় লক ডাটা থাকলেও যেন ইউজারকে খুঁজে পায়
-            int mySeatIndex = seats.indexWhere((s) {
-              var uID = s['uID'] ?? s['userId'] ?? s['uid'];
-              return uID.toString() == myActualId;
-            });
+              // সব ধরণের ভেরিয়েবল চেক করে সিট ইনডেক্স খুঁজে বের করা
+              int mySeatIndex = seats.indexWhere((s) {
+                if (s == null || s is! Map) return false;
 
-            if (mySeatIndex != -1) {
-              EmojiHandler.showPicker(
+                // সম্ভাব্য সব ধরণের কী (Key) চেক করছি
+                var seatUid =
+                    s['authUID'] ?? s['uID'] ?? s['userId'] ?? s['uid'];
+
+                // দুটি শর্তে চেক করছি: ১. ডাটাবেসের ID মিলছে কি না অথবা ২. সরাসরি Auth UID মিলছে কি না
+                return seatUid.toString() == myActualId ||
+                    seatUid.toString() == currentAuthUid;
+              });
+
+              print(
+                  "DEBUG_SEAT: Found Index: $mySeatIndex for UserID: $myActualId");
+
+              if (mySeatIndex != -1) {
+                EmojiHandler.showPicker(
                   context: context,
                   seatIndex: mySeatIndex,
                   onEmojiSelected: (index, url) {
-                    if (index != -1) {
-                      DatabaseReference seatRef = FirebaseDatabase.instance
-                          .ref('rooms/${widget.roomId}/seats/$index');
-
-                      // ✅ শুধুমাত্র ইমোজি ডাটা আপডেট হবে
-                      seatRef.update({
-                        'currentEmoji': url,
-                        'showEmoji': true,
-                        'emojiTime': ServerValue.timestamp,
-                      }).then((_) {});
-
-                      // ৩ থেকে ৪ সেকেন্ড পর রিমুভ লজিক
-                      Future.delayed(const Duration(seconds: 4), () {
-                        if (mounted) {
-                          seatRef.update({'showEmoji': false});
-                        }
-                      });
-                    }
-                  });
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Take seat first")));
-            }
-          }),
+                    FirebaseDatabase.instance
+                        .ref('rooms/${widget.roomId}/seats/$index')
+                        .update({
+                      'currentEmoji': url,
+                      'emojiTime': ServerValue.timestamp,
+                    });
+                  },
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Take seat first")));
+              }
+            },
+          ),
 
           const SizedBox(width: 5),
 
@@ -3909,6 +4014,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
             backgroundColor: Colors.transparent,
             isScrollControlled: true,
             builder: (context) => GiftBottomSheet(
+              roomId: widget.roomId,
               diamondBalance: currentBalance,
               currentSeats: List.from(seats),
               onGiftSend: (gift, count, target) async {

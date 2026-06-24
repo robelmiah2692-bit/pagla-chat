@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:pagla_chat/data/romantic_gifts.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
@@ -13,6 +14,7 @@ import 'package:pagla_chat/data/luxury_gifts.dart';
 import 'package:pagla_chat/data/pk_gifts.dart'; // নতুন ফাইলটি ইম্পোর্ট করলেন
 
 class GiftBottomSheet extends StatefulWidget {
+  final String roomId;
   final int diamondBalance;
   final List<dynamic> currentSeats;
   final int viewerCount;
@@ -21,11 +23,14 @@ class GiftBottomSheet extends StatefulWidget {
 
   const GiftBottomSheet({
     super.key,
+    required this.roomId,
     required this.diamondBalance,
     required this.currentSeats,
     required this.onGiftSend,
     this.viewerCount = 0,
   });
+  
+  
 
   @override
   State<GiftBottomSheet> createState() => _GiftBottomSheetState();
@@ -471,152 +476,121 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   }
 
   Widget _buildGrid(List gifts, {bool isFreeTab = false}) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(15),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        childAspectRatio: 0.85,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-      ),
-      itemCount: gifts.length,
-      itemBuilder: (context, index) {
-        var gift = gifts[index];
-        bool isSelected = selectedGift?['id'] == gift['id'];
-        String giftPath =
-            (gift["image"] ?? gift["icon"] ?? gift["url"] ?? "").toString();
-        bool isJson = giftPath.toLowerCase().endsWith('.json');
+  return GridView.builder(
+    padding: const EdgeInsets.all(15),
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 4,
+      childAspectRatio: 0.85,
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+    ),
+    itemCount: gifts.length,
+    itemBuilder: (context, index) {
+      var gift = gifts[index];
+      bool isSelected = selectedGift?['id'] == gift['id'];
+      
+      String giftPath = (gift["image"] ?? gift["icon"] ?? gift["url"] ?? "").toString();
+      bool isJson = giftPath.toLowerCase().endsWith('.json');
+      
+      // ভিডিও গিফট কি না চেক করা
+      bool isVideoGift = gift.containsKey('videoUrl') && gift['videoUrl'] != null;
 
-        return GestureDetector(
-          onTap: () {
-            setState(() {
-              // ১. পুরাতন সিলেক্ট লজিক (সব গিফটের জন্য কমন)
-              selectedGift = gift;
+      return GestureDetector(
+        onTap: () {
+          setState(() {
+            selectedGift = gift;
 
-              // ২. এখানে সব রেন্ডম বক্সের আইডিগুলো লিস্টে রাখুন
-              // ভবিষ্যতে নতুন বক্স যোগ করলে শুধু এখানে আইডিটি কমা দিয়ে লিখে দেবেন
-              List<String> randomBoxIds = [
-                'random_box_id',
-                'box_1_id',
-                'box_2_id',
-                'box_3_id',
-                'box_4_id',
-                'box_5_id',
-                'box_6_id',
-                'box_7_id',
-                'box_8_id',
-                'box_9_id',
-                'box_10_id',
-                'box_11_id',
-                'box_12_id',
-                'box_13_id',
-                'box_14_id',
-                'box_15_id',
-                'box_16_id',
-                'box_17_id',
-                'box_18_id',
-                'box_19_id',
-              ];
+            List<String> randomBoxIds = [
+              'random_box_id', 'box_1_id', 'box_2_id', 'box_3_id', 'box_4_id',
+              'box_5_id', 'box_6_id', 'box_7_id', 'box_8_id', 'box_9_id',
+              'box_10_id', 'box_11_id', 'box_12_id', 'box_13_id', 'box_14_id',
+              'box_15_id', 'box_16_id', 'box_17_id', 'box_18_id', 'box_19_id',
+            ];
 
-              // ৩. চেক করছি গিফটটি কি এই লিস্টের কোনো বক্স কি না
-              if (randomBoxIds.contains(gift['id'])) {
-                isRandomBoxSelected = true;
-                randomGiftPool = gift['gifts'] ?? []; // গিফট পুল সেট করছি
-              } else {
-                // যদি সাধারণ গিফট হয়
-                isRandomBoxSelected = false;
-                randomGiftPool = [];
-              }
-            });
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? Colors.pinkAccent.withOpacity(0.2)
-                  : Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(
-                  color: isSelected ? Colors.pinkAccent : Colors.white10,
-                  width: isSelected ? 2.0 : 1.5),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                          color: Colors.pinkAccent.withOpacity(0.3),
-                          blurRadius: 8)
-                    ]
-                  : null,
-            ),
-            child: ClipRRect(
-              // ছবি যেন বর্ডারের বাইরে না যায়
-              borderRadius: BorderRadius.circular(13),
-              child: Stack(
-                children: [
-                  // ১. মূল ছবি (পুরো কার্ড জুড়ে থাকবে)
-                  Positioned.fill(
-                    child: isJson
-                        ? Lottie.asset(giftPath,
-                            repeat: true, fit: BoxFit.contain)
-                        : CachedNetworkImage(
-                            imageUrl: giftPath,
-                            fit: BoxFit.cover,
-                            errorWidget: (c, u, e) => const Icon(
-                                Icons.card_giftcard,
-                                color: Colors.white24),
-                          ),
-                  ),
+            if (randomBoxIds.contains(gift['id'])) {
+              isRandomBoxSelected = true;
+              randomGiftPool = gift['gifts'] ?? [];
+            } else {
+              isRandomBoxSelected = false;
+              randomGiftPool = [];
+            }
+          });
 
-                  // ২. নিচের টেক্সট বা ডাইমন্ড কাউন্ট (ছবির উপরে হালকা শ্যাডো সহ)
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [
-                            Colors.black.withOpacity(0.6),
-                            Colors.transparent
-                          ],
+          // যদি ভিডিও গিফট হয়, তবে ডাটাবেসে লিঙ্ক পাঠিয়ে দিন
+          if (isVideoGift) {
+            
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.pinkAccent.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+                color: isSelected ? Colors.pinkAccent : Colors.white10,
+                width: isSelected ? 2.0 : 1.5),
+            boxShadow: isSelected
+                ? [BoxShadow(color: Colors.pinkAccent.withOpacity(0.3), blurRadius: 8)]
+                : null,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(13),
+            child: Stack(
+              children: [
+                // ১. মূল ছবি/লটি/থাম্বনেইল
+                Positioned.fill(
+                  child: isJson
+                      ? Lottie.asset(giftPath, repeat: true, fit: BoxFit.contain)
+                      : CachedNetworkImage(
+                          imageUrl: giftPath,
+                          fit: BoxFit.cover,
+                          errorWidget: (c, u, e) => const Icon(Icons.card_giftcard, color: Colors.white24),
                         ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (isFreeTab)
-                            Text(_getRemainingTime(gift['expiry']),
-                                style: const TextStyle(
-                                    color: Colors.greenAccent,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold))
-                          else
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text("💎", style: TextStyle(fontSize: 9)),
-                                const SizedBox(width: 2),
-                                Text("${gift["price"]}",
-                                    style: const TextStyle(
-                                        color: Colors.amber,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                        ],
+                ),
+
+
+                // ৩. নিচের টেক্সট বা ডাইমন্ড কাউন্ট
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [Colors.black.withOpacity(0.6), Colors.transparent],
                       ),
                     ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isFreeTab)
+                          Text(_getRemainingTime(gift['expiry']),
+                              style: const TextStyle(color: Colors.greenAccent, fontSize: 8, fontWeight: FontWeight.bold))
+                        else
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text("💎", style: TextStyle(fontSize: 9)),
+                              const SizedBox(width: 2),
+                              Text("${gift["price"]}",
+                                  style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildBottomBar() {
     return Container(
@@ -720,8 +694,15 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       finalTargetValue = selectedTargetName ?? "Target";
     }
 
+// ভিডিও গিফট কি না চেক করুন
+  bool isVideoGift = giftToSend.containsKey('videoUrl') && giftToSend['videoUrl'] != null;
+
     // ৭. গিফট পাঠানো
     widget.onGiftSend(giftToSend, selectedCount, finalTargetValue);
+// যদি এটি ভিডিও গিফট হয়, তবেই ডাটাবেসে আপডেট হবে
+  if (isVideoGift) {
+    sendRoomVideoGift(giftToSend['videoUrl']);
+  }
 
     // ৮. রিমুভাল লজিক (ফ্রি গিফট হলে লিস্ট থেকে সরানো)
     if (isFree) {
@@ -735,6 +716,31 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     Navigator.pop(context);
   }
 
+ // ২. গিফট সেন্ড করার ফাংশন
+void sendRoomVideoGift(String giftUrl) {
+  String path = '${widget.roomId}/latestVideoGift';
+  print("DEBUG: ডাটাবেসে ডেটা পাঠানো হচ্ছে এই পাথে: $path");
+
+  // ১. আপনার বর্তমান Realtime Database কোড (যা আছে তাই থাকবে)
+  FirebaseDatabase.instance.ref(path).set({
+    'url': giftUrl,
+    'sendTime': ServerValue.timestamp,
+  }).then((_) {
+    print("Video Gift sent successfully to Realtime DB!");
+    
+    // ২. শুধু এই অংশটুকু যোগ করুন (সবাইকে দেখানোর জন্য Firestore-এ আপডেট)
+    FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
+      'latestVideoGift': {
+        'url': giftUrl,
+        'sendTime': DateTime.now().millisecondsSinceEpoch,
+      }
+    });
+    
+  }).catchError((error) {
+    print("Failed to send video gift: $error");
+  });
+}
+  
   // ✅ আপনার সেই হারানো টাইম লজিকটি এখানে যোগ করা হয়েছে
   String _getRemainingTime(DateTime expiry) {
     final difference = expiry.difference(DateTime.now());

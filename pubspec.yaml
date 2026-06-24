@@ -10,7 +10,6 @@ dependencies:
   flutter:
     sdk: flutter
 
- 
   # --- ফায়ারবেস (Firebase) ---
   firebase_core: ^4.7.0
   firebase_auth: ^6.4.0
@@ -21,6 +20,7 @@ dependencies:
   firebase_remote_config: ^6.4.0
   intl: ^0.20.2
   in_app_purchase: ^3.2.0
+  
   # --- গুগল লগইন ---
   google_sign_in: ^7.2.0
   
@@ -33,25 +33,21 @@ dependencies:
   wakelock_plus: ^1.2.8
   universal_html: ^2.2.4
   audioplayers: ^6.6.0
-  
-  # ✅ Fix: record_mp3 বা record 5.x বাদ দিয়ে এই ভার্সনটি ব্যবহার করুন। 
-  # এটি লিনাক্স এবং অ্যান্ড্রোয়েড উভয় জায়গাতেই স্ট্যাবল।
-  record: ^6.2.0            
-  
-  path_provider: ^2.1.2    
-  path: ^1.9.0             
+  record: ^6.2.0
+  path_provider: ^2.1.2
+  path: ^1.9.0
   dio: ^5.0.0
   
   # ✅ মিডিয়া সেভ করার প্যাকেজ
   gal: 2.3.2
   
   # --- ভিডিও প্লেয়ার ও প্রগ্রেস ---
-  video_player: ^2.8.1     
-  chewie: ^1.8.1           
+  video_player: ^2.8.1
+  chewie: ^1.8.1
   percent_indicator: ^4.2.3 
 
   # --- ইউটিউব ও ওয়েব ---
-  webview_flutter: ^4.7.0 
+  webview_flutter: ^4.10.0
   http: ^1.2.1
 
   # --- ব্যাকগ্রাউন্ড ও ডিভাইস ইনফো ---
@@ -67,22 +63,21 @@ dependencies:
   image_picker: ^1.1.1
   shared_preferences: ^2.2.3
   lottie: ^3.1.2
+  flutter_cache_manager: ^3.4.1
 
   # --- স্প্ল্যাশ স্ক্রিন ---
   flutter_native_splash: ^2.4.0
   shimmer: ^3.0.0
   in_app_purchase_android: any
-webview_flutter: ^4.10.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: ^0.14.4
 
-# ✅ http ভার্সন কনফ্লিক্ট মেটানোর জন্য
 dependency_overrides:
   http: ^1.2.1
 
-# --- ফোনের মেনু আইকন ---
 flutter_launcher_icons:
   android: true 
   ios: false
@@ -91,7 +86,6 @@ flutter_launcher_icons:
   adaptive_icon_foreground: "assets/logo.png"
   min_sdk_android: 21
 
-# --- নেটিভ স্প্ল্যাশ কনফিগারেশন ---
 flutter_native_splash:
   color: "#0F0F1E"
   image: assets/logo.png

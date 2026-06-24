@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:pagla_chat/device_service.dart';
 import 'auth_service.dart';
 import 'package:pagla_chat/services/notification_service.dart';
 
@@ -46,17 +47,42 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
+    // ১. ফায়ারবেস ইনিশিয়ালাইজেশন
     await Firebase.initializeApp(options: firebaseOptions);
 
+    // ২. ডিভাইস ব্লক চেক (নতুন ফিচার)
+    // এটি অ্যাপ ওপেন হওয়ার সাথে সাথেই ডাটাবেস চেক করবে
+    bool isBlocked = await DeviceService.isDeviceBlocked();
+
+    if (isBlocked) {
+      // যদি ব্লকড থাকে, তাহলে অ্যাপ আর লোড হবে না, এই স্ক্রিনটিই দেখাবে
+      runApp(const MaterialApp(
+        home: Scaffold(
+          backgroundColor: Colors.black,
+          body: Center(
+            child: Text(
+              "Your device has been blocked!\nPlease contact the admin for assistance.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white, fontSize: 18),
+            ),
+          ),
+        ),
+      ));
+      return; // কোড এখানেই থেমে যাবে
+    }
+
+    // ৩. ব্লক না থাকলে স্বাভাবিক নোটিফিকেশন লজিক
     if (!kIsWeb) {
-      FirebaseMessaging.onBackgroundMessage(
-          _firebaseMessagingBackgroundHandler);
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
       try {
         await NotificationService().initNotification();
       } catch (e) {}
     }
-  } catch (e) {}
+  } catch (e) {
+    debugPrint("Error initializing app: $e");
+  }
 
+  // সব ঠিক থাকলে অ্যাপ রান করবে
   runApp(const PaglaChatApp());
 }
 
@@ -207,6 +233,7 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
   final _ageController = TextEditingController();
   String _selectedGender = "Male";
   bool _isSaving = false;
+  
 
   Future<void> _createFinalProfile() async {
     if (_nameController.text.isEmpty || _ageController.text.isEmpty) {
@@ -216,6 +243,7 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
     }
 
     setState(() => _isSaving = true);
+    String? currentDeviceId = await DeviceService.getDeviceId();
     final firestore = FirebaseFirestore.instance;
     final user = FirebaseAuth.instance.currentUser;
     final random = Random();
@@ -233,6 +261,7 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
     try {
       await firestore.collection('users').doc(finaluID).set({
         'uID': finaluID,
+        'deviceId': currentDeviceId,
         'name': _nameController.text.trim(),
         'age': _ageController.text.trim(),
         'gender': _selectedGender,
@@ -337,6 +366,7 @@ class _MainNavigationState extends State<MainNavigation> {
   void initState() {
     super.initState();
     _updateFCMToken();
+  _updateDeviceIdIfMissing();
   }
 
   void _updateFCMToken() async {
@@ -353,6 +383,21 @@ class _MainNavigationState extends State<MainNavigation> {
       }
     } catch (e) {
       debugPrint("Error updating FCM token: $e");
+    }
+  }
+
+// 🔥 এটি পুরাতন ইউজারের ডাটাবেসে ডিভাইস আইডি বসিয়ে দেবে
+  void _updateDeviceIdIfMissing() async {
+    try {
+      String? deviceId = await DeviceService.getDeviceId();
+      if (AppData.myID.isNotEmpty && deviceId != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(AppData.myID)
+            .update({'deviceId': deviceId});
+      }
+    } catch (e) {
+      debugPrint("Error updating device ID: $e");
     }
   }
 
