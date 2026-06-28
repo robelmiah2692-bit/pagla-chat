@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:pagla_chat/profile_page.dart';
@@ -37,6 +38,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final ImagePicker _picker = ImagePicker();
   final AudioRecorder _audioRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
+  Map<String, dynamic>? _repliedMessage;
   bool _isRecording = false;
   String currentSixDigitId = "";
   // ব্লক স্ট্যাটাস চেক করার জন্য একটি বুলিয়ান
@@ -208,7 +210,7 @@ class _ChatScreenState extends State<ChatScreen> {
           FirebaseStorage.instance.ref().child('chat_media').child(fileName);
       await ref.putFile(file);
       String url = await ref.getDownloadURL();
-      _sendDataMessage(url, type);
+      _sendDataMessage(url, type, null);
     } catch (e) {
       debugPrint("Upload Error: $e");
     }
@@ -236,71 +238,85 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  void _sendDataMessage(String content, String type) async {
-    if (content.isEmpty) return;
+ // ১. মেসেজ পাঠানোর ফাংশন (টাইপ সেফ)
+void _sendDataMessage(String content, String type, Map<String, dynamic>? replyData) async {
+  if (content.isEmpty) return;
 
-    try {
-      final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+  try {
+    final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-      // ১. আপনার লম্বা Auth UID দিয়ে ইউজার ডকুমেন্ট খুঁজে বের করা
-      final userQuery = await FirebaseFirestore.instance
-          .collection('users')
-          .where('authUID', isEqualTo: authUID)
-          .limit(1)
-          .get();
+    // ইউজার ডকুমেন্ট খুঁজে বের করা
+    final userQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .where('authUID', isEqualTo: authUID)
+        .limit(1)
+        .get();
 
-      if (userQuery.docs.isEmpty) {
-        debugPrint("User profile not found in Firestore!");
-        return;
-      }
-
-      // ২. নিজের ৬-ডিজিটের uID এবং অন্যান্য তথ্য সংগ্রহ করা
-      final userData = userQuery.docs.first.data();
-      final String mySixDigitId = userData['uID']?.toString() ?? '0';
-      final String myEmail = userData['email'] ?? '';
-      final String myName = userData['name'] ?? 'User';
-      final String myPic =
-          userData['profilepic'] ?? userData['profilePic'] ?? '';
-
-      // ৩. ইউনিক চ্যাট রুম আইডি তৈরি (শুধুমাত্র ৬-ডিজিটের আইডি ব্যবহার করে)
-      String roomId;
-      if (widget.receiverId == "paglachat_official") {
-        roomId = "paglachat_official_$mySixDigitId";
-      } else {
-        List<String> ids = [mySixDigitId, widget.receiverId];
-        ids.sort();
-        roomId = ids.join("_");
-      }
-      // ৪. মেসেজ পাঠানো
-      await FirebaseFirestore.instance
-          .collection('chats')
-          .doc(roomId) // ৬-ডিজিট ভিত্তিক রুম আইডি
-          .collection('messages')
-          .add({
-        'senderId': authUID, // লম্বা আইডি (ভবিষ্যৎ রেফারেন্সের জন্য রাখা ভালো)
-        'senderuID': mySixDigitId, // আপনার ৬-ডিজিটের আইডি
-        'senderEmail': myEmail,
-        'senderName': myName,
-        'senderImage': myPic,
-        'receiverId': widget.receiverId, // রিসিভারের ৬-ডিজিটের আইডি
-        'message': content,
-        'type': type,
-        'isRead': false,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-
-      debugPrint("Message Sent to Room: $roomId");
-    } catch (e) {
-      debugPrint("Send Error: $e");
+    if (userQuery.docs.isEmpty) {
+      debugPrint("User profile not found in Firestore!");
+      return;
     }
-  }
 
-  void _sendMessage() {
-    String text = _messageController.text.trim();
-    if (text.isEmpty) return;
-    _sendDataMessage(text, "text");
-    _messageController.clear();
+    final userData = userQuery.docs.first.data();
+    final String mySixDigitId = userData['uID']?.toString() ?? '0';
+    final String myEmail = userData['email'] ?? '';
+    final String myName = userData['name'] ?? 'User';
+    final String myPic = userData['profilepic'] ?? userData['profilePic'] ?? '';
+
+    // ইউনিক চ্যাট রুম আইডি তৈরি
+    String roomId;
+    if (widget.receiverId == "paglachat_official") {
+      roomId = "paglachat_official_$mySixDigitId";
+    } else {
+      List<String> ids = [mySixDigitId, widget.receiverId];
+      ids.sort();
+      roomId = ids.join("_");
+    }
+
+    // মেসেজ পাঠানো
+    await FirebaseFirestore.instance
+        .collection('chats')
+        .doc(roomId)
+        .collection('messages')
+        .add({
+      'senderId': authUID,
+      'senderuID': mySixDigitId,
+      'senderEmail': myEmail,
+      'senderName': myName,
+      'senderImage': myPic,
+      'receiverId': widget.receiverId,
+      'message': content,
+      'type': type,
+      'isRead': false,
+      'timestamp': FieldValue.serverTimestamp(),
+      
+      // রিপ্লাই ডাটা পাঠানো
+      'repliedMessage': replyData != null ? (replyData['message'] ?? "") : null,
+      'repliedBy': replyData != null ? (replyData['senderName'] ?? "User") : null,
+    });
+
+    debugPrint("Message Sent to Room: $roomId");
+  } catch (e) {
+    debugPrint("Send Error: $e");
   }
+}
+
+// ২. সেন্ড বাটন ক্লিক ফাংশন
+void _sendMessage() async {
+  String text = _messageController.text.trim();
+  if (text.isEmpty) return;
+
+  // লোকাল কপি তৈরি
+  final Map<String, dynamic>? tempReply = _repliedMessage;
+
+  // এখন আর লাল দাগ থাকার কথা নয়
+   _sendDataMessage(text, "text", tempReply);
+
+  _messageController.clear();
+  setState(() {
+    _repliedMessage = null;
+  });
+}
 
   void _showPurchaseDialog(int currentDiamonds, String myUID) {
     // myUID হলো ইউজারের ৬ ডিজিটের ইউনিক আইডি
@@ -469,7 +485,6 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  
   Widget _statWidget(String label, dynamic count) {
     return Column(children: [
       Text(count.toString(),
@@ -638,7 +653,10 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildMessageBubble(Map<String, dynamic> data, bool isMe) {
     String type = data['type'] ?? 'text';
     String msg = data['message'] ?? data['text'] ?? '';
-    bool isRead = data['isRead'] ?? false; // মেসেজ রিড স্ট্যাটাস
+    bool isRead = data['isRead'] ?? false;
+
+    // রিপ্লাই করা মেসেজ থাকলে সেটি দেখার লজিক (ডাটাবেস থেকে আসলে)
+    String? repliedTo = data['repliedMessage'];
 
     bool isOfficial =
         data['senderId'] == 'paglachat_official' || type == 'system_msg';
@@ -660,8 +678,43 @@ class _ChatScreenState extends State<ChatScreen> {
               crossAxisAlignment:
                   finalIsMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
+                // এখানে লং প্রেস লজিক আপডেট করা হলো
                 GestureDetector(
-                  onLongPress: () => _downloadMedia(msg, type),
+                  onLongPress: () {
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: const Color(0xFF1E1E2F),
+                      builder: (context) => Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            leading:
+                                const Icon(Icons.reply, color: Colors.white),
+                            title: const Text("Reply",
+                                style: TextStyle(color: Colors.white)),
+                            onTap: () {
+                              setState(() => _repliedMessage = data);
+                              Navigator.pop(context);
+                            },
+                          ),
+                          ListTile(
+                            leading:
+                                const Icon(Icons.copy, color: Colors.white),
+                            title: const Text("Copy Text",
+                                style: TextStyle(color: Colors.white)),
+                            onTap: () {
+                              Clipboard.setData(ClipboardData(text: msg));
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("Copied!")));
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  onTap:
+                      type != 'text' ? () => _downloadMedia(msg, type) : null,
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -677,11 +730,52 @@ class _ChatScreenState extends State<ChatScreen> {
                               width: 1)
                           : null,
                     ),
-                    child: _buildTypeContent(type, msg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // রিপ্লাইড মেসেজ দেখানোর লজিক
+                        if (data['repliedMessage'] != null &&
+                            data['repliedMessage'].toString().isNotEmpty)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color:
+                                  finalIsMe ? Colors.black12 : Colors.black26,
+                              borderRadius: BorderRadius.circular(8),
+                              border: const Border(
+                                  left: BorderSide(
+                                      color: Colors.pinkAccent, width: 3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  data['repliedBy'] != null
+                                      ? "Replying to ${data['repliedBy']}:"
+                                      : "Replying to:",
+                                  style: const TextStyle(
+                                      color: Colors.pinkAccent,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  data['repliedMessage'] ?? "",
+                                  style: const TextStyle(
+                                      color: Colors.white70, fontSize: 12),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        // আসল মেসেজ কন্টেন্ট
+                        _buildTypeContent(type, msg),
+                      ],
+                    ),
                   ),
                 ),
-
-                // 🔥 তারিখ এবং সময় দেখানোর আপডেট লজিক
                 if (data['timestamp'] != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
@@ -694,16 +788,12 @@ class _ChatScreenState extends State<ChatScreen> {
                           fontWeight: FontWeight.w500),
                     ),
                   ),
-
-                // টিক চিহ্ন যোগ করা হলো
                 if (finalIsMe)
                   Padding(
                     padding: const EdgeInsets.only(top: 4, right: 4),
-                    child: Icon(
-                      Icons.done_all,
-                      size: 14,
-                      color: isRead ? Colors.greenAccent : Colors.white60,
-                    ),
+                    child: Icon(Icons.done_all,
+                        size: 14,
+                        color: isRead ? Colors.greenAccent : Colors.white60),
                   ),
               ],
             ),
@@ -843,7 +933,6 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _inputSection() {
-    // এই ইফ ব্লকটি নতুন করে যোগ করুন
     if (isBlocked) {
       return Container(
         padding: const EdgeInsets.all(20),
@@ -855,43 +944,81 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       );
     }
+
+    // নিচে পরিবর্তনগুলো দেখুন:
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+      padding: const EdgeInsets.symmetric(
+          horizontal: 10, vertical: 5), // ভার্টিকাল প্যাডিং একটু কমিয়েছি
       decoration: const BoxDecoration(
           color: Color(0xFF1E1E2F),
           borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-      child: Row(
+      child: Column(
+        // এখানে Column ব্যবহার করেছি যাতে রিপ্লাই প্রিভিউ ওপরে থাকে
+        mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-              icon: Icon(Icons.mic,
-                  color: _isRecording ? Colors.red : Colors.cyanAccent),
-              onPressed: _startVoiceNote),
-          IconButton(
-              icon: const Icon(Icons.image,
-                  color: Color.fromARGB(255, 119, 245, 103)),
-              onPressed: _handleMediaAction),
-          Expanded(
-            child: TextField(
-              controller: _messageController,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: _isRecording ? "Recording..." : "Type a message...",
-                filled: true,
-                fillColor: const Color(0xFF0D0D1A),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: BorderSide.none),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          // রিপ্লাই প্রিভিউ বক্স
+          if (_repliedMessage != null)
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+              decoration: BoxDecoration(
+                  color: Colors.white10,
+                  borderRadius: BorderRadius.circular(15)),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      "Replying to: ${_repliedMessage!['message']}",
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon:
+                        const Icon(Icons.close, size: 18, color: Colors.white),
+                    onPressed: () => setState(() => _repliedMessage = null),
+                  )
+                ],
               ),
             ),
+
+          // মূল ইনপুট রো (আগের কোড)
+          Row(
+            children: [
+              IconButton(
+                  icon: Icon(Icons.mic,
+                      color: _isRecording ? Colors.red : Colors.cyanAccent),
+                  onPressed: _startVoiceNote),
+              IconButton(
+                  icon: const Icon(Icons.image,
+                      color: Color.fromARGB(255, 119, 245, 103)),
+                  onPressed: _handleMediaAction),
+              Expanded(
+                child: TextField(
+                  controller: _messageController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText:
+                        _isRecording ? "Recording..." : "Type a message...",
+                    filled: true,
+                    fillColor: const Color(0xFF0D0D1A),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 5),
+              CircleAvatar(
+                  backgroundColor: Colors.pinkAccent,
+                  child: IconButton(
+                      icon: const Icon(Icons.send, color: Colors.white),
+                      onPressed: _sendMessage)),
+            ],
           ),
-          const SizedBox(width: 5),
-          CircleAvatar(
-              backgroundColor: Colors.pinkAccent,
-              child: IconButton(
-                  icon: const Icon(Icons.send, color: Colors.white),
-                  onPressed: _sendMessage)),
         ],
       ),
     );

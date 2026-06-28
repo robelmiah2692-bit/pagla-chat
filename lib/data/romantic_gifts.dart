@@ -61,5 +61,27 @@ final List<Map<String, dynamic>> romanticGifts = [
   "price": 5000, // আপনার পছন্দমতো প্রাইজ সেট করুন
   "icon": 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/Soulmates.jpg',
   "type": 'romantic',
-}
+},
+{
+    "id": "ring_220000", 
+    "name": "Classic Daimond Band", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ringdj.png", 
+    "price": 220000, 
+    "type": "marriage_ring"
+  },
+{
+    "id": "ring_250500", 
+    "name": "Classic life Band", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ringking.png", 
+    "price": 250500, 
+    "type": "marriage_ring"
+  },
+{
+    "id": "ring_270500", 
+    "name": "Classic king Band", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ringpop.png", 
+    "price": 270500, 
+    "type": "marriage_ring"
+  },
+
 ];

@@ -340,12 +340,19 @@ List<Map<String, dynamic>> classicGifts = [
   {'id': 'lx3', 'name': 'Luxury 3', 'price': 19060, 'image': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/luxury%20(3).jpg', 'type': 'lighting'},
   {'id': 'lx4', 'name': 'Luxury 4', 'price': 56940, 'image': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/luxury%20(4).jpg', 'type': 'lighting'},
   ]
-
-
-
-
 },
-
+{
+  "id": "box_20_id",
+  "name": "Magic Box 20",
+  "image": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftbox/giftbox11.png",
+  "price": 32600,
+  "gifts": [ // বক্সে কী কী গিফট থাকবে
+    {'id': 'lx1', 'name': 'Luxury 1', 'price': 6000, 'image': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/luxury%20(1).jpg', 'type': 'lighting'},
+  {'id': 'lx2', 'name': 'Luxury 2', 'price': 8080, 'image': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/luxury%20(2).jpg', 'type': 'lighting'},
+  {'id': 'lx3', 'name': 'Luxury 3', 'price': 19060, 'image': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/luxury%20(3).jpg', 'type': 'lighting'},
+  {'id': 'lx4', 'name': 'Luxury 4', 'price': 56940, 'image': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/luxury%20(4).jpg', 'type': 'lighting'},
+  ]
+},
 
 
 

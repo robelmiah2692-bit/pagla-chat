@@ -505,6 +505,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
               'box_5_id', 'box_6_id', 'box_7_id', 'box_8_id', 'box_9_id',
               'box_10_id', 'box_11_id', 'box_12_id', 'box_13_id', 'box_14_id',
               'box_15_id', 'box_16_id', 'box_17_id', 'box_18_id', 'box_19_id',
+               'box_20_id',
             ];
 
             if (randomBoxIds.contains(gift['id'])) {

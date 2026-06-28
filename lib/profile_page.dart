@@ -1,11 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:pagla_chat/agency_badge.dart';
 import 'package:pagla_chat/auth_service.dart';
 import 'package:pagla_chat/help_desk_page.dart';
 import 'package:pagla_chat/privacy_policy_page.dart';
 import 'package:pagla_chat/services/diamond_recharge_view.dart';
 import 'package:pagla_chat/services/follow_service.dart';
 import 'package:pagla_chat/services/soulmate_detail_page.dart';
+import 'package:pagla_chat/user_badge_widget.dart';
 import 'package:pagla_chat/widgets/active_level_bar.dart';
 import 'package:pagla_chat/widgets/gift_level_bar.dart';
 import 'package:shimmer/shimmer.dart';
@@ -2129,181 +2132,185 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
- Widget _buildMySpecialTab() {
-  return StreamBuilder<QuerySnapshot>(
-    stream: FirebaseFirestore.instance
-        .collection('users')
-        .doc(uIDValue)
-        .collection('my_special')
-        .snapshots(),
-    builder: (context, snapshot) {
-      if (!snapshot.hasData)
-        return const Center(child: CircularProgressIndicator());
+  Widget _buildMySpecialTab() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uIDValue)
+          .collection('my_special')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData)
+          return const Center(child: CircularProgressIndicator());
 
-      var mySpecialItems = snapshot.data!.docs;
-      if (mySpecialItems.isEmpty) {
-        return const Center(
-          child: Text("No have any special",
-              style: TextStyle(color: Colors.blueGrey, fontSize: 16)),
-        );
-      }
+        var mySpecialItems = snapshot.data!.docs;
+        if (mySpecialItems.isEmpty) {
+          return const Center(
+            child: Text("No have any special",
+                style: TextStyle(color: Colors.blueGrey, fontSize: 16)),
+          );
+        }
 
-      return GridView.builder(
-        padding: const EdgeInsets.all(12),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.70,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10),
-        itemCount: mySpecialItems.length,
-        itemBuilder: (context, index) {
-          var data = mySpecialItems[index].data() as Map<String, dynamic>;
-          String url = data['image_url'] ?? "";
-          String name = data['name'] ?? "Special Item";
-          String type = data['type'] ?? "Effect";
+        return GridView.builder(
+          padding: const EdgeInsets.all(12),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.70,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10),
+          itemCount: mySpecialItems.length,
+          itemBuilder: (context, index) {
+            var data = mySpecialItems[index].data() as Map<String, dynamic>;
+            String url = data['image_url'] ?? "";
+            String name = data['name'] ?? "Special Item";
+            String type = data['type'] ?? "Effect";
 
-          bool isPicked = (activeSpecialUrl == url);
+            bool isPicked = (activeSpecialUrl == url);
 
-          Timestamp? expiryTimestamp = data['expiryDate'] as Timestamp?;
-          DateTime expiryDate = expiryTimestamp?.toDate() ?? DateTime.now();
-          Duration remaining = expiryDate.difference(DateTime.now());
+            Timestamp? expiryTimestamp = data['expiryDate'] as Timestamp?;
+            DateTime expiryDate = expiryTimestamp?.toDate() ?? DateTime.now();
+            Duration remaining = expiryDate.difference(DateTime.now());
 
-          String timeText = remaining.inDays > 0
-              ? "${remaining.inDays} days left"
-              : "${remaining.inHours} hours left";
+            String timeText = remaining.inDays > 0
+                ? "${remaining.inDays} days left"
+                : "${remaining.inHours} hours left";
 
-          return Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(
-                  color: isPicked ? Colors.purpleAccent : Colors.purple.shade50,
-                  width: 2),
-              boxShadow: [
-                const BoxShadow(color: Colors.black12, blurRadius: 5)
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: url.toLowerCase().endsWith('.json')
-                        ? Lottie.network(url, fit: BoxFit.contain)
-                        : Image.network(
-                            url,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.broken_image,
-                                    color: Colors.grey),
-                          ),
-                  ),
-                ),
-                Text(name,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: Colors.purple)),
-                Text(type,
-                    style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Text(timeText,
-                      style: TextStyle(
-                          color: remaining.inDays < 2
-                              ? Colors.red
-                              : Colors.blueGrey,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500)),
-                ),
-                Padding(
-                  padding:
-                      const EdgeInsets.only(bottom: 10, left: 8, right: 8),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 30,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            isPicked ? Colors.redAccent : Colors.purpleAccent,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                        elevation: 0,
-                      ),
-                      onPressed: () async {
-                        String newUrl = isPicked ? "" : url;
-                        bool newStatus = !isPicked;
-                        String newName = isPicked ? "" : name;
-
-                        // ১. ইউজার কালেকশন আপডেট
-                        await FirebaseFirestore.instance
-                            .collection('users')
-                            .doc(uIDValue)
-                            .update({
-                          'activeSpecialUrl': newUrl,
-                          'hasSpecialEffect': newStatus,
-                          'activeSpecialName': newName,
-                        });
-
-                        // ২. ম্যারেজ কালেকশন আপডেট করার লজিক
-                        QuerySnapshot marriageQuery = await FirebaseFirestore.instance
-                            .collection('marriages')
-                            .where('myAuthUID', isEqualTo: uIDValue)
-                            .limit(1)
-                            .get();
-
-                        if (marriageQuery.docs.isEmpty) {
-                          marriageQuery = await FirebaseFirestore.instance
-                              .collection('marriages')
-                              .where('partnerAuthUID', isEqualTo: uIDValue)
-                              .limit(1)
-                              .get();
-                        }
-
-                        if (marriageQuery.docs.isNotEmpty) {
-                          String marriageDocId = marriageQuery.docs.first.id;
-                          await FirebaseFirestore.instance
-                              .collection('marriages')
-                              .doc(marriageDocId)
-                              .update({
-                            'ringIcon': newUrl,
-                            'ringName': newName,
-                          });
-                        }
-
-                        // ৩. লোকাল স্টেট আপডেট
-                        setState(() {
-                          activeSpecialUrl = newUrl;
-                          hasSpecialEffect = newStatus;
-                        });
-
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(isPicked
-                                  ? "$name Unpicked!"
-                                  : "$name Picked & Applied! 💍✨"),
-                              backgroundColor: isPicked ? Colors.orange : Colors.purple,
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                    color:
+                        isPicked ? Colors.purpleAccent : Colors.purple.shade50,
+                    width: 2),
+                boxShadow: [
+                  const BoxShadow(color: Colors.black12, blurRadius: 5)
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: url.toLowerCase().endsWith('.json')
+                          ? Lottie.network(url, fit: BoxFit.contain)
+                          : Image.network(
+                              url,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.broken_image,
+                                      color: Colors.grey),
                             ),
-                          );
-                        }
-                      },
-                      child: Text(isPicked ? "Unpick" : "Pick",
-                          style: const TextStyle(
-                              fontSize: 11, fontWeight: FontWeight.bold)),
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+                  Text(name,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.purple)),
+                  Text(type,
+                      style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(timeText,
+                        style: TextStyle(
+                            color: remaining.inDays < 2
+                                ? Colors.red
+                                : Colors.blueGrey,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500)),
+                  ),
+                  Padding(
+                    padding:
+                        const EdgeInsets.only(bottom: 10, left: 8, right: 8),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 30,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              isPicked ? Colors.redAccent : Colors.purpleAccent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                        onPressed: () async {
+                          String newUrl = isPicked ? "" : url;
+                          bool newStatus = !isPicked;
+                          String newName = isPicked ? "" : name;
+
+                          // ১. ইউজার কালেকশন আপডেট
+                          await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(uIDValue)
+                              .update({
+                            'activeSpecialUrl': newUrl,
+                            'hasSpecialEffect': newStatus,
+                            'activeSpecialName': newName,
+                          });
+
+                          // ২. ম্যারেজ কালেকশন আপডেট করার লজিক
+                          QuerySnapshot marriageQuery = await FirebaseFirestore
+                              .instance
+                              .collection('marriages')
+                              .where('myAuthUID', isEqualTo: uIDValue)
+                              .limit(1)
+                              .get();
+
+                          if (marriageQuery.docs.isEmpty) {
+                            marriageQuery = await FirebaseFirestore.instance
+                                .collection('marriages')
+                                .where('partnerAuthUID', isEqualTo: uIDValue)
+                                .limit(1)
+                                .get();
+                          }
+
+                          if (marriageQuery.docs.isNotEmpty) {
+                            String marriageDocId = marriageQuery.docs.first.id;
+                            await FirebaseFirestore.instance
+                                .collection('marriages')
+                                .doc(marriageDocId)
+                                .update({
+                              'ringIcon': newUrl,
+                              'ringName': newName,
+                            });
+                          }
+
+                          // ৩. লোকাল স্টেট আপডেট
+                          setState(() {
+                            activeSpecialUrl = newUrl;
+                            hasSpecialEffect = newStatus;
+                          });
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(isPicked
+                                    ? "$name Unpicked!"
+                                    : "$name Picked & Applied! 💍✨"),
+                                backgroundColor:
+                                    isPicked ? Colors.orange : Colors.purple,
+                              ),
+                            );
+                          }
+                        },
+                        child: Text(isPicked ? "Unpick" : "Pick",
+                            style: const TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildMyFramesTab() {
     int currentLevel = getVipLevel();
 
@@ -2693,6 +2700,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 15),
 
                     // --- নামের গ্লাস বর্ডার বক্স ---
+
                     GestureDetector(
                       onTap: isMe ? () => _editName(userData) : null,
                       child: Container(
@@ -2725,12 +2733,53 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                     // --- নামের গ্লাস বর্ডার বক্স শেষ ---
+                    Stack(
+                      clipBehavior: Clip
+                          .none, // এটা খুব জরুরি, যাতে ব্যাজটি আইডির সীমানার বাইরেও ভেসে থাকতে পারে
+                      children: [
+                        // ১. আপনার আইডি (এটি যেমন ছিল ঠিক তেমনই থাকবে, কিচ্ছু সরবে না)
+                        GestureDetector(
+                          onTap: () {
+                            Clipboard.setData(
+                                ClipboardData(text: uIDValue.toString()));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("ID Copied!"),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            "User ID: $uIDValue",
+                            style: const TextStyle(
+                              color: Color.fromARGB(255, 4, 189, 251),
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
 
-                    Text("User ID: $uIDValue",
-                        style: const TextStyle(
-                            color: Color.fromARGB(255, 4, 189, 251),
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold)),
+                        // ২. ভাসমান ব্যাজ (এটি আইডির ওপর বা পাশে ভাসবে)
+                        Positioned(
+                          left: -80,
+                          top: -5,
+                          child: UserBadgeWidget(
+                            gender:
+                                gender, // এটি আপনার ওই ভেরিয়েবল যা ডাটা লোড হওয়ার পর আপডেট হয়েছে
+                            age: age.toString(), // এটি আপনার ওই age ভেরিয়েবল
+                          ),
+                        ),
+                        Positioned(
+                          right: -80,
+                          top: -5,
+                          child: AgencyBadgeWidget(
+                            isAgent: isAgent, // ডাটাবেজ থেকে পাওয়া সত্য/মিথ্যা
+                            imageUrl:
+                                "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/agancy.png", // এখানে আপনার আসল ইমেজ লিংকটি বসান
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 5),
 
                     // VIP এবং ডাইনামিক XP প্রগ্রেস বার সেকশন
