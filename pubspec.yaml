@@ -49,7 +49,7 @@ dependencies:
   # --- ইউটিউব ও ওয়েব ---
   webview_flutter: ^4.10.0
   http: ^1.2.1
-
+  url_launcher: ^6.3.0
   # --- ব্যাকগ্রাউন্ড ও ডিভাইস ইনফো ---
   flutter_background_service: ^5.0.10
   device_info_plus: ^13.1.0

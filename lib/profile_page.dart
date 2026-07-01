@@ -9,6 +9,7 @@ import 'package:pagla_chat/services/diamond_recharge_view.dart';
 import 'package:pagla_chat/services/follow_service.dart';
 import 'package:pagla_chat/services/soulmate_detail_page.dart';
 import 'package:pagla_chat/user_badge_widget.dart';
+import 'package:pagla_chat/user_profile_features.dart';
 import 'package:pagla_chat/widgets/active_level_bar.dart';
 import 'package:pagla_chat/widgets/gift_level_bar.dart';
 import 'package:shimmer/shimmer.dart';
@@ -21,6 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'main.dart';
 import 'package:pagla_chat/user_list_screen.dart';
 import 'chat_screen.dart';
@@ -88,6 +90,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     loadUserData(); // আইডি জেনারেশন বন্ধ, শুধু ডাটা লোড হবে
+   _addVisitor();
   }
 
 // আইডি জেনারেশন ছাড়া শুধু ডাটা খুঁজে বের করার লজিক
@@ -790,7 +793,37 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+// ভিজিটর লজিক
+  void _addVisitor() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    // এখানে widget.userId ই হলো সেই প্রোফাইলের মালিক যার আইডি দেখা হচ্ছে
+    final profileOwnerUid = widget.userId!; 
 
+    if (currentUser != null && currentUser.uid != profileOwnerUid) {
+      // নিজের তথ্য ফেচ করার জন্য
+      DocumentSnapshot myDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.uid)
+          .get();
+          
+      if (myDoc.exists) {
+        Map<String, dynamic> myData = myDoc.data() as Map<String, dynamic>;
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(profileOwnerUid)
+            .collection('visitors')
+            .doc(currentUser.uid)
+            .set({
+          'userName': myData['name'] ?? myData['userName'] ?? 'User',
+          'userImage': myData['profilePic'] ?? '', // আপনার ডাটাবেজে ফিল্ডের নাম 'profilePic' তাই সেটিই দিলাম
+          'frameUrl': myData['activeFrameUrl'] ?? '', // আপনার কোড অনুযায়ী ফ্রেমের ফিল্ড সম্ভবত এটি
+          'visitedAt': FieldValue.serverTimestamp(),
+          'isSeen': false,
+        });
+      }
+    }
+  }
   void _showFreeAvatars() {
     List<String> avatars = (gender == "Male") ? maleAvatars : femaleAvatars;
     showModalBottomSheet(
@@ -1052,6 +1085,22 @@ class _ProfilePageState extends State<ProfilePage> {
         isAgent: isAgent,
       ),
     );
+  }
+
+
+  void _openVisitors() => UserProfileFeatures.openVisitors(context);
+  void _openMyPosts() => UserProfileFeatures.openMyPosts(context);
+  void _openVIP() => UserProfileFeatures.openVIP(context);
+
+  void _openGames() => UserProfileFeatures.openGames(context);
+// এটি আপনার ফাইলে যোগ করুন
+  void _openFacebook() async {
+    final Uri url = Uri.parse('আপনার_ফেসবুক_পেজ_লিংক_এখানে');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      // এরর হ্যান্ডলিং
+    }
   }
 
   // ১. প্রিমিয়াম স্টোর ওপেন করার ফাংশন
@@ -3035,8 +3084,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
                     const SizedBox(height: 15),
 
-                    // 💎 অ্যাকশন বক্সগুলো (ডায়মন্ড, প্রিমিয়াম, ব্যাকপ্যাক) শুধুমাত্র নিজের প্রোফাইলে দেখাবে
                     if (isMe) ...[
+                      // প্রথম লাইন (৪টি বাটন)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -3046,11 +3095,33 @@ class _ProfilePageState extends State<ProfilePage> {
                               Colors.purple, _openPremiumStore),
                           _buildActionBox("Backpack", Icons.backpack,
                               Colors.orange, _openBackpack),
+                          _buildActionBox("Visitors", Icons.visibility,
+                              Colors.green, _openVisitors), // নতুন ১
+                        ],
+                      ),
+                      const SizedBox(height: 10), // দুই লাইনের মাঝে ফাঁকা জায়গা
+
+                      // দ্বিতীয় লাইন (৪টি বাটন)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildActionBox("My Post", Icons.post_add,
+                              Colors.blue, _openMyPosts),
+                          _buildActionBox(
+                              "VIP", Icons.star, Colors.amber, _openVIP),
+
+                          _buildActionBox("Games", Icons.videogame_asset,
+                              Colors.red, _openGames),
+
+                          _buildActionBox(
+                              "Facebook",
+                              Icons.facebook,
+                              Colors.blueAccent,
+                              _openFacebook), // নতুন ৪ (লিংকসহ)
                         ],
                       ),
                       const SizedBox(height: 25),
                     ],
-
                     const SizedBox(height: 0),
 
                     // ❤️ সোলমেট সেকশন
@@ -3131,24 +3202,27 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-// ✅ ২. অ্যাকশন বক্স উইজেট (পুরানো ডিজাইন সহ)
   Widget _buildActionBox(
       String title, IconData icon, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-          width: 100,
-          height: 85,
-          decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: color.withOpacity(0.5))),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 5),
-            Text(title,
-                style: const TextStyle(color: Colors.white, fontSize: 11))
-          ])),
+        // সাইজ কমিয়ে দিলাম (আপনার আগেরটি ছিল 100x85)
+        width: 75,
+        height: 70,
+        decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10), // রাউন্ড একটু কমিয়ে দিলাম
+            border: Border.all(color: color.withOpacity(0.5))),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, color: color, size: 22), // আইকন সাইজ ২৮ থেকে ২২ করলাম
+          const SizedBox(height: 4),
+          Text(title,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10)) // ফন্ট সাইজ ১১ থেকে ১০ করলাম
+        ]),
+      ),
     );
   }
 
