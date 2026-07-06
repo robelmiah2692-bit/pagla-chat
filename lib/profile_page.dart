@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pagla_chat/agency_badge.dart';
 import 'package:pagla_chat/auth_service.dart';
+import 'package:pagla_chat/delete_account_service.dart';
 import 'package:pagla_chat/help_desk_page.dart';
 import 'package:pagla_chat/privacy_policy_page.dart';
 import 'package:pagla_chat/services/diamond_recharge_view.dart';
@@ -10,6 +11,7 @@ import 'package:pagla_chat/services/follow_service.dart';
 import 'package:pagla_chat/services/soulmate_detail_page.dart';
 import 'package:pagla_chat/user_badge_widget.dart';
 import 'package:pagla_chat/user_profile_features.dart';
+import 'package:pagla_chat/vip_benefits_screen.dart';
 import 'package:pagla_chat/widgets/active_level_bar.dart';
 import 'package:pagla_chat/widgets/gift_level_bar.dart';
 import 'package:shimmer/shimmer.dart';
@@ -90,7 +92,6 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     loadUserData(); // আইডি জেনারেশন বন্ধ, শুধু ডাটা লোড হবে
-   _addVisitor();
   }
 
 // আইডি জেনারেশন ছাড়া শুধু ডাটা খুঁজে বের করার লজিক
@@ -227,6 +228,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
         // ফলো বাটন চেক করার ফাংশন কল
         _checkInitialStatus();
+        _addVisitor();
       }
     } catch (e) {
       print("Error loading data: $e");
@@ -760,6 +762,23 @@ class _ProfilePageState extends State<ProfilePage> {
                     );
                   },
                 ),
+                // ৫. অ্যাকাউন্ট ডিলিট করার বাটন
+                ListTile(
+                  leading:
+                      const Icon(Icons.delete_forever, color: Colors.purple),
+                  title: const Text(
+                    "Delete Account",
+                    style: TextStyle(
+                      color: Colors.purple,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showDeleteConfirmationDialog(context);
+                  },
+                ),
+
                 // ৪. লগআউট (Logout)
                 ListTile(
                   leading: const Icon(Icons.logout, color: Colors.redAccent),
@@ -793,37 +812,111 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-// ভিজিটর লজিক
+
   void _addVisitor() async {
+    print("--- [Visitor LOG] স্টার্ট হয়েছে ---");
     final currentUser = FirebaseAuth.instance.currentUser;
-    // এখানে widget.userId ই হলো সেই প্রোফাইলের মালিক যার আইডি দেখা হচ্ছে
-    final profileOwnerUid = widget.userId!; 
 
-    if (currentUser != null && currentUser.uid != profileOwnerUid) {
-      // নিজের তথ্য ফেচ করার জন্য
-      DocumentSnapshot myDoc = await FirebaseFirestore.instance
+    if (currentUser == null) {
+      print("[Visitor LOG] Error: currentUser null");
+      return;
+    }
+    if (widget.userId == null) {
+      print("[Visitor LOG] Error: widget.userId null");
+      return;
+    }
+
+    print(
+        "[Visitor LOG] নিজের ডাটা খুঁজছি authUID: ${currentUser.uid} দিয়ে...");
+
+    var myUserQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .where('authUID', isEqualTo: currentUser.uid)
+        .limit(1)
+        .get();
+
+    if (myUserQuery.docs.isEmpty) {
+      print("[Visitor LOG] Error: নিজের ইউজার ডাটা পাওয়া যায়নি!");
+      return;
+    }
+
+    var myData = myUserQuery.docs.first.data();
+    String mySixDigitID = myData['uID'].toString();
+    print("[Visitor LOG] নিজের আইডি পাওয়া গেছে: $mySixDigitID");
+
+    if (mySixDigitID == widget.userId.toString()) {
+      print("[Visitor LOG] স্কিপ: এটা নিজেরই প্রোফাইল।");
+      return;
+    }
+
+    print(
+        "[Visitor LOG] প্রোফাইলের মালিকের ডকুমেন্ট খুঁজছি uID: ${widget.userId} দিয়ে...");
+
+    var ownerQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .where('uID', isEqualTo: widget.userId)
+        .limit(1)
+        .get();
+
+    if (ownerQuery.docs.isEmpty) {
+      print("[Visitor LOG] Error: প্রোফাইল মালিকের ডকুমেন্ট পাওয়া যায়নি!");
+      return;
+    }
+
+    String ownerDocId = ownerQuery.docs.first.id;
+    print(
+        "[Visitor LOG] মালিকের ডকুমেন্ট ID পাওয়া গেছে: $ownerDocId, এখন সেভ করছি...");
+
+    try {
+      await FirebaseFirestore.instance
           .collection('users')
-          .doc(currentUser.uid)
-          .get();
-          
-      if (myDoc.exists) {
-        Map<String, dynamic> myData = myDoc.data() as Map<String, dynamic>;
+          .doc(ownerDocId)
+          .collection('visitors')
+          .doc(mySixDigitID)
+          .set({
+        'userName': myData['name'] ?? 'User',
+        'userImage': myData['profilePic'] ?? '',
+        'frameUrl': myData['activeFrameUrl'] ?? '',
+        'visitedAt': FieldValue.serverTimestamp(),
+        'isSeen': false,
+      });
 
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(profileOwnerUid)
-            .collection('visitors')
-            .doc(currentUser.uid)
-            .set({
-          'userName': myData['name'] ?? myData['userName'] ?? 'User',
-          'userImage': myData['profilePic'] ?? '', // আপনার ডাটাবেজে ফিল্ডের নাম 'profilePic' তাই সেটিই দিলাম
-          'frameUrl': myData['activeFrameUrl'] ?? '', // আপনার কোড অনুযায়ী ফ্রেমের ফিল্ড সম্ভবত এটি
-          'visitedAt': FieldValue.serverTimestamp(),
-          'isSeen': false,
-        });
-      }
+      print("--- [Visitor LOG] Success: ভিজিটর ডাটা সফলভাবে সেভ হয়েছে! ---");
+    } catch (e) {
+      print("[Visitor LOG] Error: সেভ করতে গিয়ে এরর হয়েছে: $e");
     }
   }
+void _showDeleteConfirmationDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text("Delete Account?"),
+      content: const Text(
+          "Are you sure? "),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          onPressed: () async {
+            await DeleteAccountService.requestAccountDeletion(AppData.myID);
+            Navigator.pop(context);
+            // লগআউট করে দিন
+            await AuthService().signOut();
+            if (context.mounted) {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                (route) => false,
+              );
+            }
+          },
+          child: const Text("Delete", style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    ),
+  );
+}
   void _showFreeAvatars() {
     List<String> avatars = (gender == "Male") ? maleAvatars : femaleAvatars;
     showModalBottomSheet(
@@ -1087,10 +1180,30 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-
   void _openVisitors() => UserProfileFeatures.openVisitors(context);
   void _openMyPosts() => UserProfileFeatures.openMyPosts(context);
-  void _openVIP() => UserProfileFeatures.openVIP(context);
+  // প্রোফাইল পেজের ফাংশনটি হবে এরকম:
+  // এই নতুন ফাংশনটি আপনার প্রোফাইল পেজে যোগ করুন
+  Map<String, dynamic> getCurrentUserData() {
+    return {
+      'name': userName,
+      'uID': sixDigitProfileID,
+      'profilePic': userImageURL, // আপনার প্রোফাইল পিকচার ভেরিয়েবলটি এখানে দিন
+      'vip_xp': xp, // আপনার প্রোফাইলের XP ভেরিয়েবল
+      'isVIP': isVIP,
+      'vipLevel': vipLevel,
+      // অন্য প্রয়োজনীয় ফিল্ডগুলো এখানে যোগ করতে পারেন
+    };
+  }
+
+// আপনার বর্তমান _openVIP ফাংশনটিকে এভাবে পরিবর্তন করুন:
+  void _openVIP() {
+    // ১. বর্তমান ডাটাগুলো একটি ম্যাপে নিয়ে নিন
+    Map<String, dynamic> userDataMap = getCurrentUserData();
+
+    // ২. এখন এটি পাস করুন (লাল দাগ আর থাকবে না)
+    UserProfileFeatures.openVIP(context, userDataMap);
+  }
 
   void _openGames() => UserProfileFeatures.openGames(context);
 // এটি আপনার ফাইলে যোগ করুন
@@ -1943,7 +2056,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       fontWeight: FontWeight.w600),
                 ),
                 const Text(
-                  "Cost: 6k 💎",
+                  "Cost: 30k 💎",
                   style: TextStyle(
                       color: Colors.blueGrey,
                       fontSize: 16,
@@ -1962,7 +2075,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       elevation: 5,
                     ),
                     onPressed: () async {
-                      if (diamonds >= 6000) {
+                      if (diamonds >= 30000) {
                         try {
                           DateTime now = DateTime.now();
                           DateTime cardExpiry =
@@ -1977,7 +2090,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               .collection('users')
                               .doc(uIDValue)
                               .update({
-                            'diamonds': FieldValue.increment(-6000),
+                            'diamonds': FieldValue.increment(-30000),
                             'hasPremiumCard': true,
                             'premiumUntil': Timestamp.fromDate(cardExpiry),
                             'hasFreeFrame': true,
@@ -1987,7 +2100,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           });
 
                           setState(() {
-                            diamonds -= 6000;
+                            diamonds -= 30000;
                             hasPremiumCard = true;
                             premiumUntilDate = cardExpiry;
                             frameUntilDate = frameExpiry;

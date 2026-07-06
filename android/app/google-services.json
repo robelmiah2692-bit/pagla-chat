@@ -15,6 +15,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "25052070011-cg1fob3mkf1jdv8iicllp9ekbhnl36bd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pagla.chat",
+            "certificate_hash": "013b7359bb6ca1f2abe6ff2c57e192af8c92d708"
+          }
+        },
+        {
+          "client_id": "25052070011-ddilnns8pohka875h8do2slo1o52n45v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pagla.chat",
+            "certificate_hash": "f8e73507d99a7a5cfe24db45b6556b71c243831d"
+          }
+        },
+        {
           "client_id": "25052070011-ernp28c3e48cqvuupm9gq28q560u5po6.apps.googleusercontent.com",
           "client_type": 3
         }

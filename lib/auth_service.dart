@@ -1,59 +1,52 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // ১. ইমেইল ও পাসওয়ার্ড দিয়ে লগইন বা একাউন্ট খোলা
-  Future<User?> loginOrRegister(String email, String password) async {
-    try {
-      UserCredential result = await _auth.signInWithEmailAndPassword(
-          email: email, password: password);
-      return result.user;
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found' || e.code == 'invalid-credential' || e.code == 'wrong-password') {
-        try {
-          UserCredential result = await _auth.createUserWithEmailAndPassword(
-              email: email, password: password);
-          return result.user;
-        } catch (innerError) {
-          return null;
-        }
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: '25052070011-ernp28c3e48cqvuupm9gq28q560u5po6.apps.googleusercontent.com',
+  );
+
+  // ইউজার ডাটাবেসে আছে কি না তা চেক করার মেথড
+  Future<bool> isUserRegistered(String email) async {
+    var doc = await _db.collection('users').where('email', isEqualTo: email).get();
+    return doc.docs.isNotEmpty;
   }
 
-  // ২. ফায়ারবেস চেক লজিক: ইউনিক আইডি আছে কি নেই তা খোঁজা
-  // (Bengali Comment: এখানে এখন আপনার ৬-ডিজিটের ইউনিক uID দিয়ে ডাটা খুঁজবে)
-  Future<bool> checkUserExistsByuID(String uniqueID) async {
+  // ২. নতুন লজিক: ইউজার ডিলিটেড কি না চেক করার জন্য
+  Future<bool> isUserDeleted(String email) async {
+    var doc = await _db.collection('users')
+        .where('email', isEqualTo: email)
+        .where('isDeleted', isEqualTo: true) // শুধুমাত্র ডিলিট হওয়া ইউজারদের খুঁজবে
+        .get();
+    return doc.docs.isNotEmpty;
+  }
+  
+  // গুগল লগইন
+  Future<User?> signInWithGoogle() async {
     try {
-      // (Bengali Comment: 'users' কালেকশনে 'uID' ফিল্ড দিয়ে সার্চ করা হচ্ছে)
-      var query = await _db.collection('users')
-          .where('uID', isEqualTo: uniqueID) 
-          .limit(1)
-          .get();
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return null;
       
-      return query.docs.isNotEmpty; 
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken, 
+        idToken: googleAuth.idToken,
+      );
+      
+      UserCredential result = await _auth.signInWithCredential(credential);
+      return result.user;
     } catch (e) {
-      return false;
+      print("Google Sign-In Error: $e");
+      return null;
     }
   }
 
-  // ৩. পাসওয়ার্ড রিসেট (Forget Password)
-  Future<void> sendPasswordReset(String email) async {
-    try {
-      await _auth.sendPasswordResetEmail(email: email);
-    } catch (e) {
-      throw Exception(e.toString());
-    }
-  }
-
-  // ৪. লগআউট
   Future<void> signOut() async {
+    await _googleSignIn.signOut();
     await _auth.signOut();
   }
 }

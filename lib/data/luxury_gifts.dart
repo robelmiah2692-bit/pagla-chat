@@ -95,10 +95,38 @@ final List<Map<String, dynamic>> luxuryGifts = [
     'videoUrl': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782197866553.mp4', 
     'type': 'lighting'
   },
-   
-   
-   
-   
+   {
+    'id': 'lx13', 
+    'name': 'Luxury 13', 
+    'price': 23040, 
+    'image': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/tumbail/1782682292626Th.jpg', 
+    'videoUrl': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782682292626.mp4', 
+    'type': 'lighting'
+  },
+   {
+    'id': 'lx14', 
+    'name': 'Luxury 14', 
+    'price': 14500, 
+    'image': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/tumbail/1782682533875Th.jpg', 
+    'videoUrl': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782682533875.mp4', 
+    'type': 'lighting'
+  },
+   {
+    'id': 'lx15', 
+    'name': 'Luxury 15', 
+    'price': 18500, 
+    'image': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/tumbail/1782916680927Th.jpg', 
+    'videoUrl': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782916680927.mp4', 
+    'type': 'lighting'
+  },
+   {
+    'id': 'lx16', 
+    'name': 'Luxury 16', 
+    'price': 19500, 
+    'image': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/tumbail/1782917117436Th.jpg', 
+    'videoUrl': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782917117436.mp4', 
+    'type': 'lighting'
+  },
    
    
    

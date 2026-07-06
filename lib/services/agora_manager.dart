@@ -26,7 +26,7 @@ class AgoraManager {
       try {
         await _engine!.muteAllRemoteAudioStreams(mute);
       } catch (e) {}
-    } 
+    }
   }
 
   // 🔔 রিপেল এনিমেশনের ভলিউম স্ট্রিম
@@ -94,6 +94,17 @@ class AgoraManager {
       await _engine!.enableAudio();
       _isInitialized = true;
     } catch (e) {}
+  }
+
+// AgoraManager ক্লাসের ভেতরে এটি যোগ করুন
+  Future<void> remoteMuteControl(bool isMute) async {
+    if (_engine == null) return;
+    // ডাটাবেস আপডেট না করে শুধু লোকাল ইঞ্জিন মিউট করবে
+    await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
+      publishMicrophoneTrack: !isMute,
+    ));
+    await _engine!.enableLocalAudio(!isMute);
+    _isMicMutedLocal = isMute; // স্টেট আপডেট রাখা
   }
 
   // --- মিউজিক ফিচারসমূহ ---

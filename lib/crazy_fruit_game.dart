@@ -113,13 +113,13 @@ class _CrazyFruitGameState extends State<CrazyFruitGame> {
     setState(() {
       isSpinning = true;
       localBalance -= currentBet;
-      spinCount++; // স্পিন কাউন্ট বাড়ানো হচ্ছে
+      spinCount++; 
     });
 
-    // ডাইনামিক লজিক: প্রতি ১০ স্পিন অন্তর টার্গেট উইন রেট পাল্টে যাবে
-    if (spinCount % 10 == 0) {
-      targetWinCount = [2, 3, 2, 4][Random().nextInt(4)];
-    }
+    // --- ২৫% উইন লজিক শুরু ---
+    int winChance = Random().nextInt(100); 
+    bool shouldWin = winChance < 25; // ২৫% সম্ভাবনা জেতার জন্য
+    // --- ২৫% উইন লজিক শেষ ---
 
     Timer timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       setState(() {
@@ -131,10 +131,11 @@ class _CrazyFruitGameState extends State<CrazyFruitGame> {
     timer.cancel();
 
     setState(() {
-      // চেক করা হচ্ছে এটা কি জেতার পালা কি না
-      if (spinCount % (5 + Random().nextInt(6)) < targetWinCount) {
+      // যদি shouldWin ট্রু হয়, তবে জেতার স্লট জেনারেট হবে
+      if (shouldWin) {
         _generateWinSlots();
       } else {
+        // নাহলে র‍্যান্ডম ফল দেখাবে (বেশিরভাগ সময় হারবে)
         currentSlots = List.generate(9, (_) => Random().nextInt(fruits.length));
       }
       isSpinning = false;

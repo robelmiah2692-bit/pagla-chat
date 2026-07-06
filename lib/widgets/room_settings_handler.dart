@@ -5,6 +5,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:pagla_chat/RoomLevelHelper.dart';
+import 'package:pagla_chat/user_selection_screen.dart';
 
 class RoomSettingsHandler {
   static final _firestore = FirebaseFirestore.instance;
@@ -67,152 +69,213 @@ class RoomSettingsHandler {
                   ),
                 ),
                 const SizedBox(height: 25),
+                
+                // এখানে লেভেল বার বসানো হয়েছে
+                StreamBuilder<DocumentSnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('rooms')
+                      .doc(roomId)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData || !snapshot.data!.exists) return const SizedBox();
+                    var roomData = snapshot.data!.data() as Map<String, dynamic>;
+                    int totalXp = roomData['totalXp'] ?? 0;
+                    int level = RoomLevelHelper.calculateLevel(totalXp);
+
+                    return Container(
+                      margin: const EdgeInsets.symmetric(vertical: 10),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text("ROOM LEVEL: $level",
+                                  style: const TextStyle(
+                                      color: Colors.amber,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12)),
+                              Text("${totalXp % 250} / 250 XP",
+                                  style: const TextStyle(
+                                      color: Colors.white70, fontSize: 10)),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          LinearProgressIndicator(
+                            value: (totalXp % 250) / 250,
+                            backgroundColor: Colors.white24,
+                            color: Colors.amber,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 15),
+                
                 if (isOwner || isAdmin) ...[
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: EdgeInsets.only(left: 15, bottom: 12),
-                    child: Text(
-                      "Free Wallpapers",
-                      style: TextStyle(
-                          color: Colors.purpleAccent,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: EdgeInsets.only(left: 15, bottom: 12),
+                      child: Text(
+                        "Free Wallpapers",
+                        style: TextStyle(
+                            color: Colors.purpleAccent,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500),
+                      ),
                     ),
                   ),
-                ),
-                SizedBox(
-                  height: 100,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    itemCount: 6,
-                    itemBuilder: (context, index) {
-                      String wallUrl =
-                          "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpaper-${index + 1}.jpg";
-                      return GestureDetector(
-                        onTap: () async {
-                          try {
-                            await _firestore
-                                .collection('rooms')
-                                .doc(roomId)
-                                .update({
-                              'currentWallpaper': wallUrl,
-                            });
-                            onSetWallpaper(wallUrl);
-                          } catch (e) {
-                            _showMessage(context, "Error saving wallpaper: $e");
-                          }
-                        },
-                        child: Container(
-                          width: 70,
-                          margin: const EdgeInsets.only(right: 12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white24),
-                            image: DecorationImage(
-                              image: CachedNetworkImageProvider(wallUrl),
-                              fit: BoxFit.cover,
+                  SizedBox(
+                    height: 100,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      itemCount: 6,
+                      itemBuilder: (context, index) {
+                        String wallUrl =
+                            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpaper-${index + 1}.jpg";
+                        return GestureDetector(
+                          onTap: () async {
+                            try {
+                              await _firestore
+                                  .collection('rooms')
+                                  .doc(roomId)
+                                  .update({
+                                'currentWallpaper': wallUrl,
+                              });
+                              onSetWallpaper(wallUrl);
+                            } catch (e) {
+                              _showMessage(
+                                  context, "Error saving wallpaper: $e");
+                            }
+                          },
+                          child: Container(
+                            width: 70,
+                            margin: const EdgeInsets.only(right: 12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white24),
+                              image: DecorationImage(
+                                image: CachedNetworkImageProvider(wallUrl),
+                                fit: BoxFit.cover,
+                              ),
                             ),
+                            child: const Icon(Icons.check_circle_outline,
+                                color: Colors.white38, size: 20),
                           ),
-                          child: const Icon(Icons.check_circle_outline,
-                              color: Colors.white38, size: 20),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
-                const SizedBox(height: 25),
+                  const SizedBox(height: 25),
                 ],
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     if (isOwner || isAdmin)
-                    _buildItem(isLocked ? Icons.lock : Icons.lock_open,
-                        isLocked ? "Unlock" : "Lock", Colors.amber, () {
-                      _handleFeaturePurchase(
-                          context, roomId, "room_lock", onToggleLock);
-                    }),
+                      _buildItem(isLocked ? Icons.lock : Icons.lock_open,
+                          isLocked ? "Unlock" : "Lock", Colors.amber, () {
+                        _handleFeaturePurchase(
+                            context, roomId, "room_lock", onToggleLock);
+                      }),
                     if (isOwner || isAdmin)
-                    _buildItem(
-                        Icons.add_photo_alternate, "Gallery", Colors.cyanAccent,
-                        () async {
-                      _handleFeaturePurchase(context, roomId, "wallpaper",
-                          () async {
-                        final ImagePicker picker = ImagePicker();
-                        final XFile? image = await picker.pickImage(
-                            source: ImageSource
-                                .gallery); // কোয়ালিটি রিমুভ করেছি কারণ নিচে কম্প্রেস হবে
+                      _buildItem(Icons.add_photo_alternate, "Gallery",
+                          Colors.cyanAccent, () async {
+                        _handleFeaturePurchase(context, roomId, "wallpaper",
+                            () async {
+                          final ImagePicker picker = ImagePicker();
+                          final XFile? image = await picker.pickImage(
+                              source: ImageSource
+                                  .gallery); // কোয়ালিটি রিমুভ করেছি কারণ নিচে কম্প্রেস হবে
 
-                        if (image != null) {
-                          try {
-                            _showMessage(
-                                context, "Optimizing and uploading...");
+                          if (image != null) {
+                            try {
+                              _showMessage(
+                                  context, "Optimizing and uploading...");
 
-                            // কম্প্রেস লজিক
-                            final compressedBytes =
-                                await FlutterImageCompress.compressWithFile(
-                              image.path,
-                              quality: 60,
-                              minWidth: 800,
-                              minHeight: 800,
-                            );
+                              // কম্প্রেস লজিক
+                              final compressedBytes =
+                                  await FlutterImageCompress.compressWithFile(
+                                image.path,
+                                quality: 60,
+                                minWidth: 800,
+                                minHeight: 800,
+                              );
 
-                            if (compressedBytes == null) return;
+                              if (compressedBytes == null) return;
 
-                            var roomDoc = await _firestore
-                                .collection('rooms')
-                                .doc(roomId)
-                                .get();
-                            String? oldWallpaperUrl =
-                                roomDoc.data()?['currentWallpaper'];
+                              var roomDoc = await _firestore
+                                  .collection('rooms')
+                                  .doc(roomId)
+                                  .get();
+                              String? oldWallpaperUrl =
+                                  roomDoc.data()?['currentWallpaper'];
 
-                            if (oldWallpaperUrl != null &&
-                                oldWallpaperUrl.contains('firebasestorage')) {
-                              try {
-                                await FirebaseStorage.instance
-                                    .refFromURL(oldWallpaperUrl)
-                                    .delete();
-                              } catch (e) {
-                                debugPrint("Old wallpaper delete error: $e");
+                              if (oldWallpaperUrl != null &&
+                                  oldWallpaperUrl.contains('firebasestorage')) {
+                                try {
+                                  await FirebaseStorage.instance
+                                      .refFromURL(oldWallpaperUrl)
+                                      .delete();
+                                } catch (e) {
+                                  debugPrint("Old wallpaper delete error: $e");
+                                }
                               }
+
+                              String fileName =
+                                  'room_wallpapers/$roomId/${DateTime.now().millisecondsSinceEpoch}.jpg';
+                              Reference storageRef = FirebaseStorage.instance
+                                  .ref()
+                                  .child(fileName);
+
+                              // কম্প্রেসড বাইটস আপলোড
+                              UploadTask uploadTask =
+                                  storageRef.putData(compressedBytes);
+                              TaskSnapshot snapshot = await uploadTask;
+                              String downloadUrl =
+                                  await snapshot.ref.getDownloadURL();
+
+                              await _firestore
+                                  .collection('rooms')
+                                  .doc(roomId)
+                                  .update({
+                                'currentWallpaper': downloadUrl,
+                                'wallpaperSetAt': FieldValue.serverTimestamp(),
+                              });
+
+                              onSetWallpaper(downloadUrl);
+                              _showMessage(context, "New wallpaper updated!");
+                            } catch (e) {
+                              _showMessage(
+                                  context, "Failed to update wallpaper: $e");
                             }
-
-                            String fileName =
-                                'room_wallpapers/$roomId/${DateTime.now().millisecondsSinceEpoch}.jpg';
-                            Reference storageRef =
-                                FirebaseStorage.instance.ref().child(fileName);
-
-                            // কম্প্রেসড বাইটস আপলোড
-                            UploadTask uploadTask =
-                                storageRef.putData(compressedBytes);
-                            TaskSnapshot snapshot = await uploadTask;
-                            String downloadUrl =
-                                await snapshot.ref.getDownloadURL();
-
-                            await _firestore
-                                .collection('rooms')
-                                .doc(roomId)
-                                .update({
-                              'currentWallpaper': downloadUrl,
-                              'wallpaperSetAt': FieldValue.serverTimestamp(),
-                            });
-
-                            onSetWallpaper(downloadUrl);
-                            _showMessage(context, "New wallpaper updated!");
-                          } catch (e) {
-                            _showMessage(
-                                context, "Failed to update wallpaper: $e");
                           }
-                        }
-                      });
-                    }),
-                   if (isOwner || isAdmin) 
-                    _buildItem(
-                        Icons.delete_sweep, "Clear Chat", Colors.orangeAccent,
+                        });
+                      }),
+                    if (isOwner || isAdmin)
+                      _buildItem(
+                          Icons.delete_sweep, "Clear Chat", Colors.orangeAccent,
+                          () {
+                        Navigator.pop(context);
+                        onClearChat();
+                      }),
+                    // RoomSettingsHandler এর ভেতরে যোগ করুন
+                    _buildItem(Icons.share, "Share Room", Colors.greenAccent,
                         () {
-                      Navigator.pop(context);
-                      onClearChat();
+                      Navigator.pop(context); // সেটিংস বন্ধ করা
+                      // এখানে ইউজার লিস্ট দেখানোর জন্য একটি স্ক্রিন ওপেন করুন
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) =>
+                                  UserSelectionScreen(roomId: roomId)));
                     }),
                     _buildItem(Icons.open_in_full, "Minimize", Colors.green,
                         () {

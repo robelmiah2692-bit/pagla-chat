@@ -184,23 +184,34 @@ Future<void> _performSpin() async {
 
   widget.playSound("https://github.com/robelmiah2692-bit/vip-badges/raw/refs/heads/main/officialall/spin_sound.mp3.mp3");
 
-  // ১. টার্গেট ইনডেক্স নির্ধারণ
-  int winIdx;
-  if (userBetIndices.isNotEmpty) {
-    winIdx = userBetIndices.first; // ইউজারের প্রথম বেট করা আইকন
-  } else {
-    winIdx = Random().nextInt(wheelSegments.length);
-  }
-  debugPrint("DEBUG: টার্গেট ইনডেক্স: $winIdx");
+  // ডাইনামিক উইন লজিক (২৫% জেতার রেশিও)
+  int randomChance = Random().nextInt(100); // ০ থেকে ৯৯ এর মধ্যে নম্বর
+  bool shouldWin = randomChance < 25; // ২৫% চান্স জেতার জন্য
 
-  // ২. অ্যাঙ্গেল ক্যালকুলেশন (সবচেয়ে গুরুত্বপূর্ণ অংশ)
-  // প্রতিটা সেগমেন্ট ৬০ ডিগ্রি। 
-  double slice = 360 / wheelSegments.length;
+  int winIdx;
   
-  // ক্যালকুলেশন: চাকার বর্তমান পজিশন থেকে টার্গেট ইনডেক্সে নিয়ে যাওয়া
-  // (winIdx * slice) আমাদের টার্গেট অ্যাঙ্গেল। 
-  // +30 বা +90 যোগ করে অ্যারোর সাথে সিঙ্ক করুন।
-  double targetAngle = (winIdx * slice) + 30; // এখানে +30 বা +90 বসিয়ে মিলান
+  if (shouldWin && userBetIndices.isNotEmpty) {
+    // জেতানোর ইচ্ছা থাকলে এবং ইউজার যদি বেট করে থাকে, তবে বেট করা ইনডেক্সগুলো থেকে একটি বেছে নেওয়া হবে
+    winIdx = userBetIndices[Random().nextInt(userBetIndices.length)];
+  } else {
+    // হারানো নিশ্চিত করতে এমন একটি ইনডেক্স বেছে নেব যেটা ইউজারের বেট লিস্টে নেই (যদি সম্ভব হয়)
+    List<int> nonBetIndices = List.generate(wheelSegments.length, (i) => i)
+        .where((i) => !userBetIndices.contains(i))
+        .toList();
+    
+    if (nonBetIndices.isNotEmpty) {
+      winIdx = nonBetIndices[Random().nextInt(nonBetIndices.length)];
+    } else {
+      // যদি ইউজার সব জায়গায় বেট ধরে ফেলে, তবে র‍্যান্ডম রেজাল্ট আসবে
+      winIdx = Random().nextInt(wheelSegments.length);
+    }
+  }
+
+  debugPrint("DEBUG: Win Chance: $randomChance%, Target Index: $winIdx");
+
+  // অ্যাঙ্গেল ক্যালকুলেশন
+  double slice = 360 / wheelSegments.length;
+  double targetAngle = (winIdx * slice) + 30; 
   double targetRot = _rotationAngle + (360 * 5) + (360 - (targetAngle % 360));
   
   setState(() => _rotationAngle = targetRot);
@@ -208,7 +219,7 @@ Future<void> _performSpin() async {
   await Future.delayed(const Duration(seconds: 4));
   if (!mounted) return;
 
-  // ৩. রেজাল্ট লজিক
+  // রেজাল্ট যাচাই
   if (userBetIndices.contains(winIdx)) {
     int multiplier = int.tryParse(wheelSegments[winIdx]['mult'].toString()) ?? 0;
     int totalWin = widget.betAmount * multiplier;
@@ -229,6 +240,7 @@ Future<void> _performSpin() async {
     winLoseStatus = "";
     isSpinning = false;
     userBetIndices.clear();
+    betMultipliers.clear(); // বেট ক্লিয়ার করা
   });
 }
   @override

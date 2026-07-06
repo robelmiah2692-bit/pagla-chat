@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pagla_chat/device_service.dart';
+
 import 'auth_service.dart';
 import 'package:pagla_chat/services/notification_service.dart';
 
@@ -73,7 +74,8 @@ void main() async {
 
     // ৩. ব্লক না থাকলে স্বাভাবিক নোটিফিকেশন লজিক
     if (!kIsWeb) {
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      FirebaseMessaging.onBackgroundMessage(
+          _firebaseMessagingBackgroundHandler);
       try {
         await NotificationService().initNotification();
       } catch (e) {}
@@ -233,7 +235,6 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
   final _ageController = TextEditingController();
   String _selectedGender = "Male";
   bool _isSaving = false;
-  
 
   Future<void> _createFinalProfile() async {
     if (_nameController.text.isEmpty || _ageController.text.isEmpty) {
@@ -366,7 +367,7 @@ class _MainNavigationState extends State<MainNavigation> {
   void initState() {
     super.initState();
     _updateFCMToken();
-  _updateDeviceIdIfMissing();
+    _updateDeviceIdIfMissing();
   }
 
   void _updateFCMToken() async {
@@ -489,7 +490,7 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- লগইন স্ক্রিন (পাসওয়ার্ড রিসেট অপশনসহ) ---
+// --- লগইন স্ক্রিন (গুগল সাইন-ইন ও ডিলিটেড ইউজার চেকিং লজিকসহ) ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
   @override
@@ -497,10 +498,6 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _isObscure = true;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -512,95 +509,91 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.lock_person,
-                      size: 80, color: Colors.pinkAccent),
-                  const SizedBox(height: 20),
-                  const Text("WELCOME BACK",
+                  const Icon(Icons.rocket_launch,
+                      size: 100, color: Colors.pinkAccent),
+                  const SizedBox(height: 30),
+                  const Text("WELCOME TO PAGLA CHAT",
+                      textAlign: TextAlign.center,
                       style: TextStyle(
-                          fontSize: 24,
+                          fontSize: 26,
                           fontWeight: FontWeight.bold,
                           color: Colors.white)),
-                  const SizedBox(height: 30),
-                  TextField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(
-                          labelText: "Email", prefixIcon: Icon(Icons.email))),
-                  const SizedBox(height: 15),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: _isObscure,
-                    decoration: InputDecoration(
-                      labelText: "Password",
-                      prefixIcon: const Icon(Icons.lock),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                            _isObscure
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            color: Colors.grey),
-                        onPressed: () =>
-                            setState(() => _isObscure = !_isObscure),
-                      ),
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () async {
-                        if (_emailController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content:
-                                      Text("Please enter your email first")));
-                          return;
-                        }
-                        try {
-                          await FirebaseAuth.instance.sendPasswordResetEmail(
-                              email: _emailController.text.trim());
+                  const SizedBox(height: 50),
+
+                  // গুগল সাইন-ইন বাটন
+                  _buildSocialButton(
+                    text: "CONTINUE WITH GOOGLE",
+                    icon: Icons.g_mobiledata,
+                    color: Colors.white,
+                    onPressed: () async {
+                      // গুগল লগইন প্রসেস
+                      var user = await AuthService().signInWithGoogle();
+                      
+                      if (user != null && mounted) {
+                        // ১. প্রথমে চেক করুন ইউজার ডিলিট করা কি না
+                        bool deleted = await AuthService().isUserDeleted(user.email ?? "");
+                        
+                        if (deleted) {
+                          // যদি ডিলিট করা থাকে, লগআউট করে দিন এবং মেসেজ দেখান
+                          await AuthService().signOut();
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text("Reset Email Sent Successfully!"),
-                                backgroundColor: Colors.green,
+                                content: Text("Your account has been deleted. Please contact the support team to recover it."),
+                                backgroundColor: Colors.red,
                               ),
                             );
                           }
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text("Error: ${e.toString()}")));
-                        }
-                      },
-                      child: const Text("Forget Password?",
-                          style: TextStyle(color: Colors.pinkAccent)),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  ElevatedButton(
-                    onPressed: () async {
-                      if (_emailController.text.isNotEmpty &&
-                          _passwordController.text.isNotEmpty) {
-                        var user = await AuthService().loginOrRegister(
-                            _emailController.text.trim(),
-                            _passwordController.text.trim());
-                        if (user != null && mounted) {
-                          Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const SplashScreen()));
+                        } else {
+                          // ২. যদি ডিলিট করা না থাকে, তাহলে চেক করুন সে রেজিস্টার্ড কি না
+                          bool registered = await AuthService().isUserRegistered(user.email ?? "");
+                          
+                          if (registered) {
+                            // পুরাতন ইউজার হলে সরাসরি মেইন অ্যাপে
+                            Navigator.pushReplacement(context,
+                                MaterialPageRoute(builder: (context) => const SplashScreen()));
+                          } else {
+                            // নতুন ইউজার হলে প্রোফাইল ক্রিয়েট পেইজে
+                            Navigator.pushReplacement(context,
+                                MaterialPageRoute(builder: (context) => const CreateProfilePage()));
+                          }
                         }
                       }
                     },
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.pinkAccent,
-                        minimumSize: const Size(double.infinity, 50)),
-                    child: const Text("CONTINUE",
-                        style: TextStyle(color: Colors.white, fontSize: 16)),
-                  )
+                  ),
                 ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // বাটন তৈরির জন্য কমন উইজেট
+  Widget _buildSocialButton(
+      {required String text,
+      required IconData icon,
+      required Color color,
+      Color textColor = Colors.black,
+      required VoidCallback onPressed}) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: textColor,
+          minimumSize: const Size(double.infinity, 55),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 30),
+          const SizedBox(width: 10),
+          Text(text,
+              style:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }

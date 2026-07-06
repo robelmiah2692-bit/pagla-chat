@@ -126,6 +126,37 @@ class _ChatScreenState extends State<ChatScreen> {
     return ids.join("_");
   }
 
+Future<void> shareRoomInChat(String roomId, String targetUserId, String roomName, BuildContext context) async {
+  final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
+  
+  List<String> ids = [currentUserId, targetUserId];
+  ids.sort();
+  String chatRoomId = ids.join("_"); 
+
+  Map<String, dynamic> roomMessage = {
+    'senderId': currentUserId,
+    'receiverId': targetUserId,
+    'message': "Join my room: $roomName",
+    'type': 'room_invite', // এটি খুব গুরুত্বপূর্ণ
+    'roomId': roomId,
+    'timestamp': FieldValue.serverTimestamp(),
+    'isRead': false,
+  };
+
+  // ১. মেসেজ পাঠানো
+  await FirebaseFirestore.instance
+      .collection('chats')
+      .doc(chatRoomId)
+      .collection('messages')
+      .add(roomMessage);
+
+  // ২. চ্যাট লিস্টে দেখানোর জন্য চ্যাট ডকুমেন্টে আপডেট করা
+  await FirebaseFirestore.instance.collection('chats').doc(chatRoomId).set({
+    'lastMessage': "Room Invitation: $roomName", // চ্যাট লিস্টে এই টেক্সট দেখাবে
+    'lastMessageTimestamp': FieldValue.serverTimestamp(),
+    'type': 'room_invite', // লিস্টে টাইপ চেক করার জন্য
+  }, SetOptions(merge: true));
+}
   // --- মিডিয়া অ্যাকশন (ডায়মন্ড ও এক্সপায়ারি চেক) ---
   void _handleMediaAction() async {
     String? authUID = FirebaseAuth.instance.currentUser?.uid;
@@ -238,85 +269,89 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
- // ১. মেসেজ পাঠানোর ফাংশন (টাইপ সেফ)
-void _sendDataMessage(String content, String type, Map<String, dynamic>? replyData) async {
-  if (content.isEmpty) return;
+  // ১. মেসেজ পাঠানোর ফাংশন (টাইপ সেফ)
+  void _sendDataMessage(
+      String content, String type, Map<String, dynamic>? replyData) async {
+    if (content.isEmpty) return;
 
-  try {
-    final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+    try {
+      final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-    // ইউজার ডকুমেন্ট খুঁজে বের করা
-    final userQuery = await FirebaseFirestore.instance
-        .collection('users')
-        .where('authUID', isEqualTo: authUID)
-        .limit(1)
-        .get();
+      // ইউজার ডকুমেন্ট খুঁজে বের করা
+      final userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('authUID', isEqualTo: authUID)
+          .limit(1)
+          .get();
 
-    if (userQuery.docs.isEmpty) {
-      debugPrint("User profile not found in Firestore!");
-      return;
+      if (userQuery.docs.isEmpty) {
+        debugPrint("User profile not found in Firestore!");
+        return;
+      }
+
+      final userData = userQuery.docs.first.data();
+      final String mySixDigitId = userData['uID']?.toString() ?? '0';
+      final String myEmail = userData['email'] ?? '';
+      final String myName = userData['name'] ?? 'User';
+      final String myPic =
+          userData['profilepic'] ?? userData['profilePic'] ?? '';
+
+      // ইউনিক চ্যাট রুম আইডি তৈরি
+      String roomId;
+      if (widget.receiverId == "paglachat_official") {
+        roomId = "paglachat_official_$mySixDigitId";
+      } else {
+        List<String> ids = [mySixDigitId, widget.receiverId];
+        ids.sort();
+        roomId = ids.join("_");
+      }
+
+      // মেসেজ পাঠানো
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(roomId)
+          .collection('messages')
+          .add({
+        'senderId': authUID,
+        'senderuID': mySixDigitId,
+        'senderEmail': myEmail,
+        'senderName': myName,
+        'senderImage': myPic,
+        'receiverId': widget.receiverId,
+        'message': content,
+        'type': type,
+        'isRead': false,
+        'timestamp': FieldValue.serverTimestamp(),
+
+        // রিপ্লাই ডাটা পাঠানো
+        'repliedMessage':
+            replyData != null ? (replyData['message'] ?? "") : null,
+        'repliedBy':
+            replyData != null ? (replyData['senderName'] ?? "User") : null,
+      });
+
+      debugPrint("Message Sent to Room: $roomId");
+    } catch (e) {
+      debugPrint("Send Error: $e");
     }
-
-    final userData = userQuery.docs.first.data();
-    final String mySixDigitId = userData['uID']?.toString() ?? '0';
-    final String myEmail = userData['email'] ?? '';
-    final String myName = userData['name'] ?? 'User';
-    final String myPic = userData['profilepic'] ?? userData['profilePic'] ?? '';
-
-    // ইউনিক চ্যাট রুম আইডি তৈরি
-    String roomId;
-    if (widget.receiverId == "paglachat_official") {
-      roomId = "paglachat_official_$mySixDigitId";
-    } else {
-      List<String> ids = [mySixDigitId, widget.receiverId];
-      ids.sort();
-      roomId = ids.join("_");
-    }
-
-    // মেসেজ পাঠানো
-    await FirebaseFirestore.instance
-        .collection('chats')
-        .doc(roomId)
-        .collection('messages')
-        .add({
-      'senderId': authUID,
-      'senderuID': mySixDigitId,
-      'senderEmail': myEmail,
-      'senderName': myName,
-      'senderImage': myPic,
-      'receiverId': widget.receiverId,
-      'message': content,
-      'type': type,
-      'isRead': false,
-      'timestamp': FieldValue.serverTimestamp(),
-      
-      // রিপ্লাই ডাটা পাঠানো
-      'repliedMessage': replyData != null ? (replyData['message'] ?? "") : null,
-      'repliedBy': replyData != null ? (replyData['senderName'] ?? "User") : null,
-    });
-
-    debugPrint("Message Sent to Room: $roomId");
-  } catch (e) {
-    debugPrint("Send Error: $e");
   }
-}
 
 // ২. সেন্ড বাটন ক্লিক ফাংশন
-void _sendMessage() async {
-  String text = _messageController.text.trim();
-  if (text.isEmpty) return;
+  void _sendMessage() async {
+    String text = _messageController.text.trim();
+    if (text.isEmpty) return;
 
-  // লোকাল কপি তৈরি
-  final Map<String, dynamic>? tempReply = _repliedMessage;
+    // লোকাল কপি তৈরি
+    final Map<String, dynamic>? tempReply = _repliedMessage;
 
-  // এখন আর লাল দাগ থাকার কথা নয়
-   _sendDataMessage(text, "text", tempReply);
+    // এখন আর লাল দাগ থাকার কথা নয়
+    _sendDataMessage(text, "text", tempReply);
 
-  _messageController.clear();
-  setState(() {
-    _repliedMessage = null;
-  });
-}
+    _messageController.clear();
+    setState(() {
+      _repliedMessage = null;
+    });
+  }
 
   void _showPurchaseDialog(int currentDiamonds, String myUID) {
     // myUID হলো ইউজারের ৬ ডিজিটের ইউনিক আইডি
@@ -651,6 +686,47 @@ void _sendMessage() async {
   }
 
   Widget _buildMessageBubble(Map<String, dynamic> data, bool isMe) {
+    print("DEBUG: Message Type is: ${data['type']}"); // এটি যোগ করুন
+    // ১. এই জায়গাটিতেই নতুন কোডটি বসিয়ে দিন
+    if (data['type'] == 'room_invite') {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 15),
+        child: GestureDetector(
+          onTap: () {
+            // RoomPage এর বদলে VoiceRoom ব্যবহার করুন
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) =>
+                        VoiceRoom(roomId: data['roomId']) // এখানে VoiceRoom দিন
+                    ));
+          },
+          child: Container(
+            padding: const EdgeInsets.all(15),
+            margin: EdgeInsets.symmetric(
+                horizontal: isMe ? 20 : 50), // মেসেজ এলাইনমেন্ট ঠিক রাখার জন্য
+            decoration: BoxDecoration(
+              color: Colors.blueAccent.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: Colors.blueAccent),
+            ),
+            child: Column(
+              children: [
+                const Icon(Icons.meeting_room, color: Colors.white, size: 30),
+                const SizedBox(height: 5),
+                Text("Join Room: ${data['message']}",
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 5),
+                const Text("Tap to Join",
+                    style: TextStyle(color: Colors.white70, fontSize: 12)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     String type = data['type'] ?? 'text';
     String msg = data['message'] ?? data['text'] ?? '';
     bool isRead = data['isRead'] ?? false;

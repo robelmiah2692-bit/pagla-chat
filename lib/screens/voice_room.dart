@@ -17,7 +17,10 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:lottie/lottie.dart';
+import 'package:pagla_chat/RoomLevelHelper.dart';
+
 import 'package:pagla_chat/VideoGiftOverlay.dart';
+import 'package:pagla_chat/chat_screen.dart';
 
 import 'package:pagla_chat/pk_manager.dart';
 import 'package:pagla_chat/protected_users.dart';
@@ -55,7 +58,7 @@ import '../widgets/gift_overlay_handler.dart';
 import '../widgets/gift_system.dart';
 import '../widgets/music_player_widget.dart';
 import '../widgets/room_settings_handler.dart';
-
+// আপনার ফাইলের লোকেশন অনুযায়ী পাথটি চেক করুন
 class VoiceRoom extends StatefulWidget {
   final String roomId;
   final String ownerId;
@@ -171,9 +174,42 @@ class _VoiceRoomState extends State<VoiceRoom> {
   @override
   void initState() {
     super.initState();
+    // ১. রুম সুইচিং চেক
+  if (RoomManager().activeRoomId != null && RoomManager().activeRoomId != widget.roomId) {
+    RoomManager().forceExitOldRoom();
+  }
+
+  // ২. ক্লিনআপ লজিক সেট করা
+  RoomManager().onForceExit = () {
+    if (mounted) {
+      _removeUserFromViewers();
+      _clearUserLiveStatus();
+      
+      if (currentSeatIndex != -1) {
+         _roomService.updateSeatData(
+            roomId: widget.roomId,
+            seatIndex: currentSeatIndex,
+            uName: "",
+            uImage: "",
+            isOccupied: false);
+            
+         FirebaseFirestore.instance
+            .collection('rooms')
+            .doc(widget.roomId)
+            .collection('seats')
+            .doc(currentSeatIndex.toString())
+            .update({'isOccupied': false, 'userName': '', 'userImage': '', 'status': 'empty', 'isMicOn': false});
+      }
+      _activeManager.stopTimer();
+    }
+  };
+  
+  RoomManager().activeRoomId = widget.roomId;
+    
     WakelockPlus.enable(); // স্ক্রিন যাতে অফ না হয়
     listenForSoulmateRequests();
     listenForMarriageRequests();
+
     // --- ১. মিনিমাইজড ডাটা রিকভারি লজিক ---
     if (FloatingBubbleService.isMinimized) {
       // যদি বাবল থেকে রুমে ফিরে আসে, তবে ম্যানেজার থেকে আগের ডাটা নিন
@@ -608,47 +644,42 @@ class _VoiceRoomState extends State<VoiceRoom> {
     } catch (e) {}
   }
 
-  // মেইন রুমের স্টেট ক্লাসে এটি রাখুন
   void _initEmojiListener() {
     _emojiSubscription?.cancel();
 
     _emojiSubscription = FirebaseDatabase.instance
         .ref('rooms/${widget.roomId}/seats')
-        .onValue // onChildChanged থেকে onValue-তে পরিবর্তন করলাম
+        .onChildChanged
         .listen((event) {
       if (!mounted) return;
 
       final data = event.snapshot.value;
       if (data is! Map) return;
 
-      // সিটের ডাটা থেকে চেক করছি
-      Map<dynamic, dynamic> seatsData = data;
+      String seatKey = event.snapshot.key ?? "";
+      // শুধুমাত্র যদি currentEmoji পরিবর্তিত হয় তবেই কাজ করবে
+      String? emojiUrl = data['currentEmoji'];
+      int index = int.tryParse(seatKey) ?? -1;
 
-      seatsData.forEach((key, value) {
-        if (value is Map && value.containsKey('currentEmoji')) {
-          int index = int.tryParse(key.toString()) ?? -1;
-          String? emojiUrl = value['currentEmoji'];
+      if (index != -1 && emojiUrl != null && emojiUrl.isNotEmpty) {
+        setState(() {
+          activeEmojis[index] = emojiUrl;
+        });
 
-          if (index != -1 && emojiUrl != null && emojiUrl.isNotEmpty) {
-            // ইমোজি রেন্ডার করার লজিক
-            if (activeEmojis[index] != emojiUrl) {
-              setState(() {
-                activeEmojis[index] = emojiUrl;
-              });
+        // ৪ সেকেন্ড পর ডাটাবেস থেকে রিমুভ করুন যাতে সবাই আপডেট পায়
+        Future.delayed(const Duration(seconds: 4), () {
+          if (mounted) {
+            FirebaseDatabase.instance
+                .ref('rooms/${widget.roomId}/seats/$seatKey')
+                .child('currentEmoji')
+                .remove(); // ডাটাবেস পরিষ্কার রাখা জরুরি
 
-              // ৪ সেকেন্ড পর রিমুভ করার লজিক
-              Future.delayed(const Duration(seconds: 4), () {
-                if (mounted) {
-                  // ডাটাবেস থেকে রিমুভ করার দরকার নেই, শুধু লোকাল ম্যাপ থেকে রিমুভ হবে
-                  setState(() {
-                    activeEmojis.remove(index);
-                  });
-                }
-              });
-            }
+            setState(() {
+              activeEmojis.remove(index);
+            });
           }
-        }
-      });
+        });
+      }
     });
   }
 
@@ -1095,6 +1126,25 @@ class _VoiceRoomState extends State<VoiceRoom> {
     return 0;
   }
 
+  void _listenToMicStatus() {
+    // আপনার কোড অনুযায়ী বর্তমান সিটটি currentSeatIndex এ থাকে
+    if (currentSeatIndex == -1) return;
+
+    FirebaseDatabase.instance
+        .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
+        .onValue
+        .listen((event) {
+      if (event.snapshot.exists) {
+        // ডাটাবেস থেকে বর্তমান মাইক স্ট্যাটাস নেওয়া
+        var data = event.snapshot.value as Map?;
+        bool isMicOn = data?['isMicOn'] ?? true;
+
+        // মাইক কন্ট্রোল
+        _agoraManager.remoteMuteControl(!isMicOn);
+      }
+    });
+  }
+
 // ৩. ইউজারের মাইক অফ করা (Admin Control)
   Future<void> _muteUserByAdmin(String targetuID, int seatIndex) async {
     // ডাটাবেজে ওই সিটের মাইক অফ করে দেওয়া
@@ -1178,32 +1228,75 @@ class _VoiceRoomState extends State<VoiceRoom> {
     // ... (Firebase logic)
   }
 
-// ৫. চ্যাট বা ইনবক্সে নিয়ে যাওয়া
-  void _goToInbox(String peerId, String peerName) {
-    // Navigator.push দিয়ে আপনার চ্যাট স্ক্রিনে পাঠিয়ে দিন
+  void _goToInbox(String peerId, String peerName) async {
+    // ১. PeerId টি কি ৬-ডিজিটের uID নাকি authUID তা যাচাই করা
+    // আপনার কোড অনুযায়ী চ্যাট স্ক্রিনে 'receiverId' হিসেবে ৬-ডিজিটের uID পাঠাতে হয়।
+
+    String finalPeerUID = peerId;
+
+    // যদি peerId টি authUID হয়, তবে আমরা ফায়ারবেস থেকে তার ৬-ডিজিটের uID বের করে নেবো
+    // যদি already ৬-ডিজিটের আইডি হয়, তবে এটি প্রয়োজন নেই।
+    // তবে নিরাপত্তার জন্য চেক করে নেওয়া ভালো:
+    try {
+      var userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('authUID', isEqualTo: peerId)
+          .limit(1)
+          .get();
+
+      if (userQuery.docs.isNotEmpty) {
+        finalPeerUID = userQuery.docs.first.data()['uID']?.toString() ?? peerId;
+      }
+    } catch (e) {
+      debugPrint("Error fetching peer UID: $e");
+    }
+
+    // ২. চ্যাট স্ক্রিনে নেভিগেট করা
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(
+          receiverId: finalPeerUID, // এখানে ৬-ডিজিটের আইডি পাঠাচ্ছি
+          receiverName: peerName,
+        ),
+      ),
+    );
   }
 
-// এটি লাল দাগ দূর করবে এবং গিফট প্যানেল খুলবে
   void _openGiftPanel(String targetUserId) async {
-    // ১. ইউজারের কারেন্ট ডায়মন্ড ব্যালেন্স আনা
-    final String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
-    var userDoc =
-        await FirebaseFirestore.instance.collection('users').doc(myId).get();
-    int currentBalance = (userDoc.data()?['diamonds'] ?? 0).toInt();
+    // ১. বর্তমান ইউজারের সঠিক AuthUID বের করা
+    final String currentAuthUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+    if (currentAuthUID.isEmpty) return;
+
+    // ২. ডাটাবেস থেকে ব্যালেন্স এবং ইউজার ডিটেইলস নিয়ে আসা (মেইন গিফট বক্সের মতো)
+    var userQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .where('authUID', isEqualTo: currentAuthUID)
+        .limit(1)
+        .get();
+
+    int currentBalance = 0;
+    if (userQuery.docs.isNotEmpty) {
+      currentBalance = (userQuery.docs.first.data()['diamonds'] ?? 0).toInt();
+    }
 
     if (!mounted) return;
 
-    // ২. গিফট শিট ওপেন করা
+    // ৩. এখন প্যানেলটি খুলুন
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => GiftBottomSheet(
         roomId: widget.roomId,
-        diamondBalance: currentBalance,
+        diamondBalance: currentBalance, // আপডেট হওয়া ব্যালেন্স পাঠানো হচ্ছে
         currentSeats: List.from(seats),
         onGiftSend: (gift, count, target) async {
-          // এখানে আপনার গিফট পাঠানোর ট্রানজেকশন লজিক কাজ করবে
+          // এখানে আপনার গিফট পাঠানোর লজিকটি মেইন গিফট বক্সের সাথে মিলিয়ে নিন
+          // আপনি চাইলে গিফট পাঠানোর লজিকটি একটি আলাদা ফাংশনে রেখে
+          // এই দুই জায়গা থেকেই কল করতে পারেন।
           print("Sending ${gift['name']} to $target");
         },
       ),
@@ -1390,6 +1483,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
             currentSeatIndex = index;
             isMicOn = true;
           });
+
+          _listenToMicStatus();
           Future.delayed(const Duration(milliseconds: 300), () {
             updateSeatPosition(index, seatKeys[index]);
           });
@@ -1731,101 +1826,46 @@ class _VoiceRoomState extends State<VoiceRoom> {
                       Expanded(
                         flex: 2,
                         child: Stack(
-                          clipBehavior: Clip
-                              .none, // যেন হার্ট এনিমেশন বর্ডারের বাইরে গেলেও কেটে না যায়
+                          clipBehavior: Clip.none,
                           children: [
-                            // ১. আপনার সম্পূর্ণ আগের অক্ষত সিট এরিয়া (RepaintBoundary সহ)
                             RepaintBoundary(child: _buildSeatGridArea()),
-
-                            // ২. সোলমেট হার্টের জন্য লাইভ ডাটা লেয়ার
                             StreamBuilder<DatabaseEvent>(
                               stream: FirebaseDatabase.instance
                                   .ref('rooms/${widget.roomId}/seats')
                                   .onValue,
                               builder: (context, snapshot) {
-                                List<dynamic> seatsListForOverlay = [];
+                                List<dynamic> seats = [];
                                 if (snapshot.hasData &&
                                     snapshot.data!.snapshot.value != null) {
-                                  final dynamic value =
-                                      snapshot.data!.snapshot.value;
-                                  if (value is Map) {
-                                    for (int i = 0; i < 15; i++) {
-                                      seatsListForOverlay
-                                          .add(value[i.toString()] ?? value[i]);
-                                    }
-                                  } else if (value is List) {
-                                    seatsListForOverlay = value;
-                                  }
+                                  var val = snapshot.data!.snapshot.value;
+                                  seats = (val is Map)
+                                      ? List.generate(15,
+                                          (i) => val[i.toString()] ?? val[i])
+                                      : (val is List ? val : []);
                                 }
 
-                                final String currentAuthUID =
-                                    FirebaseAuth.instance.currentUser?.uid ??
-                                        "";
-
-                                // কুয়েরি ১: authUID দিয়ে খোঁজা
                                 return StreamBuilder<QuerySnapshot>(
                                   stream: FirebaseFirestore.instance
                                       .collection('users')
-                                      .where('authUID',
-                                          isEqualTo: currentAuthUID)
                                       .snapshots(),
                                   builder: (context, userSnapshot) {
-                                    // যদি ডাটা না থাকে, তবে ব্যাকআপ কুয়েরি রান করবে
-                                    if (!userSnapshot.hasData ||
-                                        userSnapshot.data!.docs.isEmpty) {
-                                      return StreamBuilder<QuerySnapshot>(
-                                        stream: FirebaseFirestore.instance
-                                            .collection('users')
-                                            .where('userId',
-                                                isEqualTo: currentAuthUID)
-                                            .snapshots(),
-                                        builder: (context, backupSnapshot) {
-                                          List<dynamic> soulmatesList = [];
-                                          String finalUserDocId = "";
+                                    if (!userSnapshot.hasData)
+                                      return const SizedBox.shrink();
 
-                                          if (backupSnapshot.hasData &&
-                                              backupSnapshot
-                                                  .data!.docs.isNotEmpty) {
-                                            var uDoc = backupSnapshot
-                                                .data!.docs.first
-                                                .data() as Map<String, dynamic>;
-                                            finalUserDocId = backupSnapshot
-                                                .data!.docs.first.id;
-                                            // ডাটাবেজের 'soulmates' এরেটিকে সরাসরি লিস্ট হিসেবে নিচ্ছি
-                                            soulmatesList =
-                                                uDoc['soulmates'] is List
-                                                    ? uDoc['soulmates']
-                                                    : [];
-                                          }
-
-                                          return SoulmateAnimationService
-                                              .buildSoulmateHeartOverlay(
-                                            seats: seatsListForOverlay,
-                                            myCurrentAuthUID: finalUserDocId,
-                                            mySoulmatesList:
-                                                soulmatesList, // লিস্ট পাস করলাম
-                                          );
-                                        },
-                                      );
+                                    // ম্যাপ তৈরি করছি: {ডকুমেন্ট_আইডি : সোলমেট_লিস্ট}
+                                    Map<String, List<dynamic>> allUsers = {};
+                                    for (var doc in userSnapshot.data!.docs) {
+                                      var d =
+                                          doc.data() as Map<String, dynamic>;
+                                      allUsers[doc.id] = d['soulmates'] is List
+                                          ? d['soulmates']
+                                          : [];
                                     }
-
-                                    // যদি প্রথম কুয়েরিতে ডাটা পায়
-                                    var uDoc = userSnapshot.data!.docs.first
-                                        .data() as Map<String, dynamic>;
-                                    String finalUserDocId =
-                                        userSnapshot.data!.docs.first.id;
-                                    // ডাটাবেজের 'soulmates' এরেটিকে সরাসরি লিস্ট হিসেবে নিচ্ছি
-                                    List<dynamic> soulmatesList =
-                                        uDoc['soulmates'] is List
-                                            ? uDoc['soulmates']
-                                            : [];
 
                                     return SoulmateAnimationService
                                         .buildSoulmateHeartOverlay(
-                                      seats: seatsListForOverlay,
-                                      myCurrentAuthUID: finalUserDocId,
-                                      mySoulmatesList:
-                                          soulmatesList, // লিস্ট পাস করলাম
+                                      seats: seats,
+                                      allUsersSoulmates: allUsers,
                                     );
                                   },
                                 );
@@ -2354,28 +2394,28 @@ class _VoiceRoomState extends State<VoiceRoom> {
       int seatIndex = entry.key;
       String lottieUrl = entry.value;
 
+      // ১. আগের চেক: ইনডেক্স ঠিক আছে কি না
       if (seatIndex < 0 || seatIndex >= seatPositions.length)
         return const SizedBox();
 
-      double leftPos = seatPositions[seatIndex].dx;
-      double topPos = seatPositions[seatIndex].dy;
+      // ২. নতুন চেক: পজিশন ক্যালকুলেট হয়েছে কি না (এটি আপনার সমস্যার সমাধান করবে)
+      if (seatPositions[seatIndex] == Offset.zero) return const SizedBox();
+
+      // পজিশন সরাসরি সিট লিস্ট থেকে নিন
+      Offset pos = seatPositions[seatIndex];
 
       return Positioned(
-        left: leftPos - 40,
-        top: topPos - 80,
-        child: Material(
-          // 🔥 নতুন সংযোজন: এটি লেয়ারটিকে সবার উপরে নিয়ে আসবে
-          color: Colors.transparent,
-          child: IgnorePointer(
-            child: SizedBox(
-              width: 80,
-              height: 80,
-              child: Lottie.network(
-                lottieUrl,
-                repeat: false,
-                animate: true,
-                errorBuilder: (ctx, err, stack) => const SizedBox(),
-              ),
+        left: pos.dx - 40,
+        top: pos.dy - 60,
+        child: IgnorePointer(
+          child: SizedBox(
+            width: 80,
+            height: 80,
+            child: Lottie.network(
+              lottieUrl,
+              repeat: false,
+              animate: true,
+              errorBuilder: (ctx, err, stack) => const SizedBox(),
             ),
           ),
         ),
@@ -3253,8 +3293,9 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                                     adminList
                                                         .contains(seatUserId)),
                                               ),
+                                              // আপনার রুমের যেখানে লুপ চলছে বা বাটন রেন্ডার হচ্ছে, সেখানে নিশ্চয়ই 'index' বা 'i' নামে ইনডেক্সটি আছে।
                                               _buildAdminAction(
-                                                // ১. ডাটাবেসের 'isMicOn' ভ্যালু দেখে আইকন এবং কালার পরিবর্তন হবে
+                                                // লজিক: মাইক অফ (false) হলে Mic Off আইকন এবং লাল কালার, অন (true) হলে Mic আইকন এবং সবুজ কালার
                                                 icon: (seatData?['isMicOn'] ==
                                                         false)
                                                     ? Icons.mic_off
@@ -3266,30 +3307,27 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                                 color: (seatData?['isMicOn'] ==
                                                         false)
                                                     ? Colors.redAccent
-                                                    : Colors.white70,
-
+                                                    : Colors.greenAccent,
                                                 onTap: () async {
-                                                  // ১. এখান থেকে ইউজারের আইডি বের করা হচ্ছে
+                                                  int sIndex =
+                                                      index; // লুপের ইনডেক্স
+                                                  debugPrint(
+                                                      "--- Mute Button Clicked for Index: $sIndex ---");
+
                                                   String seatUserId =
                                                       seatData?['userId']
                                                               ?.toString() ??
                                                           seatData?['uID']
                                                               ?.toString() ??
                                                           '';
-
-                                                  // ২. বর্তমান লগইন করা ইউজারের আইডি নেওয়া (লাল দাগ দূর করার জন্য)
                                                   final String currentUserId =
                                                       FirebaseAuth
                                                               .instance
                                                               .currentUser
                                                               ?.uid ??
                                                           '';
-                                                  // সিট ইনডেক্স বের করা
-                                                  int sIndex =
-                                                      seatData?['index'] ?? -1;
-                                                  if (sIndex == -1) return;
 
-                                                  // বর্তমান অবস্থা কি সেটা দেখা (true মানে মাইক অন, false মানে অফ)
+                                                  // বর্তমান অবস্থা থেকে নতুন অবস্থা নির্ধারণ
                                                   bool currentMicStatus =
                                                       seatData?['isMicOn'] ??
                                                           true;
@@ -3297,40 +3335,38 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                                       !currentMicStatus;
 
                                                   try {
-                                                    // হ্যাপটিক ভাইব্রেশন
-                                                    try {
-                                                      HapticFeedback
-                                                          .lightImpact();
-                                                    } catch (_) {}
+                                                    await HapticFeedback
+                                                        .lightImpact();
 
-                                                    // ২. ফায়ারবেসে আপডেট করা
-                                                    // এডমিন যখন 'Mute' চাপবে, ডাটাবেসে 'isMicOn' false হয়ে যাবে
+                                                    // ফায়ারবেস আপডেট
                                                     await FirebaseDatabase
                                                         .instance
                                                         .ref(
                                                             'rooms/${widget.roomId}/seats/$sIndex')
                                                         .update({
                                                       'isMicOn': newMicStatus,
-                                                      'isTalking':
-                                                          false, // সাউন্ড অফ করার সাথে সাথে টকিং এনিমেশনও বন্ধ
+                                                      'isTalking': false,
                                                     });
 
-                                                    // ৩. যদি এডমিন নিজেই নিজের সিটে বসা থাকে, তবে সরাসরি তার এগোরা মাইক অফ হবে
+                                                    // যদি নিজের মাইক হয়, তবে লোকাল অ্যাগোরা কন্ট্রোল
                                                     if (seatUserId ==
                                                         currentUserId) {
+                                                      // newMicStatus 'false' হলে মিউট হবে (অর্থাৎ! অন), তাই এখানে লজিক মিলিয়ে নিন
                                                       await _agoraManager
                                                           .toggleMic(
-                                                              !newMicStatus);
+                                                              newMicStatus ==
+                                                                  false);
                                                     }
 
-                                                    // ডায়ালগ বন্ধ করা (ঐচ্ছিক, চাইলে রাখতে পারেন)
-                                                    // Navigator.pop(context);
+                                                    debugPrint(
+                                                        "Update Successful: Mic is now ${newMicStatus ? 'ON' : 'OFF'}");
                                                   } catch (e) {
                                                     debugPrint(
                                                         "Admin Control Error: $e");
                                                   }
                                                 },
                                               ),
+
                                               _buildAdminAction(
                                                 icon: Icons.gavel,
                                                 label: "Kick",
@@ -3459,25 +3495,6 @@ class _VoiceRoomState extends State<VoiceRoom> {
                                                 const SizedBox.shrink(),
                                           ),
                                   ),
-                                ),
-                              ),
-                            if (isOccupied)
-                              Positioned(
-                                bottom: 2,
-                                right: 2,
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.7),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                          color: Colors.white24, width: 0.5)),
-                                  child: Icon(
-                                      isMicOn ? Icons.mic : Icons.mic_off,
-                                      color: isMicOn
-                                          ? Colors.greenAccent
-                                          : Colors.redAccent,
-                                      size: 11),
                                 ),
                               ),
                           ],
@@ -4074,6 +4091,16 @@ class _VoiceRoomState extends State<VoiceRoom> {
                       receiverImage: receiverImgUrl,
                       giftName: gift['name'] ?? "Gift",
                     );
+
+// ২. রুমের XP আপডেট করা (আপনার আগের লজিকের সাথে সামঞ্জস্য রেখে)
+                    if (!isFree && totalAmount > 0) {
+                      // RoomLevelHelper এ টোটাল অ্যামাউন্ট পাঠিয়ে দিচ্ছি
+                      // এটি আপনার RoomLevelHelper.dart ফাইলের addXpToRoom ফাংশনটিকে ট্রিগার করবে
+                      await RoomLevelHelper.addXpToRoom(
+                          widget.roomId, totalAmount);
+
+                      debugPrint("Room XP updated for room: ${widget.roomId}");
+                    }
 
 // --- এইখানে পিকে স্কোর আপডেটের লজিক বসান ---
                     if (isPKActive && currentPKData != null) {

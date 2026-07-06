@@ -7,7 +7,8 @@ class VisitorsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String myUid = FirebaseAuth.instance.currentUser!.uid;
+    // বর্তমান ইউজারের AuthUID ব্যবহার করে তার নিজের ডকুমেন্ট আইডি খুঁজে বের করছি
+    final String currentAuthUid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -15,55 +16,84 @@ class VisitorsScreen extends StatelessWidget {
         title: const Text("Profile Visitors"),
         backgroundColor: Colors.grey[900],
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        // আপনার ডাটাবেজে যেখানে ভিজিটর লিস্ট সেভ হচ্ছে সেই কালেকশন পাথটি দিন
-        stream: FirebaseFirestore.instance
-            .collection('users')
-            .doc(myUid)
-            .collection('visitors')
-            .orderBy('visitedAt', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          
-          if (snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text("No visitors yet", style: TextStyle(color: Colors.white)));
-          }
+      body: currentAuthUid.isEmpty
+          ? const Center(child: Text("Please login", style: TextStyle(color: Colors.white)))
+          : StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .where('authUID', isEqualTo: currentAuthUid)
+                  .snapshots()
+                  .asyncMap((userSnapshot) async {
+                if (userSnapshot.docs.isEmpty) {
+                  return FirebaseFirestore.instance
+                      .collection('invalid_path')
+                      .snapshots()
+                      .first;
+                }
 
-          return ListView.builder(
-            itemCount: snapshot.data!.docs.length,
-            itemBuilder: (context, index) {
-              var data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
-              
-              // কার্ড ডিজাইন
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.amber.withOpacity(0.3)), // প্রিমিয়াম লুক
-                ),
-                child: ListTile(
-                  leading: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      CircleAvatar(
-                        backgroundImage: NetworkImage(data['userImage'] ?? ''),
+                // নিজের ডকুমেন্ট আইডি পাচ্ছি
+                String myDocId = userSnapshot.docs.first.id;
+
+                // নিজের ভিজিটর কালেকশন থেকে ডাটা রিড করছি
+                return await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(myDocId)
+                    .collection('visitors')
+                    .orderBy('visitedAt', descending: true)
+                    .get()
+                    .then((snapshot) => snapshot);
+              }),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(
+                      child: Text("No visitors yet", style: TextStyle(color: Colors.white)));
+                }
+
+                return ListView.builder(
+                  itemCount: snapshot.data!.docs.length,
+                  itemBuilder: (context, index) {
+                    // ডাটাবেস থেকে ডাটা ম্যাপে কনভার্ট করছি
+                    var data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
+
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[900],
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: Colors.amber.withOpacity(0.3)),
                       ),
-                      // ফ্রেমের লজিক (আপনার ডাটাবেজ অনুযায়ী)
-                      if (data['frameUrl'] != null)
-                        Image.network(data['frameUrl'], width: 50, height: 50),
-                    ],
-                  ),
-                  title: Text(data['userName'] ?? "Unknown", 
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text("Visited your profile", style: TextStyle(color: Colors.white70)),
-                ),
-              );
-            },
-          );
-        },
-      ),
+                      child: ListTile(
+                        leading: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CircleAvatar(
+                              // আপনার দেয়া ফিল্ড অনুযায়ী: userImage
+                              backgroundImage: NetworkImage(data['userImage'] ?? ''),
+                            ),
+                            // আপনার দেয়া ফিল্ড অনুযায়ী: frameUrl
+                            if (data['frameUrl'] != null && data['frameUrl'].toString().isNotEmpty)
+                              Image.network(data['frameUrl'], width: 50, height: 50),
+                          ],
+                        ),
+                        // আপনার দেয়া ফিল্ড অনুযায়ী: userName
+                        title: Text(
+                          data['userName'] ?? "User",
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: const Text(
+                          "Visited your profile",
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 }

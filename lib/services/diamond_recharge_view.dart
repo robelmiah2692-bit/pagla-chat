@@ -48,6 +48,8 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
     },
     'gem_pack_1m': {'amount': 1000000, 'price': '\$84.99', 'display': '1M 💎'},
     'gem_pack_2m': {'amount': 2000000, 'price': '\$169.99', 'display': '2M 💎'},
+  'gem_pack_4m': {'amount': 4000000, 'price': '\$300', 'display': '4M 💎'},
+  'gem_pack_8m': {'amount': 8000000, 'price': '\$550', 'display': '8M 💎'},
   };
 
   @override

@@ -58,7 +58,7 @@ final List<Map<String, dynamic>> romanticGifts = [
    { 
     "id": "soulmate_special",
   "name": "Soulmates",
-  "price": 5000, // আপনার পছন্দমতো প্রাইজ সেট করুন
+  "price": 8000, // আপনার পছন্দমতো প্রাইজ সেট করুন
   "icon": 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/Soulmates.jpg',
   "type": 'romantic',
 },
