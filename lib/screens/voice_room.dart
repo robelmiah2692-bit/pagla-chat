@@ -58,6 +58,7 @@ import '../widgets/gift_overlay_handler.dart';
 import '../widgets/gift_system.dart';
 import '../widgets/music_player_widget.dart';
 import '../widgets/room_settings_handler.dart';
+
 // আপনার ফাইলের লোকেশন অনুযায়ী পাথটি চেক করুন
 class VoiceRoom extends StatefulWidget {
   final String roomId;
@@ -175,37 +176,44 @@ class _VoiceRoomState extends State<VoiceRoom> {
   void initState() {
     super.initState();
     // ১. রুম সুইচিং চেক
-  if (RoomManager().activeRoomId != null && RoomManager().activeRoomId != widget.roomId) {
-    RoomManager().forceExitOldRoom();
-  }
-
-  // ২. ক্লিনআপ লজিক সেট করা
-  RoomManager().onForceExit = () {
-    if (mounted) {
-      _removeUserFromViewers();
-      _clearUserLiveStatus();
-      
-      if (currentSeatIndex != -1) {
-         _roomService.updateSeatData(
-            roomId: widget.roomId,
-            seatIndex: currentSeatIndex,
-            uName: "",
-            uImage: "",
-            isOccupied: false);
-            
-         FirebaseFirestore.instance
-            .collection('rooms')
-            .doc(widget.roomId)
-            .collection('seats')
-            .doc(currentSeatIndex.toString())
-            .update({'isOccupied': false, 'userName': '', 'userImage': '', 'status': 'empty', 'isMicOn': false});
-      }
-      _activeManager.stopTimer();
+    if (RoomManager().activeRoomId != null &&
+        RoomManager().activeRoomId != widget.roomId) {
+      RoomManager().forceExitOldRoom();
     }
-  };
-  
-  RoomManager().activeRoomId = widget.roomId;
-    
+
+    // ২. ক্লিনআপ লজিক সেট করা
+    RoomManager().onForceExit = () {
+      if (mounted) {
+        _removeUserFromViewers();
+        _clearUserLiveStatus();
+
+        if (currentSeatIndex != -1) {
+          _roomService.updateSeatData(
+              roomId: widget.roomId,
+              seatIndex: currentSeatIndex,
+              uName: "",
+              uImage: "",
+              isOccupied: false);
+
+          FirebaseFirestore.instance
+              .collection('rooms')
+              .doc(widget.roomId)
+              .collection('seats')
+              .doc(currentSeatIndex.toString())
+              .update({
+            'isOccupied': false,
+            'userName': '',
+            'userImage': '',
+            'status': 'empty',
+            'isMicOn': false
+          });
+        }
+        _activeManager.stopTimer();
+      }
+    };
+
+    RoomManager().activeRoomId = widget.roomId;
+
     WakelockPlus.enable(); // স্ক্রিন যাতে অফ না হয়
     listenForSoulmateRequests();
     listenForMarriageRequests();
@@ -3625,6 +3633,8 @@ class _VoiceRoomState extends State<VoiceRoom> {
               isScrollControlled: true,
               backgroundColor: Colors.transparent,
               builder: (context) => Container(
+                // বটম শটের হাইট অনুযায়ী প্যাডিং বা সাইজ সেট করতে পারেন
+                padding: const EdgeInsets.all(10),
                 decoration: const BoxDecoration(
                   color: Color(0xFF1A1A2E),
                   borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -3633,7 +3643,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   onGiftCountStart: (minutes, theme) {
                     _startGiftCounting(minutes, theme);
                   },
-                  seats: seats, // এখানে seatedUsers এর বদলে seats দিন
+                  seats: seats,
                   isPKActive: isPKActive,
                   onStartPK: _startPKBattle,
                 ),

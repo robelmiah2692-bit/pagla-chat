@@ -122,24 +122,28 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools>
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
-      left: position.dx,
-      top: position.dy,
-      child: Draggable(
-        feedback: _buildToolPanel(isFeedback: true),
-        childWhenDragging: Container(),
-        onDragEnd: (details) {
-          setState(() {
-            double x = details.offset.dx;
-            double y = details.offset.dy;
-            position = Offset(x < 0 ? 0 : x, y < 0 ? 0 : y);
-          });
-        },
-        child: _buildToolPanel(),
-      ),
+    // এখন আর Positioned বা Draggable নেই, সরাসরি প্যানেল রিটার্ন করবে
+    // আমরা Column ব্যবহার করছি যেন এটি বটম শটে সুন্দরভাবে দেখায়
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // প্যানেলের উপরে একটি ছোট হ্যান্ডেল (অপশনাল, দেখতে ভালো লাগে)
+        Container(
+          margin: const EdgeInsets.only(top: 10, bottom: 20),
+          width: 40,
+          height: 4,
+          decoration: BoxDecoration(
+            color: Colors.white24,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        // আপনার টুল প্যানেল
+        _buildToolPanel(),
+        // বটম শটে যেন খুব নিচে আটকে না যায়
+        const SizedBox(height: 20), 
+      ],
     );
   }
-
   Widget _buildToolPanel({bool isFeedback = false}) {
     return AnimatedBuilder(
       animation: _gradientController,

@@ -1208,7 +1208,7 @@ void _showDeleteConfirmationDialog(BuildContext context) {
   void _openGames() => UserProfileFeatures.openGames(context);
 // এটি আপনার ফাইলে যোগ করুন
   void _openFacebook() async {
-    final Uri url = Uri.parse('আপনার_ফেসবুক_পেজ_লিংক_এখানে');
+    final Uri url = Uri.parse('https://www.facebook.com/profile.php?id=61591420921368');
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
