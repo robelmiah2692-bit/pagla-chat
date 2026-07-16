@@ -11,7 +11,7 @@ class HelpDeskPage extends StatefulWidget {
 
 class _HelpDeskPageState extends State<HelpDeskPage> {
   // আপনার এজেন্টের আইডিগুলো
-  final List<String> agentIds = ["978051", "680511", "294058", "500660","686008","571783","346306","219616","519857",]; 
+  final List<String> agentIds = ["978051", "680511", "294058", "500660","686008","571783","346306","219616","519857","765259","778741",]; 
   List<Map<String, dynamic>> messages = [];
   bool _isLoading = false;
 

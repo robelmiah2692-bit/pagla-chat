@@ -44,14 +44,19 @@ class _GamesScreenState extends State<GamesScreen> {
 
   void _listenToBalance() {
     if (_userDocId == null) return;
-    
-    FirebaseFirestore.instance.collection('users').doc(_userDocId).snapshots().listen((snapshot) {
+
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(_userDocId)
+        .snapshots()
+        .listen((snapshot) {
       if (snapshot.exists && mounted) {
         var data = snapshot.data();
         if (data != null) {
           setState(() {
             // ডাটাবেসের ফিল্ডের নাম 'diamonds' নিশ্চিত হয়ে নিন
-            userBalance = int.tryParse(data['diamonds']?.toString() ?? "0") ?? 0;
+            userBalance =
+                int.tryParse(data['diamonds']?.toString() ?? "0") ?? 0;
           });
         }
       }
@@ -70,7 +75,9 @@ class _GamesScreenState extends State<GamesScreen> {
             padding: const EdgeInsets.all(10.0),
             child: Row(children: [
               const Icon(Icons.diamond, color: Colors.cyanAccent),
-              Text(" $userBalance", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              Text(" $userBalance",
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, color: Colors.white)),
             ]),
           )
         ],
@@ -87,8 +94,11 @@ class _GamesScreenState extends State<GamesScreen> {
                 mainAxisSpacing: 20,
                 crossAxisSpacing: 20,
                 children: [
-                  _gameIcon("CRAZY FRUIT", "assets/images/crazyfrut.png", Colors.yellow),
-                  _gameIcon("LUCKY", "assets/images/spin_logo.png", Colors.orangeAccent),
+                  _gameIcon("CRAZY FRUIT", "assets/images/crazyfrut.png",
+                      Colors.yellow),
+                  _gameIcon("LUCKY", "assets/images/spin_logo.png",
+                      Colors.orangeAccent),
+                  
                 ],
               ),
             ],
@@ -104,33 +114,45 @@ class _GamesScreenState extends State<GamesScreen> {
         if (_userDocId == null) return;
 
         if (name == "CRAZY FRUIT") {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (context) => CrazyFruitGame(
-              userBalance: userBalance,
-              onUpdateBalance: (newBalance) {
-                // শুধুমাত্র ব্যালেন্স আপডেট করছে, পুরো ইউজার ডাটা নয়
-                FirebaseFirestore.instance.collection('users').doc(_userDocId).update({'diamonds': newBalance.toString()});
-              },
-            )
-          ));
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => CrazyFruitGame(
+                        userBalance: userBalance,
+                        onUpdateBalance: (newBalance) {
+                          // শুধুমাত্র ব্যালেন্স আপডেট করছে, পুরো ইউজার ডাটা নয়
+                          FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(_userDocId)
+                              .update({'diamonds': newBalance.toString()});
+                        },
+                      )));
         } else if (name == "LUCKY") {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (context) => LuckySpinView(
-              gameRef: FirebaseDatabase.instance.ref("games/$_roomId"),
-              userRef: FirebaseDatabase.instance.ref("users/${FirebaseAuth.instance.currentUser?.uid}"),
-              userBalance: userBalance,
-              betAmount: 100,
-              luckyBets: const [],
-              playSound: (url) {},
-            )
-          ));
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => LuckySpinView(
+                        gameRef:
+                            FirebaseDatabase.instance.ref("games/$_roomId"),
+                        userRef: FirebaseDatabase.instance.ref(
+                            "users/${FirebaseAuth.instance.currentUser?.uid}"),
+                        userBalance: userBalance,
+                        betAmount: 100,
+                        luckyBets: const [],
+                        playSound: (url) {},
+                      )));
         }
       },
       child: Column(
         children: [
-          Expanded(child: Container(
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), border: Border.all(color: color.withOpacity(0.5))),
-            child: ClipRRect(borderRadius: BorderRadius.circular(13), child: Image.asset(asset, fit: BoxFit.cover)),
+          Expanded(
+              child: Container(
+            decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: color.withOpacity(0.5))),
+            child: ClipRRect(
+                borderRadius: BorderRadius.circular(13),
+                child: Image.asset(asset, fit: BoxFit.cover)),
           )),
           const SizedBox(height: 5),
           Text(name, style: const TextStyle(color: Colors.white, fontSize: 12)),

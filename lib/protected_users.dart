@@ -11,4 +11,7 @@ final List<String> protectedUserIds = [
 "219616",
 "500660",
 "519857",
+"765259",
+"778741",
+
 ];

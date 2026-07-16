@@ -12,7 +12,7 @@ import 'package:universal_html/js.dart' as js;
 class AgoraManager {
   RtcEngine? _engine;
   bool _isInitialized = false;
-  final String appId = "855883e294ec4144b8e955451c06e3d7";
+  final String appId = "0c83a3aeeb9c44ffae38604f2ba9970b";
   Timer? _keepAliveTimer;
   int? _localuID;
   bool _shouldBeBroadcasting = false;

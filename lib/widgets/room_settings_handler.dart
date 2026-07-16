@@ -139,8 +139,8 @@ class RoomSettingsHandler {
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       itemCount: 6,
                       itemBuilder: (context, index) {
-                        String wallUrl =
-                            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpaper-${index + 1}.jpg";
+                        // আপনার আগের কোডটি এই নতুন লজিক দিয়ে রিপ্লেস করুন
+           String wallUrl = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpaper-${index + 1}.jpg";
                         return GestureDetector(
                           onTap: () async {
                             try {

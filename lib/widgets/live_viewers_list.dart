@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // 💡 কারেন্ট ইউজার ভেরিফিকেশনের জন্য যুক্ত করা হলো
+import 'package:flutter/material.dart';
+import 'package:firebase_database/firebase_database.dart'; // ফায়ারবেস ডাটাবেস ইম্পোর্ট
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pagla_chat/profile_page.dart';
 
-// এই ক্লাসটি এখন একদম আলাদা, তাই এটি কাঁপবে না
 class LiveViewersList extends StatefulWidget {
   final String roomId;
   const LiveViewersList({super.key, required this.roomId});
@@ -13,83 +13,87 @@ class LiveViewersList extends StatefulWidget {
 }
 
 class _LiveViewersListState extends State<LiveViewersList> {
-  // স্ট্রীমটিকে একবার ইনিশিয়েট করছি যাতে বারবার নতুন কানেকশন না তৈরি হয়
-  late Stream<QuerySnapshot> _viewerStream;
+  // স্ট্রীম টাইপ পরিবর্তন করে DatabaseEvent দেওয়া হয়েছে
+  late Stream<DatabaseEvent> _viewerStream;
 
   @override
   void initState() {
     super.initState();
-    _viewerStream = FirebaseFirestore.instance
-        .collection('rooms')
-        .doc(widget.roomId)
-        .collection('viewers')
-        .snapshots(includeMetadataChanges: false);
+    // RTDB পাথ সেট করা
+    _viewerStream = FirebaseDatabase.instance
+        .ref('rooms/${widget.roomId}/viewers')
+        .onValue;
   }
 
   @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _viewerStream,
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-           
-        }
+Widget build(BuildContext context) {
+  return StreamBuilder<DatabaseEvent>(
+    stream: _viewerStream,
+    builder: (context, snapshot) {
+      // ১. ডাটা লোডিং বা এরর হ্যান্ডলিং
+      if (snapshot.hasError) return const SizedBox();
+      if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
+        return const SizedBox();
+      }
 
-        if (snapshot.connectionState == ConnectionState.waiting) return const SizedBox();
+      // ২. RTDB থেকে ডাটা সঠিকভাবে ম্যাপে কনভার্ট করা
+      final dynamic rawValue = snapshot.data!.snapshot.value;
+      final List<Map<String, dynamic>> viewersList = [];
 
-        final docs = snapshot.data?.docs ?? [];
-        
-        return Row(
-          children: [
-            if (docs.isNotEmpty) _buildCount(docs.length),
-            Expanded(
-              child: SizedBox(
-                height: 40,
-                child: ListView.builder(
-                  physics: const BouncingScrollPhysics(),
-                  scrollDirection: Axis.horizontal,
-                  itemCount: docs.length,
-                  addAutomaticKeepAlives: true,
-                  addRepaintBoundaries: true,
-                  cacheExtent: 1000, 
-                  itemBuilder: (context, index) {
-                    final data = docs[index].data() as Map<String, dynamic>;
-                    
-                    // 🔍 [মাস্টার আইডি ফিল্টার]: ফিল্ডের অগ্রাধিকার সেট করা হলো যাতে ভুল আইডি পাস না হয়
-                    // আপনার ডাটাবেজ অনুযায়ী ডকুমেন্ট আইডি (docs[index].id) হচ্ছে লম্বা AuthUID
-                    final String actualAuthUID = docs[index].id;
-                                                 
-                    final img = data['profilePic'] ?? data['userImage'] ?? '';
-                    final name = data['userName'] ?? data['name'] ?? 'Unknown';
+      if (rawValue is Map) {
+        rawValue.forEach((key, value) {
+          if (value is Map) {
+            viewersList.add({...Map<String, dynamic>.from(value), 'id': key});
+          }
+        });
+      }
 
-                    return ViewerAvatar(
-                      key: ValueKey("viewer_$actualAuthUID"), 
-                      viewerId: actualAuthUID,
-                      profileImage: img,
-                      viewerName: name, // নাম প্রিন্ট ট্র্যাকিং এর জন্য পাস করা হলো
-                    );
-                  },
-                ),
+      // ৩. যদি কোনো ইউজার না থাকে
+      if (viewersList.isEmpty) return const SizedBox();
+
+      return Row(
+        children: [
+          _buildCount(viewersList.length),
+          Expanded(
+            child: SizedBox(
+              height: 40,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: viewersList.length,
+                itemBuilder: (context, index) {
+                  final data = viewersList[index];
+                  final String actualAuthUID = data['id'] ?? '';
+                  final img = data['profilePic'] ?? '';
+                  final name = data['name'] ?? 'Guest';
+
+                  return ViewerAvatar(
+                    key: ValueKey("viewer_$actualAuthUID"),
+                    viewerId: actualAuthUID,
+                    profileImage: img,
+                    viewerName: name,
+                  );
+                },
               ),
             ),
-          ],
-        );
-      },
-    );
-  }
-
+          ),
+        ],
+      );
+    },
+  );
+}
   Widget _buildCount(int count) {
     return Container(
       margin: const EdgeInsets.only(right: 8),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.black54, 
-        borderRadius: BorderRadius.circular(12)
-      ),
-      child: Text("$count", style: const TextStyle(color: Colors.white, fontSize: 11)),
+          color: Colors.black54, borderRadius: BorderRadius.circular(12)),
+      child: Text("$count",
+          style: const TextStyle(color: Colors.white, fontSize: 11)),
     );
   }
 }
+
+
 
 class ViewerAvatar extends StatefulWidget {
   final String viewerId;

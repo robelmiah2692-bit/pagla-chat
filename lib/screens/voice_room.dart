@@ -21,6 +21,13 @@ import 'package:pagla_chat/RoomLevelHelper.dart';
 
 import 'package:pagla_chat/VideoGiftOverlay.dart';
 import 'package:pagla_chat/chat_screen.dart';
+import 'package:pagla_chat/ludo_game/dice_model.dart';
+import 'package:pagla_chat/ludo_game/game_state.dart';
+import 'package:pagla_chat/ludo_game/gameplay.dart';
+import 'package:pagla_chat/ludo_game/position.dart';
+import 'package:pagla_chat/ludo_game/token.dart';
+import 'package:pagla_chat/ludo_helper.dart';
+import 'package:pagla_chat/ludo_lobby_popup.dart';
 
 import 'package:pagla_chat/pk_manager.dart';
 import 'package:pagla_chat/protected_users.dart';
@@ -34,6 +41,7 @@ import 'package:pagla_chat/services/room_active_manager.dart';
 import 'package:pagla_chat/services/soulmate_xp_service.dart';
 
 import 'package:pagla_chat/widgets/entry_effect_handler.dart';
+import 'package:provider/provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -85,6 +93,16 @@ class _VoiceRoomState extends State<VoiceRoom> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final TextEditingController _messageController = TextEditingController();
   Offset bannerPosition = Offset(20, 120); // শুরুতে ব্যানারটি কোথায় থাকবে
+// VoiceRoomState ক্লাসের শুরুতে এটি যোগ করুন
+  List<Token> gameTokens = List.generate(
+      16,
+      (index) =>
+          Token(TokenType.green, Position(0, 0), TokenState.initial, index));
+  bool showLudoLobby = false; // পপ-আপ দেখানোর জন্য শুধু এই একটি ভেরিয়েবল
+  int currentBet = 2; // রুম মালিকের ডাইমন্ড কন্ট্রোলের জন্য
+  // এগুলো স্টেট ক্লাসের শুরুতে রাখুন
+  List<Map<String, dynamic>> gameJoinedUsers = [];
+  bool isGameStarted = false;
   // Room States
   bool isRoomMuted = false;
   bool isCalculatorActive = false;
@@ -355,10 +373,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
         .ref('rooms/${widget.roomId}/seats')
         .onValue
         .listen((event) {
+      final data = event.snapshot.value;
       if (!mounted) return;
-      final dynamic data = event.snapshot.value;
 
       setState(() {
+        debugPrint("🔄 [UI RENDER] 🔄 triggered by Seat Database Change");
+
         for (var seat in seats) {
           seat["isOccupied"] = false;
           seat["userName"] = "";
@@ -388,16 +408,101 @@ class _VoiceRoomState extends State<VoiceRoom> {
               seats[index]["agorauID"] = value["agorauID"]?.toString() ?? "";
               seats[index]["giftCount"] =
                   int.tryParse(value["giftCount"]?.toString() ?? "0") ?? 0;
-              // 🔥 গুরুত্বপূর্ণ: ডাটাবেজ থেকে নিজের সিট খুঁজে বের করে currentSeatIndex লক করা
+
               if (seats[index]["userId"] ==
                   FirebaseAuth.instance.currentUser?.uid) {
                 currentSeatIndex = index;
+                // নতুন: লুডু লবির জন্য ইউজার লিস্ট আপডেট
+                gameJoinedUsers = seats
+                    .where((s) => s["isOccupied"] == true)
+                    .map((s) =>
+                        {"name": s["userName"], "avatar": s["userImage"]})
+                    .toList();
+
                 listenForMarriageRequests();
               }
             }
           });
         }
       });
+    });
+
+// লবির স্টেট লিসেনার - এটি সবার ফোনে লবি ও গেম স্টার্ট সিঙ্ক করবে
+    FirebaseDatabase.instance
+        .ref('ludo_rooms/${widget.roomId}/lobby_status')
+        .onValue
+        .listen((event) {
+      final data = event.snapshot.value as Map?;
+      if (data != null && mounted) {
+        setState(() {
+          showLudoLobby = data["showLobby"] ?? false;
+          isGameStarted = data["isStarted"] ?? false;
+          currentBet = data["betAmount"] ?? 2;
+        });
+      }
+    });
+
+// লবিতে জয়েন করা প্লেয়ারদের লিস্ট সিঙ্ক করার লজিক
+FirebaseDatabase.instance
+    .ref('ludo_rooms/${widget.roomId}/players')
+    .onValue
+    .listen((event) {
+  final data = event.snapshot.value;
+
+  if (mounted) {
+    setState(() {
+      gameJoinedUsers = [];
+
+      if (data != null) {
+        // Firebase ডাটা Map হিসেবে আসছে
+        Map<dynamic, dynamic> playersMap = data as Map<dynamic, dynamic>;
+
+        playersMap.forEach((key, value) {
+          // এখানে 'color' ডাটাবেস থেকে আসছে যা onJoin এ সেট করেছিলেন
+          String color = (value["color"] != null)
+              ? value["color"].toString().toLowerCase()
+              : "green";
+
+          gameJoinedUsers.add({
+            "name": value["name"] ?? "Player",
+            "avatar": value["avatar"] ?? "",
+            "uid": key,
+            "color": color // এটি এখন আপনার অন-জয়েন লজিক অনুযায়ী সঠিক কালার পাবে
+          });
+        });
+      }
+    });
+
+    // কনসোলে চেক করার জন্য প্রিন্ট
+    debugPrint("Synced Players Count: ${gameJoinedUsers.length}");
+    gameJoinedUsers.forEach((p) => debugPrint("User: ${p['name']}, Assigned Color: ${p['color']}"));
+  }
+});
+
+// ৪. নতুন গেম স্টেট লিসেনার (যেখানে টোকেন পজিশন লাইভ সিঙ্ক হবে)
+    FirebaseDatabase.instance
+        .ref('ludo_rooms/${widget.roomId}/game_state')
+        .onValue
+        .listen((event) {
+      final data = event.snapshot.value as Map?;
+      if (data != null && mounted) {
+        setState(() {
+          // টোকেন ডাটা আপডেট লজিক
+          List<dynamic> tokensFromDb = data['tokens'];
+          for (var t in tokensFromDb) {
+            int id = t['id'];
+            // আপনার গেমের গুটিগুলোর স্টেট আপডেট করা
+            // ধরুন gameTokens আপনার VoiceRoomState এর একটি লিস্ট
+            if (id < gameTokens.length) {
+              gameTokens[id].tokenPosition = Position(t['row'], t['column']);
+              gameTokens[id].positionInPath = t['pathPos'];
+              // যদি স্টেট আপডেট করতে হয়
+              // gameTokens[id].tokenState = ... (আপনার স্টেট অনুযায়ী)
+            }
+          }
+        });
+        debugPrint("🔄 [LUDO SYNC] 🔄 Game State updated from Database");
+      }
     });
 
     // ৭. এগোরা লজিক (রিপেল ঠিক করার জন্য পুরাতন কোড ফিরিয়ে আনা হলো)
@@ -1475,16 +1580,7 @@ class _VoiceRoomState extends State<VoiceRoom> {
 
         await seatRef.onDisconnect().remove();
         // 🔥 ঠিক এখানে এই নিচের কোডটুকু বসিয়ে দিন (Firestore-এ ডাটা পাঠানোর জন্য)
-        await FirebaseFirestore.instance
-            .collection('rooms')
-            .doc(widget.roomId)
-            .collection('messages')
-            .add({
-          'name': userData['name'] ?? "User",
-          'uID': userData['uID'] ?? "",
-          'profilePic': userData['profilePic'] ?? "",
-          'timestamp': FieldValue.serverTimestamp(),
-        });
+
         // 🔥 কোড শেষ
         if (mounted) {
           setState(() {
@@ -1644,6 +1740,13 @@ class _VoiceRoomState extends State<VoiceRoom> {
         debugPrint("Talking Status Update Error: $e");
       }
     }
+  }
+
+  void _showLudoLobby(BuildContext context) {
+    bool isAuthorized =
+        (ownerId.toString().trim() == myuID.toString().trim()) ||
+            adminList.contains(myuID.toString().trim());
+    LudoHelper.showLudoLobby(context, seats, isAuthorized);
   }
 
   void _startPKBattle(
@@ -2228,6 +2331,147 @@ class _VoiceRoomState extends State<VoiceRoom> {
                               currentReceiverImage = "";
                             });
                           }
+                        },
+                      ),
+                    ),
+                  ),
+                // Stack এর ভেতর এই অংশটি বসান:
+// ১. লবি পপ-আপ
+                if (showLudoLobby)
+                  Positioned(
+                    top: 150,
+                    left: 20,
+                    right: 20,
+                    child: LudoLobbyPopup(
+                      joinedUsers: gameJoinedUsers,
+                      isAdmin: (ownerId.toString().trim() ==
+                              myuID.toString().trim()) ||
+                          adminList.contains(myuID.toString().trim()),
+                      betAmount: currentBet,
+
+                      onJoin: () async {
+                        // ১. বর্তমান ইউজার কোন সিটে বসে আছে খুঁজে বের করুন
+                        var mySeat = seats.firstWhere(
+                            (s) =>
+                                s["userId"] ==
+                                FirebaseAuth.instance.currentUser?.uid,
+                            orElse: () => {});
+
+                        if (mySeat.isEmpty || mySeat["userName"] == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("আপনি সিটে বসে নেই!")));
+                          return;
+                        }
+
+                        // ২. ডাটাবেস থেকে বর্তমান প্লেয়ারদের লিস্ট আনুন
+                        DatabaseEvent event = await FirebaseDatabase.instance
+                            .ref("ludo_rooms/${widget.roomId}/players")
+                            .once();
+                        List<String> takenColors = [];
+
+                        if (event.snapshot.value != null) {
+                          Map<dynamic, dynamic> players =
+                              event.snapshot.value as Map;
+                          players.forEach((key, value) {
+                            if (value["color"] != null) {
+                              takenColors
+                                  .add(value["color"].toString().toLowerCase());
+                            }
+                          });
+                        }
+
+                        // ৩. চেক করুন ইউজার কি অলরেডি জয়েন করেছে?
+                        if (takenColors.length >= 4) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("লবি ফুল হয়ে গেছে!")));
+                          return;
+                        }
+
+                        // ৪. কালার পুল থেকে যেটা নেওয়া হয়নি সেটি সিলেক্ট করুন
+                        List<String> colorPool = [
+                          "green",
+                          "yellow",
+                          "red",
+                          "blue"
+                        ];
+                        String assignedColor = colorPool.firstWhere(
+                            (color) => !takenColors.contains(color),
+                            orElse: () => "green");
+
+                        // ৫. ডাটাবেসে ডাটা আপডেট করুন
+                        FirebaseDatabase.instance
+                            .ref("ludo_rooms/${widget.roomId}/players/$myuID")
+                            .set({
+                          "name": mySeat["userName"],
+                          "avatar": mySeat["userImage"],
+                          "color": assignedColor,
+                        }).then((_) {
+                          debugPrint(
+                              "------------------------------------------");
+                          debugPrint("SUCCESS: Joined as $assignedColor");
+                          debugPrint("Taken Colors so far: $takenColors");
+                          debugPrint(
+                              "------------------------------------------");
+                        });
+                      },
+                      // গেম স্টার্ট লজিক: ডাটাবেসে আপডেট করলে সবার ফোনে গেম শুরু হবে
+                      onStart: () {
+                        FirebaseDatabase.instance
+                            .ref("ludo_rooms/${widget.roomId}/lobby_status")
+                            .update({
+                          "showLobby": false,
+                          "isStarted": true,
+                        });
+                      },
+
+                      // 🎯 আপডেট করা onClose লজিক এখানে বসান:
+                      onClose: () {
+                        FirebaseDatabase.instance
+                            .ref("ludo_rooms/${widget.roomId}/lobby_status")
+                            .update({"showLobby": false});
+                      },
+
+                      onUpdateBet: (newBet) {
+                        setState(() => currentBet = newBet);
+                        FirebaseDatabase.instance
+                            .ref("ludo_rooms/${widget.roomId}/lobby_status")
+                            .update({"betAmount": newBet});
+                      },
+                    ),
+                  ),
+
+// ২. গেম বোর্ড (যখন গেম স্টার্ট হবে)
+                if (isGameStarted)
+                  Positioned(
+                    top: 100,
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: MultiProvider(
+                      providers: [
+                        ChangeNotifierProvider(create: (_) => GameState()),
+                        ChangeNotifierProvider(create: (_) => DiceModel()),
+                      ],
+                      child: Builder(
+                        builder: (context) {
+                          return StreamBuilder<DocumentSnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('rooms')
+                                .doc(widget.roomId)
+                                .snapshots(),
+                            builder: (context, snapshot) {
+                              // Consumer ব্যবহার করার ফলে এটি নিশ্চিত করে যে GameState প্রোভাইডার থেকে ডাটা পেয়েছে
+                              return Consumer<GameState>(
+                                builder: (context, gameState, child) {
+                                  return GamePlay(
+                                    GlobalKey(),
+                                    gameState, // প্রোভাইডার থেকে পাওয়া লেটেস্ট স্টেট
+                                    players: gameJoinedUsers,
+                                  );
+                                },
+                              );
+                            },
+                          );
                         },
                       ),
                     ),
@@ -3628,12 +3872,12 @@ class _VoiceRoomState extends State<VoiceRoom> {
           const SizedBox(width: 5),
 
           _buildCircularIcon(Icons.star, Colors.purpleAccent, () {
+            // Icons.star ঠিক রাখা হলো
             showModalBottomSheet(
               context: context,
               isScrollControlled: true,
               backgroundColor: Colors.transparent,
               builder: (context) => Container(
-                // বটম শটের হাইট অনুযায়ী প্যাডিং বা সাইজ সেট করতে পারেন
                 padding: const EdgeInsets.all(10),
                 decoration: const BoxDecoration(
                   color: Color(0xFF1A1A2E),
@@ -3646,6 +3890,28 @@ class _VoiceRoomState extends State<VoiceRoom> {
                   seats: seats,
                   isPKActive: isPKActive,
                   onStartPK: _startPKBattle,
+                  ownerId: ownerId,
+                  myuID: myuID,
+                  adminList: adminList,
+                  gameJoinedUsers: seats
+                      .where((s) => s["isOccupied"] == true)
+                      .map((s) => {
+                            "name": s["userName"].toString(),
+                            "avatar": s["userImage"].toString()
+                          })
+                      .toList(),
+                  // আপনার বাটন লজিক:
+                  onOpenLudo: () {
+                    // শুধু ডাটাবেস আপডেট হবে, লবি ওপেন করবে আপনার initState এর লিসেনার
+                    FirebaseDatabase.instance
+                        .ref("ludo_rooms/${widget.roomId}/lobby_status")
+                        .set({
+                      "showLobby": true,
+                      "isStarted": false,
+                      "betAmount": 2,
+                    });
+                    Navigator.pop(context); // বটম শিট বন্ধ হবে
+                  },
                 ),
               ),
             );
@@ -4701,14 +4967,17 @@ class _VoiceRoomState extends State<VoiceRoom> {
       },
       onLeave: () async {
         RoomSettingsHandler.showExitDialog(context, () async {
-          await RoomExitHandler.handleExit(widget.roomId, myuID.toString(),
+          // ১. আগে কল করুন
+          RoomExitHandler.handleExit(widget.roomId, myuID.toString(),
               adminList.map((e) => e.toString()).toList(), ownerId.toString());
 
+          // ২. এরপর এজোরার চ্যানেল লিভ করুন
           await _agoraManager.engine.leaveChannel();
 
+          // ৩. এরপর ইউজারকে বের করে দিন
           if (mounted) {
-            Navigator.of(context).pop();
-            Navigator.of(context).pop();
+            Navigator.of(context).pop(); // Dialog বন্ধ
+            Navigator.of(context).pop(); // RoomScreen থেকে বের হওয়া
           }
         });
       },
@@ -4946,14 +5215,25 @@ class _VoiceRoomState extends State<VoiceRoom> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
+    debugPrint("DEBUG: [AddUser] প্রসেস শুরু হচ্ছে...");
+
     try {
+      final rtdb = FirebaseDatabase.instance.ref();
+      final viewerRef =
+          rtdb.child('rooms/${widget.roomId}/viewers/${user.uid}');
       final firestore = FirebaseFirestore.instance;
       final roomRef = firestore.collection('rooms').doc(widget.roomId);
 
-      // চেক করুন ইউজার অলরেডি ভিউয়ার লিস্টে আছে কি না
-      final viewerDoc = await roomRef.collection('viewers').doc(user.uid).get();
-      if (viewerDoc.exists) return; // থাকলে আর অ্যাড করার দরকার নেই
+      debugPrint("DEBUG: RTDB পাথ: ${viewerRef.path}");
 
+      // ১. ইউজার আগে থেকেই আছে কিনা চেক
+      final snapshot = await viewerRef.get();
+      if (snapshot.exists) {
+        debugPrint("DEBUG: ইউজার অলরেডি RTDB তে আছে।");
+        return;
+      }
+
+      // ২. ইউজারের তথ্য ফায়ারস্টোর থেকে আনা
       final userQuery = await firestore
           .collection('users')
           .where('authUID', isEqualTo: user.uid)
@@ -4969,21 +5249,27 @@ class _VoiceRoomState extends State<VoiceRoom> {
         myName = userData['name'] ?? "Guest";
         myPic = userData['profilePic'] ?? userData['userImage'] ?? "";
         myShortID = userData['uID']?.toString() ?? "0";
+        debugPrint("DEBUG: ইউজার ডাটা পাওয়া গেছে: $myName");
+      } else {
+        debugPrint("DEBUG: ইউজার ডাটা পাওয়া যায়নি, গেস্ট হিসেবে সেট হচ্ছে।");
       }
 
-      // ডাটা পাঠানো
-      await roomRef.collection('viewers').doc(user.uid).set({
+      // ৩. RTDB-তে ডাটা সেট করা
+      viewerRef.onDisconnect().remove();
+      await viewerRef.set({
         'authUID': user.uid,
         'uID': myShortID,
         'name': myName,
         'profilePic': myPic,
-        'joinedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+        'joinedAt': ServerValue.timestamp,
+      });
+      debugPrint("DEBUG: RTDB তে ইউজার ডাটা রাইট সাকসেস!");
 
-      // কাউন্ট বাড়ানো
+      // ৪. ফায়ারস্টোরে ভিউয়ার কাউন্ট বাড়ানো
       await roomRef.update({'viewerCount': FieldValue.increment(1)});
+      debugPrint("DEBUG: ফায়ারস্টোর কাউন্ট আপডেট সাকসেস!");
     } catch (e) {
-      debugPrint("Viewer Add Error: $e");
+      debugPrint("DEBUG: [AddUser] Error: $e");
     }
   }
 
@@ -4991,26 +5277,34 @@ class _VoiceRoomState extends State<VoiceRoom> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
+    debugPrint("DEBUG: [RemoveUser] প্রসেস শুরু হচ্ছে...");
+
     try {
-      final roomRef =
-          FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
+      final rtdb = FirebaseDatabase.instance
+          .ref('rooms/${widget.roomId}/viewers/${user.uid}');
+      final firestore = FirebaseFirestore.instance;
+      final roomRef = firestore.collection('rooms').doc(widget.roomId);
 
-      // ডিলিট করার আগে চেক
-      final viewerDoc = await roomRef.collection('viewers').doc(user.uid).get();
-      if (!viewerDoc.exists)
-        return; // না থাকলে ডিলিট বা কাউন্ট কমানোর দরকার নেই
+      // ১. চেক করা RTDB-তে ইউজার আছে কিনা
+      final snapshot = await rtdb.get();
+      if (!snapshot.exists) {
+        debugPrint("DEBUG: ইউজার RTDB তে নেই, রিমুভ করার দরকার নেই।");
+        return;
+      }
 
-      await roomRef.collection('viewers').doc(user.uid).delete();
+      // ২. RTDB থেকে রিমুভ
+      await rtdb.remove();
+      debugPrint("DEBUG: RTDB থেকে ইউজার রিমুভ সাকসেস!");
 
-      // কাউন্ট কমানো (নিরাপদভাবে)
+      // ৩. ফায়ারস্টোরে কাউন্ট কমানো
       final roomDoc = await roomRef.get();
       int currentCount = roomDoc.data()?['viewerCount'] ?? 0;
-
       if (currentCount > 0) {
         await roomRef.update({'viewerCount': FieldValue.increment(-1)});
+        debugPrint("DEBUG: ফায়ারস্টোর কাউন্ট মাইনাস সাকসেস!");
       }
     } catch (e) {
-      debugPrint("Viewer Remove Error: $e");
+      debugPrint("DEBUG: [RemoveUser] Error: $e");
     }
   }
 

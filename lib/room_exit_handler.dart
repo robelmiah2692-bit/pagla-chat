@@ -1,89 +1,113 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 
 class RoomExitHandler {
-  
+  // ১. রুম এন্ড এবং সব ডাটা ক্লিনিং
   static Future<void> endRoom(String roomId) async {
     try {
-      debugPrint("DEBUG: Attempting to end room using Batch: $roomId");
       final firestore = FirebaseFirestore.instance;
-      WriteBatch batch = firestore.batch();
       DocumentReference roomRef = firestore.collection('rooms').doc(roomId);
 
-      batch.update(roomRef, {
-        'seats': [],
-        'viewerList': [],
-        'musicPlayer': {'url': '', 'status': 'stopped'},
-        'chatList': [],
-        'userCount': 0,
+      // সব ডাটা রিসেট করা
+      await roomRef.update({
         'isActive': false,
-        'isLocked': false,
+        'seats': [],
+        'userCount': 0,
+        'usersInRoom': [],
+        'viewerList': [], // ভিউয়ার লিস্টও ক্লিয়ার হবে
       });
 
-      var roomUsers = await roomRef.collection('users').get();
-      for (var doc in roomUsers.docs) { batch.delete(doc.reference); }
+      // ব্যাকগ্রাউন্ডে ট্রানজেকশনের মাধ্যমে ক্লিনিং
+      firestore.runTransaction((transaction) async {
+        // ইউজার কালেকশন
+        var roomUsers = await roomRef.collection('users').get();
+        for (var doc in roomUsers.docs) {
+          transaction.delete(doc.reference);
+        }
 
-      var chatMessages = await roomRef.collection('messages').get();
-      debugPrint("DEBUG: Batch deleting ${chatMessages.docs.length} messages.");
-      for (var msgDoc in chatMessages.docs) { batch.delete(msgDoc.reference); }
-      
-      await batch.commit();
-      debugPrint("DEBUG: Room ended successfully!");
+        // মেসেজ কালেকশন
+        var chatMessages = await roomRef.collection('messages').get();
+        for (var msgDoc in chatMessages.docs) {
+          transaction.delete(msgDoc.reference);
+        }
+      });
+      debugPrint("DEBUG: Room $roomId ended completely.");
     } catch (e) {
-      debugPrint("DEBUG ERROR: Failed to end room: $e");
+      debugPrint("DEBUG ERROR: endRoom failed: $e");
     }
   }
 
+  // ২. ইউজার রিমুভ করার ফাংশন
   static Future<void> removeUserFromRoom(String roomId, String userId) async {
     try {
       await FirebaseFirestore.instance.collection('rooms').doc(roomId).update({
         'usersInRoom': FieldValue.arrayRemove([userId.toString()])
       });
-      debugPrint("DEBUG: User $userId removed.");
     } catch (e) {
-      debugPrint("DEBUG ERROR: Remove failed: $e");
+      debugPrint("DEBUG ERROR: Remove user failed: $e");
     }
   }
 
-  static Future<bool> handleExit(String roomId, String currentUserId, List<String> adminList, String ownerId) async {
+  static Future<bool> handleExit(String roomId, String currentUserId,
+      List<String> adminList, String ownerId) async {
     try {
-      var roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(roomId).get();
-      
-      // যদি রুম অলরেডি ডিলিট হয়ে গিয়ে থাকে, তবুও আমরা true রিটার্ন করবো যাতে ইউজার বের হতে পারে
-      if (!roomDoc.exists) {
-        debugPrint("DEBUG: Room doc not found, allowing exit...");
-        return true; 
-      }
+      final firestore = FirebaseFirestore.instance;
 
-      String currentUidStr = currentUserId.toString();
-      String ownerIdStr = ownerId.toString();
-      List<String> adminIdsStr = adminList.map((e) => e.toString()).toList();
+      // ১. ইউজার রিমুভ করুন
+      await removeUserFromRoom(roomId, currentUserId);
+      await Future.delayed(const Duration(seconds: 2));
 
-      bool isMeAdminOrOwner = (currentUidStr == ownerIdStr || adminIdsStr.contains(currentUidStr));
+      String ownerIdStr = ownerId.toString().trim();
+      List<String> adminIdsStr = adminList.map((e) => e.toString().trim()).toList();
+      bool isPresent = false;
 
-      if (isMeAdminOrOwner) {
-        List<dynamic> usersInRoom = roomDoc.data()?['usersInRoom'] ?? [];
-        
-        bool anyOtherAdminOrOwnerLeft = usersInRoom.any((uid) {
-          String uidStr = uid.toString();
-          return uidStr != currentUidStr && (uidStr == ownerIdStr || adminIdsStr.contains(uidStr));
-        });
+      // ২. সিট চেক করা (RTDB)
+      DatabaseReference seatsRef = FirebaseDatabase.instance.ref('rooms/$roomId/seats');
+      DataSnapshot seatsSnapshot = await seatsRef.get();
 
-        if (!anyOtherAdminOrOwnerLeft) {
-          debugPrint("DEBUG: Ending room as last Admin/Owner...");
-          await endRoom(roomId);
-        } else {
-          debugPrint("DEBUG: Other admin/owner present. Just removing self.");
-          await removeUserFromRoom(roomId, currentUidStr);
+      if (seatsSnapshot.exists) {
+        Map<dynamic, dynamic> seatsData = seatsSnapshot.value as Map<dynamic, dynamic>;
+        for (var key in seatsData.keys) {
+          var seat = seatsData[key];
+          String seatUID = seat['uID']?.toString().trim() ?? "";
+          if (seatUID.isNotEmpty && (seatUID == ownerIdStr || adminIdsStr.contains(seatUID))) {
+            isPresent = true;
+            break;
+          }
         }
-      } else {
-        debugPrint("DEBUG: Regular user $currentUidStr leaving.");
-        await removeUserFromRoom(roomId, currentUidStr);
       }
-      return true; // সব ঠিক থাকলে true
+
+      // ৩. ভিউয়ার লিস্ট চেক করা (যদি সিটে না থাকে) - নতুন লজিক
+      if (!isPresent) {
+        DatabaseReference viewersRef = FirebaseDatabase.instance.ref('rooms/$roomId/viewers');
+        DataSnapshot viewersSnapshot = await viewersRef.get();
+
+        if (viewersSnapshot.exists) {
+          Map<dynamic, dynamic> viewersData = viewersSnapshot.value as Map<dynamic, dynamic>;
+          for (var key in viewersData.keys) {
+            var viewer = viewersData[key];
+            String viewerUID = viewer['uID']?.toString().trim() ?? "";
+            if (viewerUID.isNotEmpty && (viewerUID == ownerIdStr || adminIdsStr.contains(viewerUID))) {
+              isPresent = true;
+              break;
+            }
+          }
+        }
+      }
+
+      // ৪. রুম বন্ধ করার লজিক
+      if (!isPresent) {
+        debugPrint("DEBUG: কোথাও মালিক বা এডমিন নেই, রুম বন্ধ করা হচ্ছে।");
+        await endRoom(roomId);
+      } else {
+        debugPrint("DEBUG: রুমে মালিক বা এডমিন উপস্থিত আছে, রুম বন্ধ হবে না।");
+      }
+
+      return true;
     } catch (e) {
-      debugPrint("DEBUG ERROR: $e");
-      return true; // এরর হলেও ইউজারকে আটকে রাখবে না, বের করে দেবে
+      debugPrint("DEBUG ERROR: handleExit failed: $e");
+      return true;
     }
   }
 }

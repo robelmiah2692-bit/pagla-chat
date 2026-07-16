@@ -56,6 +56,10 @@ dependencies:
   package_info_plus: ^10.1.0
   uuid: ^4.3.3
 
+  
+  provider: ^6.0.0
+  equatable: ^2.0.5
+  
   # --- ইউটিলিটি ও ডিজাইন ---
   flutter_image_compress: ^2.3.0
   cached_network_image: ^3.3.1
@@ -100,3 +104,10 @@ flutter:
     - assets/logo.png
     - assets/images/
     - assets/sounds/
+    - assets/Ludo_board.png
+    - assets/1.png
+    - assets/2.png
+    - assets/3.png
+    - assets/4.png
+    - assets/5.png
+    - assets/6.png

@@ -259,7 +259,7 @@ Widget _buildGameLobby() {
             _gameIcon("LUCKY", "assets/images/spin_logo.png", Colors.orangeAccent, false),
             // নতুন CRAZY FRUIT গেম (কোনো url নেই)
             _gameIcon("CRAZY FRUIT", "assets/images/crazyfrut.png", Colors.yellow, false),
-            _gameIcon("FRUIT", "assets/images/coming_soon.png", Colors.grey, true),
+            _gameIcon("LODU", "assets/images/coming_soon.png", Colors.grey, true),
             _gameIcon("TEEN PATTI", "assets/images/coming_soon.png", Colors.grey, true),
             _gameIcon("RACING", "assets/images/coming_soon.png", Colors.grey, true),
             _gameIcon("BATTLE", "assets/images/coming_soon.png", Colors.grey, true),

@@ -8,7 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:pagla_chat/profile_page.dart';
 import 'package:pagla_chat/widgets/room_settings_handler.dart';
 import 'package:record/record.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:audioplayers/audioplayers.dart' hide Source;
 import 'package:path_provider/path_provider.dart';
 import 'package:gal/gal.dart';
 import 'dart:io';
@@ -48,21 +48,65 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    // ১. অ্যাপ ওপেন হওয়ার সাথে সাথেই এই ইনিশিয়েলাইজেশন শুরু হবে
+    // অ্যাপ ওপেন হওয়ার সাথে সাথেই ইনিশিয়েলাইজেশন শুরু হবে
     _initializeChat();
   }
 
-// এটি অবশ্যই Future<void> হতে হবে যাতে await করা যায়
   Future<void> _initializeChat() async {
-    // ২. আইডি লোড হওয়া পর্যন্ত অপেক্ষা করুন
-    await _getMySixDigitId();
+  // আইডি লোড হওয়া পর্যন্ত অপেক্ষা করুন
+  await _getMySixDigitId();
 
-    print("INIT: Current ID is now: $currentSixDigitId");
-
-    // ৩. আইডি আসার পর ব্লক লিস্ট লোড করুন
+  // আইডি লোড হওয়ার পর চেক করুন এবং রিসেট কল করুন
+  if (currentSixDigitId.isNotEmpty) {
     _loadBlockedList();
-  }
 
+    // চ্যাট আইডি এবং রিসেট ফাংশন এখানে কল করুন
+    String chatId = getChatRoomId();
+    
+    // কনসোল লগ দিয়ে দেখুন আইডি পাচ্ছেন কি না
+    print("DEBUG: Initializing reset for chatId: $chatId with myID: $currentSixDigitId");
+    
+    await _resetUnreadCount(chatId); // এখানে await যোগ করুন
+  } else {
+    // যদি আইডি না পায়, তবে পুনরায় চেষ্টা করুন
+    Future.delayed(const Duration(milliseconds: 500), _initializeChat);
+  }
+}
+ Future<void> _resetUnreadCount(String chatId) async {
+  if (chatId.isEmpty || chatId.contains("null")) return;
+
+  try {
+    DocumentReference chatRef = FirebaseFirestore.instance.collection('chats').doc(chatId);
+
+    // Transaction ব্যবহার করছি কারণ এটি সার্ভার থেকে লেটেস্ট ডাটা নিশ্চিত করে
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      DocumentSnapshot snapshot = await transaction.get(chatRef);
+      
+      if (!snapshot.exists) return;
+
+      // ১. মেসেজ রিড হিসেবে মার্ক করা
+      var unreadMessages = await chatRef
+          .collection('messages')
+          .where('isRead', isEqualTo: false)
+          .get();
+
+      for (var doc in unreadMessages.docs) {
+        if (doc.data()['senderuID'] != currentSixDigitId) {
+          transaction.update(doc.reference, {'isRead': true});
+        }
+      }
+
+      // ২. নিজের আইডির কাউন্ট ০ করা
+      transaction.update(chatRef, {
+        'unReadCount_$currentSixDigitId': 0
+      });
+    });
+
+    print("SUCCESS: Transaction completed for user: $currentSixDigitId");
+  } catch (e) {
+    print("ERROR: Transaction failed: $e");
+  }
+}
   void _loadBlockedList() {
     if (currentSixDigitId.isEmpty) {
       print("Error: আইডি পাওয়া যায়নি, ব্লক লিস্ট লোড হবে না।");
@@ -126,37 +170,40 @@ class _ChatScreenState extends State<ChatScreen> {
     return ids.join("_");
   }
 
-Future<void> shareRoomInChat(String roomId, String targetUserId, String roomName, BuildContext context) async {
-  final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
-  
-  List<String> ids = [currentUserId, targetUserId];
-  ids.sort();
-  String chatRoomId = ids.join("_"); 
+  Future<void> shareRoomInChat(String roomId, String targetUserId,
+      String roomName, BuildContext context) async {
+    final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-  Map<String, dynamic> roomMessage = {
-    'senderId': currentUserId,
-    'receiverId': targetUserId,
-    'message': "Join my room: $roomName",
-    'type': 'room_invite', // এটি খুব গুরুত্বপূর্ণ
-    'roomId': roomId,
-    'timestamp': FieldValue.serverTimestamp(),
-    'isRead': false,
-  };
+    List<String> ids = [currentUserId, targetUserId];
+    ids.sort();
+    String chatRoomId = ids.join("_");
 
-  // ১. মেসেজ পাঠানো
-  await FirebaseFirestore.instance
-      .collection('chats')
-      .doc(chatRoomId)
-      .collection('messages')
-      .add(roomMessage);
+    Map<String, dynamic> roomMessage = {
+      'senderId': currentUserId,
+      'receiverId': targetUserId,
+      'message': "Join my room: $roomName",
+      'type': 'room_invite', // এটি খুব গুরুত্বপূর্ণ
+      'roomId': roomId,
+      'timestamp': FieldValue.serverTimestamp(),
+      'isRead': false,
+    };
 
-  // ২. চ্যাট লিস্টে দেখানোর জন্য চ্যাট ডকুমেন্টে আপডেট করা
-  await FirebaseFirestore.instance.collection('chats').doc(chatRoomId).set({
-    'lastMessage': "Room Invitation: $roomName", // চ্যাট লিস্টে এই টেক্সট দেখাবে
-    'lastMessageTimestamp': FieldValue.serverTimestamp(),
-    'type': 'room_invite', // লিস্টে টাইপ চেক করার জন্য
-  }, SetOptions(merge: true));
-}
+    // ১. মেসেজ পাঠানো
+    await FirebaseFirestore.instance
+        .collection('chats')
+        .doc(chatRoomId)
+        .collection('messages')
+        .add(roomMessage);
+
+    // ২. চ্যাট লিস্টে দেখানোর জন্য চ্যাট ডকুমেন্টে আপডেট করা
+    await FirebaseFirestore.instance.collection('chats').doc(chatRoomId).set({
+      'lastMessage':
+          "Room Invitation: $roomName", // চ্যাট লিস্টে এই টেক্সট দেখাবে
+      'lastMessageTimestamp': FieldValue.serverTimestamp(),
+      'type': 'room_invite', // লিস্টে টাইপ চেক করার জন্য
+    }, SetOptions(merge: true));
+  }
+
   // --- মিডিয়া অ্যাকশন (ডায়মন্ড ও এক্সপায়ারি চেক) ---
   void _handleMediaAction() async {
     String? authUID = FirebaseAuth.instance.currentUser?.uid;
@@ -329,6 +376,14 @@ Future<void> shareRoomInChat(String roomId, String targetUserId, String roomName
         'repliedBy':
             replyData != null ? (replyData['senderName'] ?? "User") : null,
       });
+
+// আপনার _sendDataMessage ফাংশনের আপডেট অংশ:
+      await FirebaseFirestore.instance.collection('chats').doc(roomId).set({
+        'lastMessage': content,
+        'lastMessageTimestamp': FieldValue.serverTimestamp(),
+        // রিসিভারের আইডির জন্য কাউন্ট বাড়ান, সেন্ডারের জন্য নয়
+        'unReadCount_${widget.receiverId}': FieldValue.increment(1),
+      }, SetOptions(merge: true));
 
       debugPrint("Message Sent to Room: $roomId");
     } catch (e) {

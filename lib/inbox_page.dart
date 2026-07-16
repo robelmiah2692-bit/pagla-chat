@@ -19,6 +19,33 @@ class _InboxPageState extends State<InboxPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
   String currentSixDigitId = "";
+  
+  @override
+  void initState() {
+    super.initState();
+    _fetchMyDetails(); // ২. পেজ ওপেন হওয়ার সাথে সাথেই আইডি লোড হবে
+  }
+
+  // ৩. ফায়ারবেস থেকে নিজের ৬ ডিজিটের আইডি নিয়ে আসুন
+  Future<void> _fetchMyDetails() async {
+    try {
+      var userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .where('authUID', isEqualTo: currentUserId)
+          .get();
+      
+      if (userDoc.docs.isNotEmpty) {
+        setState(() {
+          currentSixDigitId = userDoc.docs.first.data()['uID']?.toString() ?? "";
+          print("DEBUG: Loaded my ID: $currentSixDigitId"); // এটি চেক করুন কনসোলে
+        });
+      }
+    } catch (e) {
+      print("Error loading ID: $e");
+    }
+  }
+  
+  
   void _markAsRead(String chatId) async {
     try {
       // চ্যাট আইডি থেকে ৬ ডিজিটের আইডি আলাদা করে নেওয়া
@@ -72,27 +99,27 @@ class _InboxPageState extends State<InboxPage> {
   }
 
   Widget _buildAppBar() {
-  return Container(
-    margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-    height: 100,
-    width: double.infinity,
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(20),
-      // CachedNetworkImageProvider ব্যবহার করা হয়েছে যাতে ইমেজ ক্যাশ হয়
-      image: const DecorationImage(
-        image: CachedNetworkImageProvider(
-          "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/inboxbenar.png",
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+      height: 100,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        // CachedNetworkImageProvider ব্যবহার করা হয়েছে যাতে ইমেজ ক্যাশ হয়
+        image: const DecorationImage(
+          image: CachedNetworkImageProvider(
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/inboxbenar.png",
+          ),
+          fit: BoxFit.fill,
         ),
-        fit: BoxFit.fill,
+        // গোল্ডেন বর্ডার
+        border: Border.all(
+          color: Colors.amber.shade700,
+          width: 2,
+        ),
       ),
-      // গোল্ডেন বর্ডার
-      border: Border.all(
-        color: Colors.amber.shade700,
-        width: 2,
-      ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildSearchBar() {
     return Padding(
@@ -478,84 +505,36 @@ class _InboxPageState extends State<InboxPage> {
   }
 
   Widget _buildUnreadCounter(String chatId) {
-    // ১. আগের অরিজিনাল চ্যাট আইডিটি যেভাবে আসছে সেভাবেই থাকবে
-    String finalChatId = chatId.trim();
-    bool isOfficial = finalChatId.contains('paglachat_official');
+  // আইডি না থাকলে বাবল দেখানোর দরকার নেই
+  if (currentSixDigitId.isEmpty) return const SizedBox.shrink(); 
 
-    // ২. শুধু অফিশিয়ালের জন্য সেফটি চেক (সাধারণ ইউজারদের লজিকে কোনো টাচ করবে না)
-    if (isOfficial) {
-      // 🎯 ফিক্স: লম্বা আইডির বদলে আপনার ৬-ডিজিটের আইডি ভেরিয়েবলটি ব্যবহার করা হলো
-      finalChatId = "paglachat_official_$currentSixDigitId";
-    }
-
-    // মেইন স্ট্রিম: মেসেজেস সাব-কালেকশন থেকে আনরিড মেসেজ খোঁজা
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('chats')
-          .doc(finalChatId)
-          .collection('messages')
-          .where('isRead', isEqualTo: false)
-          .snapshots(),
-      builder: (context, snapshot) {
-        int countFromMessages = 0;
-
-        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-          // মেসেজের ভেতর থেকে আনরিড কাউন্ট হিসাব
-          var unreadDocs = snapshot.data!.docs.where((doc) {
-            var data = doc.data() as Map<String, dynamic>;
-            String dbSenderId = (data['senderId'] ?? "").toString();
-
-            // আপনি নিজে সেন্ডার না হলে কাউন্ট হবে
-            return dbSenderId != currentUserId &&
-                dbSenderId != currentSixDigitId;
-          }).toList();
-
-          countFromMessages = unreadDocs.length;
-        }
-
-        // ৩. ডাবল লেয়ার প্রোটেকশন (যদি মেসেজের ভেতর কাউন্ট না পায়, তবে মেইন ডকুমেন্ট চেক করবে)
-        return StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('chats')
-              .doc(finalChatId)
-              .snapshots(),
-          builder: (context, docSnapshot) {
-            int countFromDoc = 0;
-
-            if (docSnapshot.hasData && docSnapshot.data?.data() != null) {
-              var data = docSnapshot.data!.data() as Map<String, dynamic>;
-              // 🎯 স্ক্রিনশটের সেই 'unReadCount' ফিল্ডের ডেটা সরাসরি রিড করবে
-              countFromDoc = data['unReadCount'] ?? 0;
-            }
-
-            // দুইটার মধ্যে যেটা বড় বা যেটায় ডেটা পাওয়া যাবে, সেটাই চূড়ান্ত কাউন্ট
-            int finalCount = countFromMessages > countFromDoc
-                ? countFromMessages
-                : countFromDoc;
-
-            // কাউন্ট যদি ০ থেকে বড় হয়, তবেই সুন্দর বাবল দেখাবে
-            if (finalCount > 0) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                    color: Colors.pinkAccent,
-                    borderRadius: BorderRadius.circular(12)),
-                child: Text(
-                  "$finalCount",
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold),
-                ),
-              );
-            }
-
-            // কোনো আনরিড মেসেজ না থাকলে সাধারণ ডানদিকের তীর (Arrow)
-            return const Icon(Icons.arrow_forward_ios,
-                color: Colors.white10, size: 14);
-          },
-        );
-      },
-    );
+  String finalChatId = chatId.trim();
+  if (finalChatId.contains('paglachat_official')) {
+    finalChatId = "paglachat_official_$currentSixDigitId";
   }
+
+  return StreamBuilder<DocumentSnapshot>(
+    stream: FirebaseFirestore.instance.collection('chats').doc(finalChatId).snapshots(includeMetadataChanges: true),
+    builder: (context, docSnapshot) {
+      if (!docSnapshot.hasData || docSnapshot.data?.data() == null) {
+        return const SizedBox.shrink();
+      }
+      
+      var data = docSnapshot.data!.data() as Map<String, dynamic>;
+      
+      // ডাইনামিক ফিল্ডের নাম তৈরি
+      String fieldName = "unReadCount_$currentSixDigitId";
+      int finalCount = data[fieldName] ?? 0; // যদি ফিল্ড না থাকে তবে ০
+
+      if (finalCount > 0) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(color: Colors.pinkAccent, borderRadius: BorderRadius.circular(12)),
+          child: Text("$finalCount", style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+        );
+      }
+      return const Icon(Icons.arrow_forward_ios, color: Colors.white10, size: 14);
+    },
+  );
+}
 }
