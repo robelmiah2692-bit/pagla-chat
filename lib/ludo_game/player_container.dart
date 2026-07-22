@@ -57,7 +57,7 @@ class PlayerContainer extends StatelessWidget {
                     child: SizedBox(
                       width: 30,
                       height: 30,
-                      child: Dice(),
+                      child: Dice(myType: type),
                     ),
                   ),
               ],

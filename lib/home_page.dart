@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:pagla_chat/utils/daily_bonus_popup.dart';
 import 'dart:io' as io;
 import 'dart:math';
 import 'dart:async';
@@ -66,7 +67,6 @@ class _HomePageState extends State<HomePage>
     _colorAnimation =
         CurvedAnimation(parent: _colorController, curve: Curves.linear);
 
-    // 🇧🇩 [বাংলা মার্ক]: মেইন হোম পেজের initState থেকে ক্ষতিকর স্লাইডার টাইমারটি সম্পূর্ণ রিমুভ করা হয়েছে ভাই!
   }
 
   Future<void> _fetchUserData() async {
@@ -79,10 +79,16 @@ class _HomePageState extends State<HomePage>
             .get();
 
         if (querySnapshot.docs.isNotEmpty) {
+          final docId = querySnapshot.docs.first.id;
+
           setState(() {
-            myCustomDocId = querySnapshot.docs.first.id;
+            myCustomDocId = docId;
             currentUserData = querySnapshot.docs.first.data();
           });
+
+          // এখানে নিশ্চিত ভাবে নন-নাল docId পাঠানো হচ্ছে
+          DailyBonusPopup.show(context, docId); 
+          
           _updateStatus(true);
         }
       } catch (e) {

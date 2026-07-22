@@ -24,7 +24,7 @@ tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
 
-// অটোমেটিক প্যাকেজ এরর ফিক্স করার নতুন কোড (Kotlin DSL format)
+// অটোমেটিক প্যাকেজ এরর ফিক্স করার কোড
 subprojects {
     val subproject = this
     if (subproject.name != "app") {

@@ -886,37 +886,39 @@ class _ProfilePageState extends State<ProfilePage> {
       print("[Visitor LOG] Error: সেভ করতে গিয়ে এরর হয়েছে: $e");
     }
   }
-void _showDeleteConfirmationDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text("Delete Account?"),
-      content: const Text(
-          "Are you sure? "),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-          onPressed: () async {
-            await DeleteAccountService.requestAccountDeletion(AppData.myID);
-            Navigator.pop(context);
-            // লগআউট করে দিন
-            await AuthService().signOut();
-            if (context.mounted) {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                (route) => false,
-              );
-            }
-          },
-          child: const Text("Delete", style: TextStyle(color: Colors.white)),
-        ),
-      ],
-    ),
-  );
-}
+
+  void _showDeleteConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Delete Account?"),
+        content: const Text("Are you sure? "),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              await DeleteAccountService.requestAccountDeletion(AppData.myID);
+              Navigator.pop(context);
+              // লগআউট করে দিন
+              await AuthService().signOut();
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
+            },
+            child: const Text("Delete", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showFreeAvatars() {
     List<String> avatars = (gender == "Male") ? maleAvatars : femaleAvatars;
     showModalBottomSheet(
@@ -1208,7 +1210,8 @@ void _showDeleteConfirmationDialog(BuildContext context) {
   void _openGames() => UserProfileFeatures.openGames(context);
 // এটি আপনার ফাইলে যোগ করুন
   void _openFacebook() async {
-    final Uri url = Uri.parse('https://www.facebook.com/profile.php?id=61591420921368');
+    final Uri url =
+        Uri.parse('https://www.facebook.com/profile.php?id=61591420921368');
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
@@ -1698,11 +1701,11 @@ void _showDeleteConfirmationDialog(BuildContext context) {
   Widget _buildSpecialStoreTab() {
     final List<Map<String, String>> specialList = [
       {
-        "name": "Ripple Aura",
+        "name": "musicframe",
         "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/Ripple.png",
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/pageframe/Profile_Frame.json",
         "price": "15000",
-        "type": "Seat Effect"
+        "type": "Profile Page"
       },
       {
         "name": "Full Page Love",
@@ -1774,6 +1777,20 @@ void _showDeleteConfirmationDialog(BuildContext context) {
         "price": "31000",
         "type": "Profile Page"
       },
+      {
+        "name": "parpul",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/pageframe/framing.json",
+        "price": "31000",
+        "type": "Profile Page"
+      },
+      {
+        "name": "parpul2",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/pageframe/glowing-star.json",
+        "price": "300",
+        "type": "Profile Page"
+      },
     ];
 
     return GridView.builder(
@@ -1786,8 +1803,6 @@ void _showDeleteConfirmationDialog(BuildContext context) {
       itemCount: specialList.length,
       itemBuilder: (context, index) {
         var item = specialList[index];
-
-        // ডায়মন্ড এবং প্রাইস হ্যান্ডলিং (int64 এর জন্য নিরাপদ পদ্ধতি)
         int itemPrice = int.parse(item['price']!);
         String url = item['url']!;
 
@@ -1801,12 +1816,25 @@ void _showDeleteConfirmationDialog(BuildContext context) {
           ),
           child: Column(
             children: [
-              // ইমেজ অথবা লটি অ্যানিমেশন প্রিভিউ
+              // ইমেজ বা লটি হ্যান্ডলিং অংশটুকু এভাবে লিখুন
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
-                  child: url.toLowerCase().endsWith('.json')
-                      ? Lottie.network(url, fit: BoxFit.contain)
+                  child: url.toLowerCase().contains('.json')
+                      ? LottieBuilder.network(
+                          url,
+                          fit: BoxFit.contain,
+                          animate: true,
+                          repeat: true,
+                          onLoaded: (composition) {
+                            print("Lottie Loaded Successfully: $url");
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            print("Lottie Error: $error | URL: $url");
+                            return const Icon(Icons.error_outline,
+                                color: Colors.red);
+                          },
+                        )
                       : Image.network(
                           url,
                           fit: BoxFit.contain,
@@ -1842,7 +1870,6 @@ void _showDeleteConfirmationDialog(BuildContext context) {
                         borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () async {
-                    // int64 ডায়মন্ডকে নিরাপদভাবে ইনটিজারে রূপান্তর
                     int currentDiamonds = 0;
                     try {
                       currentDiamonds = int.parse(diamonds.toString());
@@ -1854,18 +1881,13 @@ void _showDeleteConfirmationDialog(BuildContext context) {
                       try {
                         DateTime expiry =
                             DateTime.now().add(const Duration(days: 30));
-
-                        // Firebase অপারেশন
                         WriteBatch batch = FirebaseFirestore.instance.batch();
-
                         DocumentReference userRef = FirebaseFirestore.instance
                             .collection('users')
                             .doc(uIDValue);
-
                         DocumentReference backpackRef =
                             userRef.collection('my_special').doc(item['name']);
 
-                        // ডায়মন্ড কমানো এবং আইটেম যোগ করা
                         batch.update(userRef,
                             {'diamonds': FieldValue.increment(-itemPrice)});
                         batch.set(backpackRef, {
@@ -1873,26 +1895,26 @@ void _showDeleteConfirmationDialog(BuildContext context) {
                           'image_url': url,
                           'type': item['type'],
                           'expiryDate': Timestamp.fromDate(expiry),
-                          'isPicked': true, // কেনার পর অটোমেটিক সিলেক্টেড থাকবে
+                          'isPicked': true,
                         });
 
                         await batch.commit();
-
-                        // লোকাল স্টেট আপডেট
                         setState(() {
                           diamonds = currentDiamonds - itemPrice;
                         });
 
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content:
-                                    Text("অভিনন্দন! আইটেমটি কেনা হয়েছে।")));
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content:
+                                      Text("অভিনন্দন! আইটেমটি কেনা হয়েছে।")));
+                        }
                       } catch (e) {
                         print("Purchase Error: $e");
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                             content: Text(
-                                "কিছু একটা সমস্যা হয়েছে! পরে চেষ্টা করুন।")));
+                                "কিছু একটা সমস্যা হয়েছে! পরে চেষ্টা করুন।")));
                       }
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -2302,8 +2324,9 @@ void _showDeleteConfirmationDialog(BuildContext context) {
           .collection('my_special')
           .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData)
+        if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
+        }
 
         var mySpecialItems = snapshot.data!.docs;
         if (mySpecialItems.isEmpty) {
@@ -2352,11 +2375,26 @@ void _showDeleteConfirmationDialog(BuildContext context) {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // একই লজিক এখানেও ব্যবহার করুন
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: url.toLowerCase().endsWith('.json')
-                          ? Lottie.network(url, fit: BoxFit.contain)
+                      child: url.toLowerCase().contains('.json')
+                          ? LottieBuilder.network(
+                              url,
+                              fit: BoxFit.contain,
+                              animate: true,
+                              repeat: true,
+                              onLoaded: (composition) {
+                                print("MySpecial Lottie Loaded: $url");
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                print(
+                                    "MySpecial Lottie Error: $error | URL: $url");
+                                return const Icon(Icons.error_outline,
+                                    color: Colors.red);
+                              },
+                            )
                           : Image.network(
                               url,
                               fit: BoxFit.contain,
@@ -2403,7 +2441,6 @@ void _showDeleteConfirmationDialog(BuildContext context) {
                           bool newStatus = !isPicked;
                           String newName = isPicked ? "" : name;
 
-                          // ১. ইউজার কালেকশন আপডেট
                           await FirebaseFirestore.instance
                               .collection('users')
                               .doc(uIDValue)
@@ -2413,7 +2450,6 @@ void _showDeleteConfirmationDialog(BuildContext context) {
                             'activeSpecialName': newName,
                           });
 
-                          // ২. ম্যারেজ কালেকশন আপডেট করার লজিক
                           QuerySnapshot marriageQuery = await FirebaseFirestore
                               .instance
                               .collection('marriages')
@@ -2440,7 +2476,6 @@ void _showDeleteConfirmationDialog(BuildContext context) {
                             });
                           }
 
-                          // ৩. লোকাল স্টেট আপডেট
                           setState(() {
                             activeSpecialUrl = newUrl;
                             hasSpecialEffect = newStatus;
@@ -3246,27 +3281,37 @@ void _showDeleteConfirmationDialog(BuildContext context) {
               ), // SingleChildScrollView শেষ
 
               // --- ফুল পেজ ফ্রেম ---
-              // 🔍 [প্রিন্ট ৩]: ব্যাকগ্রাউন্ড ফুল পেজ ফ্রেমের লিংক টেস্ট
+// 🔍 [প্রিন্ট ৩]: ব্যাকগ্রাউন্ড ফুল পেজ ফ্রেমের লিংক টেস্ট
               () {
                 return const SizedBox();
               }(),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: Container(
-                    width: MediaQuery.of(context).size.width,
-                    height: MediaQuery.of(context).size.height,
-                    decoration: (activeSpecialUrl.toString().isNotEmpty &&
-                            !activeSpecialUrl.toString().startsWith('file:'))
-                        ? BoxDecoration(
-                            image: DecorationImage(
-                              image: NetworkImage(activeSpecialUrl),
-                              fit: BoxFit.fill,
-                            ),
+// লজিক চেক: যদি URL থাকে তবেই লটি বা ইমেজ দেখাবে, নয়তো খালি থাকবে
+              if (activeSpecialUrl.toString().isNotEmpty &&
+                  !activeSpecialUrl.toString().startsWith('file:'))
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: activeSpecialUrl
+                            .toString()
+                            .toLowerCase()
+                            .contains('.json')
+                        ? Lottie.network(
+                            activeSpecialUrl,
+                            fit: BoxFit.fill,
+                            repeat: true,
+                            animate: true,
                           )
-                        : null,
+                        : Container(
+                            width: MediaQuery.of(context).size.width,
+                            height: MediaQuery.of(context).size.height,
+                            decoration: BoxDecoration(
+                              image: DecorationImage(
+                                image: NetworkImage(activeSpecialUrl),
+                                fit: BoxFit.fill,
+                              ),
+                            ),
+                          ),
                   ),
                 ),
-              ),
             ], // Stack এর children শেষ
           ), // Stack শেষ (বডি শেষ)
         ); // Scaffold শেষ

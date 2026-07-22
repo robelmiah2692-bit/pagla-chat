@@ -2,40 +2,24 @@ import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'dart:math';
-
-// 🛡️ পারমিশন হ্যান্ডলার ইমপোর্ট
 import 'package:permission_handler/permission_handler.dart';
-
-// 🛠️ এটি অ্যান্ড্রয়েড এবং ওয়েব দুই জায়গাতেই এরর ছাড়া চলে
 import 'package:universal_html/js.dart' as js;
 
 class AgoraManager {
   RtcEngine? _engine;
   bool _isInitialized = false;
   final String appId = "0c83a3aeeb9c44ffae38604f2ba9970b";
-  Timer? _keepAliveTimer;
   int? _localuID;
   bool _shouldBeBroadcasting = false;
-  bool _isMicMutedLocal = false; // মাইকের বর্তমান অবস্থা ট্র্যাকিং
-  bool _isMusicPlaying = false; // মিউজিক বাজছে কি না ট্র্যাকিং
-  Function(bool)? onTalkingStatusChanged;
+  bool _isMicMutedLocal = false;
+  bool _isMusicPlaying = false;
 
-  // ✅ সব রিমোট ইউজারের অডিও মিউট বা আনমিউট করার জন্য
-  Future<void> muteAllRemoteAudio(bool mute) async {
-    if (_engine != null) {
-      try {
-        await _engine!.muteAllRemoteAudioStreams(mute);
-      } catch (e) {}
-    }
-  }
-
-  // 🔔 রিপেল এনিমেশনের ভলিউম স্ট্রিম
+  // 🔔 রিপেল এনিমেশনের জন্য সেপারেট স্ট্রিম কন্ট্রোলার (setState এড়াতে)
   final StreamController<List<AudioVolumeInfo>> _volumeStreamController =
       StreamController<List<AudioVolumeInfo>>.broadcast();
   Stream<List<AudioVolumeInfo>> get volumeStream =>
       _volumeStreamController.stream;
 
-  // ✅ ফিক্সড গেটার: এটি এখন বিল্ড এরর দেবে না
   RtcEngine get engine {
     if (_engine == null) {
       throw Exception("এগোরা ইঞ্জিন এখনো তৈরি হয়নি! আগে initAgora() কল করুন।");
@@ -48,6 +32,7 @@ class AgoraManager {
   Future<void> initAgora() async {
     if (_isInitialized && _engine != null) return;
 
+    debugPrint("🚀 [Agora] Initializing Agora Engine...");
     _engine = createAgoraRtcEngine();
 
     try {
@@ -68,103 +53,50 @@ class AgoraManager {
         await _engine!.setParameters('{"che.audio.specify.codec": "OPUS"}');
       }
 
+      // ভলিউম ইনডিকেশন ফ্রিকোয়েন্সি অপ্টিমাইজড (৪০০ মিলিডেকেন্ড - হ্যাং এড়াতে)
       await _engine!.enableAudioVolumeIndication(
-        interval: 250,
+        interval: 400,
         smooth: 3,
         reportVad: true,
       );
 
+      // সিঙ্গেল গ্লোবাল ইভেন্ট হ্যান্ডলার রেজিস্টার (ডুপ্লিকেট এড়াতে)
       _engine!.registerEventHandler(RtcEngineEventHandler(
-          onJoinChannelSuccess: (connection, elapsed) {
-            _localuID = connection.localUid;
-            forceResumeAudio();
-          },
-          onAudioVolumeIndication:
-              (connection, speakers, speakerNumber, totalVolume) {
-            // 🔥 এই স্ট্রিম ব্যবহারের ফলে ভিউয়ার লিস্টের ডাটাবেজ রিবিল্ড হবে না
+        onJoinChannelSuccess: (connection, elapsed) {
+          _localuID = connection.localUid;
+          debugPrint("✅ [Agora] Joined Channel Success. UID: $_localuID");
+          forceResumeAudio();
+        },
+        onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
+          if (!_volumeStreamController.isClosed) {
             _volumeStreamController.add(speakers);
-          },
-          onAudioMixingStateChanged:
-              (AudioMixingStateType state, AudioMixingReasonType reason) {
-            _isMusicPlaying =
-                (state == AudioMixingStateType.audioMixingStatePlaying);
-          },
-          onError: (err, msg) {}));
+          }
+        },
+        onAudioMixingStateChanged: (state, reason) {
+          _isMusicPlaying = (state == AudioMixingStateType.audioMixingStatePlaying);
+          debugPrint("🎵 [Agora] Audio Mixing State: $_isMusicPlaying");
+        },
+        onError: (err, msg) {
+          debugPrint("⚠️ [Agora Error] Code: $err, Message: $msg");
+        },
+      ));
 
       await _engine!.enableAudio();
       _isInitialized = true;
-    } catch (e) {}
-  }
-
-// AgoraManager ক্লাসের ভেতরে এটি যোগ করুন
-  Future<void> remoteMuteControl(bool isMute) async {
-    if (_engine == null) return;
-    // ডাটাবেস আপডেট না করে শুধু লোকাল ইঞ্জিন মিউট করবে
-    await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
-      publishMicrophoneTrack: !isMute,
-    ));
-    await _engine!.enableLocalAudio(!isMute);
-    _isMicMutedLocal = isMute; // স্টেট আপডেট রাখা
-  }
-
-  // --- মিউজিক ফিচারসমূহ ---
-  Future<void> startMusic(String filePath) async {
-    if (_engine == null) return;
-    try {
-      await _engine!.startAudioMixing(
-        filePath: filePath,
-        loopback: true,
-        cycle: -1,
-      );
-      _isMusicPlaying = true;
-    } catch (e) {}
-  }
-
-  Future<void> stopMusic() async {
-    if (_engine == null) return;
-    await _engine!.stopAudioMixing();
-    _isMusicPlaying = false;
-  }
-
-  Future<void> setMusicVolume(int volume) async {
-    if (_engine == null) return;
-    await _engine!.adjustAudioMixingVolume(volume);
-  }
-
-  Future<void> forceResumeAudio() async {
-    if (kIsWeb) {
-      try {
-        js.context.callMethod('eval', [
-          """
-          (function() {
-            var resume = function() {
-              var AudioContext = window.AudioContext || window.webkitAudioContext;
-              if (AudioContext) {
-                var ctx = new AudioContext();
-                if (ctx.state !== 'running') {
-                  ctx.resume().then(() => console.log('Audio Context Resumed Success'));
-                }
-              }
-            };
-            window.addEventListener('click', resume, {once: false});
-            window.addEventListener('touchstart', resume, {once: false});
-            resume();
-          })();
-          """
-        ]);
-      } catch (e) {
-        debugPrint("Resume Error: $e");
-      }
+      debugPrint("✅ [Agora] Initialization Completed Successfully.");
+    } catch (e) {
+      debugPrint("❌ [Agora Init Error]: $e");
     }
   }
 
-  // --- সাইলেন্ট এন্ট্রি ফিক্স ---
   Future<void> joinAsListener(String channelName, [String? fireuID]) async {
     if (!_isInitialized || _engine == null) await initAgora();
 
     _localuID = (fireuID != null && fireuID.isNotEmpty)
         ? (fireuID.hashCode.abs() % 1000000)
         : (Random().nextInt(899999) + 100000);
+
+    debugPrint("🎧 [Agora] Joining as Listener to Room: $channelName");
 
     await _engine!.joinChannel(
       token: "",
@@ -194,32 +126,48 @@ class AgoraManager {
       }
     }
 
+    debugPrint("🎤 [Agora] Switching role to Broadcaster (Seated)");
     await _engine!.enableLocalAudio(true);
     await _engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     await _ensureAudioPublishing();
-
-    _keepAliveTimer?.cancel();
   }
 
   Future<void> _ensureAudioPublishing() async {
     if (_engine == null) return;
-
     await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
       publishMicrophoneTrack: !_isMicMutedLocal,
       autoSubscribeAudio: true,
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
     ));
-
     await _engine!.enableLocalAudio(!_isMicMutedLocal);
+  }
 
-    if (!_isMicMutedLocal) {
-      await _engine!.adjustRecordingSignalVolume(150);
+  // AgoraManager ক্লাসের ভেতরে এটি বসিয়ে দিন
+Future<void> remoteMuteControl(bool isMute) async {
+  if (_engine == null) return;
+  _isMicMutedLocal = isMute;
+  await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
+    publishMicrophoneTrack: !isMute,
+  ));
+  await _engine!.enableLocalAudio(!isMute);
+}
+  
+// AgoraManager ক্লাসের ভেতরে এটি বসিয়ে দিন
+Future<void> muteAllRemoteAudio(bool mute) async {
+  if (_engine != null) {
+    try {
+      await _engine!.muteAllRemoteAudioStreams(mute);
+      debugPrint("🔇 [Agora] Mute All Remote Audio: $mute");
+    } catch (e) {
+      debugPrint("❌ [Agora Mute Error]: $e");
     }
   }
+}
 
   Future<void> toggleMic(bool isMute) async {
     if (_engine == null) return;
     _isMicMutedLocal = isMute;
+    debugPrint("🔇 [Agora] Mic Muted State: $isMute");
     await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
       publishMicrophoneTrack: !isMute,
     ));
@@ -229,7 +177,7 @@ class AgoraManager {
   Future<void> becomeListener() async {
     if (_engine == null) return;
     _shouldBeBroadcasting = false;
-    _keepAliveTimer?.cancel();
+    debugPrint("🎧 [Agora] Switching role back to Audience");
     await stopMusic();
     await _engine!.setClientRole(role: ClientRoleType.clientRoleAudience);
     await _engine!.updateChannelMediaOptions(const ChannelMediaOptions(
@@ -239,13 +187,71 @@ class AgoraManager {
     await _engine!.enableLocalAudio(false);
   }
 
+  Future<void> startMusic(String filePath) async {
+    if (_engine == null) return;
+    try {
+      debugPrint("🎶 [Agora] Starting Music Mixing...");
+      await _engine!.startAudioMixing(
+        filePath: filePath,
+        loopback: true,
+        cycle: -1,
+      );
+      _isMusicPlaying = true;
+    } catch (e) {
+      debugPrint("❌ [Agora Music Error]: $e");
+    }
+  }
+
+  Future<void> stopMusic() async {
+    if (_engine == null) return;
+    try {
+      await _engine!.stopAudioMixing();
+      _isMusicPlaying = false;
+      debugPrint("🛑 [Agora] Music Stopped.");
+    } catch (e) {}
+  }
+
+  Future<void> forceResumeAudio() async {
+    if (kIsWeb) {
+      try {
+        js.context.callMethod('eval', [
+          """
+          (function() {
+            var resume = function() {
+              var AudioContext = window.AudioContext || window.webkitAudioContext;
+              if (AudioContext) {
+                var ctx = new AudioContext();
+                if (ctx.state !== 'running') {
+                  ctx.resume().then(() => console.log('Audio Context Resumed Success'));
+                }
+              }
+            };
+            window.addEventListener('click', resume, {once: false});
+            window.addEventListener('touchstart', resume, {once: false});
+            resume();
+          })();
+          """
+        ]);
+      } catch (e) {
+        debugPrint("Resume Error: $e");
+      }
+    }
+  }
+
   Future<void> leaveRoom() async {
     _shouldBeBroadcasting = false;
-    _keepAliveTimer?.cancel();
     try {
       await stopMusic();
-      if (_engine != null) await _engine!.leaveChannel();
+      if (_engine != null) {
+        await _engine!.leaveChannel();
+      }
       _localuID = null;
-    } catch (e) {}
+      if (!_volumeStreamController.isClosed) {
+        // stream keep alive
+      }
+      debugPrint("🚪 [Agora] Left Room Successfully.");
+    } catch (e) {
+      debugPrint("❌ [Agora Leave Error]: $e");
+    }
   }
 }
