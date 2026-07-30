@@ -41,7 +41,7 @@ class _InboxPageState extends State<InboxPage> {
         });
       }
     } catch (e) {
-      print("Error loading ID: $e");
+      
     }
   }
   
@@ -108,7 +108,7 @@ class _InboxPageState extends State<InboxPage> {
         // CachedNetworkImageProvider ব্যবহার করা হয়েছে যাতে ইমেজ ক্যাশ হয়
         image: const DecorationImage(
           image: CachedNetworkImageProvider(
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/inboxbenar.png",
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/inboxbenar.jpg",
           ),
           fit: BoxFit.fill,
         ),

@@ -3,22 +3,26 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 
 class RoomExitHandler {
-  // ১. রুম এন্ড এবং সব ডাটা ক্লিনিং
+  // ১. রুম এন্ড এবং সব ডাটা ক্লিনিং (RTDB ভিউয়ার্স সহ)
   static Future<void> endRoom(String roomId) async {
     try {
       final firestore = FirebaseFirestore.instance;
       DocumentReference roomRef = firestore.collection('rooms').doc(roomId);
 
-      // সব ডাটা রিসেট করা
+      // ফায়ারস্টোরে রুমের মূল ডাটা রিসেট করা
       await roomRef.update({
         'isActive': false,
         'seats': [],
         'userCount': 0,
         'usersInRoom': [],
-        'viewerList': [], // ভিউয়ার লিস্টও ক্লিয়ার হবে
+        'viewerList': [], 
       });
 
-      // ব্যাকগ্রাউন্ডে ট্রানজেকশনের মাধ্যমে ক্লিনিং
+      // ✅ রিয়েলটাইম ডাটাবেস (RTDB) থেকে ভিউয়ার্স এবং সিট সম্পূর্ণ মুছে ফেলা
+      await FirebaseDatabase.instance.ref('rooms/$roomId/viewers').remove();
+      await FirebaseDatabase.instance.ref('rooms/$roomId/seats').remove();
+
+      // ব্যাকগ্রাউন্ডে ট্রানজেকশনের মাধ্যমে অন্যান্য ক্লিনিং
       firestore.runTransaction((transaction) async {
         // ইউজার কালেকশন
         var roomUsers = await roomRef.collection('users').get();
@@ -32,18 +36,26 @@ class RoomExitHandler {
           transaction.delete(msgDoc.reference);
         }
       });
-      debugPrint("DEBUG: Room $roomId ended completely.");
+      debugPrint("DEBUG: Room $roomId ended completely and viewers cleaned.");
     } catch (e) {
       debugPrint("DEBUG ERROR: endRoom failed: $e");
     }
   }
 
-  // ২. ইউজার রিমুভ করার ফাংশন
+  // ২. ইউজার রুম থেকে বের হওয়ার সময় RTDB ভিউয়ার্স থেকে রিমুভ করার ফাংশন
   static Future<void> removeUserFromRoom(String roomId, String userId) async {
     try {
+      // ক) ফায়ারস্টোর থেকে রিমুভ
       await FirebaseFirestore.instance.collection('rooms').doc(roomId).update({
         'usersInRoom': FieldValue.arrayRemove([userId.toString()])
       });
+
+      // খ) ✅ রিয়েলটাইম ডাটাবেস (RTDB) এর viewers লিস্ট থেকে ইউজারের নোড রিমুভ করা
+      if (userId.isNotEmpty) {
+        await FirebaseDatabase.instance
+            .ref('rooms/$roomId/viewers/$userId')
+            .remove();
+      }
     } catch (e) {
       debugPrint("DEBUG ERROR: Remove user failed: $e");
     }
@@ -52,9 +64,7 @@ class RoomExitHandler {
   static Future<bool> handleExit(String roomId, String currentUserId,
       List<String> adminList, String ownerId) async {
     try {
-      final firestore = FirebaseFirestore.instance;
-
-      // ১. ইউজার রিমুভ করুন
+      // ১. ইউজার রিমুভ করুন (এটি এখন RTDB থেকেও ভিউয়ার্স রিমুভ করবে)
       await removeUserFromRoom(roomId, currentUserId);
       await Future.delayed(const Duration(seconds: 2));
 
@@ -78,7 +88,7 @@ class RoomExitHandler {
         }
       }
 
-      // ৩. ভিউয়ার লিস্ট চেক করা (যদি সিটে না থাকে) - নতুন লজিক
+      // ৩. ভিউয়ার লিস্ট চেক করা (যদি সিটে না থাকে) - RTDB
       if (!isPresent) {
         DatabaseReference viewersRef = FirebaseDatabase.instance.ref('rooms/$roomId/viewers');
         DataSnapshot viewersSnapshot = await viewersRef.get();

@@ -51,8 +51,7 @@ class SoulmateDetailPage extends StatelessWidget {
 // এখানে চেক করুন বর্তমান ইউজার কি owner নাকি partner
     bool isPartner = (myId == dbOwnerId || myId == dbPartnerId);
 
-    debugPrint(
-        "Check -> MyID: $myId, DB-Owner: $dbOwnerId, DB-Partner: $dbPartnerId, isPartner: $isPartner");
+    
     return Scaffold(
       backgroundColor: const Color(0xFF12121A),
       appBar: AppBar(

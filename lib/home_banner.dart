@@ -12,10 +12,10 @@ class HomeBanner extends StatefulWidget {
 
 class _HomeBannerState extends State<HomeBanner> {
   final List<String> _bannerList = [
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/homebenar2.png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/homebenar1.png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/74ed04fd0a4869652ab10f0386dd8997c1421ac5/benar%20(6).png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/officialbenar.png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/homebenar2.jpg",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/homebenar1.jpg",
+     "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/homebenar3.jpg",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/officialbenar.jpg",
   ];
 
   int _currentBannerIndex = 0;
@@ -43,6 +43,9 @@ class _HomeBannerState extends State<HomeBanner> {
 
   @override
   Widget build(BuildContext context) {
+    // বর্তমান সময় থেকে ১ মিনিট আগের টাইমস্ট্যাম্প বের করা (যাতে শুধুমাত্র ১ মিনিটের মধ্যে একটিভ থাকা ইউজার পাওয়া যায়)
+    final activeThreshold = DateTime.now().subtract(const Duration(seconds: 60));
+
     return AspectRatio(
       aspectRatio: 1024 / 500,
       child: Stack(
@@ -81,6 +84,7 @@ class _HomeBannerState extends State<HomeBanner> {
               stream: FirebaseFirestore.instance
                   .collection('users')
                   .where('isOnline', isEqualTo: true)
+                  .where('lastSeen', isGreaterThan: Timestamp.fromDate(activeThreshold))
                   .limit(10)
                   .snapshots(),
               builder: (context, userSnapshot) {

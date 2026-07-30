@@ -11,6 +11,7 @@ import 'package:pagla_chat/services/follow_service.dart';
 import 'package:pagla_chat/services/soulmate_detail_page.dart';
 import 'package:pagla_chat/user_badge_widget.dart';
 import 'package:pagla_chat/user_profile_features.dart';
+import 'package:pagla_chat/utils/daily_bonus_popup.dart';
 import 'package:pagla_chat/vip_benefits_screen.dart';
 import 'package:pagla_chat/widgets/active_level_bar.dart';
 import 'package:pagla_chat/widgets/gift_level_bar.dart';
@@ -94,53 +95,64 @@ class _ProfilePageState extends State<ProfilePage> {
     loadUserData(); // আইডি জেনারেশন বন্ধ, শুধু ডাটা লোড হবে
   }
 
-// আইডি জেনারেশন ছাড়া শুধু ডাটা খুঁজে বের করার লজিক
-  // আইডি জেনারেশন ছাড়া শুধু ডাটা খুঁজে বের করার লজিক
+  // আইডি জেনারেশন ছাড়া শুধু ডাটা খুঁজে বের করার নিখুঁত লজিক
   void loadUserData() async {
     User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
 
-    // ১. নিজের আইডিটি আগে থেকেই একটি আলাদা ভেরিয়েবলে নিশ্চিত করুন (ফলো বাটনের জন্য)
-    // যদি আপনার কাছে অন্য কোনো গ্লোবাল ভেরিয়েবল থাকে তবে সেটিও ব্যবহার করতে পারেন
-    String myUidForFollow = currentUser.uid;
-
-    // অন্য ইউজারের প্রোফাইল দেখার জন্য টার্গেট আইডি নির্ধারণ
+    // টার্গেট আইডি নির্ধারণ (অন্যের প্রোফাইল হলে widget.userId, নিজের হলে currentUser.uid)
     String targetId = widget.userId ?? currentUser.uid;
 
     try {
       DocumentSnapshot? userDoc;
       final collection = FirebaseFirestore.instance.collection('users');
 
-      // ২. প্রোফাইল ডাটা লোড লজিক
+      // ১. যদি অন্যের প্রোফাইল হয় অথবা widget.userId দেওয়া থাকে
       if (widget.userId != null) {
-        // অন্যের প্রোফাইল হলে সরাসরি আইডি দিয়ে ডাটা আনা
         userDoc = await collection.doc(targetId).get();
       } else {
-        // নিজের প্রোফাইল হলে আপনার সেই ৪টি কুয়েরি লজিক
-        var docById = await collection.doc(currentUser.uid).get();
-        if (docById.exists) {
-          userDoc = docById;
+        // ২. নিজের প্রোফাইল হলে সবচেয়ে নির্ভরযোগ্য কুয়েরিগুলো ধাপে ধাপে চালানো:
+
+        // ক) প্রথমে 'uID' ফিল্ডে ফায়ারবেস UID বা ৬-ডিজিটের আইডি দিয়ে চেক করা
+        var queryuIDField = await collection
+            .where('uID', isEqualTo: currentUser.uid)
+            .limit(1)
+            .get();
+        if (queryuIDField.docs.isNotEmpty) {
+          userDoc = queryuIDField.docs.first;
         }
-        if (userDoc == null) {
+
+        // খ) যদি না পাওয়া যায়, তবে 'authUID' ফিল্ড দিয়ে চেক করা
+        if (userDoc == null || !userDoc.exists) {
           var queryAuth = await collection
               .where('authUID', isEqualTo: currentUser.uid)
               .limit(1)
               .get();
-          if (queryAuth.docs.isNotEmpty) userDoc = queryAuth.docs.first;
+          if (queryAuth.docs.isNotEmpty) {
+            userDoc = queryAuth.docs.first;
+          }
         }
-        if (userDoc == null && currentUser.email != null) {
+
+        // গ) যদি তাতেও না পাওয়া যায়, তবে 'uid' ফিল্ড দিয়ে চেক করা
+        if (userDoc == null || !userDoc.exists) {
+          var queryUidField = await collection
+              .where('uid', isEqualTo: currentUser.uid)
+              .limit(1)
+              .get();
+          if (queryUidField.docs.isNotEmpty) {
+            userDoc = queryUidField.docs.first;
+          }
+        }
+
+        // ঘ) সর্বশেষ ইমেইল দিয়ে চেক করা
+        if ((userDoc == null || !userDoc.exists) && currentUser.email != null) {
           var queryEmail = await collection
               .where('email', isEqualTo: currentUser.email)
               .limit(1)
               .get();
-          if (queryEmail.docs.isNotEmpty) userDoc = queryEmail.docs.first;
-        }
-        if (userDoc == null) {
-          var queryuIDField = await collection
-              .where('uID', isEqualTo: currentUser.uid)
-              .limit(1)
-              .get();
-          if (queryuIDField.docs.isNotEmpty) userDoc = queryuIDField.docs.first;
+          if (queryEmail.docs.isNotEmpty) {
+            userDoc = queryEmail.docs.first;
+          }
         }
       }
 
@@ -149,17 +161,20 @@ class _ProfilePageState extends State<ProfilePage> {
         var data = userDoc.data() as Map<String, dynamic>;
         DateTime now = DateTime.now();
 
-        // গুরুত্বপূর্ণ: নিজের আইডি যদি খালি থাকে, তবেই আমরা তা ডাটাবেস থেকে আবার রিফ্রেশ করব
+        // নিজের আইডি যদি খালি থাকে, তবে রিফ্রেশ করে নেওয়া
         if (widget.userId != null && mySixDigitUID.isEmpty) {
           _refreshMyOwnUID(currentUser);
         }
+
         setState(() {
           uIDValue = userDoc!.id;
           sixDigitProfileID = data['uID'] ?? userDoc.id;
 
-          // নিজের আইডি সেট করার লজিক (এটি আপনার পুরনো লজিকই থাকছে)
+          // নিজের আইডি সেট করার লজিক (এজেন্সি ও পার্সোনাল উভয় অ্যাকাউন্টের জন্য নিরাপদ)
           if ((userDoc.id == currentUser.uid ||
-              data['authUID'] == currentUser.uid)) {
+              data['authUID'] == currentUser.uid ||
+              data['uid'] == currentUser.uid ||
+              data['uID'] == currentUser.uid)) {
             mySixDigitUID = userDoc.id;
           }
 
@@ -173,10 +188,30 @@ class _ProfilePageState extends State<ProfilePage> {
               ? (int.tryParse(ageData) ?? 22)
               : (ageData ?? 22);
 
-          diamonds = (data['diamonds'] ?? 200).toInt();
-          xp = (data['vip_xp'] ?? 0).toInt();
-          followers = (data['followers'] ?? 0).toInt();
-          following = (data['following'] ?? 0).toInt();
+          // নিরাপদ উপায়ে ডায়মন্ড কনভার্ট (এজেন্সি বা পার্সোনাল অ্যাকাউন্টের লেনদেনের জন্য জরুরি)
+          var diamondData = data['diamonds'];
+          diamonds = (diamondData is String)
+              ? (int.tryParse(diamondData) ?? 200)
+              : (diamondData ?? 200).toInt();
+
+          // নিরাপদ উপায়ে ভিআইপি এক্সপি কনভার্ট
+          var xpData = data['vip_xp'];
+          xp = (xpData is String)
+              ? (int.tryParse(xpData) ?? 0)
+              : (xpData ?? 0).toInt();
+
+          // নিরাপদ উপায়ে ফলোয়ার্স কনভার্ট
+          var followersData = data['followers'];
+          followers = (followersData is String)
+              ? (int.tryParse(followersData) ?? 0)
+              : (followersData ?? 0).toInt();
+
+          // নিরাপদ উপায়ে ফলোয়িং কনভার্ট
+          var followingData = data['following'];
+          following = (followingData is String)
+              ? (int.tryParse(followingData) ?? 0)
+              : (followingData ?? 0).toInt();
+
           isVIP = data['isVIP'] ?? false;
 
           // ১. Premium Card এক্সপায়ারি
@@ -221,21 +256,27 @@ class _ProfilePageState extends State<ProfilePage> {
           partnerUid = data['partnerUid'] ?? '';
           marriageDocId = data['marriageDocId'] ?? '';
 
-          // এক্সপি লজিক
-          totalActiveXp = (data['totalActiveXp'] ?? 0).toInt();
-          totalGiftXp = (data['totalGiftXp'] ?? 0).toInt();
+          var totalActiveXpData = data['totalActiveXp'];
+          totalActiveXp = (totalActiveXpData is String)
+              ? (int.tryParse(totalActiveXpData) ?? 0)
+              : (totalActiveXpData ?? 0).toInt();
+
+          var totalGiftXpData = data['totalGiftXp'];
+          totalGiftXp = (totalGiftXpData is String)
+              ? (int.tryParse(totalGiftXpData) ?? 0)
+              : (totalGiftXpData ?? 0).toInt();
         });
 
-        // ফলো বাটন চেক করার ফাংশন কল
         _checkInitialStatus();
         _addVisitor();
+       
       }
     } catch (e) {
-      print("Error loading data: $e");
+      // সাইলেন্টলি হ্যান্ডেল করা হয়েছে
     }
   }
 
-// ২. আলাদা ফাংশন যা শুধু আপনার নিজের আইডি খুঁজে বের করবে
+  // ২. আলাদা ফাংশন যা শুধু আপনার নিজের আইডি খুঁজে বের করবে
   void _refreshMyOwnUID(User currentUser) async {
     final collection = FirebaseFirestore.instance.collection('users');
     var query = await collection
@@ -245,22 +286,17 @@ class _ProfilePageState extends State<ProfilePage> {
     if (query.docs.isNotEmpty) {
       setState(() {
         mySixDigitUID = query.docs.first.id;
-        print("DEBUG: নিজের আইডি রিকভার করা হয়েছে: $mySixDigitUID");
       });
     }
   }
 
-// ৩. ফলো বাটন চেক করার লজিক
+  // ৩. ফলো বাটন চেক করার লজিক
   void _checkInitialStatus() async {
-    // অন্যের প্রোফাইল এবং প্রোফাইল আইডি নিশ্চিত করা
     if (widget.userId == null) return;
 
-    // যদি mySixDigitUID খালি থাকে, তবুও যেন অ্যাপ ক্র্যাশ না করে
     String myId = mySixDigitUID.isNotEmpty
         ? mySixDigitUID
         : FirebaseAuth.instance.currentUser!.uid;
-
-    print("DEBUG CHECK: ProfileUID: ${widget.userId}, MyUID: $myId");
 
     bool following =
         await FollowService().checkIfFollowing(widget.userId!, myId);
@@ -272,12 +308,11 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-// ২. ডাটা ফেচ করার ফাংশন
+  // ৪. ডাটা ফেচ করার ফাংশন
   void _fetchUserData() async {
     if (uIDValue.isEmpty) return;
 
     try {
-      // সরাসরি ৬ ডিজিটের আইডি (uIDValue) দিয়ে সার্চ করুন
       var userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(uIDValue)
@@ -285,16 +320,23 @@ class _ProfilePageState extends State<ProfilePage> {
 
       if (userDoc.exists && mounted) {
         setState(() {
-          followers = userDoc.data()?['followers'] ?? 0;
-          following = userDoc.data()?['following'] ?? 0;
+          var fData = userDoc.data()?['followers'];
+          followers = (fData is String)
+              ? (int.tryParse(fData) ?? 0)
+              : (fData ?? 0).toInt();
+
+          var fgData = userDoc.data()?['following'];
+          following = (fgData is String)
+              ? (int.tryParse(fgData) ?? 0)
+              : (fgData ?? 0).toInt();
         });
       }
     } catch (e) {
-      print("ডাটা ফেচ এরর: $e");
+      // সাইলেন্টলি হ্যান্ডেল করা হয়েছে
     }
   }
 
-  // ডাটাবেজ থেকে মেয়াদ শেষ হওয়া ডাটা মুছে ফেলার ফাংশন (এটি বাইরে থাকবে)
+  // ৫. ডাটাবেজ থেকে মেয়াদ শেষ হওয়া ডাটা মুছে ফেলার ফাংশন
   void _clearExpiredData(String boolField, String dateField,
       {String? extraField}) async {
     if (uIDValue.isEmpty) return;
@@ -314,7 +356,7 @@ class _ProfilePageState extends State<ProfilePage> {
           .doc(uIDValue)
           .update(updateData);
     } catch (e) {
-      debugPrint("Error clearing data: $e");
+      // সাইলেন্টলি হ্যান্ডেল করা হয়েছে
     }
   }
 
@@ -599,12 +641,8 @@ class _ProfilePageState extends State<ProfilePage> {
                               }
                             });
                             Navigator.pop(context);
-                          } catch (e) {
-                            print("Update Error: $e");
-                          }
-                        } else {
-                          print("Error: No ID found even in uIDValue!");
-                        }
+                          } catch (e) {}
+                        } else {}
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -814,20 +852,14 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _addVisitor() async {
-    print("--- [Visitor LOG] স্টার্ট হয়েছে ---");
     final currentUser = FirebaseAuth.instance.currentUser;
 
     if (currentUser == null) {
-      print("[Visitor LOG] Error: currentUser null");
       return;
     }
     if (widget.userId == null) {
-      print("[Visitor LOG] Error: widget.userId null");
       return;
     }
-
-    print(
-        "[Visitor LOG] নিজের ডাটা খুঁজছি authUID: ${currentUser.uid} দিয়ে...");
 
     var myUserQuery = await FirebaseFirestore.instance
         .collection('users')
@@ -836,21 +868,15 @@ class _ProfilePageState extends State<ProfilePage> {
         .get();
 
     if (myUserQuery.docs.isEmpty) {
-      print("[Visitor LOG] Error: নিজের ইউজার ডাটা পাওয়া যায়নি!");
       return;
     }
 
     var myData = myUserQuery.docs.first.data();
     String mySixDigitID = myData['uID'].toString();
-    print("[Visitor LOG] নিজের আইডি পাওয়া গেছে: $mySixDigitID");
 
     if (mySixDigitID == widget.userId.toString()) {
-      print("[Visitor LOG] স্কিপ: এটা নিজেরই প্রোফাইল।");
       return;
     }
-
-    print(
-        "[Visitor LOG] প্রোফাইলের মালিকের ডকুমেন্ট খুঁজছি uID: ${widget.userId} দিয়ে...");
 
     var ownerQuery = await FirebaseFirestore.instance
         .collection('users')
@@ -859,13 +885,10 @@ class _ProfilePageState extends State<ProfilePage> {
         .get();
 
     if (ownerQuery.docs.isEmpty) {
-      print("[Visitor LOG] Error: প্রোফাইল মালিকের ডকুমেন্ট পাওয়া যায়নি!");
       return;
     }
 
     String ownerDocId = ownerQuery.docs.first.id;
-    print(
-        "[Visitor LOG] মালিকের ডকুমেন্ট ID পাওয়া গেছে: $ownerDocId, এখন সেভ করছি...");
 
     try {
       await FirebaseFirestore.instance
@@ -880,10 +903,8 @@ class _ProfilePageState extends State<ProfilePage> {
         'visitedAt': FieldValue.serverTimestamp(),
         'isSeen': false,
       });
-
-      print("--- [Visitor LOG] Success: ভিজিটর ডাটা সফলভাবে সেভ হয়েছে! ---");
     } catch (e) {
-      print("[Visitor LOG] Error: সেভ করতে গিয়ে এরর হয়েছে: $e");
+      // ক্যাচ ব্লকের প্রিন্ট রিমুভ করা হয়েছে
     }
   }
 
@@ -1072,9 +1093,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           // ফাইল পাঠানোর আগে সিওর হয়ে নিন ফাইলটি এক্সিস্ট করে
                           await _handleProfileUpdate(File(pickedFile.path));
                         }
-                      } catch (e) {
-                        debugPrint("Error picking image: $e");
-                      }
+                      } catch (e) {}
                     } else {
                       if (!mounted) return;
                       Navigator.pop(context);
@@ -1152,7 +1171,6 @@ class _ProfilePageState extends State<ProfilePage> {
             backgroundColor: Colors.green));
       }
     } catch (e) {
-      debugPrint("Update Error: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text("Error: ${e.toString()}"),
@@ -1460,9 +1478,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               content:
                                   Text("Frame Bought & Added to Backpack!")),
                         );
-                      } catch (e) {
-                        debugPrint("Frame Buy Error: $e");
-                      }
+                      } catch (e) {}
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -1676,9 +1692,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               backgroundColor: Colors.green,
                               content: Text("Bought & Added to Backpack!")),
                         );
-                      } catch (e) {
-                        debugPrint("Buy Error: $e");
-                      }
+                      } catch (e) {}
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -2136,9 +2150,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   Text("Success! Card & Free Frame Added."),
                             ),
                           );
-                        } catch (e) {
-                          debugPrint("Error: $e");
-                        }
+                        } catch (e) {}
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -2385,12 +2397,8 @@ class _ProfilePageState extends State<ProfilePage> {
                               fit: BoxFit.contain,
                               animate: true,
                               repeat: true,
-                              onLoaded: (composition) {
-                                print("MySpecial Lottie Loaded: $url");
-                              },
+                              onLoaded: (composition) {},
                               errorBuilder: (context, error, stackTrace) {
-                                print(
-                                    "MySpecial Lottie Error: $error | URL: $url");
                                 return const Icon(Icons.error_outline,
                                     color: Colors.red);
                               },
@@ -2947,7 +2955,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             );
                           },
                           child: Text(
-                            "User ID: $uIDValue",
+                            "ID: $uIDValue",
                             style: const TextStyle(
                               color: Color.fromARGB(255, 4, 189, 251),
                               fontSize: 13,
@@ -3321,16 +3329,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildStat(
       String label, int value, String profileUID, BuildContext context) {
-    print(
-        "DEBUG CHECK: Label: $label, MySixDigitUID: '$mySixDigitUID', ProfileUID: '$profileUID'");
-
-    // logic: যদি আমার নিজের আইডি (mySixDigitUID) এবং বর্তমানে যে প্রোফাইলটি দেখছি তার আইডি (profileUID) সমান হয়, তবেই লিস্ট দেখা যাবে।
+    // logic: যদি আমার নিজের আইডি (mySixDigitUID) এবং বর্তমানে যে প্রোফাইলটি দেখছি তার আইডি (profileUID) সমান হয়, তবেই লিস্ট দেখা যাবে।
     bool isMyProfile = (mySixDigitUID == profileUID);
 
     return GestureDetector(
       onTap: () {
-        // এই প্রিন্টটি দেখুন কনসোলে কী আসে
-        print("DEBUG TAP: Label is '$label', IsMyProfile is $isMyProfile");
         if (isMyProfile) {
           Navigator.push(
             context,
@@ -3392,7 +3395,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     const String soulmateCardUrl =
-        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/soulmatecard.png";
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/soulmatecard.jpg";
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3680,7 +3683,7 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Stack(
           alignment: Alignment
               .topCenter, // স্ট্যাকের ভেতরেও আইটেমগুলো ওপরের দিকে থাকবে
-          clipBehavior: Clip.none, // এটি খুব জরুরি, ফ্রেম যেন কেটে না যায়
+          clipBehavior: Clip.none, // এটি খুব জরুরি, ফ্রেম যেন কেটে না যায়
           children: [
             // ১. নিজের প্রোফাইল ছবি ও ফ্রেম
             Positioned(
@@ -3710,17 +3713,13 @@ class _ProfilePageState extends State<ProfilePage> {
               top: 15,
               child: GestureDetector(
                 onTap: () async {
-                  print(
-                      "=================== 🔍 DEBUG START ===================");
-
                   // 🆔 কারেন্ট ইউজারের UID এবং পার্টনারের UID বের করা হলো
                   String currentUid =
                       FirebaseAuth.instance.currentUser?.uid ?? '';
                   String partnerAuthUID =
                       rawMarriageDoc['partnerAuthUID'] ?? '';
-                  print("[Debug] Current User Auth UID: $currentUid");
 
-                  // ফায়ারস্টোর ডকুমেন্টের আইডি নিশ্চিত করা
+                  // ফায়ারস্টোর ডকুমেন্টের আইডি নিশ্চিত করা
                   String marriageDocId = rawMarriageDoc['marriageId'] ??
                       rawMarriageDoc['id'] ??
                       rawMarriageDoc['docId'] ??
@@ -3729,25 +3728,24 @@ class _ProfilePageState extends State<ProfilePage> {
                   String finalMyName = '';
                   String finalMyImage = '';
 
-                  // 🔍 [১০০% ফিক্সড লজিক: where কুয়েরি ব্যবহার]:
-                  // যেহেতু ডকুমেন্ট আইডি ৬ ডিজিটের, তাই আমরা uid ফিল্ড দিয়ে সার্চ করছি
+                  // 🔍 [১০০% ফিক্সড লজিক: where কুয়েরি ব্যবহার]:
+                  // যেহেতু ডকুমেন্ট আইডি ৬ ডিজিটের, তাই আমরা uid ফিল্ড দিয়ে সার্চ করছি
                   try {
                     if (currentUid.isNotEmpty) {
                       QuerySnapshot userQuery = await FirebaseFirestore.instance
                           .collection(
-                              'users') // 🔥 আপনার স্ক্রিনশট অনুযায়ী কালেকশনের নাম users
+                              'users') // 🔥 আপনার স্ক্রিনশট অনুযায়ী কালেকশনের নাম users
                           .where('uid',
                               isEqualTo:
-                                  currentUid) // লম্বা আইডি দিয়ে ডাটাবেজে ফিল্টার
+                                  currentUid) // লম্বা আইডি দিয়ে ডাটাবেজে ফিল্টার
                           .limit(1)
                           .get();
 
                       if (userQuery.docs.isNotEmpty) {
                         var uData =
                             userQuery.docs.first.data() as Map<String, dynamic>;
-                        print("[Debug] Live Database Data Found: $uData");
 
-                        // ডাটাবেজের ফিল্ড অনুযায়ী নাম ও ছবি ফিল্টারিং
+                        // ডাটাবেজের ফিল্ড অনুযায়ী নাম ও ছবি ফিল্টারিং
                         finalMyName = uData['name'] ??
                             uData['username'] ??
                             uData['nickName'] ??
@@ -3756,15 +3754,13 @@ class _ProfilePageState extends State<ProfilePage> {
                             uData['image'] ??
                             uData['avatar'] ??
                             '';
-                      } else {
-                        print("[Debug] ❌ User not found with uid: $currentUid");
                       }
                     }
                   } catch (e) {
-                    print("[Debug] Firestore Error: $e");
+                    // ক্যাচ ব্লকের প্রিন্ট রিমুভ করা হয়েছে
                   }
 
-                  // 🔐 ব্যাকআপ লজিক ১: ফায়ারস্টোরে না পাওয়া গেলে ফায়ারবেস আউথ প্রোফাইল চেক করবে
+                  // 🔐 ব্যাকআপ লজিক ১: ফায়ারস্টোরে না পাওয়া গেলে ফায়ারবেস আউথ প্রোফাইল চেক করবে
                   if (finalMyName.trim().isEmpty) {
                     finalMyName =
                         FirebaseAuth.instance.currentUser?.displayName ?? '';
@@ -3779,16 +3775,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     finalMyName = data['name'] ?? data['username'] ?? '';
                   }
 
-                  // 👑 চূড়ান্ত ব্যাকআপ নাম (খালি থাকলে)
+                  // 👑 চূড়ান্ত ব্যাকআপ নাম (খালি থাকলে)
                   if (finalMyName.trim().isEmpty) {
                     finalMyName = "User";
                   }
 
                   finalMyName = finalMyName.trim();
                   finalMyImage = finalMyImage.trim();
-
-                  print("[Debug] 🏆 FINAL NAME TO PASS: $finalMyName");
-                  print("=================== 🔍 DEBUG END ===================");
 
                   // 🛑 ম্যারেজ বটম শিট ওপেন (সরাসরি ডেটাবেজ থেকে লাইভ তুলে আনা নাম ও ছবি পাস করা হলো)
                   _showDivorceBottomSheet(
@@ -4074,32 +4067,31 @@ class _ProfilePageState extends State<ProfilePage> {
                       if (currentUid.isEmpty) return;
 
                       bool confirm = await showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                    backgroundColor: Colors.grey[900],
-                                    title: const Text("Divorce Confirmation",
-                                        style: TextStyle(color: Colors.white)),
-                                    content: const Text(
-                                        "Are You Sure? 3000 Diamonds will be deducted.",
-                                        style: TextStyle(color: Colors.grey)),
-                                    actions: [
-                                      TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, false),
-                                          child: const Text("No")),
-                                      TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, true),
-                                          child: const Text("Yes",
-                                              style: TextStyle(
-                                                  color: Colors.red))),
-                                    ],
-                                  )) ??
+                            context: context,
+                            builder: (context) => AlertDialog(
+                                backgroundColor: Colors.grey[900],
+                                title: const Text("Divorce Confirmation",
+                                    style: TextStyle(color: Colors.white)),
+                                content: const Text(
+                                    "Are You Sure? 3000 Diamonds will be deducted.",
+                                    style: TextStyle(color: Colors.grey)),
+                                actions: [
+                                  TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
+                                      child: const Text("No")),
+                                  TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, true),
+                                      child: const Text("Yes",
+                                          style: TextStyle(color: Colors.red))),
+                                ]),
+                          ) ??
                           false;
 
                       if (confirm) {
                         // ❌ সাবধান: এখানে আগে Navigator.pop(context) কল করা যাবে না।
-                        // করলে কনটেক্সট ডেড হয়ে যাবে এবং অ্যাপ হ্যাং করবে।
+                        // করলে কনটেক্সট ডেড হয়ে যাবে এবং অ্যাপ হ্যাং করবে।
 
                         // ⏳ লোডিং ডায়ালগ ওপেন
                         showDialog(
@@ -4111,9 +4103,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         );
 
                         try {
-                          print("==== 🔍 DIVORCE DEBUG START ====");
-
-                          // ১. সঠিক ইউজার ডকুমেন্ট খোঁজা (where কুয়েরি দিয়ে)
+                          // ১. সঠিক ইউজার ডকুমেন্ট খোঁজা (where কুয়েরি দিয়ে)
                           QuerySnapshot userQuery = await _firestore
                               .collection('users')
                               .where('uid', isEqualTo: currentUid)
@@ -4126,7 +4116,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
                           DocumentReference userRef =
                               userQuery.docs.first.reference;
-                          print("[Debug] User DocRef Found: ${userRef.id}");
 
                           // ২. ডায়মন্ড চেক এবং কাটা (Transaction)
                           await _firestore.runTransaction((transaction) async {
@@ -4140,7 +4129,6 @@ class _ProfilePageState extends State<ProfilePage> {
                             var uData =
                                 userSnapshot.data() as Map<String, dynamic>;
                             int currentDiamonds = uData['diamonds'] ?? 0;
-                            print("[Debug] Current Diamonds: $currentDiamonds");
 
                             if (currentDiamonds < 3000) {
                               throw "Insufficient Diamonds! You need 3000 💎";
@@ -4150,8 +4138,6 @@ class _ProfilePageState extends State<ProfilePage> {
                               'diamonds': currentDiamonds - 3000,
                             });
                           });
-
-                          print("[Debug] Diamonds deducted successfully!");
 
                           // ৩. দুইজনের ম্যারেজ রেকর্ড মুছে ফেলা (আপনার এবং পার্টনারের)
                           WriteBatch batch = _firestore.batch();
@@ -4165,14 +4151,11 @@ class _ProfilePageState extends State<ProfilePage> {
                           }
                           await batch.commit();
 
-                          print("[Debug] Both marriage records deleted!");
-                          print("==== 🔍 DIVORCE DEBUG END ====");
-
                           // ৪. সাবধানে ডায়ালগ এবং বটম শিট বন্ধ করা
                           Navigator.pop(context); // প্রথমে লোডিং ডায়ালগ বন্ধ
                           Navigator.pop(context); // এরপর বটম শিট বন্ধ
 
-                          // ৫. সাকসেস মেসেজ
+                          // ۵. সাকসেস মেসেজ
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                                 content: Text(
@@ -4180,9 +4163,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 backgroundColor: Colors.green),
                           );
                         } catch (e) {
-                          print("[Debug] ❌ Error in Divorce: $e");
-
-                          // এরর হলেও যাতে হ্যাং না হয়, সেজন্য লোডিংটা বন্ধ করতে হবে
+                          // এরর হলেও যাতে হ্যাং না হয়, সেজন্য লোডিংটা বন্ধ করতে হবে
                           Navigator.pop(context);
 
                           ScaffoldMessenger.of(context).showSnackBar(

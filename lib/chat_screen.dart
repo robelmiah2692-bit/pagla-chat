@@ -53,63 +53,57 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initializeChat() async {
-  // আইডি লোড হওয়া পর্যন্ত অপেক্ষা করুন
-  await _getMySixDigitId();
+    // আইডি লোড হওয়া পর্যন্ত অপেক্ষা করুন
+    await _getMySixDigitId();
 
-  // আইডি লোড হওয়ার পর চেক করুন এবং রিসেট কল করুন
-  if (currentSixDigitId.isNotEmpty) {
-    _loadBlockedList();
+    // আইডি লোড হওয়ার পর চেক করুন এবং রিসেট কল করুন
+    if (currentSixDigitId.isNotEmpty) {
+      _loadBlockedList();
 
-    // চ্যাট আইডি এবং রিসেট ফাংশন এখানে কল করুন
-    String chatId = getChatRoomId();
-    
-    // কনসোল লগ দিয়ে দেখুন আইডি পাচ্ছেন কি না
-    print("DEBUG: Initializing reset for chatId: $chatId with myID: $currentSixDigitId");
-    
-    await _resetUnreadCount(chatId); // এখানে await যোগ করুন
-  } else {
-    // যদি আইডি না পায়, তবে পুনরায় চেষ্টা করুন
-    Future.delayed(const Duration(milliseconds: 500), _initializeChat);
+      // চ্যাট আইডি এবং রিসেট ফাংশন এখানে কল করুন
+      String chatId = getChatRoomId();
+
+      await _resetUnreadCount(chatId); // এখানে await যোগ করুন
+    } else {
+      // যদি আইডি না পায়, তবে পুনরায় চেষ্টা করুন
+      Future.delayed(const Duration(milliseconds: 500), _initializeChat);
+    }
   }
-}
- Future<void> _resetUnreadCount(String chatId) async {
-  if (chatId.isEmpty || chatId.contains("null")) return;
 
-  try {
-    DocumentReference chatRef = FirebaseFirestore.instance.collection('chats').doc(chatId);
+  Future<void> _resetUnreadCount(String chatId) async {
+    if (chatId.isEmpty || chatId.contains("null")) return;
 
-    // Transaction ব্যবহার করছি কারণ এটি সার্ভার থেকে লেটেস্ট ডাটা নিশ্চিত করে
-    await FirebaseFirestore.instance.runTransaction((transaction) async {
-      DocumentSnapshot snapshot = await transaction.get(chatRef);
-      
-      if (!snapshot.exists) return;
+    try {
+      DocumentReference chatRef =
+          FirebaseFirestore.instance.collection('chats').doc(chatId);
 
-      // ১. মেসেজ রিড হিসেবে মার্ক করা
-      var unreadMessages = await chatRef
-          .collection('messages')
-          .where('isRead', isEqualTo: false)
-          .get();
+      // Transaction ব্যবহার করছি কারণ এটি সার্ভার থেকে লেটেস্ট ডাটা নিশ্চিত করে
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        DocumentSnapshot snapshot = await transaction.get(chatRef);
 
-      for (var doc in unreadMessages.docs) {
-        if (doc.data()['senderuID'] != currentSixDigitId) {
-          transaction.update(doc.reference, {'isRead': true});
+        if (!snapshot.exists) return;
+
+        // ১. মেসেজ রিড হিসেবে মার্ক করা
+        var unreadMessages = await chatRef
+            .collection('messages')
+            .where('isRead', isEqualTo: false)
+            .get();
+
+        for (var doc in unreadMessages.docs) {
+          if (doc.data()['senderuID'] != currentSixDigitId) {
+            transaction.update(doc.reference, {'isRead': true});
+          }
         }
-      }
 
-      // ২. নিজের আইডির কাউন্ট ০ করা
-      transaction.update(chatRef, {
-        'unReadCount_$currentSixDigitId': 0
+        // ২. নিজের আইডির কাউন্ট ০ করা
+        transaction.update(chatRef, {'unReadCount_$currentSixDigitId': 0});
       });
-    });
-
-    print("SUCCESS: Transaction completed for user: $currentSixDigitId");
-  } catch (e) {
-    print("ERROR: Transaction failed: $e");
+    } catch (e) {}
   }
-}
+
   void _loadBlockedList() {
     if (currentSixDigitId.isEmpty) {
-      print("Error: আইডি পাওয়া যায়নি, ব্লক লিস্ট লোড হবে না।");
+      ;
       return;
     }
 
@@ -123,7 +117,6 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() {
           myBlockedUsers = List.from(data['blockedUsers'] ?? []);
           isBlocked = myBlockedUsers.contains(widget.receiverId);
-          print("ব্লক লিস্ট সফলভাবে আপডেট হয়েছে: $myBlockedUsers");
         });
       }
     });
@@ -218,7 +211,6 @@ class _ChatScreenState extends State<ChatScreen> {
         .get();
 
     if (userQuery.docs.isEmpty) {
-      debugPrint("User document not found!");
       return;
     }
 
@@ -289,9 +281,7 @@ class _ChatScreenState extends State<ChatScreen> {
       await ref.putFile(file);
       String url = await ref.getDownloadURL();
       _sendDataMessage(url, type, null);
-    } catch (e) {
-      debugPrint("Upload Error: $e");
-    }
+    } catch (e) {}
   }
 
   void _startVoiceNote() async {
@@ -332,7 +322,6 @@ class _ChatScreenState extends State<ChatScreen> {
           .get();
 
       if (userQuery.docs.isEmpty) {
-        debugPrint("User profile not found in Firestore!");
         return;
       }
 
@@ -384,11 +373,7 @@ class _ChatScreenState extends State<ChatScreen> {
         // রিসিভারের আইডির জন্য কাউন্ট বাড়ান, সেন্ডারের জন্য নয়
         'unReadCount_${widget.receiverId}': FieldValue.increment(1),
       }, SetOptions(merge: true));
-
-      debugPrint("Message Sent to Room: $roomId");
-    } catch (e) {
-      debugPrint("Send Error: $e");
-    }
+    } catch (e) {}
   }
 
 // ২. সেন্ড বাটন ক্লিক ফাংশন
@@ -411,7 +396,6 @@ class _ChatScreenState extends State<ChatScreen> {
   void _showPurchaseDialog(int currentDiamonds, String myUID) {
     // myUID হলো ইউজারের ৬ ডিজিটের ইউনিক আইডি
     if (myUID.isEmpty) {
-      debugPrint("Error: User ID is empty");
       return;
     }
 
@@ -450,11 +434,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     Navigator.pop(context);
                     _showMediaOptions();
                   }
-                } catch (e) {
-                  debugPrint("Error purchasing media: $e");
-                }
+                } catch (e) {}
               } else {
-                debugPrint("Not enough diamonds");
                 // আপনি এখানে একটি SnackBar দেখাতে পারেন
               }
             },
@@ -698,9 +679,6 @@ class _ChatScreenState extends State<ChatScreen> {
                           final data =
                               docs[index].data() as Map<String, dynamic>;
 
-                          // প্রিন্ট দিয়ে দেখুন কোন আইডি মেসেজ পাঠাচ্ছে
-                          print("Message from: ${data['senderuID']}");
-
                           // ১. আইডি স্ট্রিং এ কনভার্ট করুন (যাতে টাইপ এরর না হয়)
                           String senderId = data['senderuID']?.toString() ?? "";
 
@@ -741,7 +719,6 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildMessageBubble(Map<String, dynamic> data, bool isMe) {
-    print("DEBUG: Message Type is: ${data['type']}"); // এটি যোগ করুন
     // ১. এই জায়গাটিতেই নতুন কোডটি বসিয়ে দিন
     if (data['type'] == 'room_invite') {
       return Padding(

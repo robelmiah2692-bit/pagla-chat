@@ -8,7 +8,7 @@ import 'package:universal_html/js.dart' as js;
 class AgoraManager {
   RtcEngine? _engine;
   bool _isInitialized = false;
-  final String appId = "0c83a3aeeb9c44ffae38604f2ba9970b";
+  final String appId = "855883e294ec4144b8e955451c06e3d7";
   int? _localuID;
   bool _shouldBeBroadcasting = false;
   bool _isMicMutedLocal = false;
@@ -32,7 +32,7 @@ class AgoraManager {
   Future<void> initAgora() async {
     if (_isInitialized && _engine != null) return;
 
-    debugPrint("🚀 [Agora] Initializing Agora Engine...");
+    
     _engine = createAgoraRtcEngine();
 
     try {
@@ -64,7 +64,7 @@ class AgoraManager {
       _engine!.registerEventHandler(RtcEngineEventHandler(
         onJoinChannelSuccess: (connection, elapsed) {
           _localuID = connection.localUid;
-          debugPrint("✅ [Agora] Joined Channel Success. UID: $_localuID");
+          
           forceResumeAudio();
         },
         onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
@@ -74,18 +74,18 @@ class AgoraManager {
         },
         onAudioMixingStateChanged: (state, reason) {
           _isMusicPlaying = (state == AudioMixingStateType.audioMixingStatePlaying);
-          debugPrint("🎵 [Agora] Audio Mixing State: $_isMusicPlaying");
+         
         },
         onError: (err, msg) {
-          debugPrint("⚠️ [Agora Error] Code: $err, Message: $msg");
+          
         },
       ));
 
       await _engine!.enableAudio();
       _isInitialized = true;
-      debugPrint("✅ [Agora] Initialization Completed Successfully.");
+      
     } catch (e) {
-      debugPrint("❌ [Agora Init Error]: $e");
+      
     }
   }
 
@@ -96,7 +96,7 @@ class AgoraManager {
         ? (fireuID.hashCode.abs() % 1000000)
         : (Random().nextInt(899999) + 100000);
 
-    debugPrint("🎧 [Agora] Joining as Listener to Room: $channelName");
+   
 
     await _engine!.joinChannel(
       token: "",
@@ -126,7 +126,7 @@ class AgoraManager {
       }
     }
 
-    debugPrint("🎤 [Agora] Switching role to Broadcaster (Seated)");
+    
     await _engine!.enableLocalAudio(true);
     await _engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     await _ensureAudioPublishing();
@@ -157,9 +157,9 @@ Future<void> muteAllRemoteAudio(bool mute) async {
   if (_engine != null) {
     try {
       await _engine!.muteAllRemoteAudioStreams(mute);
-      debugPrint("🔇 [Agora] Mute All Remote Audio: $mute");
+      
     } catch (e) {
-      debugPrint("❌ [Agora Mute Error]: $e");
+      
     }
   }
 }
@@ -167,7 +167,7 @@ Future<void> muteAllRemoteAudio(bool mute) async {
   Future<void> toggleMic(bool isMute) async {
     if (_engine == null) return;
     _isMicMutedLocal = isMute;
-    debugPrint("🔇 [Agora] Mic Muted State: $isMute");
+    
     await _engine!.updateChannelMediaOptions(ChannelMediaOptions(
       publishMicrophoneTrack: !isMute,
     ));
@@ -198,7 +198,7 @@ Future<void> muteAllRemoteAudio(bool mute) async {
       );
       _isMusicPlaying = true;
     } catch (e) {
-      debugPrint("❌ [Agora Music Error]: $e");
+      
     }
   }
 
@@ -207,7 +207,7 @@ Future<void> muteAllRemoteAudio(bool mute) async {
     try {
       await _engine!.stopAudioMixing();
       _isMusicPlaying = false;
-      debugPrint("🛑 [Agora] Music Stopped.");
+      
     } catch (e) {}
   }
 
@@ -233,7 +233,7 @@ Future<void> muteAllRemoteAudio(bool mute) async {
           """
         ]);
       } catch (e) {
-        debugPrint("Resume Error: $e");
+        
       }
     }
   }
@@ -249,9 +249,9 @@ Future<void> muteAllRemoteAudio(bool mute) async {
       if (!_volumeStreamController.isClosed) {
         // stream keep alive
       }
-      debugPrint("🚪 [Agora] Left Room Successfully.");
+      
     } catch (e) {
-      debugPrint("❌ [Agora Leave Error]: $e");
+      
     }
   }
 }

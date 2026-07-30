@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
-// RoomLevelHelper ফাইলটি ইমপোর্ট করুন (আপনার প্রজেক্টের পাথ অনুযায়ী)
+// RoomLevelHelper ফাইলটি ইমপোর্ট করুন (আপনার প্রজেক্টের পাথ অনুযায়ী)
 import 'package:pagla_chat/RoomLevelHelper.dart'; 
 
 class GiftTransactionHelper {
@@ -18,7 +17,6 @@ class GiftTransactionHelper {
   }) async {
     try {
       if (senderId.isEmpty || receiverId.isEmpty) {
-        debugPrint("Transaction Cancelled: Sender or Receiver ID is missing.");
         return;
       }
 
@@ -64,16 +62,13 @@ class GiftTransactionHelper {
 
       // ৫. ব্যাচ কমিট করা
       await batch.commit();
-      debugPrint("Transaction successful: Receiver 20%, Owner 3%");
 
-      // ৬. গিফট ট্রাঞ্জেকশন সফল হওয়ার পর রুমের XP আপডেট করা
+      // ৬. গিফট ট্রাঞ্জেকশন সফল হওয়ার পর রুমের XP আপডেট করা
       if (!isFree && totalPrice > 0) {
         await RoomLevelHelper.addXpToRoom(roomId, totalPrice);
-        debugPrint("XP updated successfully for room: $roomId");
       }
       
     } catch (e) {
-      debugPrint("Transaction Error: $e");
       rethrow; 
     }
   }

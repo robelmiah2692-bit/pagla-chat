@@ -41,7 +41,7 @@ class _HelpDeskPageState extends State<HelpDeskPage> {
           }
         }
       } catch (e) {
-        debugPrint("Error checking agent $id: $e");
+        
       }
     }
 

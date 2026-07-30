@@ -43,6 +43,6 @@ class RoomManager {
     currentSeatIndex = -1;
     isMinimized = false;
     engine = null;
-    onForceExit = null; // রিসেট করার সময় ক্লিনআপ লজিকও মুছে দেওয়া ভালো
+    onForceExit = null; // রিসেট করার সময় ক্লিনআপ লজিকও মুছে দেওয়া ভালো
   }
 }

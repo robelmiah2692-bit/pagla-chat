@@ -16,7 +16,7 @@ class DiamondGridItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // এখানে আপনার ডিজাইনের লিংক বসান
-    const String designUrl = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/daimondprice.png";
+    const String designUrl = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/daimondprice.jpg";
 
     return InkWell(
       onTap: onTap,

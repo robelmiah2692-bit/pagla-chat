@@ -32,9 +32,8 @@ class SeatSyncService {
         'giftCount': 0,
         'timestamp': ServerValue.timestamp,
       });
-      print("✅ Seat $index updated in Realtime Database.");
     } catch (e) {
-      print("❌ Seat Update Error: $e");
+      // Catch block left empty to safely ignore error without printing
     }
   }
 
@@ -43,15 +42,14 @@ class SeatSyncService {
     if (roomId.isEmpty) return;
     try {
       await _db.ref('rooms/$roomId/seats/$index').remove();
-      print("🗑️ Seat $index cleared from Realtime Database.");
     } catch (e) {
-      print("❌ Seat Clear Error: $e");
+      // Catch block left empty to safely ignore error without printing
     }
   }
 
-  // ৩. 👤 ইউজারের তথ্য পাওয়ার রাস্তা
+  // ৩. 👤 ইউজারের তথ্য পাওয়ার রাস্তা
   Future<Map<String, dynamic>?> getUserData(String uID) async {
-     // এখানে Firestore ব্যবহার করা হয়েছে, তাই উপরের ইমপোর্টটি জরুরি
+     // এখানে Firestore ব্যবহার করা হয়েছে, তাই উপরের ইমপোর্টটি জরুরি
      final doc = await FirebaseFirestore.instance.collection('users').doc(uID).get();
      return doc.data();
   }

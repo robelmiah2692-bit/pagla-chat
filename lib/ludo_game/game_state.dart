@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:pagla_chat/ludo_game/path.dart';
+import 'package:pagla_chat/ludo_game/sound_service.dart';
 import './position.dart';
 import './token.dart';
 
@@ -9,6 +10,9 @@ class GameState with ChangeNotifier {
   TokenType currentPlayer = TokenType.green;
   int consecutiveSixCount = 0; 
   Timer? turnTimer; 
+
+  // অ্যাক্টিভ প্লেয়ারদের কালার লিস্ট (ডিফল্টভাবে শুধু গ্রিন ও ইয়েলো রাখা হলো যাতে খালি ঘরে না ঘুরে, ফায়ারবেস থেকে আপডেট হয়ে যাবে)
+  List<TokenType> activePlayerColors = [TokenType.green, TokenType.yellow]; 
 
   List<Token> gameTokens = List.generate(16, (index) => Token(TokenType.green, Position(0, 0), TokenState.initial, index));
   late List<Position> starPositions;
@@ -43,6 +47,36 @@ class GameState with ChangeNotifier {
     startTurnTimer();
   }
 
+  // ফায়ারবেস বা রুম থেকে জয়েন করা প্লেয়ারদের কালার সেট করার ফাংশন
+  void setActivePlayers(List<Map<String, dynamic>> players) {
+    if (players.isEmpty) return;
+    
+    List<TokenType> newActiveColors = [];
+    for (var p in players) {
+      String colorStr = (p['color'] ?? "").toString().toLowerCase().trim();
+      if (colorStr == 'green') newActiveColors.add(TokenType.green);
+      if (colorStr == 'yellow') newActiveColors.add(TokenType.yellow);
+      if (colorStr == 'red') newActiveColors.add(TokenType.red);
+      if (colorStr == 'blue') newActiveColors.add(TokenType.blue);
+    }
+    
+    // যদি নতুন কালার লিস্ট পাওয়া যায়, তবে তা আপডেট করা হবে
+    if (newActiveColors.isNotEmpty) {
+      // লিস্ট পরিবর্তন হলে তবেই আপডেট ও নোটিফাই করবে
+      bool isDifferent = activePlayerColors.length != newActiveColors.length ||
+          !activePlayerColors.every((element) => newActiveColors.contains(element));
+
+      if (isDifferent) {
+        activePlayerColors = newActiveColors;
+        // যদি বর্তমান প্লেয়ার নতুনভবে জয়েন করা প্লেয়ারদের লিস্টে না থাকে, তবে প্রথম প্লেয়ারকে চাল দেওয়া হবে
+        if (!activePlayerColors.contains(currentPlayer)) {
+          currentPlayer = activePlayerColors.first;
+        }
+        notifyListeners();
+      }
+    }
+  }
+
   void startTurnTimer() {
     turnTimer?.cancel();
     turnTimer = Timer(Duration(seconds: 30), () {
@@ -50,16 +84,68 @@ class GameState with ChangeNotifier {
     });
   }
 
+  // মূল টার্ন পরিবর্তনের লজিক - শুধুমাত্র জয়েন করা প্লেয়ারদের ভেতর চাল আবর্তিত হবে
   void nextTurn() {
     consecutiveSixCount = 0;
-    if (currentPlayer == TokenType.green) currentPlayer = TokenType.yellow;
-    else if (currentPlayer == TokenType.yellow) currentPlayer = TokenType.blue;
-    else if (currentPlayer == TokenType.blue) currentPlayer = TokenType.red;
-    else currentPlayer = TokenType.green;
+
+    if (activePlayerColors.isNotEmpty) {
+      int currentIndex = activePlayerColors.indexOf(currentPlayer);
+
+      if (currentIndex != -1 && currentIndex < activePlayerColors.length - 1) {
+        currentPlayer = activePlayerColors[currentIndex + 1];
+      } else {
+        currentPlayer = activePlayerColors.first;
+      }
+    } else {
+      // ফলব্যাক লজিক
+      if (currentPlayer == TokenType.green) currentPlayer = TokenType.yellow;
+      else if (currentPlayer == TokenType.yellow) currentPlayer = TokenType.blue;
+      else if (currentPlayer == TokenType.blue) currentPlayer = TokenType.red;
+      else currentPlayer = TokenType.green;
+    }
+
     startTurnTimer();
     notifyListeners();
   }
+// ডাইস রোল হওয়ার পর ৬ বা অন্য সংখ্যা হ্যান্ডেল করার নিয়ম
+  void handleDiceResult(int rolledValue) {
+    if (rolledValue == 6) {
+      consecutiveSixCount++;
+      if (consecutiveSixCount >= 3) {
+        debugPrint("টানা ৩ বার ৬ উঠেছে! চাল বাতিল এবং টার্ন পরিবর্তন হচ্ছে।");
+        consecutiveSixCount = 0;
+        nextTurn();
+      } else {
+        debugPrint("৬ উঠেছে! প্লেয়ার আবার ডাইস ঘোরাতে পারবে।");
+        startTurnTimer();
+      }
+    } else {
+      consecutiveSixCount = 0;
+    }
+    notifyListeners();
+  }
+  
+  bool hasValidMoves(TokenType playerType, int diceValue) {
+    List<Token> playerTokens = gameTokens.where((t) => t.type == playerType).toList();
 
+    for (Token token in playerTokens) {
+      // যদি গুটি হোম বা ইনিশিয়ালে থাকে, তবে শুধু ৬ উঠলেই চাল দেওয়া সম্ভব
+      if (token.tokenState == TokenState.home) continue;
+      
+      if (token.tokenState == TokenState.initial) {
+        if (diceValue == 6) return true;
+        continue;
+      }
+
+      // যদি গুটি বোর্ডে চলমান থাকে, তবে দেখতে হবে চাল দিলে ৫৬ এর বেশি পার হয়ে যায় কি না
+      int nextPathPos = token.positionInPath + diceValue;
+      if (nextPathPos <= 56) {
+        return true; // বৈধ চাল পাওয়া গেছে
+      }
+    }
+    return false; // কোনো বৈধ চাল নেই
+  }
+  
   void moveToken(Token token, int steps) {
     if (token.type != currentPlayer) return;
 
@@ -78,6 +164,8 @@ class GameState with ChangeNotifier {
     if (token.tokenState == TokenState.initial && steps != 6) return;
 
     if (token.tokenState == TokenState.initial && steps == 6) {
+      SoundService.playTokenMoveSound();
+      
       Position destination = _getPosition(token.type, 0);
       _updateInitalPositions(token);
       _updateBoardState(token, destination, 0);
@@ -164,7 +252,11 @@ class GameState with ChangeNotifier {
     return cutToken;
   }
 
-  void _updateInitalPositions(Token token) {
+  void _updateInitalPositions(Token tokentype) {
+    // handled inside switch
+  }
+
+  void _updateInitalPositionsReal(Token token) {
     switch (token.type) {
       case TokenType.green: this.greenInitital.add(token.tokenPosition); break;
       case TokenType.yellow: this.yellowInitital.add(token.tokenPosition); break;
@@ -206,15 +298,15 @@ class GameState with ChangeNotifier {
       case TokenType.red: return Position(Path.redPath[step][0], Path.redPath[step][1]);
     }
   }
-// আপনার Token ক্লাসের প্রপার্টি অনুযায়ী ডাটাবেস আপডেট ফাংশন
+
   void updateGameStateInFirebase(String roomId) {
     List<Map<String, dynamic>> tokenData = gameTokens.map((t) => {
       "id": t.id,
-      "type": t.type.toString(), // TokenType সেভ করছি
+      "type": t.type.toString(),
       "row": t.tokenPosition.row,
       "column": t.tokenPosition.column,
-      "state": t.tokenState.toString(), // TokenState সেভ করছি
-      "pathPos": t.positionInPath, // বর্তমান পজিশন
+      "state": t.tokenState.toString(),
+      "pathPos": t.positionInPath,
     }).toList();
 
     FirebaseDatabase.instance.ref("ludo_rooms/$roomId/game_state").set({

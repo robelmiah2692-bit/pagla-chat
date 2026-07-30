@@ -54,7 +54,7 @@ class _EntryEffectHandlerState extends State<EntryEffectHandler> with SingleTick
               fit: BoxFit.contain,
               // এনিমেশন লোড হতে দেরি হলে বা এরর হলে যাতে অ্যাপ না ক্রাশ করে
               errorBuilder: (context, error, stackTrace) {
-                debugPrint("Lottie Error: $error");
+                
                 return const SizedBox.shrink();
               },
             ),

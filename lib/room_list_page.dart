@@ -36,9 +36,9 @@ class _RoomListPageState extends State<RoomListPage>
 final PageController _pageController = PageController();
 Timer? _timer;
 final List<String> _bannerUrls = [
-  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/roomlistbenar.png",
-  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/roomlistbenar2.png", // এখানে দ্বিতীয় লিংক বসান
-  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/daimondbenar.png", // এখানে তৃতীয় লিংক বসান
+  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/roomlistbenar.jpg",
+  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/roomlistbenar2.jpg", // এখানে দ্বিতীয় লিংক বসান
+  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/daimondbenar.jpg", // এখানে তৃতীয় লিংক বসান
 ];
 
 
@@ -687,7 +687,7 @@ final List<String> _bannerUrls = [
                         : Colors.white.withOpacity(0.1),
                     width: isMyRoom ? 2.5 : 1.5),
                 image: DecorationImage(
-                    image: NetworkImage(finalImage),
+                    image: CachedNetworkImageProvider(finalImage),
                     fit: BoxFit.cover,
                     opacity: 0.9),
               ),
@@ -840,7 +840,7 @@ Widget _buildBanner() {
               horizontal: 8), // সাইড গ্যাপ ঠিক রাখা হলো
           decoration: BoxDecoration(
             image: const DecorationImage(
-              image: CachedNetworkImageProvider("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/topuser.png"),
+              image: CachedNetworkImageProvider("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/topuser.jpg"),
               fit: BoxFit.fill,
             ),
             border: Border.all(color: Colors.amber.shade700, width: 2),

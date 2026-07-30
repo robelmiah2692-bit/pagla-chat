@@ -70,7 +70,7 @@ class AgoraStatusChecker {
         _lastMessage = null;
       });
     } catch (e) {
-      debugPrint("SnackBar Error: $e");
+      
     }
   }
 }

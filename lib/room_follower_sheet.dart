@@ -16,8 +16,10 @@ class RoomFollowerSheet extends StatefulWidget {
 }
 
 class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
-  // 🔥 ফিক্স: ৬-ডিজিটের ID লোড করার জন্য ভেরিয়েবল
   String myuID = "";
+
+  // ইউজার প্রোফাইল ডাটা ক্যাশ করার জন্য যাতে বারবার সার্ভারে কল না যায়
+  final Map<String, Map<String, dynamic>> _usersCache = {};
 
   @override
   void initState() {
@@ -25,15 +27,23 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
     _fetchMyCustomID();
   }
 
-  // ফায়ারবেস অথ আইডি দিয়ে আপনার ৬-ডিজিটের কাস্টম uID খুঁজে বের করা
   Future<void> _fetchMyCustomID() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
+      // প্রথমে ক্যাশ থেকে চেক করা
       var userDoc = await FirebaseFirestore.instance
           .collection('users')
           .where('authUID', isEqualTo: user.uid)
           .limit(1)
-          .get();
+          .get(const GetOptions(source: Source.cache));
+
+      if (userDoc.docs.isEmpty) {
+        userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .where('authUID', isEqualTo: user.uid)
+            .limit(1)
+            .get(const GetOptions(source: Source.server));
+      }
 
       if (userDoc.docs.isNotEmpty && mounted) {
         setState(() {
@@ -41,6 +51,38 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
         });
       }
     }
+  }
+
+  // ইউজার ডাটা ক্যাশ বা সার্ভার থেকে ফেচ করার ফাংশন
+  Future<Map<String, dynamic>> _getUserData(String targetuID) async {
+    if (_usersCache.containsKey(targetuID)) {
+      return _usersCache[targetuID]!;
+    }
+
+    try {
+      // আগে ক্যাশ থেকে খোঁজা
+      var doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(targetuID)
+          .get(const GetOptions(source: Source.cache));
+
+      if (!doc.exists || doc.data() == null) {
+        // ক্যাশে না পেলে সার্ভার থেকে আনা
+        doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(targetuID)
+            .get(const GetOptions(source: Source.server));
+      }
+
+      if (doc.exists && doc.data() != null) {
+        _usersCache[targetuID] = doc.data()!;
+        return doc.data()!;
+      }
+    } catch (e) {
+      debugPrint("Error fetching user $targetuID: $e");
+    }
+
+    return {};
   }
 
   @override
@@ -129,25 +171,21 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
             bool isTargetOwner = (targetuID == actualOwnerId);
             bool isTargetAdmin = admins.contains(targetuID);
 
-            return FutureBuilder<DocumentSnapshot>(
-              future: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(targetuID)
-                  .get(),
+            return FutureBuilder<Map<String, dynamic>>(
+              future: _getUserData(targetuID),
               builder: (context, userSnap) {
                 if (!userSnap.hasData) return const SizedBox();
-                var userData = userSnap.data?.data() as Map<String, dynamic>?;
+                var userData = userSnap.data ?? {};
 
-                String name = userData?['name'] ?? "ইউজার $targetuID";
+                String name = userData['name'] ?? "ইউজার $targetuID";
                 String photo =
-                    userData?['profilepic'] ?? userData?['profilePic'] ?? "";
-                String frame = userData?['activeFrameUrl'] ?? ""; // ফ্রেমের লিঙ্ক
+                    userData['profilepic'] ?? userData['profilePic'] ?? "";
+                String frame = userData['activeFrameUrl'] ?? "";
 
-                // গ্লাস বক্সের ডিজাইন
                 return Container(
                   margin: const EdgeInsets.only(bottom: 10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1), // হালকা গ্লাস ইফেক্ট
+                    color: Colors.white.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(15),
                     border: Border.all(color: Colors.white.withOpacity(0.2)),
                   ),
@@ -155,7 +193,6 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
                     leading: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // প্রোফাইল পিকচার
                         CircleAvatar(
                           radius: 22,
                           backgroundColor: Colors.black,
@@ -165,12 +202,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
                               ? const Icon(Icons.person, color: Colors.white54)
                               : null,
                         ),
-                        // ফ্রেম (যদি থাকে)
-                        // আগে যেখানে Container দিয়ে শুধু ইমেজ ছিল, সেখানে এটি বসান:
-                        if (frame.isNotEmpty)
-                          _buildFrame(
-                              frame), // এখানে লটি অথবা ইমেজ অটোমেটিক সিলেক্ট হবে
-                        // ওনার স্টার
+                        if (frame.isNotEmpty) _buildFrame(frame),
                         if (isTargetOwner)
                           const Positioned(
                               right: -2,
@@ -182,7 +214,6 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
                     title: Text(name,
                         style: const TextStyle(
                             color: Colors.white, fontWeight: FontWeight.bold)),
-                    // আইডি নাম্বার প্রদর্শন
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -211,33 +242,31 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
     );
   }
 
- // ফ্রেমের জন্য এই উইজেটটি আপনার কোডে ব্যবহার করবেন
-Widget _buildFrame(String frameUrl) {
-  if (frameUrl.isEmpty) return const SizedBox();
+  Widget _buildFrame(String frameUrl) {
+    if (frameUrl.isEmpty) return const SizedBox();
 
-  // যদি লিংকটি .json এ শেষ হয়, তবে লটি এনিমেশন দেখাবে
-  if (frameUrl.endsWith('.json')) {
-    return Lottie.network(
-      frameUrl,
-      width: 60,
-      height: 60,
-      fit: BoxFit.cover,
-    );
-  } else {
-    // সাধারণ ইমেজ হলে নেটওয়ার্ক ইমেজ দেখাবে
-    return Container(
-      width: 60,
-      height: 60,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        image: DecorationImage(
-          image: NetworkImage(frameUrl),
-          fit: BoxFit.cover,
+    if (frameUrl.endsWith('.json')) {
+      return Lottie.network(
+        frameUrl,
+        width: 60,
+        height: 60,
+        fit: BoxFit.cover,
+      );
+    } else {
+      return Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          image: DecorationImage(
+            image: NetworkImage(frameUrl),
+            fit: BoxFit.cover,
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
-}
+
   Widget _buildKickList() {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
@@ -265,16 +294,13 @@ Widget _buildFrame(String frameUrl) {
           itemCount: kickedUsers.length,
           itemBuilder: (context, index) {
             String targetuID = kickedUsers[index].toString();
-            return FutureBuilder<DocumentSnapshot>(
-              future: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(targetuID)
-                  .get(),
+            return FutureBuilder<Map<String, dynamic>>(
+              future: _getUserData(targetuID),
               builder: (context, userSnap) {
-                var userData = userSnap.data?.data() as Map<String, dynamic>?;
-                String name = userData?['name'] ?? "User $targetuID";
+                var userData = userSnap.data ?? {};
+                String name = userData['name'] ?? "User $targetuID";
                 String photo =
-                    userData?['profilepic'] ?? userData?['profilePic'] ?? "";
+                    userData['profilepic'] ?? userData['profilePic'] ?? "";
 
                 return ListTile(
                   leading: CircleAvatar(
@@ -368,7 +394,6 @@ Widget _buildFrame(String frameUrl) {
   }
 
   void _kickUser(String targetuID) {
-    // নতুন ফিচার: প্রোটেকশন চেক
     if (protectedUserIds.contains(targetuID)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -377,10 +402,9 @@ Widget _buildFrame(String frameUrl) {
           backgroundColor: Colors.redAccent,
         ),
       );
-      return; // কিক হবে না
+      return;
     }
 
-    // আগের কিক লজিক
     FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
       'followers': FieldValue.arrayRemove([targetuID]),
       'kickedUsers': FieldValue.arrayUnion([targetuID])

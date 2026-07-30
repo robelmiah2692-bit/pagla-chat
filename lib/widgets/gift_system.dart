@@ -11,7 +11,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pagla_chat/data/free_gifts.dart';
 import 'package:pagla_chat/data/classic_gifts.dart';
 import 'package:pagla_chat/data/luxury_gifts.dart';
-import 'package:pagla_chat/data/pk_gifts.dart'; // নতুন ফাইলটি ইম্পোর্ট করলেন
+import 'package:pagla_chat/data/pk_gifts.dart';
+import 'package:pagla_chat/mini_video_thumbnail_player.dart'; // নতুন ফাইলটি ইম্পোর্ট করলেন
 
 class GiftBottomSheet extends StatefulWidget {
   final String roomId;
@@ -475,7 +476,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     );
   }
 
-  Widget _buildGrid(List gifts, {bool isFreeTab = false}) {
+ Widget _buildGrid(List gifts, {bool isFreeTab = false}) {
   return GridView.builder(
     padding: const EdgeInsets.all(15),
     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -489,11 +490,14 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       var gift = gifts[index];
       bool isSelected = selectedGift?['id'] == gift['id'];
       
-      String giftPath = (gift["image"] ?? gift["icon"] ?? gift["url"] ?? "").toString();
+      // গিফটের লিংক চেক করা
+      String giftPath = (gift["lottieUrl"] ?? gift["image"] ?? gift["icon"] ?? gift["url"] ?? "").toString();
       bool isJson = giftPath.toLowerCase().endsWith('.json');
+      bool isOnlineLottie = isJson && (giftPath.startsWith('http://') || giftPath.startsWith('https://'));
       
-      // ভিডিও গিফট কি না চেক করা
-      bool isVideoGift = gift.containsKey('videoUrl') && gift['videoUrl'] != null;
+      // ভিডিও গিফট কি না চেক করা (আলাদা কোনো ইমেজ থাম্বনেইল লাগবে না)
+      bool isVideoGift = gift.containsKey('videoUrl') && gift['videoUrl'] != null && gift['videoUrl'].toString().isNotEmpty;
+      String videoUrl = isVideoGift ? gift['videoUrl'].toString() : '';
 
       return GestureDetector(
         onTap: () {
@@ -516,11 +520,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
               randomGiftPool = [];
             }
           });
-
-          // যদি ভিডিও গিফট হয়, তবে ডাটাবেসে লিঙ্ক পাঠিয়ে দিন
-          if (isVideoGift) {
-            
-          }
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -538,19 +537,22 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
             borderRadius: BorderRadius.circular(13),
             child: Stack(
               children: [
-                // ১. মূল ছবি/লটি/থাম্বনেইল
+                // ১. ভিডিও থাম্বনেইল (স্থির থাকবে), লটি অথবা স্ট্যাটিক ছবি রেন্ডারিং
                 Positioned.fill(
-                  child: isJson
-                      ? Lottie.asset(giftPath, repeat: true, fit: BoxFit.contain)
-                      : CachedNetworkImage(
-                          imageUrl: giftPath,
-                          fit: BoxFit.cover,
-                          errorWidget: (c, u, e) => const Icon(Icons.card_giftcard, color: Colors.white24),
-                        ),
+                  child: isVideoGift
+                      ? MiniVideoThumbnailPlayer(videoUrl: videoUrl) // ভিডিওর প্রথম ফ্রেম স্থির থাম্বনেইল হিসেবে দেখাবে
+                      : (isJson
+                          ? (isOnlineLottie
+                              ? Lottie.network(giftPath, repeat: true, fit: BoxFit.contain)
+                              : Lottie.asset(giftPath, repeat: true, fit: BoxFit.contain))
+                          : CachedNetworkImage(
+                              imageUrl: giftPath,
+                              fit: BoxFit.cover,
+                              errorWidget: (c, u, e) => const Icon(Icons.card_giftcard, color: Colors.white24),
+                            )),
                 ),
 
-
-                // ৩. নিচের টেক্সট বা ডাইমন্ড কাউন্ট
+                // ২. নিচের টেক্সট বা ডাইমন্ড কাউন্ট
                 Positioned(
                   bottom: 0,
                   left: 0,
@@ -592,7 +594,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     },
   );
 }
-
   Widget _buildBottomBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
@@ -716,33 +717,28 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
 
     Navigator.pop(context);
   }
+// ২. গিফট সেন্ড করার ফাংশন
+  void sendRoomVideoGift(String giftUrl) {
+    String path = '${widget.roomId}/latestVideoGift';
 
- // ২. গিফট সেন্ড করার ফাংশন
-void sendRoomVideoGift(String giftUrl) {
-  String path = '${widget.roomId}/latestVideoGift';
-  print("DEBUG: ডাটাবেসে ডেটা পাঠানো হচ্ছে এই পাথে: $path");
-
-  // ১. আপনার বর্তমান Realtime Database কোড (যা আছে তাই থাকবে)
-  FirebaseDatabase.instance.ref(path).set({
-    'url': giftUrl,
-    'sendTime': ServerValue.timestamp,
-  }).then((_) {
-    print("Video Gift sent successfully to Realtime DB!");
-    
-    // ২. শুধু এই অংশটুকু যোগ করুন (সবাইকে দেখানোর জন্য Firestore-এ আপডেট)
-    FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
-      'latestVideoGift': {
-        'url': giftUrl,
-        'sendTime': DateTime.now().millisecondsSinceEpoch,
-      }
+    // ১. আপনার বর্তমান Realtime Database কোড (যা আছে তাই থাকবে)
+    FirebaseDatabase.instance.ref(path).set({
+      'url': giftUrl,
+      'sendTime': ServerValue.timestamp,
+    }).then((_) {
+      // ২. শুধু এই অংশটুকু যোগ করুন (সবাইকে দেখানোর জন্য Firestore-এ আপডেট)
+      FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
+        'latestVideoGift': {
+          'url': giftUrl,
+          'sendTime': DateTime.now().millisecondsSinceEpoch,
+        }
+      });
+    }).catchError((error) {
+      // Catch block left empty to safely ignore error without printing
     });
-    
-  }).catchError((error) {
-    print("Failed to send video gift: $error");
-  });
-}
+  }
   
-  // ✅ আপনার সেই হারানো টাইম লজিকটি এখানে যোগ করা হয়েছে
+  // ✅ আপনার সেই হারানো টাইম লজিকটি এখানে যোগ করা হয়েছে
   String _getRemainingTime(DateTime expiry) {
     final difference = expiry.difference(DateTime.now());
     if (difference.isNegative) return "Expired";

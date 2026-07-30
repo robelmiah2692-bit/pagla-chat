@@ -12,19 +12,7 @@ class GiftOverlayHandler extends StatelessWidget {
   final String senderImage;   
   final String receiverImage; 
   
-  // GitHub থেকে লটি ওভারলে লিঙ্ক
-  // ২টা ওভারলে লিঙ্ক এখানে লিস্ট আকারে রাখা হয়েছে
-  final List<String> lottieOverlays = [
-    // প্রথম ওভারলে
-  'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftoverly%20%20(1).json',
-
-  // দ্বিতীয় ওভারলে 
-  'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftoverly%20%20(2).json',
-
-  // তৃতীয় ওভারলে
-  'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftoverly%20%20(3).json',
-
-];
+  
 
    GiftOverlayHandler({
     super.key,
@@ -44,10 +32,7 @@ class GiftOverlayHandler extends StatelessWidget {
     final double fullHeight = MediaQuery.of(context).size.height;
     final double fullWidth = MediaQuery.of(context).size.width;
     final int animationType = math.Random().nextInt(3); 
-    // রেন্ডম ইন্ডেক্স বের করা
-  final int randomOverlayIndex = math.Random().nextInt(lottieOverlays.length);
-  final String selectedLottieUrl = lottieOverlays[randomOverlayIndex];
-    // ওভারলের জন্য রেন্ডম ইন্ডেক্স (০ অথবা ১ সিলেক্ট করবে)
+   
     
     return IgnorePointer(
       ignoring: true,
@@ -83,24 +68,13 @@ class GiftOverlayHandler extends StatelessWidget {
               ),
             ),
 
-            // ৩. লটি ওভারলে এফেক্ট (এটি এখন সবার উপরে থাকবে)
-            _buildLottieOverlay(selectedLottieUrl),
+            
           ],
         ),
       ),
     );
   }
 
-  // লটি ওভারলে মেথড - এটিকে Stack-এর শেষে দেওয়া হয়েছে যাতে গিফটের উপরে দেখা যায়
-  Widget _buildLottieOverlay(String url) {
-    return Positioned.fill(
-      child: Lottie.network(
-        url,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-      ),
-    );
-  }
 
   // বিজলি চমকানোর মতো ধামাকা ইফেক্ট
   Widget _buildThunderStrikeEffect() {
@@ -129,30 +103,41 @@ class GiftOverlayHandler extends StatelessWidget {
     );
   }
 
-  Widget _buildFullScreenSoftGift(BuildContext context) {
-    return ShaderMask(
-      shaderCallback: (rect) {
-        return RadialGradient(
-          center: Alignment.center,
-          radius: 0.65,
-          colors: [Colors.black, Colors.black.withOpacity(0.8), Colors.transparent],
-          stops: const [0.0, 0.88, 1.0],
-        ).createShader(rect);
-      },
-      blendMode: BlendMode.dstIn,
-      child: SizedBox(
-        width: MediaQuery.of(context).size.width,
-        height: MediaQuery.of(context).size.height,
-        child: CachedNetworkImage(
-          imageUrl: currentGiftImage,
-          fit: BoxFit.contain,
-          alignment: Alignment.center,
-          placeholder: (context, url) => const SizedBox.shrink(),
-          errorWidget: (context, url, error) => const Icon(Icons.thunderstorm, size: 100, color: Colors.yellow),
-        ),
-      ),
-    );
-  }
+ Widget _buildFullScreenSoftGift(BuildContext context) {
+  bool isLottie = currentGiftImage.toLowerCase().endsWith('.json');
+
+  return ShaderMask(
+    shaderCallback: (rect) {
+      return RadialGradient(
+        center: Alignment.center,
+        radius: 0.65,
+        colors: [Colors.black, Colors.black.withOpacity(0.8), Colors.transparent],
+        stops: const [0.0, 0.88, 1.0],
+      ).createShader(rect);
+    },
+    blendMode: BlendMode.dstIn,
+    child: SizedBox(
+      width: MediaQuery.of(context).size.width,
+      height: MediaQuery.of(context).size.height,
+      child: isLottie
+          ? Lottie.network(
+              currentGiftImage,
+              fit: BoxFit.contain,
+              repeat: true,
+              errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.thunderstorm, size: 100, color: Colors.yellow),
+            )
+          : CachedNetworkImage(
+              imageUrl: currentGiftImage,
+              fit: BoxFit.contain,
+              alignment: Alignment.center,
+              placeholder: (context, url) => const SizedBox.shrink(),
+              errorWidget: (context, url, error) =>
+                  const Icon(Icons.thunderstorm, size: 100, color: Colors.yellow),
+            ),
+    ),
+  );
+}
 
   Widget _buildNameBadgeWithImages() {
     return Container(

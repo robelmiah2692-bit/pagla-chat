@@ -2,6 +2,43 @@
 List<Map<String, dynamic>> classicGifts = [
   
   // আপনার ডাটা ফাইল (luxury_gifts.dart) এ এভাবে রাখবেন:
+
+{
+    'id': 'lx_lottie_22',
+    'name': 'Lottie Gift 22',
+    'price': 399,
+    'lottieUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(19).json', // সরাসরি .json ফাইলের লিংক
+    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+  },
+
+{
+    'id': 'lx_lottie_23',
+    'name': 'Lottie Gift 23',
+    'price': 399,
+    'lottieUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(20).json', // সরাসরি .json ফাইলের লিংক
+    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+  },
+
+{
+    'id': 'lx_lottie_24',
+    'name': 'Lottie Gift 24',
+    'price': 399,
+    'lottieUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(21).json', // সরাসরি .json ফাইলের লিংক
+    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+  },
+{
+    'id': 'lx_lottie_25',
+    'name': 'Lottie Gift 25',
+    'price': 499,
+    'lottieUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(22).json', // সরাসরি .json ফাইলের লিংক
+    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+  },
+
+
 {
   "id": "box_1_id",
   "name": "Magic Box 1",
@@ -257,6 +294,9 @@ List<Map<String, dynamic>> classicGifts = [
   "image": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftbox/giftbox11%20(4).png",
   "price": 14500,
   "gifts": [ // বক্সে কী কী গিফট থাকবে
+   
+   
+   
    {
     'id': 'pkgift6', 
     'name': 'pkdj', 
@@ -273,6 +313,27 @@ List<Map<String, dynamic>> classicGifts = [
   "image": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftbox/giftbox11%20(5).png",
   "price": 18000,
   "gifts": [ // বক্সে কী কী গিফট থাকবে
+   
+   {
+    'id': 'pkcard',
+    'name': 'pkcard',
+    'price': 10000,
+
+    'videoUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782209482041.mp4', // আসল ভিডিও
+    'type': 'lighting'
+  },
+  {
+    'id': 'pkgift-1',
+    'name': 'dragonfire',
+    'price': 8000,
+
+    'videoUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782295717696.mp4', // আসল ভিডিও
+    'type': 'lighting'
+  },
+  
+   
    {
     'id': 'pkgift5', 
     'name': 'pkdaimond', 
@@ -289,6 +350,27 @@ List<Map<String, dynamic>> classicGifts = [
   "image": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftbox/giftbox11%20(6).png",
   "price": 23000,
   "gifts": [ // বক্সে কী কী গিফট থাকবে
+    
+    {
+    'id': 'pkgift2',
+    'name': 'pklove',
+    'price': 12000,
+
+    'videoUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782295790685.mp4', // আসল ভিডিও
+    'type': 'lighting'
+  },
+  {
+    'id': 'pkgift3',
+    'name': 'pkhart',
+    'price': 17000,
+
+    'videoUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782295912065.mp4', // আসল ভিডিও
+    'type': 'lighting'
+  },
+    
+    
     {
     'id': 'pkgift4', 
     'name': 'pkgiftv', 
@@ -306,6 +388,26 @@ List<Map<String, dynamic>> classicGifts = [
   "image": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftbox/giftbox11%20(7).png",
   "price": 18000,
   "gifts": [ // বক্সে কী কী গিফট থাকবে
+    
+     {
+    'id': 'pkgift4',
+    'name': 'pkgiftv',
+    'price': 8000,
+
+    'videoUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782297293574.mp4', // আসল ভিডিও
+    'type': 'lighting'
+  },
+  {
+    'id': 'pkgift5',
+    'name': 'pkdaimond',
+    'price': 27000,
+
+    'videoUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782297505741.mp4', // আসল ভিডিও
+    'type': 'lighting'
+  },
+    
     {
     'id': 'pkgift3', 
     'name': 'pkhart', 
@@ -323,6 +425,26 @@ List<Map<String, dynamic>> classicGifts = [
   "image": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftbox/giftbox11%20(8).png",
   "price": 27000,
   "gifts": [ // বক্সে কী কী গিফট থাকবে
+    
+    {
+    'id': 'pkgift6',
+    'name': 'pkdj',
+    'price': 7000,
+
+    'videoUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782364174518.mp4', // আসল ভিডিও
+    'type': 'lighting'
+  },
+  {
+    'id': 'pkgift7',
+    'name': 'pkdaimond2',
+    'price': 27000,
+
+    'videoUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782364414053.mp4', // আসল ভিডিও
+    'type': 'lighting'
+  },
+  
     {
     'id': 'pkgift2', 
     'name': 'pklove', 
@@ -349,8 +471,29 @@ List<Map<String, dynamic>> classicGifts = [
   "id": "box_19_id",
   "name": "Magic Box 19",
   "image": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftbox/giftbox11%20(9).png",
-  "price": 8000,
+  "price": 18000,
   "gifts": [ // বক্সে কী কী গিফট থাকবে
+    
+    {
+    'id': 'pkgift8',
+    'name': 'pkdaimond3',
+    'price': 20000,
+
+    'videoUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782364595647.mp4', // আসল ভিডিও
+    'type': 'lighting'
+  },
+  {
+    'id': 'pkgift9',
+    'name': 'pkdaimond4',
+    'price': 27000,
+
+    'videoUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782364758245.mp4', // আসল ভিডিও
+    'type': 'lighting'
+  },
+  
+    
     {
     'id': 'pkgift-1', 
     'name': 'dragonfire', 
@@ -376,6 +519,24 @@ List<Map<String, dynamic>> classicGifts = [
   "image": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftbox/giftbox11.png",
   "price": 32600,
   "gifts": [ // বক্সে কী কী গিফট থাকবে
+    {
+    'id': 'pkgift10',
+    'name': 'pkdaimondtk',
+    'price': 27000,
+
+    'videoUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782365188314.mp4', // আসল ভিডিও
+    'type': 'lighting'
+  },
+  {
+    'id': 'pkgift11',
+    'name': 'pkdaimondfg',
+    'price': 27000,
+
+    'videoUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/videogift/1782365759689.mp4', // আসল ভিডিও
+    'type': 'lighting'
+  },
     {
     'id': 'lx13', 
     'name': 'Luxury 13', 

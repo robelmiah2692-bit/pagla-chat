@@ -9,9 +9,14 @@ class PlayerContainer extends StatelessWidget {
   final TokenType type;
   final String playerName;
   final String avatar;
+  final String roomId; // ১. এখানে roomId রিসিভ করার জন্য ফিল্ড যোগ করা হলো
 
-  PlayerContainer(
-      {required this.type, required this.playerName, required this.avatar});
+  PlayerContainer({
+    required this.type,
+    required this.playerName,
+    required this.avatar,
+    required this.roomId, // ২. কন্সট্রাক্টরে এটি বাধ্যতামূলক করা হলো
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -27,8 +32,8 @@ class PlayerContainer extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(15),
-              border: Border.all(
-                  color: Colors.white.withOpacity(0.3), width: 1.5),
+              border:
+                  Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -38,7 +43,7 @@ class PlayerContainer extends StatelessWidget {
                   backgroundColor: Colors.grey[300],
                   backgroundImage: avatar.isNotEmpty
                       ? NetworkImage(avatar)
-                      : null, // নেটওয়ার্ক ইমেজ থেকে ডাটা আসবে
+                      : null,
                   child: avatar.isEmpty
                       ? Icon(Icons.person, size: 20, color: Colors.white)
                       : null,
@@ -57,7 +62,10 @@ class PlayerContainer extends StatelessWidget {
                     child: SizedBox(
                       width: 30,
                       height: 30,
-                      child: Dice(myType: type),
+                      child: Dice(
+                        myType: type,
+                        roomId: roomId, // ৩. এখানে এখন কোনো লাল দাগ আসবে না
+                      ),
                     ),
                   ),
               ],

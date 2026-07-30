@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 @pragma('vm:entry-point')
 void _firebaseMessagingBackgroundHandler(NotificationResponse details) {
-  print("🔔 ব্যাকগ্রাউন্ড থেকে ক্লিক হয়েছে");
+  // Background notification click handler without print
 }
 
 class NotificationService {
@@ -24,7 +24,7 @@ class NotificationService {
     await _localNotifications.initialize(
       settings: initSettings,
       onDidReceiveNotificationResponse: (details) {
-        print("🔔 ক্লিক করা হয়েছে");
+        // Local notification click handler without print
       },
       onDidReceiveBackgroundNotificationResponse: _firebaseMessagingBackgroundHandler,
     );
@@ -37,30 +37,19 @@ class NotificationService {
   }
 
   void _saveTokenToFirestore(String token) async {
-    // এখানে আপনার সেই ৬ ডিজিটের আইডিটি লাগবে যা আপনার ডাটাবেসের ডকুমেন্টের নাম।
-    // আমি আউথ থেকে সরাসরি UID নিচ্ছি না, বরং আপনার ডাটাবেসের ওই ৬ ডিজিটের আইডিটি পাওয়ার চেষ্টা করছি।
-    
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      // এখানে আপনার অ্যাপে যে ৬ ডিজিটের আইডিটি লজিক্যালি আছে সেটি দিন। 
-      // আমি ধরে নিচ্ছি আপনার অ্যাপের কোনো স্টেট ম্যানেজমেন্টে বা কোথাও এই আইডিটি আছে।
-      // যদি আপনার কাছে আইডিটি সরাসরি না থাকে, তবে Firestore থেকে সার্চ করে নিতে হবে।
-      
       final querySnapshot = await FirebaseFirestore.instance
           .collection('users')
-          .where('email', isEqualTo: user.email) // যদি ইমেইল দিয়ে ৬ ডিজিটের আইডি মেলানো যায়
+          .where('email', isEqualTo: user.email)
           .limit(1)
           .get();
 
       if (querySnapshot.docs.isNotEmpty) {
-        String docId = querySnapshot.docs.first.id; // এটাই সেই ৬ ডিজিটের আইডি
+        String docId = querySnapshot.docs.first.id;
         
         await FirebaseFirestore.instance.collection('users').doc(docId).set(
             {'fcmToken': token}, SetOptions(merge: true));
-            
-        print("✅ সফলভাবে আপডেট হয়েছে: $docId");
-      } else {
-        print("⚠️ ডকুমেন্ট পাওয়া যায়নি, নতুন কিছু তৈরি করা হবে না।");
       }
     }
   }

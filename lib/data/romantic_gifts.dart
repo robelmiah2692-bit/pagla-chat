@@ -1,4 +1,44 @@
 final List<Map<String, dynamic>> romanticGifts = [
+   {
+    'id': 'lx_lottie_14',
+    'name': 'Lottie Gift 14',
+    'price': 199,
+    'lottieUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(11).json', // সরাসরি .json ফাইলের লিংক
+    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+  },
+   {
+    'id': 'lx_lottie_15',
+    'name': 'Lottie Gift 15',
+    'price': 299,
+    'lottieUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(12).json', // সরাসরি .json ফাইলের লিংক
+    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+  },
+   {
+    'id': 'lx_lottie_16',
+    'name': 'Lottie Gift 16',
+    'price': 499,
+    'lottieUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(13).json', // সরাসরি .json ফাইলের লিংক
+    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+  },
+   {
+    'id': 'lx_lottie_17',
+    'name': 'Lottie Gift 17',
+    'price': 399,
+    'lottieUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(14).json', // সরাসরি .json ফাইলের লিংক
+    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+  },
+  { 
+    "id": "soulmate_special",
+  "name": "Soulmates",
+  "price": 8000, // আপনার পছন্দমতো প্রাইজ সেট করুন
+  "icon": 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/Soulmates.jpg',
+  "type": 'romantic',
+},
+  
   {
     "id": "ring_21500", 
     "name": "Classic Gold Band", 
@@ -55,13 +95,7 @@ final List<Map<String, dynamic>> romanticGifts = [
     "price": 200000, 
     "type": "marriage_ring"
   },
-   { 
-    "id": "soulmate_special",
-  "name": "Soulmates",
-  "price": 8000, // আপনার পছন্দমতো প্রাইজ সেট করুন
-  "icon": 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/Soulmates.jpg',
-  "type": 'romantic',
-},
+   
 {
     "id": "ring_220000", 
     "name": "Classic Daimond Band", 

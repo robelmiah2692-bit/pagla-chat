@@ -21,7 +21,6 @@ class _TopRoomLeaderboardState extends State<TopRoomLeaderboard> {
     _startRewardCheckCountdown();
   }
 
-  // ব্যাকগ্রাউন্ডে রিওয়ার্ড প্রসেস চেক করার টাইমার (UI-তে কোনো প্রভাব ফেলবে না)
   void _startRewardCheckCountdown() {
     _rewardCheckTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       final now = DateTime.now();
@@ -193,7 +192,6 @@ class _TopRoomLeaderboardState extends State<TopRoomLeaderboard> {
         elevation: 0,
         centerTitle: true,
       ),
-      // 🔥 FutureBuilder পরিবর্তন করে StreamBuilder দেওয়া হলো যাতে রিয়ালটাইম ডাটা স্মুথলি আসে
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
         builder: (context, snapshot) {
@@ -247,7 +245,7 @@ class _TopRoomLeaderboardState extends State<TopRoomLeaderboard> {
           if (rooms.isEmpty) {
             return Column(
               children: [
-                const LiveHeaderTimer(), // কাউন্টডাউন টাইমার আলাদা উইজেট হিসেবে থাকবে
+                const LiveHeaderTimer(),
                 const Expanded(
                   child: Center(
                     child: Column(
@@ -268,7 +266,7 @@ class _TopRoomLeaderboardState extends State<TopRoomLeaderboard> {
 
           return Column(
             children: [
-              const LiveHeaderTimer(), // 🔥 শুধু এই টাইমারটুকু প্রতি সেকেন্ডে রিফ্রেশ হবে
+              const LiveHeaderTimer(),
               _buildTopWinnerCard(rooms[0], 1),
               Expanded(
                 child: rooms.length > 1
@@ -291,155 +289,155 @@ class _TopRoomLeaderboardState extends State<TopRoomLeaderboard> {
   }
 
   Widget _buildTopWinnerCard(DocumentSnapshot doc, int rank) {
-  var roomData = doc.data() as Map<String, dynamic>;
-  String roomId = doc.id;
-  String ownerId = roomData['ownerId'] ?? "";
-  int points = roomData['dailyPoints'] ?? 0;
-  int reward = calculateReward(points, rank);
+    var roomData = doc.data() as Map<String, dynamic>;
+    String roomId = doc.id;
+    String ownerId = roomData['ownerId'] ?? "";
+    int points = roomData['dailyPoints'] ?? 0;
+    int reward = calculateReward(points, rank);
 
-  return RoomOwnerProfileBuilder(
-    ownerId: ownerId,
-    builder: (userData) {
-      // ইউজার প্রোফাইল থেকে লেটেস্ট ডাটা নিচ্ছি
-      String ownerPhoto = userData['profilePic'] ?? roomData['ownerPic'] ?? roomData['ownerImage'] ?? "";
-      String ownerName = userData['name'] ?? roomData['ownerName'] ?? "Unknown";
-      String frameUrl = userData['activeFrameUrl'] ?? roomData['ownerFrame'] ?? "";
+    return RoomOwnerProfileBuilder(
+      ownerId: ownerId,
+      builder: (userData) {
+        String ownerPhoto = userData['profilePic'] ?? roomData['ownerPic'] ?? roomData['ownerImage'] ?? "";
+        String ownerName = userData['name'] ?? roomData['ownerName'] ?? "Unknown";
+        String frameUrl = userData['activeFrameUrl'] ?? roomData['ownerFrame'] ?? "";
 
-      return Container(
-        margin: const EdgeInsets.all(15),
-        height: 160,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: const LinearGradient(
-            colors: [Color(0xFFB47C1C), Color(0xFFF9D16B), Color(0xFFB47C1C)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 15)
-          ],
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              right: -10,
-              bottom: -10,
-              child: Opacity(
-                opacity: 0.5,
-                child: Image.network(
-                    "https://cdn-icons-png.flaticon.com/512/8146/8146003.png",
-                    width: 120,
-                    errorBuilder: (c, e, s) => const SizedBox()),
-              ),
+        return Container(
+          margin: const EdgeInsets.all(15),
+          height: 160,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFB47C1C), Color(0xFFF9D16B), Color(0xFFB47C1C)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            Padding(
-              padding: const EdgeInsets.all(15.0),
-              child: Row(
-                children: [
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      CircleAvatar(
-                        radius: 40,
-                        backgroundColor: Colors.white24,
-                        backgroundImage: ownerPhoto.isNotEmpty
-                            ? NetworkImage(ownerPhoto)
-                            : null,
-                        child: ownerPhoto.isEmpty
-                            ? const Icon(Icons.person, color: Colors.white)
-                            : null,
-                      ),
-                      if (frameUrl.isNotEmpty)
-                        frameUrl.toLowerCase().endsWith('.json')
-                            ? Lottie.network(
-                                frameUrl,
-                                width: 137,
-                                height: 137,
-                                fit: BoxFit.cover,
-                                errorBuilder: (c, e, s) => const SizedBox(),
-                              )
-                            : Image.network(
-                                frameUrl,
-                                width: 137,
-                                height: 137,
-                                fit: BoxFit.cover,
-                                errorBuilder: (c, e, s) => const SizedBox(),
-                              ),
-                      Positioned(
-                          bottom: 0,
-                          child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(10)),
-                              child: const Text("TOP 1",
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold))))
-                    ],
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            boxShadow: [
+              BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 15)
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -10,
+                bottom: -10,
+                child: Opacity(
+                  opacity: 0.5,
+                  child: Image.network(
+                      "https://cdn-icons-png.flaticon.com/512/8146/8146003.png",
+                      width: 120,
+                      errorBuilder: (c, e, s) => const SizedBox()),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(15.0),
+                child: Row(
+                  children: [
+                    Stack(
+                      alignment: Alignment.center,
                       children: [
-                        Text(roomData['roomName'] ?? "PaglaChat Room",
-                            style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF3E2723)),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                        Text("ID: $roomId",
-                            style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF5D4037),
-                                fontWeight: FontWeight.w600)),
-                        Text("Owner: $ownerName",
-                            style: const TextStyle(
-                                fontSize: 12, color: Color(0xFF5D4037)),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 5),
-                        Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: BoxDecoration(
-                              color: Colors.black26,
-                              borderRadius: BorderRadius.circular(8)),
-                          child: Text("💎 Est. Reward: $reward",
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11)),
-                        )
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundColor: Colors.white24,
+                          backgroundImage: ownerPhoto.isNotEmpty
+                              ? NetworkImage(ownerPhoto)
+                              : null,
+                          child: ownerPhoto.isEmpty
+                              ? const Icon(Icons.person, color: Colors.white)
+                              : null,
+                        ),
+                        if (frameUrl.isNotEmpty)
+                          frameUrl.toLowerCase().endsWith('.json')
+                              ? Lottie.network(
+                                  frameUrl,
+                                  width: 137,
+                                  height: 137,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (c, e, s) => const SizedBox(),
+                                )
+                              : Image.network(
+                                  frameUrl,
+                                  width: 137,
+                                  height: 137,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (c, e, s) => const SizedBox(),
+                                ),
+                        Positioned(
+                            bottom: 0,
+                            child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(10)),
+                                child: const Text("TOP 1",
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold))))
                       ],
                     ),
-                  ),
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.diamond,
-                          color: Color(0xFF3E2723), size: 24),
-                      const SizedBox(height: 4),
-                      Text("$points",
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: Color(0xFF3E2723))),
-                    ],
-                  )
-                ],
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(roomData['roomName'] ?? "PaglaChat Room",
+                              style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF3E2723)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          Text("ID: $roomId",
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF5D4037),
+                                  fontWeight: FontWeight.w600)),
+                          Text("Owner: $ownerName",
+                              style: const TextStyle(
+                                  fontSize: 12, color: Color(0xFF5D4037)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 5),
+                          Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                                color: Colors.black26,
+                                borderRadius: BorderRadius.circular(8)),
+                            child: Text("💎 Est. Reward: $reward",
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11)),
+                          )
+                        ],
+                      ),
+                    ),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.diamond,
+                            color: Color(0xFF3E2723), size: 24),
+                        const SizedBox(height: 4),
+                        Text("$points",
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: Color(0xFF3E2723))),
+                      ],
+                    )
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildRoomTile(DocumentSnapshot doc, int rank) {
     var roomData = doc.data() as Map<String, dynamic>;
     String roomId = doc.id;
@@ -450,7 +448,6 @@ class _TopRoomLeaderboardState extends State<TopRoomLeaderboard> {
     return RoomOwnerProfileBuilder(
       ownerId: ownerId,
       builder: (userData) {
-        // ইউজার ডাটা থেকে লেটেস্ট তথ্য নিচ্ছি
         String ownerPhoto = userData['profilePic'] ??
             roomData['ownerPic'] ??
             roomData['ownerImage'] ??
@@ -558,7 +555,6 @@ class _TopRoomLeaderboardState extends State<TopRoomLeaderboard> {
   }
 }
 
-// 🔥 কাউন্টডাউন টাইমার উইজেট সম্পূর্ণ আলাদা করা হলো যাতে পুরো বডি রিফ্রেশ না হয়
 class LiveHeaderTimer extends StatefulWidget {
   const LiveHeaderTimer({super.key});
 
@@ -617,24 +613,75 @@ class _LiveHeaderTimerState extends State<LiveHeaderTimer> {
     );
   }
 }
-// এটি আপনার ক্লাসের বাইরে যেকোনো জায়গায় রাখতে পারেন
-class RoomOwnerProfileBuilder extends StatelessWidget {
+
+// 🔥 মেমোরি ক্যাশিং যুক্ত করা হলো যাতে বারবার ফায়ারবেসে রিকোয়েস্ট না যায় এবং রুম হ্যাং না করে
+class RoomOwnerProfileBuilder extends StatefulWidget {
   final String ownerId;
   final Widget Function(Map<String, dynamic> userData) builder;
 
   const RoomOwnerProfileBuilder({required this.ownerId, required this.builder, super.key});
 
   @override
+  State<RoomOwnerProfileBuilder> createState() => _RoomOwnerProfileBuilderState();
+}
+
+class _RoomOwnerProfileBuilderState extends State<RoomOwnerProfileBuilder> {
+  // মেমোরি ক্যাশ স্টোরেজ যাতে ডাটা একবার লোড হলে আর বারবার রিকোয়েস্ট না পাঠায়
+  static final Map<String, Map<String, dynamic>> _profileCache = {};
+  Map<String, dynamic>? _cachedData;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileData();
+  }
+
+  void _loadProfileData() async {
+    if (widget.ownerId.isEmpty) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    // ১. যদি ডাটা অলরেডি ক্যাশে থাকে, তবে ফায়ারবেসে কল না করে ক্যাশ থেকে রিয়েল ডাটা দেখাবে
+    if (_profileCache.containsKey(widget.ownerId)) {
+      if (mounted) {
+        setState(() {
+          _cachedData = _profileCache[widget.ownerId];
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    // ২. ক্যাশে না থাকলে প্রথমবার রিয়েল ডাটা এনে ক্যাশ করে রাখবে
+    try {
+      DocumentSnapshot doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.ownerId)
+          .get();
+
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data() as Map<String, dynamic>;
+        _profileCache[widget.ownerId] = data; // ক্যাশ মেমরিতে সেভ হলো
+        if (mounted) {
+          setState(() {
+            _cachedData = data;
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').doc(ownerId).snapshots(),
-      builder: (context, snapshot) {
-        // ডাটা না পেলে বা লোডিং হলে ডিফল্ট এমটি ম্যাপ পাঠাবে
-        var userData = (snapshot.hasData && snapshot.data!.exists) 
-            ? snapshot.data!.data() as Map<String, dynamic> 
-            : <String, dynamic>{};
-        return builder(userData);
-      },
-    );
+    // যদি ডাটা লোড না হয় তবুও রুম বা মেইন অ্যাপে যেন কোনো হ্যাং বা এফেক্ট না পড়ে তাই ডিফল্ট এমটি ম্যাপ পাস করবে
+    var userData = _cachedData ?? {};
+    return widget.builder(userData);
   }
 }

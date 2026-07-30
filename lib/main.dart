@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:pagla_chat/app_update_manager.dart';
 import 'package:pagla_chat/device_service.dart';
 
 import 'auth_service.dart';
@@ -51,6 +52,8 @@ void main() async {
     // ১. ফায়ারবেস ইনিশিয়ালাইজেশন
     await Firebase.initializeApp(options: firebaseOptions);
 
+    final updateManager = AppUpdateManager();
+    updateManager.checkForUpdates();
     // ২. ডিভাইস ব্লক চেক (নতুন ফিচার)
     // এটি অ্যাপ ওপেন হওয়ার সাথে সাথেই ডাটাবেস চেক করবে
     bool isBlocked = await DeviceService.isDeviceBlocked();
@@ -253,7 +256,8 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
     bool uniqueFound = false;
 
     while (!uniqueFound) {
-      int num = 100000 + random.nextInt(900000);
+      // ৯ ডিজিটের ইউনিক আইডি জেনারেশন (100000000 থেকে 999999999 এর মধ্যে)
+      int num = 100000000 + random.nextInt(900000000);
       finaluID = num.toString();
       var check = await firestore.collection('users').doc(finaluID).get();
       if (!check.exists) uniqueFound = true;
@@ -347,15 +351,17 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
   }
 }
 
-// --- মেইন নেভিগেশন ---
+// --- মেইন নেভিগেশন (এখানে টাইমার ও হার্টবিট বসানো হয়েছে) ---
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
   @override
   State<MainNavigation> createState() => _MainNavigationState();
 }
 
-class _MainNavigationState extends State<MainNavigation> {
+class _MainNavigationState extends State<MainNavigation> with WidgetsBindingObserver {
   int _currentIndex = 0;
+  Timer? _heartbeatTimer; // 🔥 অনলাইন স্ট্যাটাস এবং হার্টবিট টাইমার
+
   final List<Widget> _pages = [
     const HomePage(),
     const RoomListPage(),
@@ -366,8 +372,48 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // অ্যাপ লাইফসাইকেল ট্র্যাক করার জন্য
     _updateFCMToken();
     _updateDeviceIdIfMissing();
+
+    // 🔥 অ্যাপ চালুর সাথে সাথেই অনলাইন স্ট্যাটাস আপডেট করা
+    _updateUserPresence(true);
+
+    // 🔥 প্রতি ৩০ সেকেন্ড পর পর ফায়ারস্টোরে `lastSeen` ও `isOnline` আপডেট করবে (হার্টবিট)
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _updateUserPresence(true);
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      _updateUserPresence(true); // অ্যাপে ফিরে আসলে অনলাইন
+    } else {
+      _updateUserPresence(false); // ব্যাকগ্রাউন্ডে চলে গেলে বা মিনিমাইজ করলে অফলাইন
+    }
+  }
+
+  // 🔥 ফায়ারস্টোরে স্ট্যাটাস আপডেট করার ফাংশন
+  Future<void> _updateUserPresence(bool isOnline) async {
+    if (AppData.myID.isEmpty) return;
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(AppData.myID).update({
+        'isOnline': isOnline,
+        'lastSeen': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint("Error updating presence: $e");
+    }
+  }
+
+  @override
+  void dispose() {
+    _heartbeatTimer?.cancel(); // টাইমার বন্ধ করা
+    WidgetsBinding.instance.removeObserver(this);
+    _updateUserPresence(false); // পেজ ডিসপোজ হলে অফলাইন করে দেওয়া
+    super.dispose();
   }
 
   void _updateFCMToken() async {
@@ -387,7 +433,6 @@ class _MainNavigationState extends State<MainNavigation> {
     }
   }
 
-// 🔥 এটি পুরাতন ইউজারের ডাটাবেসে ডিভাইস আইডি বসিয়ে দেবে
   void _updateDeviceIdIfMissing() async {
     try {
       String? deviceId = await DeviceService.getDeviceId();
@@ -402,12 +447,10 @@ class _MainNavigationState extends State<MainNavigation> {
     }
   }
 
-  // 🇧🇩 [বাংলা মার্ক]: কোনো প্রিফিক্স ছাড়া, একদম নিরাপদ ও লাল দাগ ফিক্সড ফাংশন
   void clearSpecificChatCount(String chatRoomId) async {
     if (AppData.myID.isEmpty || chatRoomId.isEmpty) return;
 
     try {
-      // 💡 এখানে সুনির্দিষ্ট কোনো টাইপ না লিখে সরাসরি 'final snapshot' ধরা হয়েছে, এতে আর কোনো লাল দাগ আসবে না ভাই
       final snapshot = await FirebaseFirestore.instance
           .collection('chats')
           .doc(chatRoomId)
@@ -416,12 +459,10 @@ class _MainNavigationState extends State<MainNavigation> {
           .where('isRead', isEqualTo: false)
           .get();
 
-      // 💡 এখানে .docs সরাসরি কাজ করবে
       if (snapshot.docs.isEmpty) return;
 
       final WriteBatch batch = FirebaseFirestore.instance.batch();
 
-      // 💡 প্রতিটা ডকুমেন্টকে dynamic অথবা var রাখায় ডার্ট কনফ্লিক্ট করবে না
       for (dynamic ds in snapshot.docs) {
         batch.update(ds.reference, {'isRead': true});
       }
@@ -432,7 +473,6 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
-    // 🇧🇩 [বাংলা মার্ক]: বিল্ড মেথডের শুরুতেই কারেন্ট আইডি ভ্যালিডেশন চেক করা হচ্ছে
     final String currentUserId = AppData.myID;
 
     return Scaffold(
@@ -448,13 +488,10 @@ class _MainNavigationState extends State<MainNavigation> {
         items: [
           const BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
           const BottomNavigationBarItem(icon: Icon(Icons.mic), label: "Rooms"),
-
-          // 🇧🇩 [বাংলা মার্ক - সাব-কালেকশন গ্রুপ ভিত্তিক লাইভ কাউন্ট ব্যাজ]:
           BottomNavigationBarItem(
             icon: currentUserId.isEmpty
                 ? const Icon(Icons.mail)
                 : StreamBuilder<QuerySnapshot>(
-                    // 💡 এখানেও নরমাল QuerySnapshot থাকবে
                     stream: FirebaseFirestore.instance
                         .collectionGroup('messages')
                         .where('receiverId', isEqualTo: currentUserId)

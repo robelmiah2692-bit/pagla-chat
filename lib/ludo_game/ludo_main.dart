@@ -59,10 +59,8 @@ class _MyHomePageState extends State<MyHomePage> {
             Map<dynamic, dynamic> data = snapshot.data!.snapshot.value as Map;
             
             data.forEach((uid, value) {
-              // এখানে প্রিন্ট স্টেটমেন্টটি বসিয়েছি
               debugPrint("Checking DB User: ${value['name']}, Color in DB: ${value['color']}");
 
-              // ডাটাবেসের কালার যদি না থাকে তবে ডিফল্ট হিসেবে 'green' ধরা হচ্ছে
               String assignedColor = value["color"]?.toString().toLowerCase() ?? "green";
               
               users.add({
@@ -74,10 +72,15 @@ class _MyHomePageState extends State<MyHomePage> {
             });
           }
 
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            gameState.setActivePlayers(users);
+          });
+
           return GamePlay(
             keyBar,
             gameState,
             players: users,
+            roomId: widget.roomId, // এখানে roomId পাস করে দেওয়া হলো, তাই কোনো লাল দাগ থাকবে না
           );
         },
       ),

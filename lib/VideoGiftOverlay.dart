@@ -65,7 +65,7 @@ class _VideoGiftOverlayState extends State<VideoGiftOverlay> with SingleTickerPr
         final duration = _controller!.value.duration;
         final position = _controller!.value.position;
 
-        // ৩. ভিডিও শেষ হওয়ার ঠিক ৩০০ মিলিগ্রাম আগে ফেড আউট শুরু করে থাম্বনেইল আটকে যাওয়া রোধ করা
+        // ৩. ভিডিও শেষ হওয়ার ঠিক ৩০০ মিলিগ্রাম আগে ফেড আউট শুরু করে থাম্বনেইল আটকে যাওয়া রোধ করা
         if (duration - position <= const Duration(milliseconds: 300)) {
           if (_fadeController.isCompleted) {
             _fadeController.reverse();
@@ -77,7 +77,7 @@ class _VideoGiftOverlayState extends State<VideoGiftOverlay> with SingleTickerPr
         }
       });
     } catch (e) {
-      print("DEBUG: Video caching or loading error: $e");
+     
       widget.onFinished(); // কোনো এরর হলে যেন আটকে না থাকে
     }
   }
@@ -100,10 +100,22 @@ class _VideoGiftOverlayState extends State<VideoGiftOverlay> with SingleTickerPr
                   opacity: _fadeAnimation,
                   child: AspectRatio(
                     aspectRatio: _controller!.value.aspectRatio,
-                    child: VideoPlayer(_controller!),
+                    // চার কোনা বর্ডার বা হার্ড এজ লুক লুকাতে এবং ব্যাকগ্রাউন্ডের সাথে পারফেক্ট মিশে থাকতে BlendMode ব্যবহার করা হয়েছে
+                    child: ShaderMask(
+                      shaderCallback: (Rect bounds) {
+                        return RadialGradient(
+                          center: Alignment.center,
+                          radius: 0.85,
+                          colors: [Colors.white, Colors.white.withOpacity(0.0)],
+                          stops: const [0.75, 1.0],
+                        ).createShader(bounds);
+                      },
+                      blendMode: BlendMode.dstIn,
+                      child: VideoPlayer(_controller!),
+                    ),
                   ),
                 )
-              : const SizedBox.shrink(), // লোডিংয়ের সময় কোনো ব্যাকগ্রাউন্ড বা বক্স দেখাবে না
+              : const SizedBox.shrink(), // লোডিংয়ের সময় কোনো ব্যাকগ্রাউন্ড দেখাবে না
         ),
       ),
     );

@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 
 class FloatingBubbleService {
   static OverlayEntry? _overlayEntry;
-  // এই লাইনটি যোগ না করার কারণেই লাল দাগ আসছিল
   static bool isMinimized = false;
   static Offset _offset = const Offset(20, 120); // শুরুর পজিশন
 
   static void show(BuildContext context, String roomId, String imageUrl, Widget destinationPage) {
     if (_overlayEntry != null) return;
-     // বাবল দেখানোর সময় এটিকে true করে দিন
-    isMinimized = true;
+    isMinimized = true; // বাবল দেখানোর সময় এটিকে true করে দিন
+    
     _overlayEntry = OverlayEntry(
       builder: (context) {
         return _FloatingBubble(
@@ -24,6 +23,12 @@ class FloatingBubbleService {
     );
 
     Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  // এখানে শুধু ওভারলে রিমোভ করবে, isMinimized সাথে সাথে false করবে না
+  static void clearOverlayOnly() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
   }
 
   static void hide() {
@@ -90,7 +95,8 @@ class _FloatingBubbleState extends State<_FloatingBubble> with SingleTickerProvi
           widget.onPositionChanged(offset);
         },
         onTap: () {
-          FloatingBubbleService.hide();
+          // শুধু ওভারলে উইজেট সরাব, স্টেট ঠিক রাখার জন্য
+          FloatingBubbleService.clearOverlayOnly();
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => widget.destinationPage),
@@ -101,7 +107,7 @@ class _FloatingBubbleState extends State<_FloatingBubble> with SingleTickerProvi
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // লাইভ রিপেল অ্যানিমেশন (বাতাসের ঢেউয়ের মতো)
+              // লাইভ রিপেল অ্যানিমেশন (বাতাসের ঢেউয়ের মতো)
               AnimatedBuilder(
                 animation: _rippleController,
                 builder: (context, child) {

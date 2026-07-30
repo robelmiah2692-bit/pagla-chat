@@ -306,7 +306,7 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
         borderRadius: BorderRadius.circular(20),
         image: const DecorationImage(
           image: CachedNetworkImageProvider(
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/daimondbenar.png",
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/daimondbenar.jpg",
           ),
           fit: BoxFit
               .cover, // ব্যানারটি ভালোভাবে দেখানোর জন্য cover ব্যবহার করলাম

@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
 
+  shorebird_code_push: ^1.1.0
   # --- ফায়ারবেস (Firebase) ---
   firebase_core: ^4.7.0
   firebase_auth: ^6.4.0
@@ -50,13 +51,13 @@ dependencies:
   webview_flutter: ^4.10.0
   http: ^1.2.1
   url_launcher: ^6.3.0
+  
   # --- ব্যাকগ্রাউন্ড ও ডিভাইস ইনফো ---
   flutter_background_service: ^5.0.10
   device_info_plus: ^13.1.0
   package_info_plus: ^10.1.0
   uuid: ^4.3.3
 
-  
   provider: ^6.0.0
   equatable: ^2.0.5
   
@@ -69,18 +70,17 @@ dependencies:
   lottie: ^3.1.2
   flutter_cache_manager: ^3.4.1
   
-  
-  # --- স্প্ল্যাশ স্ক্রিন ---
+  # --- স্প্ল্যাশ স্ক্রিন ও বিলিং ---
   flutter_native_splash: ^2.4.0
   shimmer: ^3.0.0
-  in_app_purchase_android: any
+  in_app_purchase_android: ^0.3.3
   rxdart: ^0.28.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: ^0.14.4
-
+leak_tracker: ^10.0.5
 dependency_overrides:
   http: ^1.2.1
 
@@ -112,3 +112,4 @@ flutter:
     - assets/4.png
     - assets/5.png
     - assets/6.png
+    - shorebird.yaml

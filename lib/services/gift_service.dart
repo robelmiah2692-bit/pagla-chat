@@ -5,16 +5,14 @@ class GiftService {
 
   // সোলমেট গিফট এক্সেপ্ট করার লজিক (আপডেট করা)
   Future<void> acceptSoulmateGift({
-    required String myId,         // রুম থেকে আসা আপনার লম্বা authUID
+    required String myId,        // রুম থেকে আসা আপনার লম্বা authUID
     required String myName,
     required String myImg,
-    required String friendId,     // রুম থেকে আসা বন্ধুর লম্বা authUID
+    required String friendId,    // রুম থেকে আসা বন্ধুর লম্বা authUID
     required String friendName,
     required String friendImg,
   }) async {
     try {
-      print("🚀 [GIFT SERVICE] সোলমেট অ্যারে প্রসেস শুরু হচ্ছে...");
-
       // ১. লম্বা authUID দিয়ে ৬ ডিজিটের uID খুঁজে বের করা (আপনার আগের লজিক)
       String my6DigitUID = await _getSixDigitId(myId);
       String friend6DigitUID = await _getSixDigitId(friendId);
@@ -43,10 +41,7 @@ class GiftService {
       // ৬. ৬টির বেশি হলে রিমুভ করার লিমিট চেক
       await _enforceSoulmateLimit(my6DigitUID);
       await _enforceSoulmateLimit(friend6DigitUID);
-
-      print("✅ [GIFT SERVICE] সোলমেট সফলভাবে অ্যারেতে যোগ হয়েছে!");
     } catch (e) {
-      print("❌ [GIFT SERVICE] এরর: $e");
       rethrow;
     }
   }
@@ -80,7 +75,7 @@ class GiftService {
     try {
       await _db.collection('soulmate_requests').doc(myId).delete();
     } catch (e) {
-      print("Error rejecting request: $e");
+      // Catch block left empty to safely ignore error without printing
     }
   }
 }

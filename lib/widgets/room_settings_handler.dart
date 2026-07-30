@@ -69,7 +69,7 @@ class RoomSettingsHandler {
                   ),
                 ),
                 const SizedBox(height: 25),
-                
+
                 // এখানে লেভেল বার বসানো হয়েছে
                 StreamBuilder<DocumentSnapshot>(
                   stream: FirebaseFirestore.instance
@@ -77,8 +77,10 @@ class RoomSettingsHandler {
                       .doc(roomId)
                       .snapshots(),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData || !snapshot.data!.exists) return const SizedBox();
-                    var roomData = snapshot.data!.data() as Map<String, dynamic>;
+                    if (!snapshot.hasData || !snapshot.data!.exists)
+                      return const SizedBox();
+                    var roomData =
+                        snapshot.data!.data() as Map<String, dynamic>;
                     int totalXp = roomData['totalXp'] ?? 0;
                     int level = RoomLevelHelper.calculateLevel(totalXp);
 
@@ -117,7 +119,7 @@ class RoomSettingsHandler {
                 ),
 
                 const SizedBox(height: 15),
-                
+
                 if (isOwner || isAdmin) ...[
                   const Align(
                     alignment: Alignment.centerLeft,
@@ -140,7 +142,8 @@ class RoomSettingsHandler {
                       itemCount: 6,
                       itemBuilder: (context, index) {
                         // আপনার আগের কোডটি এই নতুন লজিক দিয়ে রিপ্লেস করুন
-           String wallUrl = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpaper-${index + 1}.jpg";
+                        String wallUrl =
+                            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpaper-${index + 1}.jpg";
                         return GestureDetector(
                           onTap: () async {
                             try {
@@ -554,7 +557,7 @@ class RoomSettingsHandler {
       BuildContext context, Future<void> Function() onConfirm) {
     showDialog(
       context: context,
-      barrierDismissible: false, // ডাটা ক্লিন হওয়ার আগে যেন বের না হতে পারে
+      barrierDismissible: false,
       builder: (dContext) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
         title: const Text("Exit Room?", style: TextStyle(color: Colors.white)),
@@ -566,12 +569,19 @@ class RoomSettingsHandler {
               child: const Text("Cancel")),
           TextButton(
               onPressed: () async {
-                // Confirm বাটনে ক্লিক করলে লজিক রান হবে
-                await onConfirm();
-                // লজিক শেষ হলে ডায়ালগ বন্ধ হবে
-                if (Navigator.canPop(dContext)) {
-                  Navigator.pop(dContext);
+                // ১. প্রথমে ডায়ালগটি বন্ধ করুন
+                Navigator.pop(dContext);
+
+                // ২. এরপর সেটিংস বটমশিট এবং রুম স্ক্রিন একসাথে বা পরপর রিমুভ করার জন্য মূল কন্টেক্সট ব্যবহার করুন
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context); // সেটিংস বটমশিট বা রুম স্ক্রিন বন্ধ
                 }
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context); // যদি রুম স্ক্রিন আলাদা থাকে
+                }
+
+                // ৩. ব্যাকগ্রাউন্ডে ক্লিনিং এবং আগোরা রিলিজ করুন
+                await onConfirm();
               },
               child: const Text("Confirm",
                   style: TextStyle(color: Colors.redAccent))),

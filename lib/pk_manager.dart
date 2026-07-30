@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:audioplayers/audioplayers.dart'; // অডিও বাজানোর জন্য প্যাকেজ
 
 // --- PK Setup View ---
 class PKSetupView extends StatefulWidget {
@@ -21,7 +22,6 @@ class _PKSetupViewState extends State<PKSetupView> {
 
   @override
   Widget build(BuildContext context) {
-    // শুধু যাদের সিট অক্যুপাইড আছে তাদের ফিল্টার করছি
     final occupiedSeats = widget.seatedUsers.where((s) => s['isOccupied'] == true).toList();
 
     return Container(
@@ -124,8 +124,7 @@ class PersonalPKView extends StatefulWidget {
   final int score1;
   final int score2;
   final VoidCallback onTimerEnd;
-  // আপনি চাইলে এখানে ব্যাকগ্রাউন্ড ইমেজ লিংকটি কন্ট্রোল করতে পারেন
-  final String backgroundImage = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/vspkbenar.png"; 
+  final String backgroundImage = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/vspkbenar.jpg"; 
 
   const PersonalPKView({
     super.key,
@@ -145,6 +144,10 @@ class _PersonalPKViewState extends State<PersonalPKView> with SingleTickerProvid
   late Timer _timer;
   late int _remainingSeconds;
   late AnimationController _glowController;
+  
+  // অডিও প্লেয়ার ইনিশিয়ালাইজেশন
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _hasPlayedEndingSound = false;
 
   @override
   void initState() {
@@ -174,6 +177,12 @@ class _PersonalPKViewState extends State<PersonalPKView> with SingleTickerProvid
       setState(() {
         if (_remainingSeconds > 0) {
           _remainingSeconds--;
+          
+          // ঠিক যখন ১০ সেকেন্ড বা তার কম বাকি থাকবে এবং সাউন্ড একবারও বাজেনি
+          if (_remainingSeconds <= 10 && !_hasPlayedEndingSound) {
+            _hasPlayedEndingSound = true;
+            _playEndingSound();
+          }
         } else {
           timer.cancel();
           widget.onTimerEnd();
@@ -182,10 +191,20 @@ class _PersonalPKViewState extends State<PersonalPKView> with SingleTickerProvid
     });
   }
 
+  // সাউন্ড প্লে করার ফাংশন
+  Future<void> _playEndingSound() async {
+    try {
+      await _audioPlayer.play(AssetSource('sounds/pk_ending.mp3'));
+    } catch (e) {
+      // Catch block left empty to safely ignore error without printing
+    }
+  }
+
   @override
   void dispose() {
     _timer.cancel();
     _glowController.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -221,77 +240,73 @@ class _PersonalPKViewState extends State<PersonalPKView> with SingleTickerProvid
             Text(timerString, style: TextStyle(color: isEndingSoon ? Colors.red : Colors.white, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
 
-            // আগুনের শিখার ডাইনামিক প্রগ্রেস বার সেকশন
-LayoutBuilder(builder: (context, constraints) {
-  final double maxWidth = constraints.maxWidth;
-  // প্রগ্রেস অনুযায়ী বারের দৈর্ঘ্য
-  final double barWidth = maxWidth * progress; 
+            LayoutBuilder(builder: (context, constraints) {
+              final double maxWidth = constraints.maxWidth;
+              final double barWidth = maxWidth * progress; 
 
-  return Container(
-    height: 12, // বারের উচ্চতা
-    width: maxWidth,
-    decoration: BoxDecoration(
-      color: Colors.white10,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
-    ),
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: Stack(
-        clipBehavior: Clip.none, // আগুনের বিন্দুটি যেন বাইরে বের হতে পারে
-        children: [
-          // ১. মূল গোল্ডেন শিমার ইফেক্ট
-          if (barWidth > 0)
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: barWidth,
-              child: Shimmer.fromColors(
-                baseColor: const Color(0xFFFFD700), // গোল্ডেন
-                highlightColor: const Color(0xFFFF4500), // আগুনের লাল
-                period: const Duration(milliseconds: 1500),
-                child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFFFFC107), Color(0xFFFFD700)],
-                    ),
-                  ),
+              return Container(
+                height: 12,
+                width: maxWidth,
+                decoration: BoxDecoration(
+                  color: Colors.white10,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
                 ),
-              ),
-            ),
-          
-          // ২. মাথায় সেই জ্বলজ্বলে আগুনের বিন্দু
-          if (barWidth > 0)
-            Positioned(
-              left: barWidth - 5, // ঠিক প্রগ্রেস বারের মাথায় পজিশন
-              top: -4, // বারের একটু উপরে উঠিয়ে রাখা
-              child: Shimmer.fromColors(
-                baseColor: const Color(0xFFFF4500),
-                highlightColor: Colors.yellowAccent,
-                period: const Duration(milliseconds: 500),
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.orange,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.redAccent,
-                        blurRadius: 8,
-                        spreadRadius: 2,
-                      ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      if (barWidth > 0)
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: barWidth,
+                          child: Shimmer.fromColors(
+                            baseColor: const Color(0xFFFFD700),
+                            highlightColor: const Color(0xFFFF4500),
+                            period: const Duration(milliseconds: 1500),
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Color(0xFFFFC107), Color(0xFFFFD700)],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      
+                      if (barWidth > 0)
+                        Positioned(
+                          left: barWidth - 5,
+                          top: -4,
+                          child: Shimmer.fromColors(
+                            baseColor: const Color(0xFFFF4500),
+                            highlightColor: Colors.yellowAccent,
+                            period: const Duration(milliseconds: 500),
+                            child: Container(
+                              width: 20,
+                              height: 20,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.orange,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.redAccent,
+                                    blurRadius: 8,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
-              ),
-            ),
-        ],
-      ),
-    ),
-  );
-}),
+              );
+            }),
             
             const SizedBox(height: 15),
             Row(
