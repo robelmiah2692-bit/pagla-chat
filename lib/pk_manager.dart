@@ -191,12 +191,17 @@ class _PersonalPKViewState extends State<PersonalPKView> with SingleTickerProvid
     });
   }
 
-  // সাউন্ড প্লে করার ফাংশন
+  
+
+  // সাউন্ড প্লে করার ফাংশন (অনলাইন লিংক সহ আপডেট করা হলো)
   Future<void> _playEndingSound() async {
     try {
-      await _audioPlayer.play(AssetSource('sounds/pk_ending.mp3'));
+      // এখানে আপনার গিটহাবের র (Raw) লিংক বা যেকোনো অনলাইন অডিও লিংক দিন
+      const String audioUrl = 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/officialall/pk_ending.mp3';
+      
+      await _audioPlayer.play(UrlSource(audioUrl));
     } catch (e) {
-      // Catch block left empty to safely ignore error without printing
+      debugPrint("Error playing sound: $e"); // ডিবাগ করার জন্য এরর প্রিন্ট করা হলো
     }
   }
 

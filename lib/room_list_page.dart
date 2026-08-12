@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lottie/lottie.dart';
+import 'package:pagla_chat/services/search_helper.dart';
 import 'package:pagla_chat/widgets/room_settings_handler.dart';
 import 'dart:math';
 import 'screens/voice_room.dart';
@@ -33,14 +34,13 @@ class _RoomListPageState extends State<RoomListPage>
     "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500",
     "https://images.unsplash.com/photo-1514525253361-bee87187046c?w=500",
   ];
-final PageController _pageController = PageController();
-Timer? _timer;
-final List<String> _bannerUrls = [
-  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/roomlistbenar.jpg",
-  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/roomlistbenar2.jpg", // এখানে দ্বিতীয় লিংক বসান
-  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/daimondbenar.jpg", // এখানে তৃতীয় লিংক বসান
-];
-
+  final PageController _pageController = PageController();
+  Timer? _timer;
+  final List<String> _bannerUrls = [
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/roomlistbenar.jpg",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/roomlistbenar2.jpg", // এখানে দ্বিতীয় লিংক বসান
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/daimondbenar.jpg", // এখানে তৃতীয় লিংক বসান
+  ];
 
   @override
   void initState() {
@@ -64,19 +64,20 @@ final List<String> _bannerUrls = [
       begin: const Color.fromARGB(255, 226, 242, 5),
       end: Colors.cyanAccent,
     ).animate(_colorAnimationController);
-  
-   _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
-    if (_pageController.hasClients) {
-      int nextPage = (_pageController.page?.toInt() ?? 0) + 1;
-      if (nextPage >= _bannerUrls.length) nextPage = 0;
-      _pageController.animateToPage(
-        nextPage,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
-    }
-  });
-}
+
+    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (_pageController.hasClients) {
+        int nextPage = (_pageController.page?.toInt() ?? 0) + 1;
+        if (nextPage >= _bannerUrls.length) nextPage = 0;
+        _pageController.animateToPage(
+          nextPage,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -90,7 +91,7 @@ final List<String> _bannerUrls = [
     super.dispose();
   }
 
-  // --- নতুন রুম তৈরির লজিক ---
+// --- নতুন রুম তৈরির লজিক ---
   Future<void> _createNewRoomLogic(String roomName) async {
     final User? user = FirebaseAuth.instance.currentUser;
     if (user == null || user.email == null) return;
@@ -114,18 +115,8 @@ final List<String> _bannerUrls = [
       }
 
       var userData = userQuery.docs.first.data();
-      // --- নতুন কন্ডিশন: ১৬০০০ এক্সপি চেক ---
-      int activeXp = userData['totalActiveXp'] ?? 0;
-      if (activeXp < 16000) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text("active level 5 user only!"),
-                backgroundColor: Colors.red),
-          );
-        }
-        return; // এখানে লজিক থেমে যাবে
-      }
+
+      // ✅ ১৬০০০ এক্সপি চেক কন্ডিশনটি এখানে বাদ দেওয়া হয়েছে
 
       String mySixDigitID = userData['uID']?.toString() ?? "";
       String currentUserName = userData['name'] ?? "Pagla User";
@@ -134,7 +125,7 @@ final List<String> _bannerUrls = [
       String currentUserFrame = userData['activeFrameUrl'] ?? "";
       if (mySixDigitID.isEmpty) return;
 
-      // ২. ইউজার কি আগে রুম বানিয়েছে? (লিমিট চেক)
+      // ২. ইউজার কি আগে রুম বানিয়েছে? (লিমিট চেক)
       var existingRoom = await FirebaseFirestore.instance
           .collection('rooms')
           .where('ownerId', isEqualTo: mySixDigitID)
@@ -152,11 +143,11 @@ final List<String> _bannerUrls = [
         return;
       }
 
-      // ৩. ইউনিক ৫ ডিজিটের রুম আইডি জেনারেশন
+      // ৩. ইউনিক ৬ ডিজিটের রুম আইডি জেনারেশন
       String newUniqueRoomId = "";
       bool isUnique = false;
       while (!isUnique) {
-        newUniqueRoomId = (10000 + Random().nextInt(90000)).toString();
+        newUniqueRoomId = (100000 + Random().nextInt(900000)).toString();
         var roomCheck = await FirebaseFirestore.instance
             .collection('rooms')
             .doc(newUniqueRoomId)
@@ -265,106 +256,272 @@ final List<String> _bannerUrls = [
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF02020A),
-
-      // 🧱 [appBar আপডেট]: আপনার হোম পেজের মতো হুবহু গ্লাস ক্যাপসুল ও রেনবো টেক্সট ডিজাইন
+      backgroundColor: const Color(0xFF0F0C29),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0A0A25),
+        backgroundColor: const Color(0xFF0F0C29),
         elevation: 0,
-        centerTitle: true, // টাইটেলটি একদম মাঝখানে থাকবে ভাই
+        centerTitle: true,
 
-        // ✨ [গ্লাস ক্যাপসুল ডিজাইন]: হোম পেজের মতো সুন্দর রাউন্ড বর্ডার ও কাঁচের ব্যাকগ্রাউন্ড
-        title: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
-            color: Colors.white.withOpacity(0.08), // হালকা সাদা গ্লাস অপাসিটি
-            border: Border.all(
-              color: Colors.white.withOpacity(0.15), // চারপাশের গ্লাস বর্ডার
-              width: 1.2,
-            ),
-          ),
+        // 🛠️ [কাস্টমাইজেশন - সাইজ]: ৩টি বড় চারকোনা ফ্রেম অবতার সমানভাবে ধরার জন্য leadingWidth ঠিক করা হয়েছে
+        leadingWidth: 145,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8.0, top: 4, bottom: 4),
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .where('isOnline', isEqualTo: true)
+                .snapshots(),
+            builder: (context, snapshot) {
+              List<String> avatarUrls = [];
+              if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                for (var doc in snapshot.data!.docs) {
+                  var data = doc.data() as Map<String, dynamic>;
+                  if (data['profilePic'] != null &&
+                      data['profilePic'].toString().isNotEmpty) {
+                    avatarUrls.add(data['profilePic']);
+                  }
+                }
+              }
 
-          // 🔮 [অটো কালার শিফটিং লজিক]: ShaderMask দিয়ে কালারগুলো লেখার ওপর দিয়ে নেচে বেড়াবে
-          child: AnimatedBuilder(
-            animation:
-                _colorAnimationController, // আপনার তৈরি করা সেই কন্ট্রোলার
-            builder: (context, child) {
-              return ShaderMask(
-                shaderCallback: (bounds) => LinearGradient(
-                  colors: const [
-                    Colors.amberAccent,
-                    Colors.cyanAccent,
-                    Colors.purpleAccent,
-                    Colors.amberAccent
-                  ],
-                  stops: [
-                    _colorAnimationController.value - 0.2,
-                    _colorAnimationController.value,
-                    _colorAnimationController.value + 0.2,
-                    _colorAnimationController.value + 0.4
-                  ],
-                ).createShader(bounds),
-                child: const Text(
-                  "𝐏𝐚𝐠𝐥𝐚𝐂𝐡𝐚𝐭🥳𝐋𝐢𝐯𝐞ღ`◕‿♫",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
-                    color: Colors
-                        .white, // ShaderMask এর কারণে এটি রেনবো কালার হয়ে যাবে
-                    letterSpacing: 1.1,
-                  ),
-                ),
+              // পর্যাপ্ত ইউজার না থাকলে রেন্ডম ফলব্যাক অবতার
+              List<String> fallbackAvatars = [
+                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
+                'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
+                'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
+                'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100',
+              ];
+
+              if (avatarUrls.length < 3) {
+                avatarUrls.addAll(fallbackAvatars);
+              }
+
+              avatarUrls.shuffle();
+              List<String> displayAvatars = avatarUrls.take(3).toList();
+
+              // Row ব্যবহার করে সমান গ্যাপে ৩টি বড় চারকোনা ফ্রেম অবতার দেখানো হচ্ছে
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: displayAvatars.map((url) {
+                  return Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      // 🛠️ [কাস্টমাইজেশন - চারকোনা ফ্রেম]: এখানে বর্ডার রেডিয়াস পরিবর্তন করতে পারবেন
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: Colors.cyanAccent.withOpacity(0.9),
+                          width: 1.5),
+                      // 🛠️ [কাস্টমাইজেশন - পানির মতো রিপেল ইফেক্ট]: মাল্টি লেয়ার শ্যাডো দিয়ে পানির মতো গ্লো তৈরি করা হয়েছে
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.cyanAccent.withOpacity(0.6),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                        ),
+                        BoxShadow(
+                          color: Colors.blueAccent.withOpacity(0.3),
+                          blurRadius: 16,
+                          spreadRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(9),
+                      // 🔥 ক্যাশড নেটওয়ার্ক ইমেজ ব্যবহার করা হলো
+                      child: CachedNetworkImage(
+                        imageUrl: url,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: Colors.white12,
+                          child: const Center(
+                            child: SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 1.5, color: Colors.cyanAccent),
+                            ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => const Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 20),
+                      ),
+                    ),
+                  );
+                }).toList(),
               );
             },
           ),
         ),
 
-        // 📏 [ট্যাব বার ও নিচের গ্লাস বর্ডার]:
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Container(
-            decoration: BoxDecoration(
-              // আপনার হোম পেজের নিচের দিকের সেই সুন্দর চিকন কাঁচের বর্ডার রেখা ভাই
-              border: Border(
-                bottom: BorderSide(
-                  color: Colors.white.withOpacity(0.12),
+        // 🔍 [Title]: সার্চ বক্সটি একদম কাছাকাছি এবং কম্প্যাক্ট রাখা হয়েছে
+        title: Align(
+          alignment: Alignment.centerLeft,
+          child: GestureDetector(
+            onTap: () {
+              _showSearchDialog(context);
+            },
+            child: Container(
+              // 🛠️ [কাস্টমাইজেশন - সার্চ বক্সের সাইজ]: এখান থেকে প্যাডিং কন্ট্রোল করতে পারবেন
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(25),
+                color: Colors.white.withOpacity(0.08),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.2),
                   width: 1.2,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.cyanAccent.withOpacity(0.1),
+                    blurRadius: 8,
+                    spreadRadius: 0.5,
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(Icons.search_rounded,
+                      color: Colors.cyanAccent, size: 16),
+                  SizedBox(width: 5),
+                  Text(
+                    "Search uID / Room ID",
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // ➕ [Actions]: ডান কোণায় রুম তৈরির প্লাস বাটন (নতুন লজিক যুক্ত করা হয়েছে)
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12.0),
+            child: GestureDetector(
+              onTap: () {
+                _showCreateRoomDialog(); // রুম তৈরির ডায়ালগ কল করবে
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.12),
+                  border: Border.all(
+                    color: Colors.purpleAccent.withOpacity(0.6),
+                    width: 1.4,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.purpleAccent.withOpacity(0.3),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.add_rounded,
+                  color: Colors.purpleAccent,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ],
+
+        // 📏 [ট্যাব বার ও প্রিমিয়াম গ্লাস লুক]:
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(54),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color:
+                  Colors.white.withOpacity(0.06), // হালকা গ্লাস ব্যাকগ্রাউন্ড
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.12),
+                width: 1.0,
               ),
             ),
             child: TabBar(
               controller: _tabController,
-              indicatorColor: Colors.purpleAccent,
-              labelColor: Colors.purpleAccent,
-              unselectedLabelColor: Colors.white38,
+              // ডিফল্ট লাইন ইন্ডিকেটর বাদ দিয়ে ফুল ট্যাব ব্যাকগ্রাউন্ড ইন্ডিকেটর করা হয়েছে
+              indicator: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Colors.purpleAccent, Colors.cyanAccent],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(25),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.purpleAccent.withOpacity(0.4),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+              labelColor: Colors
+                  .black, // সিলেক্টেড টেক্সট কালার (বোল্ড ও স্পষ্ট দেখাবে)
+              unselectedLabelColor: Colors.white70,
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.normal,
+                fontSize: 13,
+              ),
               tabs: const [
-                Tab(text: "Live Room"),
-                Tab(text: "Following"),
-                Tab(text: "My Room"),
+                Tab(
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: Text("Live Room"),
+                  ),
+                ),
+                Tab(
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: Text("Following"),
+                  ),
+                ),
+                Tab(
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: Text("My Room"),
+                  ),
+                ),
               ],
             ),
           ),
         ),
       ),
+
+      // ফুল স্ক্রিন ব্যাকগ্রাউন্ড থিম (অ্যাপবার থেকে শুরু করে নিচ পর্যন্ত এক সমান গ্রেডিয়েন্ট)
       body: Container(
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
-          // ছবিগুলোর মতো পার্পেল ও নেভি ব্লু গ্রেডিয়েন্ট
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF0F0C29), // গাঢ় নীল
-              Color(0xFF302B63), // বেগুনি আভা
-              Color(0xFF24243E), // নেভি ব্লু
+              Color(0xFF0F0C29),
+              Color(0xFF302B63),
+              Color(0xFF24243E),
             ],
           ),
         ),
         child: Stack(
           children: [
-            // ১. ছবির মতো নেবুলা ইফেক্ট (হালকা ঝাপসা কালার প্যাচ)
+            // ১. নেবুলা ইফেক্ট
             Positioned(
               top: -100,
               right: -50,
@@ -384,7 +541,7 @@ final List<String> _bannerUrls = [
               ),
             ),
 
-            // ২. গ্যালাক্সি তারা (Glowing Stars) - ছবির মতো ছড়িয়ে ছিটিয়ে থাকা
+            // ২. গ্যালাক্সি তারা (Glowing Stars)
             ...List.generate(50, (index) {
               double size = Random().nextDouble() * 2.5;
               return Positioned(
@@ -410,7 +567,7 @@ final List<String> _bannerUrls = [
               );
             }),
 
-            // ৩. ওপর থেকে আলোর বৃষ্টি (Light Strings) - আপনার প্রথম ছবির স্টাইল
+            // ৩. আলোর বৃষ্টি (Light Strings)
             ...List.generate(
                 12,
                 (index) => Positioned(
@@ -432,7 +589,7 @@ final List<String> _bannerUrls = [
                       ),
                     )),
 
-            // মেইন কন্টেন্ট লেয়ার
+            // মেইন কন্টেন্ট লেয়ার
             Column(
               children: [
                 _buildBanner(),
@@ -453,6 +610,11 @@ final List<String> _bannerUrls = [
         ),
       ),
     );
+  }
+
+// সাহায্যকারী সার্চ ডায়ালগ বা মেথড
+  void _showSearchDialog(BuildContext context) {
+    SearchHelper.showSearchDialog(context);
   }
 
   Widget _buildLiveRoomList() {
@@ -620,16 +782,10 @@ final List<String> _bannerUrls = [
     );
   }
 
-  // 🇧🇩 [বাংলা মার্ক]: গ্রিড ভিউ মেথড
+  // 🇧🇩 [বাংলা মার্ক]: লম্বা ব্যানার স্টাইল রুম লিস্ট মেথড
   Widget _buildGrid(List<DocumentSnapshot> docs, {bool isMyRoomList = false}) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.1,
-      ),
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: docs.length,
       itemBuilder: (context, index) {
         var data = docs[index].data() as Map<String, dynamic>;
@@ -637,19 +793,22 @@ final List<String> _bannerUrls = [
         String name = data['roomName'] ?? "Public Room";
         int count = data['userCount'] ?? 0;
         String? image = data['roomImage'];
+        String description = data['description'] ??
+            "Welcome to this amazing voice room! Drop your mic and join the fun.";
 
-        return _buildPremiumGlassCard(roomId, name, count, image, isMyRoomList);
+        return _buildPremiumGlassCard(
+            roomId, name, description, count, image, isMyRoomList);
       },
     );
   }
 
-  // আপনার আগের কোডের জায়গায় এই নতুন ভার্সনটি ব্যবহার করুন
-  Widget _buildPremiumGlassCard(
-      String id, String name, int count, String? image, bool isMyRoom) {
+  // আপনার আগের কোডের জায়গায় এই নতুন প্রিমিয়াম লম্বা গ্লাস কার্ড ভার্সনটি ব্যবহার করুন
+  Widget _buildPremiumGlassCard(String id, String name, String description,
+      int count, String? image, bool isMyRoom) {
     String finalImage =
         (image != null && image.isNotEmpty) ? image : defaultRoomImages[0];
 
-    // ডাটাবেস থেকে রিয়েল-টাইম আপডেট পাওয়ার জন্য StreamBuilder ব্যবহার করছি
+    // ডাটাবেস থেকে রিয়েল-টাইম আপডেট পাওয়ার জন্য StreamBuilder ব্যবহার করছি
     return StreamBuilder<DocumentSnapshot>(
       stream:
           FirebaseFirestore.instance.collection('rooms').doc(id).snapshots(),
@@ -666,10 +825,10 @@ final List<String> _bannerUrls = [
         return GestureDetector(
           onTap: () {
             if (isLocked) {
-              // লক থাকলে পাসওয়ার্ড চাইবে
+              // লক থাকলে পাসওয়ার্ড চাইবে
               RoomSettingsHandler.showJoinPasswordDialog(
                   context, id, roomPassword, () {
-                // সঠিক পাসওয়ার্ড দিলে রুমে ঢুকবে
+                // সঠিক পাসওয়ার্ড দিলে রুমে ঢুকবে
                 _navigateToRoom(id, name, finalImage);
               });
             } else {
@@ -677,104 +836,192 @@ final List<String> _bannerUrls = [
               _navigateToRoom(id, name, finalImage);
             }
           },
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(18),
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border.all(
-                    color: isMyRoom
-                        ? Colors.amber.withOpacity(0.8)
-                        : Colors.white.withOpacity(0.1),
-                    width: isMyRoom ? 2.5 : 1.5),
-                image: DecorationImage(
-                    image: CachedNetworkImageProvider(finalImage),
-                    fit: BoxFit.cover,
-                    opacity: 0.9),
+          child: Container(
+            height: 100, // লম্বা কার্ডের প্রিমিয়াম উচ্চতা
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color:
+                  Colors.white.withOpacity(0.07), // গ্লাস ইফেক্ট ব্যাকগ্রাউন্ড
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isMyRoom
+                    ? Colors.amber.withOpacity(0.8)
+                    : Colors.white.withOpacity(0.15),
+                width: isMyRoom ? 2.5 : 1.2,
               ),
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.25),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                // ১. রুমের গোল ছবি (বর্ডারসহ)
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isMyRoom
+                          ? Colors.amberAccent
+                          : Colors.pinkAccent.withOpacity(0.6),
+                      width: 2,
+                    ),
+                    image: DecorationImage(
+                      image: CachedNetworkImageProvider(finalImage),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
-                padding: const EdgeInsets.all(12),
-                child: Stack(
-                  children: [
-                    // আগের মতোই নাম ও টাইটেল
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14)),
-                        const SizedBox(height: 2),
-                        Text(isMyRoom ? "MY ROOM" : "PAGLA LIVE",
-                            style: TextStyle(
-                                color: isMyRoom
-                                    ? Colors.amberAccent
-                                    : Colors.pinkAccent,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold)),
-                      ],
-                    ),
+                const SizedBox(width: 12),
 
-                    // ডান পাশে লাইভ ইন্ডিকেটর ও লক আইকন
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                // ২. রুমের নাম, ডেসক্রিপশন ও অন্যান্য তথ্য
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // রুমের নাম, সবুজ/সোনালী স্ট্যাটাস টেক্সট ও লাইভ ইউজার কাউন্ট
+                      Row(
                         children: [
+                          if (isMyRoom)
+                            const Padding(
+                              padding: EdgeInsets.only(right: 4),
+                              child: Icon(Icons.workspace_premium,
+                                  color: Colors.amber, size: 14),
+                            ),
+                          Expanded(
+                            child: Text(
+                              name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          // রুমের নামের পাশে সবুজ রঙের গ্লাস স্ট্যাটাস টেক্সট (PAGLA LIVE / MY ROOM)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                                color: Colors.black54,
-                                borderRadius: BorderRadius.circular(10)),
+                              color:
+                                  (isMyRoom ? Colors.amber : Colors.greenAccent)
+                                      .withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: (isMyRoom
+                                        ? Colors.amberAccent
+                                        : Colors.greenAccent)
+                                    .withOpacity(0.4),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Text(
+                              isMyRoom ? "MY ROOM" : "PAGLA LIVE",
+                              style: TextStyle(
+                                color: isMyRoom
+                                    ? Colors.amberAccent
+                                    : Colors.greenAccent,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          // লাইভ ইউজার কাউন্ট ব্যাজ
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.circle,
-                                    size: 10,
+                                    size: 8,
                                     color: count > 0
                                         ? Colors.greenAccent
                                         : Colors.redAccent),
-                                const SizedBox(width: 5),
-                                Text("$count",
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  "$count",
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                          if (isLocked)
-                            const Padding(
-                              padding: EdgeInsets.only(top: 5),
-                              child: Icon(Icons.lock,
-                                  color: Colors.amber, size: 16),
-                            ),
                         ],
                       ),
-                    ),
+                      const SizedBox(height: 4),
 
-                    // প্রিমিয়াম আইকন
-                    if (isMyRoom)
-                      const Positioned(
-                          top: 0,
-                          left: 0,
-                          child: Icon(Icons.workspace_premium,
-                              color: Colors.amber, size: 20)),
-                  ],
+                      // ডেসক্রিপশন টেক্সট
+                      Text(
+                        description,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.6),
+                          fontSize: 9,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+
+                      // নিচের অংশ (লক থাকলে শুধু লক আইকন/স্ট্যাটাস দেখাবে, পাবলিক রুম লেখা বাদ)
+                      Row(
+                        children: [
+                          if (isLocked)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.purple.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                    color:
+                                        Colors.purpleAccent.withOpacity(0.5)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(
+                                    Icons.lock,
+                                    color: Colors.amber,
+                                    size: 10,
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    "Locked Room",
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          const Spacer(),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         );
@@ -793,32 +1040,33 @@ final List<String> _bannerUrls = [
         MaterialPageRoute(builder: (context) => VoiceRoom(roomId: id)));
   }
 
- // ৪. ব্যানার বিল্ড ফাংশনটি এভাবে আপডেট করুন
-Widget _buildBanner() {
-  return SizedBox(
-    height: 100,
-    child: PageView.builder(
-      controller: _pageController,
-      itemCount: _bannerUrls.length,
-      itemBuilder: (context, index) {
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.amber.shade700,
-              width: 2,
+  // ৪. ব্যানার বিল্ড ফাংশনটি এভাবে আপডেট করুন
+  Widget _buildBanner() {
+    return SizedBox(
+      height: 100,
+      child: PageView.builder(
+        controller: _pageController,
+        itemCount: _bannerUrls.length,
+        itemBuilder: (context, index) {
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.amber.shade700,
+                width: 2,
+              ),
+              image: DecorationImage(
+                image: CachedNetworkImageProvider(_bannerUrls[index]),
+                fit: BoxFit.fill,
+              ),
             ),
-            image: DecorationImage(
-              image: CachedNetworkImageProvider(_bannerUrls[index]),
-              fit: BoxFit.fill,
-            ),
-          ),
-        );
-      },
-    ),
-  );
-}
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildTopSpendersSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -840,7 +1088,8 @@ Widget _buildBanner() {
               horizontal: 8), // সাইড গ্যাপ ঠিক রাখা হলো
           decoration: BoxDecoration(
             image: const DecorationImage(
-              image: CachedNetworkImageProvider("https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/topuser.jpg"),
+              image: CachedNetworkImageProvider(
+                  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/topuser.jpg"),
               fit: BoxFit.fill,
             ),
             border: Border.all(color: Colors.amber.shade700, width: 2),

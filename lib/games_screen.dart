@@ -1,3 +1,4 @@
+import 'dart:async'; // 🛠️ স্ট্রিম সাবস্ক্রিপশনের জন্য এটি লাগবে
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -16,6 +17,7 @@ class _GamesScreenState extends State<GamesScreen> {
   int userBalance = 0;
   String? _userDocId;
   final String _roomId = "global_room";
+  StreamSubscription<DocumentSnapshot>? _balanceSubscription; // 🛠️ মেমরি লিক রোধে সাবস্ক্রিপশন ভেরিয়েবল
 
   @override
   void initState() {
@@ -23,17 +25,22 @@ class _GamesScreenState extends State<GamesScreen> {
     _findUserDocument();
   }
 
-  // ডাটা মুছে যাওয়া এড়াতে এখানে শুধু ডাটা রিড করা হচ্ছে
+  @override
+  void dispose() {
+    _balanceSubscription?.cancel(); // 🛠️ পেজ বন্ধ হলে লিসেনার ক্যানসেল করে দেওয়া হলো
+    super.dispose();
+  }
+
+  // ডাটা মুছে যাওয়া এড়াতে এখানে শুধু ডাটা রিড করা হচ্ছে
   void _findUserDocument() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      // আপনার ডাটাবেস অনুযায়ী authUID ফিল্ড দিয়ে খুঁজে আইডি বের করছি
       var query = await FirebaseFirestore.instance
           .collection('users')
           .where('authUID', isEqualTo: user.uid)
           .get();
 
-      if (query.docs.isNotEmpty) {
+      if (query.docs.isNotEmpty && mounted) {
         setState(() {
           _userDocId = query.docs.first.id;
         });
@@ -45,7 +52,8 @@ class _GamesScreenState extends State<GamesScreen> {
   void _listenToBalance() {
     if (_userDocId == null) return;
 
-    FirebaseFirestore.instance
+    // 🛠️ সাবস্ক্রিপশন ভেরিয়েবলে স্টোর করা হলো যাতে পরে ডিসপোজ করা যায়
+    _balanceSubscription = FirebaseFirestore.instance
         .collection('users')
         .doc(_userDocId)
         .snapshots()
@@ -54,9 +62,13 @@ class _GamesScreenState extends State<GamesScreen> {
         var data = snapshot.data();
         if (data != null) {
           setState(() {
-            // ডাটাবেসের ফিল্ডের নাম 'diamonds' নিশ্চিত হয়ে নিন
-            userBalance =
-                int.tryParse(data['diamonds']?.toString() ?? "0") ?? 0;
+            // ডায়মন্ড ডাটা ইন্টিজার বা স্ট্রিং যাই হোক না কেন নিরাপদে হ্যান্ডেল করবে
+            var diamondVal = data['diamonds'];
+            if (diamondVal is int) {
+              userBalance = diamondVal;
+            } else {
+              userBalance = int.tryParse(diamondVal?.toString() ?? "0") ?? 0;
+            }
           });
         }
       }
@@ -98,7 +110,6 @@ class _GamesScreenState extends State<GamesScreen> {
                       Colors.yellow),
                   _gameIcon("LUCKY", "assets/images/spin_logo.png",
                       Colors.orangeAccent),
-                  
                 ],
               ),
             ],
@@ -120,11 +131,11 @@ class _GamesScreenState extends State<GamesScreen> {
                   builder: (context) => CrazyFruitGame(
                         userBalance: userBalance,
                         onUpdateBalance: (newBalance) {
-                          // শুধুমাত্র ব্যালেন্স আপডেট করছে, পুরো ইউজার ডাটা নয়
+                          // 🛠️ স্ট্রিংয়ের বদলে সরাসরি ইন্টিজার হিসেবে সেভ করা নিরাপদ
                           FirebaseFirestore.instance
                               .collection('users')
                               .doc(_userDocId)
-                              .update({'diamonds': newBalance.toString()});
+                              .update({'diamonds': newBalance});
                         },
                       )));
         } else if (name == "LUCKY") {

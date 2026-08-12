@@ -243,15 +243,15 @@ Future<void> muteAllRemoteAudio(bool mute) async {
     try {
       await stopMusic();
       if (_engine != null) {
+        // রুমে থেকে বের হওয়ার সময় অডিও পুরোপুরি বন্ধ এবং মিউট নিশ্চিত করা
+        await _engine!.enableLocalAudio(false);
+        await _engine!.muteAllRemoteAudioStreams(true);
         await _engine!.leaveChannel();
       }
       _localuID = null;
-      if (!_volumeStreamController.isClosed) {
-        // stream keep alive
-      }
-      
+      debugPrint("🧹 [Agora] Successfully left room and cleaned audio tracks.");
     } catch (e) {
-      
+      debugPrint("❌ [Agora] Leave Room Error: $e");
     }
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -41,6 +43,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Map<String, dynamic>? _repliedMessage;
   bool _isRecording = false;
   String currentSixDigitId = "";
+  StreamSubscription? _blockedListSubscription;
   // ব্লক স্ট্যাটাস চেক করার জন্য একটি বুলিয়ান
   bool isBlocked = false;
   List myBlockedUsers = [];
@@ -101,17 +104,23 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {}
   }
 
+  // ৩. _loadBlockedList ফাংশনটিকে এভাবে আপডেট করুন
   void _loadBlockedList() {
     if (currentSixDigitId.isEmpty) {
-      ;
       return;
     }
 
-    FirebaseFirestore.instance
+    // আগের কোনো লিসেনার চালু থাকলে তা আগে ক্যানসেল করে নেওয়া ভালো
+    _blockedListSubscription?.cancel();
+
+    _blockedListSubscription = FirebaseFirestore.instance
         .collection('users')
         .doc(currentSixDigitId)
         .snapshots()
         .listen((doc) {
+      // অত্যন্ত গুরুত্বপূর্ণ: স্ক্রিন ডিসপোজ হয়ে গেলে আর কোড এক্সিকিউট হবে না
+      if (!mounted) return; 
+
       if (doc.exists) {
         var data = doc.data() as Map<String, dynamic>;
         setState(() {
@@ -145,6 +154,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _blockedListSubscription?.cancel();
+    
     _messageController.dispose();
     _audioRecorder.dispose();
     _audioPlayer.dispose();

@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:flutter/material.dart';
-import 'package:pagla_chat/ludo_helper.dart';
-import 'package:pagla_chat/ludo_lobby_popup.dart';
+
+
 
 import 'package:pagla_chat/pk_manager.dart';
 
@@ -17,12 +17,10 @@ class FloatingRoomTools extends StatefulWidget {
   final bool isPKActive; // নতুন
   final Function(Map<String, dynamic> u1, Map<String, dynamic> u2, int duration)
       onStartPK; // নতুন
-  final VoidCallback onOpenLudo;
   // এই লাইনগুলো যোগ করুন:
   final String ownerId;
   final String myuID;
   final List<dynamic> adminList;
-  final List<Map<String, dynamic>> gameJoinedUsers;
 
   const FloatingRoomTools({
     super.key,
@@ -33,10 +31,7 @@ class FloatingRoomTools extends StatefulWidget {
     required this.ownerId,
     required this.myuID,
     required this.adminList,
-    required this.gameJoinedUsers,
-    required this.onOpenLudo,
   });
-
   @override
   State<FloatingRoomTools> createState() => _FloatingRoomToolsState();
 }
@@ -219,10 +214,6 @@ class _FloatingRoomToolsState extends State<FloatingRoomTools>
                 },
               ),
             );
-          }),
-          // FloatingRoomTools এর ভেতর এভাবে লিখুন:
-          _toolIcon(Icons.casino, "Ludo", Colors.purpleAccent, () {
-            widget.onOpenLudo(); // প্যারেন্ট (VoiceRoom) থেকে এই ফাংশনটি পাঠান
           }),
           // VS PK বাটন
           _toolIcon(Icons.whatshot, "Tem/pk", Colors.redAccent, () {

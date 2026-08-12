@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pagla_chat/app_update_manager.dart';
@@ -90,7 +91,19 @@ void main() async {
   // সব ঠিক থাকলে অ্যাপ রান করবে
   runApp(const PaglaChatApp());
 }
+class MyRouteObserver extends NavigatorObserver {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPush(route, previousRoute);
+    debugPrint("🟢 [NAVIGATION] পেজে প্রবেশ করা হয়েছে: ${route.settings.name ?? route.toString()}");
+  }
 
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPop(route, previousRoute);
+    debugPrint("🔴 [NAVIGATION] পেজ বন্ধ বা POP হয়েছে: ${route.settings.name ?? route.toString()}");
+  }
+}
 class PaglaChatApp extends StatelessWidget {
   const PaglaChatApp({super.key});
 
@@ -98,6 +111,7 @@ class PaglaChatApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      navigatorObservers: [MyRouteObserver()],
       title: 'Pagla Chat',
       theme: ThemeData(
         brightness: Brightness.dark,
@@ -351,7 +365,7 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
   }
 }
 
-// --- মেইন নেভিগেশন (এখানে টাইমার ও হার্টবিট বসানো হয়েছে) ---
+// --- মেইন নেভিগেশন (এখানে টাইমার ও হার্টবিট বসানো হয়েছে) ---
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
   @override
@@ -379,7 +393,7 @@ class _MainNavigationState extends State<MainNavigation> with WidgetsBindingObse
     // 🔥 অ্যাপ চালুর সাথে সাথেই অনলাইন স্ট্যাটাস আপডেট করা
     _updateUserPresence(true);
 
-    // 🔥 প্রতি ৩০ সেকেন্ড পর পর ফায়ারস্টোরে `lastSeen` ও `isOnline` আপডেট করবে (হার্টবিট)
+    // 🔥 প্রতি ৩০ সেকেন্ড পর পর ফায়ারস্টোরে `lastSeen` ও `isOnline` আপডেট করবে (হার্টবিট)
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       _updateUserPresence(true);
     });
@@ -395,7 +409,7 @@ class _MainNavigationState extends State<MainNavigation> with WidgetsBindingObse
     }
   }
 
-  // 🔥 ফায়ারস্টোরে স্ট্যাটাস আপডেট করার ফাংশন
+  // 🔥 ফায়ারস্টোরে স্ট্যাটাস আপডেট করার ফাংশন
   Future<void> _updateUserPresence(bool isOnline) async {
     if (AppData.myID.isEmpty) return;
     try {
@@ -412,7 +426,7 @@ class _MainNavigationState extends State<MainNavigation> with WidgetsBindingObse
   void dispose() {
     _heartbeatTimer?.cancel(); // টাইমার বন্ধ করা
     WidgetsBinding.instance.removeObserver(this);
-    _updateUserPresence(false); // পেজ ডিসপোজ হলে অফলাইন করে দেওয়া
+    _updateUserPresence(false); // পেজ ডিসপোজ হলে অফলাইন করে দেওয়া
     super.dispose();
   }
 
@@ -476,57 +490,125 @@ class _MainNavigationState extends State<MainNavigation> with WidgetsBindingObse
     final String currentUserId = AppData.myID;
 
     return Scaffold(
+      // extendBody সরিয়ে নেওয়া হয়েছে যাতে হোম পেজের বাটন বা কন্টেন্ট গ্লাসবারের নিচে না যায়
       body: IndexedStack(index: _currentIndex, children: _pages),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        type: BottomNavigationBarType.fixed,
-        items: [
-          const BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          const BottomNavigationBarItem(icon: Icon(Icons.mic), label: "Rooms"),
-          BottomNavigationBarItem(
-            icon: currentUserId.isEmpty
-                ? const Icon(Icons.mail)
-                : StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collectionGroup('messages')
-                        .where('receiverId', isEqualTo: currentUserId)
-                        .where('isRead', isEqualTo: false)
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return const Icon(Icons.mail);
-                      }
-
-                      int unreadCount =
-                          snapshot.hasData ? snapshot.data!.docs.length : 0;
-
-                      return Badge(
-                        label: unreadCount > 0
-                            ? Text('$unreadCount',
-                                style: const TextStyle(
-                                    fontSize: 10, color: Colors.white))
-                            : null,
-                        isLabelVisible: unreadCount > 0,
-                        backgroundColor: Colors.redAccent,
-                        child: const Icon(Icons.mail),
-                      );
-                    },
+      bottomNavigationBar: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8), // মার্জিন কমানো হয়েছে
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(25),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+            child: Container(
+              height: 54, // উচ্চতা কমিয়ে স্লিম করা হয়েছে
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(25),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.22),
+                  width: 1.0,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.25),
+                    blurRadius: 15,
+                    spreadRadius: 2,
                   ),
-            label: "Inbox",
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(0, Icons.home_rounded, "Home", false, currentUserId),
+                  _buildNavItem(1, Icons.mic_rounded, "Rooms", false, currentUserId),
+                  _buildNavItem(2, Icons.mail_rounded, "Inbox", true, currentUserId),
+                  _buildNavItem(3, Icons.person_rounded, "Profile", false, currentUserId),
+                ],
+              ),
+            ),
           ),
-          const BottomNavigationBarItem(
-              icon: Icon(Icons.person), label: "Profile"),
-        ],
+        ),
+      ),
+    );
+  }
+
+  // প্রিমিয়াম গ্লাস ডিজাইন বাটন উইজেট (আরেকটু কম্প্যাক্ট সাইজ)
+  Widget _buildNavItem(int index, IconData icon, String label, bool isInbox, String currentUserId) {
+    bool isSelected = _currentIndex == index;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _currentIndex = index;
+        });
+      },
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        padding: EdgeInsets.symmetric(
+          horizontal: isSelected ? 12 : 8,
+          vertical: 6,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.cyanAccent.withOpacity(0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+          border: isSelected
+              ? Border.all(color: Colors.cyanAccent.withOpacity(0.5), width: 1.0)
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            isInbox
+                ? (currentUserId.isEmpty
+                    ? Icon(icon, color: isSelected ? Colors.cyanAccent : Colors.white70, size: 22)
+                    : StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collectionGroup('messages')
+                            .where('receiverId', isEqualTo: currentUserId)
+                            .where('isRead', isEqualTo: false)
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasError) {
+                            return Icon(icon, color: isSelected ? Colors.cyanAccent : Colors.white70, size: 22);
+                          }
+                          int unreadCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
+                          return Badge(
+                            label: unreadCount > 0
+                                ? Text('$unreadCount', style: const TextStyle(fontSize: 9, color: Colors.white))
+                                : null,
+                            isLabelVisible: unreadCount > 0,
+                            backgroundColor: Colors.redAccent,
+                            child: Icon(
+                              icon,
+                              color: isSelected ? Colors.cyanAccent : Colors.white70,
+                              size: 22,
+                            ),
+                          );
+                        },
+                      ))
+                : Icon(
+                    icon,
+                    color: isSelected ? Colors.cyanAccent : Colors.white70,
+                    size: 22,
+                  ),
+            if (isSelected) ...[
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.cyanAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 }
-
 // --- লগইন স্ক্রিন (গুগল সাইন-ইন ও ডিলিটেড ইউজার চেকিং লজিকসহ) ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

@@ -4,7 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:ui';
 import 'package:lottie/lottie.dart';
-import 'package:pagla_chat/profile_page.dart'; // গ্লাস ইফেক্টের জন্য
+import 'package:pagla_chat/profile_page.dart';
+import 'package:pagla_chat/widgets/video_post_widget.dart'; // গ্লাস ইফেক্টের জন্য
 
 class PostCard extends StatelessWidget {
   final Map<String, dynamic> data;
@@ -307,6 +308,13 @@ class PostCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                // --- যদি ভিডিও থাকে (videoUrl অথবা storyVideo ফিল্ড চেক করে রেন্ডার করা হলো) ---
+                if ((data['videoUrl'] != null &&
+                        data['videoUrl'].toString().isNotEmpty) ||
+                    (data['storyVideo'] != null &&
+                        data['storyVideo'].toString().isNotEmpty))
+                  FeedVideoPlayer(
+                      videoUrl: data['videoUrl'] ?? data['storyVideo']),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(18, 10, 18, 5),
                   child: Row(

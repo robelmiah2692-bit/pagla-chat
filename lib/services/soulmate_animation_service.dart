@@ -15,7 +15,6 @@ class SoulmateAnimationService {
       if (seatA == null || seatA['uID'] == null) continue;
       String uidA = seatA['uID'].toString(); 
 
-      // ইউজার A এর সোলমেট লিস্ট পাওয়া যাচ্ছে সরাসরি ডকুমেন্ট আইডি (uidA) দিয়ে
       List<dynamic> soulmatesA = allUsersSoulmates[uidA] ?? [];
 
       for (int j = 0; j < seats.length; j++) {
@@ -23,9 +22,8 @@ class SoulmateAnimationService {
         if (seatB == null || seatB['uID'] == null) continue;
         String uidB = seatB['uID'].toString();
 
-        // ১. পাশাপাশি বসা এবং একই সারিতে আছে কিনা চেক
-        if ((i - j).abs() == 1 && (i ~/ 5 == j ~/ 5)) {
-          // ২. ইউজার A এর সোলমেট লিস্টে ইউজার B আছে কিনা চেক
+        // ১. ৫ এর জায়গায় ৪ দিয়ে রো এবং পাশাপাশি সিট চেক করা হলো
+        if ((i - j).abs() == 1 && (i ~/ 4 == j ~/ 4)) {
           if (soulmatesA.contains(uidB)) {
             String pairId = (i < j) ? "$i-$j" : "$j-$i";
             if (!processedPairs.contains(pairId)) {
@@ -41,20 +39,21 @@ class SoulmateAnimationService {
 
   static Widget _createHeartWidget(int index1, int index2) {
     int leftSeat = (index1 < index2) ? index1 : index2;
-    int row = leftSeat ~/ 5;
-    int col = leftSeat % 5;
+    int row = leftSeat ~/ 4; // প্রতি লাইনে ৪টি সিট হওয়ায় ৪ দিয়ে ভাগ
+    int col = leftSeat % 4;  // ৪ দিয়ে রিমেইন্ডার
 
     return Builder(builder: (context) {
       double totalWidth = MediaQuery.of(context).size.width - 32;
-      double colWidth = totalWidth / 5;
+      double colWidth = totalWidth / 4; // ৫ এর জায়গায় এখন ৪ দিয়ে উইথ ভাগ হবে
       double seatHeight = colWidth / 0.75;
       
       return Positioned(
-        left: 16 + (col * colWidth) + (colWidth - 40),
-        top: (row * (seatHeight + 10)) + (seatHeight / 2) - 45,
+        // দুটি সিটের ঠিক মাঝখানে পজিশন সেট করার জন্য ক্যালকুলেশন
+        left: 16 + (col * colWidth) + (colWidth - 70),
+        top: (row * (seatHeight + 10)) + (seatHeight / 2) - 90,
         child: IgnorePointer(
           child: SizedBox(
-            width: 80, height: 80,
+            width: 110, height: 110,
             child: Lottie.network(
               'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/officialall/Bird%20pair%20love%20and%20flying%20sky.json',
               fit: BoxFit.contain,

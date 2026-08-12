@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
@@ -35,13 +36,12 @@ class _CrazyFruitGameState extends State<CrazyFruitGame> {
   int currentBet = 100;
   bool isSpinning = false;
 
-  // লোকাল ব্যালেন্স ভেরিয়েবল যা লাইভ আপডেট হবে
   late int localBalance;
-  int spinCount = 0; // মোট কতবার স্পিন করেছে
-  int targetWinCount = 3; // গেমটি কখন জেতাবে তার টার্গেট
-  // ফায়ারবেস থেকে রিয়েল ডাটা আসার লিস্ট
+  int spinCount = 0;
+  StreamSubscription? _winnersSubscription;
   List<Map<String, dynamic>> topWinners = [];
   bool isSoundOn = true;
+
   @override
   void initState() {
     super.initState();
@@ -49,26 +49,51 @@ class _CrazyFruitGameState extends State<CrazyFruitGame> {
     _listenToWinners();
   }
 
-  // এটি অবশ্যই ইমপোর্ট করতে হবে
+  // 🔴 সঠিক ডকুমেন্টে ডাইমন্ড আপডেট করার ফাংশন (UID অথবা query দিয়ে)
+  Future<void> _updateBalanceToFirestore(int newBalance) async {
+    try {
+      String authUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      if (authUid.isEmpty) return;
+
+      // প্রথমে চেক করা যাক সরাসরি authUid দিয়ে ডকুমেন্ট আছে কি না, না থাকলে 'uid' ফিল্ড দিয়ে কুয়েরি করা হবে
+      var docRef = FirebaseFirestore.instance.collection('users').doc(authUid);
+      var docSnap = await docRef.get();
+
+      if (docSnap.exists) {
+        await docRef.update({'diamonds': newBalance});
+      } else {
+        // যদি ডকুমেন্টের আইডি authUid না হয়ে কাস্টম আইডি হয় (যেমন স্ক্রিনশটের 978051)
+        var querySnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .where('uid', isEqualTo: authUid)
+            .get();
+
+        if (querySnapshot.docs.isNotEmpty) {
+          await querySnapshot.docs.first.reference
+              .update({'diamonds': newBalance});
+        }
+      }
+    } catch (e) {
+      debugPrint("Error updating balance to Firestore: $e");
+    }
+  }
 
   Future<void> _listenToWinners() async {
     DatabaseReference ref =
         FirebaseDatabase.instance.ref('games/42635/luckyWinners');
 
-    ref.onValue.listen((DatabaseEvent event) async {
+    _winnersSubscription = ref.onValue.listen((DatabaseEvent event) async {
       final data = event.snapshot.value;
-      if (data == null) return;
+      if (data == null || !mounted) return;
 
       Map<dynamic, dynamic> map = data as Map<dynamic, dynamic>;
       List<Map<String, dynamic>> fetchedWinners = [];
 
       for (var entry in map.entries) {
         var value = entry.value;
-        // ডাটাবেজ থেকে সরাসরি আইডি পাওয়ার চেষ্টা করছি (যদি থাকে)
         String uID = value['uID'] ?? '';
         int winAmount = value['amount'] ?? 0;
 
-        // Firestore থেকে নাম ও ছবি আনছি
         String userName = "Player";
         String userPic = "";
 
@@ -77,7 +102,7 @@ class _CrazyFruitGameState extends State<CrazyFruitGame> {
               .collection('users')
               .doc(uID)
               .get();
-          if (userDoc.exists) {
+          if (userDoc.exists && mounted) {
             var userData = userDoc.data()!;
             userName = userData['name'] ?? 'Player';
             userPic = userData['profilepic'] ?? '';
@@ -93,9 +118,11 @@ class _CrazyFruitGameState extends State<CrazyFruitGame> {
 
       fetchedWinners.sort((a, b) => b['win'].compareTo(a['win']));
 
-      setState(() {
-        topWinners = fetchedWinners.take(3).toList();
-      });
+      if (mounted) {
+        setState(() {
+          topWinners = fetchedWinners.take(3).toList();
+        });
+      }
     });
   }
 
@@ -113,13 +140,23 @@ class _CrazyFruitGameState extends State<CrazyFruitGame> {
     setState(() {
       isSpinning = true;
       localBalance -= currentBet;
-      spinCount++; 
+      spinCount++;
     });
 
-    // --- ২৫% উইন লজিক শুরু ---
-    int winChance = Random().nextInt(100); 
-    bool shouldWin = winChance < 25; // ২৫% সম্ভাবনা জেতার জন্য
-    // --- ২৫% উইন লজিক শেষ ---
+    // 🔴 ফায়ারস্টোরে বেটের টাকা কাটার পর আপডেট করা
+    await _updateBalanceToFirestore(localBalance);
+
+    bool shouldWin = false;
+    bool forceHighMultiplier = false;
+
+    if (spinCount >= 30) {
+      forceHighMultiplier = true;
+      shouldWin = true;
+      spinCount = 0;
+    } else {
+      int winChance = Random().nextInt(100);
+      shouldWin = winChance < 10; // ১০% সাধারণ জেতার চান্স
+    }
 
     Timer timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       setState(() {
@@ -131,11 +168,9 @@ class _CrazyFruitGameState extends State<CrazyFruitGame> {
     timer.cancel();
 
     setState(() {
-      // যদি shouldWin ট্রু হয়, তবে জেতার স্লট জেনারেট হবে
       if (shouldWin) {
-        _generateWinSlots();
+        _generateWinSlots(forceHighMultiplier);
       } else {
-        // নাহলে র‍্যান্ডম ফল দেখাবে (বেশিরভাগ সময় হারবে)
         currentSlots = List.generate(9, (_) => Random().nextInt(fruits.length));
       }
       isSpinning = false;
@@ -145,15 +180,32 @@ class _CrazyFruitGameState extends State<CrazyFruitGame> {
     widget.onUpdateBalance(localBalance);
   }
 
+  void _generateWinSlots(bool highMultiplier) {
+    int winRow = Random().nextInt(3) * 3;
+    int fruitIndex;
+
+    if (highMultiplier) {
+      List<int> highIndices = [2, 3, 4, 5, 6, 7]; // ৫x থেকে ১০x এর ইনডেক্স
+      fruitIndex = highIndices[Random().nextInt(highIndices.length)];
+    } else {
+      fruitIndex = Random().nextInt(fruits.length);
+    }
+
+    currentSlots = List.generate(9, (_) => Random().nextInt(fruits.length));
+
+    currentSlots[winRow] = fruitIndex;
+    currentSlots[winRow + 1] = fruitIndex;
+    currentSlots[winRow + 2] = fruitIndex;
+  }
+
   void _showWinnersDialog() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      isScrollControlled: true, // এটি দিলে লিস্ট অনেক বড় হলেও সমস্যা করবে না
+      isScrollControlled: true,
       builder: (context) => Container(
         padding: const EdgeInsets.all(20),
-        height:
-            MediaQuery.of(context).size.height * 0.5, // স্ক্রিনের অর্ধেক উচ্চতা
+        height: MediaQuery.of(context).size.height * 0.5,
         decoration: const BoxDecoration(
           color: Color(0xFF1A0000),
           borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
@@ -181,7 +233,6 @@ class _CrazyFruitGameState extends State<CrazyFruitGame> {
                                     borderRadius: BorderRadius.circular(15)),
                                 child: Row(
                                   children: [
-                                    // এখানে ছবি অথবা ডিফল্ট অবতার চেক করছি
                                     CircleAvatar(
                                       radius: 20,
                                       backgroundColor: Colors.white10,
@@ -222,18 +273,7 @@ class _CrazyFruitGameState extends State<CrazyFruitGame> {
     );
   }
 
-  void _generateWinSlots() {
-    int winRow = Random().nextInt(3) * 3;
-    int fruitIndex = Random().nextInt(fruits.length);
-    currentSlots = List.generate(9, (_) => Random().nextInt(fruits.length));
-
-    // কনফার্ম উইন লাইন তৈরি করা
-    currentSlots[winRow] = fruitIndex;
-    currentSlots[winRow + 1] = fruitIndex;
-    currentSlots[winRow + 2] = fruitIndex;
-  }
-
-  void _checkWin() {
+  void _checkWin() async {
     int totalWin = 0;
     for (int i = 0; i < 9; i += 3) {
       if (currentSlots[i] == currentSlots[i + 1] &&
@@ -248,6 +288,10 @@ class _CrazyFruitGameState extends State<CrazyFruitGame> {
         localBalance += totalWin;
       });
       widget.onUpdateBalance(localBalance);
+
+      // 🔴 উইন হলে ফায়ারস্টোরে ব্যালেন্স আপডেট করা
+      await _updateBalanceToFirestore(localBalance);
+
       _showWinPopup(totalWin);
     }
   }
@@ -281,7 +325,6 @@ class _CrazyFruitGameState extends State<CrazyFruitGame> {
         child: Column(
           children: [
             const SizedBox(height: 50),
-            // এখানে লোকাল ব্যালেন্স ব্যবহার করা হয়েছে
             _buildDashboard(),
             const Spacer(),
             _buildSlotMachine(),
@@ -299,8 +342,7 @@ class _CrazyFruitGameState extends State<CrazyFruitGame> {
             IconButton(
               icon:
                   const Icon(Icons.emoji_events, color: Colors.amber, size: 30),
-              onPressed: () =>
-                  _showWinnersDialog(), // ক্লিক করলে উইনার লিস্ট দেখাবে
+              onPressed: () => _showWinnersDialog(),
             ),
             _buildMultiplierInfo(),
             const SizedBox(height: 20),
@@ -328,7 +370,6 @@ class _CrazyFruitGameState extends State<CrazyFruitGame> {
     );
   }
 
-  // বাকি উইজেটগুলো আগের মতোই থাকবে...
   Widget _buildSlotMachine() {
     return Container(
       padding: const EdgeInsets.all(10),
@@ -409,5 +450,12 @@ class _CrazyFruitGameState extends State<CrazyFruitGame> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _winnersSubscription
+        ?.cancel(); // 🛠️ ব্যাকগ্রাউন্ড লিসেনার বন্ধ করার জন্য এটি যোগ করুন
+    super.dispose();
   }
 }

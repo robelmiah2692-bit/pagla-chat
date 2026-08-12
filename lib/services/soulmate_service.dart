@@ -3,14 +3,17 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class SoulmateService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final String myAuthUid = FirebaseAuth.instance.currentUser!.uid;
 
   Future<String> breakRelation(String partnerId) async {
     const int breakupCost = 1500;
 
     try {
+      // 🛠️ [FIX] সেফ কারেন্ট ইউজার চেক
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return "লগইন করা নেই!";
+
       QuerySnapshot userQuery = await _db.collection('users')
-          .where('uid', isEqualTo: myAuthUid)
+          .where('uid', isEqualTo: user.uid)
           .limit(1)
           .get();
 
@@ -18,10 +21,15 @@ class SoulmateService {
       
       var userData = userQuery.docs.first.data() as Map<String, dynamic>;
       String mySixDigitUid = userData['uID'].toString();
-      int myDiamonds = userData['diamonds'] ?? 0;
+      
+      // 🛠️ [FIX] ডায়মন্ড স্ট্রিং বা ইন্টিজার যাই হোক না কেন সেফলি পার্স করা
+      var diamondVal = userData['diamonds'];
+      int myDiamonds = diamondVal is int 
+          ? diamondVal 
+          : int.tryParse(diamondVal?.toString() ?? "0") ?? 0;
 
       if (myDiamonds < breakupCost) {
-        return "Need 1500 Daimond।";
+        return "Need 1500 Diamond.";
       }
 
       await _db.collection('soulmates').doc(mySixDigitUid).delete();
@@ -44,11 +52,9 @@ class SoulmateService {
 class SoulmateXpService {
   static Future<void> updateSoulmateXP(String senderUid, String receiverUid, int giftAmount) async {
     try {
-      // 🎯 ৬০০ ডায়মন্ড খরচ হলে ১ এক্সপি যোগ হবে
       int calculatedXp = giftAmount ~/ 600;
       if (calculatedXp <= 0) return;
 
-      // সেন্ডারের সোলমেট চেক
       var query = await FirebaseFirestore.instance
           .collection('soulmates')
           .where('ownerId', isEqualTo: senderUid)
@@ -62,7 +68,6 @@ class SoulmateXpService {
           'totalGift': FieldValue.increment(calculatedXp),
         });
 
-        // রিসিভার বা পার্টনারের ডকুমেন্ট আপডেট
         var partnerQuery = await FirebaseFirestore.instance
             .collection('soulmates')
             .where('ownerId', isEqualTo: receiverUid)
@@ -75,10 +80,9 @@ class SoulmateXpService {
             'totalGift': FieldValue.increment(calculatedXp),
           });
         }
-        print("✅ Soulmate XP Updated: +$calculatedXp");
       }
     } catch (e) {
-      print("❌ Error updating Soulmate XP: $e");
+      // সাইলেন্টলি হ্যান্ডেল করা হলো
     }
   }
 }

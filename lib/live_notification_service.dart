@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
-import 'package:flutter/foundation.dart'; // kIsWeb চেক করার জন্য লাগবে
-// কন্ডিশনাল ইম্পোর্ট ব্যবহার করা ভালো, তবে আপাতত সহজ করার জন্য নিচে লজিক দিচ্ছি
+import 'package:flutter/foundation.dart'; 
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -11,7 +10,6 @@ class LiveNotificationService {
 
   // সার্ভিস শুরু করার ফাংশন
   static Future<void> initializeService() async {
-    // [FIX] ওয়েবে এই সার্ভিস রান করা যাবে না, তাই রিটার্ন করে দিচ্ছি
     if (kIsWeb) {
       print("Web: Background service is not supported.");
       return; 
@@ -71,17 +69,8 @@ class LiveNotificationService {
       service.stopSelf();
     });
 
-    // নোটিফিকেশন আপডেট রাখার জন্য টাইমার
-    Timer.periodic(const Duration(seconds: 1), (timer) async {
-      if (service is AndroidServiceInstance) {
-        if (await service.isForegroundService()) {
-          service.setForegroundNotificationInfo(
-            title: "পাগলা চ্যাট রুম লাইভ 🎙️",
-            content: "আপনি কথা বলছেন...",
-          );
-        }
-      }
-    });
+    // 🛠️ [FIX] অপ্রয়োজনীয় প্রতি সেকেন্ডের টাইমারটি রিমুভ করা হয়েছে, 
+    // যা ব্যাকগ্রাউন্ডে প্রসেসর ও ব্যাটারি সেভ করবে।
   }
 
   @pragma('vm:entry-point')

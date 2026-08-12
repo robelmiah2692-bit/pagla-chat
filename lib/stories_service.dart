@@ -9,25 +9,27 @@ class StoriesService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  Future<void> uploadStory(String imagePath, String text, {Uint8List? webImageBytes}) async {
+  Future<void> uploadStory(String filePath, String text, {Uint8List? webFileBytes, bool isVideo = false}) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
     String downloadUrl = "";
 
     try {
-      // ১. ছবি আপলোড লজিক
-      if (webImageBytes != null || imagePath.isNotEmpty) {
-        String fileName = 'stories/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      // ১. ফাইল (ছবি বা ভিডিও) আপলোড লজিক
+      if (webFileBytes != null || filePath.isNotEmpty) {
+        String extension = isVideo ? '.mp4' : '.jpg';
+        String folderName = isVideo ? 'stories/videos' : 'stories/images';
+        String fileName = '$folderName/${DateTime.now().millisecondsSinceEpoch}$extension';
         Reference ref = _storage.ref().child(fileName);
 
         if (kIsWeb) {
-          if (webImageBytes != null) {
-            TaskSnapshot task = await ref.putData(webImageBytes);
+          if (webFileBytes != null) {
+            TaskSnapshot task = await ref.putData(webFileBytes);
             downloadUrl = await task.ref.getDownloadURL();
           }
         } else {
-          io.File file = io.File(imagePath);
+          io.File file = io.File(filePath);
           if (await file.exists()) {
             TaskSnapshot task = await ref.putFile(file);
             downloadUrl = await task.ref.getDownloadURL();
@@ -35,12 +37,10 @@ class StoriesService {
         }
       }
 
-      
-      
       String actualName = "User";
       String actualProfilePic = "";
       String myCustomDocId = "";
-      String actualFrameUrl = ""; // 🔥 ফ্রেমের জন্য ভেরিয়েবল
+      String actualFrameUrl = "";
 
       final userQuery = await _firestore
           .collection('users')
@@ -49,24 +49,33 @@ class StoriesService {
 
       if (userQuery.docs.isNotEmpty) {
         var data = userQuery.docs.first.data();
-        myCustomDocId = userQuery.docs.first.id; // এটা আপনার ৬ ডিজিটের আইডি (যেমন: 153530)
+        myCustomDocId = userQuery.docs.first.id;
         actualName = data['name'] ?? "User";
         actualProfilePic = data['profilePic'] ?? "";
         actualFrameUrl = data['activeFrameUrl'] ?? "";
       }
 
-      // ৩. ডাটাবেসে স্টোরি সেভ
-      await _firestore.collection('stories').add({
-        'userId': myCustomDocId, // এখানে ৬ ডিজিটের আইডি সেভ হবে
-        'authUID': user.uid,     // চেনার সুবিধার জন্য অরিজিনাল Auth uID-ও রাখা হলো
-        'userName': actualName, 
-        'userImage': actualProfilePic, 
+      // ৩. ডাটাবেসে স্টোরি সেভ (ভিডিও হলে videoUrl এবং ইমেজ হলে storyImage এ সেভ হবে)
+      Map<String, dynamic> storyData = {
+        'userId': myCustomDocId,
+        'authUID': user.uid,
+        'userName': actualName,
+        'userImage': actualProfilePic,
         'activeFrameUrl': actualFrameUrl,
-        'storyImage': downloadUrl,
         'caption': text,
         'timestamp': FieldValue.serverTimestamp(),
-        'likes': [], 
-      });
+        'likes': [],
+      };
+
+      if (isVideo) {
+        storyData['videoUrl'] = downloadUrl;
+        storyData['storyImage'] = ""; // ইমেজ খালি থাকবে
+      } else {
+        storyData['storyImage'] = downloadUrl;
+        storyData['videoUrl'] = ""; // ভিডিও খালি থাকবে
+      }
+
+      await _firestore.collection('stories').add(storyData);
 
       debugPrint("Story Uploaded Successfully! ✅");
     } catch (e) {

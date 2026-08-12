@@ -88,6 +88,7 @@ class _LuckySpinViewState extends State<LuckySpinView> {
   int _countdown = 15;
   bool isSpinning = false;
   String winLoseStatus = "";
+  StreamSubscription? _winnersSubscription;
   Timer? _timer;
   List<Map<dynamic, dynamic>> topWinnersList = [];
   Map<String, int> betMultipliers =
@@ -113,21 +114,20 @@ class _LuckySpinViewState extends State<LuckySpinView> {
   }
 
   void _listenToWinners() {
-    widget.gameRef.child("luckyWinners").onValue.listen((event) {
-      if (event.snapshot.value != null && mounted) {
-        final data = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
-        List<Map<dynamic, dynamic>> tempList = [];
-        data.forEach((key, value) {
-          tempList.add(Map<dynamic, dynamic>.from(value));
-        });
-        tempList.sort((a, b) => (b['time'] ?? 0).compareTo(a['time'] ?? 0));
-        setState(() {
-          topWinnersList = tempList.take(10).toList();
-        });
-      }
-    });
-  }
-
+  _winnersSubscription = widget.gameRef.child("luckyWinners").onValue.listen((event) {
+    if (event.snapshot.value != null && mounted) {
+      final data = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
+      List<Map<dynamic, dynamic>> tempList = [];
+      data.forEach((key, value) {
+        tempList.add(Map<dynamic, dynamic>.from(value));
+      });
+      tempList.sort((a, b) => (b['time'] ?? 0).compareTo(a['time'] ?? 0));
+      setState(() {
+        topWinnersList = tempList.take(10).toList();
+      });
+    }
+  });
+}
   Future<void> _updateUserDiamonds(int amount) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -184,30 +184,51 @@ Future<void> _performSpin() async {
 
   widget.playSound("https://github.com/robelmiah2692-bit/vip-badges/raw/refs/heads/main/officialall/spin_sound.mp3.mp3");
 
-  // ডাইনামিক উইন লজিক (২৫% জেতার রেশিও)
-  int randomChance = Random().nextInt(100); // ০ থেকে ৯৯ এর মধ্যে নম্বর
-  bool shouldWin = randomChance < 25; // ২৫% চান্স জেতার জন্য
+  // কঠোর গেম লজিক: ৯০% হারানোর চান্স, মাত্র ১০% জেতার চান্স
+  int randomChance = Random().nextInt(100); // ০ থেকে ৯৯
+  bool shouldWin = randomChance < 15; // ১৫% ইউজার জিতবে, বাকী ৮৫% হাউজ বা অ্যাপ জিতবে (হারবে)
 
   int winIdx;
-  
+
+  // 777 হলো ইডেক্স ০ (মাল্টিপ্লায়ার ২৫x)। এটি যেন খুব সহজে না পড়ে, তার জন্য অতিরিক্ত সিকিউরিটি চেক
+  bool allow777 = Random().nextInt(100) < 5; // মাত্র ৫% চ্যান্স পুরো গেমের মধ্যে 777 পড়ার
+
   if (shouldWin && userBetIndices.isNotEmpty) {
-    // জেতানোর ইচ্ছা থাকলে এবং ইউজার যদি বেট করে থাকে, তবে বেট করা ইনডেক্সগুলো থেকে একটি বেছে নেওয়া হবে
-    winIdx = userBetIndices[Random().nextInt(userBetIndices.length)];
+    // ইউজার জিতবে, তবে যদি সে 777 এ ধরে থাকে এবং অ্যালাউড না হয়, তবে অন্য কম মাল্টিপ্লায়ার সিলেক্ট হবে
+    List<int> validWinIndices = List.from(userBetIndices);
+    if (!allow777) {
+      validWinIndices.remove(0); // 777 বাদ দিয়ে বাকিগুলোর মধ্য থেকে জেতাবে
+    }
+
+    if (validWinIndices.isNotEmpty) {
+      winIdx = validWinIndices[Random().nextInt(validWinIndices.length)];
+    } else {
+      // যদি শুধু 777এই ধরে থাকে কিন্তু অ্যালাউড না হয়, তবে লস করিয়ে দেবো
+      List<int> nonBetIndices = List.generate(wheelSegments.length, (i) => i)
+          .where((i) => !userBetIndices.contains(i))
+          .toList();
+      winIdx = nonBetIndices.isNotEmpty 
+          ? nonBetIndices[Random().nextInt(nonBetIndices.length)] 
+          : Random().nextInt(wheelSegments.length);
+    }
   } else {
-    // হারানো নিশ্চিত করতে এমন একটি ইনডেক্স বেছে নেব যেটা ইউজারের বেট লিস্টে নেই (যদি সম্ভব হয়)
+    // নিশ্চিত হার লজিক: এমন স্লটে থামবে যা ইউজার ধরে নাই, অথবা কম দামি কোনো ফল
     List<int> nonBetIndices = List.generate(wheelSegments.length, (i) => i)
-        .where((i) => !userBetIndices.contains(i))
+        .where((i) => !userBetIndices.contains(i) && i != 0) // 777 থেকে দূরে রাখবে
         .toList();
-    
+
     if (nonBetIndices.isNotEmpty) {
       winIdx = nonBetIndices[Random().nextInt(nonBetIndices.length)];
     } else {
-      // যদি ইউজার সব জায়গায় বেট ধরে ফেলে, তবে র‍্যান্ডম রেজাল্ট আসবে
+      // যদি সব জায়গায় বেট করে, তবে র‍্যান্ডমলি এমন ইনডেক্স পড়বে যেখানে ইউজার লসে থাকবে
       winIdx = Random().nextInt(wheelSegments.length);
+      if (winIdx == 0 && !allow777) {
+        winIdx = 1 + Random().nextInt(wheelSegments.length - 1); // 🛠️ [সংশোধন করা হয়েছে] 777 এড়িয়ে চলার সঠিক Dart লজিক
+      }
     }
   }
 
-  debugPrint("DEBUG: Win Chance: $randomChance%, Target Index: $winIdx");
+  debugPrint("DEBUG: Strict House Logic -> Win Chance: $randomChance%, Target Index: $winIdx");
 
   // অ্যাঙ্গেল ক্যালকুলেশন
   double slice = 360 / wheelSegments.length;
@@ -240,9 +261,10 @@ Future<void> _performSpin() async {
     winLoseStatus = "";
     isSpinning = false;
     userBetIndices.clear();
-    betMultipliers.clear(); // বেট ক্লিয়ার করা
+    betMultipliers.clear();
   });
 }
+  
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
@@ -428,6 +450,7 @@ Future<void> _performSpin() async {
   @override
   void dispose() {
     _timer?.cancel();
+   _winnersSubscription?.cancel();
     super.dispose();
   }
 }
