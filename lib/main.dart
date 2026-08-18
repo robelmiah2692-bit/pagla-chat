@@ -3,8 +3,10 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:pagla_chat/app_update_manager.dart';
 import 'package:pagla_chat/device_service.dart';
+import 'package:pagla_chat/reels_page.dart';
 
 import 'auth_service.dart';
 import 'package:pagla_chat/services/notification_service.dart';
@@ -49,6 +51,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 🔥 অ্যাপ চালুর সাথেই অ্যাডমব ইনিশিয়ালাইজ করা হলো
+  await MobileAds.instance.initialize();
+  
   try {
     // ১. ফায়ারবেস ইনিশিয়ালাইজেশন
     await Firebase.initializeApp(options: firebaseOptions);
@@ -91,19 +96,23 @@ void main() async {
   // সব ঠিক থাকলে অ্যাপ রান করবে
   runApp(const PaglaChatApp());
 }
+
 class MyRouteObserver extends NavigatorObserver {
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPush(route, previousRoute);
-    debugPrint("🟢 [NAVIGATION] পেজে প্রবেশ করা হয়েছে: ${route.settings.name ?? route.toString()}");
+    debugPrint(
+        "🟢 [NAVIGATION] পেজে প্রবেশ করা হয়েছে: ${route.settings.name ?? route.toString()}");
   }
 
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPop(route, previousRoute);
-    debugPrint("🔴 [NAVIGATION] পেজ বন্ধ বা POP হয়েছে: ${route.settings.name ?? route.toString()}");
+    debugPrint(
+        "🔴 [NAVIGATION] পেজ বন্ধ বা POP হয়েছে: ${route.settings.name ?? route.toString()}");
   }
 }
+
 class PaglaChatApp extends StatelessWidget {
   const PaglaChatApp({super.key});
 
@@ -365,23 +374,18 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
   }
 }
 
-// --- মেইন নেভিগেশন (এখানে টাইমার ও হার্টবিট বসানো হয়েছে) ---
+
+// --- মেইন নেভিগেশন (এখানে টাইমার, হার্টবিট ও সঠিক পেজ সুইচিং বসানো হয়েছে) ---
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
   @override
   State<MainNavigation> createState() => _MainNavigationState();
 }
 
-class _MainNavigationState extends State<MainNavigation> with WidgetsBindingObserver {
+class _MainNavigationState extends State<MainNavigation>
+    with WidgetsBindingObserver {
   int _currentIndex = 0;
   Timer? _heartbeatTimer; // 🔥 অনলাইন স্ট্যাটাস এবং হার্টবিট টাইমার
-
-  final List<Widget> _pages = [
-    const HomePage(),
-    const RoomListPage(),
-    const InboxPage(),
-    const ProfilePage()
-  ];
 
   @override
   void initState() {
@@ -413,7 +417,10 @@ class _MainNavigationState extends State<MainNavigation> with WidgetsBindingObse
   Future<void> _updateUserPresence(bool isOnline) async {
     if (AppData.myID.isEmpty) return;
     try {
-      await FirebaseFirestore.instance.collection('users').doc(AppData.myID).update({
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(AppData.myID)
+          .update({
         'isOnline': isOnline,
         'lastSeen': FieldValue.serverTimestamp(),
       });
@@ -449,40 +456,43 @@ class _MainNavigationState extends State<MainNavigation> with WidgetsBindingObse
 
   void _updateDeviceIdIfMissing() async {
     try {
-      String? deviceId = await DeviceService.getDeviceId();
-      if (AppData.myID.isNotEmpty && deviceId != null) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(AppData.myID)
-            .update({'deviceId': deviceId});
+      String deviceId = await DeviceService.getDeviceId();
+      if (AppData.myID.isNotEmpty) {
+        DocumentReference userRef =
+            FirebaseFirestore.instance.collection('users').doc(AppData.myID);
+        DocumentSnapshot userDoc = await userRef.get();
+
+        if (userDoc.exists) {
+          String? existingId = userDoc.get('deviceId');
+
+          if (existingId == null ||
+              existingId == "AP3A.240905.015.A2" ||
+              existingId.isEmpty) {
+            await userRef.update({'deviceId': deviceId});
+          }
+        }
       }
     } catch (e) {
       debugPrint("Error updating device ID: $e");
     }
   }
 
-  void clearSpecificChatCount(String chatRoomId) async {
-    if (AppData.myID.isEmpty || chatRoomId.isEmpty) return;
-
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('chats')
-          .doc(chatRoomId)
-          .collection('messages')
-          .where('receiverId', isEqualTo: AppData.myID)
-          .where('isRead', isEqualTo: false)
-          .get();
-
-      if (snapshot.docs.isEmpty) return;
-
-      final WriteBatch batch = FirebaseFirestore.instance.batch();
-
-      for (dynamic ds in snapshot.docs) {
-        batch.update(ds.reference, {'isRead': true});
-      }
-
-      await batch.commit();
-    } catch (e) {}
+  // ইউজার যেই পেজে থাকবে, শুধুমাত্র সেই পেজটিই রেন্ডার হবে (অন্য পেজ সম্পূর্ণ ডিসপোজ হয়ে যাবে)
+  Widget _getSelectedPage(int index) {
+    switch (index) {
+      case 0:
+        return const HomePage();
+      case 1:
+        return ReelsPage(isActive: _currentIndex == 1);
+      case 2:
+        return const RoomListPage();
+      case 3:
+        return const InboxPage();
+      case 4:
+        return const ProfilePage();
+      default:
+        return const HomePage();
+    }
   }
 
   @override
@@ -490,40 +500,120 @@ class _MainNavigationState extends State<MainNavigation> with WidgetsBindingObse
     final String currentUserId = AppData.myID;
 
     return Scaffold(
-      // extendBody সরিয়ে নেওয়া হয়েছে যাতে হোম পেজের বাটন বা কন্টেন্ট গ্লাসবারের নিচে না যায়
-      body: IndexedStack(index: _currentIndex, children: _pages),
+      extendBody: false, // 🔥 কন্টেন্ট যেন নেভিগেশন বারের নিচে না যায়, সেফ রাখার জন্য false করা হলো
+      backgroundColor: Colors.black,
+      // ডাইনামিক সুইচিং ব্যবহার করা হলো যাতে অন্য ট্যাবে গেলে রিলস বা ভিডিও বন্ধ থাকে
+      body: SafeArea(
+        bottom: false, // যেহেতু নিচে কাস্টম নেভিগেশন বার আছে
+        child: _getSelectedPage(_currentIndex),
+      ),
       bottomNavigationBar: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8), // মার্জিন কমানো হয়েছে
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(25),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-            child: Container(
-              height: 54, // উচ্চতা কমিয়ে স্লিম করা হয়েছে
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(25),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.22),
-                  width: 1.0,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.25),
-                    blurRadius: 15,
-                    spreadRadius: 2,
+        // 🔥 পরিবর্তন ১: নিচে কালো ব্যাকগ্রাউন্ডের বদলে একটি সুন্দর রঙিন গ্রেডিয়েন্ট ডিজাইন বসানো হলো
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFF14082C),
+              Color(0xFF2A0845),
+              Color(0xFF14082C),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Container(
+            // 🔥 পরিবর্তন ২: উচ্চতা ও নিচের ফাঁকা জায়গা বা মার্জিন কমিয়ে ছোট করা হলো
+            height: 65,
+            margin: const EdgeInsets.only(left: 15, right: 15, bottom: 2, top: 2),
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                // ব্যাকগ্রাউন্ড কার্ভড কালারফুল নেভিগেশন বার
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF14082C), // ডিপ রয়্যাল পার্পল ও ব্ল্যাক থিম
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.2),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 18,
+                          spreadRadius: 2,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildNavItem(0, Icons.home_rounded, "Home", false, currentUserId),
+                        _buildNavItem(1, Icons.video_collection_rounded, "Reels", false, currentUserId),
+                        const SizedBox(width: 50), // মাঝখানের রুম বাটনের জন্য গ্যাপ
+                        _buildNavItem(3, Icons.mail_rounded, "Message", true, currentUserId),
+                        _buildNavItem(4, Icons.person_rounded, "Profile", false, currentUserId),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildNavItem(0, Icons.home_rounded, "Home", false, currentUserId),
-                  _buildNavItem(1, Icons.mic_rounded, "Rooms", false, currentUserId),
-                  _buildNavItem(2, Icons.mail_rounded, "Inbox", true, currentUserId),
-                  _buildNavItem(3, Icons.person_rounded, "Profile", false, currentUserId),
-                ],
-              ),
+                ),
+                // মাঝখানের গোল রুম বাটন (হালকা উপরে ভাসমান এবং আকর্ষণীয় গ্রেডিয়েন্ট সহ)
+                Positioned(
+                  top: -10,
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _currentIndex = 2; // Rooms page index
+                      });
+                    },
+                    child: Container(
+                      width: 55,
+                      height: 55,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFFFF2E93),
+                            Color(0xFF9C27B0),
+                            Color(0xFF00E5FF)
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF2E93).withOpacity(0.6),
+                            blurRadius: 15,
+                            spreadRadius: 3,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                        border: Border.all(
+                          color: _currentIndex == 2
+                              ? Colors.amberAccent
+                              : Colors.white,
+                          width: 2.5,
+                        ),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.mic_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -531,8 +621,9 @@ class _MainNavigationState extends State<MainNavigation> with WidgetsBindingObse
     );
   }
 
-  // প্রিমিয়াম গ্লাস ডিজাইন বাটন উইজেট (আরেকটু কম্প্যাক্ট সাইজ)
-  Widget _buildNavItem(int index, IconData icon, String label, bool isInbox, String currentUserId) {
+  // কালারফুল বাটন এবং ডিজিটাল কালারিং চ্যাট আইকন উইজেট
+  Widget _buildNavItem(int index, IconData icon, String label, bool isInbox,
+      String currentUserId) {
     bool isSelected = _currentIndex == index;
 
     return GestureDetector(
@@ -545,23 +636,18 @@ class _MainNavigationState extends State<MainNavigation> with WidgetsBindingObse
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
-        padding: EdgeInsets.symmetric(
-          horizontal: isSelected ? 12 : 8,
-          vertical: 6,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.cyanAccent.withOpacity(0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(18),
-          border: isSelected
-              ? Border.all(color: Colors.cyanAccent.withOpacity(0.5), width: 1.0)
-              : null,
-        ),
-        child: Row(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             isInbox
                 ? (currentUserId.isEmpty
-                    ? Icon(icon, color: isSelected ? Colors.cyanAccent : Colors.white70, size: 22)
+                    ? Icon(icon,
+                        color: isSelected
+                            ? const Color(0xFFFF4081)
+                            : Colors.white60,
+                        size: 22)
                     : StreamBuilder<QuerySnapshot>(
                         stream: FirebaseFirestore.instance
                             .collectionGroup('messages')
@@ -570,39 +656,68 @@ class _MainNavigationState extends State<MainNavigation> with WidgetsBindingObse
                             .snapshots(),
                         builder: (context, snapshot) {
                           if (snapshot.hasError) {
-                            return Icon(icon, color: isSelected ? Colors.cyanAccent : Colors.white70, size: 22);
+                            return Icon(icon,
+                                color: isSelected
+                                    ? const Color(0xFFFF4081)
+                                    : Colors.white60,
+                                size: 22);
                           }
-                          int unreadCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
+                          int unreadCount =
+                              snapshot.hasData ? snapshot.data!.docs.length : 0;
                           return Badge(
                             label: unreadCount > 0
-                                ? Text('$unreadCount', style: const TextStyle(fontSize: 9, color: Colors.white))
+                                ? Text('$unreadCount',
+                                    style: const TextStyle(
+                                        fontSize: 9, color: Colors.white))
                                 : null,
                             isLabelVisible: unreadCount > 0,
                             backgroundColor: Colors.redAccent,
-                            child: Icon(
-                              icon,
-                              color: isSelected ? Colors.cyanAccent : Colors.white70,
-                              size: 22,
+                            child: ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [
+                                  Color(0xFF00E5FF),
+                                  Color(0xFF7C4DFF),
+                                  Color(0xFFFF4081)
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds),
+                              child: Icon(
+                                icon,
+                                color: Colors.white,
+                                size: 22,
+                              ),
                             ),
                           );
                         },
                       ))
-                : Icon(
-                    icon,
-                    color: isSelected ? Colors.cyanAccent : Colors.white70,
-                    size: 22,
+                : ShaderMask(
+                    shaderCallback: (bounds) => LinearGradient(
+                      colors: isSelected
+                          ? [
+                              const Color(0xFFFF4081),
+                              const Color(0xFFE040FB),
+                              const Color(0xFF00E5FF)
+                            ]
+                          : [Colors.white70, Colors.white38],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ).createShader(bounds),
+                    child: Icon(
+                      icon,
+                      color: Colors.white,
+                      size: 22,
+                    ),
                   ),
-            if (isSelected) ...[
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.cyanAccent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
-                ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? const Color(0xFFFF4081) : Colors.white60,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                fontSize: 9.5,
               ),
-            ],
+            ),
           ],
         ),
       ),
@@ -647,34 +762,43 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: () async {
                       // গুগল লগইন প্রসেস
                       var user = await AuthService().signInWithGoogle();
-                      
+
                       if (user != null && mounted) {
                         // ১. প্রথমে চেক করুন ইউজার ডিলিট করা কি না
-                        bool deleted = await AuthService().isUserDeleted(user.email ?? "");
-                        
+                        bool deleted =
+                            await AuthService().isUserDeleted(user.email ?? "");
+
                         if (deleted) {
                           // যদি ডিলিট করা থাকে, লগআউট করে দিন এবং মেসেজ দেখান
                           await AuthService().signOut();
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text("Your account has been deleted. Please contact the support team to recover it."),
+                                content: Text(
+                                    "Your account has been deleted. Please contact the support team to recover it."),
                                 backgroundColor: Colors.red,
                               ),
                             );
                           }
                         } else {
                           // ২. যদি ডিলিট করা না থাকে, তাহলে চেক করুন সে রেজিস্টার্ড কি না
-                          bool registered = await AuthService().isUserRegistered(user.email ?? "");
-                          
+                          bool registered = await AuthService()
+                              .isUserRegistered(user.email ?? "");
+
                           if (registered) {
                             // পুরাতন ইউজার হলে সরাসরি মেইন অ্যাপে
-                            Navigator.pushReplacement(context,
-                                MaterialPageRoute(builder: (context) => const SplashScreen()));
+                            Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        const SplashScreen()));
                           } else {
                             // নতুন ইউজার হলে প্রোফাইল ক্রিয়েট পেইজে
-                            Navigator.pushReplacement(context,
-                                MaterialPageRoute(builder: (context) => const CreateProfilePage()));
+                            Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        const CreateProfilePage()));
                           }
                         }
                       }

@@ -1067,7 +1067,7 @@ class _RoomListPageState extends State<RoomListPage>
     );
   }
 
-  Widget _buildTopSpendersSection() {
+ Widget _buildTopSpendersSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1111,7 +1111,7 @@ class _RoomListPageState extends State<RoomListPage>
 
               return ListView.builder(
                 scrollDirection: Axis.horizontal,
-                // গ্যাপ সমান রাখতে physics যোগ করা হয়েছে
+                // গ্যাপ সমান রাখতে physics যোগ করা হয়েছে
                 physics: const NeverScrollableScrollPhysics(),
                 padding: const EdgeInsets.only(left: 10),
                 itemCount: topUsers.length,
@@ -1123,7 +1123,7 @@ class _RoomListPageState extends State<RoomListPage>
 
                   return Container(
                     width: (MediaQuery.of(context).size.width - 60) /
-                        5, // স্ক্রিন অনুযায়ী সমান জায়গা ভাগ
+                        5, // স্ক্রিন অনুযায়ী সমান জায়গা ভাগ
                     alignment: Alignment.center,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1133,20 +1133,32 @@ class _RoomListPageState extends State<RoomListPage>
                           children: [
                             CircleAvatar(
                               radius: 26,
-                              backgroundImage:
-                                  pic.isNotEmpty ? NetworkImage(pic) : null,
+                              backgroundColor: Colors.grey[900],
+                              backgroundImage: pic.isNotEmpty
+                                  ? CachedNetworkImageProvider(pic)
+                                      as ImageProvider
+                                  : null,
                               child: pic.isEmpty
-                                  ? const Icon(Icons.person, size: 26)
+                                  ? const Icon(Icons.person,
+                                      size: 26, color: Colors.white)
                                   : null,
                             ),
-                            // ফ্রেম লজিক: Lottie অথবা Image
+                            // ফ্রেম লজিক: Lottie অথবা CachedNetworkImage
                             if (frame.isNotEmpty)
                               SizedBox(
                                 width: 80,
                                 height: 80,
                                 child: frame.toLowerCase().endsWith('.json')
                                     ? Lottie.network(frame)
-                                    : Image.network(frame, fit: BoxFit.contain),
+                                    : CachedNetworkImage(
+                                        imageUrl: frame,
+                                        fit: BoxFit.contain,
+                                        placeholder: (context, url) =>
+                                            const SizedBox.shrink(),
+                                        errorWidget: (context, error,
+                                                stackTrace) =>
+                                            const SizedBox.shrink(),
+                                      ),
                               ),
                           ],
                         ),

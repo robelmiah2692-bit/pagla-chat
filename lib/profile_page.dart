@@ -269,7 +269,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
         _checkInitialStatus();
         _addVisitor();
-       
       }
     } catch (e) {
       // সাইলেন্টলি হ্যান্ডেল করা হয়েছে
@@ -1045,8 +1044,28 @@ class _ProfilePageState extends State<ProfilePage> {
                           ],
                         ),
                         child: ClipOval(
-                          child:
-                              Image.network(avatars[index], fit: BoxFit.cover),
+                          child: CachedNetworkImage(
+                            imageUrl: avatars[index],
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              color: Colors.grey[800],
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 15,
+                                  height: 15,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: Colors.grey[900],
+                              child: const Icon(Icons.person,
+                                  color: Colors.white54, size: 20),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -1406,11 +1425,38 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: url.endsWith('.json')
-                      ? Lottie.network(url, fit: BoxFit.contain)
-                      : Image.network(url,
+                      ? Lottie.network(
+                          url,
                           fit: BoxFit.contain,
-                          errorBuilder: (c, e, s) => const Icon(Icons.portrait,
-                              size: 40, color: Colors.amber)),
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(
+                            Icons.error,
+                            size: 40,
+                            color: Colors.amber,
+                          ),
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: url,
+                          fit: BoxFit.contain,
+                          placeholder: (context, url) => Container(
+                            color: Colors.white10,
+                            child: const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => const Icon(
+                            Icons.portrait,
+                            size: 40,
+                            color: Colors.amber,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -1619,13 +1665,38 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: url.endsWith('.json')
-                      ? Lottie.network(url, fit: BoxFit.contain)
-                      : Image.network(url,
+                      ? Lottie.network(
+                          url,
                           fit: BoxFit.contain,
-                          errorBuilder: (c, e, s) => const Icon(
-                              Icons.auto_awesome,
-                              size: 40,
-                              color: Colors.cyan)),
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(
+                            Icons.auto_awesome,
+                            size: 40,
+                            color: Colors.cyan,
+                          ),
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: url,
+                          fit: BoxFit.contain,
+                          placeholder: (context, url) => Container(
+                            color: Colors.white10,
+                            child: const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => const Icon(
+                            Icons.auto_awesome,
+                            size: 40,
+                            color: Colors.cyan,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -1849,12 +1920,26 @@ class _ProfilePageState extends State<ProfilePage> {
                                 color: Colors.red);
                           },
                         )
-                      : Image.network(
-                          url,
+                      : CachedNetworkImage(
+                          imageUrl: url,
                           fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Icon(Icons.broken_image,
-                                  color: Colors.grey),
+                          placeholder: (context, url) => Container(
+                            color: Colors.white10,
+                            child: const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => const Icon(
+                            Icons.broken_image,
+                            color: Colors.grey,
+                          ),
                         ),
                 ),
               ),
@@ -2069,11 +2154,34 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(15),
-                  child: Image.network(
-                    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png",
+                  child: CachedNetworkImage(
+                    imageUrl:
+                        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png",
                     height: 160,
                     width: 240,
                     fit: BoxFit.contain,
+                    placeholder: (context, url) => Container(
+                      height: 160,
+                      width: 240,
+                      color: Colors.white10,
+                      child: const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      height: 160,
+                      width: 240,
+                      color: Colors.grey[900],
+                      child: const Icon(Icons.broken_image,
+                          color: Colors.grey, size: 40),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 15),
@@ -2184,9 +2292,27 @@ class _ProfilePageState extends State<ProfilePage> {
       padding: const EdgeInsets.all(15),
       children: [
         ListTile(
-          leading: Image.network(
-              "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png",
-              width: 50),
+          leading: CachedNetworkImage(
+            imageUrl:
+                "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png",
+            width: 50,
+            fit: BoxFit.contain,
+            placeholder: (context, url) => const SizedBox(
+              width: 30,
+              height: 30,
+              child: Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+            errorWidget: (context, url, error) => const Icon(
+              Icons.broken_image,
+              color: Colors.grey,
+              size: 30,
+            ),
+          ),
           title: const Text("Pagla Premium Card",
               style: TextStyle(color: Colors.white)),
           subtitle: Text(
@@ -2259,11 +2385,38 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: url.endsWith('.json')
-                          ? Lottie.network(url, fit: BoxFit.contain)
-                          : Image.network(url, fit: BoxFit.contain),
+                          ? Lottie.network(
+                              url,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(
+                                Icons.error_outline,
+                                color: Colors.red,
+                              ),
+                            )
+                          : CachedNetworkImage(
+                              imageUrl: url,
+                              fit: BoxFit.contain,
+                              placeholder: (context, url) => Container(
+                                color: Colors.white10,
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => const Icon(
+                                Icons.broken_image,
+                                color: Colors.grey,
+                              ),
+                            ),
                     ),
                   ),
-
                   Text(name,
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 13)),
@@ -2403,12 +2556,26 @@ class _ProfilePageState extends State<ProfilePage> {
                                     color: Colors.red);
                               },
                             )
-                          : Image.network(
-                              url,
+                          : CachedNetworkImage(
+                              imageUrl: url,
                               fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(Icons.broken_image,
-                                      color: Colors.grey),
+                              placeholder: (context, url) => Container(
+                                color: Colors.white10,
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => const Icon(
+                                Icons.broken_image,
+                                color: Colors.grey,
+                              ),
                             ),
                     ),
                   ),
@@ -2519,18 +2686,15 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildMyFramesTab() {
     int currentLevel = getVipLevel();
 
-    // ১. কেনা ফ্রেমগুলোর জন্য স্ট্রিম বিল্ডার
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('users')
-          .doc(uIDValue) // আপনার ইউজার আইডি ভেরিয়েবল
+          .doc(uIDValue)
           .collection('my_frames')
           .snapshots(),
       builder: (context, snapshot) {
-        // কেনা ফ্রেমের লিস্ট তৈরি
         List<Map<String, String>> myAvailableFrames = [];
 
-        // ২. প্রিমিয়াম কার্ডের ফ্রেম চেক (আপনার আগের লজিক)
         const String premiumFrameUrl =
             "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumframe.png";
         bool isPremiumExpired =
@@ -2546,7 +2710,6 @@ class _ProfilePageState extends State<ProfilePage> {
           });
         }
 
-        // ৩. VIP লেভেল অনুযায়ী ফ্রেম চেক (আপনার আগের লজিক)
         if (currentLevel >= 1 && currentLevel <= 8) {
           String vipFrameUrl =
               "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20($currentLevel).png";
@@ -2560,26 +2723,20 @@ class _ProfilePageState extends State<ProfilePage> {
           });
         }
 
-        // ৪. 🔥 কেনা ফ্রেমগুলো লিস্টে যোগ করা
         if (snapshot.hasData) {
           for (var doc in snapshot.data!.docs) {
             var data = doc.data() as Map<String, dynamic>;
-
-            // ডাটাবেজ থেকে expiryDate নেওয়া
             dynamic expiryData = data['expiryDate'];
             String expiryString = "Permanent";
 
-            // যদি ডাটাবেজে তারিখ থাকে তবে সেটি কনভার্ট করা
             if (expiryData != null && expiryData is Timestamp) {
               DateTime date = expiryData.toDate();
-              // তারিখটিকে আপনার পছন্দমতো ফরম্যাটে সাজানো (দিন/মাস/বছর)
               expiryString = "${date.day}/${date.month}/${date.year}";
             }
 
             myAvailableFrames.add({
               "name": data['name']?.toString() ?? "Purchased Frame",
-              "url": data['image_url']?.toString() ??
-                  "", // স্টোর ট্যাবে আপনি 'image_url' হিসেবে সেভ করছেন
+              "url": data['image_url']?.toString() ?? "",
               "expiry": expiryString,
             });
           }
@@ -2616,12 +2773,17 @@ class _ProfilePageState extends State<ProfilePage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const SizedBox(height: 10),
-                  // লটি বা ইমেজ চেনার লজিক
                   SizedBox(
                     height: 65,
                     child: currentUrl.contains('.json')
-                        ? Lottie.network(currentUrl)
-                        : Image.network(currentUrl),
+                        ? Lottie.network(currentUrl) // Lottie নিজেই ক্যাশ করে
+                        : CachedNetworkImage(
+                            imageUrl: currentUrl,
+                            fit: BoxFit.contain,
+                            errorWidget: (context, url, error) => const Icon(
+                                Icons.broken_image,
+                                color: Colors.grey),
+                          ),
                   ),
                   const SizedBox(height: 8),
                   Text(currentName,
@@ -2644,14 +2806,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     onPressed: () async {
                       String newFrame = isPicked ? "" : currentUrl;
                       try {
-                        // ইউজারের মেইন ডাটাতে activeFrameUrl বা activeFrame আপডেট করুন
                         await FirebaseFirestore.instance
                             .collection('users')
                             .doc(uIDValue)
-                            .update({
-                          'activeFrameUrl': newFrame
-                        }); // নাম মিলিয়ে নিন (activeFrameUrl/activeFrame)
-
+                            .update({'activeFrameUrl': newFrame});
                         setState(() {
                           activeFrameUrl = newFrame;
                         });
@@ -2887,10 +3045,12 @@ class _ProfilePageState extends State<ProfilePage> {
                                                     const SizedBox(),
                                               ),
                                             )
-                                          : Image.network(
-                                              activeFrameUrl,
+                                          : CachedNetworkImage(
+                                              imageUrl: activeFrameUrl,
                                               fit: BoxFit.contain,
-                                              errorBuilder: (c, e, s) =>
+                                              placeholder: (context, url) =>
+                                                  const SizedBox(),
+                                              errorWidget: (c, e, s) =>
                                                   const SizedBox(),
                                             ),
                                     ),
@@ -2970,7 +3130,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           top: -5,
                           child: UserBadgeWidget(
                             gender:
-                                gender, // এটি আপনার ওই ভেরিয়েবল যা ডাটা লোড হওয়ার পর আপডেট হয়েছে
+                                gender, // এটি আপনার ওই ভেরিয়েবল যা ডাটা লোড হওয়ার পর আপডেট হয়েছে
                             age: age.toString(), // এটি আপনার ওই age ভেরিয়েবল
                           ),
                         ),
@@ -2978,7 +3138,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           right: -80,
                           top: -5,
                           child: AgencyBadgeWidget(
-                            isAgent: isAgent, // ডাটাবেজ থেকে পাওয়া সত্য/মিথ্যা
+                            isAgent: isAgent, // ডাটাবেজ থেকে পাওয়া সত্য/মিথ্যা
                             imageUrl:
                                 "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/agancy.png", // এখানে আপনার আসল ইমেজ লিংকটি বসান
                           ),
@@ -2987,7 +3147,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     const SizedBox(height: 5),
 
-                    // VIP এবং ডাইনামিক XP প্রগ্রেস বার সেকশন
+// VIP এবং ডাইনামিক XP প্রগ্রেস বার সেকশন
                     Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 25),
                         child: Row(
@@ -2998,13 +3158,27 @@ class _ProfilePageState extends State<ProfilePage> {
                                   !getVipBadge(vipLevel)
                                       .toString()
                                       .startsWith('file:'))
-                                Image.network(getVipBadge(vipLevel),
-                                    width: 45,
-                                    height: 45,
-                                    errorBuilder: (c, e, s) => const Icon(
-                                        Icons.stars_rounded,
-                                        color: Colors.white24,
-                                        size: 40))
+                                CachedNetworkImage(
+                                  imageUrl: getVipBadge(vipLevel),
+                                  width: 45,
+                                  height: 45,
+                                  fit: BoxFit.contain,
+                                  placeholder: (context, url) => const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.5,
+                                        color: Colors.white70,
+                                      ),
+                                    ),
+                                  ),
+                                  errorWidget: (c, e, s) => const Icon(
+                                    Icons.stars_rounded,
+                                    color: Colors.white24,
+                                    size: 40,
+                                  ),
+                                )
                               else
                                 const Icon(Icons.stars_rounded,
                                     color: Colors.white24, size: 40),
@@ -3022,7 +3196,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold)),
                                   const SizedBox(height: 8),
-                                  // Shimmer দিয়ে আগুনের তরঙ্গ এবং মাথায় আলাদা আগুনের শিখা
+                                  // Shimmer দিয়ে আগুনের তরঙ্গ এবং মাথায় আলাদা আগুনের শিখা
                                   LayoutBuilder(
                                     builder: (context, constraints) {
                                       final double maxWidth =
@@ -3032,7 +3206,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                                       return Container(
                                         height:
-                                            12, // সামান্য মোটা করা হলো যাতে ইফেক্টটি ভালো দেখা যায় ভাই
+                                            12, // সামান্য মোটা করা হলো যাতে ইফেক্টটি ভালো দেখা যায় ভাই
                                         width: maxWidth,
                                         decoration: BoxDecoration(
                                           color: Colors
@@ -3066,7 +3240,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                                             1500), // অ্যানিমেশন স্পিড
                                                     child: Container(
                                                       decoration: BoxDecoration(
-                                                        // গ্রেডিয়েন্ট দেওয়া হলো যাতে শুরু থেকে মাথায় কালার চেঞ্জ হয়
+                                                        // গ্রেডিয়েন্ট দেওয়া হলো যাতে শুরু থেকে মাথায় কালার চেঞ্জ হয়
                                                         gradient:
                                                             LinearGradient(
                                                           colors: const [
@@ -3083,6 +3257,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                                     ),
                                                   ),
                                                 ),
+
                                               // ২. মাথায় সেই জ্বলজ্বলে আগুনের শিখা বা বিন্দু (The Glowing Fire Head)
                                               // এটি একদম মাথায় স্থির থেকে জ্বলজ্বল করবে
                                               if (barWidth > 0)
@@ -3148,11 +3323,24 @@ class _ProfilePageState extends State<ProfilePage> {
                                   !premiumBadgeUrl
                                       .toString()
                                       .startsWith('file:'))
-                                Image.network(premiumBadgeUrl,
-                                    width: 45,
-                                    height: 45,
-                                    errorBuilder: (c, e, s) =>
-                                        const SizedBox(width: 45))
+                                CachedNetworkImage(
+                                  imageUrl: premiumBadgeUrl,
+                                  width: 45,
+                                  height: 45,
+                                  fit: BoxFit.contain,
+                                  placeholder: (context, url) => const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.5,
+                                        color: Colors.white70,
+                                      ),
+                                    ),
+                                  ),
+                                  errorWidget: (c, e, s) =>
+                                      const SizedBox(width: 45),
+                                )
                               else
                                 const SizedBox(width: 45),
                             ])),
@@ -3792,12 +3980,22 @@ class _ProfilePageState extends State<ProfilePage> {
                     myImage: finalMyImage,
                   );
                 },
-                child: Image.network(
-                  ringIconUrl,
+                child: CachedNetworkImage(
+                  imageUrl: ringIconUrl,
                   width: 60,
                   height: 55,
                   fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
+                  placeholder: (context, url) => const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                  errorWidget: (context, error, stackTrace) {
                     return const Icon(Icons.favorite,
                         color: Colors.pink, size: 30);
                   },
@@ -3943,16 +4141,26 @@ class _ProfilePageState extends State<ProfilePage> {
                                 child: myImage.trim().isEmpty
                                     ? const Icon(Icons.person,
                                         color: Colors.white, size: 35)
-                                    : Image.network(
-                                        myImage.trim(),
+                                    : CachedNetworkImage(
+                                        imageUrl: myImage.trim(),
                                         width: 70,
                                         height: 70,
                                         fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (context, error, stackTrace) =>
-                                                const Icon(Icons.person,
-                                                    color: Colors.white,
-                                                    size: 35),
+                                        placeholder: (context, url) =>
+                                            const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: Center(
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 1.5,
+                                              color: Colors.white70,
+                                            ),
+                                          ),
+                                        ),
+                                        errorWidget: (context, error,
+                                                stackTrace) =>
+                                            const Icon(Icons.person,
+                                                color: Colors.white, size: 35),
                                       ),
                               ),
                             ),
@@ -3990,16 +4198,26 @@ class _ProfilePageState extends State<ProfilePage> {
                                 child: partnerImage.trim().isEmpty
                                     ? const Icon(Icons.person,
                                         color: Colors.white, size: 35)
-                                    : Image.network(
-                                        partnerImage.trim(),
+                                    : CachedNetworkImage(
+                                        imageUrl: partnerImage.trim(),
                                         width: 70,
                                         height: 70,
                                         fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (context, error, stackTrace) =>
-                                                const Icon(Icons.person,
-                                                    color: Colors.white,
-                                                    size: 35),
+                                        placeholder: (context, url) =>
+                                            const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: Center(
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 1.5,
+                                              color: Colors.white70,
+                                            ),
+                                          ),
+                                        ),
+                                        errorWidget: (context, error,
+                                                stackTrace) =>
+                                            const Icon(Icons.person,
+                                                color: Colors.white, size: 35),
                                       ),
                               ),
                             ),

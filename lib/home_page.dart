@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:pagla_chat/services/call_handler.dart';
 import 'package:pagla_chat/utils/daily_bonus_popup.dart';
 import 'dart:io' as io;
 import 'dart:math';
@@ -52,7 +53,8 @@ class _HomePageState extends State<HomePage>
 
   Map<String, dynamic>? currentUserData;
   String? myCustomDocId;
-
+// কল লিসেনার একবারই ইনিশিয়ালাইজ করার জন্য ফ্লাগ
+  bool _isCallListenerInitialized = false;
   // 🇧🇩 [বাংলা মার্ক]: মেইন পেজ থেকে টাইমার ও ব্যানারের লিস্ট সম্পূর্ণ ডিলিট করে দেওয়া হয়েছে পারফরম্যান্সের জন্য
 
   late AnimationController _colorController;
@@ -89,6 +91,11 @@ class _HomePageState extends State<HomePage>
             currentUserData = querySnapshot.docs.first.data();
           });
 
+          // ✅ এখানে ইনকামিং কল লিসেনার চালু করা হলো (যাতে সঠিক docId পাওয়া যায়)
+          if (!_isCallListenerInitialized && mounted) {
+            _isCallListenerInitialized = true;
+            CallHandler.listenForIncomingCalls(context, docId);
+          }
           // এখানে নিশ্চিত ভাবে নন-নাল docId পাঠানো হচ্ছে
           DailyBonusPopup.show(context, docId); 
           

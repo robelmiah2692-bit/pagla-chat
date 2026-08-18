@@ -202,6 +202,40 @@ Future<void> muteAllRemoteAudio(bool mute) async {
     }
   }
 
+// 📞 পার্সোনাল কলের জন্য আলাদা এবং নিরাপদ ফাংশন (ভয়েস রুমের লজিক অপরিবর্তিত রেখে)
+  Future<void> joinForPersonalCall(String channelName, [String? fireuID]) async {
+    if (!_isInitialized || _engine == null) await initAgora();
+
+    _localuID = (fireuID != null && fireuID.isNotEmpty)
+        ? (fireuID.hashCode.abs() % 1000000)
+        : (Random().nextInt(899999) + 100000);
+
+    // মাইক্রোফোন পারমিশন চেক
+    if (!kIsWeb) {
+      var status = await Permission.microphone.status;
+      if (!status.isGranted) {
+        await Permission.microphone.request();
+      }
+    }
+
+    await _engine!.enableAudio();
+    await _engine!.enableLocalAudio(true);
+
+    // পার্সোনাল কলে উভয়পক্ষই সরাসরি ব্রডকাস্টার হিসেবে জয়েন করবে এবং কথা বলা/শোনা নিশ্চিত করবে
+    await _engine!.joinChannel(
+      token: "",
+      channelId: channelName.trim(),
+      uid: _localuID!,
+      options: const ChannelMediaOptions(
+        clientRoleType: ClientRoleType.clientRoleBroadcaster,
+        publishMicrophoneTrack: true,
+        autoSubscribeAudio: true,
+      ),
+    );
+    
+    _shouldBeBroadcasting = true;
+    await forceResumeAudio();
+  }
   Future<void> stopMusic() async {
     if (_engine == null) return;
     try {

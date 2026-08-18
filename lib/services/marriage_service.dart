@@ -17,18 +17,21 @@ class MarriageService {
     required String myGender,
     required String partnerGender,
   }) async {
-    if (myGender != "Unknown" && partnerGender != "Unknown" && 
+    if (myGender != "Unknown" &&
+        partnerGender != "Unknown" &&
         myGender.trim().toLowerCase() == partnerGender.trim().toLowerCase()) {
       return "দুঃখিত! বিয়ে শুধুমাত্র বিপরীত লিঙ্গের ইউজারদের মধ্যে সম্ভব।❌";
     }
 
     try {
-      DocumentSnapshot myMarriageCheck = await _db.collection('marriages').doc(senderAuthUID).get();
+      DocumentSnapshot myMarriageCheck =
+          await _db.collection('marriages').doc(senderAuthUID).get();
       if (myMarriageCheck.exists) {
         return "আপনি অলরেডি বিবাহিত! নতুন কাউকে রিং পাঠাতে হলে আগে ডিভোর্স করতে হবে। ❌";
       }
 
-      DocumentSnapshot receiverMarriageCheck = await _db.collection('marriages').doc(receiverAuthUID).get();
+      DocumentSnapshot receiverMarriageCheck =
+          await _db.collection('marriages').doc(receiverAuthUID).get();
       if (receiverMarriageCheck.exists) {
         return "উক্ত ইউজারটি অলরেডি বিবাহিত! উনি সিঙ্গেল না হওয়া পর্যন্ত রিং পাঠানো যাবে না। ❌";
       }
@@ -41,7 +44,7 @@ class MarriageService {
         'ringName': ringName,
         'ringIcon': ringIconUrl,
         'timestamp': FieldValue.serverTimestamp(),
-        'status': 'pending', 
+        'status': 'pending',
       });
       return "SUCCESS";
     } catch (e) {
@@ -49,7 +52,7 @@ class MarriageService {
     }
   }
 
-  // 🎉 বিয়ে সম্পন্ন করার লজিক (Accept Ring) - [পুরান লজিক + ইউজার ফিল্ড সিঙ্ক]
+  // 🎉 বিয়ে সম্পন্ন করার সঠিক লজিক
   Future<void> completeMarriage({
     required String myId,
     required String myAuthUID,
@@ -64,10 +67,14 @@ class MarriageService {
   }) async {
     WriteBatch batch = _db.batch();
 
-    // ১. marriages কালেকশনে ডাটা সেভ
-    DocumentReference myMarriageRef = _db.collection('marriages').doc(myAuthUID);
-    batch.set(myMarriageRef, {
-      'marriageId': myAuthUID,
+    // ইউনিক ম্যারেজ আইডি (দুইজনের Auth UID মিলিয়ে কমন আইডি)
+    String marriageDocId = myAuthUID.compareTo(friendAuthUID) < 0
+        ? "${myAuthUID}_$friendAuthUID"
+        : "${friendAuthUID}_$myAuthUID";
+
+    // ১. marriages কালেকশনে নিজের রেকর্ড (AuthUID দিয়ে)
+    batch.set(_db.collection('marriages').doc(myAuthUID), {
+      'marriageId': marriageDocId,
       'myAuthUID': myAuthUID,
       'myName': myName,
       'myImage': myImg,
@@ -82,9 +89,9 @@ class MarriageService {
       'marriedAt': FieldValue.serverTimestamp(),
     });
 
-    DocumentReference partnerMarriageRef = _db.collection('marriages').doc(friendAuthUID);
-    batch.set(partnerMarriageRef, {
-      'marriageId': friendAuthUID,
+    // ২. marriages কালেকশনে পার্টনারের রেকর্ড (AuthUID দিয়ে)
+    batch.set(_db.collection('marriages').doc(friendAuthUID), {
+      'marriageId': marriageDocId,
       'myAuthUID': friendAuthUID,
       'myName': friendName,
       'myImage': friendImg,
@@ -99,33 +106,31 @@ class MarriageService {
       'marriedAt': FieldValue.serverTimestamp(),
     });
 
-    // আপনার বর্তমান batch কোডটি এভাবে আপডেট করুন
-String marriageDocId = friendAuthUID; // যেহেতু আপনি বন্ধুটির AuthUID দিয়েই ডক বানাচ্ছেন
+    // ৩. ইউজারের নিজস্ব 'users' ডকুমেন্টে সঠিক ডাটা আপডেট (এখানে marriageDocId এ নিজের myAuthUID হবে)
+    batch.set(
+      _db.collection('users').doc(myId),
+      {
+        'isMarried': true,
+        'partnerUid': friendAuthUID,
+        'marriagePartnerId': friendId,
+        'marriageDocId': myAuthUID,
+      },
+      SetOptions(merge: true),
+    );
 
-batch.set(partnerMarriageRef, {
-  'marriageId': marriageDocId, // এটিই আপনার সেই ID
-  'myAuthUID': friendAuthUID,
-  // ... বাকি ফিল্ডগুলো (myName, myImage ইত্যাদি)
-  'partnerAuthUID': myAuthUID,
-  'marriedAt': FieldValue.serverTimestamp(),
-});
+    // ৪. পার্টনারের 'users' ডকুমেন্টে সঠিক ডাটা আপডেট (এখানে marriageDocId এ পার্টনারের friendAuthUID হবে)
+    batch.set(
+      _db.collection('users').doc(friendId),
+      {
+        'isMarried': true,
+        'partnerUid': myAuthUID,
+        'marriagePartnerId': myId,
+        'marriageDocId': friendAuthUID,
+      },
+      SetOptions(merge: true),
+    );
 
-// ২. ইউজারের নিজস্ব ডাটায় ম্যারেজ স্ট্যাটাস এবং marriageDocId আপডেট
-batch.update(_db.collection('users').doc(myId), {
-  'isMarried': true,
-  'partnerUid': friendAuthUID,
-  'marriageDocId': marriageDocId, // নতুন ফিল্ড: এটিই রিং লোড করতে সাহায্য করবে
-});
-
-batch.update(_db.collection('users').doc(friendId), {
-  'isMarried': true,
-  'partnerUid': myAuthUID,
-  'marriageDocId': marriageDocId, // নতুন ফিল্ড: পার্টনারের প্রোফাইলেও এটি থাকবে
-});
-
-
-
-    // ৩. পেন্ডিং রিকোয়েস্ট ডিলিট
+    // ৫. পেন্ডিং রিকোয়েস্ট ডিলিট করা
     batch.delete(_db.collection('marriage_requests').doc(myAuthUID));
 
     await batch.commit();
@@ -136,25 +141,36 @@ batch.update(_db.collection('users').doc(friendId), {
     await _db.collection('marriage_requests').doc(myAuthUID).delete();
   }
 
-  // 💔 ডিভোর্স লজিক (ইউজার ডাটা থেকে স্ট্যাটাস মুছে ফেলাসহ)
-  Future<String> processDivorce(String myId, String partnerId, String partnerAuthUID) async {
+  // 💔 ডিভোর্স লজিক
+  Future<String> processDivorce({
+    required String myId,
+    required String myAuthUID,
+    required String partnerId,
+    required String partnerAuthUID,
+  }) async {
     try {
       WriteBatch batch = _db.batch();
 
       // ১. ম্যারেজ রেকর্ড মুছে ফেলা
-      batch.delete(_db.collection('marriages').doc(currentAuthUID));
-      batch.delete(_db.collection('marriages').doc(partnerAuthUID));
+      batch.delete(_db.collection('marriages').doc(myAuthUID));
+      if (partnerAuthUID.isNotEmpty) {
+        batch.delete(_db.collection('marriages').doc(partnerAuthUID));
+      }
 
-      // ২. [NEW] ইউজার ডাটা থেকে ম্যারেজ স্ট্যাটাস মুছে ফেলা
-      batch.update(_db.collection('users').doc(myId), {
+      // ২. ইউজার ডাটা থেকে ম্যারেজ স্ট্যাটাস মুছে ফেলা
+      final Map<String, dynamic> divorceClearData = {
         'isMarried': FieldValue.delete(),
         'partnerUid': FieldValue.delete(),
-      });
+        'marriagePartnerId': FieldValue.delete(),
+        'marriageDocId': FieldValue.delete(),
+      };
 
-      batch.update(_db.collection('users').doc(partnerId), {
-        'isMarried': FieldValue.delete(),
-        'partnerUid': FieldValue.delete(),
-      });
+      if (myId.isNotEmpty) {
+        batch.update(_db.collection('users').doc(myId), divorceClearData);
+      }
+      if (partnerId.isNotEmpty) {
+        batch.update(_db.collection('users').doc(partnerId), divorceClearData);
+      }
 
       await batch.commit();
       return "SUCCESS";

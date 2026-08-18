@@ -187,10 +187,12 @@ class PostCard extends StatelessWidget {
                                             (context, error, stackTrace) =>
                                                 const SizedBox(),
                                       )
-                                    : Image.network(
-                                        data['activeFrameUrl'],
+                                    : CachedNetworkImage(
+                                        imageUrl: data['activeFrameUrl'],
                                         fit: BoxFit.contain,
-                                        errorBuilder:
+                                        placeholder: (context, url) =>
+                                            const SizedBox(),
+                                        errorWidget:
                                             (context, error, stackTrace) =>
                                                 const SizedBox(),
                                       ),

@@ -280,18 +280,6 @@ class RoomSettingsHandler {
                               builder: (context) =>
                                   UserSelectionScreen(roomId: roomId)));
                     }),
-                    _buildItem(Icons.open_in_full, "Minimize", Colors.green,
-                        () {
-                      // শুধু সেটিংস বটমশিটটি বন্ধ করবে
-                      Navigator.pop(context);
-
-                      // মিনিমাইজ ফাংশনটি কল করবে
-                      onMinimize();
-                    }),
-                    _buildItem(Icons.logout, "Exit", Colors.redAccent, () {
-                      // সরাসরি রুমের মেইন এক্সিট লজিক কল করুন, সেটিংস মেনু ভেতরেই হ্যান্ডেল হবে
-                      onLeave();
-                    }),
                   ],
                 ),
                 const SizedBox(height: 10),

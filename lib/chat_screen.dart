@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,6 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:pagla_chat/profile_page.dart';
+import 'package:pagla_chat/services/call_handler.dart';
+import 'package:pagla_chat/services/call_screen.dart';
 import 'package:pagla_chat/widgets/room_settings_handler.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart' hide Source;
@@ -119,7 +122,7 @@ class _ChatScreenState extends State<ChatScreen> {
         .snapshots()
         .listen((doc) {
       // অত্যন্ত গুরুত্বপূর্ণ: স্ক্রিন ডিসপোজ হয়ে গেলে আর কোড এক্সিকিউট হবে না
-      if (!mounted) return; 
+      if (!mounted) return;
 
       if (doc.exists) {
         var data = doc.data() as Map<String, dynamic>;
@@ -155,7 +158,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _blockedListSubscription?.cancel();
-    
+
     _messageController.dispose();
     _audioRecorder.dispose();
     _audioPlayer.dispose();
@@ -603,6 +606,100 @@ class _ChatScreenState extends State<ChatScreen> {
               elevation: 0,
               iconTheme: const IconThemeData(color: Colors.white),
               actions: [
+                // রঙিন কলিং বাটন (থ্রি-ডট মেনুর আগে বসানো হলো)
+                IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.pinkAccent, Colors.purpleAccent],
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child:
+                        const Icon(Icons.call, color: Colors.white, size: 18),
+                  ),
+                  onPressed: () async {
+                    // ১. ফায়ারস্টোর থেকে বর্তমান ইউজারের (কলার) ডাটা ফেচ করা
+                    var myDoc = await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(currentSixDigitId)
+                        .get();
+
+                    var myData = myDoc.data();
+                    if (myData == null) return;
+
+                    // 🛑 [ভিআইপি ও এক্সপি ক্যালকুলেশন - চেক করা হচ্ছে]
+                    int vipXp = myData['vip_xp'] ?? myData['xp'] ?? 0;
+                    int vipExpiry = myData['vipExpiry'] ?? 0;
+                    int currentTime = DateTime.now().millisecondsSinceEpoch;
+
+                    int vipLevel = 0;
+                    if (!(vipExpiry != 0 && currentTime > vipExpiry)) {
+                      if (vipXp >= 35000) {
+                        vipLevel = 8;
+                      } else if (vipXp >= 30000) {
+                        vipLevel = 7;
+                      } else if (vipXp >= 25000) {
+                        vipLevel = 6;
+                      } else if (vipXp >= 20000) {
+                        vipLevel = 5;
+                      } else if (vipXp >= 13000) {
+                        vipLevel = 4;
+                      } else if (vipXp >= 9000) {
+                        vipLevel = 3;
+                      } else if (vipXp >= 5000) {
+                        vipLevel = 2;
+                      } else if (vipXp >= 2500) {
+                        vipLevel = 1;
+                      }
+                    }
+
+                    // যদি ইউজার ভিআইপি না হয় (vipLevel == 0), তবে কল করতে পারবে না এবং মেসেজ দেখাবে
+                    if (vipLevel <= 0) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Only VIP"),
+                            backgroundColor: Colors.red,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                      return;
+                    }
+
+                    String myName = myData['name'] ?? '';
+                    String myPic = myData['profilePic'] ?? '';
+
+                    // ২. ফায়ারস্টোর থেকে রিসিভারের ডাটা ফেচ করা
+                    var receiverDoc = await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(widget.receiverId)
+                        .get();
+                    String receiverName =
+                        receiverDoc.data()?['name'] ?? widget.receiverName;
+                    String receiverPic =
+                        receiverDoc.data()?['profilePic'] ?? '';
+
+                    String callChannelId = getChatRoomId();
+
+                    // ৩. কল হ্যান্ডলার কল করা (যা রিংটোন বাজাবে এবং অপর প্রান্তে সিগন্যাল পাঠাবে)
+                    if (context.mounted) {
+                      await CallHandler.makeCall(
+                        context: context,
+                        myId: currentSixDigitId,
+                        myName: myName,
+                        myPic: myPic,
+                        receiverId: widget.receiverId,
+                        receiverName: receiverName,
+                        receiverPic: receiverPic,
+                        channelId: callChannelId,
+                      );
+                    }
+                  },
+                ),
+
                 // এই PopupMenuButton টি নতুন করে বসবে
                 PopupMenuButton<String>(
                   color: const Color(0xFF1E1E2F),
@@ -930,7 +1027,26 @@ class _ChatScreenState extends State<ChatScreen> {
     if (type == 'image') {
       return ClipRRect(
           borderRadius: BorderRadius.circular(10),
-          child: Image.network(msg, width: 200));
+          child: CachedNetworkImage(
+            imageUrl: msg,
+            width: 200,
+            fit: BoxFit.cover,
+            placeholder: (context, url) => const SizedBox(
+              width: 50,
+              height: 50,
+              child: Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+            errorWidget: (context, error, stackTrace) => const Icon(
+              Icons.broken_image,
+              color: Colors.white24,
+              size: 40,
+            ),
+          ));
     } else if (type == 'video') {
       return const Column(
         children: [
@@ -961,7 +1077,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final HttpClientRequest request = await httpClient.getUrl(Uri.parse(url));
       final HttpClientResponse response = await request.close();
 
-      // ২. ডাউনলোড করা ডাটা বাইট আকারে পড়া
+      // ২. ডাউনলোড করা ডাটা বাইট আকারে পড়া
       final Uint8List bytes =
           await consolidateHttpClientResponseBytes(response);
 

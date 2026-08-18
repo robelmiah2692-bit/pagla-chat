@@ -1,16 +1,16 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 class StoryViewPage extends StatelessWidget {
-  final String image; 
+  final String image;
   final String name;
   final String caption;
 
-  const StoryViewPage({
-    super.key, 
-    required this.image, 
-    required this.name, 
-    required this.caption
-  });
+  const StoryViewPage(
+      {super.key,
+      required this.image,
+      required this.name,
+      required this.caption});
 
   @override
   Widget build(BuildContext context) {
@@ -24,20 +24,17 @@ class StoryViewPage extends StatelessWidget {
           // ১. ব্যাকগ্রাউন্ড সেকশন (ছবি অথবা সুন্দর গ্রেডিয়েন্ট)
           Positioned.fill(
             child: hasImage
-                ? Image.network(
-                    image,
+                ? CachedNetworkImage(
+                    imageUrl: image,
                     fit: BoxFit.contain,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return const Center(
-                        child: CircularProgressIndicator(color: Colors.white24),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) => _buildTextStoryBackground(),
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(color: Colors.white24),
+                    ),
+                    errorWidget: (context, error, stackTrace) =>
+                        _buildTextStoryBackground(),
                   )
                 : _buildTextStoryBackground(),
           ),
-
           // ২. হালকা কালো শ্যাডো (যাতে উপরের নাম এবং নিচের ক্যাপশন পরিষ্কার বোঝা যায়)
           Positioned.fill(
             child: Container(
@@ -86,7 +83,8 @@ class StoryViewPage extends StatelessWidget {
                   backgroundColor: Colors.blueAccent,
                   child: Text(
                     name.isNotEmpty ? name[0].toUpperCase() : "?",
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -124,7 +122,8 @@ class StoryViewPage extends StatelessWidget {
               left: 20,
               right: 20,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                 decoration: BoxDecoration(
                   color: Colors.black45,
                   borderRadius: BorderRadius.circular(10),
@@ -148,7 +147,11 @@ class StoryViewPage extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF833ab4), Color(0xFFfd1d1d), Color(0xFFfcb045)], // ইন্সটাগ্রাম/ফেসবুক স্টাইল গ্রেডিয়েন্ট
+          colors: [
+            Color(0xFF833ab4),
+            Color(0xFFfd1d1d),
+            Color(0xFFfcb045)
+          ], // ইন্সটাগ্রাম/ফেসবুক স্টাইল গ্রেডিয়েন্ট
         ),
       ),
     );

@@ -1,25 +1,34 @@
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DeviceService {
-  static Future<String?> getDeviceId() async {
+  // ১. ১০০% ইউনিক ডিভাইস আইডি জেনারেট করার নতুন ও নিরাপদ লজিক
+  static Future<String> getDeviceId() async {
     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-    if (Platform.isAndroid) {
-      AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-      return androidInfo.id; // অ্যান্ড্রয়েড ইউনিক আইডি
-    } else if (Platform.isIOS) {
-      IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
-      return iosInfo.identifierForVendor;
+    String? deviceId;
+
+    try {
+      if (Platform.isAndroid) {
+        AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+        // বোর্ডের নাম, হার্ডওয়্যার, ডিভাইস এবং মডেল মিলিয়ে ১০০% ইউনিক আইডি তৈরি করা হলো
+        deviceId = "${androidInfo.brand}_${androidInfo.device}_${androidInfo.hardware}_${androidInfo.model}_${androidInfo.id}";
+      } else if (Platform.isIOS) {
+        IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
+        deviceId = iosInfo.identifierForVendor ?? "ios_unknown";
+      }
+    } on PlatformException {
+      deviceId = 'unknown_device';
     }
-    return null;
+    return deviceId ?? "unknown";
   }
 
+  // ২. ডিভাইস ব্লক চেক করার ফাংশন
   static Future<bool> isDeviceBlocked() async {
-    String? deviceId = await getDeviceId();
-    if (deviceId == null) return false;
+    String deviceId = await getDeviceId();
+    if (deviceId.isEmpty || deviceId == 'unknown_device') return false;
 
-    // 'blocked_devices' কালেকশনে আইডি চেক করা হচ্ছে
     var doc = await FirebaseFirestore.instance
         .collection('blocked_devices')
         .doc(deviceId)

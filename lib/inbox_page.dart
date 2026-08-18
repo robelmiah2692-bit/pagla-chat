@@ -19,39 +19,36 @@ class _InboxPageState extends State<InboxPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
   String currentSixDigitId = "";
-  
+
   @override
   void initState() {
     super.initState();
-    _fetchMyDetails(); // ২. পেজ ওপেন হওয়ার সাথে সাথেই আইডি লোড হবে
+    _fetchMyDetails();
   }
 
-  // ৩. ফায়ারবেস থেকে নিজের ৬ ডিজিটের আইডি নিয়ে আসুন
   Future<void> _fetchMyDetails() async {
     try {
       var userDoc = await FirebaseFirestore.instance
           .collection('users')
           .where('authUID', isEqualTo: currentUserId)
           .get();
-      
+
       if (userDoc.docs.isNotEmpty) {
         setState(() {
-          currentSixDigitId = userDoc.docs.first.data()['uID']?.toString() ?? "";
-          print("DEBUG: Loaded my ID: $currentSixDigitId"); // এটি চেক করুন কনসোলে
+          currentSixDigitId =
+              userDoc.docs.first.data()['uID']?.toString() ?? "";
+          print("DEBUG: Loaded my ID: $currentSixDigitId");
         });
       }
     } catch (e) {
-      
+      print("Error fetching my details: $e");
     }
   }
-  
-  
+
   void _markAsRead(String chatId) async {
     try {
-      // চ্যাট আইডি থেকে ৬ ডিজিটের আইডি আলাদা করে নেওয়া
       String sixDigitId = chatId.split('_')[0];
 
-      // ১. ওই চ্যাটের সব আনরিড মেসেজ একবারেই টেনে আনা
       var unreadMessages = await FirebaseFirestore.instance
           .collection('chats')
           .doc(chatId)
@@ -59,17 +56,17 @@ class _InboxPageState extends State<InboxPage> {
           .where('isRead', isEqualTo: false)
           .get();
 
-      // ২. লুপ চালিয়ে আইডি মিলিয়ে রিড হিসেবে মার্ক করা
       for (var doc in unreadMessages.docs) {
         var data = doc.data();
         String dbReceiverId = (data['receiverId'] ?? "").toString();
 
-        // আইডি যেভাবে থাকুক—লম্বা বা ৬ ডিজিট—মিললে আপডেট হবে
         if (dbReceiverId == currentUserId || dbReceiverId == sixDigitId) {
           await doc.reference.update({'isRead': true});
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      print("Error marking as read: $e");
+    }
   }
 
   @override
@@ -105,14 +102,12 @@ class _InboxPageState extends State<InboxPage> {
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        // CachedNetworkImageProvider ব্যবহার করা হয়েছে যাতে ইমেজ ক্যাশ হয়
         image: const DecorationImage(
           image: CachedNetworkImageProvider(
             "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/inboxbenar.jpg",
           ),
           fit: BoxFit.fill,
         ),
-        // গোল্ডেন বর্ডার
         border: Border.all(
           color: Colors.amber.shade700,
           width: 2,
@@ -176,8 +171,21 @@ class _InboxPageState extends State<InboxPage> {
         return StreamBuilder<List<Map<String, dynamic>>>(
           stream: _getSortedUserStream(users),
           builder: (context, sortedSnapshot) {
-            if (!sortedSnapshot.hasData) return const SizedBox.shrink();
+            if (!sortedSnapshot.hasData) {
+              return const Center(
+                child: CircularProgressIndicator(color: Colors.cyanAccent),
+              );
+            }
             final sortedList = sortedSnapshot.data!;
+
+            if (sortedList.isEmpty) {
+              return const Center(
+                child: Text(
+                  "No chats found",
+                  style: TextStyle(color: Colors.white54, fontSize: 14),
+                ),
+              );
+            }
 
             return ListView.builder(
               itemCount: sortedList.length,
@@ -199,92 +207,104 @@ class _InboxPageState extends State<InboxPage> {
 
   Stream<List<Map<String, dynamic>>> _getSortedUserStream(
       List<QueryDocumentSnapshot> users) async* {
-    // ১. আপনার নিজের ৬ ডিজিট আইডি (uID) নিশ্চিতভাবে খুঁজে বের করা
-    String mySixDigitId = "";
-    try {
-      var myDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .where('authUID', isEqualTo: currentUserId)
-          .get();
+    String mySixDigitId = currentSixDigitId;
+    if (mySixDigitId.isEmpty) {
+      try {
+        var myDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .where('authUID', isEqualTo: currentUserId)
+            .get();
 
-      if (myDoc.docs.isNotEmpty) {
-        mySixDigitId = (myDoc.docs.first.data()['uID'] ?? "").toString();
+        if (myDoc.docs.isNotEmpty) {
+          mySixDigitId = (myDoc.docs.first.data()['uID'] ?? "").toString();
+        }
+      } catch (e) {
+        print("Error fetching my uID: $e");
       }
-    } catch (e) {
-      print("Error fetching my uID: $e");
     }
 
-    // ২. ইউজার লিস্ট প্রসেস করা
-    List<Map<String, dynamic>> results =
-        await Future.wait(users.map((user) async {
+    List<Map<String, dynamic>> results = [];
+
+    var futures = users.map((user) async {
       String userAuthId = user.id;
       var userData = user.data() as Map<String, dynamic>;
       String friendSixDigitId = (userData['uID'] ?? "").toString();
 
+      bool isOfficial = friendSixDigitId == "paglachat_official" ||
+          userAuthId == 'paglachat_official';
+
       String chatId;
-      if (friendSixDigitId == "paglachat_official") {
+      if (isOfficial) {
         chatId = "paglachat_official_$currentUserId";
       } else {
-        // ৩. আইডি সর্ট করা যেন ভুল না হয় (যদি আপনার আইডি ফাঁকা না থাকে)
-        if (mySixDigitId.isNotEmpty) {
+        if (mySixDigitId.isNotEmpty && friendSixDigitId.isNotEmpty) {
           List<String> ids = [mySixDigitId, friendSixDigitId];
           ids.sort();
           chatId = ids.join("_");
         } else {
-          // সেফটি হিসেবে পুরাতন লজিক বা একটা ডিফল্ট রাখা
           chatId = "unknown_$friendSixDigitId";
         }
       }
 
-      // ৪. মেসেজ এবং টাইমেস্ট্যাম্প চেক
-      var lastMsg = await FirebaseFirestore.instance
+      var lastMsgQuery = await FirebaseFirestore.instance
           .collection('chats')
           .doc(chatId)
           .collection('messages')
           .orderBy('timestamp', descending: true)
           .limit(1)
-          .get();
+          .get()
+          .catchError((e) => null);
 
-      Timestamp lastTs = lastMsg.docs.isNotEmpty
-          ? (lastMsg.docs.first['timestamp'] as Timestamp? ?? Timestamp.now())
+      // যদি কোনো মেসেজ না থাকে এবং অফিসিয়াল না হয়:
+      // কিন্তু যদি ইউজার সার্চ বক্স কিছু লিখে সার্চ করে, তবে তাকে বাদ দেওয়া যাবে না যাতে নতুন ইউজারের আইডি দিয়ে সার্চ করলে পাওয়া যায়।
+      if ((lastMsgQuery == null || lastMsgQuery.docs.isEmpty) && !isOfficial) {
+        if (_searchQuery.isEmpty) {
+          return null;
+        }
+      }
+
+      Timestamp lastTs = (lastMsgQuery != null && lastMsgQuery.docs.isNotEmpty)
+          ? (lastMsgQuery.docs.first['timestamp'] as Timestamp? ??
+              Timestamp.now())
           : Timestamp.fromMillisecondsSinceEpoch(0);
 
       return {
         'id': userAuthId,
         'data': userData,
         'chatId': chatId,
-        'lastTs': lastTs
+        'lastTs': lastTs,
+        'isOfficial': isOfficial
       };
-    }));
+    });
 
-    // ৫. সর্টিং করা
-    // ৫. সর্টিং লজিক (নিখুঁত করার জন্য এটি আপডেট করুন)
+    var resolvedResults = await Future.wait(futures);
+
+    for (var res in resolvedResults) {
+      if (res != null) {
+        results.add(res);
+      }
+    }
+
     results.sort((a, b) {
-      final Map<String, dynamic> aData = a['data'] as Map<String, dynamic>;
-      final Map<String, dynamic> bData = b['data'] as Map<String, dynamic>;
+      bool aOfficial = a['isOfficial'] == true;
+      bool bOfficial = b['isOfficial'] == true;
 
-      // অফিশিয়াল চ্যাট সব সময় সবার উপরে থাকবে
-      if (aData['uID'] == "paglachat_official") return -1;
-      if (bData['uID'] == "paglachat_official") return 1;
+      if (aOfficial && !bOfficial) return -1;
+      if (!aOfficial && bOfficial) return 1;
 
-      // লাস্ট মেসেজের টাইম অনুযায়ী সর্ট (সবচেয়ে নতুন সবার উপরে)
       Timestamp aTime = a['lastTs'] as Timestamp;
       Timestamp bTime = b['lastTs'] as Timestamp;
-      return bTime.compareTo(aTime); // descending order
+      return bTime.compareTo(aTime);
     });
+
     yield results;
   }
 
-  // --- নতুন ও পুরাতন ডিজাইনের মিশ্রণে আপডেট করা মেথড ---
-  // --- নতুন ও পুরাতন ডিজাইনের মিশ্রণে আপডেট করা মেথড ---
   Widget _buildGlassChatTile(
       Map<String, dynamic> userData, String userId, String chatId) {
-    // 🔥 ফিক্স ১: এটি অফিশিয়াল চ্যাট কি না তা নিখুঁতভাবে সনাক্ত করা
     bool isOfficial =
         userId == 'paglachat_official' || chatId.contains('paglachat_official');
 
-    // 🔥 ফিক্স ২: অফিশিয়াল আইডি হলে হার্ডকোডেড নাম ও গিটহাবের প্রোফাইল পিকচার সেট করা
-    // সাধারণ ইউজারদের জন্য আপনার আগের সিক্স ডিজিটের আইডি বা ডাটা যা ছিল হুবহু তাই থাকবে
     String displayId = isOfficial
         ? "paglachat_official"
         : (userData['uID'] ?? "N/A").toString();
@@ -294,16 +314,12 @@ class _InboxPageState extends State<InboxPage> {
         ? "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/favicon.png"
         : (userData['profilePic'] ?? "");
 
-    // ১. এখানে অফিশিয়াল ফ্রেমের লিঙ্ক
     String officialFrameUrl =
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/officialframe.png";
 
-// ২. ডাটাবেস বা JSON থেকে ফ্রেমের লিঙ্ক নেওয়া (userData তে ফ্রেমের কী বা নাম বুঝে নিন)
     String? dbFrameUrl = isOfficial ? null : userData['activeFrameUrl'];
-    String? jsonFrameUrl =
-        userData['activeFrameUrl']; // আপনার JSON এ যে কী (key) ব্যবহার করেছেন
+    String? jsonFrameUrl = userData['activeFrameUrl'];
 
-// ৩. কার্যকর লজিক: অফিশিয়াল > ডাটাবেস > JSON
     String effectiveFrameUrl = "";
 
     if (isOfficial) {
@@ -313,18 +329,10 @@ class _InboxPageState extends State<InboxPage> {
     } else if (jsonFrameUrl != null && jsonFrameUrl.isNotEmpty) {
       effectiveFrameUrl = jsonFrameUrl;
     }
+
     String? currentRoomId = userData['currentRoomId'];
     bool isLive = currentRoomId != null && currentRoomId.toString().isNotEmpty;
 
-    // 🔥 ফিক্স ৩: চ্যাট আইডি কন্ডিশন (সাধারণ ইউজারদের ৬-ডিজিটের লজিক পুরোপুরি সুরক্ষিত)
-    String finalChatId = chatId;
-    if (isOfficial) {
-      // অফিশিয়াল মেসেজ ক্লিনের লগের সাথে মিল রেখে লম্বা Auth UID (currentUserId) ব্যবহার করা হলো
-      finalChatId = "paglachat_official_$currentUserId";
-    } else {
-      // সাধারণ ইউজার হলে ফায়ারবেস থেকে আসা অরিজিনাল সর্ট করা চ্যাট আইডি-ই থাকবে
-      finalChatId = chatId;
-    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
       child: ClipRRect(
@@ -340,7 +348,7 @@ class _InboxPageState extends State<InboxPage> {
             ),
             child: ListTile(
               onTap: () {
-                _markAsRead(chatId); // আপনার পুরাতন লজিক: ক্লিক করলে রিড হবে
+                _markAsRead(chatId);
                 Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -357,7 +365,6 @@ class _InboxPageState extends State<InboxPage> {
                   alignment: Alignment.center,
                   clipBehavior: Clip.none,
                   children: [
-                    // ১. প্রোফাইল পিকচার
                     CircleAvatar(
                       radius: 24,
                       backgroundImage:
@@ -368,7 +375,6 @@ class _InboxPageState extends State<InboxPage> {
                               style: const TextStyle(color: Colors.white))
                           : null,
                     ),
-                    // ২. ইউজার ফ্রেম (নতুন যোগ করা হয়েছে)
                     if (effectiveFrameUrl.isNotEmpty)
                       Positioned(
                         top: -35,
@@ -377,26 +383,26 @@ class _InboxPageState extends State<InboxPage> {
                         bottom: -35,
                         child: effectiveFrameUrl.contains('.json')
                             ? SizedBox(
-                                width: 70, // লটির উইথ
-                                height: 70, // লটির হাইট
+                                width: 70,
+                                height: 70,
                                 child: Lottie.network(
                                   effectiveFrameUrl,
                                   fit: BoxFit.contain,
-                                  // লটির জন্য যদি স্কেল অ্যাডজাস্ট করতে চান, এখানে করতে পারবেন
                                   errorBuilder: (context, error, stackTrace) =>
                                       const SizedBox.shrink(),
                                 ),
                               )
-                            : Image.network(
-                                effectiveFrameUrl,
-                                width: 100, // ইমেজের উইথ
-                                height: 100, // ইমেজের হাইট
+                            : CachedNetworkImage(
+                                imageUrl: effectiveFrameUrl,
+                                width: 100,
+                                height: 100,
                                 fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) =>
+                                placeholder: (context, url) =>
+                                    const SizedBox.shrink(),
+                                errorWidget: (context, error, stackTrace) =>
                                     const SizedBox.shrink(),
                               ),
                       ),
-                    // ৩. অনলাইন স্ট্যাটাস (পুরাতন লজিক - সবুজ ডট)
                     if (userData['isOnline'] == true)
                       Positioned(
                         bottom: 8,
@@ -411,13 +417,11 @@ class _InboxPageState extends State<InboxPage> {
                           ),
                         ),
                       ),
-                    // ৪. লাইভ বাটন - আপডেট করা লজিক
                     if (isLive)
                       Positioned(
                         bottom: 0,
                         child: GestureDetector(
                           onTap: () async {
-                            // এখানে সরাসরি নেভিগেট না করে ডাটাবেস চেক করা হচ্ছে
                             var roomDoc = await FirebaseFirestore.instance
                                 .collection('rooms')
                                 .doc(currentRoomId)
@@ -429,12 +433,10 @@ class _InboxPageState extends State<InboxPage> {
                             String password = data['password'] ?? "";
                             String ownerId = data['ownerId'] ?? "";
 
-                            // আপনার লোকাল ইউজার আইডি চেক (উদাহরণস্বরূপ)
                             String myUID =
                                 FirebaseAuth.instance.currentUser?.uid ?? "";
 
                             if (isLocked && ownerId != myUID) {
-                              // লক থাকলে পাসওয়ার্ড চাইবে
                               RoomSettingsHandler.showJoinPasswordDialog(
                                   context, currentRoomId, password, () {
                                 Navigator.push(
@@ -444,7 +446,6 @@ class _InboxPageState extends State<InboxPage> {
                                             VoiceRoom(roomId: currentRoomId)));
                               });
                             } else {
-                              // লক না থাকলে বা মালিক হলে সরাসরি রুমে ঢুকবে
                               Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -495,7 +496,6 @@ class _InboxPageState extends State<InboxPage> {
               ),
               subtitle: Text("ID: $displayId",
                   style: const TextStyle(color: Colors.white38, fontSize: 12)),
-              // ৫. পুরাতন মেসেজ কাউন্টার লজিক (একই রাখা হয়েছে)
               trailing: _buildUnreadCounter(chatId),
             ),
           ),
@@ -505,36 +505,44 @@ class _InboxPageState extends State<InboxPage> {
   }
 
   Widget _buildUnreadCounter(String chatId) {
-  // আইডি না থাকলে বাবল দেখানোর দরকার নেই
-  if (currentSixDigitId.isEmpty) return const SizedBox.shrink(); 
+    if (currentSixDigitId.isEmpty) return const SizedBox.shrink();
 
-  String finalChatId = chatId.trim();
-  if (finalChatId.contains('paglachat_official')) {
-    finalChatId = "paglachat_official_$currentSixDigitId";
+    String finalChatId = chatId.trim();
+    if (finalChatId.contains('paglachat_official')) {
+      finalChatId = "paglachat_official_$currentSixDigitId";
+    }
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('chats')
+          .doc(finalChatId)
+          .snapshots(includeMetadataChanges: true),
+      builder: (context, docSnapshot) {
+        if (!docSnapshot.hasData || docSnapshot.data?.data() == null) {
+          return const SizedBox.shrink();
+        }
+
+        var data = docSnapshot.data!.data() as Map<String, dynamic>;
+
+        String fieldName = "unReadCount_$currentSixDigitId";
+        int finalCount = data[fieldName] ?? 0;
+
+        if (finalCount > 0) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+                color: Colors.pinkAccent,
+                borderRadius: BorderRadius.circular(12)),
+            child: Text("$finalCount",
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold)),
+          );
+        }
+        return const Icon(Icons.arrow_forward_ios,
+            color: Colors.white10, size: 14);
+      },
+    );
   }
-
-  return StreamBuilder<DocumentSnapshot>(
-    stream: FirebaseFirestore.instance.collection('chats').doc(finalChatId).snapshots(includeMetadataChanges: true),
-    builder: (context, docSnapshot) {
-      if (!docSnapshot.hasData || docSnapshot.data?.data() == null) {
-        return const SizedBox.shrink();
-      }
-      
-      var data = docSnapshot.data!.data() as Map<String, dynamic>;
-      
-      // ডাইনামিক ফিল্ডের নাম তৈরি
-      String fieldName = "unReadCount_$currentSixDigitId";
-      int finalCount = data[fieldName] ?? 0; // যদি ফিল্ড না থাকে তবে ০
-
-      if (finalCount > 0) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(color: Colors.pinkAccent, borderRadius: BorderRadius.circular(12)),
-          child: Text("$finalCount", style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-        );
-      }
-      return const Icon(Icons.arrow_forward_ios, color: Colors.white10, size: 14);
-    },
-  );
-}
 }

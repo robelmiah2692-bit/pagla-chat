@@ -22,11 +22,13 @@ import 'package:pagla_chat/RoomLevelHelper.dart';
 
 import 'package:pagla_chat/VideoGiftOverlay.dart';
 import 'package:pagla_chat/chat_screen.dart';
+import 'package:pagla_chat/donggi_baba_game.dart';
 
 import 'package:pagla_chat/pk_manager.dart';
 import 'package:pagla_chat/protected_users.dart';
 import 'package:pagla_chat/room_exit_handler.dart';
 import 'package:pagla_chat/room_floating_box.dart';
+import 'package:pagla_chat/room_lobby_menu_sheet.dart';
 import 'package:pagla_chat/room_manager.dart';
 import 'package:pagla_chat/services/floating_bubble_service.dart';
 import 'package:pagla_chat/services/floating_music_player.dart';
@@ -36,6 +38,7 @@ import 'package:pagla_chat/services/marriage_service.dart';
 import 'package:pagla_chat/services/room_active_manager.dart';
 import 'package:pagla_chat/services/room_invite_service.dart';
 import 'package:pagla_chat/services/soulmate_xp_service.dart';
+import 'package:pagla_chat/viewer_ranking_widget.dart';
 
 import 'package:pagla_chat/widgets/entry_effect_handler.dart';
 
@@ -627,54 +630,54 @@ class _VoiceRoomState extends State<VoiceRoom>
   }
 
   void _setupAgoraAndRipple() {
-  // ১. এগোরা ইনি এবং জয়েন (রুমে ঢোকার সময় শুধু লিসেনার বা অডিও শোনার জন্য)
-  Future.microtask(() async {
-    try {
-      if (!FloatingBubbleService.isMinimized) {
-        await _agoraManager.initAgora();
-        final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+    // ১. এগোরা ইনি এবং জয়েন (রুমে ঢোকার সময় শুধু লিসেনার বা অডিও শোনার জন্য)
+    Future.microtask(() async {
+      try {
+        if (!FloatingBubbleService.isMinimized) {
+          await _agoraManager.initAgora();
+          final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-        // রুমে ঢোকার সময় ইউজার শুধু শুনবে, মাইক বন্ধ থাকবে (লিসেনার মোড)
-        await _agoraManager.joinAsListener(widget.roomId, authUID);
+          // রুমে ঢোকার সময় ইউজার শুধু শুনবে, মাইক বন্ধ থাকবে (লিসেনার মোড)
+          await _agoraManager.joinAsListener(widget.roomId, authUID);
 
-        // নিশ্চিত করার জন্য লোকাল অডিও ডিজেবল করে দেওয়া হলো যাতে রুমে ঢুকেই কলিং শুরু না হয়
-        await _agoraManager.engine.enableLocalAudio(false);
-        await _agoraManager.engine
-            .setClientRole(role: ClientRoleType.clientRoleAudience);
+          // নিশ্চিত করার জন্য লোকাল অডিও ডিজেবল করে দেওয়া হলো যাতে রুমে ঢুকেই কলিং শুরু না হয়
+          await _agoraManager.engine.enableLocalAudio(false);
+          await _agoraManager.engine
+              .setClientRole(role: ClientRoleType.clientRoleAudience);
 
-        if (mounted) {
-          _addUserToViewers();
+          if (mounted) {
+            _addUserToViewers();
+          }
+        }
+      } catch (e) {}
+    });
+
+    // ২. ম্যানেজারের স্ট্রিম থেকে সরাসরি স্পিকার ডেটা শোনা (রিপেল অ্যানিমেশনের জন্য)
+    _volumeSubscription = _agoraManager.volumeStream.listen((speakers) {
+      if (!mounted) return;
+
+      bool isMeTalking = false;
+      final int myRealAgoraId = _agoraManager.localuID ?? -999;
+
+      for (var speaker in speakers) {
+        // 🔥 এখানে শুধু '0' চেক না করে ইউজারের আসল অ্যাগোরা আইডি বা লোকাল আইডি চেক করা হলো
+        // যাতে ০ নাম্বার সিটের সাথে কোনোভাবেই কনফ্লিক্ট না করে।
+        if ((speaker.uid == 0 || speaker.uid == myRealAgoraId) &&
+            myRealAgoraId != -999 &&
+            (speaker.volume ?? 0) > 15) {
+          isMeTalking = true;
+          break;
         }
       }
-    } catch (e) {}
-  });
 
-  // ২. ম্যানেজারের স্ট্রিম থেকে সরাসরি স্পিকার ডেটা শোনা (রিপেল অ্যানিমেশনের জন্য)
-  _volumeSubscription = _agoraManager.volumeStream.listen((speakers) {
-    if (!mounted) return;
-
-    bool isMeTalking = false;
-    final int myRealAgoraId = _agoraManager.localuID ?? -999;
-
-    for (var speaker in speakers) {
-      // 🔥 এখানে শুধু '0' চেক না করে ইউজারের আসল অ্যাগোরা আইডি বা লোকাল আইডি চেক করা হলো
-      // যাতে ০ নাম্বার সিটের সাথে কোনোভাবেই কনফ্লিক্ট না করে।
-      if ((speaker.uid == 0 || speaker.uid == myRealAgoraId) && 
-          myRealAgoraId != -999 && 
-          (speaker.volume ?? 0) > 15) {
-        isMeTalking = true;
-        break;
+      if (_isMeTalkingNow != isMeTalking) {
+        setState(() {
+          _isMeTalkingNow = isMeTalking;
+        });
+        _updateTalkingStatus(isMeTalking);
       }
-    }
-
-    if (_isMeTalkingNow != isMeTalking) {
-      setState(() {
-        _isMeTalkingNow = isMeTalking;
-      });
-      _updateTalkingStatus(isMeTalking);
-    }
-  });
-}
+    });
+  }
 
   DatabaseReference get _videoGiftRef =>
       FirebaseDatabase.instance.ref('${widget.roomId}/latestVideoGift');
@@ -914,11 +917,21 @@ class _VoiceRoomState extends State<VoiceRoom>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            Image.network(requestData['ringIcon'] ?? '',
+            CachedNetworkImage(
+              imageUrl: requestData['ringIcon'] ?? '',
+              width: 30,
+              height: 30,
+              placeholder: (context, url) => const SizedBox(
                 width: 30,
                 height: 30,
-                errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.star, color: Colors.amber)),
+                child: Center(
+                  child: CircularProgressIndicator(
+                      strokeWidth: 1.5, color: Colors.white70),
+                ),
+              ),
+              errorWidget: (_, __, ___) =>
+                  const Icon(Icons.star, color: Colors.amber),
+            ),
             const SizedBox(width: 10),
             const Text("Marriage Proposal!",
                 style: TextStyle(
@@ -932,8 +945,13 @@ class _VoiceRoomState extends State<VoiceRoom>
           children: [
             CircleAvatar(
               radius: 40,
-              backgroundImage: NetworkImage(requestData['fromImg'] ?? ''),
               backgroundColor: Colors.white12,
+              backgroundImage: (requestData['fromImg'] ?? '').isNotEmpty
+                  ? CachedNetworkImageProvider(requestData['fromImg']!)
+                  : null,
+              child: (requestData['fromImg'] ?? '').isEmpty
+                  ? const Icon(Icons.person, size: 40, color: Colors.white)
+                  : null,
             ),
             const SizedBox(height: 15),
             Text(
@@ -963,19 +981,33 @@ class _VoiceRoomState extends State<VoiceRoom>
               Navigator.of(dialogContext).pop();
 
               try {
-                // রিকোয়েস্ট থেকে বন্ধুর লম্বা authUID নেওয়া
                 String friendAuthUID = requestData['fromAuthUID'] ?? '';
-                if (friendAuthUID.isEmpty) {
-                  friendAuthUID = requestData['fromId'] ?? ''; // সেফটি ব্যাকআপ
+
+                // যদি fromAuthUID খালি থাকে, তবে fromId দিয়ে ইউজার খুঁজে বের করা
+                if (friendAuthUID.isEmpty || friendAuthUID.length < 15) {
+                  String potentialId = requestData['fromId'] ?? '';
+                  if (potentialId.isNotEmpty) {
+                    var userQuery = await FirebaseFirestore.instance
+                        .collection('users')
+                        .where('uID', isEqualTo: potentialId)
+                        .limit(1)
+                        .get();
+
+                    if (userQuery.docs.isNotEmpty) {
+                      friendAuthUID = userQuery.docs.first.id;
+                    } else {
+                      friendAuthUID = potentialId;
+                    }
+                  }
                 }
 
                 await MarriageService().completeMarriage(
-                  myId: myId, // নিজের ৬ ডিজিটের uID
-                  myAuthUID: authUID, // নিজের লম্বা authUID
+                  myId: myId, // 🔴 এখানে আগে uID দেওয়া ছিল, যেটার কারণে খালি স্ট্রিং পাস হচ্ছিল। এখন সঠিক 'myId' ভেরিয়েবল পাস করা হলো।
+                  myAuthUID: authUID,
                   myName: myName,
                   myImg: myImg,
-                  friendId: requestData['fromId'] ?? '', // বন্ধুর ৬ ডিজিটের uID
-                  friendAuthUID: friendAuthUID, // বন্ধুর লম্বা authUID
+                  friendId: requestData['fromId'] ?? '', // পার্টনারের ডকুমেন্ট আইডি
+                  friendAuthUID: friendAuthUID,
                   friendName: requestData['fromName'] ?? 'Unknown',
                   friendImg: requestData['fromImg'] ?? '',
                   ringName: requestData['ringName'] ?? 'Marriage Ring',
@@ -985,13 +1017,22 @@ class _VoiceRoomState extends State<VoiceRoom>
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                        content: Text(
-                            "Congratulations! You are now happily Married! 🎉💍"),
-                        backgroundColor: Colors.green),
+                      content: Text(
+                          "Congratulations! You are now happily Married! 🎉💍"),
+                      backgroundColor: Colors.green,
+                    ),
                   );
                 }
               } catch (e) {
                 print("Error accepting marriage ring: $e");
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("বিয়ে সম্পন্ন করতে সমস্যা হয়েছে: $e ❌"),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               }
             },
             child: const Text("Accept",
@@ -1731,42 +1772,42 @@ class _VoiceRoomState extends State<VoiceRoom>
               }
             }
 
-             // --- এন্ট্রি ইফেক্ট লজিক (Fixed & Clean) ---
-              if (roomData.containsKey('lastEntry') &&
-                  roomData['lastEntry'] != null) {
-                var lastEntry = roomData['lastEntry'];
-                String currentEntryId = lastEntry['entryId']?.toString() ?? "";
+            // --- এন্ট্রি ইফেক্ট লজিক (Fixed & Clean) ---
+            if (roomData.containsKey('lastEntry') &&
+                roomData['lastEntry'] != null) {
+              var lastEntry = roomData['lastEntry'];
+              String currentEntryId = lastEntry['entryId']?.toString() ?? "";
 
-                if (currentEntryId.isNotEmpty &&
-                    currentEntryId != lastProcessedEntryId) {
-                  String? effectLink = lastEntry['activeEntryUrl'];
+              if (currentEntryId.isNotEmpty &&
+                  currentEntryId != lastProcessedEntryId) {
+                String? effectLink = lastEntry['activeEntryUrl'];
 
-                  if (effectLink != null && effectLink.isNotEmpty) {
-                    lastProcessedEntryId = currentEntryId;
+                if (effectLink != null && effectLink.isNotEmpty) {
+                  lastProcessedEntryId = currentEntryId;
 
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) {
-                        setState(() {
-                          entryUserName = lastEntry['name'] ?? "User";
-                          entryUserImage = lastEntry['image'] ?? "";
-                          entryUserFrame = lastEntry['activeFrameUrl'] ?? "";
-                          currentEntryEffect = effectLink;
-                          showEntryEffect = true;
-                        });
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      setState(() {
+                        entryUserName = lastEntry['name'] ?? "User";
+                        entryUserImage = lastEntry['image'] ?? "";
+                        entryUserFrame = lastEntry['activeFrameUrl'] ?? "";
+                        currentEntryEffect = effectLink;
+                        showEntryEffect = true;
+                      });
 
-                        // 🔥 অত্যন্ত গুরুত্বপূর্ণ: এন্ট্রি একবার ট্রিগার হওয়ার সাথে সাথেই ফায়ারবেস থেকে ফিল্ড মুছে দিন
-                        // এতে রুমে অন্য কেউ ঢুকলে বা রিফ্রেশ হলে আর বারবার পুরোনো এন্ট্রি দেখাবে না।
-                        FirebaseFirestore.instance
-                            .collection('rooms')
-                            .doc(widget.roomId)
-                            .update({
-                          'lastEntry': FieldValue.delete(),
-                        });
-                      }
-                    });
-                  }
+                      // 🔥 অত্যন্ত গুরুত্বপূর্ণ: এন্ট্রি একবার ট্রিগার হওয়ার সাথে সাথেই ফায়ারবেস থেকে ফিল্ড মুছে দিন
+                      // এতে রুমে অন্য কেউ ঢুকলে বা রিফ্রেশ হলে আর বারবার পুরোনো এন্ট্রি দেখাবে না।
+                      FirebaseFirestore.instance
+                          .collection('rooms')
+                          .doc(widget.roomId)
+                          .update({
+                        'lastEntry': FieldValue.delete(),
+                      });
+                    }
+                  });
                 }
               }
+            }
             return Stack(
               children: [
                 // ১. ওয়ালপেপার একদম নিচে পুরো স্ক্রিন জুড়ে থাকবে
@@ -1792,7 +1833,34 @@ class _VoiceRoomState extends State<VoiceRoom>
                     children: [
                       const SizedBox(height: 5),
                       _buildTopNavBar(),
-                      _buildViewerArea(),
+
+                      // নতুন ডিজাইনকৃত টফি ও র‍্যাঙ্কিং কাউন্টার সহ ছোট ভিউয়ার এরিয়া
+                      ViewerRankingWidget(
+                        roomId: widget.roomId,
+                        viewerListWidget: RepaintBoundary(
+                          child: Container(
+                            height:
+                                40, // লম্বায় বা উচ্চতায় আরও কমিয়ে কম্প্যাক্ট করা হয়েছে
+                            padding: const EdgeInsets.symmetric(horizontal: 5),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.groups,
+                                    color: Color.fromARGB(255, 11, 245, 3),
+                                    size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  // 🔥 PageStorageKey এবং RepaintBoundary পুরো রুমকে রি-রেন্ডার হওয়া থেকে রক্ষা করবে
+                                  child: LiveViewersList(
+                                    key: PageStorageKey(
+                                        'live_viewers_${widget.roomId}'),
+                                    roomId: widget.roomId,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                       Expanded(
                         flex: 2,
                         child: Stack(
@@ -1814,23 +1882,39 @@ class _VoiceRoomState extends State<VoiceRoom>
                                       : (val is List ? val : []);
                                 }
 
+                                // রুমে সিটে বসা ইউজারদের uID সংগ্রহ করা হচ্ছে
+                                List<String> seatUids = seats
+                                    .where((s) => s != null && s['uID'] != null)
+                                    .map((s) => s['uID'].toString())
+                                    .toList();
+
+                                if (seatUids.isEmpty) {
+                                  return const SizedBox.shrink();
+                                }
+
+                                // পুরো users কালেকশন না এনে শুধু সিটে থাকা ইউজারদের ডেটা আনা হচ্ছে (হ্যাং প্রবলেম ফিক্সড)
                                 return StreamBuilder<QuerySnapshot>(
                                   stream: FirebaseFirestore.instance
                                       .collection('users')
+                                      .where('uID', whereIn: seatUids)
                                       .snapshots(),
                                   builder: (context, userSnapshot) {
                                     if (!userSnapshot.hasData) {
                                       return const SizedBox.shrink();
                                     }
 
-                                    // ম্যাপ তৈরি করছি: {ডকুমেন্ট_আইডি : সোলমেট_লিস্ট}
                                     Map<String, List<dynamic>> allUsers = {};
                                     for (var doc in userSnapshot.data!.docs) {
                                       var d =
                                           doc.data() as Map<String, dynamic>;
-                                      allUsers[doc.id] = d['soulmates'] is List
-                                          ? d['soulmates']
-                                          : [];
+                                      String uIdStr =
+                                          (d['uID'] ?? "").toString();
+                                      if (uIdStr.isNotEmpty) {
+                                        allUsers[uIdStr] =
+                                            d['soulmates'] is List
+                                                ? d['soulmates']
+                                                : [];
+                                      }
                                     }
 
                                     return SoulmateAnimationService
@@ -1909,10 +1993,9 @@ class _VoiceRoomState extends State<VoiceRoom>
                     ],
                   ),
                 ),
-
 // ৩. ইনবক্স বাটন ও চ্যাট আনরিড কাউন্ট স্ট্রিম
                 Positioned(
-                  bottom: 110,
+                  bottom: 165, // পজিশন সমন্বয় করা হয়েছে
                   right: 15,
                   child: GestureDetector(
                     onTap: () {
@@ -1944,15 +2027,32 @@ class _VoiceRoomState extends State<VoiceRoom>
                           alignment: Alignment.center,
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(8),
+                              width: 44,
+                              height: 44,
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.6),
                                 shape: BoxShape.circle,
-                                border:
-                                    Border.all(color: Colors.white24, width: 1),
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF6A11CB),
+                                    Color(0xFF2575FC)
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                border: Border.all(
+                                    color: Colors.cyanAccent, width: 2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.cyanAccent.withOpacity(0.4),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  )
+                                ],
                               ),
-                              child: const Icon(Icons.mail,
-                                  color: Colors.white, size: 24),
+                              child: const Center(
+                                child: Icon(Icons.chat_bubble_rounded,
+                                    color: Colors.white, size: 22),
+                              ),
                             ),
                             if (unreadCount > 0)
                               Positioned(
@@ -1979,7 +2079,153 @@ class _VoiceRoomState extends State<VoiceRoom>
                     ),
                   ),
                 ),
-                // 🔥 ঠিক এই জায়গাতে (ইনবক্স বাটনের নিচে এবং মুভেবল ব্যানারের উপরে) এটি বসবে:
+
+// 🔥 ডংগী বাবা গেম ওপেন করার ফ্লোটিং বাটন:
+                Positioned(
+                  bottom: 110,
+                  right: 15,
+                  child: GestureDetector(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: Colors.transparent,
+                        isScrollControlled: true,
+                        builder: (context) =>
+                            DonggiBabaGameWidget(roomId: widget.roomId),
+                      );
+                    },
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A103C),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.amberAccent, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.amberAccent.withOpacity(0.4),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          )
+                        ],
+                      ),
+                      child: const Center(
+                        child: Text("🦁", style: TextStyle(fontSize: 22)),
+                      ),
+                    ),
+                  ),
+                ),
+
+// 🔥 মুভেবল ব্যানারের উপরে বা লবি মেনুর ভেতরে মিউজিক ট্যাপ করার সঠিক কোড:
+                Positioned(
+                  bottom: 55,
+                  right: 15,
+                  child: GestureDetector(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: Colors.transparent,
+                        isScrollControlled: true,
+                        builder: (context) => RoomLobbyMenuSheet(
+                          onMusicTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              backgroundColor: Colors.transparent,
+                              isScrollControlled: true,
+                              builder: (modalContext) => MusicPlayerWidget(
+                                onMusicSelect: (path) async {
+                                  if (!mounted) return;
+
+                                  // ✅ ফ্লোটিং প্লেয়ার দৃশ্যমান এবং মিউজিক প্লে করার জন্য স্টেট আপডেট করা হলো
+                                  setState(() {
+                                    isFloatingPlayerVisible = true;
+                                    currentMusicUrl = path;
+                                    isRoomMusicPlaying = true;
+                                  });
+
+                                  try {
+                                    await _agoraManager.engine
+                                        .stopAudioMixing();
+                                    await _agoraManager.engine.startAudioMixing(
+                                        filePath: path,
+                                        loopback: false,
+                                        cycle: 1);
+                                    await _agoraManager.engine
+                                        .adjustAudioMixingVolume(100);
+                                  } catch (e) {
+                                    debugPrint("Audio Mixing Error: $e");
+                                  }
+                                },
+                                onVolumeChange: (volume) => _agoraManager.engine
+                                    .adjustAudioMixingVolume(volume.toInt()),
+                              ),
+                            );
+                          },
+                          onGiftToolsTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (context) => Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF1A1A2E),
+                                  borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(20)),
+                                ),
+                                child: FloatingRoomTools(
+                                  onGiftCountStart: (minutes, theme) {
+                                    _startGiftCounting(minutes, theme);
+                                  },
+                                  seats: seats,
+                                  isPKActive: isPKActive,
+                                  onStartPK: _startPKBattle,
+                                  ownerId: ownerId,
+                                  myuID: myuID,
+                                  adminList: adminList,
+                                ),
+                              ),
+                            );
+                          },
+                          onGamesTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              useSafeArea: false,
+                              backgroundColor: Colors.transparent,
+                              builder: (c) => SizedBox(
+                                height: MediaQuery.of(context).size.height,
+                                child: GamePanelView(roomId: widget.roomId),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A103C),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.cyanAccent, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.cyanAccent.withOpacity(0.4),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          )
+                        ],
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.dashboard_rounded,
+                            color: Colors.cyanAccent, size: 22),
+                      ),
+                    ),
+                  ),
+                ),
+
+// 🔥 মুভেবল ব্যানারের উপরে এটি বসবে:
                 RoomFloatingBox(roomId: widget.roomId),
 
                 // ৪. মুভেবল ব্যানার
@@ -2548,12 +2794,22 @@ class _VoiceRoomState extends State<VoiceRoom>
                               const Icon(Icons.card_giftcard,
                                   size: 28, color: Colors.orange),
                         )
-                      : Image.network(
-                          giftImgUrl,
+                      : CachedNetworkImage(
+                          imageUrl: giftImgUrl,
                           height: 40,
                           width: 40,
                           fit: BoxFit.contain,
-                          errorBuilder: (c, e, s) => const Icon(
+                          placeholder: (context, url) => const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ),
+                          errorWidget: (c, e, s) => const Icon(
                               Icons.card_giftcard,
                               size: 28,
                               color: Colors.orange),
@@ -2640,6 +2896,19 @@ class _VoiceRoomState extends State<VoiceRoom>
                     lottieUrl,
                     repeat: false,
                     animate: true,
+                    // লটি প্যাকেজ বাই-ডিফল্ট নেটওয়ার্ক ফাইল ক্যাশ করে নেয়।
+                    // অ্যানিমেশন লোড হওয়ার পর এর নির্দিষ্ট সময় পর ডাটাবেস থেকে রিমুভ করার লজিক:
+                    onLoaded: (composition) {
+                      Future.delayed(composition.duration, () {
+                        if (mounted) {
+                          FirebaseDatabase.instance
+                              .ref(
+                                  'rooms/${widget.roomId}/active_emojis/$seatIndex')
+                              .remove();
+                        }
+                      });
+                    },
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                   ),
                 ),
               ),
@@ -3024,36 +3293,62 @@ class _VoiceRoomState extends State<VoiceRoom>
                         ),
                       ),
                       const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Text(
-                            "ID: ${widget.roomId}",
-                            style: TextStyle(
-                                color: Colors.white.withOpacity(0.6),
-                                fontSize: 10),
-                          ),
-                          Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 6),
-                            width: 1,
-                            height: 8,
-                            color: Colors.white24,
-                          ),
-                          const Icon(Icons.favorite,
-                              size: 10, color: Colors.pinkAccent),
-                          const SizedBox(width: 3),
-                          Text(
-                            "$followerCount Followers",
-                            style: TextStyle(
-                                color: Colors.white.withOpacity(0.6),
-                                fontSize: 10),
-                          ),
-                        ],
+                      GestureDetector(
+                        onTap: () async {
+                          var roomDoc = await FirebaseFirestore.instance
+                              .collection('rooms')
+                              .doc(widget.roomId)
+                              .get();
+
+                          if (!roomDoc.exists) return;
+
+                          var data = roomDoc.data();
+                          String owneruIDFromDb =
+                              data?['uID'] ?? data?['ownerId'] ?? "";
+
+                          if (!context.mounted) return;
+
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => RoomFollowerSheet(
+                              roomId: widget.roomId,
+                              ownerId: owneruIDFromDb,
+                            ),
+                          );
+                        },
+                        child: Row(
+                          children: [
+                            Text(
+                              "ID: ${widget.roomId}",
+                              style: TextStyle(
+                                  color: Colors.white.withOpacity(0.6),
+                                  fontSize: 10),
+                            ),
+                            Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 6),
+                              width: 1,
+                              height: 8,
+                              color: Colors.white24,
+                            ),
+                            const Icon(Icons.favorite,
+                                size: 10, color: Colors.pinkAccent),
+                            const SizedBox(width: 3),
+                            Text(
+                              "$followerCount Followers",
+                              style: TextStyle(
+                                  color: Colors.white.withOpacity(0.6),
+                                  fontSize: 10),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
 
-                // ১. ফলোয়ার বাটন ও সংখ্যা প্রদর্শন
+                // ১. ফলোয়ার বাটন (সংখ্যা বা কাউন্ট বাদ দেওয়া হয়েছে)
                 if (!isOwner)
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -3128,53 +3423,109 @@ class _VoiceRoomState extends State<VoiceRoom>
                           }
                         },
                       ),
-                      Text(
-                        followerCount.toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
                       const SizedBox(width: 8),
                     ],
                   ),
-
-                // ২. ইউজার লিস্ট বাটন
-                IconButton(
-                  icon: const Icon(Icons.group,
-                      color: Color.fromARGB(251, 39, 243, 21), size: 20),
-                  onPressed: () async {
-                    var roomDoc = await FirebaseFirestore.instance
-                        .collection('rooms')
-                        .doc(widget.roomId)
-                        .get();
-
-                    if (!roomDoc.exists) return;
-
-                    var data = roomDoc.data();
-                    String owneruIDFromDb =
-                        data?['uID'] ?? data?['ownerId'] ?? "";
-
-                    if (!context.mounted) return;
-
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => RoomFollowerSheet(
-                        roomId: widget.roomId,
-                        ownerId: owneruIDFromDb,
-                      ),
-                    );
-                  },
-                ),
-
                 // ৩. সেটিংস বাটন
                 IconButton(
                   icon: const Icon(Icons.settings,
                       color: Color.fromARGB(255, 132, 217, 251), size: 20),
                   onPressed: _showSettings,
+                ),
+                const SizedBox(width: 6),
+
+// ৪. পাওয়ার বাটন (পিসি অন/অফ স্টাইল, এক্সিট ও মিনিমাইজ অপশন সহ)
+                PopupMenuButton<String>(
+                  offset: const Offset(0, 45),
+                  color: const Color(0xFF1E1E2C),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Colors.redAccent, Colors.deepOrange],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.red.withOpacity(0.5),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.power_settings_new,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                  onSelected: (value) {
+                    if (value == 'minimize') {
+                      // মিনিমাইজ লজিক
+                      FloatingBubbleService.isMinimized = true;
+                      String imageUrl = roomProfileImage.isNotEmpty
+                          ? roomProfileImage
+                          : 'https://via.placeholder.com/150';
+
+                      FloatingBubbleService.show(
+                          context, widget.roomId, imageUrl, widget);
+                      Navigator.of(context).pop();
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("রুম মিনিমাইজ করা হয়েছে"),
+                          backgroundColor: Colors.pinkAccent,
+                        ),
+                      );
+                    } else if (value == 'exit') {
+                      // এক্সিট বা লিভ লজিক
+                      RoomSettingsHandler.showExitDialog(context, () async {
+                        try {
+                          await RoomExitHandler.handleExit(
+                              widget.roomId,
+                              myuID.toString(),
+                              adminList.map((e) => e.toString()).toList(),
+                              ownerId.toString());
+
+                          await _agoraManager.engine.leaveChannel();
+                          await _agoraManager.engine.release();
+                        } catch (e) {
+                          debugPrint(
+                              "DEBUG ERROR: background cleanup failed: $e");
+                        }
+                      });
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'minimize',
+                      child: Row(
+                        children: [
+                          Icon(Icons.minimize,
+                              color: Colors.pinkAccent, size: 20),
+                          SizedBox(width: 10),
+                          Text("Minimize Room",
+                              style: TextStyle(color: Colors.white)),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'exit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.exit_to_app,
+                              color: Colors.redAccent, size: 20),
+                          SizedBox(width: 10),
+                          Text("Exit Room",
+                              style: TextStyle(color: Colors.white)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -3441,10 +3792,21 @@ class _VoiceRoomState extends State<VoiceRoom>
                                                           .contains('.json')
                                                       ? Lottie.network(
                                                           activeFrame,
-                                                          fit: BoxFit.contain)
-                                                      : Image.network(
-                                                          activeFrame,
-                                                          fit: BoxFit.contain),
+                                                          fit: BoxFit.contain,
+                                                        )
+                                                      : CachedNetworkImage(
+                                                          imageUrl: activeFrame,
+                                                          fit: BoxFit.contain,
+                                                          placeholder:
+                                                              (context, url) =>
+                                                                  const SizedBox
+                                                                      .shrink(),
+                                                          errorWidget: (context,
+                                                                  error,
+                                                                  stackTrace) =>
+                                                              const SizedBox
+                                                                  .shrink(),
+                                                        ),
                                                 ),
                                               ),
                                           ],
@@ -3466,17 +3828,55 @@ class _VoiceRoomState extends State<VoiceRoom>
                                             MainAxisAlignment.center,
                                         children: [
                                           if (vipLevel > 0)
-                                            Image.network(getVipBadge(vipLevel),
-                                                width: 35, height: 35),
+                                            CachedNetworkImage(
+                                              imageUrl: getVipBadge(vipLevel),
+                                              width: 35,
+                                              height: 35,
+                                              fit: BoxFit.contain,
+                                              placeholder: (context, url) =>
+                                                  const SizedBox(
+                                                width: 20,
+                                                height: 20,
+                                                child: Center(
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    strokeWidth: 1.5,
+                                                    color: Colors.white70,
+                                                  ),
+                                                ),
+                                              ),
+                                              errorWidget: (context, error,
+                                                      stackTrace) =>
+                                                  const SizedBox(
+                                                      width: 35, height: 35),
+                                            ),
                                           if (userData['hasPremiumCard'] ==
                                               true)
                                             Padding(
                                               padding: const EdgeInsets.only(
                                                   left: 8.0),
-                                              child: Image.network(
-                                                  premiumBadgeUrl,
-                                                  width: 35,
-                                                  height: 35),
+                                              child: CachedNetworkImage(
+                                                imageUrl: premiumBadgeUrl,
+                                                width: 35,
+                                                height: 35,
+                                                fit: BoxFit.contain,
+                                                placeholder: (context, url) =>
+                                                    const SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child: Center(
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      strokeWidth: 1.5,
+                                                      color: Colors.white70,
+                                                    ),
+                                                  ),
+                                                ),
+                                                errorWidget: (context, error,
+                                                        stackTrace) =>
+                                                    const SizedBox(
+                                                        width: 35, height: 35),
+                                              ),
                                             ),
                                         ],
                                       ),
@@ -3675,10 +4075,12 @@ class _VoiceRoomState extends State<VoiceRoom>
                                             errorBuilder: (c, e, s) =>
                                                 const SizedBox.shrink(),
                                           )
-                                        : Image.network(
-                                            uFrame,
+                                        : CachedNetworkImage(
+                                            imageUrl: uFrame,
                                             fit: BoxFit.contain,
-                                            errorBuilder: (c, e, s) =>
+                                            placeholder: (context, url) =>
+                                                const SizedBox.shrink(),
+                                            errorWidget: (c, e, s) =>
                                                 const SizedBox.shrink(),
                                           ),
                                   ),
@@ -3725,16 +4127,16 @@ class _VoiceRoomState extends State<VoiceRoom>
   }
 
   Widget _buildBottomActionArea() {
+    // সমস্ত বাটনের জন্য নির্দিষ্ট সাইজ (সমান রাখার জন্য)
+    final double buttonSize = 42.0;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       child: Row(
         children: [
-          
-          // ১. ইমোজি বাটন 😄 (সম্পূর্ণ অপরিবর্তিত ও নিরাপদ)
-          buildCircularIcon(
-            Icons.emoji_emotions_outlined,
-            const Color.fromARGB(255, 250, 143, 2),
-            () async {
+          // ১. ইমোজি বাটন 😄 (অন্যান্য বাটনের ডিজাইনের সাথে সামঞ্জস্যপূর্ণ)
+          GestureDetector(
+            onTap: () async {
               if (currentSeatIndex < 0 || currentSeatIndex > 11) {
                 ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("Take seat first")));
@@ -3776,47 +4178,42 @@ class _VoiceRoomState extends State<VoiceRoom>
                 },
               );
             },
-          ),
-          const SizedBox(width: 5),
-
-          // ২. আপনার চাওয়া নতুন ফিচার: সরাসরি মেসেজ ইনপুট এরিয়া বদলে শুধু ✉️ বাটন
-          _buildCircularIcon(
-              Icons.mail_outline, const Color.fromARGB(191, 246, 215, 19), () {
-            // বাটনে ক্লিক করলে ইনপুট বক্সটি নিচ থেকে পপ-আপ হবে
-            _showChatInputBottomSheet();
-          }),
-
-          const SizedBox(width: 5),
-
-          // ৩. স্টার/গিফট টুলস বাটন ⭐ (লুডু ও গেইম কোড মুক্ত)
-          _buildCircularIcon(Icons.star, Colors.purpleAccent, () {
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (context) => Container(
-                padding: const EdgeInsets.all(10),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1A1A2E),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            child: Container(
+              width: buttonSize,
+              height: buttonSize,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF2A1B4E).withOpacity(0.9),
+                    const Color(0xFF1A1A2E),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                child: FloatingRoomTools(
-                  onGiftCountStart: (minutes, theme) {
-                    _startGiftCounting(minutes, theme);
-                  },
-                  seats: seats,
-                  isPKActive: isPKActive,
-                  onStartPK: _startPKBattle,
-                  ownerId: ownerId,
-                  myuID: myuID,
-                  adminList: adminList,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color:
+                      const Color.fromARGB(255, 250, 143, 2).withOpacity(0.7),
+                  width: 1.5,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.4),
+                    blurRadius: 6,
+                    spreadRadius: 1,
+                  ),
+                ],
               ),
-            );
-          }),
-          const SizedBox(width: 5),
+              child: const Icon(
+                Icons.emoji_emotions_outlined,
+                color: Color.fromARGB(255, 250, 143, 2),
+                size: 20,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
 
-          // ৪. রুম মিউট বাটন 🔊 (StatefulBuilder সহ অপ্টিমাইজড)
+          // ২. রুম সাউন্ড অন/অফ বাটন 🔊 (প্রথমে)
           StatefulBuilder(
             builder: (context, setButtonState) {
               return GestureDetector(
@@ -3824,39 +4221,49 @@ class _VoiceRoomState extends State<VoiceRoom>
                   setButtonState(() {
                     isRoomMuted = !isRoomMuted;
                   });
-                  // পুরো রুমের setState বাদ দিয়ে শুধুমাত্র অডিও টগল করা হলো
                   _agoraManager.muteAllRemoteAudio(isRoomMuted);
                 },
                 child: Container(
-                  padding: const EdgeInsets.all(8),
+                  width: buttonSize,
+                  height: buttonSize,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1), // গ্লাস কালার
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF2A1B4E).withOpacity(0.9),
+                        const Color(0xFF1A1A2E),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color:
-                          Colors.white.withOpacity(0.3), // বর্ডার গ্লাস ইফেক্ট
+                      color: isRoomMuted
+                          ? Colors.redAccent.withOpacity(0.6)
+                          : const Color(0xFFFFD700).withOpacity(0.5),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 8,
+                        color: Colors.black.withOpacity(0.4),
+                        blurRadius: 6,
                         spreadRadius: 1,
                       ),
                     ],
                   ),
                   child: Icon(
                     isRoomMuted ? Icons.volume_off : Icons.volume_up,
-                    color: isRoomMuted ? Colors.redAccent : Colors.greenAccent,
+                    color: isRoomMuted
+                        ? Colors.redAccent
+                        : const Color(0xFFFFD700),
                     size: 20,
                   ),
                 ),
               );
             },
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 8),
 
-          // ৫. মাইক কন্ট্রোল বাটন (StatefulBuilder সহ অপ্টিমাইজড)
+          // ৩. মাইক কন্ট্রোল বাটন 🎤 (দ্বিতীয়)
           StatefulBuilder(
             builder: (context, setButtonState) {
               return GestureDetector(
@@ -3868,7 +4275,6 @@ class _VoiceRoomState extends State<VoiceRoom>
 
                   bool newMicState = !isMicOn;
 
-                  // শুধু এই বাটনের স্টেট আপডেট করা হলো যাতে পুরো রুম রি-রেন্ডার না হয়
                   setButtonState(() {
                     isMicOn = newMicState;
                     if (!newMicState &&
@@ -3879,32 +4285,39 @@ class _VoiceRoomState extends State<VoiceRoom>
                   });
 
                   try {
-                    // অ্যাগোরা এবং ফায়ারবেস ব্যাকগ্রাউন্ডে আপডেট করুন
                     await _agoraManager.toggleMic(!newMicState);
                     await FirebaseDatabase.instance
                         .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
                         .update({'isMicOn': newMicState});
                   } catch (e) {
-                    // এরর হলে আগের অবস্থায় ফিরিয়ে নিন
                     setButtonState(() {
                       isMicOn = !newMicState;
                     });
                   }
                 },
                 child: Container(
-                  padding:
-                      const EdgeInsets.all(8), // বাটন সাইজ ঠিক রাখতে প্যাডিং
+                  width: buttonSize,
+                  height: buttonSize,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1), // গ্লাস ব্যাকগ্রাউন্ড
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF2A1B4E).withOpacity(0.9),
+                        const Color(0xFF1A1A2E),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.3), // গ্লাস বর্ডার
+                      color: isMicOn
+                          ? Colors.greenAccent.withOpacity(0.6)
+                          : Colors.redAccent.withOpacity(0.6),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 8,
+                        color: Colors.black.withOpacity(0.4),
+                        blurRadius: 6,
                         spreadRadius: 1,
                       ),
                     ],
@@ -3912,114 +4325,83 @@ class _VoiceRoomState extends State<VoiceRoom>
                   child: Icon(
                     isMicOn ? Icons.mic : Icons.mic_off,
                     color: isMicOn ? Colors.greenAccent : Colors.redAccent,
-                    size: 22,
+                    size: 20,
                   ),
                 ),
               );
             },
           ),
+          const SizedBox(width: 8),
 
-          const SizedBox(width: 5),
-          // ৬. মিউজিক বাটন (StatefulBuilder সহ অপ্টিমাইজড)
-          StatefulBuilder(
-            builder: (context, setButtonState) {
-              return Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.3),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 8,
-                      spreadRadius: 1,
-                    ),
+          // ৪. মেসেজ ইনপুট বাটন ✉️ (তৃতীয় - সাইজ ও ডিজাইন ফিক্সড)
+          GestureDetector(
+            onTap: () {
+              _showChatInputBottomSheet();
+            },
+            child: Container(
+              width: buttonSize,
+              height: buttonSize,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF2A1B4E).withOpacity(0.9),
+                    const Color(0xFF1A1A2E),
                   ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                child: GestureDetector(
-                  onTap: () {
-                    showModalBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      isScrollControlled: true,
-                      builder: (modalContext) => MusicPlayerWidget(
-                        onMusicSelect: (path) async {
-                          // ✅ সেফটি চেক: ফাইল সিলেক্ট করার পর উইজেট লাইভ আছে কি না নিশ্চিত করা
-                          if (!mounted) return;
-
-                          // শুধু এই বাটনের স্টেট এবং মূল স্ক্রিনের স্টেট আপডেট করা হলো
-                          setButtonState(() {
-                            isFloatingPlayerVisible = true;
-                          });
-                          setState(() {
-                            currentMusicUrl = path;
-                            isRoomMusicPlaying = true;
-                          });
-
-                          try {
-                            await _agoraManager.engine.stopAudioMixing();
-                            await _agoraManager.engine.startAudioMixing(
-                                filePath: path, loopback: false, cycle: 1);
-                            await _agoraManager.engine
-                                .adjustAudioMixingVolume(100);
-                          } catch (e) {
-                            debugPrint("Audio Mixing Error: $e");
-                          }
-                        },
-                        onVolumeChange: (volume) => _agoraManager.engine
-                            .adjustAudioMixingVolume(volume.toInt()),
-                      ),
-                    );
-                  },
-                  child: Icon(
-                    Icons.music_note,
-                    color: isFloatingPlayerVisible
-                        ? const Color.fromARGB(255, 164, 86, 243)
-                        : const Color.fromARGB(255, 117, 225, 244),
-                    size: 22,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color:
+                      const Color.fromARGB(191, 246, 215, 19).withOpacity(0.6),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.4),
+                    blurRadius: 6,
+                    spreadRadius: 1,
                   ),
-                ),
-              );
-            },
+                ],
+              ),
+              child: const Icon(
+                Icons.mail_outline,
+                color: Color.fromARGB(191, 246, 215, 19),
+                size: 20,
+              ),
+            ),
           ),
-          // ৭. এনিমেটেড গিফট বাটন 🎁 (নড়াচড়া করার ফিচার সহ)
-          _buildAnimatedGiftButton(),
+          const SizedBox(width: 8),
 
-          // ৮. গেম বাটন 🎮 (সম্পূর্ণ অপরিবর্তিত ও নিরাপদ)
+          // ৫. আকর্ষণীয় গিফট বক্স ডিজাইন এনিমেটেড গিফট বাটন 🎁 (চতুর্থ/শেষে)
           Container(
-            padding: const EdgeInsets.all(8),
+            width: buttonSize,
+            height: buttonSize,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFFFFD700),
+                  Color(0xFFFF8C00),
+                  Color(0xFF9400D3)
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 1.5,
+                color: Colors.white.withOpacity(0.8),
+                width: 1.8,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 8,
+                  color: const Color(0xFFFFD700).withOpacity(0.5),
+                  blurRadius: 10,
                   spreadRadius: 1,
                 ),
               ],
             ),
-            child: GestureDetector(
-              onTap: () => showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                useSafeArea: false,
-                backgroundColor: Colors.transparent,
-                builder: (c) => SizedBox(
-                  height: MediaQuery.of(context).size.height,
-                  child: GamePanelView(roomId: widget.roomId),
-                ),
-              ),
-              child: const Icon(Icons.videogame_asset,
-                  color: Colors.orange, size: 22),
+            child: Center(
+              child: _buildAnimatedGiftButton(),
             ),
           ),
         ],
@@ -4725,43 +5107,6 @@ class _VoiceRoomState extends State<VoiceRoom>
                 ],
               )
             : Icon(icon, color: color, size: 22),
-      ),
-    );
-  }
-
-  // ভিউয়ার্স এরিয়া উইজেট (সম্পূর্ণ অপ্টিমাইজড ও আইসোলেটেড, যাতে পুরো রুম রেন্ডার না হয়)
-  Widget _buildViewerArea() {
-    return RepaintBoundary(
-      child: Container(
-        height: 50,
-        margin: const EdgeInsets.symmetric(vertical: 5),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.groups,
-                color: Color.fromARGB(255, 11, 245, 3), size: 18),
-            const SizedBox(width: 8),
-            const Text(
-              "Viewers:",
-              style: TextStyle(
-                  color: Color.fromARGB(255, 157, 210, 246),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              // 🔥 PageStorageKey এবং RepaintBoundary পুরো রুমকে রি-রেন্ডার হওয়া থেকে রক্ষা করবে
-              child: LiveViewersList(
-                key: PageStorageKey('live_viewers_${widget.roomId}'),
-                roomId: widget.roomId,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class RoomFloatingBox extends StatelessWidget {
   final String roomId;
@@ -11,13 +10,10 @@ class RoomFloatingBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      bottom: 180, // ইনবক্স বাটনের উপরে পজিশন করা হলো
+      bottom: 220, // ইনবক্স বাটনের সাথে সামঞ্জস্যপূর্ণ পজিশন
       right: 15,
       child: GestureDetector(
-        onTap: () {
-          // বক্সের ওপর ক্লিক করলে গিফট রিওয়ার্ড এবং প্রোগ্রেস দেখানোর পপআপ/ট্যাব ওপেন হবে
-          _showBoxRewardDialog(context, roomId);
-        },
+        onTap: () => _showBoxRewardDialog(context, roomId),
         child: StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance
               .collection('rooms')
@@ -35,24 +31,23 @@ class RoomFloatingBox extends StatelessWidget {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // ভাসমান অ্যানিমেটেড লটি বক্স (অনলাইন লিংক সহ)
+                // বাটন সাইজ ৪৪x৪৪
                 SizedBox(
-                  width: 65,
-                  height: 65,
+                  width: 44,
+                  height: 44,
                   child: Lottie.network(
-                    'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/officialall/gift_box.json', // এখানে আপনার গিটহাবের র (Raw) লিংক বা যেকোনো অনলাইন লিংক দিন
+                    'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/officialall/gift_box.json',
                     fit: BoxFit.contain,
-                    // যদি ইন্টারনেট স্লো থাকে বা লিংক লোড হতে সমস্যা হয়, তার জন্য হ্যান্ডলিং:
                     errorBuilder: (context, error, stackTrace) {
                       return const Center(
                         child: Icon(Icons.card_giftcard,
-                            color: Colors.amber, size: 30),
+                            color: Colors.amber, size: 22),
                       );
                     },
                   ),
                 ),
-                const SizedBox(height: 2),
-                // প্রোগ্রেস কাউন্টার ব্যাজ
+                const SizedBox(height: 4),
+                // কাউন্টার সাইজ ছোট ও সুন্দর
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -64,10 +59,9 @@ class RoomFloatingBox extends StatelessWidget {
                   child: Text(
                     "$currentDiamonds/25k",
                     style: const TextStyle(
-                      color: Colors.amber,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                    ),
+                        color: Colors.amber,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -78,7 +72,6 @@ class RoomFloatingBox extends StatelessWidget {
     );
   }
 
-  // গিফট রিওয়ার্ড এবং ডিটেইলস দেখানোর পপআপ ট্যাব
   void _showBoxRewardDialog(BuildContext context, String roomId) {
     showModalBottomSheet(
       context: context,
@@ -98,10 +91,9 @@ class RoomFloatingBox extends StatelessWidget {
               child: Text(
                 "Room Treasure Box",
                 style: TextStyle(
-                  color: Colors.amber,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                    color: Colors.amber,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(height: 15),
@@ -113,8 +105,8 @@ class RoomFloatingBox extends StatelessWidget {
             const SizedBox(height: 10),
             const Text(
               "• Total 25,000 Diamonds gifts will blast the box.\n"
-              "• #1 Top Gifter gets: Avatar Frame (Backpack) + 5,000 Diamonds.\n"
-              "• Other Gifters get: Free Gifts (valid for 2 days) + 1,000 Diamonds.\n"
+              "• #1 Top Gifter gets: Avatar Frame + 5,000 Diamonds.\n"
+              "• Other Gifters get: Free Gifts + 1,000 Diamonds.\n"
               "• All active room users get: 10 Diamonds each!\n"
               "• Resets every 24 hours.",
               style:
@@ -134,7 +126,6 @@ class RoomFloatingBox extends StatelessWidget {
                   var data = snapshot.data!.data() as Map<String, dynamic>;
                   total = data['totalDiamonds'] ?? 0;
                 }
-                // 🔥 এখানে ১৫ হাজারের জায়গায় ২৫,০০০ দিয়ে প্রোগ্রেস ক্যালকুলেট করা হলো
                 double progress = (total / 25000).clamp(0.0, 1.0);
 
                 return Column(
