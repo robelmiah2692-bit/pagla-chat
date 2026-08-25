@@ -53,4 +53,19 @@ class FollowService {
         
     return doc.exists;
   }
+
+  // চেক করা সে আপনাকে ফলো করে কিনা (Mutual Follow / Friend চেক)
+  Future<bool> checkIfMutualFriend(String targetUID, String myUID) async {
+    if (myUID.isEmpty || targetUID.isEmpty) return false;
+    
+    // টার্গেটের ফলোয়িং লিস্টে আপনার আইডি আছে কিনা চেক করা
+    DocumentSnapshot doc = await _db
+        .collection('users')
+        .doc(targetUID)
+        .collection('followingList')
+        .doc(myUID)
+        .get();
+        
+    return doc.exists;
+  }
 }

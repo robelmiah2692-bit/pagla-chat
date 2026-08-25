@@ -629,7 +629,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     var myData = myDoc.data();
                     if (myData == null) return;
 
-                    // 🛑 [ভিআইপি ও এক্সপি ক্যালকুলেশন - চেক করা হচ্ছে]
+                    // 🛑 [শুধুমাত্র কলারের ভিআইপি স্ট্যাটাস চেক করা হচ্ছে]
                     int vipXp = myData['vip_xp'] ?? myData['xp'] ?? 0;
                     int vipExpiry = myData['vipExpiry'] ?? 0;
                     int currentTime = DateTime.now().millisecondsSinceEpoch;
@@ -655,12 +655,12 @@ class _ChatScreenState extends State<ChatScreen> {
                       }
                     }
 
-                    // যদি ইউজার ভিআইপি না হয় (vipLevel == 0), তবে কল করতে পারবে না এবং মেসেজ দেখাবে
+                    // যদি কলার ভিআইপি না হয় (vipLevel == 0), তবে কল করতে পারবে না
                     if (vipLevel <= 0) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text("Only VIP"),
+                            content: Text("Only VIP users can make calls"),
                             backgroundColor: Colors.red,
                             duration: Duration(seconds: 2),
                           ),
@@ -672,11 +672,12 @@ class _ChatScreenState extends State<ChatScreen> {
                     String myName = myData['name'] ?? '';
                     String myPic = myData['profilePic'] ?? '';
 
-                    // ২. ফায়ারস্টোর থেকে রিসিভারের ডাটা ফেচ করা
+                    // ২. ফায়ারস্টোর থেকে রিসিভারের ডাটা ফেচ করা (রিসিভারের কোনো কন্ডিশন নেই)
                     var receiverDoc = await FirebaseFirestore.instance
                         .collection('users')
                         .doc(widget.receiverId)
                         .get();
+
                     String receiverName =
                         receiverDoc.data()?['name'] ?? widget.receiverName;
                     String receiverPic =
@@ -684,7 +685,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
                     String callChannelId = getChatRoomId();
 
-                    // ৩. কল হ্যান্ডলার কল করা (যা রিংটোন বাজাবে এবং অপর প্রান্তে সিগন্যাল পাঠাবে)
+                    // ৩. কল হ্যান্ডলার কল করা
                     if (context.mounted) {
                       await CallHandler.makeCall(
                         context: context,

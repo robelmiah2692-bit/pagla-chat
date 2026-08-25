@@ -7,10 +7,12 @@ import 'package:audioplayers/audioplayers.dart'; // অডিও বাজান
 
 // --- PK Setup View ---
 class PKSetupView extends StatefulWidget {
-  final List<Map<String, dynamic>> seatedUsers; 
-  final Function(Map<String, dynamic> u1, Map<String, dynamic> u2, int duration) onStart;
+  final List<Map<String, dynamic>> seatedUsers;
+  final Function(Map<String, dynamic> u1, Map<String, dynamic> u2, int duration)
+      onStart;
 
-  const PKSetupView({super.key, required this.seatedUsers, required this.onStart});
+  const PKSetupView(
+      {super.key, required this.seatedUsers, required this.onStart});
 
   @override
   State<PKSetupView> createState() => _PKSetupViewState();
@@ -22,7 +24,8 @@ class _PKSetupViewState extends State<PKSetupView> {
 
   @override
   Widget build(BuildContext context) {
-    final occupiedSeats = widget.seatedUsers.where((s) => s['isOccupied'] == true).toList();
+    final occupiedSeats =
+        widget.seatedUsers.where((s) => s['isOccupied'] == true).toList();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -33,79 +36,94 @@ class _PKSetupViewState extends State<PKSetupView> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text("Select 2 Users for PK", 
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text("Select 2 Users for PK",
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold)),
           const SizedBox(height: 15),
-          
           SizedBox(
             height: 120,
-            child: occupiedSeats.isEmpty 
-            ? const Center(child: Text("No users on mic", style: TextStyle(color: Colors.white54)))
-            : ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: occupiedSeats.length,
-              itemBuilder: (context, index) {
-                var user = occupiedSeats[index];
-                bool isSelected = selectedUsers.contains(user);
-                
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      if (isSelected) {
-                        selectedUsers.remove(user);
-                      } else if (selectedUsers.length < 2) {
-                        selectedUsers.add(user);
-                      }
-                    });
-                  },
-                  child: Container(
-                    width: 80,
-                    margin: const EdgeInsets.symmetric(horizontal: 5),
-                    decoration: BoxDecoration(
-                      color: isSelected ? Colors.blueAccent.withOpacity(0.4) : Colors.white10,
-                      borderRadius: BorderRadius.circular(15),
-                      border: isSelected ? Border.all(color: Colors.blueAccent, width: 2) : null,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircleAvatar(
-                          radius: 25,
-                          backgroundImage: user['userImage'].isNotEmpty 
-                              ? NetworkImage(user['userImage']) 
-                              : const NetworkImage('https://cdn-icons-png.flaticon.com/512/847/847969.png'),
+            child: occupiedSeats.isEmpty
+                ? const Center(
+                    child: Text("No users on mic",
+                        style: TextStyle(color: Colors.white54)))
+                : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: occupiedSeats.length,
+                    itemBuilder: (context, index) {
+                      var user = occupiedSeats[index];
+                      bool isSelected = selectedUsers.contains(user);
+
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            if (isSelected) {
+                              selectedUsers.remove(user);
+                            } else if (selectedUsers.length < 2) {
+                              selectedUsers.add(user);
+                            }
+                          });
+                        },
+                        child: Container(
+                          width: 80,
+                          margin: const EdgeInsets.symmetric(horizontal: 5),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Colors.blueAccent.withOpacity(0.4)
+                                : Colors.white10,
+                            borderRadius: BorderRadius.circular(15),
+                            border: isSelected
+                                ? Border.all(color: Colors.blueAccent, width: 2)
+                                : null,
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircleAvatar(
+                                radius: 25,
+                                backgroundImage: user['userImage'].isNotEmpty
+                                    ? NetworkImage(user['userImage'])
+                                    : const NetworkImage(
+                                        'https://cdn-icons-png.flaticon.com/512/847/847969.png'),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(user['userName'],
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 10),
+                                  overflow: TextOverflow.ellipsis),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 5),
-                        Text(user['userName'], style: const TextStyle(color: Colors.white, fontSize: 10), overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
-          
           const SizedBox(height: 15),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: [5, 10].map((min) => Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ChoiceChip(
-                label: Text("$min Min"),
-                selected: selectedDuration == min,
-                onSelected: (val) => setState(() => selectedDuration = min),
-              ),
-            )).toList(),
+            children: [5, 10]
+                .map((min) => Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: ChoiceChip(
+                        label: Text("$min Min"),
+                        selected: selectedDuration == min,
+                        onSelected: (val) =>
+                            setState(() => selectedDuration = min),
+                      ),
+                    ))
+                .toList(),
           ),
-          
           const SizedBox(height: 20),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: selectedUsers.length == 2 ? Colors.blueAccent : Colors.grey,
-              padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15)
-            ),
-            onPressed: selectedUsers.length == 2 
-                ? () => widget.onStart(selectedUsers[0], selectedUsers[1], selectedDuration) 
+                backgroundColor:
+                    selectedUsers.length == 2 ? Colors.blueAccent : Colors.grey,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 50, vertical: 15)),
+            onPressed: selectedUsers.length == 2
+                ? () => widget.onStart(
+                    selectedUsers[0], selectedUsers[1], selectedDuration)
                 : null,
             child: const Text("START PK"),
           ),
@@ -115,8 +133,6 @@ class _PKSetupViewState extends State<PKSetupView> {
   }
 }
 
-
-
 class PersonalPKView extends StatefulWidget {
   final Map<String, dynamic> user1;
   final Map<String, dynamic> user2;
@@ -124,7 +140,8 @@ class PersonalPKView extends StatefulWidget {
   final int score1;
   final int score2;
   final VoidCallback onTimerEnd;
-  final String backgroundImage = "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/vspkbenar.jpg"; 
+  final String backgroundImage =
+      "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/vspkbenar.jpg";
 
   const PersonalPKView({
     super.key,
@@ -140,11 +157,12 @@ class PersonalPKView extends StatefulWidget {
   State<PersonalPKView> createState() => _PersonalPKViewState();
 }
 
-class _PersonalPKViewState extends State<PersonalPKView> with SingleTickerProviderStateMixin {
+class _PersonalPKViewState extends State<PersonalPKView>
+    with SingleTickerProviderStateMixin {
   late Timer _timer;
   late int _remainingSeconds;
   late AnimationController _glowController;
-  
+
   // অডিও প্লেয়ার ইনিশিয়ালাইজেশন
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _hasPlayedEndingSound = false;
@@ -163,7 +181,8 @@ class _PersonalPKViewState extends State<PersonalPKView> with SingleTickerProvid
   @override
   void didUpdateWidget(covariant PersonalPKView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.score1 != widget.score1 || oldWidget.score2 != widget.score2) {
+    if (oldWidget.score1 != widget.score1 ||
+        oldWidget.score2 != widget.score2) {
       setState(() {});
     }
   }
@@ -177,7 +196,7 @@ class _PersonalPKViewState extends State<PersonalPKView> with SingleTickerProvid
       setState(() {
         if (_remainingSeconds > 0) {
           _remainingSeconds--;
-          
+
           // ঠিক যখন ১০ সেকেন্ড বা তার কম বাকি থাকবে এবং সাউন্ড একবারও বাজেনি
           if (_remainingSeconds <= 10 && !_hasPlayedEndingSound) {
             _hasPlayedEndingSound = true;
@@ -191,17 +210,17 @@ class _PersonalPKViewState extends State<PersonalPKView> with SingleTickerProvid
     });
   }
 
-  
-
   // সাউন্ড প্লে করার ফাংশন (অনলাইন লিংক সহ আপডেট করা হলো)
   Future<void> _playEndingSound() async {
     try {
       // এখানে আপনার গিটহাবের র (Raw) লিংক বা যেকোনো অনলাইন অডিও লিংক দিন
-      const String audioUrl = 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/officialall/pk_ending.mp3';
-      
+      const String audioUrl =
+          'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/officialall/pk_ending.mp3';
+
       await _audioPlayer.play(UrlSource(audioUrl));
     } catch (e) {
-      debugPrint("Error playing sound: $e"); // ডিবাগ করার জন্য এরর প্রিন্ট করা হলো
+      debugPrint(
+          "Error playing sound: $e"); // ডিবাগ করার জন্য এরর প্রিন্ট করা হলো
     }
   }
 
@@ -226,28 +245,34 @@ class _PersonalPKViewState extends State<PersonalPKView> with SingleTickerProvid
     double progress = totalScore == 0 ? 0.5 : widget.score1 / totalScore;
 
     return FadeTransition(
-      opacity: isEndingSoon ? _glowController : const AlwaysStoppedAnimation(1.0),
+      opacity:
+          isEndingSoon ? _glowController : const AlwaysStoppedAnimation(1.0),
       child: Container(
         height: 160,
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isEndingSoon ? Colors.redAccent : Colors.blueAccent, width: 2),
+          border: Border.all(
+              color: isEndingSoon ? Colors.redAccent : Colors.blueAccent,
+              width: 2),
           image: DecorationImage(
             image: CachedNetworkImageProvider(widget.backgroundImage),
             fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.3), BlendMode.darken),
+            colorFilter: ColorFilter.mode(
+                Colors.black.withOpacity(0.3), BlendMode.darken),
           ),
         ),
         child: Column(
           children: [
-            Text(timerString, style: TextStyle(color: isEndingSoon ? Colors.red : Colors.white, fontWeight: FontWeight.bold)),
+            Text(timerString,
+                style: TextStyle(
+                    color: isEndingSoon ? Colors.red : Colors.white,
+                    fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-
             LayoutBuilder(builder: (context, constraints) {
               final double maxWidth = constraints.maxWidth;
-              final double barWidth = maxWidth * progress; 
+              final double barWidth = maxWidth * progress;
 
               return Container(
                 height: 12,
@@ -255,7 +280,8 @@ class _PersonalPKViewState extends State<PersonalPKView> with SingleTickerProvid
                 decoration: BoxDecoration(
                   color: Colors.white10,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+                  border: Border.all(
+                      color: Colors.white.withOpacity(0.2), width: 1),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
@@ -275,13 +301,15 @@ class _PersonalPKViewState extends State<PersonalPKView> with SingleTickerProvid
                             child: Container(
                               decoration: const BoxDecoration(
                                 gradient: LinearGradient(
-                                  colors: [Color(0xFFFFC107), Color(0xFFFFD700)],
+                                  colors: [
+                                    Color(0xFFFFC107),
+                                    Color(0xFFFFD700)
+                                  ],
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      
                       if (barWidth > 0)
                         Positioned(
                           left: barWidth - 5,
@@ -312,13 +340,14 @@ class _PersonalPKViewState extends State<PersonalPKView> with SingleTickerProvid
                 ),
               );
             }),
-            
             const SizedBox(height: 15),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _pkUser(widget.user1['userName'], widget.user1['userImage'], widget.score1),
-                _pkUser(widget.user2['userName'], widget.user2['userImage'], widget.score2),
+                _pkUser(widget.user1['userName'], widget.user1['userImage'],
+                    widget.score1),
+                _pkUser(widget.user2['userName'], widget.user2['userImage'],
+                    widget.score2),
               ],
             ),
           ],
@@ -330,9 +359,18 @@ class _PersonalPKViewState extends State<PersonalPKView> with SingleTickerProvid
   Widget _pkUser(String name, String img, int score) {
     return Column(
       children: [
-        CircleAvatar(radius: 18, backgroundImage: img.isNotEmpty ? NetworkImage(img) : const NetworkImage('https://cdn-icons-png.flaticon.com/512/847/847969.png')),
+        CircleAvatar(
+            radius: 18,
+            backgroundImage: img.isNotEmpty
+                ? NetworkImage(img)
+                : const NetworkImage(
+                    'https://cdn-icons-png.flaticon.com/512/847/847969.png')),
         Text(name, style: const TextStyle(color: Colors.white, fontSize: 10)),
-        Text("💎 $score", style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
+        Text("💎 $score",
+            style: const TextStyle(
+                color: Colors.amber,
+                fontSize: 11,
+                fontWeight: FontWeight.bold)),
       ],
     );
   }

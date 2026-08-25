@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lottie/lottie.dart';
-import 'package:pagla_chat/protected_users.dart';
+// আর protected_users.dart লোকাল ফাইলটি এখানে আর আমদানী করার দরকার নেই
 
 class RoomFollowerSheet extends StatefulWidget {
   final String roomId;
@@ -17,8 +17,6 @@ class RoomFollowerSheet extends StatefulWidget {
 
 class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
   String myuID = "";
-
-  // ইউজার প্রোফাইল ডাটা ক্যাশ করার জন্য যাতে বারবার সার্ভারে কল না যায়
   final Map<String, Map<String, dynamic>> _usersCache = {};
 
   @override
@@ -30,7 +28,6 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
   Future<void> _fetchMyCustomID() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      // প্রথমে ক্যাশ থেকে চেক করা
       var userDoc = await FirebaseFirestore.instance
           .collection('users')
           .where('authUID', isEqualTo: user.uid)
@@ -53,21 +50,18 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
     }
   }
 
-  // ইউজার ডাটা ক্যাশ বা সার্ভার থেকে ফেচ করার ফাংশন
   Future<Map<String, dynamic>> _getUserData(String targetuID) async {
     if (_usersCache.containsKey(targetuID)) {
       return _usersCache[targetuID]!;
     }
 
     try {
-      // আগে ক্যাশ থেকে খোঁজা
       var doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(targetuID)
           .get(const GetOptions(source: Source.cache));
 
       if (!doc.exists || doc.data() == null) {
-        // ক্যাশে না পেলে সার্ভার থেকে আনা
         doc = await FirebaseFirestore.instance
             .collection('users')
             .doc(targetuID)
@@ -393,22 +387,39 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
     });
   }
 
-  void _kickUser(String targetuID) {
-    if (protectedUserIds.contains(targetuID)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              "This user is an official member of PaglaChat, you cannot kick them!"),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
+  // ✅ ডাটাবেজ থেকে প্রটেক্টেড ইউজার চেক করে কিক করার ফাংশন
+  Future<void> _kickUser(String targetuID) async {
+    try {
+      var configDoc = await FirebaseFirestore.instance
+          .collection('system_config')
+          .doc('app_settings')
+          .get();
 
-    FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
-      'followers': FieldValue.arrayRemove([targetuID]),
-      'kickedUsers': FieldValue.arrayUnion([targetuID])
-    });
+      List<dynamic> protectedList = [];
+      if (configDoc.exists && configDoc.data() != null) {
+        protectedList = configDoc.data()?['protectedUserIds'] ?? [];
+      }
+
+      if (protectedList.contains(targetuID)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  "This user is an official member of PaglaChat, you cannot kick them!"),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+        return;
+      }
+
+      await FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
+        'followers': FieldValue.arrayRemove([targetuID]),
+        'kickedUsers': FieldValue.arrayUnion([targetuID])
+      });
+    } catch (e) {
+      debugPrint("Error kicking user: $e");
+    }
   }
 
   void _unKickUser(String targetuID) {

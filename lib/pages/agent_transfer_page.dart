@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:pagla_chat/pages/agency_recharge_page.dart';
 
 class AgentTransferPage extends StatefulWidget {
   const AgentTransferPage({super.key});
@@ -248,12 +249,39 @@ void _showSnackBar(String message, {bool isError = false}) {
                     borderRadius: BorderRadius.circular(15),
                     border: Border.all(color: Colors.pinkAccent.withOpacity(0.3)),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Column(
                     children: [
-                      const Text("My Agency Wallet:", style: TextStyle(color: Colors.white70)),
-                      Text("💎 ${myData['agency_wallet'] ?? 0}", 
-                        style: const TextStyle(color: Colors.greenAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text("My Agency Wallet:", style: TextStyle(color: Colors.white70)),
+                          Text("💎 ${myData['agency_wallet'] ?? 0}", 
+                              style: const TextStyle(color: Colors.greenAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      // নতুন রিচার্জ বাটন যোগ করা হলো
+                      SizedBox(
+                        width: double.infinity,
+                        height: 40,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const AgencyRechargePage()),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.amber,
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: const Text(
+                            "RECHARGE AGENCY WALLET (GOOGLE PAY)",
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -267,7 +295,6 @@ void _showSnackBar(String message, {bool isError = false}) {
       ),
     );
   }
-
   Widget _buildSearchInput() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20),

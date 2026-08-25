@@ -4,7 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 // ignore: depend_on_referenced_packages
-import 'package:in_app_purchase_android/in_app_purchase_android.dart'; 
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
@@ -27,42 +27,70 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
   final InAppPurchase _iap = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
 
-  // ডায়মন্ড প্যাকের ম্যাপ
+  // ১ ডলারে ১০,০০০ ডায়মন্ড হিসেবে ১$ থেকে ৫০০$ পর্যন্ত ১৬টি নতুন প্যাকেজ
   final Map<String, Map<String, dynamic>> _diamondPacks = {
-    'gem_pack_6k': {'amount': 6000, 'price': '\$0.99', 'display': '6k 💎'},
-    'gem_pack_12k': {'amount': 12000, 'price': '\$1.49', 'display': '12k 💎'},
-    'gem_pack_30k': {'amount': 30000, 'price': '\$3.49', 'display': '30k 💎'},
-    'gem_pack_60k': {'amount': 60000, 'price': '\$6.49', 'display': '60k 💎'},
-    'gem_pack_120k': {
-      'amount': 120000,
-      'price': '\$11.99',
-      'display': '120k 💎'
+    'gem_pack_10k': {'amount': 10000, 'price': '\$1.00', 'display': '10k 💎'},
+    'gem_pack_20k': {'amount': 20000, 'price': '\$2.00', 'display': '20k 💎'},
+    'gem_pack_50k': {'amount': 50000, 'price': '\$5.00', 'display': '50k 💎'},
+    'gem_pack_100k': {
+      'amount': 100000,
+      'price': '\$10.00',
+      'display': '100k 💎'
     },
-    'gem_pack_240k': {
-      'amount': 240000,
-      'price': '\$22.99',
-      'display': '240k 💎'
+    'gem_pack_200k': {
+      'amount': 200000,
+      'price': '\$20.00',
+      'display': '200k 💎'
+    },
+    'gem_pack_300k': {
+      'amount': 300000,
+      'price': '\$30.00',
+      'display': '300k 💎'
     },
     'gem_pack_500k': {
       'amount': 500000,
-      'price': '\$44.99',
+      'price': '\$50.00',
       'display': '500k 💎'
     },
-    'gem_pack_1m': {'amount': 1000000, 'price': '\$84.99', 'display': '1M 💎'},
-    'gem_pack_2m': {'amount': 2000000, 'price': '\$169.99', 'display': '2M 💎'},
-    'gem_pack_4m': {'amount': 4000000, 'price': '\$300', 'display': '4M 💎'},
-    'gem_pack_8m': {'amount': 8000000, 'price': '\$550', 'display': '8M 💎'},
+    'gem_pack_750k': {
+      'amount': 750000,
+      'price': '\$75.00',
+      'display': '750k 💎'
+    },
+    'gem_pack_1m': {'amount': 1000000, 'price': '\$100.00', 'display': '1M 💎'},
+    'gem_pack_1_5m': {
+      'amount': 1500000,
+      'price': '\$150.00',
+      'display': '1.5M 💎'
+    },
+    'gem_pack_2m': {'amount': 2000000, 'price': '\$200.00', 'display': '2M 💎'},
+    'gem_pack_2_5m': {
+      'amount': 2500000,
+      'price': '\$250.00',
+      'display': '2.5M 💎'
+    },
+    'gem_pack_3m': {'amount': 3000000, 'price': '\$300.00', 'display': '3M 💎'},
+    'gem_pack_3_5m': {
+      'amount': 3500000,
+      'price': '\$350.00',
+      'display': '3.5M 💎'
+    },
+    'gem_pack_4m': {'amount': 4000000, 'price': '\$400.00', 'display': '4M 💎'},
+    'gem_pack_5m': {'amount': 5000000, 'price': '\$500.00', 'display': '5M 💎'},
   };
 
   @override
   void initState() {
     super.initState();
     final Stream<List<PurchaseDetails>> purchaseUpdated = _iap.purchaseStream;
-    _subscription = purchaseUpdated.listen((purchaseDetailsList) {
-      _handlePurchaseUpdates(purchaseDetailsList);
-    }, onDone: () => _subscription?.cancel(), onError: (error) {
-      debugPrint("Purchase Stream Error: $error");
-    });
+    _subscription = purchaseUpdated.listen(
+        (purchaseDetailsList) {
+          _handlePurchaseUpdates(purchaseDetailsList);
+        },
+        onDone: () => _subscription?.cancel(),
+        onError: (error) {
+          debugPrint("Purchase Stream Error: $error");
+        });
   }
 
   @override
@@ -76,36 +104,39 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
     for (var purchase in purchaseDetailsList) {
       if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
-        
         int? diamondsToAdd = _diamondPacks[purchase.productID]?['amount'];
         if (diamondsToAdd != null) {
           // ১. ডুপ্লিকেট বা ফেক ট্রানজেকশন চেক (Anti-Hack)
           bool isUnique = await _verifyAndPreventDuplicatePurchase(purchase);
 
           if (isUnique) {
-            // ২. সার্ভার-সাইড ভেরিফিকেশন কল করা হচ্ছে
-            bool isValidServer = await _verifyWithServer(purchase, diamondsToAdd);
+            // ২. সার্ভার-সাইড ভেরিফিকেশন কল করা হচ্ছে (গুগল সিগন্যাল নিশ্চিত করতে এবং সার্ভার দিয়েই ডায়মন্ড যোগ করতে)
+            bool isValidServer =
+                await _verifyWithServer(purchase, diamondsToAdd);
 
             if (isValidServer) {
-              // ৩. ফায়ারবেসে সিকিউরড উপায়ে ডায়মন্ড প্লাস করা হচ্ছে
-              String finalTxnId = purchase.purchaseID ?? 
-                  (purchase.verificationData.serverVerificationData.length > 20 
-                      ? purchase.verificationData.serverVerificationData.substring(0, 20) 
-                      : purchase.verificationData.serverVerificationData);
-              await _updateUserDiamonds(diamondsToAdd, finalTxnId);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        "Success! $diamondsToAdd Diamonds added to your account via Server."),
+                    backgroundColor: Colors.green,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
             } else {
               debugPrint("Server verification failed for this purchase token.");
             }
           }
         }
 
-        // ৪. অ্যান্ড্রয়েডের জন্য পারচেজটি সেফলি কনজিউম ও কমপ্লিট করা (ডুপ্লিকেট কনজাম্পশন এড়ানোর জন্য ট্রাই-ক্যাচ সহ)
+        // ৩. অ্যান্ড্রয়েডের জন্য পারচেজটি সেফলি কনজিউম ও কমপ্লিট করা
         if (purchase.pendingCompletePurchase) {
           final InAppPurchaseAndroidPlatformAddition androidAddition =
               _iap.getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
-              
+
           try {
-            // যদি অলরেডি কনজিউম হয়ে থাকে তবে যেন ক্র্যাশ বা কোড ৮ না দেয়
             await androidAddition.consumePurchase(purchase);
           } catch (e) {
             debugPrint("Notice: Purchase already consumed or handled: $e");
@@ -122,7 +153,8 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("Purchase Failed: ${purchase.error?.message ?? 'Unknown error'}"),
+              content: Text(
+                  "Purchase Failed: ${purchase.error?.message ?? 'Unknown error'}"),
               backgroundColor: Colors.red,
             ),
           );
@@ -132,21 +164,20 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
   }
 
   // ডুপ্লিকেট পেমেন্ট বা হ্যাকড রসিদ চেক করার ফাংশন (Anti-Hack)
-  Future<bool> _verifyAndPreventDuplicatePurchase(PurchaseDetails purchase) async {
+  Future<bool> _verifyAndPreventDuplicatePurchase(
+      PurchaseDetails purchase) async {
     String? transactionId = purchase.purchaseID;
     if (transactionId == null || transactionId.isEmpty) {
-      // অ্যান্ড্রয়েডের জন্য purchaseID না থাকলে serverVerificationData ব্যবহার করা হবে
       if (purchase.verificationData.serverVerificationData.isNotEmpty) {
         transactionId = purchase.verificationData.serverVerificationData;
       } else {
-        return false; // কোনো আইডিই না থাকলে ভ্যালিড ধরব না
+        return false;
       }
     }
 
     try {
       final firestore = FirebaseFirestore.instance;
-      
-      // ডাটাবেজে চেক করা হচ্ছে এই ট্রানজেকশন আইডি ইতিপূর্বে ব্যবহার করা হয়েছে কি না
+
       QuerySnapshot existingTxn = await firestore
           .collection('completed_transactions')
           .where('transactionId', isEqualTo: transactionId)
@@ -154,11 +185,11 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
           .get();
 
       if (existingTxn.docs.isNotEmpty) {
-        debugPrint("WARNING: Duplicate or fake transaction attempt detected: $transactionId");
+        debugPrint(
+            "WARNING: Duplicate or fake transaction attempt detected: $transactionId");
         return false;
       }
 
-      // নতুন ট্রানজেকশন হলে তা সিকিউরড কালেকশনে সেভ করে রাখা যাতে পুনরায় ব্যবহার না করা যায়
       await firestore.collection('completed_transactions').add({
         'transactionId': transactionId,
         'productId': purchase.productID,
@@ -175,31 +206,43 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
 
   // সার্ভার ভেরিফিকেশন ফাংশন
   Future<bool> _verifyWithServer(PurchaseDetails purchase, int amount) async {
-    const String cloudFunctionUrl = "https://verifyandadddiamonds-phdlxpvakq-uc.a.run.app";
+    const String cloudFunctionUrl =
+        "https://verifyandadddiamonds-phdlxpvakq-uc.a.run.app";
 
     try {
-      // সঠিক ফায়ারস্টোর ডকুমেন্ট আইডি বের করা
       final user = FirebaseAuth.instance.currentUser;
       String? firestoreDocId;
-      
+
       if (user != null) {
         final collection = FirebaseFirestore.instance.collection('users');
-        QuerySnapshot query = await collection.where('authUID', isEqualTo: user.uid).limit(1).get();
+        QuerySnapshot query = await collection
+            .where('authUID', isEqualTo: user.uid)
+            .limit(1)
+            .get();
         if (query.docs.isEmpty && user.email != null) {
-          query = await collection.where('email', isEqualTo: user.email).limit(1).get();
+          query = await collection
+              .where('email', isEqualTo: user.email)
+              .limit(1)
+              .get();
         }
         if (query.docs.isEmpty) {
-          query = await collection.where('uID', isEqualTo: user.uid).limit(1).get();
+          query =
+              await collection.where('uID', isEqualTo: user.uid).limit(1).get();
         }
         if (query.docs.isNotEmpty) {
-          firestoreDocId = query.docs.first.id; // যেমন: "978051"
+          firestoreDocId = query.docs.first.id;
         }
       }
 
-      final userIdToSend = firestoreDocId ?? widget.userData['uID'] ?? user?.uid;
-      final txnIdToSend = purchase.purchaseID ?? 
-          (purchase.verificationData.serverVerificationData.isNotEmpty 
-              ? purchase.verificationData.serverVerificationData.substring(0, purchase.verificationData.serverVerificationData.length > 20 ? 20 : purchase.verificationData.serverVerificationData.length) 
+      final userIdToSend =
+          firestoreDocId ?? widget.userData['uID'] ?? user?.uid;
+      final txnIdToSend = purchase.purchaseID ??
+          (purchase.verificationData.serverVerificationData.isNotEmpty
+              ? purchase.verificationData.serverVerificationData.substring(
+                  0,
+                  purchase.verificationData.serverVerificationData.length > 20
+                      ? 20
+                      : purchase.verificationData.serverVerificationData.length)
               : "unknown");
 
       final response = await http.post(
@@ -208,7 +251,7 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
         body: jsonEncode({
           "purchaseToken": purchase.verificationData.serverVerificationData,
           "productId": purchase.productID,
-          "userId": userIdToSend, // এখন সঠিক ডকুমেন্ট আইডি যাবে
+          "userId": userIdToSend,
           "amount": amount,
           "transactionId": txnIdToSend,
         }),
@@ -249,91 +292,6 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Product not found in the store.")),
-        );
-      }
-    }
-  }
-
-  // ফায়ারবেস আপডেট ও হিস্টোরি লজিক
-  Future<void> _updateUserDiamonds(int amount, String transactionId) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final collection = FirebaseFirestore.instance.collection('users');
-
-    QuerySnapshot query =
-        await collection.where('authUID', isEqualTo: user.uid).limit(1).get();
-
-    if (query.docs.isEmpty && user.email != null) {
-      query =
-          await collection.where('email', isEqualTo: user.email).limit(1).get();
-    }
-
-    if (query.docs.isEmpty) {
-      query = await collection.where('uID', isEqualTo: user.uid).limit(1).get();
-    }
-
-    if (query.docs.isNotEmpty) {
-      final userDoc = query.docs.first;
-      final String receiverFirestoreId = userDoc.id;
-      final DocumentReference receiverRef = collection.doc(receiverFirestoreId);
-
-      int earnedXP = amount ~/ 250;
-      if (earnedXP < 1) earnedXP = 1;
-
-      try {
-        // ১. ইউজারের মেইন ডক আপডেট
-        await receiverRef.update({
-          'diamonds': FieldValue.increment(amount),
-          'vip_xp': FieldValue.increment(earnedXP),
-        });
-
-        // ২. ইনবক্সে অফিশিয়াল মেসেজ পাঠানো
-        String chatId = "paglachat_official_$receiverFirestoreId";
-        DocumentReference chatDocRef =
-            FirebaseFirestore.instance.collection('chats').doc(chatId);
-        DocumentReference msgRef = chatDocRef.collection('messages').doc();
-
-        Map<String, dynamic> officialMsg = {
-          'senderId': 'paglachat_official',
-          'receiverId': receiverFirestoreId,
-          'text':
-              "🎉 You've received $amount Diamonds and $earnedXP XP bonus from Google Play Recharge.",
-          'timestamp': FieldValue.serverTimestamp(),
-          'isRead': false,
-          'type': 'system_msg'
-        };
-
-        await msgRef.set(officialMsg);
-
-        await chatDocRef.set({
-          'lastMessage': "🎉 Received $amount Diamonds",
-          'lastTimestamp': FieldValue.serverTimestamp(),
-          'users': ['paglachat_official', receiverFirestoreId],
-          'unReadCount': FieldValue.increment(1),
-        }, SetOptions(merge: true));
-
-        // ৩. রিচার্জ হিস্টোরি সেভ
-        DocumentReference rechargeRef =
-            receiverRef.collection('recharge_history').doc();
-        await rechargeRef.set({
-          'amount': amount,
-          'timestamp': FieldValue.serverTimestamp(),
-          'method': 'Google Play Store',
-          'status': 'Success',
-          'transactionId': transactionId,
-        });
-      } catch (e) {
-        debugPrint("Error updating database: ${e.toString()}");
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Success! $amount Diamonds & $earnedXP XP added."),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
         );
       }
     }

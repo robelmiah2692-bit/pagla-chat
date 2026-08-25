@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'support_service.dart'; // আপনার প্রজেক্ট অনুযায়ী ইমপোর্ট পাথ ঠিক করে নেবেন
+import 'package:pagla_chat/profile_page.dart'; // আপনার প্রজেক্ট অনুযায়ী প্রোফাইল পেজের সঠিক পাথ দিন
 
 class HelpDeskPage extends StatefulWidget {
   const HelpDeskPage({super.key});
@@ -10,47 +12,53 @@ class HelpDeskPage extends StatefulWidget {
 }
 
 class _HelpDeskPageState extends State<HelpDeskPage> {
-  // আপনার এজেন্টের আইডিগুলো
-  final List<String> agentIds = ["978051", "680511", "294058", "500660","686008","571783","346306","219616","519857","765259","778741",]; 
   List<Map<String, dynamic>> messages = [];
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    messages.add({"role": "ai", "text": "Hello! I am Pagla AI. I can help you find an online support agent. Click the button below."});
+    messages.add({
+      "role": "ai", 
+      "text": "Hello! I am Pagla AI. I can help you find an online support agent. Click the button below."
+    });
   }
 
   Future<void> _findOnlineAgent() async {
     setState(() => _isLoading = true);
     
-    String foundAgentId = "";
+    Map<String, dynamic>? foundAgentData;
     
-    for (String id in agentIds) {
-      try {
+    try {
+      // ডাটাবেজ থেকে এজেন্ট আইডিগুলোর লিস্ট নিয়ে আসা
+      List<String> agentIds = await SupportService.getAgentIds();
+
+      for (String id in agentIds) {
         DocumentSnapshot doc = await FirebaseFirestore.instance.collection('users').doc(id).get();
         if (doc.exists) {
           var data = doc.data() as Map<String, dynamic>;
-          
-          // আপনার স্ক্রিনশট অনুযায়ী ফিল্ডের নাম 'isOnline' এবং এটি একটি boolean (true/false)
           bool isOnline = data['isOnline'] == true;
           
           if (isOnline) {
-            foundAgentId = id;
+            foundAgentData = {
+              "id": id,
+              "name": data['name'] ?? data['userName'] ?? "Support Agent",
+              "image": data['image'] ?? data['profilePic'] ?? "",
+            };
             break;
           }
         }
-      } catch (e) {
-        
       }
+    } catch (e) {
+      // Handle error if needed
     }
 
     setState(() {
-      if (foundAgentId.isNotEmpty) {
+      if (foundAgentData != null) {
         messages.add({
           "role": "ai", 
-          "text": "Good news! I found an online agent. You can contact them by searching this ID in the chat list:", 
-          "agentId": foundAgentId
+          "text": "Good news! I found an online agent for you:", 
+          "agent": foundAgentData
         });
       } else {
         messages.add({
@@ -66,7 +74,7 @@ class _HelpDeskPageState extends State<HelpDeskPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Pagla AI Support"), 
+        title: const Text("Pagla AI Support", style: TextStyle(color: Colors.white)), 
         backgroundColor: const Color(0xFF0F0C29)
       ),
       body: Column(
@@ -87,23 +95,60 @@ class _HelpDeskPageState extends State<HelpDeskPage> {
                         color: msg['role'] == 'ai' ? Colors.grey[200] : Colors.blueAccent, 
                         borderRadius: BorderRadius.circular(10)
                       ),
-                      child: Text(msg['text'], style: TextStyle(color: msg['role'] == 'ai' ? Colors.black : Colors.white)),
+                      child: Text(
+                        msg['text'], 
+                        style: TextStyle(color: msg['role'] == 'ai' ? Colors.black : Colors.white)
+                      ),
                     ),
-                    if (msg.containsKey('agentId'))
+                    if (msg.containsKey('agent'))
                       GestureDetector(
                         onTap: () {
-                          Clipboard.setData(ClipboardData(text: msg['agentId']));
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Agent ID Copied!")));
+                          // এজেন্টের কার্ডে ক্লিক করলেই সরাসরি তার প্রোফাইল পেজে চলে যাবে
+                          String agentId = msg['agent']['id'];
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProfilePage(userId: agentId),
+                            ),
+                          );
                         },
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           margin: const EdgeInsets.only(bottom: 15),
-                          decoration: BoxDecoration(color: Colors.greenAccent, borderRadius: BorderRadius.circular(10)),
+                          decoration: BoxDecoration(
+                            color: Colors.greenAccent[700], 
+                            borderRadius: BorderRadius.circular(12)
+                          ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text("ID: ${msg['agentId']} ", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                              const Icon(Icons.copy, size: 16),
+                              CircleAvatar(
+                                radius: 20,
+                                backgroundImage: msg['agent']['image'] != "" 
+                                    ? NetworkImage(msg['agent']['image']) 
+                                    : null,
+                                child: msg['agent']['image'] == "" ? const Icon(Icons.person) : null,
+                              ),
+                              const SizedBox(width: 10),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    msg['agent']['name'], 
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        "ID: ${msg['agent']['id']} ", 
+                                        style: const TextStyle(color: Colors.white70, fontSize: 14)
+                                      ),
+                                      const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.white70),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
                         ),
@@ -121,7 +166,10 @@ class _HelpDeskPageState extends State<HelpDeskPage> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, padding: const EdgeInsets.all(15)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent, 
+                    padding: const EdgeInsets.all(15)
+                  ),
                   onPressed: _findOnlineAgent,
                   child: const Text("Ask AI for Help", style: TextStyle(color: Colors.white, fontSize: 16)),
                 ),

@@ -89,6 +89,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   int totalActiveXp = 0;
   int totalGiftXp = 0;
+  bool isFriend = false; // নতুন ভেরিয়েবল
+
   @override
   void initState() {
     super.initState();
@@ -289,21 +291,55 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // ৩. ফলো বাটন চেক করার লজিক
+  // ৩. ফলো এবং ফ্রেন্ড স্ট্যাটাস চেক করার সম্পূর্ণ সুরক্ষিত লজিক
   void _checkInitialStatus() async {
-    if (widget.userId == null) return;
+    // ১. টার্গেট আইডি ভ্যালিডেশন
+    String targetId = widget.userId ?? uIDValue;
+    if (targetId.isEmpty) {
+      // যদি উইজেটে আইডি না থাকে, তবে গ্লোবাল বা অন্য কোনো ভেরিয়েবল থেকে নেওয়ার চেষ্টা
+      return;
+    }
 
-    String myId = mySixDigitUID.isNotEmpty
-        ? mySixDigitUID
-        : FirebaseAuth.instance.currentUser!.uid;
+    // ২. নিজের বিভিন্ন ধরনের আইডি বা কেসগুলো সিকিউর করা (authUID, uID, uid, myId, sixDigitUID, email ইত্যাদি)
+    User? currentUser = FirebaseAuth.instance.currentUser;
+    String authUID = currentUser?.uid ?? "";
+    String email = currentUser?.email ?? "";
 
-    bool following =
-        await FollowService().checkIfFollowing(widget.userId!, myId);
+    // আপনার প্রজেক্টে যে যে ভেরিয়েবল বা আইডি থাকতে পারে তার একটি কমপ্লিট প্রায়োরিটি লিস্ট
+    String resolvedMyId = "";
 
-    if (mounted) {
-      setState(() {
-        isFollowing = following;
-      });
+    if (mySixDigitUID.isNotEmpty) {
+      resolvedMyId = mySixDigitUID;
+    } else if (uIDValue.isNotEmpty) {
+      resolvedMyId = uIDValue;
+    } else if (authUID.isNotEmpty) {
+      resolvedMyId = authUID;
+    }
+
+    // যদি নিজের আইডি এবং টার্গেট আইডি দুটোই পাওয়া যায় তবেই সার্ভিসে চেক করতে পাঠাবে
+    if (resolvedMyId.isNotEmpty &&
+        targetId.isNotEmpty &&
+        resolvedMyId != targetId) {
+      try {
+        // আপনি তাকে ফলো করেন কিনা চেক
+        bool following =
+            await FollowService().checkIfFollowing(targetId, resolvedMyId);
+
+        // সেও আপনাকে ফলো করে কিনা (Mutual Friend / Friend স্ট্যাটাসের জন্য) চেক
+        bool mutual =
+            await FollowService().checkIfMutualFriend(targetId, resolvedMyId);
+
+        if (mounted) {
+          setState(() {
+            isFollowing = following;
+            isFriend =
+                mutual; // এখানে ফ্রেন্ড ও ফলোইং স্টেটাস একদম পারফেক্টলি সেট হলো
+          });
+        }
+      } catch (e) {
+        // কোনো এরর হ্যান্ডেল করার জন্য
+        print("Status Check Error: $e");
+      }
     }
   }
 
@@ -2832,9 +2868,15 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final String myId = FirebaseAuth.instance.currentUser?.uid ?? "";
-    final String targetUserId = widget.userId ?? myId;
-    final bool isMe = myId == targetUserId;
+    final String myAuthId = FirebaseAuth.instance.currentUser?.uid ?? "";
+
+    // এখানে মূল সমাধান: নিজের প্রোফাইল হলে mySixDigitUID ব্যবহার করতে হবে,
+    // কারণ আপনার আসল ডকুমেন্ট আইডি ফায়ারস্টোরের কাস্টম বা অটো আইডি হতে পারে।
+    final String targetUserId =
+        widget.userId ?? (mySixDigitUID.isNotEmpty ? mySixDigitUID : myAuthId);
+    final bool isMe = widget.userId == null ||
+        widget.userId == myAuthId ||
+        targetUserId == mySixDigitUID;
 
     // পরবর্তী লেভেলের টার্গেট বের করার লজিক
     int getNextLevelTarget(int currentXP) {
@@ -2854,9 +2896,15 @@ class _ProfilePageState extends State<ProfilePage> {
           .doc(targetUserId)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.hasError)
-          return const Scaffold(body: Center(child: Text("Error!")));
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.hasError) {
+          return const Scaffold(
+            backgroundColor: Color(0xFF0F0F1E),
+            body: Center(
+                child: Text("Error!", style: TextStyle(color: Colors.white))),
+          );
+        }
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            diamonds == 0) {
           return const Scaffold(
             backgroundColor: Color(0xFF0D0D1A),
             body: Center(
@@ -2869,15 +2917,34 @@ class _ProfilePageState extends State<ProfilePage> {
           userData = snapshot.data!.data() as Map<String, dynamic>;
 
           userName = userData['name'] ?? "User";
-          uIDValue = (userData['uID'] ?? userData['uID'] ?? "N/A").toString();
-          diamonds = userData['diamonds'] ?? 0;
-          xp = userData['vip_xp'] ?? 0;
+          uIDValue = (userData['uID'] ?? "N/A").toString();
+
+          // রিয়েল-টাইম ডায়মন্ড আপডেট
+          var diamondData = userData['diamonds'];
+          diamonds = (diamondData is String)
+              ? (int.tryParse(diamondData) ?? 0)
+              : (diamondData ?? 0).toInt();
+
+          var xpData = userData['vip_xp'];
+          xp = (xpData is String)
+              ? (int.tryParse(xpData) ?? 0)
+              : (xpData ?? 0).toInt();
+
           vipExpiry = userData['vipExpiry'] ?? 0;
           userImageURL = userData['profilePic'] ?? "";
           gender = userData['gender'] ?? "Unfixed";
           hasPremiumCard = userData['hasPremiumCard'] ?? false;
-          followers = userData['followers'] ?? 0;
-          following = userData['following'] ?? 0;
+
+          var followersData = userData['followers'];
+          followers = (followersData is String)
+              ? (int.tryParse(followersData) ?? 0)
+              : (followersData ?? 0).toInt();
+
+          var followingData = userData['following'];
+          following = (followingData is String)
+              ? (int.tryParse(followingData) ?? 0)
+              : (followingData ?? 0).toInt();
+
           isMarried = userData['isMarried'] ?? false;
           partnerUid = userData['partnerUid'] ?? '';
           marriageDocId = userData['marriageDocId'] ?? '';
@@ -2913,6 +2980,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     onPressed: _openSettings)
             ],
           ),
+
           body: Stack(
             children: [
               Positioned.fill(
@@ -3368,38 +3436,47 @@ class _ProfilePageState extends State<ProfilePage> {
                       if (!isMe) ...[
                         ElevatedButton(
                           onPressed: () async {
-                            // সার্ভিস কল
+                            // সার্ভিস কল: ফলো বা আনফলো করা
                             bool nowFollowing = await FollowService()
                                 .toggleFollowUser(targetUserId, mySixDigitUID);
+
+                            // সাথে সাথে চেক করা সেও আপনাকে ফলো করে কি না (Mutual Friend চেক)
+                            bool mutual = await FollowService()
+                                .checkIfMutualFriend(
+                                    targetUserId, mySixDigitUID);
 
                             if (mounted) {
                               setState(() {
                                 isFollowing = nowFollowing;
+                                isFriend = mutual; // ফ্রেন্ড স্ট্যাটাস আপডেট
+
                                 // কাউন্ট আপডেট লজিক
                                 if (nowFollowing) {
                                   followers += 1;
                                 } else {
                                   followers =
                                       (followers > 0) ? followers - 1 : 0;
+                                  isFriend =
+                                      false; // আনফলো করলে ফ্রেন্ডশিপও থাকবে না
                                 }
                               });
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            // এখানে কালার লজিক: ফ্রেন্ড থাকলে blueGrey, না থাকলে pinkAccent
-                            backgroundColor: isFollowing
+                            // কালার লজিক: ফ্রেন্ড বা ফলোইং হলে blueGrey, না থাকলে pinkAccent
+                            backgroundColor: isFriend || isFollowing
                                 ? Colors.blueGrey
                                 : Colors.pinkAccent,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20)),
                           ),
                           child: Text(
-                              // টেক্সট লজিক: এখন এটি চেক করবে ফ্রেন্ড নাকি শুধু ফলোইং
-                              // মনে রাখবেন: 'isFollowing' চেক করে আপনি বুঝতে পারছেন আপনি তাকে ফলো করছেন।
-                              // যদি সে-ও আপনাকে ফলো করে থাকে, তবেই এখানে "Friend" দেখাবে।
-                              // এটি নিশ্চিত করতে হলে আপনার `init` ফাংশনে চেক করতে হবে সে আপনাকে ফলো করে কি না।
-                              isFollowing ? "Friend" : "Follow",
-                              style: const TextStyle(color: Colors.white)),
+                            // টেক্সট লজিক: পারস্পরিক হলে "Friend", শুধু আপনি ফলো করলে "Following", না করলে "Follow"
+                            isFriend
+                                ? "Friend"
+                                : (isFollowing ? "Following" : "Follow"),
+                            style: const TextStyle(color: Colors.white),
+                          ),
                         ),
                         const SizedBox(width: 10),
                         IconButton(
@@ -3425,7 +3502,6 @@ class _ProfilePageState extends State<ProfilePage> {
                       _buildStat(
                           "Following", following, sixDigitProfileID, context),
                     ]),
-
                     const SizedBox(height: 15),
 
                     if (isMe) ...[

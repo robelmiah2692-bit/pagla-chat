@@ -25,7 +25,6 @@ import 'package:pagla_chat/chat_screen.dart';
 import 'package:pagla_chat/donggi_baba_game.dart';
 
 import 'package:pagla_chat/pk_manager.dart';
-import 'package:pagla_chat/protected_users.dart';
 import 'package:pagla_chat/room_exit_handler.dart';
 import 'package:pagla_chat/room_floating_box.dart';
 import 'package:pagla_chat/room_lobby_menu_sheet.dart';
@@ -36,6 +35,7 @@ import 'package:pagla_chat/services/gift_logic_helper.dart';
 import 'package:pagla_chat/services/gift_service.dart';
 import 'package:pagla_chat/services/marriage_service.dart';
 import 'package:pagla_chat/services/room_active_manager.dart';
+import 'package:pagla_chat/services/room_image_picker_service.dart';
 import 'package:pagla_chat/services/room_invite_service.dart';
 import 'package:pagla_chat/services/soulmate_xp_service.dart';
 import 'package:pagla_chat/viewer_ranking_widget.dart';
@@ -660,8 +660,8 @@ class _VoiceRoomState extends State<VoiceRoom>
       final int myRealAgoraId = _agoraManager.localuID ?? -999;
 
       for (var speaker in speakers) {
-        // 🔥 এখানে শুধু '0' চেক না করে ইউজারের আসল অ্যাগোরা আইডি বা লোকাল আইডি চেক করা হলো
-        // যাতে ০ নাম্বার সিটের সাথে কোনোভাবেই কনফ্লিক্ট না করে।
+        // 🔥 এখানে নিখুঁতভাবে শুধু নিজের অ্যাগোরা আইডি (বা ০ যদি লোকাল হয়) চেক করা হচ্ছে
+        // যাতে অন্য কোনো ইউজারের কথা বলার ভলিউম আপনার নিজের স্ট্যাটাসকে প্রভাবিত না করে।
         if ((speaker.uid == 0 || speaker.uid == myRealAgoraId) &&
             myRealAgoraId != -999 &&
             (speaker.volume ?? 0) > 15) {
@@ -670,6 +670,7 @@ class _VoiceRoomState extends State<VoiceRoom>
         }
       }
 
+      // শুধুমাত্র তখনই setState কল হবে যখন নিজের টকিং স্ট্যাটাস পরিবর্তিত হবে
       if (_isMeTalkingNow != isMeTalking) {
         setState(() {
           _isMeTalkingNow = isMeTalking;
@@ -1002,11 +1003,13 @@ class _VoiceRoomState extends State<VoiceRoom>
                 }
 
                 await MarriageService().completeMarriage(
-                  myId: myId, // 🔴 এখানে আগে uID দেওয়া ছিল, যেটার কারণে খালি স্ট্রিং পাস হচ্ছিল। এখন সঠিক 'myId' ভেরিয়েবল পাস করা হলো।
+                  myId:
+                      myId, // 🔴 এখানে আগে uID দেওয়া ছিল, যেটার কারণে খালি স্ট্রিং পাস হচ্ছিল। এখন সঠিক 'myId' ভেরিয়েবল পাস করা হলো।
                   myAuthUID: authUID,
                   myName: myName,
                   myImg: myImg,
-                  friendId: requestData['fromId'] ?? '', // পার্টনারের ডকুমেন্ট আইডি
+                  friendId:
+                      requestData['fromId'] ?? '', // পার্টনারের ডকুমেন্ট আইডি
                   friendAuthUID: friendAuthUID,
                   friendName: requestData['fromName'] ?? 'Unknown',
                   friendImg: requestData['fromImg'] ?? '',
@@ -1055,23 +1058,36 @@ class _VoiceRoomState extends State<VoiceRoom>
     });
   }
 
-  void _kickUserFromRoom(String targetuID) async {
+  Future<void> _kickUserFromRoom(String targetuID) async {
     if (targetuID.isEmpty) return;
 
-    // নতুন ফিচার: প্রোটেকশন চেক
-    if (protectedUserIds.contains(targetuID)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              "This user is an official member of PaglaChat, you cannot kick them!"),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return; // এখান থেকেই ফাংশন বন্ধ হয়ে যাবে, কিক হবে না
-    }
-
     try {
-      // ১. ফায়ারস্টোরে কিক লিস্টে জমা করা...
+      // ১. ফায়ারস্টোর থেকে প্রটেক্টেড ইউজার লিস্ট ফেচ করা
+      var configDoc = await FirebaseFirestore.instance
+          .collection('system_config')
+          .doc('app_settings')
+          .get();
+
+      List<dynamic> protectedList = [];
+      if (configDoc.exists && configDoc.data() != null) {
+        protectedList = configDoc.data()?['protectedUserIds'] ?? [];
+      }
+
+      // ২. প্রোটেকশন চেক (ডাটাবেজ লিস্টে থাকলে কিক হবে না)
+      if (protectedList.contains(targetuID)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  "This user is an official member of PaglaChat, you cannot kick them!"),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+        return; // এখান থেকেই ফাংশন বন্ধ হয়ে যাবে, কিক হবে না
+      }
+
+      // ৩. ফায়ারস্টোরে কিক লিস্টে জমা করা এবং ফলোয়ার/অ্যাডমিন থেকে রিমুভ করা
       await FirebaseFirestore.instance
           .collection('rooms')
           .doc(widget.roomId)
@@ -1081,14 +1097,16 @@ class _VoiceRoomState extends State<VoiceRoom>
         'admins': FieldValue.arrayRemove([targetuID]),
       });
 
-      // ২. রিয়েল-টাইম ডাটাবেসে কিক সিগন্যাল...
+      // ৪. রিয়েল-টাইম ডাটাবেসে কিক সিগন্যাল পাঠানো
       await FirebaseDatabase.instance
           .ref('rooms/${widget.roomId}/kickSignal/$targetuID')
           .set({
         'action': 'kicked',
         'timestamp': ServerValue.timestamp,
       });
-    } catch (e) {}
+    } catch (e) {
+      debugPrint("Error kicking user: $e");
+    }
   }
 
   void _listenForKickSignal() {
@@ -1158,19 +1176,29 @@ class _VoiceRoomState extends State<VoiceRoom>
 
   // ১. ফিক্সড মাইক স্ট্যাটাস লিসেনার (লুপ ও অতিরিক্ত কলিং বন্ধ করার জন্য)
   bool _lastKnownMicState = true;
+  DatabaseReference? _micStatusRef;
+  StreamSubscription? _micStatusSubscription;
 
   void _listenToMicStatus() {
+    // পুরোনো লিসেনার থাকলে তা আগে ক্যানসেল করে দিতে হবে
+    _micStatusSubscription?.cancel();
+
     if (currentSeatIndex == -1) return;
 
-    FirebaseDatabase.instance
-        .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
-        .onValue
-        .listen((event) {
+    _micStatusRef = FirebaseDatabase.instance
+        .ref('rooms/${widget.roomId}/seats/$currentSeatIndex');
+
+    _micStatusSubscription = _micStatusRef!.onValue.listen((event) {
+      if (!mounted) return;
+
       if (event.snapshot.exists) {
         var data = event.snapshot.value as Map?;
-        bool isMicOn = data?['isMicOn'] ?? true;
+        if (data == null) return;
 
-        // শুধুমাত্র স্টেটে পরিবর্তন আসলেই অ্যাগোরায় রিকোয়েস্ট যাবে, বারবার লুপ হবে না
+        // যদি সিটটি অন্য কারো হয় বা সিট খালি থাকে, তবে নিজের মাইক কন্ট্রোল করা যাবে না
+        // (নিশ্চিত করা যে এটা শুধুমাত্র নিজের বর্তমান সিটকেই হ্যান্ডেল করছে)
+        bool isMicOn = data['isMicOn'] ?? true;
+
         if (_lastKnownMicState != isMicOn) {
           _lastKnownMicState = isMicOn;
           _agoraManager.remoteMuteControl(!isMicOn);
@@ -1718,8 +1746,10 @@ class _VoiceRoomState extends State<VoiceRoom>
             bool newIsPKActive = roomData['isPKActive'] ?? false;
             Map<String, dynamic>? newPKData = roomData['pkData'];
 
-            // পিকের স্ট্যাটাস চেঞ্জ হ্যান্ডেলিং সেফলি করা হলো
-            if (_lastPKStatus != newIsPKActive) {
+            // এখানে শুধু স্ট্যাটাস না, স্কোর চেঞ্জ হলেও যেন স্টেট আপডেট হয় তা নিশ্চিত করা হলো
+            if (_lastPKStatus != newIsPKActive ||
+                currentPKData?['score1'] != newPKData?['score1'] ||
+                currentPKData?['score2'] != newPKData?['score2']) {
               _lastPKStatus = newIsPKActive;
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) {
@@ -1736,7 +1766,6 @@ class _VoiceRoomState extends State<VoiceRoom>
                 }
               });
             }
-
             // --- গিফট এবং এন্ট্রি ইফেক্টের ইনফিনাইট লুপ প্রিভেন্ট করার জন্য সেফ চেক ---
             var lastGift = roomData['last_gift'];
             if (lastGift != null && !isGiftAnimating) {
@@ -2609,6 +2638,7 @@ class _VoiceRoomState extends State<VoiceRoom>
   Widget _buildActivityRow(Map<String, dynamic> data) {
     String type = data['type'] ?? 'entry';
     bool isGift = type == 'gift';
+    bool isImage = type == 'image'; // ✅ নতুন ইমেজ মেসেজ চেক করার জন্য
 
     // 🛠️ নতুন ও পুরাতন সব সম্ভাব্য কী (Key) চেক করে সঠিক সেন্ডার আইডি, নাম ও ছবি বের করা হলো
     String uId = data['senderId'] ??
@@ -2631,6 +2661,10 @@ class _VoiceRoomState extends State<VoiceRoom>
     // গিফটের লিংক (ইমেজ বা লটি)
     String giftImgUrl = data['giftImage'] ?? '';
     bool isLottie = giftImgUrl.toLowerCase().endsWith('.json');
+
+    // ✅ নতুন ইমেজ মেসেজ ও টেক্সটের জন্য ভ্যারিয়েবল
+    String chatImgUrl = data['imageUrl'] ?? '';
+    String messageText = data['text'] ?? '';
 
     // 🛠️ সঠিক মেনশন এবং ইনপুট বক্স খোলার ফাংশন
     void mentionUserAndOpenInput(String nameToMention) {
@@ -2677,9 +2711,9 @@ class _VoiceRoomState extends State<VoiceRoom>
         border: Border.all(color: Colors.white10, width: 1),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- ১. সেন্ডার বা এন্ট্রি ইউজারের ছবি (ট্যাপ নিশ্চিত করার জন্য opaque ব্যবহার করা হয়েছে) ---
+          // --- ১. সেন্ডার বা এন্ট্রি ইউজারের ছবি ---
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => sendInvite(uId, uName),
@@ -2710,7 +2744,7 @@ class _VoiceRoomState extends State<VoiceRoom>
               children: [
                 Row(
                   children: [
-                    // সেন্ডারের নাম (ক্লিক করলে মেনশন হবে এবং ইনপুট বক্স ওপেন হবে)
+                    // সেন্ডারের নাম
                     Flexible(
                       child: GestureDetector(
                         onTap: () => mentionUserAndOpenInput(uName),
@@ -2727,12 +2761,54 @@ class _VoiceRoomState extends State<VoiceRoom>
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      isGift ? "sent a gift" : "entered the room",
+                      isGift
+                          ? "sent a gift"
+                          : (isImage
+                              ? "sent an image"
+                              : (messageText.isNotEmpty
+                                  ? "said:"
+                                  : "entered the room")),
                       style:
                           const TextStyle(color: Colors.white70, fontSize: 13),
                     ),
                   ],
                 ),
+
+                // ✅ টেক্সট মেসেজ থাকলে দেখাবে
+                if (messageText.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    messageText,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                ],
+
+                // ✅ ইমেজ মেসেজ প্রিভিউ (রুমের সবাই দেখতে পাবে)
+                if (isImage && chatImgUrl.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: CachedNetworkImage(
+                      imageUrl: chatImgUrl,
+                      height: 140,
+                      width: 140,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => const SizedBox(
+                        height: 40,
+                        width: 40,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.pinkAccent,
+                          ),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) =>
+                          const Icon(Icons.broken_image, color: Colors.white54),
+                    ),
+                  ),
+                ],
+
                 if (isGift && targetName.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Row(
@@ -2741,7 +2817,6 @@ class _VoiceRoomState extends State<VoiceRoom>
                         "to ",
                         style: TextStyle(color: Colors.white54, fontSize: 12),
                       ),
-                      // রিসিভারের প্রোফাইল পিক (ক্লিক করলে রিসিভারকে ইনভাইট যাবে)
                       if (rImg.isNotEmpty && rImg.startsWith('http')) ...[
                         GestureDetector(
                           behavior: HitTestBehavior.opaque,
@@ -2756,7 +2831,6 @@ class _VoiceRoomState extends State<VoiceRoom>
                         ),
                         const SizedBox(width: 4),
                       ],
-                      // রিসিভারের নাম (ক্লিক করলে রিসিভার মেনশন হয়ে ইনপুট বক্স ওপেন হবে)
                       Flexible(
                         child: GestureDetector(
                           onTap: () => mentionUserAndOpenInput(targetName),
@@ -2778,7 +2852,7 @@ class _VoiceRoomState extends State<VoiceRoom>
             ),
           ),
 
-          // --- ৩. বড় সাইজের গিফট (লটি/ইমেজ) ও সংখ্যা (Count) ---
+          // --- ৩. বড় সাইজের গিফট (লটি/ইমেজ) ও সংখ্যা (Count) ---
           if (isGift) ...[
             const SizedBox(width: 8),
             Row(
@@ -3758,14 +3832,32 @@ class _VoiceRoomState extends State<VoiceRoom>
                                 int vipLevel =
                                     getVipLevelFromData(userXp, userExpiry);
 
+                                // এজেন্সি স্ট্যাটাস চেক (ইউজার ডাটা থেকে)
+                                bool isAgent = userData['isAgent'] ??
+                                    userData['agencyId'] != null ||
+                                        userData['isAgency'] == true;
+                                bool hasVip = vipLevel > 0;
+                                bool hasPremium =
+                                    userData['hasPremiumCard'] == true;
+
                                 return Container(
                                   width:
                                       MediaQuery.of(context).size.width * 0.85,
                                   decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.95),
+                                    color: const Color(0xFF0F0F13).withOpacity(
+                                        0.95), // প্রিমিয়াম ডিপ ব্ল্যাক/ডার্ক ব্যাকগ্রাউন্ড
                                     borderRadius: BorderRadius.circular(30),
                                     border: Border.all(
-                                        color: Colors.white.withOpacity(0.1)),
+                                      color: Colors.white.withOpacity(0.12),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.purpleAccent
+                                            .withOpacity(0.15),
+                                        blurRadius: 20,
+                                        spreadRadius: 2,
+                                      )
+                                    ],
                                   ),
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
@@ -3823,62 +3915,190 @@ class _VoiceRoomState extends State<VoiceRoom>
                                               color: Colors.white54,
                                               fontSize: 12)),
                                       const SizedBox(height: 15),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          if (vipLevel > 0)
-                                            CachedNetworkImage(
-                                              imageUrl: getVipBadge(vipLevel),
-                                              width: 35,
-                                              height: 35,
-                                              fit: BoxFit.contain,
-                                              placeholder: (context, url) =>
-                                                  const SizedBox(
-                                                width: 20,
-                                                height: 20,
-                                                child: Center(
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                    strokeWidth: 1.5,
-                                                    color: Colors.white70,
+
+                                      // 🔥 ব্যাজ সেকশন: প্রতিটা ব্যাজ আলাদা আলাদা প্রিমিয়াম মিক্সড কালার ও গ্লাস বর্ডার সহ
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 20),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            // ১. VIP Badge (যদি থাকে)
+                                            if (hasVip)
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.all(6),
+                                                margin:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 4),
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(15),
+                                                  gradient:
+                                                      const LinearGradient(
+                                                    colors: [
+                                                      Colors.purpleAccent,
+                                                      Colors.deepOrangeAccent
+                                                    ],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
                                                   ),
+                                                  border: Border.all(
+                                                      color: Colors.white
+                                                          .withOpacity(0.4),
+                                                      width: 1.2),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                        color: Colors.purple
+                                                            .withOpacity(0.4),
+                                                        blurRadius: 6,
+                                                        spreadRadius: 1)
+                                                  ],
+                                                ),
+                                                child: CachedNetworkImage(
+                                                  imageUrl:
+                                                      getVipBadge(vipLevel),
+                                                  width: 30,
+                                                  height: 30,
+                                                  fit: BoxFit.contain,
+                                                  placeholder: (context, url) =>
+                                                      const SizedBox(
+                                                    width: 20,
+                                                    height: 20,
+                                                    child: Center(
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                                strokeWidth:
+                                                                    1.5,
+                                                                color: Colors
+                                                                    .white70)),
+                                                  ),
+                                                  errorWidget: (context, error,
+                                                          stackTrace) =>
+                                                      const SizedBox(
+                                                          width: 30,
+                                                          height: 30),
                                                 ),
                                               ),
-                                              errorWidget: (context, error,
-                                                      stackTrace) =>
-                                                  const SizedBox(
-                                                      width: 35, height: 35),
-                                            ),
-                                          if (userData['hasPremiumCard'] ==
-                                              true)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                  left: 8.0),
-                                              child: CachedNetworkImage(
-                                                imageUrl: premiumBadgeUrl,
-                                                width: 35,
-                                                height: 35,
-                                                fit: BoxFit.contain,
-                                                placeholder: (context, url) =>
-                                                    const SizedBox(
-                                                  width: 20,
-                                                  height: 20,
-                                                  child: Center(
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                      strokeWidth: 1.5,
-                                                      color: Colors.white70,
-                                                    ),
+
+                                            // ২. Premium Card Badge (যদি থাকে)
+                                            if (hasPremium)
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.all(6),
+                                                margin:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 4),
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(15),
+                                                  gradient:
+                                                      const LinearGradient(
+                                                    colors: [
+                                                      Colors.amberAccent,
+                                                      Colors.pinkAccent
+                                                    ],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
                                                   ),
+                                                  border: Border.all(
+                                                      color: Colors.white
+                                                          .withOpacity(0.4),
+                                                      width: 1.2),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                        color: Colors.amber
+                                                            .withOpacity(0.4),
+                                                        blurRadius: 6,
+                                                        spreadRadius: 1)
+                                                  ],
                                                 ),
-                                                errorWidget: (context, error,
-                                                        stackTrace) =>
-                                                    const SizedBox(
-                                                        width: 35, height: 35),
+                                                child: CachedNetworkImage(
+                                                  imageUrl: premiumBadgeUrl,
+                                                  width: 30,
+                                                  height: 30,
+                                                  fit: BoxFit.contain,
+                                                  placeholder: (context, url) =>
+                                                      const SizedBox(
+                                                    width: 20,
+                                                    height: 20,
+                                                    child: Center(
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                                strokeWidth:
+                                                                    1.5,
+                                                                color: Colors
+                                                                    .white70)),
+                                                  ),
+                                                  errorWidget: (context, error,
+                                                          stackTrace) =>
+                                                      const SizedBox(
+                                                          width: 30,
+                                                          height: 30),
+                                                ),
                                               ),
-                                            ),
-                                        ],
+
+                                            // ৩. Agency Badge (যদি থাকে)
+                                            if (isAgent)
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.all(6),
+                                                margin:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 4),
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(15),
+                                                  gradient:
+                                                      const LinearGradient(
+                                                    colors: [
+                                                      Colors.cyanAccent,
+                                                      Colors.blueAccent
+                                                    ],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  ),
+                                                  border: Border.all(
+                                                      color: Colors.white
+                                                          .withOpacity(0.4),
+                                                      width: 1.2),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                        color: Colors.cyan
+                                                            .withOpacity(0.4),
+                                                        blurRadius: 6,
+                                                        spreadRadius: 1)
+                                                  ],
+                                                ),
+                                                child: CachedNetworkImage(
+                                                  imageUrl:
+                                                      "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/agancy.png",
+                                                  width: 30,
+                                                  height: 30,
+                                                  fit: BoxFit.contain,
+                                                  placeholder: (context, url) =>
+                                                      const SizedBox(
+                                                    width: 20,
+                                                    height: 20,
+                                                    child: Center(
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                                strokeWidth:
+                                                                    1.5,
+                                                                color: Colors
+                                                                    .white70)),
+                                                  ),
+                                                  errorWidget: (context, error,
+                                                          stackTrace) =>
+                                                      const SizedBox(
+                                                          width: 30,
+                                                          height: 30),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
                                       ),
                                       const SizedBox(height: 25),
                                       Padding(
@@ -4028,36 +4248,79 @@ class _VoiceRoomState extends State<VoiceRoom>
                               height: 68,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isOccupied
-                                      ? Colors.cyanAccent
-                                      : Colors.white10,
+                                gradient: LinearGradient(
+                                  colors: isOccupied
+                                      ? [
+                                          Colors.cyanAccent,
+                                          Colors.purpleAccent,
+                                          Colors.pinkAccent,
+                                        ]
+                                      : [
+                                          Colors.white24,
+                                          Colors.white10,
+                                        ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
-                                boxShadow: const [],
+                                boxShadow: isOccupied
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.purpleAccent
+                                              .withOpacity(0.4),
+                                          blurRadius: 8,
+                                          spreadRadius: 1,
+                                        ),
+                                        BoxShadow(
+                                          color: Colors.cyanAccent
+                                              .withOpacity(0.2),
+                                          blurRadius: 12,
+                                          spreadRadius: 2,
+                                        ),
+                                      ]
+                                    : [],
                               ),
-                              child: CircleAvatar(
-                                radius: 32,
-                                backgroundColor: Colors.black45,
-                                backgroundImage:
-                                    (isOccupied && uImage.isNotEmpty)
-                                        ? NetworkImage(uImage)
-                                        : null,
-                                child: (isOccupied)
-                                    ? (uImage.isEmpty
-                                        ? const Icon(Icons.person,
-                                            color: Colors.white24, size: 30)
-                                        : null)
-                                    : Icon(
-                                        (seatData != null &&
-                                                seatData['isLocked'] == true)
-                                            ? Icons.lock
-                                            : Icons.chair_rounded,
-                                        color: (seatData != null &&
-                                                seatData['isLocked'] == true)
-                                            ? Colors.redAccent
-                                            : Colors.white12,
-                                        size: 28,
-                                      ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(2.5),
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.black87,
+                                        Colors.deepPurple.shade900
+                                            .withOpacity(0.8),
+                                      ],
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                    ),
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 30,
+                                    backgroundColor: Colors.transparent,
+                                    backgroundImage:
+                                        (isOccupied && uImage.isNotEmpty)
+                                            ? NetworkImage(uImage)
+                                            : null,
+                                    child: (isOccupied)
+                                        ? (uImage.isEmpty
+                                            ? const Icon(Icons.person,
+                                                color: Colors.white24, size: 30)
+                                            : null)
+                                        : Icon(
+                                            (seatData != null &&
+                                                    seatData['isLocked'] ==
+                                                        true)
+                                                ? Icons.lock
+                                                : Icons.chair_rounded,
+                                            color: (seatData != null &&
+                                                    seatData['isLocked'] ==
+                                                        true)
+                                                ? Colors.redAccent
+                                                : Colors.white12,
+                                            size: 28,
+                                          ),
+                                  ),
+                                ),
                               ),
                             ),
                             if (isOccupied && uFrame.isNotEmpty)
@@ -4414,10 +4677,10 @@ class _VoiceRoomState extends State<VoiceRoom>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      // ✅ ট্রানজিশন এনিমেশন রিমুভ বা ইনস্ট্যান্ট করার জন্য কাস্টম কনফিগারেশন
+      // ✅ ট্রানজিশন এনিমেশন ফাস্ট ও ঠিক রাখা হলো
       transitionAnimationController: AnimationController(
         vsync: Navigator.of(context),
-        duration: const Duration(milliseconds: 200), // ফাস্ট এনিমেশন
+        duration: const Duration(milliseconds: 200),
       ),
       builder: (context) => Padding(
         padding: EdgeInsets.only(
@@ -4431,6 +4694,73 @@ class _VoiceRoomState extends State<VoiceRoom>
           ),
           child: Row(
             children: [
+              // --- ১. গ্যালারি থেকে ইমেজ সেন্ড করার বাটন (ভিআইপি চেকসহ) ---
+              IconButton(
+                icon: const Icon(Icons.image, color: Colors.cyanAccent),
+                onPressed: () async {
+                  final currentUser = FirebaseAuth.instance.currentUser;
+                  final String authUID = currentUser?.uid ?? "";
+                  if (authUID.isEmpty) return;
+
+                  // ফায়ারস্টোর থেকে বর্তমান ইউজারের ডাটা ফেচ করে ভিআইপি চেক করা
+                  var userQuery = await FirebaseFirestore.instance
+                      .collection('users')
+                      .where('authUID', isEqualTo: authUID)
+                      .limit(1)
+                      .get();
+
+                  if (userQuery.docs.isEmpty) return;
+
+                  var myData = userQuery.docs.first.data();
+
+                  int vipXp = myData['vip_xp'] ?? myData['xp'] ?? 0;
+                  int vipExpiry = myData['vipExpiry'] ?? 0;
+                  int currentTime = DateTime.now().millisecondsSinceEpoch;
+
+                  int vipLevel = 0;
+                  if (!(vipExpiry != 0 && currentTime > vipExpiry)) {
+                    if (vipXp >= 35000) {
+                      vipLevel = 8;
+                    } else if (vipXp >= 30000) {
+                      vipLevel = 7;
+                    } else if (vipXp >= 25000) {
+                      vipLevel = 6;
+                    } else if (vipXp >= 20000) {
+                      vipLevel = 5;
+                    } else if (vipXp >= 13000) {
+                      vipLevel = 4;
+                    } else if (vipXp >= 9000) {
+                      vipLevel = 3;
+                    } else if (vipXp >= 5000) {
+                      vipLevel = 2;
+                    } else if (vipXp >= 2500) {
+                      vipLevel = 1;
+                    }
+                  }
+
+                  // যদি ইউজার ভিআইপি না হয় (vipLevel <= 0)
+                  if (vipLevel <= 0) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Only VIP users can send images"),
+                          backgroundColor: Colors.red,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                    return;
+                  }
+
+                  // ভিআইপি হলে শিট বন্ধ করে ইমেজ পিকার কল করা হবে
+                  if (Navigator.canPop(context)) Navigator.pop(context);
+                  await RoomImagePickerService.pickAndSendImage(
+                      roomId: widget.roomId);
+                },
+              ),
+              const SizedBox(width: 4),
+
+              // --- ২. টেক্সট লেখার ফিল্ড ---
               Expanded(
                 child: TextField(
                   controller: _messageController,
@@ -4443,17 +4773,19 @@ class _VoiceRoomState extends State<VoiceRoom>
                   ),
                 ),
               ),
+
+              // --- ৩. সেন্ড বাটন ---
               IconButton(
                 icon: const Icon(Icons.send, color: Colors.pinkAccent),
                 onPressed: () async {
                   String msgText = _messageController.text.trim();
                   if (msgText.isEmpty) return;
 
-                  // ১. সাথে সাথে চ্যাট ইনপুট ক্লিয়ার করে এবং শিট বন্ধ করা
+                  // ইনপুট ক্লিয়ার করা এবং শিট বন্ধ করা
                   _messageController.clear();
                   if (Navigator.canPop(context)) Navigator.pop(context);
 
-                  // ২. ব্যাকগ্রাউন্ডে ফায়ারবেসে মেসেজ পাঠানো
+                  // ব্যাকগ্রাউন্ডে ফায়ারবেসে মেসেজ পাঠানো
                   final currentUser = FirebaseAuth.instance.currentUser;
                   final String authUID = currentUser?.uid ?? "";
 
@@ -4482,6 +4814,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                       'userName': finalName,
                       'profilePic': finalImage,
                       'text': msgText,
+                      'type': 'text',
                       'senderId': finalSenderId,
                       'timestamp': FieldValue.serverTimestamp(),
                     });
@@ -4494,6 +4827,7 @@ class _VoiceRoomState extends State<VoiceRoom>
       ),
     );
   }
+  
 
   // ✉️ মেসেজ রো উইজেট (মেনশন এবং ইনভাইট সহ)
   Widget _buildMessageRow(
@@ -4745,7 +5079,6 @@ class _VoiceRoomState extends State<VoiceRoom>
                       });
                     }
                   }
-
                   // এক্সপি ডিস্ট্রিবিউশন লজিক
                   if (!isFree && totalAmount > 0) {
                     final firestore = FirebaseFirestore.instance;

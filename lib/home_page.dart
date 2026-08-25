@@ -210,35 +210,7 @@ class _HomePageState extends State<HomePage>
   }
 
   void _showPostModal() {
-  // 🛑 [ভিআইপি ও এক্সপি ক্যালকুলেশন - ফিক্সড লজিক: 'vip_xp' এবং 'vip_expiry' দিয়ে চেক করা হচ্ছে]
-  // প্রথমে ডাটাবেসের 'vip_xp' চেক করবে, না পেলে ব্যাকআপ হিসেবে 'xp' চেক করবে
-  int vipXp = currentUserData?['vip_xp'] ?? currentUserData?['xp'] ?? 0;
-  int vipExpiry = currentUserData?['vipExpiry'] ?? 0;
-  int currentTime = DateTime.now().millisecondsSinceEpoch;
-
-  // যদি মেয়াদ শেষ হয়ে যায়, তবে VIP ০, অন্য and লেভেল কাউন্ট হবে
-  int vipLevel = 0;
-  if (!(vipExpiry != 0 && currentTime > vipExpiry)) {
-    if (vipXp >= 35000) {
-      vipLevel = 8;
-    } else if (vipXp >= 30000) {
-      vipLevel = 7;
-    } else if (vipXp >= 25000) {
-      vipLevel = 6;
-    } else if (vipXp >= 20000) {
-      vipLevel = 5;
-    } else if (vipXp >= 13000) {
-      vipLevel = 4;
-    } else if (vipXp >= 9000) {
-      vipLevel = 3;
-    } else if (vipXp >= 5000) {
-      vipLevel = 2;
-    } else if (vipXp >= 2500) {
-      vipLevel = 1;
-    }
-  }
-
-  // মোডাল ওপেন করার আগে রিসেট করে নেওয়া
+  // মোডাল ওপেন করার আগে রিসেট করে নেওয়া
   _captionController.clear();
   _pickedImage = null;
   _webImageBytes = null;
@@ -396,7 +368,7 @@ class _HomePageState extends State<HomePage>
               onTap: () => _pickImage(setModalState),
             ),
 
-            // ভিডিও পিক বাটন (এখানে সরাসরি সঠিক vipLevel চেক করা হচ্ছে)
+            // ভিডিও পিক বাটন (ভিআইপি কন্ডিশন বাদ দেওয়া হয়েছে, সবাই দিতে পারবে)
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Container(
@@ -404,43 +376,14 @@ class _HomePageState extends State<HomePage>
                 decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.1),
                     shape: BoxShape.circle),
-                child: Icon(
-                  vipLevel > 0 ? Icons.videocam : Icons.lock,
-                  color: vipLevel > 0 ? Colors.cyanAccent : Colors.redAccent,
+                child: const Icon(
+                  Icons.videocam,
+                  color: Colors.cyanAccent,
                 ),
               ),
-              title: Row(
-                children: [
-                  const Text("Add gallery video",
-                      style: TextStyle(color: Colors.white, fontSize: 14)),
-                  if (vipLevel <= 0) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.redAccent),
-                      ),
-                      child: const Text("VIP LOCKED",
-                          style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)),
-                    ),
-                  ]
-                ],
-              ),
+              title: const Text("Add gallery video",
+                  style: TextStyle(color: Colors.white, fontSize: 14)),
               onTap: () {
-                // 🛑 ইউজার ভিআইপি না হলে (vipLevel < 1) ভিডিও সিলেক্ট করতে বাধা দিবে
-                if (vipLevel < 1) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("🔒 Only VIP users can post videos! 🌟"),
-                      backgroundColor: Colors.redAccent,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                  return;
-                }
-                // ভিআইপি হলে ভিডিও সিলেক্ট করার ফাংশন কল হবে
                 _pickVideo(setModalState);
               },
             ),
@@ -456,18 +399,6 @@ class _HomePageState extends State<HomePage>
               ),
               onPressed: () async {
                 String text = _captionController.text.trim();
-                
-                // সাবমিট করার সময়ও এক্সট্রা চেক
-                if (_pickedVideo != null && vipLevel < 1) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("🔒 Only VIP users can post videos! 🌟"),
-                      backgroundColor: Colors.redAccent,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                  return;
-                }
 
                 if (_pickedImage != null || _pickedVideo != null || text.isNotEmpty) {
                   showDialog(

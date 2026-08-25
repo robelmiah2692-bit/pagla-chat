@@ -13,7 +13,7 @@ class _ReelsAdWidgetState extends State<ReelsAdWidget> {
   bool _isAdLoaded = false;
 
   // টেস্ট এড ইউনিট আইডি (রিয়েল অ্যাপে পাবলিশ করার সময় আপনার আসল AdMob Native Ad Unit ID বসাবেন)
-  final String _adUnitId = 'ca-app-pub-3940256099942544/2247696110'; 
+  final String _adUnitId = 'ca-app-pub-3310579844012244/8050827477'; 
 
   @override
   void initState() {
