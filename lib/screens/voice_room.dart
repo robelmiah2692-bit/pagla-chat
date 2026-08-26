@@ -38,9 +38,11 @@ import 'package:pagla_chat/services/room_active_manager.dart';
 import 'package:pagla_chat/services/room_image_picker_service.dart';
 import 'package:pagla_chat/services/room_invite_service.dart';
 import 'package:pagla_chat/services/soulmate_xp_service.dart';
+import 'package:pagla_chat/user_badges_row.dart';
 import 'package:pagla_chat/viewer_ranking_widget.dart';
 
 import 'package:pagla_chat/widgets/entry_effect_handler.dart';
+import 'package:shimmer/shimmer.dart';
 
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:image_picker/image_picker.dart';
@@ -3905,198 +3907,372 @@ class _VoiceRoomState extends State<VoiceRoom>
                                         ),
                                       ),
                                       const SizedBox(height: 10),
-                                      Text(seatUserName,
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold)),
-                                      Text("ID: $seatUserId",
-                                          style: const TextStyle(
-                                              color: Colors.white54,
-                                              fontSize: 12)),
+
+// --- নামের গ্লাস বর্ডার বক্স (অফিশিয়াল/সুপার এডমিনদের জন্য শিমার ও গোল্ডেন বর্ডার, নরমালদের জন্য সিম্পল) ---
+                                      (() {
+                                        // রোল বা স্ট্যাটাস চেক করার লজিক
+                                        bool isOfficial =
+                                            (userData['isOfficial'] == true) ||
+                                                (userData['role'] ==
+                                                    'official');
+                                        bool isSuperAdmin =
+                                            (userData['isSuperAdmin'] ==
+                                                    true) ||
+                                                (userData['role'] ==
+                                                    'super_admin');
+                                        bool isSpecialUser =
+                                            isOfficial || isSuperAdmin;
+
+                                        return Container(
+                                          // স্লিম ও স্মুথ প্যাডিং (ব্যাজের মতো করে)
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 14, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: isSpecialUser
+                                                ? Colors.black.withOpacity(0.4)
+                                                : Colors.white.withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                            border: Border.all(
+                                              color: isSpecialUser
+                                                  ? const Color(
+                                                      0xFFFFD700) // গোল্ডেন বর্ডার শুধু স্পেশালদের জন্য
+                                                  : Colors.white
+                                                      .withOpacity(0.3),
+                                              width: 1.2,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: isSpecialUser
+                                                    ? const Color(0xFFFFD700)
+                                                        .withOpacity(0.3)
+                                                    : Colors.purpleAccent
+                                                        .withOpacity(0.15),
+                                                blurRadius:
+                                                    isSpecialUser ? 6 : 10,
+                                                spreadRadius: 1,
+                                              ),
+                                            ],
+                                          ),
+                                          child: isSpecialUser
+                                              ? Shimmer.fromColors(
+                                                  baseColor: isOfficial
+                                                      ? Colors.amber
+                                                      : Colors.purpleAccent,
+                                                  highlightColor: Colors.white,
+                                                  period: const Duration(
+                                                      milliseconds: 1500),
+                                                  child: Text(
+                                                    seatUserName,
+                                                    style: const TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      letterSpacing: 0.8,
+                                                      height: 1.0,
+                                                    ),
+                                                  ),
+                                                )
+                                              : Text(
+                                                  seatUserName,
+                                                  style: const TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                                                    letterSpacing: 0.8,
+                                                    height: 1.0,
+                                                  ),
+                                                ),
+                                        );
+                                      })(),
+// --- নামের গ্লাস বর্ডার বক্স শেষ ---
+
+                                      const SizedBox(height: 8),
+
+// --- আইডি সেকশন (কপি করার সুবিধা ও শিমার লুকসহ) ---
+                                      GestureDetector(
+                                        onTap: () {
+                                          Clipboard.setData(ClipboardData(
+                                              text: seatUserId.toString()));
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text("ID Copied!"),
+                                              duration: Duration(seconds: 1),
+                                            ),
+                                          );
+                                        },
+                                        child: Builder(
+                                          builder: (context) {
+                                            bool isOfficial =
+                                                (userData['isOfficial'] ==
+                                                        true) ||
+                                                    (userData['role'] ==
+                                                        'official');
+                                            bool isSuperAdmin =
+                                                (userData['isSuperAdmin'] ==
+                                                        true) ||
+                                                    (userData['role'] ==
+                                                        'super_admin');
+                                            bool isSpecialUser =
+                                                isOfficial || isSuperAdmin;
+
+                                            return isSpecialUser
+                                                ? Shimmer.fromColors(
+                                                    baseColor:
+                                                        const Color.fromARGB(
+                                                            255, 4, 189, 251),
+                                                    highlightColor:
+                                                        Colors.white,
+                                                    period: const Duration(
+                                                        milliseconds: 1500),
+                                                    child: Text(
+                                                      "ID: $seatUserId",
+                                                      style: const TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  )
+                                                : Text(
+                                                    "ID: $seatUserId",
+                                                    style: const TextStyle(
+                                                      color: Color.fromARGB(
+                                                          255, 4, 189, 251),
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  );
+                                          },
+                                        ),
+                                      ),
+
                                       const SizedBox(height: 15),
 
-                                      // 🔥 ব্যাজ সেকশন: প্রতিটা ব্যাজ আলাদা আলাদা প্রিমিয়াম মিক্সড কালার ও গ্লাস বর্ডার সহ
+                                      // 🔥 ব্যাজ সেকশন: প্রতিটা ব্যাজ আলাদা আলাদা প্রিমিয়াম মিক্সড কালার ও গ্লাস বর্ডার সহ
                                       Padding(
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 20),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
+                                        child: Column(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            // ১. VIP Badge (যদি থাকে)
-                                            if (hasVip)
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.all(6),
-                                                margin:
-                                                    const EdgeInsets.symmetric(
+                                            // -------------------------------------------------------------
+                                            // 🟢 ১ম লাইন: আইকন ব্যাজসমূহ (VIP, Premium, Agency Image)
+                                            // -------------------------------------------------------------
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                // ১. VIP Badge (যদি থাকে)
+                                                if (hasVip)
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.all(6),
+                                                    margin: const EdgeInsets
+                                                        .symmetric(
                                                         horizontal: 4),
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(15),
-                                                  gradient:
-                                                      const LinearGradient(
-                                                    colors: [
-                                                      Colors.purpleAccent,
-                                                      Colors.deepOrangeAccent
-                                                    ],
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              15),
+                                                      gradient:
+                                                          const LinearGradient(
+                                                        colors: [
+                                                          Colors.purpleAccent,
+                                                          Colors
+                                                              .deepOrangeAccent
+                                                        ],
+                                                        begin:
+                                                            Alignment.topLeft,
+                                                        end: Alignment
+                                                            .bottomRight,
+                                                      ),
+                                                      border: Border.all(
+                                                          color: Colors.white
+                                                              .withOpacity(0.4),
+                                                          width: 1.2),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                            color: Colors.purple
+                                                                .withOpacity(
+                                                                    0.4),
+                                                            blurRadius: 6,
+                                                            spreadRadius: 1)
+                                                      ],
+                                                    ),
+                                                    child: CachedNetworkImage(
+                                                      imageUrl:
+                                                          getVipBadge(vipLevel),
+                                                      width: 30,
+                                                      height: 30,
+                                                      fit: BoxFit.contain,
+                                                      placeholder:
+                                                          (context, url) =>
+                                                              const SizedBox(
+                                                        width: 20,
+                                                        height: 20,
+                                                        child: Center(
+                                                          child:
+                                                              CircularProgressIndicator(
+                                                            strokeWidth: 1.5,
+                                                            color:
+                                                                Colors.white70,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      errorWidget: (context,
+                                                              error,
+                                                              stackTrace) =>
+                                                          const SizedBox(
+                                                              width: 30,
+                                                              height: 30),
+                                                    ),
                                                   ),
-                                                  border: Border.all(
-                                                      color: Colors.white
-                                                          .withOpacity(0.4),
-                                                      width: 1.2),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                        color: Colors.purple
-                                                            .withOpacity(0.4),
-                                                        blurRadius: 6,
-                                                        spreadRadius: 1)
-                                                  ],
-                                                ),
-                                                child: CachedNetworkImage(
-                                                  imageUrl:
-                                                      getVipBadge(vipLevel),
-                                                  width: 30,
-                                                  height: 30,
-                                                  fit: BoxFit.contain,
-                                                  placeholder: (context, url) =>
-                                                      const SizedBox(
-                                                    width: 20,
-                                                    height: 20,
-                                                    child: Center(
-                                                        child:
-                                                            CircularProgressIndicator(
-                                                                strokeWidth:
-                                                                    1.5,
-                                                                color: Colors
-                                                                    .white70)),
-                                                  ),
-                                                  errorWidget: (context, error,
-                                                          stackTrace) =>
-                                                      const SizedBox(
-                                                          width: 30,
-                                                          height: 30),
-                                                ),
-                                              ),
 
-                                            // ২. Premium Card Badge (যদি থাকে)
-                                            if (hasPremium)
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.all(6),
-                                                margin:
-                                                    const EdgeInsets.symmetric(
+                                                // ২. Premium Card Badge (যদি থাকে)
+                                                if (hasPremium)
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.all(6),
+                                                    margin: const EdgeInsets
+                                                        .symmetric(
                                                         horizontal: 4),
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(15),
-                                                  gradient:
-                                                      const LinearGradient(
-                                                    colors: [
-                                                      Colors.amberAccent,
-                                                      Colors.pinkAccent
-                                                    ],
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              15),
+                                                      gradient:
+                                                          const LinearGradient(
+                                                        colors: [
+                                                          Colors.amberAccent,
+                                                          Colors.pinkAccent
+                                                        ],
+                                                        begin:
+                                                            Alignment.topLeft,
+                                                        end: Alignment
+                                                            .bottomRight,
+                                                      ),
+                                                      border: Border.all(
+                                                          color: Colors.white
+                                                              .withOpacity(0.4),
+                                                          width: 1.2),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                            color: Colors.amber
+                                                                .withOpacity(
+                                                                    0.4),
+                                                            blurRadius: 6,
+                                                            spreadRadius: 1)
+                                                      ],
+                                                    ),
+                                                    child: CachedNetworkImage(
+                                                      imageUrl: premiumBadgeUrl,
+                                                      width: 30,
+                                                      height: 30,
+                                                      fit: BoxFit.contain,
+                                                      placeholder:
+                                                          (context, url) =>
+                                                              const SizedBox(
+                                                        width: 20,
+                                                        height: 20,
+                                                        child: Center(
+                                                          child:
+                                                              CircularProgressIndicator(
+                                                            strokeWidth: 1.5,
+                                                            color:
+                                                                Colors.white70,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      errorWidget: (context,
+                                                              error,
+                                                              stackTrace) =>
+                                                          const SizedBox(
+                                                              width: 30,
+                                                              height: 30),
+                                                    ),
                                                   ),
-                                                  border: Border.all(
-                                                      color: Colors.white
-                                                          .withOpacity(0.4),
-                                                      width: 1.2),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                        color: Colors.amber
-                                                            .withOpacity(0.4),
-                                                        blurRadius: 6,
-                                                        spreadRadius: 1)
-                                                  ],
-                                                ),
-                                                child: CachedNetworkImage(
-                                                  imageUrl: premiumBadgeUrl,
-                                                  width: 30,
-                                                  height: 30,
-                                                  fit: BoxFit.contain,
-                                                  placeholder: (context, url) =>
-                                                      const SizedBox(
-                                                    width: 20,
-                                                    height: 20,
-                                                    child: Center(
-                                                        child:
-                                                            CircularProgressIndicator(
-                                                                strokeWidth:
-                                                                    1.5,
-                                                                color: Colors
-                                                                    .white70)),
-                                                  ),
-                                                  errorWidget: (context, error,
-                                                          stackTrace) =>
-                                                      const SizedBox(
-                                                          width: 30,
-                                                          height: 30),
-                                                ),
-                                              ),
 
-                                            // ৩. Agency Badge (যদি থাকে)
-                                            if (isAgent)
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.all(6),
-                                                margin:
-                                                    const EdgeInsets.symmetric(
+                                                // ৩. Agency Badge (যদি থাকে)
+                                                if (isAgent)
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.all(6),
+                                                    margin: const EdgeInsets
+                                                        .symmetric(
                                                         horizontal: 4),
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(15),
-                                                  gradient:
-                                                      const LinearGradient(
-                                                    colors: [
-                                                      Colors.cyanAccent,
-                                                      Colors.blueAccent
-                                                    ],
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              15),
+                                                      gradient:
+                                                          const LinearGradient(
+                                                        colors: [
+                                                          Colors.cyanAccent,
+                                                          Colors.blueAccent
+                                                        ],
+                                                        begin:
+                                                            Alignment.topLeft,
+                                                        end: Alignment
+                                                            .bottomRight,
+                                                      ),
+                                                      border: Border.all(
+                                                          color: Colors.white
+                                                              .withOpacity(0.4),
+                                                          width: 1.2),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                            color: Colors.cyan
+                                                                .withOpacity(
+                                                                    0.4),
+                                                            blurRadius: 6,
+                                                            spreadRadius: 1)
+                                                      ],
+                                                    ),
+                                                    child: CachedNetworkImage(
+                                                      imageUrl:
+                                                          "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/agancy.png",
+                                                      width: 30,
+                                                      height: 30,
+                                                      fit: BoxFit.contain,
+                                                      placeholder:
+                                                          (context, url) =>
+                                                              const SizedBox(
+                                                        width: 20,
+                                                        height: 20,
+                                                        child: Center(
+                                                          child:
+                                                              CircularProgressIndicator(
+                                                            strokeWidth: 1.5,
+                                                            color:
+                                                                Colors.white70,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      errorWidget: (context,
+                                                              error,
+                                                              stackTrace) =>
+                                                          const SizedBox(
+                                                              width: 30,
+                                                              height: 30),
+                                                    ),
                                                   ),
-                                                  border: Border.all(
-                                                      color: Colors.white
-                                                          .withOpacity(0.4),
-                                                      width: 1.2),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                        color: Colors.cyan
-                                                            .withOpacity(0.4),
-                                                        blurRadius: 6,
-                                                        spreadRadius: 1)
-                                                  ],
-                                                ),
-                                                child: CachedNetworkImage(
-                                                  imageUrl:
-                                                      "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/agancy.png",
-                                                  width: 30,
-                                                  height: 30,
-                                                  fit: BoxFit.contain,
-                                                  placeholder: (context, url) =>
-                                                      const SizedBox(
-                                                    width: 20,
-                                                    height: 20,
-                                                    child: Center(
-                                                        child:
-                                                            CircularProgressIndicator(
-                                                                strokeWidth:
-                                                                    1.5,
-                                                                color: Colors
-                                                                    .white70)),
-                                                  ),
-                                                  errorWidget: (context, error,
-                                                          stackTrace) =>
-                                                      const SizedBox(
-                                                          width: 30,
-                                                          height: 30),
-                                                ),
-                                              ),
+                                              ],
+                                            ),
+
+                                            // -------------------------------------------------------------
+                                            // 🟡 ২য় লাইন: নতুন শিমার টেক্সট ব্যাজ সেকশন (ডাটাবেজ চেক সহ)
+                                            // -------------------------------------------------------------
+                                            const SizedBox(
+                                                height:
+                                                    4), // দুই লাইনের মাঝে হালকা গ্যাপ
+                                            UserBadgesRow(
+                                                userId: userData['uID'] ??
+                                                    '') // ডাটা থাকলে শিমার শাইনিং ও গোল্ডেন বর্ডারসহ শো করবে
+                                          
                                           ],
                                         ),
                                       ),
@@ -4827,7 +5003,6 @@ class _VoiceRoomState extends State<VoiceRoom>
       ),
     );
   }
-  
 
   // ✉️ মেসেজ রো উইজেট (মেনশন এবং ইনভাইট সহ)
   Widget _buildMessageRow(

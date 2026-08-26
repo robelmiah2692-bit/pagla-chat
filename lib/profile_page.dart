@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -9,7 +11,9 @@ import 'package:pagla_chat/privacy_policy_page.dart';
 import 'package:pagla_chat/services/diamond_recharge_view.dart';
 import 'package:pagla_chat/services/follow_service.dart';
 import 'package:pagla_chat/services/soulmate_detail_page.dart';
+import 'package:pagla_chat/team_panel_and_soulmate_section.dart';
 import 'package:pagla_chat/user_badge_widget.dart';
+import 'package:pagla_chat/user_badges_row.dart';
 import 'package:pagla_chat/user_profile_features.dart';
 import 'package:pagla_chat/utils/daily_bonus_popup.dart';
 import 'package:pagla_chat/vip_benefits_screen.dart';
@@ -2961,26 +2965,121 @@ class _ProfilePageState extends State<ProfilePage> {
           appBar: AppBar(
             backgroundColor: const Color.fromARGB(125, 4, 2, 58),
             elevation: 0,
+            // leadinWidth বাদ দেওয়া হলো যাতে ডাইমন্ডের টেক্সট বড় বা ছোট হলে বক্স নিজে থেকেই জায়গা অ্যাডজাস্ট করে নিতে পারে
+            leadingWidth: isMe ? 150 : 56,
             leading: isMe
-                ? Padding(
-                    padding: const EdgeInsets.only(left: 10),
-                    child: Row(children: [
-                      const Text("💎", style: TextStyle(fontSize: 16)),
-                      Text(" $diamonds",
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 12))
-                    ]),
+                ? Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      height: 32,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      margin: const EdgeInsets.only(left: 8),
+                      decoration: BoxDecoration(
+                        // প্রিমিয়াম মাল্টি-কালার গ্লাস ব্যাকগ্রাউন্ড (বর্ডারের ভেতরের মিক্স কালার)
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.purple.shade900.withOpacity(0.6),
+                            Colors.blue.shade900.withOpacity(0.6),
+                            Colors.black.withOpacity(0.5),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(
+                              0xFFFFD700), // রিয়েল গোল্ডেন চিকন বর্ডার
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFFD700).withOpacity(0.25),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize
+                            .min, // ডাইমন্ড কম-বেশি হলে বক্স অটো ছোট-বড় হবে
+                        children: [
+                          // প্রিমিয়াম রিয়ালিস্টিক ডায়মন্ড লুক টেক্সট শ্যাডো সহ
+                          ShaderMask(
+                            shaderCallback: (bounds) => const LinearGradient(
+                              colors: [
+                                Color(0xFF00E5FF),
+                                Color(0xFF7C4DFF),
+                                Color(0xFFFF4081)
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ).createShader(bounds),
+                            child: const Text(
+                              "💎",
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            "$diamonds",
+                            style: const TextStyle(
+                              color: Color(
+                                  0xFFFFE082), // গোল্ডেনশ মাল্টি-কালার টেক্সট
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   )
                 : const BackButton(color: Colors.white),
             actions: [
               if (isMe)
-                IconButton(
-                    icon: const Icon(Icons.settings,
-                        color: Color.fromARGB(255, 90, 191, 245)),
-                    onPressed: _openSettings)
+                Center(
+                  child: Container(
+                    height: 32,
+                    width: 32,
+                    margin: const EdgeInsets.only(right: 12),
+                    decoration: BoxDecoration(
+                      // সেটিংস বাটনেও প্রিমিয়াম মাল্টি-কালার মিক্স গ্লাস ব্যাকগ্রাউন্ড
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.blue.shade900.withOpacity(0.6),
+                          Colors.purple.shade900.withOpacity(0.6),
+                          Colors.black.withOpacity(0.5),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(
+                            0xFFFFD700), // রিয়েল গোল্ডেন চিকন বর্ডার
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFFD700).withOpacity(0.25),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(
+                        Icons.settings,
+                        color: Color(0xFF80D8FF), // প্রিমিয়াম ব্রাইট আইকন কালার
+                        size: 16,
+                      ),
+                      onPressed: _openSettings,
+                    ),
+                  ),
+                ),
             ],
           ),
-
           body: Stack(
             children: [
               Positioned.fill(
@@ -3133,39 +3232,77 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 15),
 
                     // --- নামের গ্লাস বর্ডার বক্স ---
+                    (() {
+                      // রোল বা স্ট্যাটাস চেক করার লজিক
+                      bool isOfficial = (userData['isOfficial'] == true) ||
+                          (userData['role'] == 'official');
+                      bool isSuperAdmin = (userData['isSuperAdmin'] == true) ||
+                          (userData['role'] == 'super_admin');
+                      bool isSpecialUser = isOfficial || isSuperAdmin;
 
-                    GestureDetector(
-                      onTap: isMe ? () => _editName(userData) : null,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 28, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(30),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.purpleAccent.withOpacity(0.15),
-                              blurRadius: 15,
-                              spreadRadius: 2,
+                      // অফিশিয়াল বা সুপার এডমিন হলে স্পেশাল শিমার ডিজাইন, না হলে নরমাল ডিজাইন
+                      return GestureDetector(
+                        onTap: isMe ? () => _editName(userData) : null,
+                        child: Container(
+                          // 🌟 প্যাডিং কমিয়ে স্লিম ও স্মুথ করা হলো (ব্যাজের মতো করে)
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isSpecialUser
+                                ? Colors.black.withOpacity(0.4)
+                                : Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(
+                                20), // বর্ডার রেডিয়াসও একটু স্লিম লুকের জন্য অ্যাডজাস্ট করা হলো
+                            border: Border.all(
+                              color: isSpecialUser
+                                  ? const Color(0xFFFFD700)
+                                  : Colors.white.withOpacity(
+                                      0.3), // গোল্ডেন বর্ডার শুধু স্পেশালদের জন্য
+                              width: 1.2,
                             ),
-                          ],
-                        ),
-                        child: Text(
-                          userName,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: 1.1,
+                            boxShadow: [
+                              BoxShadow(
+                                color: isSpecialUser
+                                    ? const Color(0xFFFFD700).withOpacity(0.3)
+                                    : Colors.purpleAccent.withOpacity(0.15),
+                                blurRadius: isSpecialUser ? 6 : 10,
+                                spreadRadius: 1,
+                              ),
+                            ],
                           ),
+                          child: isSpecialUser
+                              ? Shimmer.fromColors(
+                                  baseColor: isOfficial
+                                      ? Colors.amber
+                                      : Colors.purpleAccent,
+                                  highlightColor: Colors.white,
+                                  period: const Duration(milliseconds: 1500),
+                                  child: Text(
+                                    userName,
+                                    style: const TextStyle(
+                                      fontSize:
+                                          16, // সাইজও প্রফাইলের সাথে সামঞ্জস্য রাখা হলো
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.8,
+                                      height: 1.0,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  userName,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    letterSpacing: 0.8,
+                                    height: 1.0,
+                                  ),
+                                ),
                         ),
-                      ),
-                    ),
-                    // --- নামের গ্লাস বর্ডার বক্স শেষ ---
+                      );
+                    })(),
+// --- নামের গ্লাস বর্ডার বক্স শেষ ---
+
                     Stack(
                       clipBehavior: Clip
                           .none, // এটা খুব জরুরি, যাতে ব্যাজটি আইডির সীমানার বাইরেও ভেসে থাকতে পারে
@@ -3182,13 +3319,41 @@ class _ProfilePageState extends State<ProfilePage> {
                               ),
                             );
                           },
-                          child: Text(
-                            "ID: $uIDValue",
-                            style: const TextStyle(
-                              color: Color.fromARGB(255, 4, 189, 251),
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          child: Builder(
+                            builder: (context) {
+                              bool isOfficial =
+                                  (userData['isOfficial'] == true) ||
+                                      (userData['role'] == 'official');
+                              bool isSuperAdmin =
+                                  (userData['isSuperAdmin'] == true) ||
+                                      (userData['role'] == 'super_admin');
+                              bool isSpecialUser = isOfficial || isSuperAdmin;
+
+                              // যদি অফিশিয়াল বা সুপার এডমিন হয়, তবে আইডিতেও হালকা শিমার বা প্রিমিয়াম লুক আসবে, অন্যথায় নরমাল থাকবে
+                              return isSpecialUser
+                                  ? Shimmer.fromColors(
+                                      baseColor: const Color.fromARGB(
+                                          255, 4, 189, 251),
+                                      highlightColor: Colors.white,
+                                      period:
+                                          const Duration(milliseconds: 1500),
+                                      child: Text(
+                                        "ID: $uIDValue",
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    )
+                                  : Text(
+                                      "ID: $uIDValue",
+                                      style: const TextStyle(
+                                        color: Color.fromARGB(255, 4, 189, 251),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    );
+                            },
                           ),
                         ),
 
@@ -3214,204 +3379,210 @@ class _ProfilePageState extends State<ProfilePage> {
                       ],
                     ),
                     const SizedBox(height: 5),
-
-// VIP এবং ডাইনামিক XP প্রগ্রেস বার সেকশন
+                    UserBadgesRow(userId: uIDValue.toString()),
+                    const SizedBox(height: 5),
+                    // VIP এবং ডাইনামিক XP প্রগ্রেস বার সেকশন
                     Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 25),
-                        child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (vipLevel > 0 &&
-                                  getVipBadge(vipLevel).toString().isNotEmpty &&
-                                  !getVipBadge(vipLevel)
-                                      .toString()
-                                      .startsWith('file:'))
-                                CachedNetworkImage(
-                                  imageUrl: getVipBadge(vipLevel),
-                                  width: 45,
-                                  height: 45,
-                                  fit: BoxFit.contain,
-                                  placeholder: (context, url) => const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: Center(
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 1.5,
-                                        color: Colors.white70,
-                                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 25),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // 🔥 ১. VIP ব্যাজের ওপর শিমার শাইনিং ইফেক্ট (অরিজিনাল লজিক ঠিক রেখে)
+                          if (vipLevel > 0 &&
+                              getVipBadge(vipLevel).toString().isNotEmpty &&
+                              !getVipBadge(vipLevel)
+                                  .toString()
+                                  .startsWith('file:'))
+                            _buildShiningBadgeWrapper(
+                              CachedNetworkImage(
+                                imageUrl: getVipBadge(vipLevel),
+                                width: 45,
+                                height: 45,
+                                fit: BoxFit.contain,
+                                placeholder: (context, url) => const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: Colors.white70,
                                     ),
                                   ),
-                                  errorWidget: (c, e, s) => const Icon(
-                                    Icons.stars_rounded,
-                                    color: Colors.white24,
-                                    size: 40,
-                                  ),
-                                )
-                              else
-                                const Icon(Icons.stars_rounded,
-                                    color: Colors.white24, size: 40),
-                              const SizedBox(width: 15),
-                              Expanded(
-                                  child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                      vipLevel == 0
-                                          ? "Target VIP 1 (XP: $xp / $nextTarget)"
-                                          : "VIP Level $vipLevel (XP: $xp / $nextTarget)",
-                                      style: const TextStyle(
-                                          color: Colors.amber,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 8),
-                                  // Shimmer দিয়ে আগুনের তরঙ্গ এবং মাথায় আলাদা আগুনের শিখা
-                                  LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      final double maxWidth =
-                                          constraints.maxWidth;
-                                      final double barWidth =
-                                          maxWidth * progressValue;
+                                ),
+                                errorWidget: (c, e, s) => const Icon(
+                                  Icons.stars_rounded,
+                                  color: Colors.white24,
+                                  size: 40,
+                                ),
+                              ),
+                            )
+                          else
+                            _buildShiningBadgeWrapper(
+                              const Icon(Icons.stars_rounded,
+                                  color: Colors.white24, size: 40),
+                            ),
 
-                                      return Container(
-                                        height:
-                                            12, // সামান্য মোটা করা হলো যাতে ইফেক্টটি ভালো দেখা যায় ভাই
-                                        width: maxWidth,
-                                        decoration: BoxDecoration(
-                                          color: Colors
-                                              .white10, // বারের ব্যাকগ্রাউন্ড
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          border: Border.all(
-                                              color:
-                                                  Colors.white.withOpacity(0.2),
-                                              width: 1), // বারের ধারালো বর্ডার
-                                        ),
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          child: Stack(
-                                            children: [
-                                              // ১. মূল গোল্ডেন এবং আগুনের রঙের তরঙ্গ (Shimmer Gradient)
-                                              if (barWidth > 0)
-                                                Positioned(
-                                                  left: 0,
-                                                  top: 0,
-                                                  bottom: 0,
-                                                  width: barWidth,
+                          const SizedBox(width: 15),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  vipLevel == 0
+                                      ? "Target VIP 1 (XP: $xp / $nextTarget)"
+                                      : "VIP Level $vipLevel (XP: $xp / $nextTarget)",
+                                  style: const TextStyle(
+                                    color: Colors.amber,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                // Shimmer দিয়ে আগুনের তরঙ্গ এবং মাথায় আলাদা আগুনের শিখা
+                                LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final double maxWidth =
+                                        constraints.maxWidth;
+                                    final double barWidth =
+                                        maxWidth * progressValue;
+
+                                    return Container(
+                                      height:
+                                          12, // সামান্য মোটা করা হলো যাতে ইফেক্টটি ভালো দেখা যায় ভাই
+                                      width: maxWidth,
+                                      decoration: BoxDecoration(
+                                        color: Colors
+                                            .white10, // বারের ব্যাকগ্রাউন্ড
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: Colors.white.withOpacity(0.2),
+                                          width: 1,
+                                        ), // বারের ধারালো বর্ডার
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(10),
+                                        child: Stack(
+                                          children: [
+                                            // ১. মূল গোল্ডেন এবং আগুনের রঙের তরঙ্গ (Shimmer Gradient)
+                                            if (barWidth > 0)
+                                              Positioned(
+                                                left: 0,
+                                                top: 0,
+                                                bottom: 0,
+                                                width: barWidth,
+                                                child: Shimmer.fromColors(
+                                                  baseColor: const Color(
+                                                      0xFFFFD700), // মূল গোল্ডেন কালার
+                                                  highlightColor: const Color(
+                                                      0xFFFF4500), // আগুনের তরঙ্গ (Orange-Red)
+                                                  period: const Duration(
+                                                      milliseconds:
+                                                          1500), // অ্যানিমেশন স্পিড
+                                                  child: Container(
+                                                    decoration: BoxDecoration(
+                                                      // গ্রেডিয়েন্ট দেওয়া হলো যাতে শুরু থেকে মাথায় কালার চেঞ্জ হয়
+                                                      gradient:
+                                                          const LinearGradient(
+                                                        colors: [
+                                                          Color(
+                                                              0xFFFFC107), // শুরু গোল্ডেন
+                                                          Color(
+                                                              0xFFFFD700), // মাছ গোল্ডেন
+                                                        ],
+                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              10),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+
+                                            // ২. মাথায় সেই জ্বলজ্বলে আগুনের শিখা বা বিন্দু (The Glowing Fire Head)
+                                            if (barWidth > 0)
+                                              Positioned(
+                                                left: barWidth -
+                                                    10, // মাথার বিন্দুটি ঠিক প্রগ্রেসের শেষ মাথায় বসবে
+                                                top: 0,
+                                                bottom: 0,
+                                                child: Center(
                                                   child: Shimmer.fromColors(
                                                     baseColor: const Color(
-                                                        0xFFFFD700), // মূল গোল্ডেন কালার
-                                                    highlightColor: const Color(
-                                                        0xFFFF4500), // আগুনের তরঙ্গ (Orange-Red)
+                                                        0xFFFF4500), // আগুনের বিন্দুর বেস (Orange-Red)
+                                                    highlightColor: Colors
+                                                        .yellowAccent, // বিন্দুর জ্বলজ্বল (Yellow)
                                                     period: const Duration(
                                                         milliseconds:
-                                                            1500), // অ্যানিমেশন স্পিড
+                                                            500), // দ্রুত জ্বলজ্বল
                                                     child: Container(
+                                                      width: 10,
+                                                      height: 10,
                                                       decoration: BoxDecoration(
-                                                        // গ্রেডিয়েন্ট দেওয়া হলো যাতে শুরু থেকে মাথায় কালার চেঞ্জ হয়
-                                                        gradient:
-                                                            LinearGradient(
-                                                          colors: const [
-                                                            Color(
-                                                                0xFFFFC107), // শুরু গোল্ডেন
-                                                            Color(
-                                                                0xFFFFD700), // মাছ গোল্ডেন
-                                                          ],
-                                                        ),
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(10),
+                                                        shape: BoxShape.circle,
+                                                        color: Colors.orange,
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors
+                                                                .redAccent
+                                                                .withOpacity(
+                                                                    0.8),
+                                                            blurRadius: 6,
+                                                            spreadRadius:
+                                                                2, // বিন্দুর চারপাশে আগুনের আভা
+                                                          ),
+                                                          BoxShadow(
+                                                            color: Colors.orange
+                                                                .withOpacity(
+                                                                    0.6),
+                                                            blurRadius: 10,
+                                                            spreadRadius: 4,
+                                                          ),
+                                                        ],
                                                       ),
                                                     ),
                                                   ),
                                                 ),
-
-                                              // ২. মাথায় সেই জ্বলজ্বলে আগুনের শিখা বা বিন্দু (The Glowing Fire Head)
-                                              // এটি একদম মাথায় স্থির থেকে জ্বলজ্বল করবে
-                                              if (barWidth > 0)
-                                                Positioned(
-                                                  left: barWidth -
-                                                      10, // মাথার বিন্দুটি ঠিক প্রগ্রেসের শেষ মাথায় বসবে
-                                                  top: 0,
-                                                  bottom: 0,
-                                                  child: Center(
-                                                    child: Shimmer.fromColors(
-                                                      baseColor: const Color(
-                                                          0xFFFF4500), // আগুনের বিন্দুর বেস (Orange-Red)
-                                                      highlightColor: Colors
-                                                          .yellowAccent, // বিন্দুর জ্বলজ্বল (Yellow)
-                                                      period: const Duration(
-                                                          milliseconds:
-                                                              500), // দ্রুত জ্বলজ্বল
-                                                      child: Container(
-                                                        width: 10,
-                                                        height: 10,
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          shape:
-                                                              BoxShape.circle,
-                                                          color: Colors.orange,
-                                                          boxShadow: [
-                                                            BoxShadow(
-                                                              color: Colors
-                                                                  .redAccent
-                                                                  .withOpacity(
-                                                                      0.8),
-                                                              blurRadius: 6,
-                                                              spreadRadius:
-                                                                  2, // বিন্দুর চারপাশে আগুনের আভা
-                                                            ),
-                                                            BoxShadow(
-                                                              color: Colors
-                                                                  .orange
-                                                                  .withOpacity(
-                                                                      0.6),
-                                                              blurRadius: 10,
-                                                              spreadRadius: 4,
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
+                                              ),
+                                          ],
                                         ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              )),
-                              const SizedBox(width: 15),
-                              if (hasPremiumCard &&
-                                  (premiumBadgeUrl ?? '')
-                                      .toString()
-                                      .isNotEmpty &&
-                                  !premiumBadgeUrl
-                                      .toString()
-                                      .startsWith('file:'))
-                                CachedNetworkImage(
-                                  imageUrl: premiumBadgeUrl,
-                                  width: 45,
-                                  height: 45,
-                                  fit: BoxFit.contain,
-                                  placeholder: (context, url) => const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: Center(
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 1.5,
-                                        color: Colors.white70,
                                       ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 15),
+
+                          // 🔥 ২. প্রিমিয়াম ব্যাজের ওপর শিমার শাইনিং ইফেক্ট (অরিজিনাল লজিক ঠিক রেখে)
+                          if (hasPremiumCard &&
+                              (premiumBadgeUrl ?? '').toString().isNotEmpty &&
+                              !premiumBadgeUrl.toString().startsWith('file:'))
+                            _buildShiningBadgeWrapper(
+                              CachedNetworkImage(
+                                imageUrl: premiumBadgeUrl,
+                                width: 45,
+                                height: 45,
+                                fit: BoxFit.contain,
+                                placeholder: (context, url) => const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: Colors.white70,
                                     ),
                                   ),
-                                  errorWidget: (c, e, s) =>
-                                      const SizedBox(width: 45),
-                                )
-                              else
-                                const SizedBox(width: 45),
-                            ])),
+                                ),
+                                errorWidget: (c, e, s) =>
+                                    const SizedBox(width: 45),
+                              ),
+                            )
+                          else
+                            const SizedBox(width: 45),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 5),
 
 // 🇧🇩 [বাংলা মার্ক]: ValueKey যোগ করা হলো—ডাটা আসার সাথে সাথে স্ক্রিন রিয়েল-টাইমে আপডেট হবে ভাই!
@@ -3429,79 +3600,157 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 5),
 
                     // Followers & Following
-                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      _buildStat(
-                          "Followers", followers, sixDigitProfileID, context),
-                      const SizedBox(width: 25),
-                      if (!isMe) ...[
-                        ElevatedButton(
-                          onPressed: () async {
-                            // সার্ভিস কল: ফলো বা আনফলো করা
-                            bool nowFollowing = await FollowService()
-                                .toggleFollowUser(targetUserId, mySixDigitUID);
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildStat(
+                            "Followers", followers, sixDigitProfileID, context),
+                        const SizedBox(width: 25),
+                        if (!isMe) ...[
+                          // ফলো / আনফলো বাটন (ব্যাজের মতো গ্লাস ইফেক্ট, চিকন গোল্ডেন বর্ডার ও মাল্টি-কালার টেক্সট)
+                          Container(
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: Colors.black
+                                  .withOpacity(0.4), // গ্লাস ব্যাকগ্রাউন্ড
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: const Color(
+                                    0xFFFFD700), // রিয়েল গোল্ড চিকন বর্ডার
+                                width: 1.2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      const Color(0xFFFFD700).withOpacity(0.2),
+                                  blurRadius: 6,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(20),
+                                onTap: () async {
+                                  // সার্ভিস কল: ফলো বা আনফলো করা
+                                  bool nowFollowing = await FollowService()
+                                      .toggleFollowUser(
+                                          targetUserId, mySixDigitUID);
 
-                            // সাথে সাথে চেক করা সেও আপনাকে ফলো করে কি না (Mutual Friend চেক)
-                            bool mutual = await FollowService()
-                                .checkIfMutualFriend(
-                                    targetUserId, mySixDigitUID);
+                                  // সাথে সাথে চেক করা সেও আপনাকে ফলো করে কি না (Mutual Friend চেক)
+                                  bool mutual = await FollowService()
+                                      .checkIfMutualFriend(
+                                          targetUserId, mySixDigitUID);
 
-                            if (mounted) {
-                              setState(() {
-                                isFollowing = nowFollowing;
-                                isFriend = mutual; // ফ্রেন্ড স্ট্যাটাস আপডেট
+                                  if (mounted) {
+                                    setState(() {
+                                      isFollowing = nowFollowing;
+                                      isFriend =
+                                          mutual; // ফ্রেন্ড স্ট্যাটাস আপডেট
 
-                                // কাউন্ট আপডেট লজিক
-                                if (nowFollowing) {
-                                  followers += 1;
-                                } else {
-                                  followers =
-                                      (followers > 0) ? followers - 1 : 0;
-                                  isFriend =
-                                      false; // আনফলো করলে ফ্রেন্ডশিপও থাকবে না
-                                }
-                              });
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            // কালার লজিক: ফ্রেন্ড বা ফলোইং হলে blueGrey, না থাকলে pinkAccent
-                            backgroundColor: isFriend || isFollowing
-                                ? Colors.blueGrey
-                                : Colors.pinkAccent,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20)),
+                                      // কাউন্ট আপডেট লজিক
+                                      if (nowFollowing) {
+                                        followers += 1;
+                                      } else {
+                                        followers =
+                                            (followers > 0) ? followers - 1 : 0;
+                                        isFriend =
+                                            false; // আনফলো করলে ফ্রেন্ডশিপও থাকবে না
+                                      }
+                                    });
+                                  }
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14),
+                                  child: Center(
+                                    child: DefaultTextStyle(
+                                      style: TextStyle(
+                                        // গ্লোবাল থিম ওভাররাইড ঠেকানোর জন্য এখানে কালার ফিক্সড করে দেওয়া হলো
+                                        color: isFriend || isFollowing
+                                            ? const Color(0xFFFFE082)
+                                            : const Color(0xFFFF80AB),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.5,
+                                        height: 1.0,
+                                      ),
+                                      child: Text(
+                                        isFriend
+                                            ? "Friend"
+                                            : (isFollowing
+                                                ? "Following"
+                                                : "Follow"),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
-                          child: Text(
-                            // টেক্সট লজিক: পারস্পরিক হলে "Friend", শুধু আপনি ফলো করলে "Following", না করলে "Follow"
-                            isFriend
-                                ? "Friend"
-                                : (isFollowing ? "Following" : "Follow"),
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        IconButton(
-                          icon: const Icon(Icons.mail, color: Colors.white),
-                          onPressed: () {
-                            Navigator.push(
-                                context,
-                                MaterialPageRoute(
+                          const SizedBox(
+                              width: 10), // আগের দূরত্ব অপরিবর্তিত রাখা হয়েছে
+                          // মেইল বা মেসেজ আইকন (ব্যাজের স্টাইলের মতো গ্লাস ও চিকন গোল্ডেন বর্ডার)
+                          Container(
+                            height: 32,
+                            width: 32,
+                            decoration: BoxDecoration(
+                              color: Colors.black
+                                  .withOpacity(0.4), // গ্লাস ব্যাকগ্রাউন্ড
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(
+                                    0xFFFFD700), // রিয়েল গোল্ড চিকন বর্ডার
+                                width: 1.2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      const Color(0xFFFFD700).withOpacity(0.2),
+                                  blurRadius: 6,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              icon: const Icon(Icons.mail,
+                                  color: Color(0xFF80D8FF),
+                                  size:
+                                      16), // মাল্টি-কালার লুকের জন্য লাইট সায়ান আইকন
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
                                     builder: (context) => ChatScreen(
-                                        receiverId: targetUserId,
-                                        receiverName: userName)));
-                          },
-                        ),
-                      ] else
-                        const SizedBox(
+                                      receiverId: targetUserId,
+                                      receiverName: userName,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ] else
+                          const SizedBox(
                             width: 80,
                             child: Center(
-                                child: Text("MY PROFILE",
-                                    style: TextStyle(
-                                        color: Colors.white54, fontSize: 10)))),
-                      const SizedBox(width: 25),
-                      // Row-এর ভেতরে targetUserId এর বদলে uIDValue পাস করুন
-                      _buildStat(
-                          "Following", following, sixDigitProfileID, context),
-                    ]),
+                              child: Text(
+                                "MY PROFILE",
+                                style: TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        const SizedBox(width: 25),
+                        _buildStat(
+                            "Following", following, sixDigitProfileID, context),
+                      ],
+                    ),
                     const SizedBox(height: 15),
 
                     if (isMe) ...[
@@ -3543,8 +3792,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 25),
                     ],
                     const SizedBox(height: 0),
-
-                    // ❤️ সোলমেট সেকশন
+                   // ❤️ সোলমেট সেকশন
+                    TeamPanelAndSoulmateSection(uIDValue: uIDValue),
+                    const SizedBox(height: 10),
+                  // আপনার মেইন ফাইলের সোলমেট সেকশনটি এখন ঠিক নিচে কল করুন:
                     _buildSoulmateSection(),
 
                     const SizedBox(height: 30),
@@ -3722,6 +3973,47 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+// ✨ নিখুঁত, হালকা ও স্মুথ শিমার শাইনিং ইফেক্ট উইজেট
+  Widget _buildShiningBadgeWrapper(Widget child) {
+    return SizedBox(
+      width: 45,
+      height: 45,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          child,
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Shimmer.fromColors(
+                baseColor: Colors.white.withOpacity(0.05),
+                highlightColor: Colors.white
+                    .withOpacity(0.85), // খুব বেশি কড়া নয়, একদম ন্যাচারাল
+                period: const Duration(
+                    milliseconds:
+                        2200), // গতি একটু ধীর করা হয়েছে যাতে স্মুথ লাগে
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withOpacity(0.05),
+                        Colors.amberAccent
+                            .withOpacity(0.25), // হালকা সোনালী আভা
+                        Colors.white.withOpacity(0.4),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 // 💡 হেল্পার উইজেট: আইডি থেকে পার্টনারের ডাটা লোড করবে
   Widget _buildFilledSoulmateFromId(String partnerUid) {
     return FutureBuilder<DocumentSnapshot>(
@@ -3891,7 +4183,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-// ✅ ৫. প্রিমিয়াম ম্যারেজ হেডার (চারপাশে সমান গোল ফ্রেম সাইজ কন্ট্রোল ১০০% ফিক্সড)
+// ✅ ৫. প্রিমিয়াম ম্যারেজ হেডার (চারপাশে সমান গোল ফ্রেম সাইজ কন্ট্রোল ১০০% ফিক্সড + লাইফটাইম রিং অ্যানিমেশন ও শিমার শাইনিং - ক্রাশপ্রুফ ফিক্সড)
   Widget _buildMarriageHeader(
       BuildContext context,
       Map<String, dynamic> data,
@@ -3903,11 +4195,14 @@ class _ProfilePageState extends State<ProfilePage> {
         data['ringIconUrl'] ??
         "https://i.ibb.co/ring-sample.png";
     String partnerImg = data['partnerImage'] ?? data['partnerProfilePic'] ?? '';
-    String partnerFrame = data['partnerFrameUrl'] ??
-        data['activeFrameUrl'] ??
-        data['partnerFrame'] ??
-        data['activeFrame'] ??
-        '';
+
+    // 🔥 পার্টনারের ফ্রেমের জন্য সেফ চেক ও ফলব্যাক (ইরর হ্যান্ডেলিং সহ)
+    String partnerFrame = (data['partnerFrameUrl'] ??
+            data['activeFrameUrl'] ??
+            data['partnerFrame'] ??
+            data['activeFrame'] ??
+            '')
+        .toString();
 
     double avatarRadius = 45; // ছবির ব্যাসার্ধ
 
@@ -3915,7 +4210,6 @@ class _ProfilePageState extends State<ProfilePage> {
     double lottieMultiplier = 3.1;
 
     // 🔥 [২ নম্বর কন্ট্রোল] সাধারণ ইমেজ (PNG/JPG) ফ্রেমের সাইজ কম-বেশি করার অপশন
-    // এটি পরিবর্তন করলে ইমেজ ফ্রেম একদম সমান গোল হয়ে বড় বা ছোট হবে, লম্বা হবে না!
     double imageMultiplier = 2.8;
 
     // বর্তমান ইউজারের ফ্রেমের টাইপ অনুযায়ী ডায়নামিক সাইজ নির্ধারণ
@@ -3924,7 +4218,8 @@ class _ProfilePageState extends State<ProfilePage> {
         avatarRadius * (isMyFrameLottie ? lottieMultiplier : imageMultiplier);
 
     // পার্টনারের ফ্রেমের টাইপ অনুযায়ী ডায়নামিক সাইজ নির্ধারণ
-    bool isPartnerFrameLottie = partnerFrame.contains('.json');
+    bool isPartnerFrameLottie =
+        partnerFrame.isNotEmpty && partnerFrame.contains('.json');
     double partnerFrameSize = avatarRadius *
         (isPartnerFrameLottie ? lottieMultiplier : imageMultiplier);
 
@@ -3937,22 +4232,20 @@ class _ProfilePageState extends State<ProfilePage> {
         myFrameSize > partnerFrameSize ? myFrameSize : partnerFrameSize;
 
     return Container(
-      padding: EdgeInsets.zero, // কোনো প্যাডিং রাখা হলো না
-      alignment: Alignment.topCenter, // কন্টেন্ট ওপরের দিকে থাকবে
-      constraints:
-          BoxConstraints(maxHeight: totalHeight), // হাইট ফিক্সড করে দিলাম
+      padding: EdgeInsets.zero,
+      alignment: Alignment.topCenter,
+      constraints: BoxConstraints(maxHeight: totalHeight),
       child: SizedBox(
         width: totalWidth,
         height: totalHeight,
         child: Stack(
-          alignment: Alignment
-              .topCenter, // স্ট্যাকের ভেতরেও আইটেমগুলো ওপরের দিকে থাকবে
-          clipBehavior: Clip.none, // এটি খুব জরুরি, ফ্রেম যেন কেটে না যায়
+          alignment: Alignment.topCenter,
+          clipBehavior: Clip.none,
           children: [
             // ১. নিজের প্রোফাইল ছবি ও ফ্রেম
             Positioned(
               left: (totalWidth / 2) - myFrameSize + (overlapDistance / 2),
-              top: 0, // ওপর থেকে ০ পজিশনে
+              top: 0,
               child: GestureDetector(
                 onTap: isMe ? _pickProfileImage : null,
                 child: _buildUserWithFrame(myImg, myFrame, avatarRadius,
@@ -3960,7 +4253,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
 
-            // ২. পার্টনারের প্রোফাইল ছবি ও ফ্রেম
+            // ২. পার্টনারের প্রোফাইল ছবি ও ফ্রেম (সেফ চেকসহ)
             Positioned(
               right:
                   (totalWidth / 2) - partnerFrameSize + (overlapDistance / 2),
@@ -3972,18 +4265,16 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
 
-            // 💍 ম্যারেজ রিং আইকন (ঠিক মাঝখানে, ক্লিকেবল ডিভোর্স ও ডিটেইলস পপআপ)
+            // 💍 ম্যারেজ রিং আইকন (সম্পূর্ণ সেফ ও লাইফটাইম অ্যানিমেটেড রিং উইজেট)
             Positioned(
               top: 15,
               child: GestureDetector(
                 onTap: () async {
-                  // 🆔 কারেন্ট ইউজারের UID এবং পার্টনারের UID বের করা হলো
                   String currentUid =
                       FirebaseAuth.instance.currentUser?.uid ?? '';
                   String partnerAuthUID =
                       rawMarriageDoc['partnerAuthUID'] ?? '';
 
-                  // ফায়ারস্টোর ডকুমেন্টের আইডি নিশ্চিত করা
                   String marriageDocId = rawMarriageDoc['marriageId'] ??
                       rawMarriageDoc['id'] ??
                       rawMarriageDoc['docId'] ??
@@ -3992,16 +4283,11 @@ class _ProfilePageState extends State<ProfilePage> {
                   String finalMyName = '';
                   String finalMyImage = '';
 
-                  // 🔍 [১০০% ফিক্সড লজিক: where কুয়েরি ব্যবহার]:
-                  // যেহেতু ডকুমেন্ট আইডি ৬ ডিজিটের, তাই আমরা uid ফিল্ড দিয়ে সার্চ করছি
                   try {
                     if (currentUid.isNotEmpty) {
                       QuerySnapshot userQuery = await FirebaseFirestore.instance
-                          .collection(
-                              'users') // 🔥 আপনার স্ক্রিনশট অনুযায়ী কালেকশনের নাম users
-                          .where('uid',
-                              isEqualTo:
-                                  currentUid) // লম্বা আইডি দিয়ে ডাটাবেজে ফিল্টার
+                          .collection('users')
+                          .where('uid', isEqualTo: currentUid)
                           .limit(1)
                           .get();
 
@@ -4009,7 +4295,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         var uData =
                             userQuery.docs.first.data() as Map<String, dynamic>;
 
-                        // ডাটাবেজের ফিল্ড অনুযায়ী নাম ও ছবি ফিল্টারিং
                         finalMyName = uData['name'] ??
                             uData['username'] ??
                             uData['nickName'] ??
@@ -4021,10 +4306,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       }
                     }
                   } catch (e) {
-                    // ক্যাচ ব্লকের প্রিন্ট রিমুভ করা হয়েছে
+                    // ক্যাচ ব্লক
                   }
 
-                  // 🔐 ব্যাকআপ লজিক ১: ফায়ারস্টোরে না পাওয়া গেলে ফায়ারবেস আউথ প্রোফাইল চেক করবে
                   if (finalMyName.trim().isEmpty) {
                     finalMyName =
                         FirebaseAuth.instance.currentUser?.displayName ?? '';
@@ -4034,12 +4318,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         FirebaseAuth.instance.currentUser?.photoURL ?? '';
                   }
 
-                  // 🔐 ব্যাকআপ লজিক ২: যদি কারেন্ট পেজের উইজেটের ভেতর কোনো নাম থেকে থাকে
                   if (finalMyName.trim().isEmpty) {
                     finalMyName = data['name'] ?? data['username'] ?? '';
                   }
 
-                  // 👑 চূড়ান্ত ব্যাকআপ নাম (খালি থাকলে)
                   if (finalMyName.trim().isEmpty) {
                     finalMyName = "User";
                   }
@@ -4047,7 +4329,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   finalMyName = finalMyName.trim();
                   finalMyImage = finalMyImage.trim();
 
-                  // 🛑 ম্যারেজ বটম শিট ওপেন (সরাসরি ডেটাবেজ থেকে লাইভ তুলে আনা নাম ও ছবি পাস করা হলো)
                   _showDivorceBottomSheet(
                     context: context,
                     marriageData: rawMarriageDoc,
@@ -4056,25 +4337,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     myImage: finalMyImage,
                   );
                 },
-                child: CachedNetworkImage(
-                  imageUrl: ringIconUrl,
-                  width: 60,
-                  height: 55,
-                  fit: BoxFit.contain,
-                  placeholder: (context, url) => const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ),
-                  errorWidget: (context, error, stackTrace) {
-                    return const Icon(Icons.favorite,
-                        color: Colors.pink, size: 30);
-                  },
+                child: _InfiniteRingAnimator(
+                  ringIconUrl: ringIconUrl,
                 ),
               ),
             ),
@@ -4550,4 +4814,114 @@ class RainbowCascadePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// 🔄 শতভাগ নিরাপদ ও ক্রাশপ্রুফ ইনফিনিট লুপ রিং অ্যানিমেটর উইজেট (Assertion Error Fixed)
+class _InfiniteRingAnimator extends StatefulWidget {
+  final String ringIconUrl;
+  const _InfiniteRingAnimator({required this.ringIconUrl});
+
+  @override
+  State<_InfiniteRingAnimator> createState() => _InfiniteRingAnimatorState();
+}
+
+class _InfiniteRingAnimatorState extends State<_InfiniteRingAnimator>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        double val = _controller.value;
+
+        // সেফটি ক্যালকুলেশন যাতে অপাসিটি বা সাইজ কোনোভাবেই ০ এবং ১ এর সীমানা পার হয়ে এরর না দেয়
+        double sineValue = sin(val * pi * 2);
+        double scale = 1.0 + (0.05 * sineValue);
+        double glowOpacity = (0.3 + (0.3 * sineValue)).clamp(0.0, 1.0);
+
+        return Transform.scale(
+          scale: scale,
+          child: Container(
+            width: 65,
+            height: 60,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFFD700).withOpacity(glowOpacity),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CachedNetworkImage(
+                    imageUrl: widget.ringIconUrl,
+                    width: 60,
+                    height: 55,
+                    fit: BoxFit.contain,
+                    placeholder: (context, url) => const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, error, stackTrace) {
+                      return const Icon(Icons.favorite,
+                          color: Colors.pink, size: 30);
+                    },
+                  ),
+                  // ✨ সেফ শিমার শাইনিং ইফেক্ট
+                  Positioned.fill(
+                    child: Align(
+                      alignment: Alignment(
+                        (val * 4.0) - 2.0,
+                        0.0,
+                      ),
+                      child: Container(
+                        width: 15,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.white.withOpacity(0.0),
+                              Colors.white.withOpacity(0.4),
+                              Colors.white.withOpacity(0.0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
