@@ -302,48 +302,69 @@ class _DiamondStoreViewState extends State<DiamondStoreView> {
     return Container(
       height: MediaQuery.of(context).size.height * 0.80,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        // সেটিংস উইজেটের সাথে মিলিয়ে প্রিমিয়াম ব্লু ও পার্পল গ্রেডিয়েন্ট
+        gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Colors.lightBlue.shade200,
-            Colors.blue.shade50,
-            Colors.white
+            Color(0xFF00B4DB), // Bright Cyan Blue
+            Color(0xFF0083B0), // Mid Blue tone
+            Color(0xFF4A00E0), // Deep Purple gradient match
+            Color(0xFF190033), // Rich dark purple-blue base
           ],
         ),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.cyanAccent.withOpacity(0.2),
+            blurRadius: 20,
+            spreadRadius: 5,
+          )
+        ],
       ),
       child: Stack(
         children: [
+          // ব্যাকগ্রাউন্ডে তারার ঝিকিমিকি (সেটিংস এর মতো করে সংখ্যা ১৫ দেওয়া হয়েছে)
           ...List.generate(
-              20,
-              (index) => Positioned(
-                  top: (index * 45.0) % 500,
-                  left: (index * 75.0) % 400,
-                  child: Icon(Icons.star,
-                      size: index % 3 == 0 ? 12 : 6,
-                      color: Colors.white.withOpacity(0.8)))),
+            15,
+            (index) => Positioned(
+              top: (index * 50.0) % 300,
+              left: (index * 80.0) % 380,
+              child: Icon(
+                Icons.star,
+                size: index % 3 == 0 ? 12 : 6,
+                color: Colors.white.withOpacity(0.7),
+              ),
+            ),
+          ),
           Column(
             children: [
               const SizedBox(height: 12),
               _buildBanner(),
               Container(
-                  width: 45,
-                  height: 5,
-                  decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10))),
+                width: 45,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.cyanAccent.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
               const SizedBox(height: 15),
-              const Text("Diamond Store",
-                  style: TextStyle(
-                      color: Colors.blueAccent,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold)),
+              const Text(
+                "Diamond Store",
+                style: TextStyle(
+                  color: Colors.cyanAccent,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const Divider(
-                  color: Colors.blueAccent,
-                  thickness: 0.5,
-                  indent: 50,
-                  endIndent: 50),
+                color: Colors.cyanAccent,
+                thickness: 0.5,
+                indent: 50,
+                endIndent: 50,
+              ),
               Expanded(
                 child: Column(
                   children: [

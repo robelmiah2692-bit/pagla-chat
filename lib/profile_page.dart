@@ -733,27 +733,29 @@ class _ProfilePageState extends State<ProfilePage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent, // গ্রেডিয়েন্ট দেখানোর জন্য
+      backgroundColor: Colors.transparent, // গ্রেডিয়েন্ট দেখানোর জন্য
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
       builder: (context) => Container(
         padding: const EdgeInsets.only(bottom: 20),
         decoration: BoxDecoration(
-          // প্রিমিয়াম আকাশী নীল গ্রেডিয়েন্ট
-          gradient: LinearGradient(
+          // VIP Benefits এর সাথে মিলিয়ে প্রিমিয়াম ব্লু ও পার্পল গ্রেডিয়েন্ট
+          gradient: const LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.lightBlue.shade200,
-              Colors.blue.shade50,
-              Colors.white,
+              Color(0xFF00B4DB), // Bright Cyan Blue
+              Color(0xFF0083B0), // Mid Blue tone
+              Color(0xFF4A00E0), // Deep Purple gradient match
+              Color(0xFF190033), // Rich dark purple-blue base
             ],
           ),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)),
           boxShadow: [
             BoxShadow(
-              color: Colors.blueAccent.withOpacity(0.3),
+              color: Colors.cyanAccent.withOpacity(0.2),
               blurRadius: 20,
               spreadRadius: 5,
             )
@@ -783,7 +785,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   width: 45,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.2),
+                    color: Colors.cyanAccent.withOpacity(0.4),
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -791,97 +793,118 @@ class _ProfilePageState extends State<ProfilePage> {
                     padding: EdgeInsets.all(20),
                     child: Text("Settings",
                         style: TextStyle(
-                            color: Colors.blueAccent,
-                            fontSize: 20,
+                            color: Colors.cyanAccent,
+                            fontSize: 22,
                             fontWeight: FontWeight.bold))),
 
-                // ১. বয়স পরিবর্তন (Age change)
-                ListTile(
-                    leading: const Icon(Icons.cake, color: Colors.orangeAccent),
-                    title: Text("Age change (Now: $age)",
-                        style: const TextStyle(
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w500)),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _showAgePicker();
-                    }),
+                // সেটিংস অপশনগুলো রিয়েলিস্টিক কার্ড ডিজাইন এবং গ্লাস ইফেক্টসহ
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: Colors.white12),
+                    ),
+                    child: Column(
+                      children: [
+                        // ১. বয়স পরিবর্তন (Age change)
+                        ListTile(
+                            leading: const Icon(Icons.cake,
+                                color: Colors.orangeAccent),
+                            title: Text("Age change (Now: $age)",
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500)),
+                            onTap: () {
+                              Navigator.pop(context);
+                              _showAgePicker();
+                            }),
 
-                ListTile(
-                  leading: const Icon(Icons.security, color: Colors.blueAccent),
-                  title: const Text("Privacy Policy",
-                      style: TextStyle(
-                          color: Colors.black87, fontWeight: FontWeight.w500)),
-                  onTap: () {
-                    Navigator.pop(context); // ড্রয়ার বন্ধ হবে
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => PrivacyPolicyPage()),
-                    );
-                  },
-                ),
+                        // ২. প্রাইভেসি পলিসি
+                        ListTile(
+                          leading: const Icon(Icons.security,
+                              color: Colors.cyanAccent),
+                          title: const Text("Privacy Policy",
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500)),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => PrivacyPolicyPage()),
+                            );
+                          },
+                        ),
 
-                // ৩. হেল্প ডেস্ক (Help Desk) - নেভিগেশনসহ আপডেট করা হয়েছে
-                ListTile(
-                  leading: const Icon(Icons.support_agent, color: Colors.green),
-                  title: const Text(
-                    "Help Desk",
-                    style: TextStyle(
-                        color: Colors.black87, fontWeight: FontWeight.w500),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context); // ড্রয়ার বন্ধ হবে
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const HelpDeskPage()),
-                    );
-                  },
-                ),
-                // ৫. অ্যাকাউন্ট ডিলিট করার বাটন
-                ListTile(
-                  leading:
-                      const Icon(Icons.delete_forever, color: Colors.purple),
-                  title: const Text(
-                    "Delete Account",
-                    style: TextStyle(
-                      color: Colors.purple,
-                      fontWeight: FontWeight.bold,
+                        // ৩. হেল্প ডেস্ক (Help Desk)
+                        ListTile(
+                          leading: const Icon(Icons.support_agent,
+                              color: Colors.greenAccent),
+                          title: const Text(
+                            "Help Desk",
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const HelpDeskPage()),
+                            );
+                          },
+                        ),
+
+                        // ৪. অ্যাকাউন্ট ডিলিট করার বাটন
+                        ListTile(
+                          leading: const Icon(Icons.delete_forever,
+                              color: Colors.purpleAccent),
+                          title: const Text(
+                            "Delete Account",
+                            style: TextStyle(
+                              color: Colors.purpleAccent,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            _showDeleteConfirmationDialog(context);
+                          },
+                        ),
+
+                        // ৫. লগআউট (Logout)
+                        ListTile(
+                          leading:
+                              const Icon(Icons.logout, color: Colors.redAccent),
+                          title: const Text(
+                            "Logout",
+                            style: TextStyle(
+                              color: Colors.redAccent,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onTap: () async {
+                            await AuthService().signOut();
+                            if (context.mounted) {
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => const LoginScreen()),
+                                (route) => false,
+                              );
+                            }
+                          },
+                        ),
+                      ],
                     ),
                   ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showDeleteConfirmationDialog(context);
-                  },
                 ),
-
-                // ৪. লগআউট (Logout)
-                ListTile(
-                  leading: const Icon(Icons.logout, color: Colors.redAccent),
-                  title: const Text(
-                    "Logout",
-                    style: TextStyle(
-                      color: Colors.redAccent,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  onTap: () async {
-                    // AuthService ব্যবহার করে লগআউট
-                    await AuthService().signOut();
-
-                    // হ্যাং হওয়া রোধ করতে আগের সব স্ক্রিন মুছে দিয়ে LoginScreen-এ পাঠানো
-                    if (context.mounted) {
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const LoginScreen()),
-                        (route) => false,
-                      );
-                    }
-                  },
-                ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 20),
               ],
             ),
           ],
@@ -1296,12 +1319,12 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // ১. প্রিমিয়াম স্টোর ওপেন করার ফাংশন
+  // ১. প্রিমিয়াম স্টোর ওপেন করার ফাংশন
   void _openPremiumStore() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent, // নিচে কন্টেইনারে গ্রেডিয়েন্ট দিচ্ছি
+      backgroundColor: Colors.transparent, // গ্রেডিয়েন্ট দেখানোর জন্য
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
@@ -1310,20 +1333,22 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Container(
           height: MediaQuery.of(context).size.height * 0.75,
           decoration: BoxDecoration(
-            // বডি ডিজাইন: নীল আকাশ হালকা কালার গ্রেডিয়েন্ট
-            gradient: LinearGradient(
+            // সেটিংস পেজের সেইম প্রিমিয়াম ব্লু ও পার্পল গ্রেডিয়েন্ট
+            gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.lightBlue.shade200,
-                Colors.blue.shade50,
-                Colors.white,
+                Color(0xFF00B4DB), // Bright Cyan Blue
+                Color(0xFF0083B0), // Mid Blue tone
+                Color(0xFF4A00E0), // Deep Purple gradient match
+                Color(0xFF190033), // Rich dark purple-blue base
               ],
             ),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+            border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)),
             boxShadow: [
               BoxShadow(
-                color: Colors.blueAccent.withOpacity(0.3),
+                color: Colors.cyanAccent.withOpacity(0.2),
                 blurRadius: 20,
                 spreadRadius: 5,
               )
@@ -1331,18 +1356,19 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           child: Stack(
             children: [
-              // ব্যাকগ্রাউন্ডে তারার মতো ঝিকিমিকি ইফেক্ট (Stars)
+              // ব্যাকগ্রাউন্ডে তারার ঝিকিমিকি ইফেক্ট
               ...List.generate(
-                  20,
-                  (index) => Positioned(
-                        top: (index * 40.0) % 450,
-                        left: (index * 65.0) % 380,
-                        child: Icon(
-                          Icons.star,
-                          size: index % 3 == 0 ? 14 : 8,
-                          color: Colors.white.withOpacity(0.7),
-                        ),
-                      )),
+                15,
+                (index) => Positioned(
+                  top: (index * 50.0) % 450,
+                  left: (index * 80.0) % 380,
+                  child: Icon(
+                    Icons.star,
+                    size: index % 3 == 0 ? 12 : 6,
+                    color: Colors.white.withOpacity(0.7),
+                  ),
+                ),
+              ),
 
               Column(
                 children: [
@@ -1352,16 +1378,16 @@ class _ProfilePageState extends State<ProfilePage> {
                     width: 45,
                     height: 5,
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.2),
+                      color: Colors.cyanAccent.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
 
                   const TabBar(
                     isScrollable: true,
-                    indicatorColor: Colors.amber,
-                    labelColor: Colors.blueAccent,
-                    unselectedLabelColor: Colors.black45,
+                    indicatorColor: Colors.cyanAccent,
+                    labelColor: Colors.cyanAccent,
+                    unselectedLabelColor: Colors.white60,
                     labelStyle: TextStyle(fontWeight: FontWeight.bold),
                     tabs: [
                       Tab(text: "Cards"),
@@ -2079,7 +2105,7 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       isScrollControlled: true,
       backgroundColor:
-          Colors.transparent, // গ্রেডিয়েন্ট দেখানোর জন্য স্বচ্ছ রাখা হয়েছে
+          Colors.transparent, // গ্রেডিয়েন্ট দেখানোর জন্য স্বচ্ছ রাখা হয়েছে
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
@@ -2088,20 +2114,22 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Container(
           height: MediaQuery.of(context).size.height * 0.75,
           decoration: BoxDecoration(
-            // প্রিমিয়াম সেই আকাশী নীল গ্রেডিয়েন্ট
-            gradient: LinearGradient(
+            // সেটিংসের মতো সেইম প্রিমিয়াম ব্লু ও পার্পল গ্রেডিয়েন্ট
+            gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.lightBlue.shade200,
-                Colors.blue.shade50,
-                Colors.white,
+                Color(0xFF00B4DB), // Bright Cyan Blue
+                Color(0xFF0083B0), // Mid Blue tone
+                Color(0xFF4A00E0), // Deep Purple gradient match
+                Color(0xFF190033), // Rich dark purple-blue base
               ],
             ),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+            border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)),
             boxShadow: [
               BoxShadow(
-                color: Colors.blueAccent.withOpacity(0.3),
+                color: Colors.cyanAccent.withOpacity(0.2),
                 blurRadius: 20,
                 spreadRadius: 5,
               )
@@ -2111,13 +2139,13 @@ class _ProfilePageState extends State<ProfilePage> {
             children: [
               // ব্যাকগ্রাউন্ডে তারার ঝিকিমিকি ইফেক্ট
               ...List.generate(
-                  20,
+                  15,
                   (index) => Positioned(
-                        top: (index * 40.0) % 450,
-                        left: (index * 65.0) % 380,
+                        top: (index * 50.0) % 300,
+                        left: (index * 80.0) % 380,
                         child: Icon(
                           Icons.star,
-                          size: index % 3 == 0 ? 14 : 8,
+                          size: index % 3 == 0 ? 12 : 6,
                           color: Colors.white.withOpacity(0.7),
                         ),
                       )),
@@ -2130,7 +2158,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     width: 45,
                     height: 5,
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.2),
+                      color: Colors.cyanAccent.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
@@ -2140,9 +2168,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   TabBar(
                     isScrollable: true,
                     indicatorColor:
-                        Colors.amber, // প্রিমিয়াম লুকের জন্য অ্যাম্বার কালার
-                    labelColor: Colors.blueAccent,
-                    unselectedLabelColor: Colors.black45,
+                        Colors.amber, // প্রিমিয়াম লুকের জন্য অ্যাম্বার কালার
+                    labelColor: Colors.cyanAccent,
+                    unselectedLabelColor: Colors.white60,
                     labelStyle: const TextStyle(
                         fontWeight: FontWeight.bold, fontSize: 15),
                     tabs: const [
@@ -3367,14 +3395,24 @@ class _ProfilePageState extends State<ProfilePage> {
                             age: age.toString(), // এটি আপনার ওই age ভেরিয়েবল
                           ),
                         ),
+                        // ৩. ডান পাশের ব্যাজ (এজেন্সি থাকলে এজেন্সি, না থাকলে ভেরিফাইড ব্যাজ)
                         Positioned(
                           right: -80,
                           top: -5,
-                          child: AgencyBadgeWidget(
-                            isAgent: isAgent, // ডাটাবেজ থেকে পাওয়া সত্য/মিথ্যা
-                            imageUrl:
-                                "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/agancy.png", // এখানে আপনার আসল ইমেজ লিংকটি বসান
-                          ),
+                          child: isAgent
+                              ? AgencyBadgeWidget(
+                                  isAgent: isAgent,
+                                  imageUrl:
+                                      "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/agancy.png",
+                                )
+                              : (userData['isVerified'] == true
+                                  ? const Icon(
+                                      Icons.verified,
+                                      color: Color(0xFF00FBFF),
+                                      size: 17,
+                                    )
+                                  : const SizedBox
+                                      .shrink()), // দুটোই না থাকলে খালি থাকবে
                         ),
                       ],
                     ),
@@ -3792,10 +3830,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 25),
                     ],
                     const SizedBox(height: 0),
-                   // ❤️ সোলমেট সেকশন
+                    // ❤️ সোলমেট সেকশন
                     TeamPanelAndSoulmateSection(uIDValue: uIDValue),
                     const SizedBox(height: 10),
-                  // আপনার মেইন ফাইলের সোলমেট সেকশনটি এখন ঠিক নিচে কল করুন:
+                    // আপনার মেইন ফাইলের সোলমেট সেকশনটি এখন ঠিক নিচে কল করুন:
                     _buildSoulmateSection(),
 
                     const SizedBox(height: 30),
@@ -4748,67 +4786,68 @@ class RainbowCascadePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint();
-    final random =
-        math.Random(42); // Seed ব্যবহার করা হয়েছে যাতে রেন্ডার ফিক্সড থাকে
 
-    // আপনার রুম পেইজের থিমের সাথে মিল রেখে কালার প্যালেট
-    List<Color> galaxyColors = [
-      const Color(0xFF0F0C29), // গাঢ় নীল
-      const Color(0xFF302B63), // বেগুনি আভা
-      const Color(0xFF24243E), // নেভি ব্লু
-    ];
-
-    // ১. ব্যাকগ্রাউন্ডে গ্লাস ইফেক্টের জন্য রেডিয়াল গ্রেডিয়েন্ট (Glow)
+    // ১. একদম ডিপ ব্ল্যাক ও ভায়োলেট কালার দিয়ে ফুল স্ক্রিন বেস ফিল করা
     final Rect rect = Rect.fromLTWH(0, 0, size.width, size.height);
-    paint.shader = RadialGradient(
-      center: const Alignment(0.7, -0.6), // ডানদিকের উপরে হালকা গ্লো
-      radius: 1.5,
+    paint.shader = const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
       colors: [
-        const Color(0xFF302B63).withOpacity(0.3),
-        const Color(0xFF0F0C29).withOpacity(0.1),
-        Colors.transparent,
+        Color(0xFF070510), // খুব গাঢ় ডিপ ব্ল্যাক-পার্পল
+        Color(0xFF030206), // নিরেট কালো
+        Color(0xFF0A0612),
       ],
     ).createShader(rect);
     canvas.drawRect(rect, paint);
 
-    // ২. গ্যালাক্সি তারা বা স্পার্কেলস (Glowing Stars)
-    for (int i = 0; i < 100; i++) {
+    // ২. ছবির বাম পাশের মতো প্রিমিয়াম নিয়ন পার্পল/ভায়োলেট গ্লো কার্ভ (Soft Glowing Wave)
+    final Paint glowPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..maskFilter =
+          const MaskFilter.blur(BlurStyle.normal, 60); // হালকা ব্লার ইফেক্ট
+
+    // বাম পাশের প্রধান পার্পল গ্লো
+    glowPaint.shader = RadialGradient(
+      center: const Alignment(-0.8, -0.3),
+      radius: 0.9,
+      colors: [
+        const Color(0xFF8B00FF).withOpacity(0.55), // উজ্জ্বল ভায়োলেট/পার্পল
+        const Color(0xFF4A00E0).withOpacity(0.3), // ডিপ ব্লু-পার্পল
+        Colors.transparent,
+      ],
+    ).createShader(rect);
+
+    canvas.drawCircle(Offset(size.width * 0.1, size.height * 0.3),
+        size.width * 0.5, glowPaint);
+
+    // ৩. মাঝখান থেকে ডানপাশের দিকে ছড়ানো ডিপ ব্লু এবং রয়্যাল পার্পল শ্যাডো
+    final Paint secondaryGlow = Paint()
+      ..style = PaintingStyle.fill
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 80);
+
+    secondaryGlow.shader = RadialGradient(
+      center: const Alignment(-0.2, 0.4),
+      radius: 1.1,
+      colors: [
+        const Color(0xFF3F00FF).withOpacity(0.25), // রয়্যাল ব্লু আভা
+        const Color(0xFF150033).withOpacity(0.15),
+        Colors.transparent,
+      ],
+    ).createShader(rect);
+
+    canvas.drawCircle(Offset(size.width * 0.3, size.height * 0.7),
+        size.width * 0.7, secondaryGlow);
+
+    // ৪. ছবির ফিনিশিংয়ের সাথে মিল রেখে অত্যন্ত সূক্ষ্ম ও মিহি কিছু স্পার্কল/তারকা (যা দেখতে রিয়েলিস্টিক গ্লাস ফিলের মতো লাগে)
+    final random = math.Random(42);
+    for (int i = 0; i < 40; i++) {
       final double x = random.nextDouble() * size.width;
       final double y = random.nextDouble() * size.height;
-      final double starSize = random.nextDouble() * 2.0;
+      final double starSize = random.nextDouble() * 1.5;
 
       paint.shader = null;
-      // কিছু তারা সাদা এবং কিছু হালকা বেগুনি
-      paint.color = (i % 5 == 0)
-          ? Colors.purpleAccent.withOpacity(random.nextDouble() * 0.7)
-          : Colors.white.withOpacity(random.nextDouble() * 0.5);
-
+      paint.color = Colors.white.withOpacity(random.nextDouble() * 0.25);
       canvas.drawCircle(Offset(x, y), starSize, paint);
-
-      // তারার চারপাশে হালকা গ্লো (ব্লায়ার ইফেক্ট)
-      if (i % 10 == 0) {
-        paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-        canvas.drawCircle(Offset(x, y), starSize * 2, paint);
-        paint.maskFilter = null;
-      }
-    }
-
-    // ৩. ওপর থেকে ঝুলে থাকা হালকা আলোর স্ট্রিং (Light Strings)
-    for (int i = 0; i < 15; i++) {
-      final double x = random.nextDouble() * size.width;
-      final double lineLength = random.nextDouble() * 150 + 50;
-
-      paint.shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Colors.blueAccent.withOpacity(0.2),
-          Colors.transparent,
-        ],
-      ).createShader(Rect.fromLTWH(x, 0, 1, lineLength));
-
-      paint.strokeWidth = 1.0;
-      canvas.drawLine(Offset(x, 0), Offset(x, lineLength), paint);
     }
   }
 

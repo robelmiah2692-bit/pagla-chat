@@ -80,13 +80,101 @@ class PostCard extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     final List likes = data['likes'] ?? [];
 
+    // ১. পোস্ট ডাটা থেকে আইডি বের করা
+    final String targetAuthUID = data['authUID'] ?? data['userId'] ?? '';
+
     // মালিকানা চেক করার জন্য
-    bool isOwner =
-        (data['authUID'] == user?.uid || data['userId'] == user?.uid);
+    bool isOwner = (targetAuthUID == user?.uid);
 
     const Color premiumGold = Color(0xFFFFD700);
     const Color cyanOwner = Color(0xFF00FBFF);
     final Color glassColor = const Color(0xFF1E2A47).withOpacity(0.3);
+
+    // ফায়ারস্টোর থেকে ইউজারের লেটেস্ট ডেটা লাইভ আনার জন্য মাল্টিপল স্টেপ চেক (প্রথমে doc, তারপর uID, তারপর uid)
+    return StreamBuilder<DocumentSnapshot>(
+      stream: targetAuthUID.isNotEmpty
+          ? FirebaseFirestore.instance
+              .collection('users')
+              .doc(targetAuthUID)
+              .snapshots()
+          : const Stream.empty(),
+      builder: (context, docSnapshot) {
+        // যদি ডাইরেক্ট doc(targetId) এ পাওয়া যায়
+        if (docSnapshot.hasData && docSnapshot.data!.exists) {
+          var userDoc = docSnapshot.data!.data() as Map<String, dynamic>?;
+          if (userDoc != null) {
+            return _buildPostWidget(
+                context, userDoc, targetAuthUID, isOwner, likes);
+          }
+        }
+
+        // যদি ডাইরেক্ট না থাকে, তবে 'uID' ফিল্ড দিয়ে কোয়েরি
+        return StreamBuilder<QuerySnapshot>(
+          stream: targetAuthUID.isNotEmpty
+              ? FirebaseFirestore.instance
+                  .collection('users')
+                  .where('uID', isEqualTo: targetAuthUID)
+                  .snapshots()
+              : const Stream.empty(),
+          builder: (context, querySnapshot1) {
+            if (querySnapshot1.hasData &&
+                querySnapshot1.data!.docs.isNotEmpty) {
+              var userDoc = querySnapshot1.data!.docs.first.data()
+                  as Map<String, dynamic>;
+              return _buildPostWidget(
+                  context, userDoc, targetAuthUID, isOwner, likes);
+            }
+
+            // সবশেষে ছোট হাতের 'uid' ফিল্ড দিয়ে কোয়েরি
+            return StreamBuilder<QuerySnapshot>(
+              stream: targetAuthUID.isNotEmpty
+                  ? FirebaseFirestore.instance
+                      .collection('users')
+                      .where('uid', isEqualTo: targetAuthUID)
+                      .snapshots()
+                  : const Stream.empty(),
+              builder: (context, querySnapshot2) {
+                Map<String, dynamic>? liveUserData;
+                if (querySnapshot2.hasData &&
+                    querySnapshot2.data!.docs.isNotEmpty) {
+                  liveUserData = querySnapshot2.data!.docs.first.data()
+                      as Map<String, dynamic>;
+                }
+
+                return _buildPostWidget(
+                    context, liveUserData, targetAuthUID, isOwner, likes);
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+// আলাদা একটি মেথড যা পুরো পোস্ট UI রেন্ডার করবে
+  Widget _buildPostWidget(
+      BuildContext context,
+      Map<String, dynamic>? liveUserData,
+      String targetAuthUID,
+      bool isOwner,
+      List likes) {
+    const Color premiumGold = Color(0xFFFFD700);
+    const Color cyanOwner = Color(0xFF00FBFF);
+    final Color glassColor = const Color(0xFF1E2A47).withOpacity(0.3);
+    final user = FirebaseAuth.instance.currentUser;
+
+    // লাইভ ডাটা বা পোস্টের পুরাতন ডাটা ফলব্যাক হিসেবে ব্যবহার
+    final String currentUserName = liveUserData?['name'] ??
+        liveUserData?['userName'] ??
+        data['userName'] ??
+        "User";
+    final String currentUserImage = liveUserData?['profilePic'] ??
+        liveUserData?['userImage'] ??
+        data['userImage'] ??
+        "https://www.w3schools.com/howto/img_avatar.png";
+    final String currentFrameUrl =
+        liveUserData?['activeFrameUrl'] ?? data['activeFrameUrl'] ?? '';
+    final bool isVerified = liveUserData?['isVerified'] ?? false;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -116,15 +204,11 @@ class PostCard extends StatelessWidget {
                 ListTile(
                   leading: GestureDetector(
                     onTap: () async {
-                      // ১. পোস্ট ডাটা থেকে আইডি বের করা
-                      final String targetAuthUID =
-                          data['authUID'] ?? data['userId'] ?? '';
-
                       if (targetAuthUID.isEmpty) {
                         return;
                       }
 
-                      // ২. সঠিক আইডি খোঁজা
+                      // সঠিক আইডি খোঁজা প্রোফাইল পেজে যাওয়ার জন্য
                       String finalIdToPass = targetAuthUID;
                       try {
                         var userQuery = await FirebaseFirestore.instance
@@ -164,31 +248,27 @@ class PostCard extends StatelessWidget {
                             radius: 22,
                             backgroundColor: Colors.grey[900],
                             backgroundImage: NetworkImage(
-                              (data['userImage'] != null &&
-                                      data['userImage'].toString().isNotEmpty)
-                                  ? data['userImage']
+                              (currentUserImage.isNotEmpty)
+                                  ? currentUserImage
                                   : "https://www.w3schools.com/howto/img_avatar.png",
                             ),
                           ),
                         ),
-                        if (data['activeFrameUrl'] != null &&
-                            data['activeFrameUrl'].toString().isNotEmpty)
+                        if (currentFrameUrl.isNotEmpty)
                           Positioned.fill(
                             child: Transform.scale(
                               scale: 2.2,
                               child: IgnorePointer(
-                                child: data['activeFrameUrl']
-                                        .toString()
-                                        .contains('.json')
+                                child: currentFrameUrl.contains('.json')
                                     ? Lottie.network(
-                                        data['activeFrameUrl'],
+                                        currentFrameUrl,
                                         fit: BoxFit.contain,
                                         errorBuilder:
                                             (context, error, stackTrace) =>
                                                 const SizedBox(),
                                       )
                                     : CachedNetworkImage(
-                                        imageUrl: data['activeFrameUrl'],
+                                        imageUrl: currentFrameUrl,
                                         fit: BoxFit.contain,
                                         placeholder: (context, url) =>
                                             const SizedBox(),
@@ -205,14 +285,14 @@ class PostCard extends StatelessWidget {
                   title: Row(
                     children: [
                       Text(
-                        data['userName'] ?? "User",
+                        currentUserName,
                         style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 15),
                       ),
                       const SizedBox(width: 5),
-                      if (isOwner)
+                      if (isVerified)
                         const Icon(Icons.verified, color: cyanOwner, size: 17),
                     ],
                   ),
@@ -310,7 +390,6 @@ class PostCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                // --- যদি ভিডিও থাকে (videoUrl অথবা storyVideo ফিল্ড চেক করে রেন্ডার করা হলো) ---
                 if ((data['videoUrl'] != null &&
                         data['videoUrl'].toString().isNotEmpty) ||
                     (data['storyVideo'] != null &&
@@ -346,7 +425,6 @@ class PostCard extends StatelessWidget {
                             : Colors.white70,
                         "Like", () {
                       if (postId != null && user != null) {
-                        // 💡 রিয়েল-টাইম কাউন্টারের ম্যাচিং ফিক্স করতে সরাসরি আসল Firebase UID বের করে পাস করা হলো ভাই
                         String postOwnerUID =
                             (data['authUID'] ?? data['userId'] ?? '')
                                 .toString();
@@ -356,7 +434,6 @@ class PostCard extends StatelessWidget {
                     _buildVIPBtn(Icons.chat_bubble_outline_rounded,
                         Colors.white70, "Comment", () {
                       if (postId != null) {
-                        // 💡 কমেন্ট শিটেও কাস্টম লেখার আইডির বদলে সরাসরি আসল Firebase UID পাস করা হলো ভাই
                         String postOwnerUID =
                             (data['authUID'] ?? data['userId'] ?? '')
                                 .toString();
@@ -468,121 +545,382 @@ class PostCard extends StatelessWidget {
 
   void _showCommentSheet(BuildContext context, String pId, String postOwnerId) {
     final TextEditingController _commentController = TextEditingController();
+
+    // রিপ্লাই দেওয়ার জন্য স্টেট ম্যানেজমেন্ট বা লোকাল ভেরিয়েবল
+    ValueNotifier<Map<String, String>?> replyingToNotifier =
+        ValueNotifier<Map<String, String>?>(null);
+
+    const Color premiumGold = Color(0xFFFFD700);
+    const Color cyanOwner = Color(0xFF00FBFF);
+    final Color glassBg = const Color(0xFF1E2A47).withOpacity(0.4);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF121212),
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            top: 20,
-            left: 15,
-            right: 15),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(10))),
-            const SizedBox(height: 15),
-            const Text("COMMENTS",
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2)),
-            const SizedBox(height: 15),
-            SizedBox(
-              height: 350,
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('stories')
-                    .doc(pId)
-                    .collection('comments')
-                    .orderBy('timestamp', descending: false)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const Center(
-                        child: CircularProgressIndicator(
-                            color: Color(0xFF00FBFF)));
-                  }
-                  if (snapshot.data!.docs.isEmpty) {
-                    return const Center(
-                        child: Text("No comments yet",
-                            style: TextStyle(color: Colors.white38)));
-                  }
-                  return ListView(
-                    children: snapshot.data!.docs.map((doc) {
-                      Map<String, dynamic> cData =
-                          doc.data() as Map<String, dynamic>;
-                      return ListTile(
-                        leading: CircleAvatar(
-                            radius: 16,
-                            backgroundImage: NetworkImage(cData['userImage'] !=
-                                        null &&
-                                    cData['userImage'] != ""
-                                ? cData['userImage']
-                                : "https://www.w3schools.com/howto/img_avatar.png")),
-                        title: Text(cData['userName'] ?? "User",
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold)),
-                        subtitle: Text(cData['text'] ?? "",
-                            style: const TextStyle(
-                                color: Colors.white70, fontSize: 13)),
-                      );
-                    }).toList(),
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: TextField(
-                controller: _commentController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.05),
-                  hintText: "Add a comment...",
-                  hintStyle: const TextStyle(color: Colors.white38),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide.none),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.send_rounded,
-                        color: Color(0xFF00FBFF)),
-                    onPressed: () => _submitComment(
-                        pId,
-                        _commentController.text,
-                        _commentController,
-                        postOwnerId),
+      backgroundColor: Colors
+          .transparent, // গ্লাস ইফেক্টের জন্য ব্যাকগ্রাউন্ড ট্রান্সপারেন্ট করা হলো
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return Padding(
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                top: 20,
+                left: 12,
+                right: 12),
+            child: ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(28)),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  decoration: BoxDecoration(
+                    // ইউ আই ২ বা ৩ ছবির সাথে মিল রেখে পার্পল-ব্লু গ্রেডিয়েন্ট ব্যাকগ্রাউন্ড
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF1a0b36)
+                            .withOpacity(0.92), // রিচ ডিপ পার্পল
+                        const Color(0xFF0d1b3a).withOpacity(0.92), // ডিপ ব্লু
+                        const Color(0xFF050b18)
+                            .withOpacity(0.95), // ভায়োলেট ব্ল্যাক টোন
+                      ],
+                    ),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(28)),
+                    border: Border.all(
+                      color: cyanOwner.withOpacity(0.4),
+                      width: 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF3b0764).withOpacity(0.4),
+                        blurRadius: 25,
+                        spreadRadius: 5,
+                      )
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 10),
+                      // ড্র্যাগ হ্যান্ডেল
+                      Container(
+                          width: 36,
+                          height: 3.5,
+                          decoration: BoxDecoration(
+                              color: Colors.white24,
+                              borderRadius: BorderRadius.circular(10))),
+                      const SizedBox(height: 10),
+                      const Text("COMMENTS",
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              letterSpacing: 1.5)),
+                      const Divider(color: Colors.white10, height: 20),
+
+                      // কমেন্ট লিস্ট সেকশন (সাইজ আরও ছোট এবং কম্প্যাক্ট করার জন্য হাইট ২৫০ করা হলো)
+                      SizedBox(
+                        height: 250,
+                        child: StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('stories')
+                              .doc(pId)
+                              .collection('comments')
+                              .orderBy('timestamp', descending: false)
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData) {
+                              return const Center(
+                                  child: CircularProgressIndicator(
+                                      color: cyanOwner, strokeWidth: 2));
+                            }
+                            if (snapshot.data!.docs.isEmpty) {
+                              return const Center(
+                                  child: Text("No comments yet. Be the first!",
+                                      style: TextStyle(
+                                          color: Colors.white38,
+                                          fontSize: 13)));
+                            }
+                            return ListView.builder(
+                              itemCount: snapshot.data!.docs.length,
+                              itemBuilder: (context, index) {
+                                var doc = snapshot.data!.docs[index];
+                                Map<String, dynamic> cData =
+                                    doc.data() as Map<String, dynamic>;
+
+                                String commentId = doc.id;
+                                String senderName = cData['userName'] ?? "User";
+                                String commentText = cData['text'] ?? "";
+                                String? replyToName = cData['replyToName'];
+                                String? replyToText = cData['replyToText'];
+
+                                return InkWell(
+                                  onTap: () {
+                                    // কমেন্টে ক্লিক করলেই রিপ্লাই মোড অন হবে
+                                    replyingToNotifier.value = {
+                                      'id': commentId,
+                                      'name': senderName,
+                                      'text': commentText,
+                                    };
+                                    setState(() {});
+                                  },
+                                  child: Container(
+                                    // কমেন্ট কার্ডের সাইজ ও মার্জিন ছোট করা হলো
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.03),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.05),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor: Colors.grey[900],
+                                          backgroundImage: NetworkImage(cData[
+                                                          'userImage'] !=
+                                                      null &&
+                                                  cData['userImage'] != ""
+                                              ? cData['userImage']
+                                              : "https://www.w3schools.com/howto/img_avatar.png"),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(senderName,
+                                                  style: const TextStyle(
+                                                      color: cyanOwner,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.bold)),
+                                              const SizedBox(height: 2),
+
+                                              // যদি এটি কোনো কমেন্টের রিপ্লাই হয় তবে তার প্রিভিউ দেখাবে
+                                              if (replyToName != null &&
+                                                  replyToText != null)
+                                                Container(
+                                                  margin: const EdgeInsets.only(
+                                                      bottom: 4),
+                                                  padding:
+                                                      const EdgeInsets.all(5),
+                                                  decoration: BoxDecoration(
+                                                    color: cyanOwner
+                                                        .withOpacity(0.08),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            6),
+                                                    border: const Border(
+                                                      left: BorderSide(
+                                                          color: cyanOwner,
+                                                          width: 2),
+                                                    ),
+                                                  ),
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                          "Replying to $replyToName",
+                                                          style: const TextStyle(
+                                                              color: cyanOwner,
+                                                              fontSize: 9,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold)),
+                                                      Text(replyToText,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style: const TextStyle(
+                                                              color: Colors
+                                                                  .white60,
+                                                              fontSize: 10)),
+                                                    ],
+                                                  ),
+                                                ),
+
+                                              Text(commentText,
+                                                  style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 12)),
+                                            ],
+                                          ),
+                                        ),
+                                        const Icon(Icons.reply,
+                                            color: Colors.white24, size: 14),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+
+                      // রিপ্লাই করার সময় ইনপুট বক্সের ওপরে ট্যাগ প্রিভিউ বার
+                      ValueListenableBuilder<Map<String, String>?>(
+                        valueListenable: replyingToNotifier,
+                        builder: (context, replyingTo, child) {
+                          if (replyingTo == null)
+                            return const SizedBox.shrink();
+                          return Container(
+                            margin: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: glassBg,
+                              borderRadius: BorderRadius.circular(10),
+                              border:
+                                  Border.all(color: cyanOwner.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.reply,
+                                    color: cyanOwner, size: 14),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    "Replying to ${replyingTo['name']}",
+                                    style: const TextStyle(
+                                        color: cyanOwner,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: () {
+                                    replyingToNotifier.value = null;
+                                    setState(() {});
+                                  },
+                                  child: const Icon(Icons.close,
+                                      color: Colors.white54, size: 14),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+
+                      // কমেন্ট ইনপুট ও সেন্ড বাটন সেকশন
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _commentController,
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 13),
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: Colors.white.withOpacity(0.06),
+                                  hintText: replyingToNotifier.value != null
+                                      ? "Write a reply..."
+                                      : "Add a comment...",
+                                  hintStyle: const TextStyle(
+                                      color: Colors.white38, fontSize: 12),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 10),
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(22),
+                                      borderSide: BorderSide(
+                                        color: premiumGold.withOpacity(0.2),
+                                        width: 0.8,
+                                      )),
+                                  enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(22),
+                                      borderSide: BorderSide(
+                                        color: Colors.white.withOpacity(0.1),
+                                        width: 0.8,
+                                      )),
+                                  focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(22),
+                                      borderSide: const BorderSide(
+                                        color: cyanOwner,
+                                        width: 1,
+                                      )),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(colors: [
+                                  cyanOwner,
+                                  cyanOwner.withOpacity(0.6)
+                                ]),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: cyanOwner.withOpacity(0.3),
+                                    blurRadius: 6,
+                                    spreadRadius: 1,
+                                  )
+                                ],
+                              ),
+                              child: IconButton(
+                                icon: const Icon(Icons.send_rounded,
+                                    color: Colors.black, size: 18),
+                                onPressed: () {
+                                  if (_commentController.text.trim().isEmpty)
+                                    return;
+
+                                  Map<String, String>? currentReply =
+                                      replyingToNotifier.value;
+                                  _submitCommentWithReply(
+                                    pId,
+                                    _commentController.text.trim(),
+                                    _commentController,
+                                    postOwnerId,
+                                    currentReply,
+                                  );
+
+                                  replyingToNotifier.value = null;
+                                  setState(() {});
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 10),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  void _submitComment(String pId, String text, TextEditingController controller,
-      String postOwnerId) async {
+// কমেন্ট ও নোটিফিকেশন সাবমিট করার মূল মেথড (লেটেস্ট নাম, ছবি ও রিপ্লাই ডাটা সহ)
+  void _submitCommentWithReply(
+      String pId,
+      String text,
+      TextEditingController controller,
+      String postOwnerId,
+      Map<String, String>? replyInfo) async {
     if (text.trim().isEmpty) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     try {
+      // ইউজারের লেটেস্ট নাম ও ছবি নেওয়ার জন্য ফায়ারস্টোর থেকে কুয়েরি করা
       final userQuery = await FirebaseFirestore.instance
           .collection('users')
           .where('email', isEqualTo: user.email)
@@ -594,26 +932,29 @@ class PostCard extends StatelessWidget {
       if (userQuery.docs.isNotEmpty) {
         var userData = userQuery.docs.first.data();
         name = userData['name'] ?? "User";
-        image = userData['profilePic'] ?? "";
+        image = userData['profilePic'] ?? userData['userImage'] ?? "";
       }
 
-      // ১. কমেন্ট সাবমিট
+      // ১. কমেন্ট বা রিপ্লাই ডাটাবেজে সাবমিট করা
       await FirebaseFirestore.instance
           .collection('stories')
           .doc(pId)
           .collection('comments')
           .add({
-        'text': text.trim(),
+        'uid': user.uid,
         'userName': name,
         'userImage': image,
+        'text': text.trim(),
         'timestamp': FieldValue.serverTimestamp(),
+        'replyToId': replyInfo != null ? replyInfo['id'] : null,
+        'replyToName': replyInfo != null ? replyInfo['name'] : null,
+        'replyToText': replyInfo != null ? replyInfo['text'] : null,
       });
 
-      // ২. নোটিফিকেশন ডাটাবেজে পাঠানো (Receiver ID সিঙ্কড উইথ আসল UID)
+      // ২. নোটিফিকেশন ডাটাবেজে পাঠানো (পোস্ট মালিকের কাছে)
       if (postOwnerId.isNotEmpty && postOwnerId != user.uid) {
         await FirebaseFirestore.instance.collection('notifications').add({
-          'receiverId':
-              postOwnerId, // 💡 রিসিভারের আসল Firebase UID (gDGBd9Xt...)
+          'receiverId': postOwnerId,
           'senderId': user.uid,
           'senderName': name,
           'senderPic': image,
@@ -625,6 +966,8 @@ class PostCard extends StatelessWidget {
       }
 
       controller.clear();
-    } catch (e) {}
+    } catch (e) {
+      // কোনো এরর হ্যান্ডেল করার প্রয়োজন হলে এখানে করতে পারেন
+    }
   }
 }

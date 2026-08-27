@@ -45,7 +45,7 @@ class _HomePageState extends State<HomePage>
   final ImagePicker _picker = ImagePicker();
   XFile? _pickedImage;
   Uint8List? _webImageBytes;
-  
+
   // 🎥 [ভিডিও পোস্ট ভেরিয়েবল]: ভিডিও সিলেক্ট করার জন্য ভেরিয়েবলগুলো যোগ করা হলো
   XFile? _pickedVideo;
 
@@ -78,27 +78,46 @@ class _HomePageState extends State<HomePage>
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        final querySnapshot = await FirebaseFirestore.instance
-            .collection('users')
-            .where('email', isEqualTo: user.email)
-            .get();
+        QuerySnapshot querySnapshot;
+        try {
+          // প্রথমে ক্যাশ থেকে ডাটা খোঁজার চেষ্টা করবে
+          querySnapshot = await FirebaseFirestore.instance
+              .collection('users')
+              .where('email', isEqualTo: user.email)
+              .get(const GetOptions(source: Source.cache));
+
+          // ক্যাশে না পেলে সার্ভার থেকে আনবে
+          if (querySnapshot.docs.isEmpty) {
+            querySnapshot = await FirebaseFirestore.instance
+                .collection('users')
+                .where('email', isEqualTo: user.email)
+                .get(const GetOptions(source: Source.server));
+          }
+        } catch (_) {
+          // কোনো কারণে ক্যাশ এরর দিলে ডিফল্টভাবে সার্ভার থেকে নিয়ে আসবে
+          querySnapshot = await FirebaseFirestore.instance
+              .collection('users')
+              .where('email', isEqualTo: user.email)
+              .get();
+        }
 
         if (querySnapshot.docs.isNotEmpty) {
           final docId = querySnapshot.docs.first.id;
 
           setState(() {
             myCustomDocId = docId;
-            currentUserData = querySnapshot.docs.first.data();
+            currentUserData =
+                querySnapshot.docs.first.data() as Map<String, dynamic>;
           });
 
-          // ✅ এখানে ইনকামিং কল লিসেনার চালু করা হলো (যাতে সঠিক docId পাওয়া যায়)
+          // ✅ এখানে ইনকামিং কল লিসেনার চালু করা হলো (যাতে সঠিক docId পাওয়া যায়)
           if (!_isCallListenerInitialized && mounted) {
             _isCallListenerInitialized = true;
             CallHandler.listenForIncomingCalls(context, docId);
           }
           // এখানে নিশ্চিত ভাবে নন-নাল docId পাঠানো হচ্ছে
-          DailyBonusPopup.show(context, docId); 
-          
+          DailyBonusPopup.show(context, docId);
+
           _updateStatus(true);
         }
       } catch (e) {
@@ -167,7 +186,7 @@ class _HomePageState extends State<HomePage>
   Future<void> _pickImage(Function setModalState) async {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      
+
       if (image != null) {
         // ছবি সিলেক্ট হলে ভিডিও রিসেট করে দেওয়া হবে
         final compressedFile = await FlutterImageCompress.compressWithFile(
@@ -183,7 +202,7 @@ class _HomePageState extends State<HomePage>
             _webImageBytes = compressedFile;
             _pickedImage = image;
           } else {
-            _pickedImage = image; 
+            _pickedImage = image;
           }
         });
       }
@@ -196,7 +215,7 @@ class _HomePageState extends State<HomePage>
   Future<void> _pickVideo(Function setModalState) async {
     try {
       final XFile? video = await _picker.pickVideo(source: ImageSource.gallery);
-      
+
       if (video != null) {
         setModalState(() {
           _pickedImage = null; // ছবি থাকলে তা ক্লিয়ার করা হলো
@@ -210,245 +229,249 @@ class _HomePageState extends State<HomePage>
   }
 
   void _showPostModal() {
-  // মোডাল ওপেন করার আগে রিসেট করে নেওয়া
-  _captionController.clear();
-  _pickedImage = null;
-  _webImageBytes = null;
-  _pickedVideo = null;
+    // মোডাল ওপেন করার আগে রিসেট করে নেওয়া
+    _captionController.clear();
+    _pickedImage = null;
+    _webImageBytes = null;
+    _pickedVideo = null;
 
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: const Color(0xFF1E2A4A),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-    ),
-    builder: (context) => StatefulBuilder(
-      builder: (context, setModalState) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 20,
-          right: 20,
-          top: 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(10))),
-            const SizedBox(height: 15),
-            const Text(
-              "Create Your new post",
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 15),
-            TextField(
-              controller: _captionController,
-              style: const TextStyle(color: Colors.white),
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: "Type anything ...",
-                hintStyle:
-                    const TextStyle(color: Colors.white24, fontSize: 14),
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.05),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none),
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1E2A4A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 20,
+            right: 20,
+            top: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(10))),
+              const SizedBox(height: 15),
+              const Text(
+                "Create Your new post",
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold),
               ),
-            ),
-            const SizedBox(height: 15),
-            
-            // ইমেজ প্রিভিউ সেকশন
-            if (_pickedImage != null)
-              Stack(
-                children: [
-                  Container(
-                    height: 180,
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 10),
-                    decoration: BoxDecoration(
+              const SizedBox(height: 15),
+              TextField(
+                controller: _captionController,
+                style: const TextStyle(color: Colors.white),
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: "Type anything ...",
+                  hintStyle:
+                      const TextStyle(color: Colors.white24, fontSize: 14),
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.05),
+                  border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(15),
-                      border: Border.all(
-                          color: Colors.cyanAccent.withOpacity(0.3)),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(15),
-                      child: kIsWeb
-                          ? Image.memory(_webImageBytes!, fit: BoxFit.cover)
-                          : Image.file(io.File(_pickedImage!.path),
-                              fit: BoxFit.cover),
-                    ),
-                  ),
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: GestureDetector(
-                      onTap: () => setModalState(() {
-                        _pickedImage = null;
-                        _webImageBytes = null;
-                      }),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                            color: Colors.black54, shape: BoxShape.circle),
-                        child: const Icon(Icons.close,
-                            color: Colors.white, size: 18),
-                      ),
-                    ),
-                  )
-                ],
-              ),
-
-            // ভিডিও প্রিভিউ সেকশন
-            if (_pickedVideo != null)
-              Stack(
-                children: [
-                  Container(
-                    height: 180,
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(15),
-                      border: Border.all(
-                          color: Colors.cyanAccent.withOpacity(0.3)),
-                    ),
-                    child: const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.videocam, color: Colors.cyanAccent, size: 40),
-                          SizedBox(height: 8),
-                          Text("Video Selected Successfully",
-                              style: TextStyle(color: Colors.white70, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: GestureDetector(
-                      onTap: () => setModalState(() {
-                        _pickedVideo = null;
-                      }),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                            color: Colors.black54, shape: BoxShape.circle),
-                        child: const Icon(Icons.close,
-                            color: Colors.white, size: 18),
-                      ),
-                    ),
-                  )
-                ],
-              ),
-
-            // ইমেজ পিক বাটন (সবাই ব্যবহার করতে পারবে)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    shape: BoxShape.circle),
-                child:
-                    const Icon(Icons.photo_library, color: Colors.cyanAccent),
-              ),
-              title: const Text("Add gallery photos",
-                  style: TextStyle(color: Colors.white, fontSize: 14)),
-              onTap: () => _pickImage(setModalState),
-            ),
-
-            // ভিডিও পিক বাটন (ভিআইপি কন্ডিশন বাদ দেওয়া হয়েছে, সবাই দিতে পারবে)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    shape: BoxShape.circle),
-                child: const Icon(
-                  Icons.videocam,
-                  color: Colors.cyanAccent,
+                      borderSide: BorderSide.none),
                 ),
               ),
-              title: const Text("Add gallery video",
-                  style: TextStyle(color: Colors.white, fontSize: 14)),
-              onTap: () {
-                _pickVideo(setModalState);
-              },
-            ),
+              const SizedBox(height: 15),
 
-            const SizedBox(height: 15),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.cyanAccent.shade700,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15)),
-                elevation: 5,
-              ),
-              onPressed: () async {
-                String text = _captionController.text.trim();
-
-                if (_pickedImage != null || _pickedVideo != null || text.isNotEmpty) {
-                  showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (c) => const Center(
-                          child: CircularProgressIndicator(
-                              color: Colors.cyanAccent)));
-
-                  try {
-                    await StoriesService().uploadStory(
-                      _pickedImage?.path ?? _pickedVideo?.path ?? "",
-                      text,
-                      webFileBytes: _webImageBytes,
-                      isVideo: _pickedVideo != null,
-                    );
-
-                    if (mounted) {
-                      Navigator.pop(context);
-                      Navigator.pop(context);
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Post Successfully! 🔥"),
-                          backgroundColor: Colors.green,
-                          behavior: SnackBarBehavior.floating,
+              // ইমেজ প্রিভিউ সেকশন
+              if (_pickedImage != null)
+                Stack(
+                  children: [
+                    Container(
+                      height: 180,
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(
+                            color: Colors.cyanAccent.withOpacity(0.3)),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(15),
+                        child: kIsWeb
+                            ? Image.memory(_webImageBytes!, fit: BoxFit.cover)
+                            : Image.file(io.File(_pickedImage!.path),
+                                fit: BoxFit.cover),
+                      ),
+                    ),
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: GestureDetector(
+                        onTap: () => setModalState(() {
+                          _pickedImage = null;
+                          _webImageBytes = null;
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                              color: Colors.black54, shape: BoxShape.circle),
+                          child: const Icon(Icons.close,
+                              color: Colors.white, size: 18),
                         ),
+                      ),
+                    )
+                  ],
+                ),
+
+              // ভিডিও প্রিভিউ সেকশন
+              if (_pickedVideo != null)
+                Stack(
+                  children: [
+                    Container(
+                      height: 180,
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(
+                            color: Colors.cyanAccent.withOpacity(0.3)),
+                      ),
+                      child: const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.videocam,
+                                color: Colors.cyanAccent, size: 40),
+                            SizedBox(height: 8),
+                            Text("Video Selected Successfully",
+                                style: TextStyle(
+                                    color: Colors.white70, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: GestureDetector(
+                        onTap: () => setModalState(() {
+                          _pickedVideo = null;
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                              color: Colors.black54, shape: BoxShape.circle),
+                          child: const Icon(Icons.close,
+                              color: Colors.white, size: 18),
+                        ),
+                      ),
+                    )
+                  ],
+                ),
+
+              // ইমেজ পিক বাটন (সবাই ব্যবহার করতে পারবে)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      shape: BoxShape.circle),
+                  child:
+                      const Icon(Icons.photo_library, color: Colors.cyanAccent),
+                ),
+                title: const Text("Add gallery photos",
+                    style: TextStyle(color: Colors.white, fontSize: 14)),
+                onTap: () => _pickImage(setModalState),
+              ),
+
+              // ভিডিও পিক বাটন (ভিআইপি কন্ডিশন বাদ দেওয়া হয়েছে, সবাই দিতে পারবে)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      shape: BoxShape.circle),
+                  child: const Icon(
+                    Icons.videocam,
+                    color: Colors.cyanAccent,
+                  ),
+                ),
+                title: const Text("Add gallery video",
+                    style: TextStyle(color: Colors.white, fontSize: 14)),
+                onTap: () {
+                  _pickVideo(setModalState);
+                },
+              ),
+
+              const SizedBox(height: 15),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.cyanAccent.shade700,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15)),
+                  elevation: 5,
+                ),
+                onPressed: () async {
+                  String text = _captionController.text.trim();
+
+                  if (_pickedImage != null ||
+                      _pickedVideo != null ||
+                      text.isNotEmpty) {
+                    showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (c) => const Center(
+                            child: CircularProgressIndicator(
+                                color: Colors.cyanAccent)));
+
+                    try {
+                      await StoriesService().uploadStory(
+                        _pickedImage?.path ?? _pickedVideo?.path ?? "",
+                        text,
+                        webFileBytes: _webImageBytes,
+                        isVideo: _pickedVideo != null,
                       );
+
+                      if (mounted) {
+                        Navigator.pop(context);
+                        Navigator.pop(context);
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Post Successfully! 🔥"),
+                            backgroundColor: Colors.green,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) Navigator.pop(context);
+                      debugPrint("Upload Error: $e");
                     }
-                  } catch (e) {
-                    if (mounted) Navigator.pop(context);
-                    debugPrint("Upload Error: $e");
                   }
-                }
-              },
-              child: const Text("Post",
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16)),
-            ),
-            const SizedBox(height: 30),
-          ],
+                },
+                child: const Text("Post",
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16)),
+              ),
+              const SizedBox(height: 30),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-  @override
+ @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
@@ -559,10 +582,35 @@ class _HomePageState extends State<HomePage>
                                     : null,
                                 isLabelVisible: count > 0,
                                 backgroundColor: Colors.redAccent,
-                                child: const Icon(
-                                  Icons.notifications_none_rounded,
-                                  color: Colors.white,
-                                  size: 28,
+                                child: AnimatedBuilder(
+                                  animation: _colorAnimation, // চলমান গোল্ডেন সাইনিং ও ঘণ্টা দুলুনি অ্যানিমেশন
+                                  builder: (context, child) {
+                                    return Transform.rotate(
+                                      angle: 0.15 * sin(_colorAnimation.value * 2 * 3.1416), // ঘণ্টা বাজার মতো ডানে-বামে দুলবে
+                                      child: ShaderMask(
+                                        shaderCallback: (bounds) => LinearGradient(
+                                          colors: const [
+                                            Color(0xFFFFD700), // Pure Gold
+                                            Color(0xFFFFA500), // Bright Amber/Gold
+                                            Color(0xFFFFF8DC), // Cornsilk Shimmer Shine
+                                            Color(0xFFFFD700),
+                                          ],
+                                          stops: [
+                                            _colorAnimation.value - 0.2,
+                                            _colorAnimation.value,
+                                            _colorAnimation.value + 0.2,
+                                            _colorAnimation.value + 0.4,
+                                          ],
+                                          tileMode: TileMode.mirror,
+                                        ).createShader(bounds),
+                                        child: const Icon(
+                                          Icons.notifications_active_rounded,
+                                          size: 28,
+                                          color: Colors.white, // ShaderMask এর জন্য সাদা রাখতে হবে
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
                             );
@@ -570,14 +618,13 @@ class _HomePageState extends State<HomePage>
                         ),
                     ],
                   ),
-
+                  // বাকি উইজেট বা স্লিভার চিলড্রেনগুলো অপরিবর্তিত আছে
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.all(15.0),
                       child: const HomeBanner(),
                     ),
                   ),
-
                   StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
                         .collection('stories')

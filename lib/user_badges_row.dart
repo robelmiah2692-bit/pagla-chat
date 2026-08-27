@@ -9,9 +9,9 @@ class UserBadgesRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ইউজার আইডি খালি থাকলে ফিক্সড হাইটের খালি জায়গা রিটার্ন করবে যাতে লেআউট না কাঁপে
+    // ইউজার আইডি খালি থাকলে কোনো জায়গা নেবে না (0 size)
     if (userId.isEmpty) {
-      return const SizedBox(height: 78); // দুটি সারি হওয়ায় উচ্চতা বাড়িয়ে এডজাস্ট করা হলো
+      return const SizedBox.shrink();
     }
 
     return Center(
@@ -21,25 +21,29 @@ class UserBadgesRow extends StatelessWidget {
             .doc(userId)
             .get(const GetOptions(source: Source.serverAndCache)),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const SizedBox.shrink();
-          }
-
-          if (!snapshot.hasData || !snapshot.data!.exists || snapshot.data!.data() == null) {
+          // লোডিং বা ডেটা না থাকলে কোনো জায়গা বা ফাকা স্পেস নেবে না
+          if (snapshot.connectionState == ConnectionState.waiting ||
+              !snapshot.hasData ||
+              !snapshot.data!.exists ||
+              snapshot.data!.data() == null) {
             return const SizedBox.shrink();
           }
 
           var userData = snapshot.data!.data() as Map<String, dynamic>;
 
           // পুরাতন ডাটাবেজ থেকে চেক করার লজিক
-          bool isOfficial = (userData['isOfficial'] == true) || (userData['role'] == 'official');
-          bool isSuperAdmin = (userData['isSuperAdmin'] == true) || (userData['role'] == 'super_admin');
-          bool isAgency = (userData['isAgency'] == true) || (userData['isAgent'] == true);
+          bool isOfficial = (userData['isOfficial'] == true) ||
+              (userData['role'] == 'official');
+          bool isSuperAdmin = (userData['isSuperAdmin'] == true) ||
+              (userData['role'] == 'super_admin');
+          bool isAgency =
+              (userData['isAgency'] == true) || (userData['isAgent'] == true);
 
           // নতুন ব্যাজগুলোর জন্য ডেটা চেক
           bool isSuperHost = userData['isSuperHost'] == true;
-          bool isLovelyCouple = userData['isMarried'] == true || userData['lovelyCouple'] == true;
-          
+          bool isLovelyCouple =
+              userData['isMarried'] == true || userData['lovelyCouple'] == true;
+
           // টিম প্যানেল নাম বা স্ট্যাটাস চেক
           String teamPanelName = '';
           if (userData['teamPanel'] != null && userData['teamPanel'] is Map) {
@@ -52,7 +56,7 @@ class UserBadgesRow extends StatelessWidget {
           bool hasTopRow = isOfficial || isSuperAdmin || isAgency;
           bool hasBottomRow = isSuperHost || isLovelyCouple || hasTeamPanel;
 
-          // কোনো ব্যাজ না থাকলে কিছু দেখাবে না
+          // কোনো ব্যাজ না থাকলে ফিক্সড হাইট বাদ দিয়ে একদম শূন্য সাইজ রিটার্ন করবে, ফলে নিচের বার উপরে উঠে যাবে
           if (!hasTopRow && !hasBottomRow) {
             return const SizedBox.shrink();
           }
@@ -74,17 +78,20 @@ class UserBadgesRow extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
                           if (isOfficial) ...[
-                            _buildShimmerBadge("OFFICIAL", const [Colors.amber, Colors.orangeAccent]),
+                            _buildShimmerBadge("OFFICIAL",
+                                const [Colors.amber, Colors.orangeAccent]),
                           ],
-                          if (isOfficial && (isSuperAdmin || isAgency)) const SizedBox(width: 8),
-
+                          if (isOfficial && (isSuperAdmin || isAgency))
+                            const SizedBox(width: 8),
                           if (isSuperAdmin) ...[
-                            _buildShimmerBadge("SUPER ADMIN", const [Colors.purpleAccent, Colors.pinkAccent]),
+                            _buildShimmerBadge("SUPER ADMIN",
+                                const [Colors.purpleAccent, Colors.pinkAccent]),
                           ],
-                          if (isSuperAdmin && isAgency) const SizedBox(width: 8),
-
+                          if (isSuperAdmin && isAgency)
+                            const SizedBox(width: 8),
                           if (isAgency) ...[
-                            _buildShimmerBadge("AGENCY", const [Colors.cyanAccent, Colors.blueAccent]),
+                            _buildShimmerBadge("AGENCY",
+                                const [Colors.cyanAccent, Colors.blueAccent]),
                           ],
                         ],
                       ),
@@ -100,17 +107,20 @@ class UserBadgesRow extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
                         if (isSuperHost) ...[
-                          _buildShimmerBadge("SUPER HOST", const [Colors.greenAccent, Colors.tealAccent]),
+                          _buildShimmerBadge("SUPER HOST",
+                              const [Colors.greenAccent, Colors.tealAccent]),
                         ],
-                        if (isSuperHost && (isLovelyCouple || hasTeamPanel)) const SizedBox(width: 8),
-
+                        if (isSuperHost && (isLovelyCouple || hasTeamPanel))
+                          const SizedBox(width: 8),
                         if (isLovelyCouple) ...[
-                          _buildShimmerBadge("LOVELY COUPLE", const [Colors.pink, Colors.redAccent]),
+                          _buildShimmerBadge("LOVELY COUPLE",
+                              const [Colors.pink, Colors.redAccent]),
                         ],
-                        if (isLovelyCouple && hasTeamPanel) const SizedBox(width: 8),
-
+                        if (isLovelyCouple && hasTeamPanel)
+                          const SizedBox(width: 8),
                         if (hasTeamPanel) ...[
-                          _buildShimmerBadge(teamPanelName.toUpperCase(), const [Colors.amberAccent, Colors.yellow]),
+                          _buildShimmerBadge(teamPanelName.toUpperCase(),
+                              const [Colors.amberAccent, Colors.yellow]),
                         ],
                       ],
                     ),
@@ -152,7 +162,7 @@ class UserBadgesRow extends StatelessWidget {
             fontSize: 11,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.5,
-            height: 1.0, 
+            height: 1.0,
           ),
         ),
       ),

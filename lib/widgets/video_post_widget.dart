@@ -241,15 +241,12 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
   @override
   void initState() {
     super.initState();
-    // ক্যাশ থেকে ভিডিও লোড করার জন্য standard networkUrl ব্যবহার করা হয়েছে যা অটো ক্যাশ মেইনটেইন করে
     _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
       ..initialize().then((_) {
         if (mounted) {
           setState(() {
             _isInitialized = true;
           });
-          
-          // ভিডিও শেষ হলে শুরুতে চলে যাওয়ার জন্য লিসেনার যুক্ত করা হলো
           _controller.addListener(_videoListener);
         }
       });
@@ -257,7 +254,6 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   void _videoListener() {
     if (!mounted) return;
-    // ভিডিও শেষ হয়ে গেলে (position == duration) আবার শুরুতে নিয়ে যাবে এবং পজ করে দেবে বা প্লে বাটনে আনবে
     if (_controller.value.position >= _controller.value.duration) {
       setState(() {
         _isPlaying = false;
@@ -300,16 +296,28 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              AspectRatio(
-                aspectRatio: _controller.value.aspectRatio,
-                child: VideoPlayer(_controller),
+              // --- বড় স্ক্রিনে ভিডিও ফাট, সবুজ দাগ ও চার ভাগ হওয়া রোধ করার জন্য সঠিক سলিউশন ---
+              Positioned.fill(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: _controller.value.size.width == 0
+                        ? 1920
+                        : _controller.value.size.width,
+                    height: _controller.value.size.height == 0
+                        ? 1080
+                        : _controller.value.size.height,
+                    child: VideoPlayer(_controller),
+                  ),
+                ),
               ),
+              
+              // প্লে/পজ টগল করার GestureDetector ও আইকন লেয়ার
               GestureDetector(
                 onTap: () {
                   setState(() {
                     _isPlaying = !_isPlaying;
                     if (_isPlaying) {
-                      // যদি ভিডিও একদম শেষে থাকে আর প্লে চাপলে শুরুতে এসে প্লে হবে
                       if (_controller.value.position >= _controller.value.duration) {
                         _controller.seekTo(Duration.zero);
                       }
@@ -323,7 +331,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                   color: Colors.transparent,
                   alignment: Alignment.center,
                   child: AnimatedOpacity(
-                    opacity: _isPlaying ? 0.0 : 1.0, // প্লে হলে আইকন হাইড হবে, পজ হলে শো করবে
+                    opacity: _isPlaying ? 0.0 : 1.0,
                     duration: const Duration(milliseconds: 200),
                     child: Container(
                       padding: const EdgeInsets.all(12),

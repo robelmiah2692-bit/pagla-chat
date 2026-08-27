@@ -4272,7 +4272,6 @@ class _VoiceRoomState extends State<VoiceRoom>
                                             UserBadgesRow(
                                                 userId: userData['uID'] ??
                                                     '') // ডাটা থাকলে শিমার শাইনিং ও গোল্ডেন বর্ডারসহ শো করবে
-                                          
                                           ],
                                         ),
                                       ),
@@ -4482,19 +4481,55 @@ class _VoiceRoomState extends State<VoiceRoom>
                                             ? const Icon(Icons.person,
                                                 color: Colors.white24, size: 30)
                                             : null)
-                                        : Icon(
-                                            (seatData != null &&
-                                                    seatData['isLocked'] ==
-                                                        true)
-                                                ? Icons.lock
-                                                : Icons.chair_rounded,
-                                            color: (seatData != null &&
-                                                    seatData['isLocked'] ==
-                                                        true)
-                                                ? Colors.redAccent
-                                                : Colors.white12,
-                                            size: 28,
-                                          ),
+                                        : (seatData != null &&
+                                                seatData['isLocked'] == true)
+                                            ? Container(
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  color: Colors
+                                                      .black, // প্রথম ছবির মতো ডিপ ব্ল্যাক ব্যাকগ্রাউন্ড
+                                                  boxShadow: [
+                                                    // সাইবার ব্লু গ্লোয়িং শ্যাডো (বাইরের দিকে ছড়াবে)
+                                                    BoxShadow(
+                                                      color: Colors.cyanAccent
+                                                          .withOpacity(0.7),
+                                                      blurRadius: 10,
+                                                      spreadRadius: 2,
+                                                    ),
+                                                  ],
+                                                  border: Border.all(
+                                                    color: Colors
+                                                        .cyanAccent, // উজ্জ্বল নীল বা সায়ান রিং বর্ডার
+                                                    width: 2.5,
+                                                  ),
+                                                ),
+                                                child: Center(
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.all(6),
+                                                    decoration: BoxDecoration(
+                                                      shape: BoxShape.circle,
+                                                      border: Border.all(
+                                                        color: Colors.cyanAccent
+                                                            .withOpacity(
+                                                                0.5), // ভেতরের গোল রিং
+                                                        width: 1.2,
+                                                      ),
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons
+                                                          .lock_rounded, // সাইবার লক স্টাইল
+                                                      color: Colors.cyanAccent,
+                                                      size: 18,
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                            : const Icon(
+                                                Icons.chair_rounded,
+                                                color: Colors.white12,
+                                                size: 28,
+                                              ),
                                   ),
                                 ),
                               ),
