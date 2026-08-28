@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lottie/lottie.dart';
+import 'package:pagla_chat/banner_feature_page.dart';
+import 'package:pagla_chat/profile_page.dart';
 import 'package:pagla_chat/services/search_helper.dart';
 import 'package:pagla_chat/widgets/room_settings_handler.dart';
 import 'dart:math';
@@ -400,35 +402,72 @@ class _RoomListPageState extends State<RoomListPage>
           ),
         ),
 
-        // ➕ [Actions]: ডান কোণায় রুম তৈরির প্লাস বাটন (নতুন লজিক যুক্ত করা হয়েছে)
+        // ➕ [Actions]: ডান কোণায় রিয়েল-টাইপ গ্লসি হোম এবং প্লাস বাটনযুক্ত রুম তৈরির বাটন
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12.0),
             child: GestureDetector(
               onTap: () {
-                _showCreateRoomDialog(); // রুম তৈরির ডায়ালগ কল করবে
+                _showCreateRoomDialog(); // রুম তৈরির ডায়ালগ কল করবে
               },
               child: Container(
-                padding: const EdgeInsets.all(8),
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.12),
-                  border: Border.all(
-                    color: Colors.purpleAccent.withOpacity(0.6),
-                    width: 1.4,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white,
+                      Colors.white.withOpacity(0.6),
+                      Colors.grey.shade400,
+                    ],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.purpleAccent.withOpacity(0.3),
+                      color: Colors.cyanAccent.withOpacity(0.4),
                       blurRadius: 10,
-                      spreadRadius: 1,
+                      spreadRadius: 2,
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.add_rounded,
-                  color: Colors.purpleAccent,
-                  size: 20,
+                padding: const EdgeInsets.all(2.5),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0xFF8E2DE2),
+                        Color(0xFF4A00E0),
+                        Color(0xFF00C6FF),
+                      ],
+                    ),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      const Icon(
+                        Icons.home_rounded,
+                        color: Colors.white70,
+                        size: 22,
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withOpacity(0.3),
+                        ),
+                        child: const Icon(
+                          Icons.add,
+                          color: Colors.cyanAccent,
+                          size: 14,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1048,17 +1087,28 @@ class _RoomListPageState extends State<RoomListPage>
         controller: _pageController,
         itemCount: _bannerUrls.length,
         itemBuilder: (context, index) {
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.amber.shade700,
-                width: 2,
-              ),
-              image: DecorationImage(
-                image: CachedNetworkImageProvider(_bannerUrls[index]),
-                fit: BoxFit.fill,
+          return GestureDetector(
+            onTap: () {
+              // যেকোনো ব্যানারে ক্লিক করলেই নতুন ট্যাব পেজ ওপেন হবে
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const BannerFeaturePage(),
+                ),
+              );
+            },
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.amber.shade700,
+                  width: 2,
+                ),
+                image: DecorationImage(
+                  image: CachedNetworkImageProvider(_bannerUrls[index]),
+                  fit: BoxFit.fill,
+                ),
               ),
             ),
           );
@@ -1067,7 +1117,7 @@ class _RoomListPageState extends State<RoomListPage>
     );
   }
 
- Widget _buildTopSpendersSection() {
+  Widget _buildTopSpendersSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1116,7 +1166,9 @@ class _RoomListPageState extends State<RoomListPage>
                 padding: const EdgeInsets.only(left: 10),
                 itemCount: topUsers.length,
                 itemBuilder: (context, index) {
-                  var userData = topUsers[index].data() as Map<String, dynamic>;
+                  var userDoc = topUsers[index];
+                  var userData = userDoc.data() as Map<String, dynamic>;
+                  String uId = userDoc.id; // ডকুমেন্টের আইডি বা ইউজার আইডি
                   String name = userData['name'] ?? "User";
                   String pic = userData['profilePic'] ?? "";
                   String frame = userData['activeFrameUrl'] ?? "";
@@ -1128,39 +1180,43 @@ class _RoomListPageState extends State<RoomListPage>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            CircleAvatar(
-                              radius: 26,
-                              backgroundColor: Colors.grey[900],
-                              backgroundImage: pic.isNotEmpty
-                                  ? CachedNetworkImageProvider(pic)
-                                      as ImageProvider
-                                  : null,
-                              child: pic.isEmpty
-                                  ? const Icon(Icons.person,
-                                      size: 26, color: Colors.white)
-                                  : null,
-                            ),
-                            // ফ্রেম লজিক: Lottie অথবা CachedNetworkImage
-                            if (frame.isNotEmpty)
-                              SizedBox(
-                                width: 80,
-                                height: 80,
-                                child: frame.toLowerCase().endsWith('.json')
-                                    ? Lottie.network(frame)
-                                    : CachedNetworkImage(
-                                        imageUrl: frame,
-                                        fit: BoxFit.contain,
-                                        placeholder: (context, url) =>
-                                            const SizedBox.shrink(),
-                                        errorWidget: (context, error,
-                                                stackTrace) =>
-                                            const SizedBox.shrink(),
-                                      ),
+                        // প্রোফাইল পিকচারে ক্লিক করলে প্রোফাইলে যাওয়ার জন্য GestureDetector যোগ করা হয়েছে
+                        GestureDetector(
+                          onTap: () => _navigateToProfile(context, uId),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              CircleAvatar(
+                                radius: 26,
+                                backgroundColor: Colors.grey[900],
+                                backgroundImage: pic.isNotEmpty
+                                    ? CachedNetworkImageProvider(pic)
+                                        as ImageProvider
+                                    : null,
+                                child: pic.isEmpty
+                                    ? const Icon(Icons.person,
+                                        size: 26, color: Colors.white)
+                                    : null,
                               ),
-                          ],
+                              // ফ্রেম লজিক: Lottie অথবা CachedNetworkImage
+                              if (frame.isNotEmpty)
+                                SizedBox(
+                                  width: 80,
+                                  height: 80,
+                                  child: frame.toLowerCase().endsWith('.json')
+                                      ? Lottie.network(frame)
+                                      : CachedNetworkImage(
+                                          imageUrl: frame,
+                                          fit: BoxFit.contain,
+                                          placeholder: (context, url) =>
+                                              const SizedBox.shrink(),
+                                          errorWidget:
+                                              (context, error, stackTrace) =>
+                                                  const SizedBox.shrink(),
+                                        ),
+                                ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(name,
@@ -1179,6 +1235,34 @@ class _RoomListPageState extends State<RoomListPage>
         ),
         const SizedBox(height: 15),
       ],
+    );
+  }
+
+  // প্রোফাইলে নেভিগেট করার কার্যকরী ফাংশন (আপনার কোড অনুযায়ী যুক্ত করা হয়েছে)
+  Future<void> _navigateToProfile(BuildContext context, String uId) async {
+    String finalIdToPass = uId;
+    try {
+      var userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('authUID', isEqualTo: uId)
+          .limit(1)
+          .get();
+
+      if (userQuery.docs.isNotEmpty) {
+        finalIdToPass = userQuery.docs.first.data()['uID']?.toString() ??
+            userQuery.docs.first.id;
+      }
+    } catch (e) {
+      debugPrint("❌ Users কালেকশন থেকে uID লোড করতে ব্যর্থ: $e");
+    }
+
+    if (!context.mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProfilePage(userId: finalIdToPass),
+      ),
     );
   }
 }

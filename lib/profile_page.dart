@@ -581,20 +581,25 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            // ছবির সাথে মিল রেখে সাইবার-ব্লু এবং ডিপ ডার্ক গ্রেডিয়েন্ট ব্যাকগ্রাউন্ড
+            gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.lightBlue.shade200,
-                Colors.blue.shade50,
-                Colors.white,
+                Color(0xFF0F2027),
+                Color(0xFF203A43),
+                Color(0xFF2C5364),
               ],
             ),
             borderRadius: BorderRadius.circular(25),
+            border: Border.all(
+              color: Colors.cyanAccent.withOpacity(0.5),
+              width: 1.5,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.blueAccent.withOpacity(0.2),
-                blurRadius: 15,
+                color: Colors.cyanAccent.withOpacity(0.3),
+                blurRadius: 20,
                 spreadRadius: 2,
               )
             ],
@@ -605,28 +610,33 @@ class _ProfilePageState extends State<ProfilePage> {
               const Text(
                 "Change Name",
                 style: TextStyle(
-                  color: Colors.blueAccent,
+                  color: Colors.cyanAccent,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
                 ),
               ),
               const SizedBox(height: 20),
               TextField(
                 controller: _nameController,
-                style: const TextStyle(color: Colors.black87),
+                maxLength: 13, // সর্বোচ্চ ১৩ ডিজিট/অক্ষরের লিমিট
+                style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: Colors.white.withOpacity(0.5),
-                  hintText: "Enter your name",
+                  fillColor: Colors.black.withOpacity(0.3),
+                  hintText: "Enter your name (max 13 chars)",
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                  counterStyle: const TextStyle(color: Colors.cyanAccent),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(15),
                     borderSide: BorderSide(
-                        color: Colors.white.withOpacity(0.8), width: 1.5),
+                        color: Colors.cyanAccent.withOpacity(0.5), width: 1.5),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(15),
-                    borderSide:
-                        const BorderSide(color: Colors.blueAccent, width: 2),
+                    borderSide: const BorderSide(
+                        color: Colors.cyanAccent,
+                        width: 2), // এখানে borderSide যোগ করা হয়েছে
                   ),
                 ),
               ),
@@ -637,7 +647,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   TextButton(
                     onPressed: () => Navigator.pop(context),
                     child: const Text("Cancel",
-                        style: TextStyle(color: Colors.blueGrey)),
+                        style: TextStyle(color: Colors.cyanAccent)),
                   ),
                   const SizedBox(width: 10),
                   ElevatedButton(
@@ -660,7 +670,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           docId = userData['email'].toString();
                         }
 
-                        // ২. ব্যাকআপ হিসেবে আপনার uIDValue ব্যবহার করা (এখন আর লাল দাগ আসবে না)
+                        // ২. ব্যাকআপ হিসেবে আপনার uIDValue ব্যবহার করা
                         if (docId == null || docId == "null" || docId.isEmpty) {
                           docId = uIDValue;
                         }
@@ -685,13 +695,14 @@ class _ProfilePageState extends State<ProfilePage> {
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
+                      backgroundColor: Colors.cyanAccent,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
                     child: const Text("Save",
                         style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold)),
+                            color: Colors.black87,
+                            fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -704,29 +715,107 @@ class _ProfilePageState extends State<ProfilePage> {
 
   void _showAgePicker() {
     showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-              backgroundColor: const Color(0xFF1E1E2F),
-              title: const Text("Your age?",
-                  style: TextStyle(color: Colors.white)),
-              content: SizedBox(
-                  height: 200,
-                  width: double.maxFinite,
-                  child: ListView.builder(
-                      itemCount: 40,
-                      itemBuilder: (context, index) => ListTile(
-                          title: Text("${index + 15} Year",
-                              style: const TextStyle(color: Colors.white)),
-                          onTap: () async {
-                            String uID = FirebaseAuth.instance.currentUser!.uid;
-                            await FirebaseFirestore.instance
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.transparent,
+        content: Container(
+          height: 320,
+          width: double.maxFinite,
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1a1a40), Color(0xFF2b0d3f), Color(0xFF0f2027)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.cyanAccent.withOpacity(0.6),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.purpleAccent.withOpacity(0.4),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+              BoxShadow(
+                color: Colors.cyanAccent.withOpacity(0.3),
+                blurRadius: 15,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              const Text(
+                "SELECT YOUR AGE",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.cyanAccent,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const Divider(color: Colors.pinkAccent, thickness: 1.5),
+              const SizedBox(height: 10),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: 40,
+                  itemBuilder: (context, index) {
+                    int calculatedAge = index + 15;
+                    return Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.blue.withOpacity(0.2),
+                            Colors.purple.withOpacity(0.2),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.white24, width: 0.5),
+                      ),
+                      child: ListTile(
+                        title: Text(
+                          "$calculatedAge Years",
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        onTap: () async {
+                          // FirebaseAuth-এর uid দিয়ে ডাটাবেজে সঠিক ডকুমেন্ট খুঁজে বের করার জন্য query ব্যবহার করা হলো
+                          final authUser = FirebaseAuth.instance.currentUser;
+                          if (authUser != null) {
+                            var querySnapshot = await FirebaseFirestore.instance
                                 .collection('users')
-                                .doc(uID)
-                                .update({'age': index + 15});
-                            setState(() => age = index + 15);
-                            Navigator.pop(context);
-                          }))),
-            ));
+                                .where('authUID', isEqualTo: authUser.uid)
+                                .get();
+
+                            if (querySnapshot.docs.isNotEmpty) {
+                              String docId = querySnapshot.docs.first.id;
+                              await FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(docId)
+                                  .update({'age': calculatedAge});
+
+                              setState(() => age = calculatedAge);
+                            }
+                          }
+                          Navigator.pop(context);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _openSettings() {
@@ -3357,7 +3446,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                       (userData['role'] == 'super_admin');
                               bool isSpecialUser = isOfficial || isSuperAdmin;
 
-                              // যদি অফিশিয়াল বা সুপার এডমিন হয়, তবে আইডিতেও হালকা শিমার বা প্রিমিয়াম লুক আসবে, অন্যথায় নরমাল থাকবে
+                              // যদি অফিশিয়াল বা সুপার এডমিন হয়, তবে আইডিতেও হালকা শিমার বা প্রিমিয়াম লুক আসবে
                               return isSpecialUser
                                   ? Shimmer.fromColors(
                                       baseColor: const Color.fromARGB(
@@ -3395,24 +3484,36 @@ class _ProfilePageState extends State<ProfilePage> {
                             age: age.toString(), // এটি আপনার ওই age ভেরিয়েবল
                           ),
                         ),
-                        // ৩. ডান পাশের ব্যাজ (এজেন্সি থাকলে এজেন্সি, না থাকলে ভেরিফাইড ব্যাজ)
+
+                        // ৩. ডান পাশের ব্যাজ (এজেন্সি এবং ভেরিফাইড ব্যাজ একসাথে বা আলাদা দেখানোর জন্য)
                         Positioned(
-                          right: -80,
+                          right:
+                              -110, // দুটি একসাথে আসলে জায়গা অ্যাডজাস্ট করার জন্য বাড়ানো হলো
                           top: -5,
-                          child: isAgent
-                              ? AgencyBadgeWidget(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // ১. এজেন্সি থাকলে এজেন্সি ব্যাজ দেখাবে
+                              if (isAgent)
+                                AgencyBadgeWidget(
                                   isAgent: isAgent,
                                   imageUrl:
                                       "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/agancy.png",
-                                )
-                              : (userData['isVerified'] == true
-                                  ? const Icon(
-                                      Icons.verified,
-                                      color: Color(0xFF00FBFF),
-                                      size: 17,
-                                    )
-                                  : const SizedBox
-                                      .shrink()), // দুটোই না থাকলে খালি থাকবে
+                                ),
+
+                              // দুটোই থাকলে মাঝে সামান্য গ্যাপ
+                              if (isAgent && (userData['isVerified'] == true))
+                                const SizedBox(width: 4),
+
+                              // ২. ভেরিফাইড ট্রু হলে ভেরিফাইড ব্যাজ দেখাবে
+                              if (userData['isVerified'] == true)
+                                const Icon(
+                                  Icons.verified,
+                                  color: Color(0xFF00FBFF),
+                                  size: 17,
+                                ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -4079,26 +4180,114 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-// 🔥 কার্ড উইজেট
+// 🔥 সোলমেট কার্ড উইজেট (পার্টনারের ছবিতে ক্লিক করলে প্রোফাইলে যাওয়ার ব্যবস্থা সহ)
   Widget _buildFilledSoulmate(Map<String, dynamic> data) {
     int totalGift = data['totalGift'] ?? 0;
     int level = (totalGift / 5000).floor().clamp(1, 50);
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SoulmateDetailPage(
-              soulmateData: data,
-              uIDValue: uIDValue, // আপনার গ্লোবাল ইউজার আইডি
+      onTap: () async {
+        String partnerId = data['partnerId'] ?? data['partnerAuthUID'] ?? '';
+        if (partnerId.isNotEmpty) {
+          String finalIdToPass = partnerId;
+          try {
+            var userQuery = await FirebaseFirestore.instance
+                .collection('users')
+                .where('authUID', isEqualTo: partnerId)
+                .limit(1)
+                .get();
+
+            if (userQuery.docs.isNotEmpty) {
+              finalIdToPass = userQuery.docs.first.data()['uID']?.toString() ??
+                  userQuery.docs.first.id;
+            }
+          } catch (e) {
+            debugPrint("❌ সোলমেট আইডি লোড করতে ব্যর্থ: $e");
+          }
+
+          if (!context.mounted) return;
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProfilePage(userId: finalIdToPass),
             ),
-          ),
-        );
+          );
+        }
       },
-      // 🔥 ব্রেকআপ বাটন ট্রিগার করার জন্য লং প্রেস
-      onLongPress: () {
-        String partnerId = data['partnerId'] ?? '';
+      // 🔥 ব্রেকআপ বাটন ট্রিগার করার জন্য লং প্রেস (শুধু কার্ডের আসল মালিকের জন্য নিরাপদ করা হয়েছে)
+      onLongPress: () async {
+        String currentAuthUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+        String currentUserEmail = FirebaseAuth.instance.currentUser?.email ?? '';
+
+        bool isOwner = false;
+
+        // ১. ডাটা বা ডকুমেন্টের ভেতরের আইডিগুলো দিয়ে প্রাথমিক চেক
+        List<String> possibleOwnerIds = [
+          data['authUID'] ?? '',
+          data['uid'] ?? '',
+          data['uID'] ?? '',
+          data['userId'] ?? '',
+          data['email'] ?? '',
+          data['ownerId'] ?? '',
+        ];
+
+        if (possibleOwnerIds.contains(currentAuthUid) ||
+            (currentUserEmail.isNotEmpty && possibleOwnerIds.contains(currentUserEmail))) {
+          isOwner = true;
+        }
+
+        // ২. যদি সরাসরি না মেলে, তবে 'users' কালেকশন থেকে email, authUID, uID, uid দিয়ে কনফার্ম চেক করা
+        if (!isOwner && currentAuthUid.isNotEmpty) {
+          try {
+            var userDocCheck = await FirebaseFirestore.instance
+                .collection('users')
+                .where('authUID', isEqualTo: currentAuthUid)
+                .limit(1)
+                .get();
+
+            if (userDocCheck.docs.isEmpty) {
+              userDocCheck = await FirebaseFirestore.instance
+                  .collection('users')
+                  .where('uid', isEqualTo: currentAuthUid)
+                  .limit(1)
+                  .get();
+            }
+
+            if (userDocCheck.docs.isNotEmpty) {
+              var uMap = userDocCheck.docs.first.data();
+              String dbUid = uMap['uid']?.toString() ?? '';
+              String dbAuthUid = uMap['authUID']?.toString() ?? '';
+              String dbCustomUid = uMap['uID']?.toString() ?? '';
+              String dbEmail = uMap['email']?.toString() ?? '';
+
+              List<String> dbFieldsToCheck = [
+                data['authUID']?.toString() ?? '',
+                data['uid']?.toString() ?? '',
+                data['uID']?.toString() ?? '',
+                data['userId']?.toString() ?? '',
+                data['email']?.toString() ?? '',
+                data['ownerId']?.toString() ?? '',
+              ];
+
+              if (dbFieldsToCheck.contains(dbAuthUid) ||
+                  dbFieldsToCheck.contains(dbUid) ||
+                  dbFieldsToCheck.contains(dbCustomUid) ||
+                  (dbEmail.isNotEmpty && dbFieldsToCheck.contains(dbEmail))) {
+                isOwner = true;
+              }
+            }
+          } catch (e) {
+            debugPrint("❌ সোলমেট ওনারশিপ চেক করতে ত্রুটি: $e");
+          }
+        }
+
+        // যদি ইউজার এই সোলমেটের আসল মালিক না হয়, তবে লং প্রেস কাজ করবে না (ব্রেকআপ ডায়ালগ আসবে না)
+        if (!isOwner) {
+          return;
+        }
+
+        String partnerId = data['partnerId'] ?? data['partnerAuthUID'] ?? '';
         if (partnerId.isNotEmpty) {
           _showBreakupDialog(partnerId);
         }
@@ -4242,6 +4431,14 @@ class _ProfilePageState extends State<ProfilePage> {
             '')
         .toString();
 
+    // 🔥 পার্টনারের সঠিক আইডি বা uID বের করার জন্য সেফ চেক
+    String partnerUid = rawMarriageDoc['partnerAuthUID'] ??
+        rawMarriageDoc['partnerUid'] ??
+        rawMarriageDoc['partnerId'] ??
+        data['partnerAuthUID'] ??
+        data['partnerUid'] ??
+        '';
+
     double avatarRadius = 45; // ছবির ব্যাসার্ধ
 
     // 🔥 [১ নম্বর কন্ট্রোল] লত্তি (.json) ফ্রেমের সাইজ কম-বেশি করার অপশন
@@ -4291,15 +4488,48 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
 
-            // ২. পার্টনারের প্রোফাইল ছবি ও ফ্রেম (সেফ চেকসহ)
+            // ২. পার্টনারের প্রোফাইল ছবি ও ফ্রেম (ক্লিক করলে পার্টনারের প্রোফাইলে যাওয়ার নিরাপদ ব্যবস্থা)
             Positioned(
               right:
                   (totalWidth / 2) - partnerFrameSize + (overlapDistance / 2),
               top: 0,
               bottom: 0,
               child: Center(
-                child: _buildUserWithFrame(partnerImg, partnerFrame,
-                    avatarRadius, lottieMultiplier, imageMultiplier),
+                child: GestureDetector(
+                  onTap: () async {
+                    if (partnerUid.isNotEmpty) {
+                      // সরাসরি প্রোফাইল পেজে পুশ করার জন্য নিরাপদ লজিক
+                      String finalIdToPass = partnerUid;
+                      try {
+                        var userQuery = await FirebaseFirestore.instance
+                            .collection('users')
+                            .where('authUID', isEqualTo: partnerUid)
+                            .limit(1)
+                            .get();
+
+                        if (userQuery.docs.isNotEmpty) {
+                          finalIdToPass =
+                              userQuery.docs.first.data()['uID']?.toString() ??
+                                  userQuery.docs.first.id;
+                        }
+                      } catch (e) {
+                        debugPrint("❌ পার্টনার আইডি লোড করতে ব্যর্থ: $e");
+                      }
+
+                      if (!context.mounted) return;
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              ProfilePage(userId: finalIdToPass),
+                        ),
+                      );
+                    }
+                  },
+                  child: _buildUserWithFrame(partnerImg, partnerFrame,
+                      avatarRadius, lottieMultiplier, imageMultiplier),
+                ),
               ),
             ),
 
@@ -4308,24 +4538,100 @@ class _ProfilePageState extends State<ProfilePage> {
               top: 15,
               child: GestureDetector(
                 onTap: () async {
-                  String currentUid =
+                  String currentAuthUid =
                       FirebaseAuth.instance.currentUser?.uid ?? '';
+                  String currentUserEmail =
+                      FirebaseAuth.instance.currentUser?.email ?? '';
+
+                  // ডাটাবেজ থেকে ইউজারের সমস্ত আইডি বা তথ্য ফেচ করে মিলিয়ে দেখা হচ্ছে
+                  bool isOwner = false;
+
+                  // ১. র ম্যাারেজ ডকুমেন্ট বা পাসের ডেটা থেকে চেক
+                  List<String> possibleOwnerIds = [
+                    rawMarriageDoc['authUID'] ?? '',
+                    rawMarriageDoc['uid'] ?? '',
+                    rawMarriageDoc['uID'] ?? '',
+                    rawMarriageDoc['userId'] ?? '',
+                    rawMarriageDoc['email'] ?? '',
+                    data['authUID'] ?? '',
+                    data['uid'] ?? '',
+                    data['uID'] ?? '',
+                    data['email'] ?? '',
+                  ];
+
+                  if (possibleOwnerIds.contains(currentAuthUid) ||
+                      (currentUserEmail.isNotEmpty &&
+                          possibleOwnerIds.contains(currentUserEmail))) {
+                    isOwner = true;
+                  }
+
+                  // ২. যদি উপর্যুক্ত ফিল্ডে সরাসরি না থাকে, তবে users কালেকশন থেকে emai, authUID, uID, uid দিয়ে কনফার্ম চেক করা
+                  if (!isOwner && currentAuthUid.isNotEmpty) {
+                    try {
+                      var userDocCheck = await FirebaseFirestore.instance
+                          .collection('users')
+                          .where('authUID', isEqualTo: currentAuthUid)
+                          .limit(1)
+                          .get();
+
+                      if (userDocCheck.docs.isEmpty) {
+                        userDocCheck = await FirebaseFirestore.instance
+                            .collection('users')
+                            .where('uid', isEqualTo: currentAuthUid)
+                            .limit(1)
+                            .get();
+                      }
+
+                      if (userDocCheck.docs.isNotEmpty) {
+                        var uMap = userDocCheck.docs.first.data();
+                        String dbUid = uMap['uid']?.toString() ?? '';
+                        String dbAuthUid = uMap['authUID']?.toString() ?? '';
+                        String dbCustomUid = uMap['uID']?.toString() ?? '';
+                        String dbEmail = uMap['email']?.toString() ?? '';
+
+                        // marriages ডকুমেন্টের বিভিন্ন ফিল্ডের সাথে মিলিয়ে দেখা
+                        List<String> dbFieldsToCheck = [
+                          rawMarriageDoc['authUID']?.toString() ?? '',
+                          rawMarriageDoc['uid']?.toString() ?? '',
+                          rawMarriageDoc['uID']?.toString() ?? '',
+                          rawMarriageDoc['userId']?.toString() ?? '',
+                          rawMarriageDoc['email']?.toString() ?? '',
+                        ];
+
+                        if (dbFieldsToCheck.contains(dbAuthUid) ||
+                            dbFieldsToCheck.contains(dbUid) ||
+                            dbFieldsToCheck.contains(dbCustomUid) ||
+                            (dbEmail.isNotEmpty &&
+                                dbFieldsToCheck.contains(dbEmail))) {
+                          isOwner = true;
+                        }
+                      }
+                    } catch (e) {
+                      debugPrint("❌ ওনারশিপ চেক করতে ত্রুটি: $e");
+                    }
+                  }
+
+                  // যদি ইউজার রিংয়ের আসল মালিক না হয়, তবে নিচের কোড রান করবে না এবং বটম শিট ওপেন হবে না
+                  if (!isOwner) {
+                    return;
+                  }
+
                   String partnerAuthUID =
                       rawMarriageDoc['partnerAuthUID'] ?? '';
 
                   String marriageDocId = rawMarriageDoc['marriageId'] ??
                       rawMarriageDoc['id'] ??
                       rawMarriageDoc['docId'] ??
-                      "${currentUid}_$partnerAuthUID";
+                      "${currentAuthUid}_$partnerAuthUID";
 
                   String finalMyName = '';
                   String finalMyImage = '';
 
                   try {
-                    if (currentUid.isNotEmpty) {
+                    if (currentAuthUid.isNotEmpty) {
                       QuerySnapshot userQuery = await FirebaseFirestore.instance
                           .collection('users')
-                          .where('uid', isEqualTo: currentUid)
+                          .where('uid', isEqualTo: currentAuthUid)
                           .limit(1)
                           .get();
 

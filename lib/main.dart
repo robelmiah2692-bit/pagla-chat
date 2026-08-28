@@ -53,7 +53,7 @@ void main() async {
 
   // 🔥 অ্যাপ চালুর সাথেই অ্যাডমব ইনিশিয়ালাইজ করা হলো
   await MobileAds.instance.initialize();
-  
+
   try {
     // ১. ফায়ারবেস ইনিশিয়ালাইজেশন
     await Firebase.initializeApp(options: firebaseOptions);
@@ -179,6 +179,7 @@ class CosmicBackground extends StatelessWidget {
 // --- স্প্ল্যাশ স্ক্রিন ---
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
+
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
@@ -199,7 +200,7 @@ class _SplashScreenState extends State<SplashScreen> {
             .get();
 
         if (userDoc.docs.isNotEmpty) {
-          AppData.myID = userDoc.docs.first.id;
+          // AppData.myID = userDoc.docs.first.id;
           if (mounted) {
             Navigator.pushReplacement(
                 context,
@@ -225,24 +226,160 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: CosmicBackground(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.bolt, size: 100, color: Colors.pinkAccent),
-              SizedBox(height: 20),
-              Text("PAGLA CHAT",
-                  style: TextStyle(
-                      fontSize: 22,
+    double screenWidth = MediaQuery.of(context).size.width;
+    double logoSize = screenWidth * 0.28;
+
+    return Scaffold(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          // আপনার কাঙ্ক্ষিত রেডিয়েন্ট গ্রেডিয়েন্ট ব্যাকগ্রাউন্ড
+          gradient: RadialGradient(
+            center: Alignment.center,
+            radius: 0.9,
+            colors: [
+              Color(0xFF063838), // Center dark emerald/teal glow tone
+              Color(0xFF031633), // Mid deep blue
+              Color(0xFF050514), // Outer dark cosmos boundary
+            ],
+            stops: [0.1, 0.5, 1.0],
+          ),
+        ),
+        child: Stack(
+          children: [
+            // ১. টপ-রাইট ম্যাজেন্টা/পার্পল গ্লো ইফেক্ট
+            Positioned(
+              top: -50,
+              right: -50,
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.pinkAccent.withOpacity(0.35),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.purpleAccent.withOpacity(0.5),
+                      blurRadius: 100,
+                      spreadRadius: 50,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ২. बॉटम-লেফট সায়ান/ব্লু গ্লো ইফেক্ট
+            Positioned(
+              bottom: -50,
+              left: -50,
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.cyanAccent.withOpacity(0.25),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blueAccent.withOpacity(0.4),
+                      blurRadius: 100,
+                      spreadRadius: 50,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ৩. ব্যাকগ্রাউন্ডের ছোট ছোট আলোর কণা বা স্টার ডাস্ট
+            ...List.generate(
+              25,
+              (index) => Positioned(
+                top: (index * 37.0) % 800,
+                left: (index * 29.0) % 400,
+                child: Container(
+                  width: index % 3 == 0 ? 4 : 2,
+                  height: index % 3 == 0 ? 4 : 2,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: index % 2 == 0 ? Colors.cyanAccent : Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.cyanAccent.withOpacity(0.8),
+                        blurRadius: 6,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // ৪. আসল লোগো, স্টাইলিশ গ্রেডিয়েন্ট টেক্সট এবং লোডার ঠিক মাঝখানে
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // লোগো ইমেজ
+                  Image.asset(
+                    'assets/logo.png',
+                    width: logoSize,
+                    height: logoSize,
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(height: 20),
+
+                  // লোগোর সাথে ম্যাচিং করা স্টাইলিশ গ্রেডিয়েন্ট টেক্সট
+                  ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [
+                        Color(0xFFFFD700), // ব্রাইট গোল্ডেন (Pagla অংশের জন্য)
+                        Color(0xFFFFA500), // ডিপ গোল্ড
+                        Color(0xFFFF007F), // নিয়ন পিংক/ম্যাজেন্টা
+                        Color(0xFF00FFFF), // সায়ান/ব্লু (Chat অংশের জন্য)
+                      ],
+                      stops: [0.0, 0.4, 0.7, 1.0],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ).createShader(
+                        Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+                    child: const Text(
+                      "PAGLA CHAT",
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 4,
+                        color: Colors
+                            .white, // ShaderMask কাজ করার জন্য হোয়াইট থাকতে হবে
+                        shadows: [
+                          Shadow(
+                            color: Colors.black54,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // সাবটাইটেল
+                  const Text(
+                    "LIVE VOICE CHAT",
+                    style: TextStyle(
+                      fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 3,
-                      color: Colors.white)),
-              SizedBox(height: 10),
-              CircularProgressIndicator(color: Colors.pinkAccent),
-            ],
-          ),
+                      color: Colors.white70,
+                    ),
+                  ),
+
+                  const SizedBox(height: 25),
+                  const CircularProgressIndicator(color: Colors.cyanAccent),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -250,8 +387,10 @@ class _SplashScreenState extends State<SplashScreen> {
 }
 
 // --- ক্রিয়েট প্রোফাইল পেজ (ফিক্সড ডাটা লজিক) ---
+// --- প্রফাইল ক্রিয়েট পেইজ (মাল্টি-কালার গ্লোয়িং ডিজাইন ও আগের সব লজিকসহ) ---
 class CreateProfilePage extends StatefulWidget {
   const CreateProfilePage({super.key});
+
   @override
   State<CreateProfilePage> createState() => _CreateProfilePageState();
 }
@@ -261,11 +400,115 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
   final _ageController = TextEditingController();
   String _selectedGender = "Male";
   bool _isSaving = false;
+  int? _selectedAgeValue;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _ageController.dispose();
+    super.dispose();
+  }
+
+  // বয়স সিলেক্ট করার জন্য মাল্টি-কালার গ্লোয়িং ডায়ালগ পিকার
+  void _showAgePicker() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.transparent,
+        content: Container(
+          height: 320,
+          width: double.maxFinite,
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1a1a40), Color(0xFF2b0d3f), Color(0xFF0f2027)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.cyanAccent.withOpacity(0.6),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.purpleAccent.withOpacity(0.4),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+              BoxShadow(
+                color: Colors.cyanAccent.withOpacity(0.3),
+                blurRadius: 15,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              const Text(
+                "SELECT YOUR AGE",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.cyanAccent,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const Divider(color: Colors.pinkAccent, thickness: 1.5),
+              const SizedBox(height: 10),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: 40, // ১৫ থেকে ৫৪ বছর পর্যন্ত
+                  itemBuilder: (context, index) {
+                    int calculatedAge = index + 15;
+                    return Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.blue.withOpacity(0.2),
+                            Colors.purple.withOpacity(0.2),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.white24, width: 0.5),
+                      ),
+                      child: ListTile(
+                        title: Text(
+                          "$calculatedAge Years",
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        onTap: () {
+                          setState(() {
+                            _selectedAgeValue = calculatedAge;
+                            _ageController.text = calculatedAge.toString();
+                          });
+                          Navigator.pop(context);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Future<void> _createFinalProfile() async {
     if (_nameController.text.isEmpty || _ageController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Please fill all fields")));
+        const SnackBar(
+          content: Text("Please fill all fields"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
       return;
     }
 
@@ -279,7 +522,6 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
     bool uniqueFound = false;
 
     while (!uniqueFound) {
-      // ৯ ডিজিটের ইউনিক আইডি জেনারেশন (100000000 থেকে 999999999 এর মধ্যে)
       int num = 100000000 + random.nextInt(900000000);
       finaluID = num.toString();
       var check = await firestore.collection('users').doc(finaluID).get();
@@ -291,7 +533,8 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
         'uID': finaluID,
         'deviceId': currentDeviceId,
         'name': _nameController.text.trim(),
-        'age': _ageController.text.trim(),
+        'age':
+            int.tryParse(_ageController.text.trim()) ?? _selectedAgeValue ?? 15,
         'gender': _selectedGender,
         'email': user?.email,
         'uid': user?.uid,
@@ -303,8 +546,10 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
 
       AppData.myID = finaluID;
       if (mounted) {
-        Navigator.pushReplacement(context,
-            MaterialPageRoute(builder: (context) => const MainNavigation()));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainNavigation()),
+        );
       }
     } catch (e) {
       debugPrint("Save Error: $e");
@@ -317,63 +562,214 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: CosmicBackground(
-        child: Padding(
-          padding: const EdgeInsets.all(25.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text("COMPLETE YOUR PROFILE",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 30),
-              TextField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                      labelText: "Full Name", prefixIcon: Icon(Icons.person))),
-              const SizedBox(height: 15),
-              TextField(
-                  controller: _ageController,
-                  decoration: const InputDecoration(
-                      labelText: "Age", prefixIcon: Icon(Icons.cake)),
-                  keyboardType: TextInputType.number),
-              const SizedBox(height: 15),
-              Row(
+        child: Center(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(25.0),
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Radio(
-                      value: "Male",
-                      groupValue: _selectedGender,
-                      activeColor: Colors.pinkAccent,
-                      onChanged: (v) =>
-                          setState(() => _selectedGender = v.toString())),
-                  const Text("Male"),
-                  Radio(
-                      value: "Female",
-                      groupValue: _selectedGender,
-                      activeColor: Colors.pinkAccent,
-                      onChanged: (v) =>
-                          setState(() => _selectedGender = v.toString())),
-                  const Text("Female"),
+                  // টাইটেল উইজেট গ্লোয়িং ইফেক্টসহ
+                  ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [
+                        Colors.cyanAccent,
+                        Colors.pinkAccent,
+                        Colors.purpleAccent
+                      ],
+                    ).createShader(bounds),
+                    child: const Text(
+                      "COMPLETE YOUR PROFILE",
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 35),
+
+                  // ১. নাম ইনপুট ফিল্ড (মাল্টি-কালার বর্ডার ও গ্লাস ইফেক্ট)
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.blueAccent.withOpacity(0.15),
+                          Colors.purpleAccent.withOpacity(0.15),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.cyanAccent.withOpacity(0.15),
+                          blurRadius: 10,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: _nameController,
+                      maxLength: 13, // সর্বোচ্চ ১৩ ডিজিট/ক্যারেক্টার লিমিট
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: "Full Name (Max 13 chars)",
+                        labelStyle: TextStyle(
+                            color: Colors.cyanAccent.withOpacity(0.8)),
+                        prefixIcon:
+                            const Icon(Icons.person, color: Colors.cyanAccent),
+                        counterStyle: const TextStyle(color: Colors.white60),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: BorderSide(
+                              color: Colors.cyanAccent.withOpacity(0.4)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: const BorderSide(
+                              color: Colors.pinkAccent, width: 2),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ২. বয়স ইনপুট ফিল্ড (মাল্টি-কালার বর্ডার ও গ্লাস ইফেক্ট)
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.purpleAccent.withOpacity(0.15),
+                          Colors.pinkAccent.withOpacity(0.15),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.pinkAccent.withOpacity(0.15),
+                          blurRadius: 10,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: _ageController,
+                      readOnly: true,
+                      onTap: _showAgePicker,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: "Age (15+)",
+                        labelStyle: TextStyle(
+                            color: Colors.pinkAccent.withOpacity(0.8)),
+                        prefixIcon:
+                            const Icon(Icons.cake, color: Colors.pinkAccent),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: BorderSide(
+                              color: Colors.pinkAccent.withOpacity(0.4)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: const BorderSide(
+                              color: Colors.cyanAccent, width: 2),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 25),
+
+                  // জেন্ডার সিলেকশন রেডিও বাটন (মাল্টি-কালার থিম)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Radio<String>(
+                        value: "Male",
+                        groupValue: _selectedGender,
+                        activeColor: Colors.cyanAccent,
+                        onChanged: (v) =>
+                            setState(() => _selectedGender = v.toString()),
+                      ),
+                      const Text("Male",
+                          style: TextStyle(
+                              color: Colors.cyanAccent,
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 30),
+                      Radio<String>(
+                        value: "Female",
+                        groupValue: _selectedGender,
+                        activeColor: Colors.pinkAccent,
+                        onChanged: (v) =>
+                            setState(() => _selectedGender = v.toString()),
+                      ),
+                      const Text("Female",
+                          style: TextStyle(
+                              color: Colors.pinkAccent,
+                              fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 35),
+
+                  // ৩. START CHATTING বাটন (আকর্ষণীয় মাল্টি-কালার গ্রেডিয়েন্ট ও গ্লোয়িং শ্যাডো)
+                  _isSaving
+                      ? const CircularProgressIndicator(
+                          color: Colors.cyanAccent)
+                      : Container(
+                          width: double.infinity,
+                          height: 55,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Colors.cyan,
+                                Colors.blueAccent,
+                                Colors.purpleAccent,
+                                Colors.pinkAccent
+                              ],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            borderRadius: BorderRadius.circular(15),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.purpleAccent.withOpacity(0.5),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                              BoxShadow(
+                                color: Colors.cyanAccent.withOpacity(0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, -2),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            onPressed: _createFinalProfile,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                            ),
+                            child: const Text(
+                              "START CHATTING",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
                 ],
               ),
-              const SizedBox(height: 30),
-              _isSaving
-                  ? const CircularProgressIndicator(color: Colors.pinkAccent)
-                  : ElevatedButton(
-                      onPressed: _createFinalProfile,
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.pinkAccent,
-                          minimumSize: const Size(double.infinity, 50)),
-                      child: const Text("START CHATTING",
-                          style: TextStyle(color: Colors.white)),
-                    ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 }
-
 
 // --- মেইন নেভিগেশন (এখানে টাইমার, হার্টবিট ও সঠিক পেজ সুইচিং বসানো হয়েছে) ---
 class MainNavigation extends StatefulWidget {
@@ -390,7 +786,8 @@ class _MainNavigationState extends State<MainNavigation>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // অ্যাপ লাইফসাইকেল ট্র্যাক করার জন্য
+    WidgetsBinding.instance
+        .addObserver(this); // অ্যাপ লাইফসাইকেল ট্র্যাক করার জন্য
     _updateFCMToken();
     _updateDeviceIdIfMissing();
 
@@ -409,7 +806,8 @@ class _MainNavigationState extends State<MainNavigation>
     if (state == AppLifecycleState.resumed) {
       _updateUserPresence(true); // অ্যাপে ফিরে আসলে অনলাইন
     } else {
-      _updateUserPresence(false); // ব্যাকগ্রাউন্ডে চলে গেলে বা মিনিমাইজ করলে অফলাইন
+      _updateUserPresence(
+          false); // ব্যাকগ্রাউন্ডে চলে গেলে বা মিনিমাইজ করলে অফলাইন
     }
   }
 
@@ -500,7 +898,8 @@ class _MainNavigationState extends State<MainNavigation>
     final String currentUserId = AppData.myID;
 
     return Scaffold(
-      extendBody: false, // 🔥 কন্টেন্ট যেন নেভিগেশন বারের নিচে না যায়, সেফ রাখার জন্য false করা হলো
+      extendBody:
+          false, // 🔥 কন্টেন্ট যেন নেভিগেশন বারের নিচে না যায়, সেফ রাখার জন্য false করা হলো
       backgroundColor: Colors.black,
       // ডাইনামিক সুইচিং ব্যবহার করা হলো যাতে অন্য ট্যাবে গেলে রিলস বা ভিডিও বন্ধ থাকে
       body: SafeArea(
@@ -525,7 +924,8 @@ class _MainNavigationState extends State<MainNavigation>
           child: Container(
             // 🔥 পরিবর্তন ২: উচ্চতা ও নিচের ফাঁকা জায়গা বা মার্জিন কমিয়ে ছোট করা হলো
             height: 65,
-            margin: const EdgeInsets.only(left: 15, right: 15, bottom: 2, top: 2),
+            margin:
+                const EdgeInsets.only(left: 15, right: 15, bottom: 2, top: 2),
             child: Stack(
               clipBehavior: Clip.none,
               alignment: Alignment.center,
@@ -538,7 +938,8 @@ class _MainNavigationState extends State<MainNavigation>
                   child: Container(
                     height: 58,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF14082C), // ডিপ রয়্যাল পার্পল ও ব্ল্যাক থিম
+                      color: const Color(
+                          0xFF14082C), // ডিপ রয়্যাল পার্পল ও ব্ল্যাক থিম
                       borderRadius: BorderRadius.circular(30),
                       border: Border.all(
                         color: Colors.white.withOpacity(0.2),
@@ -556,11 +957,16 @@ class _MainNavigationState extends State<MainNavigation>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildNavItem(0, Icons.home_rounded, "Home", false, currentUserId),
-                        _buildNavItem(1, Icons.video_collection_rounded, "Reels", false, currentUserId),
-                        const SizedBox(width: 50), // মাঝখানের রুম বাটনের জন্য গ্যাপ
-                        _buildNavItem(3, Icons.mail_rounded, "Message", true, currentUserId),
-                        _buildNavItem(4, Icons.person_rounded, "Profile", false, currentUserId),
+                        _buildNavItem(0, Icons.home_rounded, "Home", false,
+                            currentUserId),
+                        _buildNavItem(1, Icons.video_collection_rounded,
+                            "Reels", false, currentUserId),
+                        const SizedBox(
+                            width: 50), // মাঝখানের রুম বাটনের জন্য গ্যাপ
+                        _buildNavItem(3, Icons.mail_rounded, "Message", true,
+                            currentUserId),
+                        _buildNavItem(4, Icons.person_rounded, "Profile", false,
+                            currentUserId),
                       ],
                     ),
                   ),
@@ -724,6 +1130,7 @@ class _MainNavigationState extends State<MainNavigation>
     );
   }
 }
+
 // --- লগইন স্ক্রিন (গুগল সাইন-ইন ও ডিলিটেড ইউজার চেকিং লজিকসহ) ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -731,9 +1138,47 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen>
+    with TickerProviderStateMixin {
+  late AnimationController _rocketAnimController;
+  late AnimationController _smokeAnimController;
+  late AnimationController
+      _shimmerAnimController; // শিমার শাইনিং অ্যানিমেশন কন্ট্রোলার
+
+  @override
+  void initState() {
+    super.initState();
+    // রকেট ও ধোঁয়ার রিয়েল লাইফ অ্যানিমেশন কন্ট্রোলার (চলতে থাকবে)
+    _rocketAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+
+    _smokeAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+
+    // শিমার শাইনিং ইফেক্টের জন্য কন্ট্রোলার (সময় একটু বাড়িয়ে স্মুথ করা হয়েছে)
+    _shimmerAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _rocketAnimController.dispose();
+    _smokeAnimController.dispose();
+    _shimmerAnimController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    double screenWidth = MediaQuery.of(context).size.width;
+    double logoSize = screenWidth * 0.22; // লোগোর সাইজ রেসপনসিভ রাখার জন্য
+
     return Scaffold(
       body: CosmicBackground(
         child: Center(
@@ -743,18 +1188,221 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.rocket_launch,
-                      size: 100, color: Colors.pinkAccent),
-                  const SizedBox(height: 30),
+                  // ১. রকেট, ফায়ার ও ধোঁয়ার অ্যানিমেটেড উইজেট
+                  AnimatedBuilder(
+                    animation: Listenable.merge([
+                      _rocketAnimController,
+                      _smokeAnimController,
+                      _shimmerAnimController
+                    ]),
+                    builder: (context, child) {
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // রকেট উইজেট
+                          Transform.translate(
+                            offset: Offset(0,
+                                sin(_rocketAnimController.value * 2 * pi) * 6),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.orangeAccent.withOpacity(
+                                            0.6 +
+                                                (_rocketAnimController.value *
+                                                    0.4)),
+                                        blurRadius: 25,
+                                        spreadRadius: 8,
+                                      ),
+                                      BoxShadow(
+                                        color:
+                                            Colors.pinkAccent.withOpacity(0.4),
+                                        blurRadius: 15,
+                                        spreadRadius: 3,
+                                      ),
+                                    ],
+                                  ),
+                                  child: CustomPaint(
+                                    size: const Size(80, 90),
+                                    painter: RocketPainter(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // রকেটের ইঞ্জিন থেকে বের হওয়া রিয়েল ফায়ার ও ধোঁয়া
+                          SizedBox(
+                            height: 70,
+                            child: Stack(
+                              alignment: Alignment.topCenter,
+                              children: [
+                                Positioned(
+                                  top: 0,
+                                  child: Container(
+                                    width: 16,
+                                    height: 25 +
+                                        (sin(_rocketAnimController.value *
+                                                2 *
+                                                pi) *
+                                            5),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Colors.yellow,
+                                          Colors.orange,
+                                          Colors.red
+                                        ],
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 15,
+                                  child: SizedBox(
+                                    width: 80,
+                                    height: 50,
+                                    child: Stack(
+                                      alignment: Alignment.topCenter,
+                                      children: List.generate(4, (index) {
+                                        double progress =
+                                            (_smokeAnimController.value +
+                                                    (index * 0.25)) %
+                                                1.0;
+                                        double sizeFactor =
+                                            10.0 + (progress * 14);
+
+                                        return Positioned(
+                                          top: progress * 40,
+                                          child: Transform.translate(
+                                            offset: Offset(
+                                                sin(progress * 2 * pi + index) *
+                                                    10,
+                                                0),
+                                            child: Opacity(
+                                              opacity: (1.0 - progress)
+                                                  .clamp(0.0, 1.0),
+                                              child: Container(
+                                                width: sizeFactor,
+                                                height: sizeFactor,
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  gradient: RadialGradient(
+                                                    colors: [
+                                                      Colors.white
+                                                          .withOpacity(0.9),
+                                                      Colors.cyanAccent
+                                                          .withOpacity(0.4),
+                                                      Colors.transparent,
+                                                    ],
+                                                    stops: const [
+                                                      0.2,
+                                                      0.7,
+                                                      1.0
+                                                    ],
+                                                  ),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.white
+                                                          .withOpacity(0.3),
+                                                      blurRadius: 6,
+                                                      spreadRadius: 2,
+                                                    )
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // ২. পিএনজি লোগো যার ওপর হালকা ও পাতলা শাইনিং লাইট ইফেক্ট দেওয়া হয়েছে
+                          SizedBox(
+                            width: logoSize,
+                            height: logoSize,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                // মূল লোগো
+                                Image.asset(
+                                  'assets/logo.png',
+                                  width: logoSize,
+                                  height: logoSize,
+                                  fit: BoxFit.contain,
+                                ),
+                                // লোগোর ওপর স্লাইড হওয়া হালকা শাইনিং লাইট বিম (অত্যন্ত পাতলা ও স্বচ্ছ)
+                                Positioned.fill(
+                                  child: ClipRRect(
+                                    borderRadius:
+                                        BorderRadius.circular(logoSize / 2),
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        double pos = (_shimmerAnimController
+                                                    .value *
+                                                (constraints.maxWidth * 2.5)) -
+                                            constraints.maxWidth;
+                                        return Transform.translate(
+                                          offset: Offset(pos, 0),
+                                          child: Transform.rotate(
+                                            angle:
+                                                0.35, // হালকা কোনাকোনি বা বাঁকা করার জন্য
+                                            child: Container(
+                                              width:
+                                                  25, // লাইট বিম আরও চিকন করা হয়েছে
+                                              height:
+                                                  constraints.maxHeight * 1.5,
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  colors: [
+                                                    Colors.white
+                                                        .withOpacity(0.0),
+                                                    Colors.white.withOpacity(
+                                                        0.25), // গাঢ় ভাব কমিয়ে একদম হালকা করা হয়েছে
+                                                    Colors.white
+                                                        .withOpacity(0.0),
+                                                  ],
+                                                  begin: Alignment.topCenter,
+                                                  end: Alignment.bottomCenter,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 20),
+
                   const Text("WELCOME TO PAGLA CHAT",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.bold,
                           color: Colors.white)),
-                  const SizedBox(height: 50),
+                  const SizedBox(height: 40),
 
-                  // গুগল সাইন-ইন বাটন
+                  // গুগল সাইন-ইন বাটন (মূল ফাংশনালিটি সহ)
                   _buildSocialButton(
                     text: "CONTINUE WITH GOOGLE",
                     icon: Icons.g_mobiledata,
@@ -788,17 +1436,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           if (registered) {
                             // পুরাতন ইউজার হলে সরাসরি মেইন অ্যাপে
                             Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        const SplashScreen()));
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const SplashScreen()),
+                            );
                           } else {
                             // নতুন ইউজার হলে প্রোফাইল ক্রিয়েট পেইজে
                             Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        const CreateProfilePage()));
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      const CreateProfilePage()),
+                            );
                           }
                         }
                       }
@@ -840,4 +1489,72 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+}
+
+// --- আপনার ছবির কালার অনুযায়ী নিখুঁত রকেট পেইন্টার ---
+class RocketPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    Paint paint = Paint()..style = PaintingStyle.fill;
+
+    final Rect bodyRect = Rect.fromLTWH(size.width * 0.25, size.height * 0.15,
+        size.width * 0.5, size.height * 0.7);
+    paint.shader = const LinearGradient(
+      colors: [Color(0xFFFFD54F), Color(0xFFFF5722), Color(0xFFE91E63)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    ).createShader(bodyRect);
+
+    Path bodyPath = Path()
+      ..addRRect(RRect.fromRectAndRadius(bodyRect, const Radius.circular(25)));
+    canvas.drawPath(bodyPath, paint);
+
+    Path nosePath = Path()
+      ..moveTo(size.width * 0.5, 0)
+      ..lineTo(size.width * 0.25, size.height * 0.25)
+      ..lineTo(size.width * 0.75, size.height * 0.25)
+      ..close();
+    paint.shader = const LinearGradient(
+      colors: [Colors.yellowAccent, Color(0xFFFF9800)],
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+    ).createShader(Rect.fromLTWH(
+        size.width * 0.25, 0, size.width * 0.5, size.height * 0.25));
+    canvas.drawPath(nosePath, paint);
+
+    paint.shader = const LinearGradient(
+      colors: [Color(0xFFFF5722), Color(0xFFC2185B)],
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+    ).createShader(
+        Rect.fromLTWH(0, size.height * 0.5, size.width, size.height * 0.4));
+
+    Path leftWing = Path()
+      ..moveTo(size.width * 0.25, size.height * 0.5)
+      ..lineTo(0, size.height * 0.75)
+      ..lineTo(size.width * 0.25, size.height * 0.8)
+      ..close();
+    canvas.drawPath(leftWing, paint);
+
+    Path rightWing = Path()
+      ..moveTo(size.width * 0.75, size.height * 0.5)
+      ..lineTo(size.width, size.height * 0.75)
+      ..lineTo(size.width * 0.75, size.height * 0.8)
+      ..close();
+    canvas.drawPath(rightWing, paint);
+
+    Paint windowBg = Paint()..color = const Color(0xFF00E5FF);
+    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.38),
+        size.width * 0.13, windowBg);
+
+    Paint windowBorder = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.38),
+        size.width * 0.13, windowBorder);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
