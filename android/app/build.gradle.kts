@@ -41,8 +41,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         
         // 🎯 গুগল প্লে কনসোলের এরর ফিক্স করার জন্য নতুন নম্বর দেওয়া হলো
-        versionCode = 15
-        versionName = "1.2.1"
+        versionCode = 16
+        versionName = "1.0.11"
         
         multiDexEnabled = true
     }

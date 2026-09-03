@@ -75,57 +75,104 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _fetchUserData() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        QuerySnapshot querySnapshot;
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    try {
+      var querySnapshot;
+      String email = user.email ?? '';
+      String authUid = user.uid;
+
+      // ১. প্রথমে email দিয়ে খোঁজার চেষ্টা
+      if (email.isNotEmpty) {
         try {
-          // প্রথমে ক্যাশ থেকে ডাটা খোঁজার চেষ্টা করবে
           querySnapshot = await FirebaseFirestore.instance
               .collection('users')
-              .where('email', isEqualTo: user.email)
-              .get(const GetOptions(source: Source.cache));
-
-          // ক্যাশে না পেলে সার্ভার থেকে আনবে
-          if (querySnapshot.docs.isEmpty) {
-            querySnapshot = await FirebaseFirestore.instance
-                .collection('users')
-                .where('email', isEqualTo: user.email)
-                .get(const GetOptions(source: Source.server));
-          }
-        } catch (_) {
-          // কোনো কারণে ক্যাশ এরর দিলে ডিফল্টভাবে সার্ভার থেকে নিয়ে আসবে
-          querySnapshot = await FirebaseFirestore.instance
-              .collection('users')
-              .where('email', isEqualTo: user.email)
-              .get();
-        }
-
-        if (querySnapshot.docs.isNotEmpty) {
-          final docId = querySnapshot.docs.first.id;
-
-          setState(() {
-            myCustomDocId = docId;
-            currentUserData =
-                querySnapshot.docs.first.data() as Map<String, dynamic>;
-          });
-
-          // ✅ এখানে ইনকামিং কল লিসেনার চালু করা হলো (যাতে সঠিক docId পাওয়া যায়)
-          if (!_isCallListenerInitialized && mounted) {
-            _isCallListenerInitialized = true;
-            CallHandler.listenForIncomingCalls(context, docId);
-          }
-          // এখানে নিশ্চিত ভাবে নন-নাল docId পাঠানো হচ্ছে
-          DailyBonusPopup.show(context, docId);
-
-          _updateStatus(true);
-        }
-      } catch (e) {
-        debugPrint("User Fetch Error: $e");
+              .where('email', isEqualTo: email)
+              .get(const GetOptions(source: Source.server));
+        } catch (_) {}
       }
+
+      // ২. email দিয়ে না পেলে authUID দিয়ে খোঁজা
+      if (querySnapshot == null || querySnapshot.docs.isEmpty) {
+        try {
+          querySnapshot = await FirebaseFirestore.instance
+              .collection('users')
+              .where('authUID', isEqualTo: authUid)
+              .get(const GetOptions(source: Source.server));
+        } catch (_) {}
+      }
+
+      // ৩. uID দিয়ে খোঁজা
+      if (querySnapshot == null || querySnapshot.docs.isEmpty) {
+        try {
+          querySnapshot = await FirebaseFirestore.instance
+              .collection('users')
+              .where('uID', isEqualTo: authUid)
+              .get(const GetOptions(source: Source.server));
+        } catch (_) {}
+      }
+
+      // ৪. ছোট হাতের uid দিয়ে খোঁজা
+      if (querySnapshot == null || querySnapshot.docs.isEmpty) {
+        try {
+          querySnapshot = await FirebaseFirestore.instance
+              .collection('users')
+              .where('uid', isEqualTo: authUid)
+              .get(const GetOptions(source: Source.server));
+        } catch (_) {}
+      }
+
+      // ৫. কুয়েরিতে না পেলে সরাসরি ডকুমেন্ট আইডি (authUid) দিয়ে চেক করা
+      if (querySnapshot == null || querySnapshot.docs.isEmpty) {
+        try {
+          var directDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(authUid)
+              .get(const GetOptions(source: Source.server));
+
+          if (directDoc.exists) {
+            final docId = directDoc.id;
+            setState(() {
+              myCustomDocId = docId;
+              currentUserData = directDoc.data() as Map<String, dynamic>?;
+            });
+
+            if (!_isCallListenerInitialized && mounted) {
+              _isCallListenerInitialized = true;
+              CallHandler.listenForIncomingCalls(context, docId);
+            }
+            DailyBonusPopup.show(context, docId);
+            _updateStatus(true);
+            return;
+          }
+        } catch (_) {}
+      }
+
+      // চূড়ান্ত ফলাফল চেক করে ডাটা সেট করা
+      if (querySnapshot != null && querySnapshot.docs.isNotEmpty) {
+        final docId = querySnapshot.docs.first.id;
+
+        setState(() {
+          myCustomDocId = docId;
+          currentUserData =
+              querySnapshot.docs.first.data() as Map<String, dynamic>;
+        });
+
+        if (!_isCallListenerInitialized && mounted) {
+          _isCallListenerInitialized = true;
+          CallHandler.listenForIncomingCalls(context, docId);
+        }
+        DailyBonusPopup.show(context, docId);
+
+        _updateStatus(true);
+      } else {
+        debugPrint("User Fetch Error: No user found across email, authUID, uID, or uid.");
+      }
+    } catch (e) {
+      debugPrint("User Fetch Error: $e");
     }
   }
-
+}
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);

@@ -23,6 +23,7 @@ import 'package:pagla_chat/RoomLevelHelper.dart';
 import 'package:pagla_chat/VideoGiftOverlay.dart';
 import 'package:pagla_chat/chat_screen.dart';
 import 'package:pagla_chat/donggi_baba_game.dart';
+import 'package:pagla_chat/full_screen_image_viewer.dart';
 
 import 'package:pagla_chat/pk_manager.dart';
 import 'package:pagla_chat/room_exit_handler.dart';
@@ -315,8 +316,21 @@ class _VoiceRoomState extends State<VoiceRoom>
         _fetchRoomData();
         _checkIfFollowing();
       }
-    });
 
+      // 🚀 **ইনভাইট লিসেনার (এখানে uID এবং authUID উভয়ই পাস করা হলো যাতে কোনোভাবেই মিস না হয়)**
+      if (uID.isNotEmpty || FirebaseAuth.instance.currentUser != null) {
+        RoomInviteService.listenForInvites(
+          context: context,
+          roomId: widget.roomId,
+          currentUserId: uID, // আপনার অ্যাপের নিজস্ব uID
+          currentAuthUid: FirebaseAuth.instance.currentUser?.uid ??
+              "", // ফায়ারবেসের আসল uid
+          onJoinSeat: (seatIndex) {
+            sitOnSeat(seatIndex);
+          },
+        );
+      } else {}
+    });
     FirebaseDatabase.instance
         .ref('rooms/${widget.roomId}/latestVideoGift')
         .remove();
@@ -2664,7 +2678,7 @@ class _VoiceRoomState extends State<VoiceRoom>
     String giftImgUrl = data['giftImage'] ?? '';
     bool isLottie = giftImgUrl.toLowerCase().endsWith('.json');
 
-    // ✅ নতুন ইমেজ মেসেজ ও টেক্সটের জন্য ভ্যারিয়েবল
+    // ✅ নতুন ইমেজ মেসেজ ও টেক্সটের জন্য ভ্যারিয়েবল
     String chatImgUrl = data['imageUrl'] ?? '';
     String messageText = data['text'] ?? '';
 
@@ -2679,29 +2693,6 @@ class _VoiceRoomState extends State<VoiceRoom>
       });
 
       _showChatInputBottomSheet();
-    }
-
-    // 🛠️ সিট ইনভাইট ফাংশন
-    void sendInvite(String userId, String userName) {
-      if (userId.isEmpty) {
-        print("⚠️ Warning: User ID is empty for invite to $userName");
-        return;
-      }
-
-      RoomInviteService.sendSeatInvite(
-        roomId: widget.roomId,
-        targetUserId: userId,
-        targetUserName: userName,
-        inviterName: ownerName.isNotEmpty ? ownerName : "Host",
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Invitation sent to $userName 🎙️"),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
     }
 
     return Container(
@@ -2738,7 +2729,7 @@ class _VoiceRoomState extends State<VoiceRoom>
 
           const SizedBox(width: 10),
 
-          // --- ২. নাম ও ডিটেইলস ---
+          // --- ২. নাম, আইডি ও ডিটেইলস ---
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2776,6 +2767,21 @@ class _VoiceRoomState extends State<VoiceRoom>
                   ],
                 ),
 
+                // ✅ সেন্ডারের আইডি (নামের নিচে)
+                if (uId.isNotEmpty) ...[
+                  const SizedBox(height: 1),
+                  Text(
+                    "ID: $uId",
+                    style: const TextStyle(
+                      fontSize: 9,
+                      color: Colors.white54,
+                      letterSpacing: 0.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+
                 // ✅ টেক্সট মেসেজ থাকলে দেখাবে
                 if (messageText.isNotEmpty) ...[
                   const SizedBox(height: 4),
@@ -2785,34 +2791,48 @@ class _VoiceRoomState extends State<VoiceRoom>
                   ),
                 ],
 
-                // ✅ ইমেজ মেসেজ প্রিভিউ (রুমের সবাই দেখতে পাবে)
+                // ✅ ইমেজ মেসেজ প্রিভিউ (রুমের সবাই দেখতে পাবে এবং ক্লিক করলে ফুলস্ক্রিন হবে)
                 if (isImage && chatImgUrl.isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: CachedNetworkImage(
-                      imageUrl: chatImgUrl,
-                      height: 140,
-                      width: 140,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => const SizedBox(
-                        height: 40,
-                        width: 40,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.pinkAccent,
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FullScreenImageViewer(
+                            imageUrl: chatImgUrl,
                           ),
                         ),
+                      );
+                    },
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: CachedNetworkImage(
+                        imageUrl: chatImgUrl,
+                        height: 140,
+                        width: 140,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const SizedBox(
+                          height: 40,
+                          width: 40,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.pinkAccent,
+                            ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => const Icon(
+                            Icons.broken_image,
+                            color: Colors.white54),
                       ),
-                      errorWidget: (context, url, error) =>
-                          const Icon(Icons.broken_image, color: Colors.white54),
                     ),
                   ),
                 ],
 
+                // ✅ গিফটের রিসিভারের নাম ও আইডি
                 if (isGift && targetName.isNotEmpty) ...[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
                       const Text(
@@ -2834,17 +2854,36 @@ class _VoiceRoomState extends State<VoiceRoom>
                         const SizedBox(width: 4),
                       ],
                       Flexible(
-                        child: GestureDetector(
-                          onTap: () => mentionUserAndOpenInput(targetName),
-                          child: Text(
-                            targetName,
-                            style: const TextStyle(
-                              color: Colors.cyanAccent,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GestureDetector(
+                              onTap: () => mentionUserAndOpenInput(targetName),
+                              child: Text(
+                                targetName,
+                                style: const TextStyle(
+                                  color: Colors.cyanAccent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                            if (targetId.isNotEmpty) ...[
+                              const SizedBox(height: 1),
+                              Text(
+                                "ID: $targetId",
+                                style: const TextStyle(
+                                  fontSize: 8.5,
+                                  color: Colors.white54,
+                                  letterSpacing: 0.2,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ],
@@ -2854,7 +2893,7 @@ class _VoiceRoomState extends State<VoiceRoom>
             ),
           ),
 
-          // --- ৩. বড় সাইজের গিফট (লটি/ইমেজ) ও সংখ্যা (Count) ---
+          // --- ৩. বড় সাইজের গিফট (লটি/ইমেজ) ও সংখ্যা (Count) ---
           if (isGift) ...[
             const SizedBox(width: 8),
             Row(
@@ -3510,26 +3549,42 @@ class _VoiceRoomState extends State<VoiceRoom>
                 ),
                 const SizedBox(width: 6),
 
-// ৪. পাওয়ার বাটন (পিসি অন/অফ স্টাইল, এক্সিট ও মিনিমাইজ অপশন সহ)
                 PopupMenuButton<String>(
                   offset: const Offset(0, 45),
-                  color: const Color(0xFF1E1E2C),
+                  // পপ-আপ মেনুর ব্যাকগ্রাউন্ডে আপনার দেওয়া ছবির সাথে মিলিয়ে মিক্সড কালার গ্রেডিয়েন্ট এফেক্ট
+                  color: const Color(0xFF0D1B2A),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: Colors.cyanAccent.withOpacity(0.5),
+                      width: 1.5,
+                    ),
+                  ),
                   icon: Container(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
+                      // আপনার দেওয়া ছবির মতো ডিপ পার্পল, ম্যাজেন্টা ও পিংক গ্লোয়িং গ্রেডিয়েন্ট
                       gradient: const LinearGradient(
-                        colors: [Colors.redAccent, Colors.deepOrange],
+                        colors: [
+                          Color(0xFFFF007F),
+                          Color(0xFF7B1FA2),
+                          Color(0xFF4A154B)
+                        ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
+                      // আপনার দেওয়া ছবির মতো চারপাশের উজ্জ্বল পিংক/ম্যাজেন্টা লাইটিং এফেক্ট
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.red.withOpacity(0.5),
-                          blurRadius: 6,
-                          spreadRadius: 1,
+                          color: Colors.pinkAccent.withOpacity(0.8),
+                          blurRadius: 12,
+                          spreadRadius: 3,
+                        ),
+                        BoxShadow(
+                          color: Colors.purpleAccent.withOpacity(0.5),
+                          blurRadius: 18,
+                          spreadRadius: 2,
                         ),
                       ],
                     ),
@@ -3553,7 +3608,7 @@ class _VoiceRoomState extends State<VoiceRoom>
 
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text("রুম মিনিমাইজ করা হয়েছে"),
+                          content: Text("Room Minimized"),
                           backgroundColor: Colors.pinkAccent,
                         ),
                       );
@@ -3834,7 +3889,6 @@ class _VoiceRoomState extends State<VoiceRoom>
                                 int vipLevel =
                                     getVipLevelFromData(userXp, userExpiry);
 
-                                // এজেন্সি স্ট্যাটাস চেক (ইউজার ডাটা থেকে)
                                 bool isAgent = userData['isAgent'] ??
                                     userData['agencyId'] != null ||
                                         userData['isAgency'] == true;
@@ -3846,17 +3900,33 @@ class _VoiceRoomState extends State<VoiceRoom>
                                   width:
                                       MediaQuery.of(context).size.width * 0.85,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF0F0F13).withOpacity(
-                                        0.95), // প্রিমিয়াম ডিপ ব্ল্যাক/ডার্ক ব্যাকগ্রাউন্ড
+                                    // 🔥 আপনার দেওয়া ছবির সাথে মিলিয়ে আকর্ষণীয় মিক্সড কালার গ্রেডিয়েন্ট ব্যাকগ্রাউন্ড
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Color(0xFF0D1B2A), // ডিপ ব্লু
+                                        Color(0xFF1B1A55), // মিড নাইট ব্লু
+                                        Color(
+                                            0xFF4A154B), // সফট পার্পল/ম্যাজেন্টা মিক্স
+                                      ],
+                                    ),
                                     borderRadius: BorderRadius.circular(30),
                                     border: Border.all(
-                                      color: Colors.white.withOpacity(0.12),
+                                      color: Colors.cyanAccent.withOpacity(0.3),
+                                      width: 1.2,
                                     ),
                                     boxShadow: [
                                       BoxShadow(
+                                        color:
+                                            Colors.cyanAccent.withOpacity(0.2),
+                                        blurRadius: 25,
+                                        spreadRadius: 2,
+                                      ),
+                                      BoxShadow(
                                         color: Colors.purpleAccent
-                                            .withOpacity(0.15),
-                                        blurRadius: 20,
+                                            .withOpacity(0.2),
+                                        blurRadius: 25,
                                         spreadRadius: 2,
                                       )
                                     ],
@@ -3864,51 +3934,134 @@ class _VoiceRoomState extends State<VoiceRoom>
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const SizedBox(height: 30),
-                                      SizedBox(
-                                        height: 100,
+                                      const SizedBox(height: 20),
+
+                                      // 🔥 প্রোফাইল পিকচার এবং মেনশন বাটন পাশাপাশি দেখানোর জন্য Row ব্যবহার করা হলো
+                                      // 🔥 প্রোফাইল পিকচার একদম সেন্টারে এবং মেনশন বাটন সাইডে রাখার জন্য Stack ব্যবহার করা হলো
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 20),
                                         child: Stack(
                                           alignment: Alignment.center,
-                                          clipBehavior: Clip.none,
                                           children: [
-                                            CircleAvatar(
-                                              radius: 35,
-                                              backgroundImage:
-                                                  NetworkImage(seatUserPhoto),
+                                            // ১. প্রোফাইল পিকচার এবং ফ্রেম (এটি সবসময় ডায়ালগের নিখুঁত মাঝখানে থাকবে)
+                                            SizedBox(
+                                              width: 100,
+                                              height: 100,
+                                              child: Stack(
+                                                alignment: Alignment.center,
+                                                clipBehavior: Clip.none,
+                                                children: [
+                                                  CircleAvatar(
+                                                    radius: 35,
+                                                    backgroundImage:
+                                                        NetworkImage(
+                                                            seatUserPhoto),
+                                                  ),
+                                                  if (activeFrame.isNotEmpty)
+                                                    Positioned(
+                                                      top: -20,
+                                                      child: SizedBox(
+                                                        width: 153,
+                                                        height: 160,
+                                                        child: activeFrame
+                                                                .contains(
+                                                                    '.json')
+                                                            ? Lottie.network(
+                                                                activeFrame,
+                                                                fit: BoxFit
+                                                                    .contain)
+                                                            : CachedNetworkImage(
+                                                                imageUrl:
+                                                                    activeFrame,
+                                                                fit: BoxFit
+                                                                    .contain,
+                                                                placeholder: (context,
+                                                                        url) =>
+                                                                    const SizedBox
+                                                                        .shrink(),
+                                                                errorWidget: (context,
+                                                                        error,
+                                                                        stackTrace) =>
+                                                                    const SizedBox
+                                                                        .shrink(),
+                                                              ),
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
                                             ),
-                                            if (activeFrame.isNotEmpty)
-                                              Positioned(
-                                                top: -20,
-                                                child: SizedBox(
-                                                  width: 153,
-                                                  height: 160,
-                                                  child: activeFrame
-                                                          .contains('.json')
-                                                      ? Lottie.network(
-                                                          activeFrame,
-                                                          fit: BoxFit.contain,
-                                                        )
-                                                      : CachedNetworkImage(
-                                                          imageUrl: activeFrame,
-                                                          fit: BoxFit.contain,
-                                                          placeholder:
-                                                              (context, url) =>
-                                                                  const SizedBox
-                                                                      .shrink(),
-                                                          errorWidget: (context,
-                                                                  error,
-                                                                  stackTrace) =>
-                                                              const SizedBox
-                                                                  .shrink(),
-                                                        ),
+
+                                            // ২. মেনশন বাটন (এটি ডায়ালগের ডানপাশে পজিশন করা থাকবে)
+                                            Align(
+                                              alignment: Alignment.centerRight,
+                                              child: Material(
+                                                color: Colors.transparent,
+                                                child: InkWell(
+                                                  onTap: () async {
+                                                    _messageController.text =
+                                                        "@$seatUserName ";
+                                                    _messageController
+                                                            .selection =
+                                                        TextSelection
+                                                            .fromPosition(
+                                                      TextPosition(
+                                                          offset:
+                                                              _messageController
+                                                                  .text.length),
+                                                    );
+
+                                                    Navigator.of(context,
+                                                            rootNavigator: true)
+                                                        .pop();
+
+                                                    await Future.delayed(
+                                                        const Duration(
+                                                            milliseconds: 100));
+
+                                                    if (context.mounted) {
+                                                      _showChatInputBottomSheet();
+                                                    }
+                                                  },
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
+                                                  child: Container(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 14,
+                                                        vertical: 8),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.cyanAccent
+                                                          .withOpacity(0.2),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              20),
+                                                      border: Border.all(
+                                                        color: Colors.cyanAccent
+                                                            .withOpacity(0.5),
+                                                        width: 1,
+                                                      ),
+                                                    ),
+                                                    child: const Text(
+                                                      "@",
+                                                      style: TextStyle(
+                                                        color:
+                                                            Colors.cyanAccent,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 14,
+                                                      ),
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
+                                            ),
                                           ],
                                         ),
                                       ),
                                       const SizedBox(height: 10),
 
-// --- নামের গ্লাস বর্ডার বক্স (অফিশিয়াল/সুপার এডমিনদের জন্য শিমার ও গোল্ডেন বর্ডার, নরমালদের জন্য সিম্পল) ---
+                                      // --- নামের গ্লাস বর্ডার বক্স (অফিশিয়াল/সুপার এডমিনদের জন্য শিমার ও গোল্ডেন বর্ডার, নরমালদের জন্য সিম্পল) ---
                                       (() {
                                         // রোল বা স্ট্যাটাস চেক করার লজিক
                                         bool isOfficial =
@@ -3985,11 +4138,11 @@ class _VoiceRoomState extends State<VoiceRoom>
                                                 ),
                                         );
                                       })(),
-// --- নামের গ্লাস বর্ডার বক্স শেষ ---
+                                      // --- নামের গ্লাস বর্ডার বক্স শেষ ---
 
                                       const SizedBox(height: 8),
 
-// --- আইডি সেকশন (কপি করার সুবিধা ও শিমার লুকসহ) ---
+                                      // --- আইডি সেকশন (কপি করার সুবিধা ও শিমার লুকসহ) ---
                                       GestureDetector(
                                         onTap: () {
                                           Clipboard.setData(ClipboardData(
@@ -4258,6 +4411,20 @@ class _VoiceRoomState extends State<VoiceRoom>
                                                           const SizedBox(
                                                               width: 30,
                                                               height: 30),
+                                                    ),
+                                                  ),
+                                                // ৪. Verified Badge (যদি isVerified ট্রু হয়)
+                                                if (userData['isVerified'] ==
+                                                    true)
+                                                  Padding(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 4),
+                                                    child: const Icon(
+                                                      Icons.verified,
+                                                      color: Color(0xFF00FBFF),
+                                                      size:
+                                                          22, // সাইজ চাইলে আপনার পছন্দমতো বাড়িয়ে বা কমিয়ে নিতে পারেন
                                                     ),
                                                   ),
                                               ],
@@ -5039,6 +5206,28 @@ class _VoiceRoomState extends State<VoiceRoom>
     );
   }
 
+  void sendInvite(String userId, String userName, {String authUid = ""}) {
+    if (userId.isEmpty && authUid.isEmpty) {
+      return;
+    }
+
+    RoomInviteService.sendSeatInvite(
+      roomId: widget.roomId,
+      targetUserId: userId,
+      targetAuthUid: authUid,
+      targetUserName: userName,
+      inviterName: ownerName.isNotEmpty ? ownerName : "Host",
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Invitation sent to $userName 🎙️"),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   // ✉️ মেসেজ রো উইজেট (মেনশন এবং ইনভাইট সহ)
   Widget _buildMessageRow(
       {required BuildContext context, required Map<String, dynamic> msg}) {
@@ -5056,22 +5245,10 @@ class _VoiceRoomState extends State<VoiceRoom>
           // 🖼️ প্রোফাইল পিকচার (ক্লিক করলে সিট ইনভাইট পাঠানো হবে)
           GestureDetector(
             onTap: () {
-              if (uId.isEmpty) return;
-
-              RoomInviteService.sendSeatInvite(
-                roomId: widget.roomId,
-                targetUserId: uId,
-                targetUserName: senderName,
-                inviterName: ownerName.isNotEmpty ? ownerName : "Host",
-              );
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text("Invitation sent to $senderName 🎙️"),
-                  behavior: SnackBarBehavior.floating,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
+              if (uId.isEmpty) {
+                return;
+              }
+              sendInvite(uId, senderName);
             },
             child: CircleAvatar(
               radius: 14,
@@ -5113,7 +5290,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ✍️ নামের ওপর ক্লিক করলে চ্যাট ইনপুটে `@senderName ` মেনশন হয়ে যাবে
+                      // ✍️ নামের ওপর ক্লিক করলে চ্যাট ইনপুটে `@senderName ` মেনশন হয়ে যাবে
                       GestureDetector(
                         onTap: () {
                           setState(() {
@@ -5764,6 +5941,25 @@ class _VoiceRoomState extends State<VoiceRoom>
           const SnackBar(
             content: Text("রুম মিনিমাইজ করা হয়েছে"),
             backgroundColor: Colors.pinkAccent,
+          ),
+        );
+      },
+      // 🔥 শেয়ার রুমের ফাংশনটি এখানে নিরাপদে যুক্ত করা হলো
+      onShareRoom: () {
+        Navigator.pop(context); // সেটিংস বন্ধ করা
+
+        // সরাসরি ইনবক্স পেজে নিয়ে যাবে, যেখান থেকে বন্ধু সিলেক্ট করে চ্যাটে পাঠানো যাবে
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => InboxPage(
+              isSharingRoom: true,
+              roomId: widget.roomId,
+              roomName: roomName,
+              roomImage: roomProfileImage.isNotEmpty
+                  ? roomProfileImage
+                  : 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/room_default.png',
+            ),
           ),
         );
       },

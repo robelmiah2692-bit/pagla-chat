@@ -9,14 +9,25 @@ admin.initializeApp();
 
 const PACKAGE_NAME = "com.pagla.chat";
 
-// ১. আপনার ১০০% পরীক্ষিত ও সফল পুরাতন নোটিফিকেশন লজিক
+// ১. নোটিফিকেশন লজিক (ইমেজ, ভিডিও ও ভয়েসের লিংক ফিল্টার করার জন্য আপডেট করা)
 exports.sendChatNotification = onDocumentCreated("chats/{chatId}/messages/{messageId}", async (event) => {
     const data = event.data.data();
     if (!data) return null;
     
     const receiverId = data.receiverId; 
-    const messageText = data.message; 
+    const rawMessage = data.message; 
+    const messageType = data.type || "text"; // মেসেজের টাইপ ধরবে (text, image, video, audio)
     const senderName = data.senderName || "New Message"; 
+
+    // 🔥 টাইপ অনুযায়ী নোটিফিকেশনের বডি নির্ধারণ (লিংকের বদলে সুন্দর টেক্সট)
+    let notificationBody = rawMessage;
+    if (messageType === 'image') {
+        notificationBody = '📷 Sent an image';
+    } else if (messageType === 'video') {
+        notificationBody = '🎥 Sent a video';
+    } else if (messageType === 'audio') {
+        notificationBody = '🎤 Sent a voice message';
+    }
 
     const receiverDoc = await admin.firestore().collection("users").doc(receiverId).get();
     
@@ -31,7 +42,7 @@ exports.sendChatNotification = onDocumentCreated("chats/{chatId}/messages/{messa
         const message = {
             notification: {
                 title: senderName,
-                body: messageText,
+                body: notificationBody, // এখানে আর লিংক যাবে না, ওপরের কন্ডিশন অনুযায়ী টেক্সট যাবে
             },
             token: fcmToken,
         };

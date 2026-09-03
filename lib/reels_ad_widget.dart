@@ -12,33 +12,44 @@ class _ReelsAdWidgetState extends State<ReelsAdWidget> {
   NativeAd? _nativeAd;
   bool _isAdLoaded = false;
 
-  // টেস্ট এড ইউনিট আইডি (রিয়েল অ্যাপে পাবলিশ করার সময় আপনার আসল AdMob Native Ad Unit ID বসাবেন)
+  // প্রথমে টেস্ট আইডি দিয়ে কনফার্ম করো যে অ্যাড শো করছে কিনা। 
+  // ঠিকমতো কাজ করলে তোমার আসল আইডি বসাবে: 'ca-app-pub-3310579844012244/8050827477'
   final String _adUnitId = 'ca-app-pub-3310579844012244/8050827477'; 
 
   @override
   void initState() {
     super.initState();
-    _loadAd();
+    _loadNativeAd();
   }
 
-  void _loadAd() {
+  void _loadNativeAd() {
     _nativeAd = NativeAd(
       adUnitId: _adUnitId,
       listener: NativeAdListener(
         onAdLoaded: (ad) {
-          setState(() {
-            _isAdLoaded = true;
-          });
+          debugPrint('Reels Native Ad loaded successfully.');
+          if (mounted) {
+            setState(() {
+              _isAdLoaded = true;
+            });
+          }
         },
         onAdFailedToLoad: (ad, error) {
+          debugPrint('Reels Native Ad failed to load: $error');
           ad.dispose();
-          debugPrint('Ad load failed (Reels): $error');
+          if (mounted) {
+            setState(() {
+              _isAdLoaded = false;
+              _nativeAd = null;
+            });
+          }
         },
       ),
       request: const AdRequest(),
-      // কাস্টম টেমপ্লেট বা স্টাইল যা রিলসের কালো থিমের সাথে মানানসই
-      factoryId: 'listTile', 
-    )..load();
+      factoryId: 'listTile',
+    );
+
+    _nativeAd!.load();
   }
 
   @override

@@ -14,7 +14,7 @@ class _HomeBannerState extends State<HomeBanner> {
   final List<String> _bannerList = [
     "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/homebenar2.jpg",
     "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/homebenar1.jpg",
-     "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/homebenar3.jpg",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/homebenar3.jpg",
     "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/officialbenar.jpg",
   ];
 
@@ -43,9 +43,6 @@ class _HomeBannerState extends State<HomeBanner> {
 
   @override
   Widget build(BuildContext context) {
-    // বর্তমান সময় থেকে ১ মিনিট আগের টাইমস্ট্যাম্প বের করা (যাতে শুধুমাত্র ১ মিনিটের মধ্যে একটিভ থাকা ইউজার পাওয়া যায়)
-    final activeThreshold = DateTime.now().subtract(const Duration(seconds: 60));
-
     return AspectRatio(
       aspectRatio: 1024 / 500,
       child: Stack(
@@ -84,15 +81,22 @@ class _HomeBannerState extends State<HomeBanner> {
               stream: FirebaseFirestore.instance
                   .collection('users')
                   .where('isOnline', isEqualTo: true)
-                  .where('lastSeen', isGreaterThan: Timestamp.fromDate(activeThreshold))
-                  .limit(10)
                   .snapshots(),
               builder: (context, userSnapshot) {
                 if (!userSnapshot.hasData || userSnapshot.data!.docs.isEmpty) {
                   return const SizedBox();
                 }
 
-                final onlineDocs = userSnapshot.data!.docs;
+                // ফ্লিকারিং বা কাপাকাপি রোধ করতে ডার্ট কোড দিয়ে লেটেস্ট ইউজার আগে সাজানো হলো
+                final onlineDocs = List<QueryDocumentSnapshot>.from(userSnapshot.data!.docs);
+                onlineDocs.sort((a, b) {
+                  final aData = a.data() as Map<String, dynamic>;
+                  final bData = b.data() as Map<String, dynamic>;
+                  final aTime = aData['lastSeen'] ?? aData['updatedAt'] ?? '';
+                  final bTime = bData['lastSeen'] ?? bData['updatedAt'] ?? '';
+                  return bTime.toString().compareTo(aTime.toString());
+                });
+
                 final int displayCount = onlineDocs.length > 4 ? 4 : onlineDocs.length;
 
                 return Container(
@@ -133,6 +137,12 @@ class _HomeBannerState extends State<HomeBanner> {
                                             width: 24,
                                             height: 24,
                                             fit: BoxFit.cover,
+                                            // বারবার ছবি ব্লিংক বা রিলোড হওয়া ঠেকাতে ক্যাশ ও ডিউরেশন ফিক্স করা হলো
+                                            memCacheWidth: 60,
+                                            memCacheHeight: 60,
+                                            fadeInDuration: Duration.zero,
+                                            fadeOutDuration: Duration.zero,
+                                            placeholder: (context, url) => const SizedBox(),
                                             errorWidget: (c, e, s) => const Icon(Icons.person, size: 12, color: Colors.white),
                                           ),
                                         ),

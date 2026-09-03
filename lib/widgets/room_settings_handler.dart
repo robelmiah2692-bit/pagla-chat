@@ -6,7 +6,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pagla_chat/RoomLevelHelper.dart';
-import 'package:pagla_chat/user_selection_screen.dart';
 
 class RoomSettingsHandler {
   static final _firestore = FirebaseFirestore.instance;
@@ -22,28 +21,48 @@ class RoomSettingsHandler {
     required Function(String) onSetWallpaper,
     required VoidCallback onLeave,
     required VoidCallback onMinimize,
+    required VoidCallback onShareRoom,
     required VoidCallback onClearChat,
   }) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0F0C29).withOpacity(0.95),
+      backgroundColor: Colors
+          .transparent, // ট্রান্সপারেন্ট করা হলো যাতে ভেতরের গ্রেডিয়েন্ট ব্যাকগ্রাউন্ড সঠিকভাবে ফুটে ওঠে
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-        side: BorderSide(color: Colors.white12, width: 1),
       ),
       builder: (context) {
         return Container(
           decoration: BoxDecoration(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+            // 🔥 আপনার পছন্দের ডায়ালগ কার্ডের সেইম আকর্ষণীয় মিক্সড কালার গ্রেডিয়েন্ট ব্যাকগ্রাউন্ড
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
               colors: [
-                const Color(0xFF1A1A2E).withOpacity(0.9),
-                const Color(0xFF0F0C29).withOpacity(1.0),
+                Color(0xFF0D1B2A), // ডিপ ব্লু
+                Color(0xFF1B1A55), // মিড নাইট ব্লু
+                Color(0xFF4A154B), // সফট পার্পল/ম্যাজেন্টা মিক্স
               ],
             ),
+            border: Border.all(
+              color: Colors.cyanAccent
+                  .withOpacity(0.3), // চারপাশের গ্লোয়িং বর্ডার
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.cyanAccent.withOpacity(0.2),
+                blurRadius: 25,
+                spreadRadius: 2,
+              ),
+              BoxShadow(
+                color: Colors.purpleAccent.withOpacity(0.2),
+                blurRadius: 25,
+                spreadRadius: 2,
+              ),
+            ],
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
@@ -269,17 +288,14 @@ class RoomSettingsHandler {
                         Navigator.pop(context);
                         onClearChat();
                       }),
-                    // RoomSettingsHandler এর ভেতরে যোগ করুন
-                    _buildItem(Icons.share, "Share Room", Colors.greenAccent,
-                        () {
-                      Navigator.pop(context); // সেটিংস বন্ধ করা
-                      // এখানে ইউজার লিস্ট দেখানোর জন্য একটি স্ক্রিন ওপেন করুন
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) =>
-                                  UserSelectionScreen(roomId: roomId)));
-                    }),
+                    _buildItem(
+                      Icons.share,
+                      "Share Room",
+                      Colors.greenAccent,
+                      () {
+                        onShareRoom(); // মেইন রুম ফাইল থেকে পাঠানো onShareRoom ফাংশনটি এখানে ট্রিগার হবে
+                      },
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -362,43 +378,115 @@ class RoomSettingsHandler {
     }
   }
 
-// মালিকের জন্য আলাদা ম্যানেজ ডায়ালগ (লক/আনলক/চেঞ্জ পাস)
+// মালিকের জন্য আলাদা ম্যানেজ ডায়ালগ (লক/আনলক/চেঞ্জ পাস)
   static void _showManageLockDialog(
       BuildContext context, String roomId, Map<String, dynamic> roomData) {
     bool isLocked = roomData['isLocked'] ?? false;
 
     showDialog(
       context: context,
-      builder: (dContext) => AlertDialog(
-        backgroundColor: const Color(0xFF0F0C29),
-        title: const Text("Manage Room Lock",
-            style: TextStyle(color: Colors.white)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isLocked)
-              ElevatedButton(
-                style:
-                    ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                onPressed: () async {
-                  await FirebaseFirestore.instance
-                      .collection('rooms')
-                      .doc(roomId)
-                      .update({'isLocked': false});
-                  Navigator.pop(dContext);
-                },
-                child: const Text("Unlock Room"),
-              ),
-            const SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(dContext);
-                _showPasswordDialog(
-                    context, roomId, () {}); // নতুন পাসওয়ার্ড সেট
-              },
-              child: Text(isLocked ? "Change Password" : "Set Password"),
+      builder: (dContext) => Dialog(
+        backgroundColor: Colors
+            .transparent, // ট্রান্সপারেন্ট করা হলো যাতে ভেতরের গ্রেডিয়েন্ট দেখা যায়
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            // 🔥 আপনার পছন্দের সেইম মিক্সড কালার গ্রেডিয়েন্ট ব্যাকগ্রাউন্ড
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF0D1B2A), // ডিপ ব্লু
+                Color(0xFF1B1A55), // মিড নাইট ব্লু
+                Color(0xFF4A154B), // সফট পার্পল/ম্যাজেন্টা মিক্স
+              ],
             ),
-          ],
+            border: Border.all(
+              color: Colors.cyanAccent
+                  .withOpacity(0.3), // চারপাশের গ্লোয়িং বর্ডার
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.cyanAccent.withOpacity(0.2),
+                blurRadius: 25,
+                spreadRadius: 2,
+              ),
+              BoxShadow(
+                color: Colors.purpleAccent.withOpacity(0.2),
+                blurRadius: 25,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Manage Room Lock",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 20),
+              if (isLocked)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent.withOpacity(0.8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () async {
+                      await FirebaseFirestore.instance
+                          .collection('rooms')
+                          .doc(roomId)
+                          .update({'isLocked': false});
+                      Navigator.pop(dContext);
+                    },
+                    child: const Text(
+                      "Unlock Room",
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ),
+                ),
+              if (isLocked) const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.cyanAccent.withOpacity(0.2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    side: BorderSide(
+                      color: Colors.cyanAccent.withOpacity(0.5),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(dContext);
+                    _showPasswordDialog(
+                        context, roomId, () {}); // নতুন পাসওয়ার্ড সেট
+                  },
+                  child: Text(
+                    isLocked ? "Change Password" : "Set Password",
+                    style: const TextStyle(
+                      color: Colors.cyanAccent,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -409,46 +497,140 @@ class RoomSettingsHandler {
     TextEditingController passController = TextEditingController();
     showDialog(
       context: context,
-      builder: (dContext) => AlertDialog(
-        backgroundColor: const Color(0xFF0F0C29),
-        title: const Text("Set Room Password",
-            style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: passController,
-          keyboardType: TextInputType.number,
-          maxLength: 4,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: "Enter 4 digit code",
-            hintStyle: TextStyle(color: Colors.white24),
-            counterStyle: TextStyle(color: Colors.white60),
+      builder: (dContext) => Dialog(
+        backgroundColor: Colors
+            .transparent, // ট্রান্সপারেন্ট করা হলো যাতে গ্রেডিয়েন্ট ভেসে ওঠে
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            // 🔥 আপনার পছন্দের সেইম মিক্সড কালার গ্রেডিয়েন্ট ব্যাকগ্রাউন্ড
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF0D1B2A), // ডিপ ব্লু
+                Color(0xFF1B1A55), // মিড নাইট ব্লু
+                Color(0xFF4A154B), // সফট পার্পল/ম্যাজেন্টা মিক্স
+              ],
+            ),
+            border: Border.all(
+              color: Colors.cyanAccent
+                  .withOpacity(0.3), // চারপাশের গ্লোয়িং বর্ডার
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.cyanAccent.withOpacity(0.2),
+                blurRadius: 25,
+                spreadRadius: 2,
+              ),
+              BoxShadow(
+                color: Colors.purpleAccent.withOpacity(0.2),
+                blurRadius: 25,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Set Room Password",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: passController,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: "Enter 4 digit code",
+                  hintStyle: const TextStyle(color: Colors.white24),
+                  counterStyle: const TextStyle(color: Colors.white60),
+                  filled: true,
+                  fillColor: Colors.black.withOpacity(0.2),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.cyanAccent.withOpacity(0.3),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.cyanAccent.withOpacity(0.3),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Colors.cyanAccent,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dContext),
+                    child: const Text(
+                      "Cancel",
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.cyanAccent.withOpacity(0.2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      side: BorderSide(
+                        color: Colors.cyanAccent.withOpacity(0.5),
+                      ),
+                    ),
+                    onPressed: () async {
+                      if (passController.text.length == 4) {
+                        // এখানে ডাটাবেজে আপডেট করছি
+                        try {
+                          await FirebaseFirestore.instance
+                              .collection('rooms')
+                              .doc(roomId)
+                              .update({
+                            'isLocked': true,
+                            'password': passController.text,
+                          });
+                          Navigator.pop(dContext);
+                          onConfirm(); // এটি লকের আইকন আপডেট করার জন্য
+                        } catch (e) {
+                          _showMessage(context, "Failed to lock: $e");
+                        }
+                      }
+                    },
+                    child: const Text(
+                      "Set",
+                      style: TextStyle(
+                        color: Colors.cyanAccent,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(dContext),
-              child: const Text("Cancel")),
-          TextButton(
-              onPressed: () async {
-                if (passController.text.length == 4) {
-                  // এখানে ডাটাবেজে আপডেট করছি
-                  try {
-                    await FirebaseFirestore.instance
-                        .collection('rooms')
-                        .doc(roomId)
-                        .update({
-                      'isLocked': true,
-                      'password': passController.text,
-                    });
-                    Navigator.pop(dContext);
-                    onConfirm(); // এটি লকের আইকন আপডেট করার জন্য
-                  } catch (e) {
-                    _showMessage(context, "Failed to lock: $e");
-                  }
-                }
-              },
-              child: const Text("Set")),
-        ],
       ),
     );
   }
@@ -457,28 +639,117 @@ class RoomSettingsHandler {
       BuildContext context, Function(int, int) onBuy) {
     showDialog(
       context: context,
-      builder: (dContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: const Text("Activate Feature",
-            style: TextStyle(color: Colors.white, fontSize: 18)),
-        content: const Text(
-            "You don't have an active package for this feature.",
-            style: TextStyle(color: Colors.white70)),
-        actions: [
-          TextButton(
-              onPressed: () {
-                Navigator.pop(dContext);
-                onBuy(24, 400);
-              },
-              child: const Text("24 Hours (400 💎)")),
-          TextButton(
-              onPressed: () {
-                Navigator.pop(dContext);
-                onBuy(720, 9000);
-              },
-              child: const Text("30 Days (9000 💎)")),
-        ],
+      builder: (dContext) => Dialog(
+        backgroundColor: Colors
+            .transparent, // ট্রান্সপারেন্ট করা হলো যাতে গ্রেডিয়েন্ট ভেসে ওঠে
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            // 🔥 আপনার পছন্দের সেইম মিক্সড কালার গ্রেডিয়েন্ট ব্যাকগ্রাউন্ড
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF0D1B2A), // ডিপ ব্লু
+                Color(0xFF1B1A55), // মিড নাইট ব্লু
+                Color(0xFF4A154B), // সফট পার্পল/ম্যাজেন্টা মিক্স
+              ],
+            ),
+            border: Border.all(
+              color: Colors.cyanAccent
+                  .withOpacity(0.3), // চারপাশের গ্লোয়িং বর্ডার
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.cyanAccent.withOpacity(0.2),
+                blurRadius: 25,
+                spreadRadius: 2,
+              ),
+              BoxShadow(
+                color: Colors.purpleAccent.withOpacity(0.2),
+                blurRadius: 25,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Activate Feature",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 15),
+              const Text(
+                "You don't have an active package for this feature.",
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 25),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.cyanAccent.withOpacity(0.15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      side: BorderSide(
+                        color: Colors.cyanAccent.withOpacity(0.4),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(dContext);
+                      onBuy(24, 400);
+                    },
+                    child: const Text(
+                      "24 Hours 400💎",
+                      style: TextStyle(
+                        color: Colors.cyanAccent,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purpleAccent.withOpacity(0.2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      side: BorderSide(
+                        color: Colors.purpleAccent.withOpacity(0.5),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(dContext);
+                      onBuy(720, 9000);
+                    },
+                    child: const Text(
+                      "30 Days 9k💎",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -489,32 +760,130 @@ class RoomSettingsHandler {
     TextEditingController joinController = TextEditingController();
     showDialog(
       context: context,
-      builder: (dContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text("Enter Room Password",
-            style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: joinController,
-          keyboardType: TextInputType.number,
-          maxLength: 4,
-          style: const TextStyle(color: Colors.white),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(dContext),
-              child: const Text("Cancel")),
-          TextButton(
-            onPressed: () {
-              if (joinController.text == correctPassword) {
-                Navigator.pop(dContext);
-                onJoinSuccess(); // পাসওয়ার্ড সঠিক হলে রুমে ঢুকবে
-              } else {
-                _showMessage(context, "Wrong Password!");
-              }
-            },
-            child: const Text("Join"),
+      builder: (dContext) => Dialog(
+        backgroundColor: Colors
+            .transparent, // ট্রান্সপারেন্ট করা হলো যাতে গ্রেডিয়েন্ট ভেসে ওঠে
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            // 🔥 আপনার পছন্দের সেইম মিক্সড কালার গ্রেডিয়েন্ট ব্যাকগ্রাউন্ড
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF0D1B2A), // ডিপ ব্লু
+                Color(0xFF1B1A55), // মিড নাইট ব্লু
+                Color(0xFF4A154B), // সফট পার্পল/ম্যাজেন্টা মিক্স
+              ],
+            ),
+            border: Border.all(
+              color: Colors.cyanAccent
+                  .withOpacity(0.3), // চারপাশের গ্লোয়িং বর্ডার
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.cyanAccent.withOpacity(0.2),
+                blurRadius: 25,
+                spreadRadius: 2,
+              ),
+              BoxShadow(
+                color: Colors.purpleAccent.withOpacity(0.2),
+                blurRadius: 25,
+                spreadRadius: 2,
+              ),
+            ],
           ),
-        ],
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Enter Room Password",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: joinController,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: "Enter 4 digit password",
+                  hintStyle: const TextStyle(color: Colors.white24),
+                  counterStyle: const TextStyle(color: Colors.white60),
+                  filled: true,
+                  fillColor: Colors.black.withOpacity(0.2),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.cyanAccent.withOpacity(0.3),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.cyanAccent.withOpacity(0.3),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Colors.cyanAccent,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dContext),
+                    child: const Text(
+                      "Cancel",
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.cyanAccent.withOpacity(0.2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      side: BorderSide(
+                        color: Colors.cyanAccent.withOpacity(0.5),
+                      ),
+                    ),
+                    onPressed: () {
+                      if (joinController.text == correctPassword) {
+                        Navigator.pop(dContext);
+                        onJoinSuccess(); // পাসওয়ার্ড সঠিক হলে রুমে ঢুকবে
+                      } else {
+                        _showMessage(context, "Wrong Password!");
+                      }
+                    },
+                    child: const Text(
+                      "Join",
+                      style: TextStyle(
+                        color: Colors.cyanAccent,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -546,34 +915,114 @@ class RoomSettingsHandler {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text("Exit Room?", style: TextStyle(color: Colors.white)),
-        content: const Text("Are you sure you want to leave?",
-            style: TextStyle(color: Colors.white70)),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(dContext),
-              child: const Text("Cancel")),
-          TextButton(
-              onPressed: () async {
-                // ১. প্রথমে ডায়ালগটি বন্ধ করুন
-                Navigator.pop(dContext);
+      builder: (dContext) => Dialog(
+        backgroundColor: Colors
+            .transparent, // ট্রান্সপারেন্ট করা হলো যাতে গ্রেডিয়েন্ট ভেসে ওঠে
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            // 🔥 আপনার পছন্দের সেইম মিক্সড কালার গ্রেডিয়েন্ট ব্যাকগ্রাউন্ড
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF0D1B2A), // ডিপ ব্লু
+                Color(0xFF1B1A55), // মিড নাইট ব্লু
+                Color(0xFF4A154B), // সফট পার্পল/ম্যাজেন্টা মিক্স
+              ],
+            ),
+            border: Border.all(
+              color: Colors.cyanAccent
+                  .withOpacity(0.3), // চারপাশের গ্লোয়িং বর্ডার
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.cyanAccent.withOpacity(0.2),
+                blurRadius: 25,
+                spreadRadius: 2,
+              ),
+              BoxShadow(
+                color: Colors.purpleAccent.withOpacity(0.2),
+                blurRadius: 25,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Exit Room?",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 15),
+              const Text(
+                "Are you sure you want to leave?",
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 25),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dContext),
+                    child: const Text(
+                      "Cancel",
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent.withOpacity(0.2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      side: BorderSide(
+                        color: Colors.redAccent.withOpacity(0.5),
+                      ),
+                    ),
+                    onPressed: () async {
+                      // ১. প্রথমে ডায়ালগটি বন্ধ করুন
+                      Navigator.pop(dContext);
 
-                // ২. এরপর সেটিংস বটমশিট এবং রুম স্ক্রিন একসাথে বা পরপর রিমুভ করার জন্য মূল কন্টেক্সট ব্যবহার করুন
-                if (Navigator.canPop(context)) {
-                  Navigator.pop(context); // সেটিংস বটমশিট বা রুম স্ক্রিন বন্ধ
-                }
-                if (Navigator.canPop(context)) {
-                  Navigator.pop(context); // যদি রুম স্ক্রিন আলাদা থাকে
-                }
+                      // ২. এরপর সেটিংস বটমশিট এবং রুম স্ক্রিন একসাথে বা পরপর রিমুভ করার জন্য মূল কন্টেক্সট ব্যবহার করুন
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(
+                            context); // সেটিংস বটমশিট বা রুম স্ক্রিন বন্ধ
+                      }
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context); // যদি রুম স্ক্রিন আলাদা থাকে
+                      }
 
-                // ৩. ব্যাকগ্রাউন্ডে ক্লিনিং এবং আগোরা রিলিজ করুন
-                await onConfirm();
-              },
-              child: const Text("Confirm",
-                  style: TextStyle(color: Colors.redAccent))),
-        ],
+                      // ৩. ব্যাকগ্রাউন্ডে ক্লিনিং এবং আগোরা রিলিজ করুন
+                      await onConfirm();
+                    },
+                    child: const Text(
+                      "Confirm",
+                      style: TextStyle(
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

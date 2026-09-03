@@ -9,7 +9,21 @@ import 'chat_screen.dart';
 import 'screens/voice_room.dart';
 
 class InboxPage extends StatefulWidget {
-  const InboxPage({super.key});
+  final bool isSharingRoom;
+  final String? roomId;
+  final String? roomName;
+  final String? roomImage;
+
+  const InboxPage({
+    super.key,
+    this.isSharingRoom = false,
+    this.roomId,
+    this.roomName,
+    this.roomImage,
+  });
+  
+  
+  
   @override
   State<InboxPage> createState() => _InboxPageState();
 }
@@ -301,209 +315,275 @@ class _InboxPageState extends State<InboxPage> {
   }
 
   Widget _buildGlassChatTile(
-      Map<String, dynamic> userData, String userId, String chatId) {
-    bool isOfficial =
-        userId == 'paglachat_official' || chatId.contains('paglachat_official');
+    Map<String, dynamic> userData, String userId, String chatId) {
+  bool isOfficial =
+      userId == 'paglachat_official' || chatId.contains('paglachat_official');
 
-    String displayId = isOfficial
-        ? "paglachat_official"
-        : (userData['uID'] ?? "N/A").toString();
-    String name =
-        isOfficial ? "PaglaChat Official" : (userData['name'] ?? "User");
-    String image = isOfficial
-        ? "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/favicon.png"
-        : (userData['profilePic'] ?? "");
+  String displayId = isOfficial
+      ? "paglachat_official"
+      : (userData['uID'] ?? "N/A").toString();
+  String name =
+      isOfficial ? "PaglaChat Official" : (userData['name'] ?? "User");
+  String image = isOfficial
+      ? "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/favicon.png"
+      : (userData['profilePic'] ?? "");
 
-    String officialFrameUrl =
-        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/officialframe.png";
+  String officialFrameUrl =
+      "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/officialframe.png";
 
-    String? dbFrameUrl = isOfficial ? null : userData['activeFrameUrl'];
-    String? jsonFrameUrl = userData['activeFrameUrl'];
+  String? dbFrameUrl = isOfficial ? null : userData['activeFrameUrl'];
+  String? jsonFrameUrl = userData['activeFrameUrl'];
 
-    String effectiveFrameUrl = "";
+  String effectiveFrameUrl = "";
 
-    if (isOfficial) {
-      effectiveFrameUrl = officialFrameUrl;
-    } else if (dbFrameUrl != null && dbFrameUrl.isNotEmpty) {
-      effectiveFrameUrl = dbFrameUrl;
-    } else if (jsonFrameUrl != null && jsonFrameUrl.isNotEmpty) {
-      effectiveFrameUrl = jsonFrameUrl;
-    }
+  if (isOfficial) {
+    effectiveFrameUrl = officialFrameUrl;
+  } else if (dbFrameUrl != null && dbFrameUrl.isNotEmpty) {
+    effectiveFrameUrl = dbFrameUrl;
+  } else if (jsonFrameUrl != null && jsonFrameUrl.isNotEmpty) {
+    effectiveFrameUrl = jsonFrameUrl;
+  }
 
-    String? currentRoomId = userData['currentRoomId'];
-    bool isLive = currentRoomId != null && currentRoomId.toString().isNotEmpty;
+  String? currentRoomId = userData['currentRoomId'];
+  bool isLive = currentRoomId != null && currentRoomId.toString().isNotEmpty;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(20),
-              border:
-                  Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-            ),
-            child: ListTile(
-              onTap: () {
-                _markAsRead(chatId);
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ChatScreen(
-                          receiverId: userId,
-                          receiverName: name,
-                          receiverData: userData),
-                    ));
-              },
-              leading: SizedBox(
-                width: 60,
-                height: 60,
-                child: Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
-                  children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundImage:
-                          image.isNotEmpty ? NetworkImage(image) : null,
-                      backgroundColor: Colors.white10,
-                      child: image.isEmpty
-                          ? Text(name[0],
-                              style: const TextStyle(color: Colors.white))
-                          : null,
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(20),
+            border:
+                Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+          ),
+          child: ListTile(
+            onTap: () async {
+              _markAsRead(chatId);
+
+              // 🔥 নতুন রুম শেয়ারিং লজিক এখানে যুক্ত করা হলো
+              if (widget.isSharingRoom && widget.roomId != null) {
+                // ১. ইনভাইটেশন মেসেজ পাঠিয়ে দেওয়া
+                await shareRoomInChat(
+                  widget.roomId!,
+                  userId,
+                  widget.roomName ?? "My Room",
+                  widget.roomImage ?? "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/room_default.png",
+                );
+
+                // ২. সাকসেস মেসেজ দেখানো
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Room invitation sent!")),
+                );
+
+                // ৩. চ্যাট স্ক্রিনে নিয়ে যাওয়া
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ChatScreen(
+                      receiverId: userId,
+                      receiverName: name,
+                      receiverData: userData,
                     ),
-                    if (effectiveFrameUrl.isNotEmpty)
-                      Positioned(
-                        top: -35,
-                        left: -35,
-                        right: -35,
-                        bottom: -35,
-                        child: effectiveFrameUrl.contains('.json')
-                            ? SizedBox(
-                                width: 70,
-                                height: 70,
-                                child: Lottie.network(
-                                  effectiveFrameUrl,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      const SizedBox.shrink(),
-                                ),
-                              )
-                            : CachedNetworkImage(
-                                imageUrl: effectiveFrameUrl,
-                                width: 100,
-                                height: 100,
+                  ),
+                );
+              } else {
+                // সাধারণ চ্যাটে যাওয়ার পূর্বের কোড
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ChatScreen(
+                      receiverId: userId,
+                      receiverName: name,
+                      receiverData: userData,
+                    ),
+                  ),
+                );
+              }
+            },
+            leading: SizedBox(
+              width: 60,
+              height: 60,
+              child: Stack(
+                alignment: Alignment.center,
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundImage:
+                        image.isNotEmpty ? NetworkImage(image) : null,
+                    backgroundColor: Colors.white10,
+                    child: image.isEmpty
+                        ? Text(name[0],
+                            style: const TextStyle(color: Colors.white))
+                        : null,
+                  ),
+                  if (effectiveFrameUrl.isNotEmpty)
+                    Positioned(
+                      top: -35,
+                      left: -35,
+                      right: -35,
+                      bottom: -35,
+                      child: effectiveFrameUrl.contains('.json')
+                          ? SizedBox(
+                              width: 70,
+                              height: 70,
+                              child: Lottie.network(
+                                effectiveFrameUrl,
                                 fit: BoxFit.contain,
-                                placeholder: (context, url) =>
-                                    const SizedBox.shrink(),
-                                errorWidget: (context, error, stackTrace) =>
+                                errorBuilder: (context, error, stackTrace) =>
                                     const SizedBox.shrink(),
                               ),
-                      ),
-                    if (userData['isOnline'] == true)
-                      Positioned(
-                        bottom: 8,
-                        right: 4,
-                        child: Container(
-                          height: 12,
-                          width: 12,
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.black, width: 2),
-                          ),
+                            )
+                          : CachedNetworkImage(
+                              imageUrl: effectiveFrameUrl,
+                              width: 100,
+                              height: 100,
+                              fit: BoxFit.contain,
+                              placeholder: (context, url) =>
+                                  const SizedBox.shrink(),
+                              errorWidget: (context, error, stackTrace) =>
+                                  const SizedBox.shrink(),
+                            ),
+                    ),
+                  if (userData['isOnline'] == true)
+                    Positioned(
+                      bottom: 8,
+                      right: 4,
+                      child: Container(
+                        height: 12,
+                        width: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.black, width: 2),
                         ),
                       ),
-                    if (isLive)
-                      Positioned(
-                        bottom: 0,
-                        child: GestureDetector(
-                          onTap: () async {
-                            var roomDoc = await FirebaseFirestore.instance
-                                .collection('rooms')
-                                .doc(currentRoomId)
-                                .get();
-                            if (!roomDoc.exists) return;
+                    ),
+                  if (isLive)
+                    Positioned(
+                      bottom: 0,
+                      child: GestureDetector(
+                        onTap: () async {
+                          var roomDoc = await FirebaseFirestore.instance
+                              .collection('rooms')
+                              .doc(currentRoomId)
+                              .get();
+                          if (!roomDoc.exists) return;
 
-                            var data = roomDoc.data() as Map<String, dynamic>;
-                            bool isLocked = data['isLocked'] ?? false;
-                            String password = data['password'] ?? "";
-                            String ownerId = data['ownerId'] ?? "";
+                          var data = roomDoc.data() as Map<String, dynamic>;
+                          bool isLocked = data['isLocked'] ?? false;
+                          String password = data['password'] ?? "";
+                          String ownerId = data['ownerId'] ?? "";
 
-                            String myUID =
-                                FirebaseAuth.instance.currentUser?.uid ?? "";
+                          String myUID =
+                              FirebaseAuth.instance.currentUser?.uid ?? "";
 
-                            if (isLocked && ownerId != myUID) {
-                              RoomSettingsHandler.showJoinPasswordDialog(
-                                  context, currentRoomId, password, () {
-                                Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (context) =>
-                                            VoiceRoom(roomId: currentRoomId)));
-                              });
-                            } else {
+                          if (isLocked && ownerId != myUID) {
+                            RoomSettingsHandler.showJoinPasswordDialog(
+                                context, currentRoomId, password, () {
                               Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                       builder: (context) =>
                                           VoiceRoom(roomId: currentRoomId)));
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 5, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E88E5),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white, width: 1),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(Icons.sensors,
-                                    color: Colors.white, size: 8),
-                                SizedBox(width: 2),
-                                Text("Live",
-                                    style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.bold)),
-                              ],
-                            ),
+                            });
+                          } else {
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        VoiceRoom(roomId: currentRoomId)));
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E88E5),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white, width: 1),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.sensors,
+                                  color: Colors.white, size: 8),
+                              SizedBox(width: 2),
+                              Text("Live",
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold)),
+                            ],
                           ),
                         ),
                       ),
-                  ],
-                ),
-              ),
-              title: Row(
-                children: [
-                  Flexible(
-                    child: Text(name,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                  if (userData['isVerified'] == true) ...[
-                    const SizedBox(width: 4),
-                    const Icon(Icons.verified, color: Colors.blue, size: 14),
-                  ],
+                    ),
                 ],
               ),
-              subtitle: Text("ID: $displayId",
-                  style: const TextStyle(color: Colors.white38, fontSize: 12)),
-              trailing: _buildUnreadCounter(chatId),
             ),
+            title: Row(
+              children: [
+                Flexible(
+                  child: Text(name,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+                if (userData['isVerified'] == true) ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.verified, color: Colors.blue, size: 14),
+                ],
+              ],
+            ),
+            subtitle: Text("ID: $displayId",
+                style: const TextStyle(color: Colors.white38, fontSize: 12)),
+            trailing: _buildUnreadCounter(chatId),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
+// ইনবক্সে রুম ইনভাইট পাঠানোর ফাংশনটি এখানে যুক্ত করে দিও
+Future<void> shareRoomInChat(String roomId, String targetUserId, String roomName, String roomImage) async {
+  final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
+
+  List<String> ids = [currentSixDigitId, targetUserId];
+  ids.sort();
+  String chatRoomId = ids.join("_");
+
+  Map<String, dynamic> roomMessage = {
+    'senderId': currentUserId,
+    'senderuID': currentSixDigitId,
+    'receiverId': targetUserId,
+    'message': "Join my room: $roomName",
+    'type': 'room_invite',
+    'roomId': roomId,
+    'roomName': roomName,
+    'roomImage': roomImage,
+    'timestamp': FieldValue.serverTimestamp(),
+    'isRead': false,
+  };
+
+  await FirebaseFirestore.instance
+      .collection('chats')
+      .doc(chatRoomId)
+      .collection('messages')
+      .add(roomMessage);
+
+  await FirebaseFirestore.instance.collection('chats').doc(chatRoomId).set({
+    'lastMessage': "Room Invitation: $roomName",
+    'lastMessageTimestamp': FieldValue.serverTimestamp(),
+    'type': 'room_invite',
+  }, SetOptions(merge: true));
+}
+  
   Widget _buildUnreadCounter(String chatId) {
     if (currentSixDigitId.isEmpty) return const SizedBox.shrink();
 

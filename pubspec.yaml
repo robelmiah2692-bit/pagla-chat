@@ -20,7 +20,7 @@ dependencies:
   firebase_storage: ^13.3.0
   firebase_remote_config: ^6.4.0
   intl: ^0.20.2
-  in_app_purchase: ^3.2.0
+  in_app_purchase: ^3.3.0
   
   # --- গুগল লগইন ---
   google_sign_in: ^6.2.1
@@ -73,7 +73,7 @@ dependencies:
   # --- স্প্ল্যাশ স্ক্রিন ও বিলিং ---
   flutter_native_splash: ^2.4.0
   shimmer: ^3.0.0
-  in_app_purchase_android: ^0.3.3
+  in_app_purchase_android: 0.5.0
   rxdart: ^0.28.0
 
 dev_dependencies:

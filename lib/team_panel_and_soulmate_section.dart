@@ -223,8 +223,8 @@ class _TeamPanelAndSoulmateSectionState
           // কার্ডে ক্লিক করলে মেম্বার ট্যাব বা ডিটেইলস ওপেন হওয়ার জন্য GestureDetector
           GestureDetector(
             onTap: () {
-              _openTeamPanelDetailsModal(
-                  context, ownerDocId, panelName, panelPic, isPanelOwner, ownerUserData);
+              _openTeamPanelDetailsModal(context, ownerDocId, panelName,
+                  panelPic, isPanelOwner, ownerUserData);
             },
             child: Container(
               padding: const EdgeInsets.all(15),
@@ -263,8 +263,8 @@ class _TeamPanelAndSoulmateSectionState
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: () =>
-                                  _changePanelPicture(ownerDocId, teamPanelData),
+                              onTap: () => _changePanelPicture(
+                                  ownerDocId, teamPanelData),
                               borderRadius: BorderRadius.circular(12),
                               child: Container(
                                 padding: const EdgeInsets.all(6),
@@ -595,12 +595,11 @@ class _TeamPanelAndSoulmateSectionState
                           itemCount: sortedMembers.length,
                           itemBuilder: (context, index) {
                             var mData = sortedMembers[index];
-                            bool isThisOwner = index == 0 ||
-                                mData['uID'] == ownerDocId;
+                            bool isThisOwner =
+                                index == 0 || mData['uID'] == ownerDocId;
 
-                            String profilePicUrl = mData['profilePic'] ??
-                                mData['userImage'] ??
-                                '';
+                            String profilePicUrl =
+                                mData['profilePic'] ?? mData['userImage'] ?? '';
                             String frameUrl = mData['frame'] ?? '';
 
                             return ListTile(
@@ -625,7 +624,9 @@ class _TeamPanelAndSoulmateSectionState
                                         child: Image.network(
                                           frameUrl,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  const SizedBox(),
                                         ),
                                       ),
                                   ],
@@ -634,8 +635,8 @@ class _TeamPanelAndSoulmateSectionState
                               title: Row(
                                 children: [
                                   Text(mData['userName'] ?? 'Member',
-                                      style: const TextStyle(
-                                          color: Colors.white)),
+                                      style:
+                                          const TextStyle(color: Colors.white)),
                                   if (isThisOwner) ...[
                                     const SizedBox(width: 6),
                                     const ContainerTag(
@@ -670,8 +671,8 @@ class _TeamPanelAndSoulmateSectionState
   }
 
   // 🖼️ প্যানেল ছবি পরিবর্তন করার ফাংশন
-  Future<void> _changePanelPicture(String ownerDocId,
-      Map<String, dynamic>? currentTeamPanelData) async {
+  Future<void> _changePanelPicture(
+      String ownerDocId, Map<String, dynamic>? currentTeamPanelData) async {
     try {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -718,14 +719,75 @@ class _TeamPanelAndSoulmateSectionState
     }
   }
 
-  void _sendJoinRequest(String ownerId, String currentUserId) async {
+  void _sendJoinRequest(String panelOwnerDocId, String currentAuthUid) async {
+  try {
+    // ১. সঠিক প্যানেল ওনার আইডি বের করে নেওয়া
+    var docCheck = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(panelOwnerDocId)
+        .get();
+
+    String resolvedOwnerId = panelOwnerDocId;
+    if (!docCheck.exists) {
+      var queryByUid = await FirebaseFirestore.instance
+          .collection('users')
+          .where('uID', isEqualTo: panelOwnerDocId)
+          .limit(1)
+          .get();
+      if (queryByUid.docs.isNotEmpty) {
+        resolvedOwnerId = queryByUid.docs.first.id;
+      }
+    }
+
+    // ২. বর্তমান ইউজারের সঠিক কাস্টম ৬ ডিজিটের আইডি বের করা
+    var userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentAuthUid)
+        .get();
+
+    String customUserId = currentAuthUid;
+
+    if (userDoc.exists && userDoc.data() != null) {
+      var userData = userDoc.data()!;
+      customUserId = userData['uID']?.toString() ?? 
+                     userData['customId']?.toString() ?? 
+                     currentAuthUid;
+      
+      if (currentAuthUid.length < 15 && !currentAuthUid.contains('Z')) {
+        customUserId = currentAuthUid;
+      }
+    } else {
+      var userQueryByUid = await FirebaseFirestore.instance
+          .collection('users')
+          .where('uID', isEqualTo: currentAuthUid)
+          .limit(1)
+          .get();
+
+      if (userQueryByUid.docs.isNotEmpty) {
+        var docData = userQueryByUid.docs.first.data();
+        // এখানে ঠিক করে userQueryByUid.docs.first.id দেওয়া হয়েছে
+        customUserId = docData['uID']?.toString() ?? userQueryByUid.docs.first.id;
+      } else {
+        var queryByAuth = await FirebaseFirestore.instance
+            .collection('users')
+            .where('authUid', isEqualTo: currentAuthUid)
+            .limit(1)
+            .get();
+        if (queryByAuth.docs.isNotEmpty) {
+          var authData = queryByAuth.docs.first.data();
+          customUserId = authData['uID']?.toString() ?? queryByAuth.docs.first.id;
+        }
+      }
+    }
+
+    // ৩. ফায়ারবেসে রিকোয়েস্ট সাবমিট করা
     await FirebaseFirestore.instance
         .collection('team_panels')
-        .doc(ownerId)
+        .doc(resolvedOwnerId)
         .collection('requests')
-        .doc(currentUserId)
+        .doc(customUserId)
         .set({
-      'uID': currentUserId,
+      'uID': customUserId,
       'timestamp': FieldValue.serverTimestamp(),
     });
 
@@ -733,7 +795,13 @@ class _TeamPanelAndSoulmateSectionState
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Join request sent to panel owner!")),
     );
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Failed to send request: $e")),
+    );
   }
+}
 
   void _acceptRequest(
       String ownerId, String requesterUid, Map<String, dynamic> uInfo) async {

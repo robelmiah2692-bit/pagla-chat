@@ -20,14 +20,15 @@ class _HelpDeskPageState extends State<HelpDeskPage> {
     super.initState();
     messages.add({
       "role": "ai", 
-      "text": "Hello! I am Pagla AI. I can help you find an online support agent. Click the button below."
+      "text": "Hello! I am Pagla AI. I can help you find online support agents. Click the button below."
     });
   }
 
   Future<void> _findOnlineAgent() async {
     setState(() => _isLoading = true);
     
-    Map<String, dynamic>? foundAgentData;
+    // একাধিক এজেন্টের ডেটা রাখার জন্য List ব্যবহার করা হলো
+    List<Map<String, dynamic>> foundAgentsList = [];
     
     try {
       // ডাটাবেজ থেকে এজেন্ট আইডিগুলোর লিস্ট নিয়ে আসা
@@ -40,12 +41,12 @@ class _HelpDeskPageState extends State<HelpDeskPage> {
           bool isOnline = data['isOnline'] == true;
           
           if (isOnline) {
-            foundAgentData = {
+            foundAgentsList.add({
               "id": id,
               "name": data['name'] ?? data['userName'] ?? "Support Agent",
               "image": data['image'] ?? data['profilePic'] ?? "",
-            };
-            break;
+            });
+            // এখানে break; উঠিয়ে দেওয়া হয়েছে যাতে সব অনলাইন এজেন্টকে চেক করা যায়
           }
         }
       }
@@ -54,11 +55,11 @@ class _HelpDeskPageState extends State<HelpDeskPage> {
     }
 
     setState(() {
-      if (foundAgentData != null) {
+      if (foundAgentsList.isNotEmpty) {
         messages.add({
           "role": "ai", 
-          "text": "Good news! I found an online agent for you:", 
-          "agent": foundAgentData
+          "text": "Good news! I found these online agents for you:", 
+          "agents": foundAgentsList // একাধিক এজেন্টের লিস্ট পাস করা হলো
         });
       } else {
         messages.add({
@@ -81,21 +82,19 @@ class _HelpDeskPageState extends State<HelpDeskPage> {
       ),
       body: Container(
         decoration: const BoxDecoration(
-          // সেটিংস উইন্ডোর মতো প্রিমিয়াম ব্লু ও পার্পল গ্রেডিয়েন্ট
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF00B4DB), // Bright Cyan Blue
-              Color(0xFF0083B0), // Mid Blue tone
-              Color(0xFF4A00E0), // Deep Purple gradient match
-              Color(0xFF190033), // Rich dark purple-blue base
+              Color(0xFF00B4DB),
+              Color(0xFF0083B0),
+              Color(0xFF4A00E0),
+              Color(0xFF190033),
             ],
           ),
         ),
         child: Stack(
           children: [
-            // ব্যাকগ্রাউন্ডে তারার ঝিকিমিকি ইফেক্ট
             ...List.generate(
               15,
               (index) => Positioned(
@@ -132,73 +131,74 @@ class _HelpDeskPageState extends State<HelpDeskPage> {
                             ),
                             child: Text(
                               msg['text'], 
-                              style: TextStyle(
-                                color: msg['role'] == 'ai' ? Colors.white : Colors.white,
+                              style: const TextStyle(
+                                color: Colors.white,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
-                          if (msg.containsKey('agent'))
-                            GestureDetector(
-                              onTap: () {
-                                // এজেন্টের কার্ডে ক্লিক করলেই সরাসরি তার প্রোফাইল পেজে চলে যাবে
-                                String agentId = msg['agent']['id'];
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => ProfilePage(userId: agentId),
-                                  ),
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                margin: const EdgeInsets.only(bottom: 15),
-                                decoration: BoxDecoration(
-                                  color: Colors.greenAccent[700]?.withOpacity(0.85), 
-                                  borderRadius: BorderRadius.circular(15),
-                                  border: Border.all(color: Colors.white24),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.greenAccent.withOpacity(0.2),
-                                      blurRadius: 10,
-                                      spreadRadius: 2,
-                                    )
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 20,
-                                      backgroundImage: msg['agent']['image'] != "" 
-                                          ? NetworkImage(msg['agent']['image']) 
-                                          : null,
-                                      child: msg['agent']['image'] == "" ? const Icon(Icons.person) : null,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          msg['agent']['name'], 
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Row(
-                                          children: [
-                                            Text(
-                                              "ID: ${msg['agent']['id']} ", 
-                                              style: const TextStyle(color: Colors.white70, fontSize: 14)
-                                            ),
-                                            const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.white70),
+                          // যদি একাধিক এজেন্ট থাকে তবে ListView দিয়ে সবগুলো রেন্ডার করা হবে
+                          if (msg.containsKey('agents'))
+                            ...((msg['agents'] as List) // ignore: avoid_dynamic_calls
+                                .map((agent) => GestureDetector(
+                                      onTap: () {
+                                        String agentId = agent['id'];
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => ProfilePage(userId: agentId),
+                                          ),
+                                        );
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(12),
+                                        margin: const EdgeInsets.only(bottom: 15),
+                                        decoration: BoxDecoration(
+                                          color: Colors.greenAccent[700]?.withOpacity(0.85), 
+                                          borderRadius: BorderRadius.circular(15),
+                                          border: Border.all(color: Colors.white24),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.greenAccent.withOpacity(0.2),
+                                              blurRadius: 10,
+                                              spreadRadius: 2,
+                                            )
                                           ],
                                         ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            CircleAvatar(
+                                              radius: 20,
+                                              backgroundImage: agent['image'] != "" 
+                                                  ? NetworkImage(agent['image']) 
+                                                  : null,
+                                              child: agent['image'] == "" ? const Icon(Icons.person) : null,
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  agent['name'], 
+                                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Row(
+                                                  children: [
+                                                    Text(
+                                                      "ID: ${agent['id']} ", 
+                                                      style: const TextStyle(color: Colors.white70, fontSize: 14)
+                                                    ),
+                                                    const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.white70),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ))),
                         ],
                       );
                     },
