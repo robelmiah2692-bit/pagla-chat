@@ -24,12 +24,14 @@ import 'package:pagla_chat/VideoGiftOverlay.dart';
 import 'package:pagla_chat/chat_screen.dart';
 import 'package:pagla_chat/donggi_baba_game.dart';
 import 'package:pagla_chat/full_screen_image_viewer.dart';
+import 'package:pagla_chat/moving_banner_widget.dart';
 
 import 'package:pagla_chat/pk_manager.dart';
 import 'package:pagla_chat/room_exit_handler.dart';
 import 'package:pagla_chat/room_floating_box.dart';
 import 'package:pagla_chat/room_lobby_menu_sheet.dart';
 import 'package:pagla_chat/room_manager.dart';
+import 'package:pagla_chat/room_top_gifters_banner.dart';
 import 'package:pagla_chat/services/floating_bubble_service.dart';
 import 'package:pagla_chat/services/floating_music_player.dart';
 import 'package:pagla_chat/services/gift_logic_helper.dart';
@@ -111,8 +113,8 @@ class _VoiceRoomState extends State<VoiceRoom>
   Offset pkBannerOffset = const Offset(20, 150);
   Map<String, int> scores =
       {}; // এই লাইনটি ক্লাসের একদম উপরে অন্যান্য ভেরিয়েবলের সাথে লিখুন
-  List<Offset> seatPositions = List.generate(15, (index) => Offset.zero);
-  List<GlobalKey> seatKeys = List.generate(15, (index) => GlobalKey());
+  List<Offset> seatPositions = List.generate(20, (index) => Offset.zero);
+  List<GlobalKey> seatKeys = List.generate(20, (index) => GlobalKey());
   bool isAdmin = false; // এটি যোগ করুন
   String currentReceiverImage = "";
   String currentSenderImage = "";
@@ -349,7 +351,7 @@ class _VoiceRoomState extends State<VoiceRoom>
 
     // ৫. ১২টি সিটের ইনিশিয়ালাইজেশন (০ থেকে ১১)
     seats = List.generate(
-        12,
+        20,
         (index) => {
               "isOccupied": false,
               "userName": "",
@@ -373,7 +375,7 @@ class _VoiceRoomState extends State<VoiceRoom>
       if (!mounted) return;
 
       List<Map<String, dynamic>> updatedSeats = List.generate(
-          12,
+          20,
           (index) => {
                 "isOccupied": false,
                 "userName": "",
@@ -396,7 +398,7 @@ class _VoiceRoomState extends State<VoiceRoom>
           // ইনডেক্স ১১ এর কম বা সমান হতে হবে
           if (index != null &&
               index >= 0 &&
-              index <= 11 &&
+              index <= 20 &&
               index < updatedSeats.length &&
               value != null) {
             final seatMap = Map<dynamic, dynamic>.from(value as Map);
@@ -676,14 +678,18 @@ class _VoiceRoomState extends State<VoiceRoom>
       final int myRealAgoraId = _agoraManager.localuID ?? -999;
 
       for (var speaker in speakers) {
-        // 🔥 এখানে নিখুঁতভাবে শুধু নিজের অ্যাগোরা আইডি (বা ০ যদি লোকাল হয়) চেক করা হচ্ছে
-        // যাতে অন্য কোনো ইউজারের কথা বলার ভলিউম আপনার নিজের স্ট্যাটাসকে প্রভাবিত না করে।
         if ((speaker.uid == 0 || speaker.uid == myRealAgoraId) &&
             myRealAgoraId != -999 &&
             (speaker.volume ?? 0) > 15) {
           isMeTalking = true;
           break;
         }
+      }
+
+      // 🔥 সমাধান: যদি মিউজিক চলতে থাকে এবং ইউজার নিজের সিটে থাকে (currentSeatIndex != -1),
+      // তবে মিউট থাকা সত্ত্বেও রিপেল অ্যানিমেশন চালু রাখবে।
+      if (isRoomMusicPlaying && currentSeatIndex != -1) {
+        isMeTalking = true;
       }
 
       // শুধুমাত্র তখনই setState কল হবে যখন নিজের টকিং স্ট্যাটাস পরিবর্তিত হবে
@@ -1601,7 +1607,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                         textColor: Colors.redAccent,
                         onTap: () async {
                           Navigator.pop(ctx); // ডায়ালগ বন্ধ হবে
-                          await _agoraManager.becomeListener();
+                          await _agoraManager.switchToAudienceMode();
                           await FirebaseDatabase.instance
                               .ref('rooms/${widget.roomId}/seats/$index')
                               .remove();
@@ -1637,7 +1643,7 @@ class _VoiceRoomState extends State<VoiceRoom>
   bool _lastTalkingStatus = false;
 
   void updateSeatPosition(int index, GlobalKey key) {
-    if (index < 0 || index > 11) return;
+    if (index < 0 || index > 19) return;
     if (key.currentContext == null) {
       return;
     }
@@ -1691,6 +1697,24 @@ class _VoiceRoomState extends State<VoiceRoom>
           'isTalking': talking,
         });
       } catch (e) {}
+    }
+  }
+
+  void onMicTogglePressed(bool isMuting) async {
+    if (isMuting) {
+      // ইউজার মিউট করলে ব্রডকাস্টিং টোটালি বন্ধ করে অডিয়েন্স মোডে পাঠিয়ে দেবো
+      await _agoraManager.switchToAudienceMode();
+    } else {
+      // ইউজার আনমিউট করলে আবার ব্রডকাস্টার মোড চালু হবে
+      await _agoraManager.becomeBroadcaster();
+    }
+
+    if (mounted) {
+      setState(() {
+        // আপনার ক্লাসে যদি isMicOn থাকে, তবে এভাবে উল্টো করে দিতে পারেন
+        // অথবা আপনার আসল ভেরিয়েবল নাম এখানে বসাবেন
+        isMicOn = !isMuting;
+      });
     }
   }
 
@@ -1882,6 +1906,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                       // নতুন ডিজাইনকৃত টফি ও র‍্যাঙ্কিং কাউন্টার সহ ছোট ভিউয়ার এরিয়া
                       ViewerRankingWidget(
                         roomId: widget.roomId,
+                        roomData: roomData,
                         viewerListWidget: RepaintBoundary(
                           child: Container(
                             height:
@@ -1912,60 +1937,88 @@ class _VoiceRoomState extends State<VoiceRoom>
                           clipBehavior: Clip.none,
                           children: [
                             RepaintBoundary(child: _buildSeatGridArea()),
-                            StreamBuilder<DatabaseEvent>(
-                              stream: FirebaseDatabase.instance
-                                  .ref('rooms/${widget.roomId}/seats')
-                                  .onValue,
-                              builder: (context, snapshot) {
-                                List<dynamic> seats = [];
-                                if (snapshot.hasData &&
-                                    snapshot.data!.snapshot.value != null) {
-                                  var val = snapshot.data!.snapshot.value;
-                                  seats = (val is Map)
-                                      ? List.generate(12,
-                                          (i) => val[i.toString()] ?? val[i])
-                                      : (val is List ? val : []);
+
+                            // প্রথমে রুমের লেআউট কাউন্ট পাওয়ার জন্য Firestore StreamBuilder
+                            StreamBuilder<DocumentSnapshot>(
+                              stream: FirebaseFirestore.instance
+                                  .collection('rooms')
+                                  .doc(widget.roomId)
+                                  .snapshots(),
+                              builder: (context, roomSnapshot) {
+                                int currentLayoutItemCount = 10;
+                                if (roomSnapshot.hasData &&
+                                    roomSnapshot.data!.exists) {
+                                  var roomData = roomSnapshot.data!.data()
+                                      as Map<String, dynamic>;
+                                  currentLayoutItemCount =
+                                      roomData['seatLayoutCount'] ?? 10;
                                 }
 
-                                // রুমে সিটে বসা ইউজারদের uID সংগ্রহ করা হচ্ছে
-                                List<String> seatUids = seats
-                                    .where((s) => s != null && s['uID'] != null)
-                                    .map((s) => s['uID'].toString())
-                                    .toList();
+                                // এরপর সিটের ডাটার জন্য Realtime Database StreamBuilder
+                                return StreamBuilder<DatabaseEvent>(
+                                  stream: FirebaseDatabase.instance
+                                      .ref('rooms/${widget.roomId}/seats')
+                                      .onValue,
+                                  builder: (context, snapshot) {
+                                    List<dynamic> seats = [];
+                                    if (snapshot.hasData &&
+                                        snapshot.data!.snapshot.value != null) {
+                                      var val = snapshot.data!.snapshot.value;
+                                      seats = (val is Map)
+                                          ? List.generate(
+                                              20,
+                                              (i) =>
+                                                  val[i.toString()] ?? val[i])
+                                          : (val is List ? val : []);
+                                    }
 
-                                if (seatUids.isEmpty) {
-                                  return const SizedBox.shrink();
-                                }
+                                    // রুমে সিটে বসা ইউজারদের uID সংগ্রহ করা হচ্ছে
+                                    List<String> seatUids = seats
+                                        .where((s) =>
+                                            s != null && s['uID'] != null)
+                                        .map((s) => s['uID'].toString())
+                                        .toList();
 
-                                // পুরো users কালেকশন না এনে শুধু সিটে থাকা ইউজারদের ডেটা আনা হচ্ছে (হ্যাং প্রবলেম ফিক্সড)
-                                return StreamBuilder<QuerySnapshot>(
-                                  stream: FirebaseFirestore.instance
-                                      .collection('users')
-                                      .where('uID', whereIn: seatUids)
-                                      .snapshots(),
-                                  builder: (context, userSnapshot) {
-                                    if (!userSnapshot.hasData) {
+                                    if (seatUids.isEmpty) {
                                       return const SizedBox.shrink();
                                     }
 
-                                    Map<String, List<dynamic>> allUsers = {};
-                                    for (var doc in userSnapshot.data!.docs) {
-                                      var d =
-                                          doc.data() as Map<String, dynamic>;
-                                      String uIdStr =
-                                          (d['uID'] ?? "").toString();
-                                      if (uIdStr.isNotEmpty) {
-                                        allUsers[uIdStr] =
-                                            d['soulmates'] is List
-                                                ? d['soulmates']
-                                                : [];
-                                      }
-                                    }
+                                    // শুধু সিটে থাকা ইউজারদের সোলমেট ডেটা আনার জন্য Firestore StreamBuilder
+                                    return StreamBuilder<QuerySnapshot>(
+                                      stream: FirebaseFirestore.instance
+                                          .collection('users')
+                                          .where('uID', whereIn: seatUids)
+                                          .snapshots(),
+                                      builder: (context, userSnapshot) {
+                                        if (!userSnapshot.hasData) {
+                                          return const SizedBox.shrink();
+                                        }
 
-                                    return SoulmateAnimationService
-                                        .buildSoulmateHeartOverlay(
-                                      seats: seats,
-                                      allUsersSoulmates: allUsers,
+                                        Map<String, List<dynamic>>
+                                            allUsersSoulmates = {};
+                                        for (var doc
+                                            in userSnapshot.data!.docs) {
+                                          var d = doc.data()
+                                              as Map<String, dynamic>;
+                                          String uIdStr =
+                                              (d['uID'] ?? "").toString();
+                                          if (uIdStr.isNotEmpty) {
+                                            allUsersSoulmates[uIdStr] =
+                                                d['soulmates'] is List
+                                                    ? d['soulmates']
+                                                    : [];
+                                          }
+                                        }
+
+                                        // এখন layoutItemCount সহ সোলমেট অ্যানিমেশন রেন্ডার করা হলো
+                                        return SoulmateAnimationService
+                                            .buildSoulmateHeartOverlay(
+                                          seats: seats,
+                                          allUsersSoulmates: allUsersSoulmates,
+                                          layoutItemCount:
+                                              currentLayoutItemCount,
+                                        );
+                                      },
                                     );
                                   },
                                 );
@@ -2273,20 +2326,12 @@ class _VoiceRoomState extends State<VoiceRoom>
 // 🔥 মুভেবল ব্যানারের উপরে এটি বসবে:
                 RoomFloatingBox(roomId: widget.roomId),
 
-                // ৪. মুভেবল ব্যানার
-                if (roomData['showBanner'] ?? false)
-                  Positioned(
-                    left: bannerPosition.dx,
-                    top: bannerPosition.dy,
-                    child: Draggable(
-                      feedback: _buildRoomBanner(roomData),
-                      childWhenDragging: Container(),
-                      onDragEnd: (details) =>
-                          setState(() => bannerPosition = details.offset),
-                      child: _buildRoomBanner(roomData),
-                    ),
+                // ৪. মুভেবল টপ গিফটার ব্যানার কার্ড
+                if (roomData['showBanner'] ?? true)
+                  MovingBannerWidget(
+                    roomId: widget.roomId,
+                    roomData: roomData,
                   ),
-
                 // ৫. মিউজিক প্লেয়ার
                 if (isFloatingPlayerVisible)
                   FloatingMusicPlayer(
@@ -2546,7 +2591,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                               ),
                               const SizedBox(height: 10),
                               const Text(
-                                "25,000 Diamonds Reached! Rewards distributed.",
+                                "100,000 Diamonds Reached! Rewards distributed.",
                                 style: TextStyle(
                                     color: Colors.white70, fontSize: 14),
                               ),
@@ -2972,63 +3017,87 @@ class _VoiceRoomState extends State<VoiceRoom>
           return const SizedBox.shrink();
         }
 
-        return Stack(
-          children: dataMap.entries.map((entry) {
-            int seatIndex = int.tryParse(entry.key.toString()) ?? -1;
-            var val = entry.value;
-
-            if (seatIndex < 0 ||
-                seatIndex > 11 ||
-                seatIndex >= seatPositions.length) {
-              return const SizedBox.shrink();
+        // 🔥 রুমের বর্তমান লেআউট চেক করা হচ্ছে (বিশেষ করে ২ সিটের জন্য)
+        return StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('rooms')
+              .doc(widget.roomId)
+              .snapshots(),
+          builder: (context, roomSnapshot) {
+            int currentLayoutItemCount = 10;
+            if (roomSnapshot.hasData && roomSnapshot.data!.exists) {
+              var roomData = roomSnapshot.data!.data() as Map<String, dynamic>;
+              currentLayoutItemCount = roomData['seatLayoutCount'] ?? 10;
             }
 
-            if (seatPositions[seatIndex] == Offset.zero) {
-              return const SizedBox.shrink();
-            }
+            bool isBigTwoSeatLayout = (currentLayoutItemCount == 2);
+            double emojiSize = isBigTwoSeatLayout ? 160.0 : 80.0;
 
-            String lottieUrl = "";
-            if (val is Map) {
-              lottieUrl = val['currentEmoji']?.toString() ?? "";
-            } else if (val is String) {
-              lottieUrl = val;
-            }
+            double offsetX = isBigTwoSeatLayout ? 80.0 : 40.0;
+            double offsetY = isBigTwoSeatLayout ? 80.0 : 60.0;
 
-            if (lottieUrl.isEmpty) {
-              return const SizedBox.shrink();
-            }
+            return Stack(
+              children: dataMap.entries.map((entry) {
+                int seatIndex = int.tryParse(entry.key.toString()) ?? -1;
+                var val = entry.value;
 
-            Offset pos = seatPositions[seatIndex];
+                if (seatIndex < 0 ||
+                    seatIndex > 19 ||
+                    seatIndex >= seatPositions.length) {
+                  return const SizedBox.shrink();
+                }
 
-            return Positioned(
-              left: pos.dx - 40,
-              top: pos.dy - 60,
-              child: IgnorePointer(
-                child: SizedBox(
-                  width: 80,
-                  height: 80,
-                  child: Lottie.network(
-                    lottieUrl,
-                    repeat: false,
-                    animate: true,
-                    // লটি প্যাকেজ বাই-ডিফল্ট নেটওয়ার্ক ফাইল ক্যাশ করে নেয়।
-                    // অ্যানিমেশন লোড হওয়ার পর এর নির্দিষ্ট সময় পর ডাটাবেস থেকে রিমুভ করার লজিক:
-                    onLoaded: (composition) {
-                      Future.delayed(composition.duration, () {
-                        if (mounted) {
-                          FirebaseDatabase.instance
-                              .ref(
-                                  'rooms/${widget.roomId}/active_emojis/$seatIndex')
-                              .remove();
-                        }
-                      });
-                    },
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                if (seatPositions[seatIndex] == Offset.zero) {
+                  return const SizedBox.shrink();
+                }
+
+                String lottieUrl = "";
+                if (val is Map) {
+                  lottieUrl = val['currentEmoji']?.toString() ?? "";
+                } else if (val is String) {
+                  lottieUrl = val;
+                }
+
+                if (lottieUrl.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+
+                Offset pos = seatPositions[seatIndex];
+
+                return Positioned(
+                  left: pos.dx - offsetX,
+                  top: pos.dy - offsetY,
+                  child: IgnorePointer(
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 1.0, end: 0.0),
+                      duration: const Duration(
+                          seconds: 7), // ৭ সেকেন্ডের টোটাল লাইফটাইম
+                      builder: (context, opacityValue, child) {
+                        // শেষের ১.৫ সেকেন্ডে স্মুথলি ফেড আউট হয়ে মিশে যাবে
+                        double smoothOpacity =
+                            opacityValue < 0.25 ? opacityValue * 4 : 1.0;
+
+                        return Opacity(
+                          opacity: smoothOpacity,
+                          child: SizedBox(
+                            width: emojiSize,
+                            height: emojiSize,
+                            child: Lottie.network(
+                              lottieUrl,
+                              repeat: true, // একটানা চালু থাকবে, থেমে থাকবে না
+                              animate: true,
+                              errorBuilder: (_, __, ___) =>
+                                  const SizedBox.shrink(),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ),
+                );
+              }).toList(),
             );
-          }).toList(),
+          },
         );
       },
     );
@@ -3666,1101 +3735,1503 @@ class _VoiceRoomState extends State<VoiceRoom>
     );
   }
 
-// --- ১. মেইন সিট গ্রিড এরিয়া (১২টি সিট, এক লাইনে ৪টি করে) ---
+// --- মেইন সিট এরিয়া (বিভিন্ন লেআউট সহ) ---
   Widget _buildSeatGridArea() {
-    return StreamBuilder<DatabaseEvent>(
-      stream:
-          FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats').onValue,
-      builder: (context, snapshot) {
-        Map<dynamic, dynamic> dbSeats = {};
-
-        if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
-          final dynamic value = snapshot.data!.snapshot.value;
-          if (value is Map) {
-            dbSeats = value;
-          } else if (value is List) {
-            dbSeats = value.asMap();
-          }
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(widget.roomId)
+          .snapshots(),
+      builder: (context, roomSnapshot) {
+        int currentLayoutItemCount = 10; // ডিফল্ট ১২ সিট লেআউট
+        if (roomSnapshot.hasData && roomSnapshot.data!.exists) {
+          var roomData = roomSnapshot.data!.data() as Map<String, dynamic>;
+          currentLayoutItemCount = roomData['seatLayoutCount'] ?? 10;
         }
 
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding:
-              const EdgeInsets.only(left: 15, right: 15, top: 10, bottom: 30),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4, // ✅ এক লাইনে ৪টি সিট
-            childAspectRatio: 0.85, // ✅ সাইজ বড় ও মানানসই রাখার জন্য অনুপাত
-            mainAxisSpacing: 15,
-            crossAxisSpacing: 10,
-          ),
-          itemCount: 12, // ✅ মোট সিট সংখ্যা ১২টি করা হলো
-          itemBuilder: (context, index) {
-            var seatData = dbSeats[index.toString()] ?? dbSeats[index];
-            bool isOccupied =
-                seatData != null ? (seatData['isOccupied'] == true) : false;
-            int giftCount = seatData != null ? (seatData['giftCount'] ?? 0) : 0;
+        return StreamBuilder<DatabaseEvent>(
+          stream: FirebaseDatabase.instance
+              .ref('rooms/${widget.roomId}/seats')
+              .onValue,
+          builder: (context, snapshot) {
+            Map<dynamic, dynamic> dbSeats = {};
 
-            String uName = isOccupied
-                ? (seatData['name']?.toString() ??
-                    seatData['userName']?.toString() ??
-                    "User")
-                : "";
-            String uImage = isOccupied
-                ? (seatData['profilePic']?.toString() ??
-                    seatData['userImage']?.toString() ??
-                    "")
-                : "";
-            String uIDShow =
-                isOccupied ? (seatData['uID']?.toString() ?? "") : "";
-            String uFrame = isOccupied
-                ? (seatData['activeFrameUrl']?.toString() ?? "")
-                : "";
-
-            bool isTalking =
-                isOccupied ? (seatData['isTalking'] == true) : false;
-            bool isMicOn = isOccupied ? (seatData['isMicOn'] == true) : false;
-
-            // 🔥 প্রতিটি সিট স্ক্রিনে রেন্ডার হওয়ার সময় পজিশন আপডেট নিশ্চিত করার জন্য:
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                updateSeatPosition(index, seatKeys[index]);
+            if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
+              final dynamic value = snapshot.data!.snapshot.value;
+              if (value is Map) {
+                dbSeats = value;
+              } else if (value is List) {
+                dbSeats = value.asMap();
               }
-            });
+            }
 
-            return SeatWidget(
-              index: index,
-              isOccupied: isOccupied,
-              giftCount: giftCount,
-              isGiftCounting: isGiftCounting,
-              child: GestureDetector(
-                key: seatKeys[index],
-                onTap: () {
-                  final String myAuthId =
-                      FirebaseAuth.instance.currentUser?.uid ?? "";
-                  final String currentMyuID = myuID.toString().trim();
+            // সিট উইজেট বিল্ডার ফাংশন (যা প্রতিটি লেআউটের ভেতর কল হবে)
+            Widget dynamicItemBuilder(
+              BuildContext context,
+              int index, {
+              double seatSize = 68,
+              double? avatarSize,
+              double? frameSize,
+            }) {
+              var seatData = dbSeats[index.toString()] ?? dbSeats[index];
+              bool isOccupied =
+                  seatData != null ? (seatData['isOccupied'] == true) : false;
+              int giftCount =
+                  seatData != null ? (seatData['giftCount'] ?? 0) : 0;
 
-                  bool isOwner =
-                      (ownerAuthId.toString() == myAuthId.toString().trim()) ||
-                          (currentMyuID == ownerId.toString().trim());
+              String uName = isOccupied
+                  ? (seatData['name']?.toString() ??
+                      seatData['userName']?.toString() ??
+                      "User")
+                  : "";
+              String uImage = isOccupied
+                  ? (seatData['profilePic']?.toString() ??
+                      seatData['userImage']?.toString() ??
+                      "")
+                  : "";
+              String uIDShow =
+                  isOccupied ? (seatData['uID']?.toString() ?? "") : "";
+              String uFrame = isOccupied
+                  ? (seatData['activeFrameUrl']?.toString() ?? "")
+                  : "";
 
-                  bool isAdmin = adminList
-                      .map((e) => e.toString().trim())
-                      .contains(currentMyuID);
+              bool isTalking =
+                  isOccupied ? (seatData['isTalking'] == true) : false;
+              bool isMicOn = isOccupied ? (seatData['isMicOn'] == true) : false;
 
-                  if (currentSeatIndex == index) {
-                    _showLeaveConfirmation(index);
-                    return;
-                  }
+              // 🔥 প্রতিটি সিট স্ক্রিনে রেন্ডার হওয়ার সময় পজিশন আপডেট নিশ্চিত করার জন্য:
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  updateSeatPosition(index, seatKeys[index]);
+                }
+              });
 
-                  bool isSeatOccupied = isOccupied;
-                  bool isLocked =
-                      seatData != null ? (seatData['isLocked'] == true) : false;
+              return SeatWidget(
+                index: index,
+                isOccupied: isOccupied,
+                giftCount: giftCount,
+                isGiftCounting: isGiftCounting,
+                child: GestureDetector(
+                  key: seatKeys[index],
+                  onTap: () {
+                    final String myAuthId =
+                        FirebaseAuth.instance.currentUser?.uid ?? "";
+                    final String currentMyuID = myuID.toString().trim();
 
-                  if (!isSeatOccupied) {
-                    if (isLocked && !isOwner && !isAdmin) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text("This seat is locked!"),
-                        backgroundColor: Colors.redAccent,
-                        behavior: SnackBarBehavior.floating,
-                      ));
+                    bool isOwner = (ownerAuthId.toString() ==
+                            myAuthId.toString().trim()) ||
+                        (currentMyuID == ownerId.toString().trim());
+
+                    bool isAdmin = adminList
+                        .map((e) => e.toString().trim())
+                        .contains(currentMyuID);
+
+                    if (currentSeatIndex == index) {
+                      _showLeaveConfirmation(index);
                       return;
                     }
 
-                    showGeneralDialog(
-                      context: context,
-                      barrierDismissible: true,
-                      barrierLabel: '',
-                      barrierColor: Colors.black54,
-                      transitionDuration: const Duration(milliseconds: 250),
-                      pageBuilder: (ctx, anim1, anim2) =>
-                          const SizedBox.shrink(),
-                      transitionBuilder: (ctx, anim1, anim2, child) {
-                        return BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                          child: FadeTransition(
-                            opacity: anim1,
-                            child: Center(
-                              child: Material(
-                                color: Colors.transparent,
-                                child: Container(
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.75,
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.4),
-                                    borderRadius: BorderRadius.circular(25),
-                                    border: Border.all(
-                                        color: Colors.white.withOpacity(0.2)),
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const SizedBox(height: 10),
-                                      _buildPremiumButton(
-                                        text: "Take the Mic",
-                                        icon: Icons.mic_external_on,
-                                        textColor: Colors.cyanAccent,
-                                        onTap: () {
-                                          Navigator.pop(ctx);
-                                          sitOnSeat(index);
-                                        },
-                                      ),
-                                      const Divider(
-                                          color: Colors.white10, height: 1),
-                                      if (isOwner || isAdmin) ...[
+                    bool isSeatOccupied = isOccupied;
+                    bool isLocked = seatData != null
+                        ? (seatData['isLocked'] == true)
+                        : false;
+
+                    if (!isSeatOccupied) {
+                      if (isLocked && !isOwner && !isAdmin) {
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(const SnackBar(
+                          content: Text("This seat is locked!"),
+                          backgroundColor: Colors.redAccent,
+                          behavior: SnackBarBehavior.floating,
+                        ));
+                        return;
+                      }
+
+                      showGeneralDialog(
+                        context: context,
+                        barrierDismissible: true,
+                        barrierLabel: '',
+                        barrierColor: Colors.black54,
+                        transitionDuration: const Duration(milliseconds: 250),
+                        pageBuilder: (ctx, anim1, anim2) =>
+                            const SizedBox.shrink(),
+                        transitionBuilder: (ctx, anim1, anim2, child) {
+                          return BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                            child: FadeTransition(
+                              opacity: anim1,
+                              child: Center(
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: Container(
+                                    width: MediaQuery.of(context).size.width *
+                                        0.75,
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.4),
+                                      borderRadius: BorderRadius.circular(25),
+                                      border: Border.all(
+                                          color: Colors.white.withOpacity(0.2)),
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const SizedBox(height: 10),
                                         _buildPremiumButton(
-                                          text: isLocked
-                                              ? "Unlock the Mic"
-                                              : "Lock the Mic",
-                                          icon: isLocked
-                                              ? Icons.lock_open
-                                              : Icons.lock_outline,
-                                          textColor: Colors.amberAccent,
+                                          text: "Take the Mic",
+                                          icon: Icons.mic_external_on,
+                                          textColor: Colors.cyanAccent,
                                           onTap: () {
                                             Navigator.pop(ctx);
-                                            FirebaseDatabase.instance
-                                                .ref()
-                                                .child(
-                                                    'rooms/${widget.roomId}/seats/$index')
-                                                .update({
-                                              'isLocked': !isLocked,
-                                            });
+                                            sitOnSeat(index);
                                           },
                                         ),
                                         const Divider(
                                             color: Colors.white10, height: 1),
+                                        if (isOwner || isAdmin) ...[
+                                          _buildPremiumButton(
+                                            text: isLocked
+                                                ? "Unlock the Mic"
+                                                : "Lock the Mic",
+                                            icon: isLocked
+                                                ? Icons.lock_open
+                                                : Icons.lock_outline,
+                                            textColor: Colors.amberAccent,
+                                            onTap: () {
+                                              Navigator.pop(ctx);
+                                              FirebaseDatabase.instance
+                                                  .ref()
+                                                  .child(
+                                                      'rooms/${widget.roomId}/seats/$index')
+                                                  .update({
+                                                'isLocked': !isLocked,
+                                              });
+                                            },
+                                          ),
+                                          const Divider(
+                                              color: Colors.white10, height: 1),
+                                        ],
+                                        _buildPremiumButton(
+                                          text: "Cancel",
+                                          icon: Icons.close,
+                                          textColor: Colors.white70,
+                                          onTap: () => Navigator.pop(ctx),
+                                        ),
+                                        const SizedBox(height: 10),
                                       ],
-                                      _buildPremiumButton(
-                                        text: "Cancel",
-                                        icon: Icons.close,
-                                        textColor: Colors.white70,
-                                        onTap: () => Navigator.pop(ctx),
-                                      ),
-                                      const SizedBox(height: 10),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    );
-                  } else {
-                    String seatUserId = seatData?['userId']?.toString() ??
-                        seatData?['uID']?.toString() ??
-                        '';
+                          );
+                        },
+                      );
+                    } else {
+                      String seatUserId = seatData?['userId']?.toString() ??
+                          seatData?['uID']?.toString() ??
+                          '';
 
-                    if (seatUserId.isEmpty) return;
+                      if (seatUserId.isEmpty) return;
 
-                    showGeneralDialog(
-                      context: context,
-                      barrierDismissible: true,
-                      barrierLabel: 'Dismiss',
-                      barrierColor: Colors.black54,
-                      transitionDuration: const Duration(milliseconds: 300),
-                      pageBuilder: (ctx, anim1, anim2) {
-                        return Center(
-                          child: Material(
-                            color: Colors.transparent,
-                            child: StreamBuilder<DocumentSnapshot>(
-                              stream: FirebaseFirestore.instance
-                                  .collection('users')
-                                  .doc(seatUserId)
-                                  .snapshots(),
-                              builder: (context, snapshot) {
-                                if (!snapshot.hasData ||
-                                    snapshot.data?.data() == null) {
-                                  return const Center(
-                                      child: CircularProgressIndicator());
-                                }
+                      showGeneralDialog(
+                        context: context,
+                        barrierDismissible: true,
+                        barrierLabel: 'Dismiss',
+                        barrierColor: Colors.black54,
+                        transitionDuration: const Duration(milliseconds: 300),
+                        pageBuilder: (ctx, anim1, anim2) {
+                          return Center(
+                            child: Material(
+                              color: Colors.transparent,
+                              child: StreamBuilder<DocumentSnapshot>(
+                                stream: FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(seatUserId)
+                                    .snapshots(),
+                                builder: (context, snapshot) {
+                                  if (!snapshot.hasData ||
+                                      snapshot.data?.data() == null) {
+                                    return const Center(
+                                        child: CircularProgressIndicator());
+                                  }
 
-                                var userData = snapshot.data!.data()
-                                    as Map<String, dynamic>;
+                                  var userData = snapshot.data!.data()
+                                      as Map<String, dynamic>;
 
-                                String seatUserName =
-                                    userData['name'] ?? 'User';
-                                String seatUserPhoto =
-                                    userData['profilePic'] ?? '';
-                                String activeFrame =
-                                    userData['activeFrame'] ?? "";
-                                int userXp = userData['vip_xp'] ?? 0;
-                                int userExpiry = userData['vip_expiry'] ?? 0;
-                                int vipLevel =
-                                    getVipLevelFromData(userXp, userExpiry);
+                                  String seatUserName =
+                                      userData['name'] ?? 'User';
+                                  String seatUserPhoto =
+                                      userData['profilePic'] ?? '';
+                                  String activeFrame =
+                                      userData['activeFrame'] ?? "";
+                                  int userXp = userData['vip_xp'] ?? 0;
+                                  int userExpiry = userData['vip_expiry'] ?? 0;
+                                  int vipLevel =
+                                      getVipLevelFromData(userXp, userExpiry);
 
-                                bool isAgent = userData['isAgent'] ??
-                                    userData['agencyId'] != null ||
-                                        userData['isAgency'] == true;
-                                bool hasVip = vipLevel > 0;
-                                bool hasPremium =
-                                    userData['hasPremiumCard'] == true;
+                                  bool isAgent = userData['isAgent'] ??
+                                      userData['agencyId'] != null ||
+                                          userData['isAgency'] == true;
+                                  bool hasVip = vipLevel > 0;
+                                  bool hasPremium =
+                                      userData['hasPremiumCard'] == true;
 
-                                return Container(
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.85,
-                                  decoration: BoxDecoration(
-                                    // 🔥 আপনার দেওয়া ছবির সাথে মিলিয়ে আকর্ষণীয় মিক্সড কালার গ্রেডিয়েন্ট ব্যাকগ্রাউন্ড
-                                    gradient: const LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        Color(0xFF0D1B2A), // ডিপ ব্লু
-                                        Color(0xFF1B1A55), // মিড নাইট ব্লু
-                                        Color(
-                                            0xFF4A154B), // সফট পার্পল/ম্যাজেন্টা মিক্স
+                                  return Container(
+                                    width: MediaQuery.of(context).size.width *
+                                        0.85,
+                                    decoration: BoxDecoration(
+                                      // 🔥 আপনার দেওয়া ছবির সাথে মিলিয়ে আকর্ষণীয় মিক্সড কালার গ্রেডিয়েন্ট ব্যাকগ্রাউন্ড
+                                      gradient: const LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          Color(0xFF0D1B2A), // ডিপ ব্লু
+                                          Color(0xFF1B1A55), // মিড নাইট ব্লু
+                                          Color(
+                                              0xFF4A154B), // সফট পার্পল/ম্যাজেন্টা মিক্স
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(30),
+                                      border: Border.all(
+                                        color:
+                                            Colors.cyanAccent.withOpacity(0.3),
+                                        width: 1.2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.cyanAccent
+                                              .withOpacity(0.2),
+                                          blurRadius: 25,
+                                          spreadRadius: 2,
+                                        ),
+                                        BoxShadow(
+                                          color: Colors.purpleAccent
+                                              .withOpacity(0.2),
+                                          blurRadius: 25,
+                                          spreadRadius: 2,
+                                        )
                                       ],
                                     ),
-                                    borderRadius: BorderRadius.circular(30),
-                                    border: Border.all(
-                                      color: Colors.cyanAccent.withOpacity(0.3),
-                                      width: 1.2,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color:
-                                            Colors.cyanAccent.withOpacity(0.2),
-                                        blurRadius: 25,
-                                        spreadRadius: 2,
-                                      ),
-                                      BoxShadow(
-                                        color: Colors.purpleAccent
-                                            .withOpacity(0.2),
-                                        blurRadius: 25,
-                                        spreadRadius: 2,
-                                      )
-                                    ],
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const SizedBox(height: 20),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const SizedBox(height: 20),
 
-                                      // 🔥 প্রোফাইল পিকচার এবং মেনশন বাটন পাশাপাশি দেখানোর জন্য Row ব্যবহার করা হলো
-                                      // 🔥 প্রোফাইল পিকচার একদম সেন্টারে এবং মেনশন বাটন সাইডে রাখার জন্য Stack ব্যবহার করা হলো
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 20),
-                                        child: Stack(
-                                          alignment: Alignment.center,
-                                          children: [
-                                            // ১. প্রোফাইল পিকচার এবং ফ্রেম (এটি সবসময় ডায়ালগের নিখুঁত মাঝখানে থাকবে)
-                                            SizedBox(
-                                              width: 100,
-                                              height: 100,
-                                              child: Stack(
-                                                alignment: Alignment.center,
-                                                clipBehavior: Clip.none,
-                                                children: [
-                                                  CircleAvatar(
-                                                    radius: 35,
-                                                    backgroundImage:
-                                                        NetworkImage(
-                                                            seatUserPhoto),
-                                                  ),
-                                                  if (activeFrame.isNotEmpty)
-                                                    Positioned(
-                                                      top: -20,
-                                                      child: SizedBox(
-                                                        width: 153,
-                                                        height: 160,
-                                                        child: activeFrame
-                                                                .contains(
-                                                                    '.json')
-                                                            ? Lottie.network(
-                                                                activeFrame,
-                                                                fit: BoxFit
-                                                                    .contain)
-                                                            : CachedNetworkImage(
-                                                                imageUrl:
-                                                                    activeFrame,
-                                                                fit: BoxFit
-                                                                    .contain,
-                                                                placeholder: (context,
-                                                                        url) =>
-                                                                    const SizedBox
-                                                                        .shrink(),
-                                                                errorWidget: (context,
-                                                                        error,
-                                                                        stackTrace) =>
-                                                                    const SizedBox
-                                                                        .shrink(),
-                                                              ),
-                                                      ),
+                                        // 🔥 প্রোফাইল পিকচার এবং মেনশন বাটন পাশাপাশি দেখানোর জন্য Row ব্যবহার করা হলো
+                                        // 🔥 প্রোফাইল পিকচার একদম সেন্টারে এবং মেনশন বাটন সাইডে রাখার জন্য Stack ব্যবহার করা হলো
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 20),
+                                          child: Stack(
+                                            alignment: Alignment.center,
+                                            children: [
+                                              // ১. প্রোফাইল পিকচার এবং ফ্রেম (এটি সবসময় ডায়ালগের নিখুঁত মাঝখানে থাকবে)
+                                              SizedBox(
+                                                width: 100,
+                                                height: 100,
+                                                child: Stack(
+                                                  alignment: Alignment.center,
+                                                  clipBehavior: Clip.none,
+                                                  children: [
+                                                    CircleAvatar(
+                                                      radius: 35,
+                                                      backgroundImage:
+                                                          NetworkImage(
+                                                              seatUserPhoto),
                                                     ),
-                                                ],
+                                                    if (activeFrame.isNotEmpty)
+                                                      Positioned(
+                                                        top: -20,
+                                                        child: SizedBox(
+                                                          width: 153,
+                                                          height: 160,
+                                                          child: activeFrame
+                                                                  .contains(
+                                                                      '.json')
+                                                              ? Lottie.network(
+                                                                  activeFrame,
+                                                                  fit: BoxFit
+                                                                      .contain)
+                                                              : CachedNetworkImage(
+                                                                  imageUrl:
+                                                                      activeFrame,
+                                                                  fit: BoxFit
+                                                                      .contain,
+                                                                  placeholder: (context,
+                                                                          url) =>
+                                                                      const SizedBox
+                                                                          .shrink(),
+                                                                  errorWidget: (context,
+                                                                          error,
+                                                                          stackTrace) =>
+                                                                      const SizedBox
+                                                                          .shrink(),
+                                                                ),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
                                               ),
-                                            ),
 
-                                            // ২. মেনশন বাটন (এটি ডায়ালগের ডানপাশে পজিশন করা থাকবে)
-                                            Align(
-                                              alignment: Alignment.centerRight,
-                                              child: Material(
-                                                color: Colors.transparent,
-                                                child: InkWell(
-                                                  onTap: () async {
-                                                    _messageController.text =
-                                                        "@$seatUserName ";
-                                                    _messageController
-                                                            .selection =
-                                                        TextSelection
-                                                            .fromPosition(
-                                                      TextPosition(
-                                                          offset:
-                                                              _messageController
-                                                                  .text.length),
-                                                    );
+                                              // ২. মেনশন বাটন (এটি ডায়ালগের ডানপাশে পজিশন করা থাকবে)
+                                              Align(
+                                                alignment:
+                                                    Alignment.centerRight,
+                                                child: Material(
+                                                  color: Colors.transparent,
+                                                  child: InkWell(
+                                                    onTap: () async {
+                                                      _messageController.text =
+                                                          "@$seatUserName ";
+                                                      _messageController
+                                                              .selection =
+                                                          TextSelection
+                                                              .fromPosition(
+                                                        TextPosition(
+                                                            offset:
+                                                                _messageController
+                                                                    .text
+                                                                    .length),
+                                                      );
 
-                                                    Navigator.of(context,
-                                                            rootNavigator: true)
-                                                        .pop();
+                                                      Navigator.of(context,
+                                                              rootNavigator:
+                                                                  true)
+                                                          .pop();
 
-                                                    await Future.delayed(
-                                                        const Duration(
-                                                            milliseconds: 100));
+                                                      await Future.delayed(
+                                                          const Duration(
+                                                              milliseconds:
+                                                                  100));
 
-                                                    if (context.mounted) {
-                                                      _showChatInputBottomSheet();
-                                                    }
-                                                  },
-                                                  borderRadius:
-                                                      BorderRadius.circular(20),
-                                                  child: Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 14,
-                                                        vertical: 8),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.cyanAccent
-                                                          .withOpacity(0.2),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              20),
-                                                      border: Border.all(
+                                                      if (context.mounted) {
+                                                        _showChatInputBottomSheet();
+                                                      }
+                                                    },
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            20),
+                                                    child: Container(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 14,
+                                                          vertical: 8),
+                                                      decoration: BoxDecoration(
                                                         color: Colors.cyanAccent
-                                                            .withOpacity(0.5),
-                                                        width: 1,
+                                                            .withOpacity(0.2),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(20),
+                                                        border: Border.all(
+                                                          color: Colors
+                                                              .cyanAccent
+                                                              .withOpacity(0.5),
+                                                          width: 1,
+                                                        ),
                                                       ),
-                                                    ),
-                                                    child: const Text(
-                                                      "@",
-                                                      style: TextStyle(
-                                                        color:
-                                                            Colors.cyanAccent,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        fontSize: 14,
+                                                      child: const Text(
+                                                        "@",
+                                                        style: TextStyle(
+                                                          color:
+                                                              Colors.cyanAccent,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontSize: 14,
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
                                                 ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-
-                                      // --- নামের গ্লাস বর্ডার বক্স (অফিশিয়াল/সুপার এডমিনদের জন্য শিমার ও গোল্ডেন বর্ডার, নরমালদের জন্য সিম্পল) ---
-                                      (() {
-                                        // রোল বা স্ট্যাটাস চেক করার লজিক
-                                        bool isOfficial =
-                                            (userData['isOfficial'] == true) ||
-                                                (userData['role'] ==
-                                                    'official');
-                                        bool isSuperAdmin =
-                                            (userData['isSuperAdmin'] ==
-                                                    true) ||
-                                                (userData['role'] ==
-                                                    'super_admin');
-                                        bool isSpecialUser =
-                                            isOfficial || isSuperAdmin;
-
-                                        return Container(
-                                          // স্লিম ও স্মুথ প্যাডিং (ব্যাজের মতো করে)
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 14, vertical: 6),
-                                          decoration: BoxDecoration(
-                                            color: isSpecialUser
-                                                ? Colors.black.withOpacity(0.4)
-                                                : Colors.white.withOpacity(0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(20),
-                                            border: Border.all(
-                                              color: isSpecialUser
-                                                  ? const Color(
-                                                      0xFFFFD700) // গোল্ডেন বর্ডার শুধু স্পেশালদের জন্য
-                                                  : Colors.white
-                                                      .withOpacity(0.3),
-                                              width: 1.2,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: isSpecialUser
-                                                    ? const Color(0xFFFFD700)
-                                                        .withOpacity(0.3)
-                                                    : Colors.purpleAccent
-                                                        .withOpacity(0.15),
-                                                blurRadius:
-                                                    isSpecialUser ? 6 : 10,
-                                                spreadRadius: 1,
                                               ),
                                             ],
                                           ),
-                                          child: isSpecialUser
-                                              ? Shimmer.fromColors(
-                                                  baseColor: isOfficial
-                                                      ? Colors.amber
-                                                      : Colors.purpleAccent,
-                                                  highlightColor: Colors.white,
-                                                  period: const Duration(
-                                                      milliseconds: 1500),
-                                                  child: Text(
-                                                    seatUserName,
-                                                    style: const TextStyle(
-                                                      fontSize: 16,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      letterSpacing: 0.8,
-                                                      height: 1.0,
-                                                    ),
-                                                  ),
-                                                )
-                                              : Text(
-                                                  seatUserName,
-                                                  style: const TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.white,
-                                                    letterSpacing: 0.8,
-                                                    height: 1.0,
-                                                  ),
+                                        ),
+                                        const SizedBox(height: 10),
+
+                                        // --- নামের গ্লাস বর্ডার বক্স (অফিশিয়াল/সুপার এডমিনদের জন্য শিমার ও গোল্ডেন বর্ডার, নরমালদের জন্য সিম্পল) ---
+                                        (() {
+                                          // রোল বা স্ট্যাটাস চেক করার লজিক
+                                          bool isOfficial =
+                                              (userData['isOfficial'] ==
+                                                      true) ||
+                                                  (userData['role'] ==
+                                                      'official');
+                                          bool isSuperAdmin =
+                                              (userData['isSuperAdmin'] ==
+                                                      true) ||
+                                                  (userData['role'] ==
+                                                      'super_admin');
+                                          bool isSpecialUser =
+                                              isOfficial || isSuperAdmin;
+
+                                          return Container(
+                                            // স্লিম ও স্মুথ প্যাডিং (ব্যাজের মতো করে)
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 14, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: isSpecialUser
+                                                  ? Colors.black
+                                                      .withOpacity(0.4)
+                                                  : Colors.white
+                                                      .withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                              border: Border.all(
+                                                color: isSpecialUser
+                                                    ? const Color(
+                                                        0xFFFFD700) // গোল্ডেন বর্ডার শুধু স্পেশালদের জন্য
+                                                    : Colors.white
+                                                        .withOpacity(0.3),
+                                                width: 1.2,
+                                              ),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: isSpecialUser
+                                                      ? const Color(0xFFFFD700)
+                                                          .withOpacity(0.3)
+                                                      : Colors.purpleAccent
+                                                          .withOpacity(0.15),
+                                                  blurRadius:
+                                                      isSpecialUser ? 6 : 10,
+                                                  spreadRadius: 1,
                                                 ),
-                                        );
-                                      })(),
-                                      // --- নামের গ্লাস বর্ডার বক্স শেষ ---
-
-                                      const SizedBox(height: 8),
-
-                                      // --- আইডি সেকশন (কপি করার সুবিধা ও শিমার লুকসহ) ---
-                                      GestureDetector(
-                                        onTap: () {
-                                          Clipboard.setData(ClipboardData(
-                                              text: seatUserId.toString()));
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            const SnackBar(
-                                              content: Text("ID Copied!"),
-                                              duration: Duration(seconds: 1),
+                                              ],
                                             ),
-                                          );
-                                        },
-                                        child: Builder(
-                                          builder: (context) {
-                                            bool isOfficial =
-                                                (userData['isOfficial'] ==
-                                                        true) ||
-                                                    (userData['role'] ==
-                                                        'official');
-                                            bool isSuperAdmin =
-                                                (userData['isSuperAdmin'] ==
-                                                        true) ||
-                                                    (userData['role'] ==
-                                                        'super_admin');
-                                            bool isSpecialUser =
-                                                isOfficial || isSuperAdmin;
-
-                                            return isSpecialUser
+                                            child: isSpecialUser
                                                 ? Shimmer.fromColors(
-                                                    baseColor:
-                                                        const Color.fromARGB(
-                                                            255, 4, 189, 251),
+                                                    baseColor: isOfficial
+                                                        ? Colors.amber
+                                                        : Colors.purpleAccent,
                                                     highlightColor:
                                                         Colors.white,
                                                     period: const Duration(
                                                         milliseconds: 1500),
                                                     child: Text(
-                                                      "ID: $seatUserId",
+                                                      seatUserName,
                                                       style: const TextStyle(
-                                                        fontSize: 13,
+                                                        fontSize: 16,
                                                         fontWeight:
                                                             FontWeight.bold,
+                                                        letterSpacing: 0.8,
+                                                        height: 1.0,
                                                       ),
                                                     ),
                                                   )
                                                 : Text(
-                                                    "ID: $seatUserId",
+                                                    seatUserName,
                                                     style: const TextStyle(
-                                                      color: Color.fromARGB(
-                                                          255, 4, 189, 251),
-                                                      fontSize: 13,
+                                                      fontSize: 16,
                                                       fontWeight:
                                                           FontWeight.bold,
+                                                      color: Colors.white,
+                                                      letterSpacing: 0.8,
+                                                      height: 1.0,
                                                     ),
-                                                  );
+                                                  ),
+                                          );
+                                        })(),
+                                        // --- নামের গ্লাস বর্ডার বক্স শেষ ---
+
+                                        const SizedBox(height: 8),
+
+                                        // --- আইডি সেকশন (কপি করার সুবিধা ও শিমার লুকসহ) ---
+                                        GestureDetector(
+                                          onTap: () {
+                                            Clipboard.setData(ClipboardData(
+                                                text: seatUserId.toString()));
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                content: Text("ID Copied!"),
+                                                duration: Duration(seconds: 1),
+                                              ),
+                                            );
                                           },
-                                        ),
-                                      ),
+                                          child: Builder(
+                                            builder: (context) {
+                                              bool isOfficial =
+                                                  (userData['isOfficial'] ==
+                                                          true) ||
+                                                      (userData['role'] ==
+                                                          'official');
+                                              bool isSuperAdmin =
+                                                  (userData['isSuperAdmin'] ==
+                                                          true) ||
+                                                      (userData['role'] ==
+                                                          'super_admin');
+                                              bool isSpecialUser =
+                                                  isOfficial || isSuperAdmin;
 
-                                      const SizedBox(height: 15),
-
-                                      // 🔥 ব্যাজ সেকশন: প্রতিটা ব্যাজ আলাদা আলাদা প্রিমিয়াম মিক্সড কালার ও গ্লাস বর্ডার সহ
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 20),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            // -------------------------------------------------------------
-                                            // 🟢 ১ম লাইন: আইকন ব্যাজসমূহ (VIP, Premium, Agency Image)
-                                            // -------------------------------------------------------------
-                                            Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                // ১. VIP Badge (যদি থাকে)
-                                                if (hasVip)
-                                                  Container(
-                                                    padding:
-                                                        const EdgeInsets.all(6),
-                                                    margin: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 4),
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              15),
-                                                      gradient:
-                                                          const LinearGradient(
-                                                        colors: [
-                                                          Colors.purpleAccent,
-                                                          Colors
-                                                              .deepOrangeAccent
-                                                        ],
-                                                        begin:
-                                                            Alignment.topLeft,
-                                                        end: Alignment
-                                                            .bottomRight,
-                                                      ),
-                                                      border: Border.all(
-                                                          color: Colors.white
-                                                              .withOpacity(0.4),
-                                                          width: 1.2),
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                            color: Colors.purple
-                                                                .withOpacity(
-                                                                    0.4),
-                                                            blurRadius: 6,
-                                                            spreadRadius: 1)
-                                                      ],
-                                                    ),
-                                                    child: CachedNetworkImage(
-                                                      imageUrl:
-                                                          getVipBadge(vipLevel),
-                                                      width: 30,
-                                                      height: 30,
-                                                      fit: BoxFit.contain,
-                                                      placeholder:
-                                                          (context, url) =>
-                                                              const SizedBox(
-                                                        width: 20,
-                                                        height: 20,
-                                                        child: Center(
-                                                          child:
-                                                              CircularProgressIndicator(
-                                                            strokeWidth: 1.5,
-                                                            color:
-                                                                Colors.white70,
-                                                          ),
+                                              return isSpecialUser
+                                                  ? Shimmer.fromColors(
+                                                      baseColor:
+                                                          const Color.fromARGB(
+                                                              255, 4, 189, 251),
+                                                      highlightColor:
+                                                          Colors.white,
+                                                      period: const Duration(
+                                                          milliseconds: 1500),
+                                                      child: Text(
+                                                        "ID: $seatUserId",
+                                                        style: const TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight:
+                                                              FontWeight.bold,
                                                         ),
                                                       ),
-                                                      errorWidget: (context,
-                                                              error,
-                                                              stackTrace) =>
-                                                          const SizedBox(
-                                                              width: 30,
-                                                              height: 30),
-                                                    ),
-                                                  ),
-
-                                                // ২. Premium Card Badge (যদি থাকে)
-                                                if (hasPremium)
-                                                  Container(
-                                                    padding:
-                                                        const EdgeInsets.all(6),
-                                                    margin: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 4),
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              15),
-                                                      gradient:
-                                                          const LinearGradient(
-                                                        colors: [
-                                                          Colors.amberAccent,
-                                                          Colors.pinkAccent
-                                                        ],
-                                                        begin:
-                                                            Alignment.topLeft,
-                                                        end: Alignment
-                                                            .bottomRight,
+                                                    )
+                                                  : Text(
+                                                      "ID: $seatUserId",
+                                                      style: const TextStyle(
+                                                        color: Color.fromARGB(
+                                                            255, 4, 189, 251),
+                                                        fontSize: 13,
+                                                        fontWeight:
+                                                            FontWeight.bold,
                                                       ),
-                                                      border: Border.all(
-                                                          color: Colors.white
-                                                              .withOpacity(0.4),
-                                                          width: 1.2),
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                            color: Colors.amber
-                                                                .withOpacity(
-                                                                    0.4),
-                                                            blurRadius: 6,
-                                                            spreadRadius: 1)
-                                                      ],
-                                                    ),
-                                                    child: CachedNetworkImage(
-                                                      imageUrl: premiumBadgeUrl,
-                                                      width: 30,
-                                                      height: 30,
-                                                      fit: BoxFit.contain,
-                                                      placeholder:
-                                                          (context, url) =>
-                                                              const SizedBox(
-                                                        width: 20,
-                                                        height: 20,
-                                                        child: Center(
-                                                          child:
-                                                              CircularProgressIndicator(
-                                                            strokeWidth: 1.5,
-                                                            color:
-                                                                Colors.white70,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      errorWidget: (context,
-                                                              error,
-                                                              stackTrace) =>
-                                                          const SizedBox(
-                                                              width: 30,
-                                                              height: 30),
-                                                    ),
-                                                  ),
-
-                                                // ৩. Agency Badge (যদি থাকে)
-                                                if (isAgent)
-                                                  Container(
-                                                    padding:
-                                                        const EdgeInsets.all(6),
-                                                    margin: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 4),
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              15),
-                                                      gradient:
-                                                          const LinearGradient(
-                                                        colors: [
-                                                          Colors.cyanAccent,
-                                                          Colors.blueAccent
-                                                        ],
-                                                        begin:
-                                                            Alignment.topLeft,
-                                                        end: Alignment
-                                                            .bottomRight,
-                                                      ),
-                                                      border: Border.all(
-                                                          color: Colors.white
-                                                              .withOpacity(0.4),
-                                                          width: 1.2),
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                            color: Colors.cyan
-                                                                .withOpacity(
-                                                                    0.4),
-                                                            blurRadius: 6,
-                                                            spreadRadius: 1)
-                                                      ],
-                                                    ),
-                                                    child: CachedNetworkImage(
-                                                      imageUrl:
-                                                          "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/agancy.png",
-                                                      width: 30,
-                                                      height: 30,
-                                                      fit: BoxFit.contain,
-                                                      placeholder:
-                                                          (context, url) =>
-                                                              const SizedBox(
-                                                        width: 20,
-                                                        height: 20,
-                                                        child: Center(
-                                                          child:
-                                                              CircularProgressIndicator(
-                                                            strokeWidth: 1.5,
-                                                            color:
-                                                                Colors.white70,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      errorWidget: (context,
-                                                              error,
-                                                              stackTrace) =>
-                                                          const SizedBox(
-                                                              width: 30,
-                                                              height: 30),
-                                                    ),
-                                                  ),
-                                                // ৪. Verified Badge (যদি isVerified ট্রু হয়)
-                                                if (userData['isVerified'] ==
-                                                    true)
-                                                  Padding(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 4),
-                                                    child: const Icon(
-                                                      Icons.verified,
-                                                      color: Color(0xFF00FBFF),
-                                                      size:
-                                                          22, // সাইজ চাইলে আপনার পছন্দমতো বাড়িয়ে বা কমিয়ে নিতে পারেন
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-
-                                            // -------------------------------------------------------------
-                                            // 🟡 ২য় লাইন: নতুন শিমার টেক্সট ব্যাজ সেকশন (ডাটাবেজ চেক সহ)
-                                            // -------------------------------------------------------------
-                                            const SizedBox(
-                                                height:
-                                                    4), // দুই লাইনের মাঝে হালকা গ্যাপ
-                                            UserBadgesRow(
-                                                userId: userData['uID'] ??
-                                                    '') // ডাটা থাকলে শিমার শাইনিং ও গোল্ডেন বর্ডারসহ শো করবে
-                                          ],
+                                                    );
+                                            },
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 25),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceEvenly,
-                                          children: [
-                                            _buildProfileActionButton(
-                                              icon: Icons.person_add,
-                                              label: "Follow",
-                                              color: Colors.blueAccent,
-                                              onTap: () {
-                                                Navigator.pop(ctx);
-                                                _toggleFollowUser(seatUserId);
-                                              },
-                                            ),
-                                            _buildProfileActionButton(
-                                              icon: Icons.chat_bubble_outline,
-                                              label: "Chat",
-                                              color: Colors.purpleAccent,
-                                              onTap: () {
-                                                Navigator.pop(ctx);
-                                                _goToInbox(
-                                                    seatUserId, seatUserName);
-                                              },
-                                            ),
-                                            _buildProfileActionButton(
-                                              icon: Icons.card_giftcard,
-                                              label: "Gift",
-                                              color: Colors.orangeAccent,
-                                              onTap: () {
-                                                Navigator.pop(ctx);
-                                                _openGiftPanel(seatUserId);
-                                              },
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      if (isOwner || isAdmin) ...[
-                                        const Divider(
-                                            color: Colors.white10, height: 30),
+
+                                        const SizedBox(height: 15),
+
+                                        // 🔥 ব্যাজ সেকশন: প্রতিটা ব্যাজ আলাদা আলাদা প্রিমিয়াম মিক্সড কালার ও গ্লাস বর্ডার সহ
                                         Padding(
-                                          padding:
-                                              const EdgeInsets.only(bottom: 20),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 20),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              // -------------------------------------------------------------
+                                              // 🟢 ১ম লাইন: আইকন ব্যাজসমূহ (VIP, Premium, Agency Image)
+                                              // -------------------------------------------------------------
+                                              Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  // ১. VIP Badge (যদি থাকে)
+                                                  if (hasVip)
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              6),
+                                                      margin: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 4),
+                                                      decoration: BoxDecoration(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(15),
+                                                        gradient:
+                                                            const LinearGradient(
+                                                          colors: [
+                                                            Colors.purpleAccent,
+                                                            Colors
+                                                                .deepOrangeAccent
+                                                          ],
+                                                          begin:
+                                                              Alignment.topLeft,
+                                                          end: Alignment
+                                                              .bottomRight,
+                                                        ),
+                                                        border: Border.all(
+                                                            color: Colors.white
+                                                                .withOpacity(
+                                                                    0.4),
+                                                            width: 1.2),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                              color: Colors
+                                                                  .purple
+                                                                  .withOpacity(
+                                                                      0.4),
+                                                              blurRadius: 6,
+                                                              spreadRadius: 1)
+                                                        ],
+                                                      ),
+                                                      child: CachedNetworkImage(
+                                                        imageUrl: getVipBadge(
+                                                            vipLevel),
+                                                        width: 30,
+                                                        height: 30,
+                                                        fit: BoxFit.contain,
+                                                        placeholder:
+                                                            (context, url) =>
+                                                                const SizedBox(
+                                                          width: 20,
+                                                          height: 20,
+                                                          child: Center(
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                              strokeWidth: 1.5,
+                                                              color: Colors
+                                                                  .white70,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        errorWidget: (context,
+                                                                error,
+                                                                stackTrace) =>
+                                                            const SizedBox(
+                                                                width: 30,
+                                                                height: 30),
+                                                      ),
+                                                    ),
+
+                                                  // ২. Premium Card Badge (যদি থাকে)
+                                                  if (hasPremium)
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              6),
+                                                      margin: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 4),
+                                                      decoration: BoxDecoration(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(15),
+                                                        gradient:
+                                                            const LinearGradient(
+                                                          colors: [
+                                                            Colors.amberAccent,
+                                                            Colors.pinkAccent
+                                                          ],
+                                                          begin:
+                                                              Alignment.topLeft,
+                                                          end: Alignment
+                                                              .bottomRight,
+                                                        ),
+                                                        border: Border.all(
+                                                            color: Colors.white
+                                                                .withOpacity(
+                                                                    0.4),
+                                                            width: 1.2),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                              color: Colors
+                                                                  .amber
+                                                                  .withOpacity(
+                                                                      0.4),
+                                                              blurRadius: 6,
+                                                              spreadRadius: 1)
+                                                        ],
+                                                      ),
+                                                      child: CachedNetworkImage(
+                                                        imageUrl:
+                                                            premiumBadgeUrl,
+                                                        width: 30,
+                                                        height: 30,
+                                                        fit: BoxFit.contain,
+                                                        placeholder:
+                                                            (context, url) =>
+                                                                const SizedBox(
+                                                          width: 20,
+                                                          height: 20,
+                                                          child: Center(
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                              strokeWidth: 1.5,
+                                                              color: Colors
+                                                                  .white70,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        errorWidget: (context,
+                                                                error,
+                                                                stackTrace) =>
+                                                            const SizedBox(
+                                                                width: 30,
+                                                                height: 30),
+                                                      ),
+                                                    ),
+
+                                                  // ৩. Agency Badge (যদি থাকে)
+                                                  if (isAgent)
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              6),
+                                                      margin: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 4),
+                                                      decoration: BoxDecoration(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(15),
+                                                        gradient:
+                                                            const LinearGradient(
+                                                          colors: [
+                                                            Colors.cyanAccent,
+                                                            Colors.blueAccent
+                                                          ],
+                                                          begin:
+                                                              Alignment.topLeft,
+                                                          end: Alignment
+                                                              .bottomRight,
+                                                        ),
+                                                        border: Border.all(
+                                                            color: Colors.white
+                                                                .withOpacity(
+                                                                    0.4),
+                                                            width: 1.2),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                              color: Colors.cyan
+                                                                  .withOpacity(
+                                                                      0.4),
+                                                              blurRadius: 6,
+                                                              spreadRadius: 1)
+                                                        ],
+                                                      ),
+                                                      child: CachedNetworkImage(
+                                                        imageUrl:
+                                                            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/agancy.png",
+                                                        width: 30,
+                                                        height: 30,
+                                                        fit: BoxFit.contain,
+                                                        placeholder:
+                                                            (context, url) =>
+                                                                const SizedBox(
+                                                          width: 20,
+                                                          height: 20,
+                                                          child: Center(
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                              strokeWidth: 1.5,
+                                                              color: Colors
+                                                                  .white70,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        errorWidget: (context,
+                                                                error,
+                                                                stackTrace) =>
+                                                            const SizedBox(
+                                                                width: 30,
+                                                                height: 30),
+                                                      ),
+                                                    ),
+                                                  // ৪. Verified Badge (যদি isVerified ট্রু হয়)
+                                                  if (userData['isVerified'] ==
+                                                      true)
+                                                    Padding(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 4),
+                                                      child: const Icon(
+                                                        Icons.verified,
+                                                        color:
+                                                            Color(0xFF00FBFF),
+                                                        size:
+                                                            22, // সাইজ চাইলে আপনার পছন্দমতো বাড়িয়ে বা কমিয়ে নিতে পারেন
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+
+                                              // -------------------------------------------------------------
+                                              // 🟡 ২য় লাইন: নতুন শিমার টেক্সট ব্যাজ সেকশন (ডাটাবেজ চেক সহ)
+                                              // -------------------------------------------------------------
+                                              const SizedBox(
+                                                  height:
+                                                      4), // দুই লাইনের মাঝে হালকা গ্যাপ
+                                              UserBadgesRow(
+                                                  userId: userData['uID'] ??
+                                                      '') // ডাটা থাকলে শিমার শাইনিং ও গোল্ডেন বর্ডারসহ শো করবে
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 25),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10),
                                           child: Row(
                                             mainAxisAlignment:
-                                                MainAxisAlignment.spaceAround,
+                                                MainAxisAlignment.spaceEvenly,
                                             children: [
-                                              _buildAdminAction(
-                                                icon: Icons.verified_user,
-                                                label: "Admin",
-                                                color: adminList
-                                                        .contains(seatUserId)
-                                                    ? Colors.green
-                                                    : Colors.white70,
-                                                onTap: () => _toggleAdmin(
-                                                    seatUserId,
-                                                    adminList
-                                                        .contains(seatUserId)),
-                                              ),
-                                              _buildAdminAction(
-                                                icon: (seatData?['isMicOn'] ==
-                                                        false)
-                                                    ? Icons.mic_off
-                                                    : Icons.mic,
-                                                label: (seatData?['isMicOn'] ==
-                                                        false)
-                                                    ? "Unmute"
-                                                    : "Mute",
-                                                color: (seatData?['isMicOn'] ==
-                                                        false)
-                                                    ? Colors.redAccent
-                                                    : Colors.greenAccent,
-                                                onTap: () async {
-                                                  int sIndex = index;
-                                                  bool currentMicStatus =
-                                                      seatData?['isMicOn'] ??
-                                                          true;
-                                                  bool newMicStatus =
-                                                      !currentMicStatus;
-                                                  try {
-                                                    await HapticFeedback
-                                                        .lightImpact();
-                                                    await FirebaseDatabase
-                                                        .instance
-                                                        .ref(
-                                                            'rooms/${widget.roomId}/seats/$sIndex')
-                                                        .update({
-                                                      'isMicOn': newMicStatus,
-                                                      'isTalking': false,
-                                                    });
-                                                  } catch (e) {
-                                                    debugPrint(
-                                                        "Admin Control Error: $e");
-                                                  }
-                                                },
-                                              ),
-                                              _buildAdminAction(
-                                                icon: Icons.gavel,
-                                                label: "Kick",
-                                                color: Colors.redAccent,
+                                              _buildProfileActionButton(
+                                                icon: Icons.person_add,
+                                                label: "Follow",
+                                                color: Colors.blueAccent,
                                                 onTap: () {
                                                   Navigator.pop(ctx);
-                                                  _kickUserFromRoom(seatUserId);
+                                                  _toggleFollowUser(seatUserId);
+                                                },
+                                              ),
+                                              _buildProfileActionButton(
+                                                icon: Icons.chat_bubble_outline,
+                                                label: "Chat",
+                                                color: Colors.purpleAccent,
+                                                onTap: () {
+                                                  Navigator.pop(ctx);
+                                                  _goToInbox(
+                                                      seatUserId, seatUserName);
+                                                },
+                                              ),
+                                              _buildProfileActionButton(
+                                                icon: Icons.card_giftcard,
+                                                label: "Gift",
+                                                color: Colors.orangeAccent,
+                                                onTap: () {
+                                                  Navigator.pop(ctx);
+                                                  _openGiftPanel(seatUserId);
                                                 },
                                               ),
                                             ],
                                           ),
                                         ),
-                                      ],
-                                      const SizedBox(height: 10),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        );
-                      },
-                      transitionBuilder: (ctx, anim1, anim2, child) {
-                        return BackdropFilter(
-                          filter: ImageFilter.blur(
-                              sigmaX: 8 * anim1.value, sigmaY: 8 * anim1.value),
-                          child: FadeTransition(opacity: anim1, child: child),
-                        );
-                      },
-                    );
-                  }
-                },
-                behavior: HitTestBehavior.opaque,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    RepaintBoundary(
-                      child: VoiceRipple(
-                        isTalking: isTalking,
-                        isMicOn: isMicOn,
-                        isOccupied: isOccupied,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              width: 68,
-                              height: 68,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  colors: isOccupied
-                                      ? [
-                                          Colors.cyanAccent,
-                                          Colors.purpleAccent,
-                                          Colors.pinkAccent,
-                                        ]
-                                      : [
-                                          Colors.white24,
-                                          Colors.white10,
-                                        ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                boxShadow: isOccupied
-                                    ? [
-                                        BoxShadow(
-                                          color: Colors.purpleAccent
-                                              .withOpacity(0.4),
-                                          blurRadius: 8,
-                                          spreadRadius: 1,
-                                        ),
-                                        BoxShadow(
-                                          color: Colors.cyanAccent
-                                              .withOpacity(0.2),
-                                          blurRadius: 12,
-                                          spreadRadius: 2,
-                                        ),
-                                      ]
-                                    : [],
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(2.5),
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.black87,
-                                        Colors.deepPurple.shade900
-                                            .withOpacity(0.8),
-                                      ],
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                    ),
-                                  ),
-                                  child: CircleAvatar(
-                                    radius: 30,
-                                    backgroundColor: Colors.transparent,
-                                    backgroundImage:
-                                        (isOccupied && uImage.isNotEmpty)
-                                            ? NetworkImage(uImage)
-                                            : null,
-                                    child: (isOccupied)
-                                        ? (uImage.isEmpty
-                                            ? const Icon(Icons.person,
-                                                color: Colors.white24, size: 30)
-                                            : null)
-                                        : (seatData != null &&
-                                                seatData['isLocked'] == true)
-                                            ? Container(
-                                                decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  color: Colors
-                                                      .black, // প্রথম ছবির মতো ডিপ ব্ল্যাক ব্যাকগ্রাউন্ড
-                                                  boxShadow: [
-                                                    // সাইবার ব্লু গ্লোয়িং শ্যাডো (বাইরের দিকে ছড়াবে)
-                                                    BoxShadow(
-                                                      color: Colors.cyanAccent
-                                                          .withOpacity(0.7),
-                                                      blurRadius: 10,
-                                                      spreadRadius: 2,
-                                                    ),
-                                                  ],
-                                                  border: Border.all(
-                                                    color: Colors
-                                                        .cyanAccent, // উজ্জ্বল নীল বা সায়ান রিং বর্ডার
-                                                    width: 2.5,
-                                                  ),
+                                        if (isOwner || isAdmin) ...[
+                                          const Divider(
+                                              color: Colors.white10,
+                                              height: 30),
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                                bottom: 20),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.spaceAround,
+                                              children: [
+                                                _buildAdminAction(
+                                                  icon: Icons.verified_user,
+                                                  label: "Admin",
+                                                  color: adminList
+                                                          .contains(seatUserId)
+                                                      ? Colors.green
+                                                      : Colors.white70,
+                                                  onTap: () => _toggleAdmin(
+                                                      seatUserId,
+                                                      adminList.contains(
+                                                          seatUserId)),
                                                 ),
-                                                child: Center(
-                                                  child: Container(
-                                                    padding:
-                                                        const EdgeInsets.all(6),
-                                                    decoration: BoxDecoration(
-                                                      shape: BoxShape.circle,
-                                                      border: Border.all(
+                                                _buildAdminAction(
+                                                  icon: (seatData?['isMicOn'] ==
+                                                          false)
+                                                      ? Icons.mic_off
+                                                      : Icons.mic,
+                                                  label:
+                                                      (seatData?['isMicOn'] ==
+                                                              false)
+                                                          ? "Unmute"
+                                                          : "Mute",
+                                                  color:
+                                                      (seatData?['isMicOn'] ==
+                                                              false)
+                                                          ? Colors.redAccent
+                                                          : Colors.greenAccent,
+                                                  onTap: () async {
+                                                    int sIndex = index;
+                                                    bool currentMicStatus =
+                                                        seatData?['isMicOn'] ??
+                                                            true;
+                                                    bool newMicStatus =
+                                                        !currentMicStatus;
+                                                    try {
+                                                      await HapticFeedback
+                                                          .lightImpact();
+                                                      await FirebaseDatabase
+                                                          .instance
+                                                          .ref(
+                                                              'rooms/${widget.roomId}/seats/$sIndex')
+                                                          .update({
+                                                        'isMicOn': newMicStatus,
+                                                        'isTalking': false,
+                                                      });
+                                                    } catch (e) {
+                                                      debugPrint(
+                                                          "Admin Control Error: $e");
+                                                    }
+                                                  },
+                                                ),
+                                                _buildAdminAction(
+                                                  icon: Icons.gavel,
+                                                  label: "Kick",
+                                                  color: Colors.redAccent,
+                                                  onTap: () {
+                                                    Navigator.pop(ctx);
+                                                    _kickUserFromRoom(
+                                                        seatUserId);
+                                                  },
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                        const SizedBox(height: 10),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                        transitionBuilder: (ctx, anim1, anim2, child) {
+                          return BackdropFilter(
+                            filter: ImageFilter.blur(
+                                sigmaX: 8 * anim1.value,
+                                sigmaY: 8 * anim1.value),
+                            child: FadeTransition(opacity: anim1, child: child),
+                          );
+                        },
+                      );
+                    }
+                  },
+                  behavior: HitTestBehavior.opaque,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      RepaintBoundary(
+                        child: VoiceRipple(
+                          isTalking: isTalking,
+                          isMicOn: isMicOn,
+                          isOccupied: isOccupied,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                width: seatSize,
+                                height: seatSize,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    colors: isOccupied
+                                        ? [
+                                            Colors.cyanAccent,
+                                            Colors.purpleAccent,
+                                            Colors.pinkAccent,
+                                          ]
+                                        : [
+                                            Colors.white24,
+                                            Colors.white10,
+                                          ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  boxShadow: isOccupied
+                                      ? [
+                                          BoxShadow(
+                                            color: Colors.purpleAccent
+                                                .withOpacity(0.4),
+                                            blurRadius: 8,
+                                            spreadRadius: 1,
+                                          ),
+                                          BoxShadow(
+                                            color: Colors.cyanAccent
+                                                .withOpacity(0.2),
+                                            blurRadius: 12,
+                                            spreadRadius: 2,
+                                          ),
+                                        ]
+                                      : [],
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(2.5),
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.black87,
+                                          Colors.deepPurple.shade900
+                                              .withOpacity(0.8),
+                                        ],
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                      ),
+                                    ),
+                                    child: CircleAvatar(
+                                      radius: avatarSize ?? 30,
+                                      backgroundColor: Colors.transparent,
+                                      backgroundImage:
+                                          (isOccupied && uImage.isNotEmpty)
+                                              ? NetworkImage(uImage)
+                                              : null,
+                                      child: (isOccupied)
+                                          ? (uImage.isEmpty
+                                              ? Icon(Icons.person,
+                                                  color: Colors.white24,
+                                                  size: avatarSize != null
+                                                      ? avatarSize * 0.6
+                                                      : 30)
+                                              : null)
+                                          : (seatData != null &&
+                                                  seatData['isLocked'] == true)
+                                              ? Container(
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: Colors.black,
+                                                    boxShadow: [
+                                                      BoxShadow(
                                                         color: Colors.cyanAccent
-                                                            .withOpacity(
-                                                                0.5), // ভেতরের গোল রিং
-                                                        width: 1.2,
+                                                            .withOpacity(0.7),
+                                                        blurRadius: 10,
+                                                        spreadRadius: 2,
+                                                      ),
+                                                    ],
+                                                    border: Border.all(
+                                                      color: Colors.cyanAccent,
+                                                      width: 2.5,
+                                                    ),
+                                                  ),
+                                                  child: Center(
+                                                    child: Container(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              6),
+                                                      decoration: BoxDecoration(
+                                                        shape: BoxShape.circle,
+                                                        border: Border.all(
+                                                          color: Colors
+                                                              .cyanAccent
+                                                              .withOpacity(0.5),
+                                                          width: 1.2,
+                                                        ),
+                                                      ),
+                                                      child: const Icon(
+                                                        Icons.lock_rounded,
+                                                        color:
+                                                            Colors.cyanAccent,
+                                                        size: 18,
                                                       ),
                                                     ),
-                                                    child: const Icon(
-                                                      Icons
-                                                          .lock_rounded, // সাইবার লক স্টাইল
-                                                      color: Colors.cyanAccent,
-                                                      size: 18,
-                                                    ),
                                                   ),
+                                                )
+                                              : const Icon(
+                                                  Icons.chair_rounded,
+                                                  color: Colors.white12,
+                                                  size: 28,
                                                 ),
-                                              )
-                                            : const Icon(
-                                                Icons.chair_rounded,
-                                                color: Colors.white12,
-                                                size: 28,
-                                              ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (isOccupied && uFrame.isNotEmpty)
+                                IgnorePointer(
+                                  child: OverflowBox(
+                                    maxWidth:
+                                        (frameSize ?? (seatSize * 1.8)) * 1.2,
+                                    maxHeight:
+                                        (frameSize ?? (seatSize * 1.8)) * 1.2,
+                                    child: SizedBox(
+                                      width: frameSize ?? (seatSize * 1.8),
+                                      height: frameSize ?? (seatSize * 1.8),
+                                      child: uFrame.contains('.json')
+                                          ? Lottie.network(
+                                              uFrame,
+                                              fit: BoxFit.contain,
+                                              errorBuilder: (c, e, s) =>
+                                                  const SizedBox.shrink(),
+                                            )
+                                          : CachedNetworkImage(
+                                              imageUrl: uFrame,
+                                              fit: BoxFit.contain,
+                                              placeholder: (context, url) =>
+                                                  const SizedBox.shrink(),
+                                              errorWidget: (c, e, s) =>
+                                                  const SizedBox.shrink(),
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        isOccupied ? uName : "${index + 1}",
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isOccupied ? Colors.white : Colors.white38,
+                          fontWeight:
+                              isOccupied ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (isOccupied && uIDShow.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 1),
+                          child: Text(
+                            "ID: $uIDShow",
+                            style: const TextStyle(
+                                fontSize: 9,
+                                color: Colors.white54,
+                                letterSpacing: 0.2),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            // সুইচ কেস লেআউট রেন্ডার অংশ
+            switch (currentLayoutItemCount) {
+              case 2:
+                return Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      2,
+                      (index) => Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Center(
+                            child: SizedBox(
+                              width: 150.0,
+                              height: 170.0,
+                              child: FittedBox(
+                                fit: BoxFit.contain,
+                                child: dynamicItemBuilder(
+                                  context,
+                                  index,
+                                  seatSize: 150.0, // সিটের মূল সাইজ
+                                  avatarSize:
+                                      85.0, // 🟢 প্রফাইল পিকচারের সাইজ (প্রয়োজনমতো কম/বেশি করতে পারেন)
+                                  frameSize: 110.0, // 🟢 অবতার ফ্রেমের সাইজ
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+
+              case 10:
+                return Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // ================= প্রথম সারি (First Row) =================
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(
+                          5,
+                          (index) => Expanded(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 3),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 80.0,
+                                  height: 90.0,
+                                  child: FittedBox(
+                                    fit: BoxFit.contain,
+                                    child: dynamicItemBuilder(
+                                      context,
+                                      index,
+                                      seatSize: 80.0,
+                                      avatarSize: 60.0,
+                                      frameSize: 100.0,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                            if (isOccupied && uFrame.isNotEmpty)
-                              IgnorePointer(
-                                child: OverflowBox(
-                                  maxWidth: 160,
-                                  maxHeight: 160,
-                                  child: SizedBox(
-                                    width: 130,
-                                    height: 130,
-                                    child: uFrame.contains('.json')
-                                        ? Lottie.network(
-                                            uFrame,
-                                            fit: BoxFit.contain,
-                                            errorBuilder: (c, e, s) =>
-                                                const SizedBox.shrink(),
-                                          )
-                                        : CachedNetworkImage(
-                                            imageUrl: uFrame,
-                                            fit: BoxFit.contain,
-                                            placeholder: (context, url) =>
-                                                const SizedBox.shrink(),
-                                            errorWidget: (c, e, s) =>
-                                                const SizedBox.shrink(),
-                                          ),
+                          ),
+                        ),
+                      ),
+
+                      // ↕️ [১ম সারি থেকে ২য় সারির দূরত্ব ওভারফ্লো রোধ করতে কমানো হয়েছে]
+                      const SizedBox(height: 10),
+
+                      // ================= দ্বিতীয় সারি (Second Row) =================
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(
+                          5,
+                          (index) => Expanded(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 3),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 80.0,
+                                  height: 90.0,
+                                  child: FittedBox(
+                                    fit: BoxFit.contain,
+                                    child: dynamicItemBuilder(
+                                      context,
+                                      index + 5,
+                                      seatSize: 80.0,
+                                      avatarSize: 60.0,
+                                      frameSize: 100.0,
+                                    ),
                                   ),
                                 ),
                               ),
-                          ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              case 12:
+                return Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // হোস্ট সিট (index 0 এবং 1)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Center(
+                              child: SizedBox(
+                                // 🔲 [হোস্ট সিট ১ সাইজ] এখানে সাইজ বাড়াতে পারবেন
+                                width: 120.0,
+                                height: 130.0,
+                                child: FittedBox(
+                                  fit: BoxFit.contain,
+                                  child: dynamicItemBuilder(
+                                    context,
+                                    0,
+                                    seatSize: 120.0,
+                                    avatarSize:
+                                        65.0, // 🟢 প্রফাইল পিকচারের সাইজ
+                                    frameSize: 100.0, // 🟢 অবতার ফ্রেমের সাইজ
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Center(
+                              child: SizedBox(
+                                // 🔲 [হোস্ট সিট ২ সাইজ] এখানে সাইজ বাড়াতে পারবেন
+                                width: 120.0,
+                                height: 130.0,
+                                child: FittedBox(
+                                  fit: BoxFit.contain,
+                                  child: dynamicItemBuilder(
+                                    context,
+                                    1,
+                                    seatSize: 120.0,
+                                    avatarSize:
+                                        65.0, // 🟢 প্রফাইল পিকচারের সাইজ
+                                    frameSize: 100.0, // 🟢 অবতার ফ্রেমের সাইজ
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // ↕️ [হোস্ট সারি থেকে নিচের সারি দূরত্ব] এখান থেকে গ্যাপ কম বা বেশি করতে পারবেন
+                      const SizedBox(height: 15),
+
+                      // নিচের প্রথম সারি (index 2 থেকে 6)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(
+                          5,
+                          (index) => Expanded(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 70.0,
+                                  height: 80.0,
+                                  child: FittedBox(
+                                    fit: BoxFit.contain,
+                                    child: dynamicItemBuilder(
+                                        context, index + 2,
+                                        seatSize: 70.0),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // ↕️ [মাঝের সারি থেকে শেষের সারির দূরত্ব] এখান থেকেও গ্যাপ কন্ট্রোল করতে পারবেন
+                      const SizedBox(height: 20),
+
+                      // নিচের শেষ সারি (index 7 থেকে 11)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(
+                          5,
+                          (index) => Expanded(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 70.0,
+                                  height: 80.0,
+                                  child: FittedBox(
+                                    fit: BoxFit.contain,
+                                    child: dynamicItemBuilder(
+                                        context, index + 7,
+                                        seatSize: 70.0),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              case 18:
+                return Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  child: Column(
+                    children: [
+                      // উপরের ৩টি হোস্ট সিট (index 0, 1, 2)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          3,
+                          (index) => Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: SizedBox(
+                              width: 100.0,
+                              height: 110.0,
+                              child: FittedBox(
+                                fit: BoxFit.contain,
+                                child: dynamicItemBuilder(
+                                  context,
+                                  index,
+                                  seatSize: 100.0,
+                                  avatarSize:
+                                      60.0, // 🟢 আইডি দূরে যাওয়া ঠেকাতে সাইজ ঠিক রাখা হয়েছে
+                                  frameSize: 100.0,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // ↕️ [প্রথম ও দ্বিতীয় সারির মধ্যকার দূরত্ব] এখান থেকে বাড়াতে পারবেন
+                      const SizedBox(height: 1),
+
+                      // মাঝের সারি (index 3 থেকে 7)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(
+                          5,
+                          (index) => Expanded(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 70.0,
+                                  height: 80.0,
+                                  child: FittedBox(
+                                    fit: BoxFit.contain,
+                                    child: dynamicItemBuilder(
+                                      context,
+                                      index + 3,
+                                      seatSize: 70.0,
+                                      avatarSize: 38.0,
+                                      frameSize: 95.0,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // ↕️ [মাঝের ও শেষের সারির মধ্যকার দূরত্ব] এখান থেকেও বাড়াতে পারবেন
+                      const SizedBox(height: 8),
+
+                      // নিচের গ্রিড সারিগুলো (index 8 থেকে 17)
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: 10,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 5,
+                          childAspectRatio: 0.85,
+                          // ↕️ [গ্রিড লাইনের মধ্যকার উপর-নিচ দূরত্ব]
+                          mainAxisSpacing: 5,
+                          // ➡️ [গ্রিড লাইনের মধ্যকার পাশাপাশি দূরত্ব]
+                          crossAxisSpacing: 8,
+                        ),
+                        itemBuilder: (context, index) => SizedBox(
+                          width: 70.0,
+                          height: 80.0,
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: dynamicItemBuilder(
+                              context,
+                              index + 8,
+                              seatSize: 70.0,
+                              avatarSize: 38.0,
+                              frameSize: 95.0,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              case 20:
+                return Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: 20,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 5,
+                      childAspectRatio: 0.8,
+                      // ↕️ [উপর-নিচ দূরত্ব ওভারফ্লো রোধ করতে কমানো হয়েছে]
+                      mainAxisSpacing: 4,
+                      // ➡️ [পাশাপাশি দূরত্ব]
+                      crossAxisSpacing: 6,
+                    ),
+                    itemBuilder: (context, index) => SizedBox(
+                      width: 50.0,
+                      height: 60.0,
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: dynamicItemBuilder(
+                          context,
+                          index,
+                          seatSize: 50.0,
+                          avatarSize: 30.0,
+                          frameSize: 80.0,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      isOccupied ? uName : "${index + 1}",
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isOccupied ? Colors.white : Colors.white38,
-                        fontWeight:
-                            isOccupied ? FontWeight.bold : FontWeight.normal,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (isOccupied && uIDShow.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          "ID: $uIDShow",
-                          style: const TextStyle(
-                              fontSize: 9,
-                              color: Colors.white54,
-                              letterSpacing: 0.2),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            );
+                  ),
+                );
+              default:
+                return const SizedBox.shrink();
+            }
           },
         );
       },
@@ -4778,7 +5249,7 @@ class _VoiceRoomState extends State<VoiceRoom>
           // ১. ইমোজি বাটন 😄 (অন্যান্য বাটনের ডিজাইনের সাথে সামঞ্জস্যপূর্ণ)
           GestureDetector(
             onTap: () async {
-              if (currentSeatIndex < 0 || currentSeatIndex > 11) {
+              if (currentSeatIndex < 0 || currentSeatIndex > 19) {
                 ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("Take seat first")));
                 return;
@@ -4809,7 +5280,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                     'emojiTime': ServerValue.timestamp,
                   });
 
-                  Future.delayed(const Duration(seconds: 4), () {
+                  Future.delayed(const Duration(seconds: 7), () {
                     emojiRef.remove();
                     FirebaseDatabase.instance
                         .ref('rooms/${widget.roomId}/seats/$index')
@@ -4904,17 +5375,24 @@ class _VoiceRoomState extends State<VoiceRoom>
           ),
           const SizedBox(width: 8),
 
-          // ৩. মাইক কন্ট্রোল বাটন 🎤 (দ্বিতীয়)
+          // ৩. মাইক কন্ট্রোল বাটন 🎤 (খরচ অপ্টিমাইজড সহ)
           StatefulBuilder(
             builder: (context, setButtonState) {
               return GestureDetector(
                 onTap: () async {
-                  if (currentSeatIndex == -1) return;
+                  if (currentSeatIndex == -1) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text("আগে সিটে বসুন তারপর মাইক অন করুন!")),
+                    );
+                    return;
+                  }
                   try {
                     HapticFeedback.lightImpact();
                   } catch (_) {}
 
-                  bool newMicState = !isMicOn;
+                  bool newMicState =
+                      !isMicOn; // true মানে মাইক অন করতে চাচ্ছে, false মানে মিউট
 
                   setButtonState(() {
                     isMicOn = newMicState;
@@ -4926,6 +5404,13 @@ class _VoiceRoomState extends State<VoiceRoom>
                   });
 
                   try {
+                    // 🔥 খরচ বাঁচানোর মূল লজিক: মাইক বন্ধ থাকলে অডিয়েন্স মোড, চালু হলে ব্রডকাস্টার মোড
+                    if (!newMicState) {
+                      await _agoraManager.switchToAudienceMode();
+                    } else {
+                      await _agoraManager.becomeBroadcaster();
+                    }
+
                     await _agoraManager.toggleMic(!newMicState);
                     await FirebaseDatabase.instance
                         .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
@@ -5440,8 +5925,48 @@ class _VoiceRoomState extends State<VoiceRoom>
                   if (!isFree && totalAmount > 0) {
                     await RoomLevelHelper.addXpToRoom(
                         widget.roomId, totalAmount);
-                  }
 
+                    // রুম বক্সের ডায়মন্ড আপডেট ও ব্লাস্ট চেক লজিক
+                    DocumentReference boxRef = FirebaseFirestore.instance
+                        .collection('rooms')
+                        .doc(widget.roomId)
+                        .collection('room_box')
+                        .doc('current_box');
+
+                    await FirebaseFirestore.instance
+                        .runTransaction((transaction) async {
+                      DocumentSnapshot boxSnapshot =
+                          await transaction.get(boxRef);
+
+                      int currentTotal = 0;
+                      bool alreadyBlasted = false;
+
+                      if (boxSnapshot.exists) {
+                        var data = boxSnapshot.data() as Map<String, dynamic>;
+                        currentTotal = data['totalDiamonds'] ?? 0;
+                        alreadyBlasted = data['isBlasted'] ?? false;
+                      }
+
+                      int newTotal = currentTotal + totalAmount;
+
+                      // যদি ১ লাখ বা তার বেশি হয় এবং ইতিপূর্বে ব্লাস্ট না হয়ে থাকে
+                      bool shouldBlast = newTotal >= 100000 && !alreadyBlasted;
+
+                      // ১ লাখ হয়ে গেলে রিসেট হয়ে অতিরিক্ত বা নতুন কাউন্ট শুরু হওয়ার জন্য মাইনাস করা বা রিসেট করা
+                      int updatedTotal =
+                          shouldBlast ? (newTotal - 100000) : newTotal;
+
+                      transaction.set(
+                          boxRef,
+                          {
+                            'totalDiamonds': updatedTotal,
+                            if (shouldBlast)
+                              'isBlasted':
+                                  true, // শর্ত পূরণ হলে ব্লাস্ট ট্রু করে দিবে
+                          },
+                          SetOptions(merge: true));
+                    });
+                  }
                   // পিকে স্কোর আপডেট লজিক
                   if (isPKActive && currentPKData != null) {
                     if (receiverDocID ==
@@ -5763,6 +6288,64 @@ class _VoiceRoomState extends State<VoiceRoom>
                   'giftedAmount': FieldValue.increment(pointsToIncrement),
                 }, SetOptions(merge: true));
               }
+// ==========================================
+              // নতুন সংযোজন: শুধুমাত্র সচল (Live) ইভেন্টের টপ গিফটার আপডেট লজিক
+              // ==========================================
+              if (!isFree && totalAmount > 0 && senderDocID.isNotEmpty) {
+                try {
+                  var activeEventsQuery = await FirebaseFirestore.instance
+                      .collection('rooms')
+                      .doc(widget.roomId)
+                      .collection('room_events')
+                      .where('status', isEqualTo: 'Live')
+                      .get();
+
+                  for (var eventDoc in activeEventsQuery.docs) {
+                    String eventId = eventDoc.id;
+                    List currentTopGifters =
+                        List.from(eventDoc.data()['topGifters'] ?? []);
+
+                    // ইউজারের আগের গিফটের পরিমাণ আছে কিনা চেক করা
+                    int existingIndex = currentTopGifters.indexWhere((g) =>
+                        g['id'] == senderDocID || g['senderId'] == senderDocID);
+
+                    if (existingIndex != -1) {
+                      currentTopGifters[existingIndex]['gift'] =
+                          (currentTopGifters[existingIndex]['gift'] ?? 0) +
+                              totalAmount;
+                      currentTopGifters[existingIndex]['name'] = senderName;
+                      currentTopGifters[existingIndex]['image'] = senderImgUrl;
+                    } else {
+                      currentTopGifters.add({
+                        'id': senderDocID,
+                        'senderId': senderDocID,
+                        'name': senderName,
+                        'image': senderImgUrl,
+                        'gift': totalAmount,
+                      });
+                    }
+
+                    // কয়েন অনুযায়ী বড় থেকে ছোট (Descending) সর্ট করা
+                    currentTopGifters.sort(
+                        (a, b) => (b['gift'] ?? 0).compareTo(a['gift'] ?? 0));
+
+                    // শুধু সেরা শীর্ষ ৩ জনকে রাখা
+                    if (currentTopGifters.length > 3) {
+                      currentTopGifters = currentTopGifters.sublist(0, 3);
+                    }
+
+                    // ইভেন্ট ডকুমেন্টে আপডেট সেভ করা
+                    await FirebaseFirestore.instance
+                        .collection('rooms')
+                        .doc(widget.roomId)
+                        .collection('room_events')
+                        .doc(eventId)
+                        .update({'topGifters': currentTopGifters});
+                  }
+                } catch (e) {
+                  // কোনো এরর হলে যেন মূল গিফট প্রসেসে সমস্যা না হয়
+                }
+              }
 
               // মেসেজ লিস্টে ছবিসহ গিফট হিস্ট্রি পাঠানো
               await FirebaseFirestore.instance
@@ -6007,36 +6590,6 @@ class _VoiceRoomState extends State<VoiceRoom>
           }
         });
       },
-    );
-  }
-
-  Widget _buildRoomBanner(Map<String, dynamic> roomData) {
-    String bannerUrl = roomData['bannerUrl'] ?? "";
-
-    if (bannerUrl.isEmpty) return const SizedBox.shrink();
-
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        width: 150,
-        height: 80,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white24),
-          boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 4)],
-        ),
-        // CachedNetworkImage ব্যবহার করে পারফরম্যান্স বৃদ্ধি
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: CachedNetworkImage(
-            imageUrl: bannerUrl,
-            fit: BoxFit.cover,
-            placeholder: (context, url) =>
-                const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            errorWidget: (context, url, error) => const Icon(Icons.error),
-          ),
-        ),
-      ),
     );
   }
 

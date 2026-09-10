@@ -40,9 +40,9 @@ android {
         minSdk = flutter.minSdkVersion 
         targetSdk = flutter.targetSdkVersion
         
-        // 🎯 গুগল প্লে কনসোলের এরর ফিক্স করার জন্য নতুন নম্বর দেওয়া হলো
-        versionCode = 16
-        versionName = "1.0.11"
+        // 🎯 গুগল প্লে কনসোলের এরর ফিক্স করার জন্য নতুন নম্বর দেওয়া হলো
+        versionCode = 17
+        versionName = "1.0.12"
         
         multiDexEnabled = true
     }
@@ -52,14 +52,14 @@ android {
             // 🎯 এখানে আপনার আসল চাবি "release" কানেক্ট করে দেওয়া হলো
             signingConfig = signingConfigs.getByName("release")
             
-            // 🎯 কোটলিন ফাইলের সঠিক নিয়ম অনুযায়ী সেফটি লক অন করা হলো
+            // 🎯 কোটলিন ফাইলের সঠিক নিয়ম অনুযায়ী সেফটি লক অন করা হলো
             isMinifyEnabled = false
             isShrinkResources = false
         }
     }
 }
 
-// সাব-প্রোজেক্টগুলোর (যেমন gallery_saver) JVM Target কনф্লিক্ট মেটানোর জন্য
+// সাব-প্রোজেক্টগুলোর (যেমন gallery_saver) JVM Target কনফ্লিক্ট মেটানোর জন্য
 subprojects {
     afterEvaluate {
         if (project.hasProperty("android")) {
@@ -85,4 +85,7 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    
+    // Meta Audience Network Bidding Adapter for AdMob
+    implementation("com.google.ads.mediation:facebook:6.18.0.0")
 }

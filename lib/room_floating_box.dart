@@ -47,7 +47,7 @@ class RoomFloatingBox extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                // কাউন্টার সাইজ ছোট ও সুন্দর
+                // কাউন্টার সাইজ ছোট ও সুন্দর (১ লাখ বা 100k অনুযায়ী)
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -57,7 +57,7 @@ class RoomFloatingBox extends StatelessWidget {
                     border: Border.all(color: Colors.amber, width: 1),
                   ),
                   child: Text(
-                    "$currentDiamonds/25k",
+                    "$currentDiamonds/100k",
                     style: const TextStyle(
                         color: Colors.amber,
                         fontSize: 9,
@@ -79,7 +79,7 @@ class RoomFloatingBox extends StatelessWidget {
       isScrollControlled: true,
       builder: (context) => Container(
         padding: const EdgeInsets.all(20),
-        height: MediaQuery.of(context).size.height * 0.5,
+        height: MediaQuery.of(context).size.height * 0.55,
         decoration: const BoxDecoration(
           color: Color(0xFF1A1A2E),
           borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
@@ -104,11 +104,12 @@ class RoomFloatingBox extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             const Text(
-              "• Total 25,000 Diamonds gifts will blast the box.\n"
-              "• #1 Top Gifter gets: Avatar Frame + 5,000 Diamonds.\n"
-              "• Other Gifters get: Free Gifts + 1,000 Diamonds.\n"
-              "• All active room users get: 10 Diamonds each!\n"
-              "• Resets every 24 hours.",
+              "• Total 100,000 Diamonds gifts will blast the box.\n"
+              "• #1 Top Gifter: Avatar Frame + 15,000 Diamonds.\n"
+              "• #2 Top Gifter: 5,000 Diamonds.\n"
+              "• #3 Top Gifter: 3,000 Diamonds.\n"
+              "• Other Users (After top 3): 50 Diamonds each!\n"
+              "• Resets and restarts from 100k automatically.",
               style:
                   TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
             ),
@@ -126,7 +127,7 @@ class RoomFloatingBox extends StatelessWidget {
                   var data = snapshot.data!.data() as Map<String, dynamic>;
                   total = data['totalDiamonds'] ?? 0;
                 }
-                double progress = (total / 25000).clamp(0.0, 1.0);
+                double progress = (total / 100000).clamp(0.0, 1.0);
 
                 return Column(
                   children: [
@@ -138,7 +139,7 @@ class RoomFloatingBox extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "Progress: $total / 25,000 Diamonds",
+                      "Progress: $total / 100,000 Diamonds",
                       style:
                           const TextStyle(color: Colors.white54, fontSize: 12),
                     ),

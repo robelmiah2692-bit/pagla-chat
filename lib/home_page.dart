@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:pagla_chat/reels_ad_widget.dart';
 import 'package:pagla_chat/services/call_handler.dart';
 import 'package:pagla_chat/utils/daily_bonus_popup.dart';
 import 'dart:io' as io;
@@ -75,104 +76,106 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _fetchUserData() async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user != null) {
-    try {
-      var querySnapshot;
-      String email = user.email ?? '';
-      String authUid = user.uid;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        var querySnapshot;
+        String email = user.email ?? '';
+        String authUid = user.uid;
 
-      // ১. প্রথমে email দিয়ে খোঁজার চেষ্টা
-      if (email.isNotEmpty) {
-        try {
-          querySnapshot = await FirebaseFirestore.instance
-              .collection('users')
-              .where('email', isEqualTo: email)
-              .get(const GetOptions(source: Source.server));
-        } catch (_) {}
-      }
-
-      // ২. email দিয়ে না পেলে authUID দিয়ে খোঁজা
-      if (querySnapshot == null || querySnapshot.docs.isEmpty) {
-        try {
-          querySnapshot = await FirebaseFirestore.instance
-              .collection('users')
-              .where('authUID', isEqualTo: authUid)
-              .get(const GetOptions(source: Source.server));
-        } catch (_) {}
-      }
-
-      // ৩. uID দিয়ে খোঁজা
-      if (querySnapshot == null || querySnapshot.docs.isEmpty) {
-        try {
-          querySnapshot = await FirebaseFirestore.instance
-              .collection('users')
-              .where('uID', isEqualTo: authUid)
-              .get(const GetOptions(source: Source.server));
-        } catch (_) {}
-      }
-
-      // ৪. ছোট হাতের uid দিয়ে খোঁজা
-      if (querySnapshot == null || querySnapshot.docs.isEmpty) {
-        try {
-          querySnapshot = await FirebaseFirestore.instance
-              .collection('users')
-              .where('uid', isEqualTo: authUid)
-              .get(const GetOptions(source: Source.server));
-        } catch (_) {}
-      }
-
-      // ৫. কুয়েরিতে না পেলে সরাসরি ডকুমেন্ট আইডি (authUid) দিয়ে চেক করা
-      if (querySnapshot == null || querySnapshot.docs.isEmpty) {
-        try {
-          var directDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(authUid)
-              .get(const GetOptions(source: Source.server));
-
-          if (directDoc.exists) {
-            final docId = directDoc.id;
-            setState(() {
-              myCustomDocId = docId;
-              currentUserData = directDoc.data() as Map<String, dynamic>?;
-            });
-
-            if (!_isCallListenerInitialized && mounted) {
-              _isCallListenerInitialized = true;
-              CallHandler.listenForIncomingCalls(context, docId);
-            }
-            DailyBonusPopup.show(context, docId);
-            _updateStatus(true);
-            return;
-          }
-        } catch (_) {}
-      }
-
-      // চূড়ান্ত ফলাফল চেক করে ডাটা সেট করা
-      if (querySnapshot != null && querySnapshot.docs.isNotEmpty) {
-        final docId = querySnapshot.docs.first.id;
-
-        setState(() {
-          myCustomDocId = docId;
-          currentUserData =
-              querySnapshot.docs.first.data() as Map<String, dynamic>;
-        });
-
-        if (!_isCallListenerInitialized && mounted) {
-          _isCallListenerInitialized = true;
-          CallHandler.listenForIncomingCalls(context, docId);
+        // ১. প্রথমে email দিয়ে খোঁজার চেষ্টা
+        if (email.isNotEmpty) {
+          try {
+            querySnapshot = await FirebaseFirestore.instance
+                .collection('users')
+                .where('email', isEqualTo: email)
+                .get(const GetOptions(source: Source.server));
+          } catch (_) {}
         }
-        DailyBonusPopup.show(context, docId);
 
-        _updateStatus(true);
-      } else {
-        debugPrint("User Fetch Error: No user found across email, authUID, uID, or uid.");
+        // ২. email দিয়ে না পেলে authUID দিয়ে খোঁজা
+        if (querySnapshot == null || querySnapshot.docs.isEmpty) {
+          try {
+            querySnapshot = await FirebaseFirestore.instance
+                .collection('users')
+                .where('authUID', isEqualTo: authUid)
+                .get(const GetOptions(source: Source.server));
+          } catch (_) {}
+        }
+
+        // ৩. uID দিয়ে খোঁজা
+        if (querySnapshot == null || querySnapshot.docs.isEmpty) {
+          try {
+            querySnapshot = await FirebaseFirestore.instance
+                .collection('users')
+                .where('uID', isEqualTo: authUid)
+                .get(const GetOptions(source: Source.server));
+          } catch (_) {}
+        }
+
+        // ৪. ছোট হাতের uid দিয়ে খোঁজা
+        if (querySnapshot == null || querySnapshot.docs.isEmpty) {
+          try {
+            querySnapshot = await FirebaseFirestore.instance
+                .collection('users')
+                .where('uid', isEqualTo: authUid)
+                .get(const GetOptions(source: Source.server));
+          } catch (_) {}
+        }
+
+        // ৫. কুয়েরিতে না পেলে সরাসরি ডকুমেন্ট আইডি (authUid) দিয়ে চেক করা
+        if (querySnapshot == null || querySnapshot.docs.isEmpty) {
+          try {
+            var directDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(authUid)
+                .get(const GetOptions(source: Source.server));
+
+            if (directDoc.exists) {
+              final docId = directDoc.id;
+              setState(() {
+                myCustomDocId = docId;
+                currentUserData = directDoc.data() as Map<String, dynamic>?;
+              });
+
+              if (!_isCallListenerInitialized && mounted) {
+                _isCallListenerInitialized = true;
+                CallHandler.listenForIncomingCalls(context, docId);
+              }
+              DailyBonusPopup.show(context, docId);
+              _updateStatus(true);
+              return;
+            }
+          } catch (_) {}
+        }
+
+        // চূড়ান্ত ফলাফল চেক করে ডাটা সেট করা
+        if (querySnapshot != null && querySnapshot.docs.isNotEmpty) {
+          final docId = querySnapshot.docs.first.id;
+
+          setState(() {
+            myCustomDocId = docId;
+            currentUserData =
+                querySnapshot.docs.first.data() as Map<String, dynamic>;
+          });
+
+          if (!_isCallListenerInitialized && mounted) {
+            _isCallListenerInitialized = true;
+            CallHandler.listenForIncomingCalls(context, docId);
+          }
+          DailyBonusPopup.show(context, docId);
+
+          _updateStatus(true);
+        } else {
+          debugPrint(
+              "User Fetch Error: No user found across email, authUID, uID, or uid.");
+        }
+      } catch (e) {
+        debugPrint("User Fetch Error: $e");
       }
-    } catch (e) {
-      debugPrint("User Fetch Error: $e");
     }
   }
-}
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -518,7 +521,7 @@ class _HomePageState extends State<HomePage>
     );
   }
 
- @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
@@ -630,16 +633,23 @@ class _HomePageState extends State<HomePage>
                                 isLabelVisible: count > 0,
                                 backgroundColor: Colors.redAccent,
                                 child: AnimatedBuilder(
-                                  animation: _colorAnimation, // চলমান গোল্ডেন সাইনিং ও ঘণ্টা দুলুনি অ্যানিমেশন
+                                  animation:
+                                      _colorAnimation, // চলমান গোল্ডেন সাইনিং ও ঘণ্টা দুলুনি অ্যানিমেশন
                                   builder: (context, child) {
                                     return Transform.rotate(
-                                      angle: 0.15 * sin(_colorAnimation.value * 2 * 3.1416), // ঘণ্টা বাজার মতো ডানে-বামে দুলবে
+                                      angle: 0.15 *
+                                          sin(_colorAnimation.value *
+                                              2 *
+                                              3.1416), // ঘণ্টা বাজার মতো ডানে-বামে দুলবে
                                       child: ShaderMask(
-                                        shaderCallback: (bounds) => LinearGradient(
+                                        shaderCallback: (bounds) =>
+                                            LinearGradient(
                                           colors: const [
                                             Color(0xFFFFD700), // Pure Gold
-                                            Color(0xFFFFA500), // Bright Amber/Gold
-                                            Color(0xFFFFF8DC), // Cornsilk Shimmer Shine
+                                            Color(
+                                                0xFFFFA500), // Bright Amber/Gold
+                                            Color(
+                                                0xFFFFF8DC), // Cornsilk Shimmer Shine
                                             Color(0xFFFFD700),
                                           ],
                                           stops: [
@@ -653,7 +663,8 @@ class _HomePageState extends State<HomePage>
                                         child: const Icon(
                                           Icons.notifications_active_rounded,
                                           size: 28,
-                                          color: Colors.white, // ShaderMask এর জন্য সাদা রাখতে হবে
+                                          color: Colors
+                                              .white, // ShaderMask এর জন্য সাদা রাখতে হবে
                                         ),
                                       ),
                                     );
@@ -698,17 +709,32 @@ class _HomePageState extends State<HomePage>
                       }
 
                       final docs = snapshot.data!.docs;
+
+                      // প্রতি ৪টি পোস্টের পর ১টি অ্যাড দেখানোর জন্য মোট আইটেম সংখ্যা হিসাব করা হলো
+                      int totalCount = docs.length + (docs.length ~/ 4);
+
                       return SliverList(
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
+                            // প্রতি ৫টি আইটেমের পর (৪টি পোস্ট + ১টি অ্যাড) অ্যাড উইজেট দেখাবে
+                            bool isAdPosition = (index + 1) % 5 == 0;
+
+                            if (isAdPosition) {
+                              // আপনার তৈরি করা নেটিভ অ্যাড উইজেট
+                              return const ReelsAdWidget();
+                            }
+
+                            // পোস্টের সঠিক ইনডেক্স বের করার হিসাব
+                            int postIndex = index - (index ~/ 5);
+
                             final data =
-                                docs[index].data() as Map<String, dynamic>;
+                                docs[postIndex].data() as Map<String, dynamic>;
                             return PostCard(
                               data: data,
-                              postId: docs[index].id,
+                              postId: docs[postIndex].id,
                             );
                           },
-                          childCount: docs.length,
+                          childCount: totalCount,
                         ),
                       );
                     },

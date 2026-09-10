@@ -198,6 +198,97 @@ class RoomSettingsHandler {
                   ),
                   const SizedBox(height: 25),
                 ],
+                
+              // --- সিট লেআউট পরিবর্তন করার বাটন (ওনার ও এডমিনদের জন্য) ---
+  if (isOwner || isAdmin) ...[
+    const Padding(
+      padding: EdgeInsets.only(left: 15, top: 15, bottom: 10),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          "Seat Layout Settings",
+          style: TextStyle(
+            color: Colors.amberAccent,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    ),
+    StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(roomId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        int currentLayout = 10;
+        if (snapshot.hasData && snapshot.data!.exists) {
+          var data = snapshot.data!.data() as Map<String, dynamic>;
+          currentLayout = data['seatLayoutCount'] ?? 10;
+        }
+
+        // লেআউট বাটন তৈরির জন্য একটি ছোট হেল্পার ফাংশন
+        Widget buildLayoutButton(int layoutCount) {
+          bool isSelected = currentLayout == layoutCount;
+
+          return ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isSelected ? Colors.amber : Colors.white10,
+              foregroundColor: isSelected ? Colors.black : Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () async {
+              try {
+                await FirebaseFirestore.instance
+                    .collection('rooms')
+                    .doc(roomId)
+                    .update({
+                  'seatLayoutCount': layoutCount,
+                });
+              } catch (e) {
+                print("Error updating layout: $e");
+              }
+            },
+            child: Text(
+              "$layoutCount Seats",
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15),
+          child: Column(
+            children: [
+              // প্রথম সারি: ২, ১০, ১২ সিট
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  buildLayoutButton(2),
+                  buildLayoutButton(10),
+                  buildLayoutButton(12),
+                ],
+              ),
+              const SizedBox(height: 10),
+              // দ্বিতীয় সারি: ১৮ ও ২০ সিট
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  buildLayoutButton(18),
+                  buildLayoutButton(20),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+    const SizedBox(height: 20),
+  ],
+                
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [

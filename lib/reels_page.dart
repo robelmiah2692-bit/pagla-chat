@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:pagla_chat/reels_interstitial_ad_manager.dart';
 import 'package:video_player/video_player.dart';
 import 'reels_ad_widget.dart'; // 🔥 আলাদা করা অ্যাড ফাইল
 
@@ -105,26 +106,32 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
             );
           }
 
-          // 🔥 মোট আইটেম সংখ্যা হিসাব (প্রতি ৫টি ভিডিওর পর ১টি করে অ্যাড যুক্ত করা)
-          int totalItemsCount = videoDocs.length + (videoDocs.length ~/ 5);
+          // 🔥 মোট আইটেম সংখ্যা হিসাব (প্রতি ৩টি ভিডিওর পর ১টি করে নেটিভ অ্যাড স্লট যুক্ত করা)
+          int totalItemsCount = videoDocs.length + (videoDocs.length ~/ 3);
 
           return PageView.builder(
             controller: _pageController,
             scrollDirection: Axis.vertical,
             itemCount: totalItemsCount,
             onPageChanged: (index) {
-              _currentIndexNotifier.value = index; // setState ছাড়াই ইন্ডেক্স আপডেট
+              _currentIndexNotifier.value = index; 
+
+              // 🔥 ৩টি ভিডিও বা নির্দিষ্ট ইন্টারваলে ইন্টার্সটিশিয়াল অ্যাড ট্রিগার করার লজিক
+              // যখন ইউজার স্ক্রল করে কোনো অ্যাড স্লটে বা নির্দিষ্ট পেজে পৌঁছাবে
+              if ((index + 1) % 4 == 0) {
+                ReelsInterstitialAdManager.showAd();
+              }
             },
             itemBuilder: (context, index) {
-              // চেক করা এটি অ্যাড স্লট কিনা
-              bool isAdSlot = (index > 0 && (index + 1) % 6 == 0);
+              // চেক করা এটি নেটিভ অ্যাড স্লট কিনা (প্রতি ৪থ ইনডেক্সে অর্থাৎ ৩টি ভিডিওর পর)
+              bool isAdSlot = (index > 0 && (index + 1) % 4 == 0);
 
               if (isAdSlot) {
                 return const ReelsAdWidget();
               }
 
-              // রিয়েল ভিডিও ইনডেক্স হিসাব করা
-              int videoIndex = index - (index ~/ 6);
+              // রিয়েল ভিডিও ইনডেক্স হিসাব করা (প্রতি ৩টি ভিডিও পর পর অ্যাড বাদ দিয়ে রিয়েল ইনডেক্স বের করা)
+              int videoIndex = index - (index ~/ 4);
               if (videoIndex >= videoDocs.length) {
                 videoIndex = videoDocs.length - 1;
               }
@@ -168,7 +175,6 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
     );
   }
 }
-
 // 🔥 গ্লোবাল ভিডিও ক্যাশ ম্যানেজার যাতে একই ভিডিও বারবার রিক্রিয়েট বা রি-লোড না হয়
 class VideoCacheManager {
   static final Map<String, VideoPlayerController> _cache = {};
