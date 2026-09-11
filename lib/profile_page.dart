@@ -4169,7 +4169,7 @@ class _ProfilePageState extends State<ProfilePage> {
           'partnerName': partnerData['name'] ?? 'Unknown',
           'partnerImage':
               partnerData['image'] ?? partnerData['profilePic'] ?? '',
-          'totalGift': partnerData['totalGift'] ?? 0,
+          'soulmateTotalGift': partnerData['soulmateTotalGift'] ?? 0,
           // ব্রেকআপ বাটন কাজ করার জন্য পার্টনারের আইডিটি এখানে যোগ করে দিলাম
           'partnerId': partnerUid,
           'ownerId': uIDValue,
@@ -4180,13 +4180,30 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-// 🔥 সোলমেট কার্ড উইজেট (পার্টনারের ছবিতে ক্লিক করলে প্রোফাইলে যাওয়ার ব্যবস্থা সহ)
+// 🔥 সোলমেট কার্ড উইজেট (হার্ড সিকিউরিটি ও স্ট্রিক্ট ওনারশিপ চেক সহ)
   Widget _buildFilledSoulmate(Map<String, dynamic> data) {
-    int totalGift = data['totalGift'] ?? 0;
-    int level = (totalGift / 5000).floor().clamp(1, 50);
+    var rawGift = data['soulmateTotalGift'] ?? data['totalGift'];
+    int totalGift = 0;
+    if (rawGift != null) {
+      totalGift = int.tryParse(rawGift.toString()) ?? 0;
+    }
 
+    int level = 1;
+    int currentLevelBase = 8000;
+    int tempXp = totalGift;
+
+    while (tempXp >= currentLevelBase && level < 50) {
+      tempXp -= currentLevelBase;
+      level++;
+      currentLevelBase += 2000;
+    }
+
+    if (level >= 50) {
+      level = 50;
+    }
     return GestureDetector(
       onTap: () async {
+        // 🔥 পার্টনারের প্রোফাইলে যাওয়ার অংশ (আগের মতোই থাকবে)
         String partnerId = data['partnerId'] ?? data['partnerAuthUID'] ?? '';
         if (partnerId.isNotEmpty) {
           String finalIdToPass = partnerId;
@@ -4215,79 +4232,63 @@ class _ProfilePageState extends State<ProfilePage> {
           );
         }
       },
-      // 🔥 ব্রেকআপ বাটন ট্রিগার করার জন্য লং প্রেস (শুধু কার্ডের আসল মালিকের জন্য নিরাপদ করা হয়েছে)
+      // 🔥 লং প্রেস ব্রেকআপ অংশ (হার্ড কন্ডিশন ভ্যালিডেশন)
       onLongPress: () async {
-        String currentAuthUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-        String currentUserEmail = FirebaseAuth.instance.currentUser?.email ?? '';
+        User? currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser == null) return;
 
         bool isOwner = false;
+        String partnerId = data['partnerId'] ?? data['partnerAuthUID'] ?? '';
 
-        // ১. ডাটা বা ডকুমেন্টের ভেতরের আইডিগুলো দিয়ে প্রাথমিক চেক
-        List<String> possibleOwnerIds = [
-          data['authUID'] ?? '',
-          data['uid'] ?? '',
-          data['uID'] ?? '',
-          data['userId'] ?? '',
-          data['email'] ?? '',
-          data['ownerId'] ?? '',
-        ];
+        try {
+          // ইউজারের আসল ডকুমেন্ট ফেচ করা
+          var userDocQuery = await FirebaseFirestore.instance
+              .collection('users')
+              .where('uid', isEqualTo: currentUser.uid)
+              .limit(1)
+              .get();
 
-        if (possibleOwnerIds.contains(currentAuthUid) ||
-            (currentUserEmail.isNotEmpty && possibleOwnerIds.contains(currentUserEmail))) {
-          isOwner = true;
-        }
-
-        // ২. যদি সরাসরি না মেলে, তবে 'users' কালেকশন থেকে email, authUID, uID, uid দিয়ে কনফার্ম চেক করা
-        if (!isOwner && currentAuthUid.isNotEmpty) {
-          try {
-            var userDocCheck = await FirebaseFirestore.instance
+          if (userDocQuery.docs.isEmpty) {
+            userDocQuery = await FirebaseFirestore.instance
                 .collection('users')
-                .where('authUID', isEqualTo: currentAuthUid)
+                .where('authUID', isEqualTo: currentUser.uid)
                 .limit(1)
                 .get();
-
-            if (userDocCheck.docs.isEmpty) {
-              userDocCheck = await FirebaseFirestore.instance
-                  .collection('users')
-                  .where('uid', isEqualTo: currentAuthUid)
-                  .limit(1)
-                  .get();
-            }
-
-            if (userDocCheck.docs.isNotEmpty) {
-              var uMap = userDocCheck.docs.first.data();
-              String dbUid = uMap['uid']?.toString() ?? '';
-              String dbAuthUid = uMap['authUID']?.toString() ?? '';
-              String dbCustomUid = uMap['uID']?.toString() ?? '';
-              String dbEmail = uMap['email']?.toString() ?? '';
-
-              List<String> dbFieldsToCheck = [
-                data['authUID']?.toString() ?? '',
-                data['uid']?.toString() ?? '',
-                data['uID']?.toString() ?? '',
-                data['userId']?.toString() ?? '',
-                data['email']?.toString() ?? '',
-                data['ownerId']?.toString() ?? '',
-              ];
-
-              if (dbFieldsToCheck.contains(dbAuthUid) ||
-                  dbFieldsToCheck.contains(dbUid) ||
-                  dbFieldsToCheck.contains(dbCustomUid) ||
-                  (dbEmail.isNotEmpty && dbFieldsToCheck.contains(dbEmail))) {
-                isOwner = true;
-              }
-            }
-          } catch (e) {
-            debugPrint("❌ সোলমেট ওনারশিপ চেক করতে ত্রুটি: $e");
           }
+
+          if (userDocQuery.docs.isNotEmpty) {
+            var myDoc = userDocQuery.docs.first;
+            var myData = myDoc.data();
+            String myDocId = myDoc.id; // যেমন: 454488
+            String myCustomUid = myData['uID']?.toString() ?? '';
+            List<dynamic> mySoulmatesArray = myData['soulmates'] ?? [];
+
+            // কার্ডের ডেটা থেকে ওনার আইডিগুলো চেক করা
+            String cardOwnerId = data['ownerId']?.toString() ?? '';
+            String cardAuthUid = data['authUID']?.toString() ?? '';
+
+            // হার্ড কন্ডিশন: ইউজার নিজে যদি কার্ডের মালিক হয় অথবা তার soulmates অ্যারেতে পার্টনারের আইডি থাকে
+            if (cardOwnerId == myDocId ||
+                cardOwnerId == myCustomUid ||
+                cardOwnerId == currentUser.uid ||
+                cardAuthUid == currentUser.uid ||
+                mySoulmatesArray.contains(partnerId) ||
+                mySoulmatesArray.contains(cardOwnerId)) {
+              isOwner = true;
+            }
+          }
+        } catch (e) {
+          debugPrint("❌ ওনারশিপ চেক ত্রুটি: $e");
         }
 
-        // যদি ইউজার এই সোলমেটের আসল মালিক না হয়, তবে লং প্রেস কাজ করবে না (ব্রেকআপ ডায়ালগ আসবে না)
         if (!isOwner) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text("You are not the owner of this soulmate!")),
+          );
           return;
         }
 
-        String partnerId = data['partnerId'] ?? data['partnerAuthUID'] ?? '';
         if (partnerId.isNotEmpty) {
           _showBreakupDialog(partnerId);
         }
@@ -4297,18 +4298,100 @@ class _ProfilePageState extends State<ProfilePage> {
         children: [
           Align(
             alignment: Alignment.topRight,
-            child: Container(
-              margin: const EdgeInsets.only(right: 12, top: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.redAccent,
-                borderRadius: BorderRadius.circular(8),
+            child: GestureDetector(
+              onTap: () async {
+                // 🔥 কঠোর সিকিউরিটি চেক: লেভেল বা সোলমেট ডিটেইলে ঢোকার আগে ভ্যালিডেশন
+                User? currentUser = FirebaseAuth.instance.currentUser;
+                if (currentUser == null) return;
+
+                bool isAuthorized = false;
+                String partnerId =
+                    data['partnerId'] ?? data['partnerAuthUID'] ?? '';
+                String cardOwnerId = data['ownerId']?.toString() ?? '';
+                String cardAuthUid = data['authUID']?.toString() ?? '';
+
+                try {
+                  // ইউজারের মূল ডাটাবেজ ডকুমেন্ট আনা
+                  var userDocQuery = await FirebaseFirestore.instance
+                      .collection('users')
+                      .where('uid', isEqualTo: currentUser.uid)
+                      .limit(1)
+                      .get();
+
+                  if (userDocQuery.docs.isEmpty) {
+                    userDocQuery = await FirebaseFirestore.instance
+                        .collection('users')
+                        .where('authUID', isEqualTo: currentUser.uid)
+                        .limit(1)
+                        .get();
+                  }
+
+                  if (userDocQuery.docs.isNotEmpty) {
+                    var myDoc = userDocQuery.docs.first;
+                    var myData = myDoc.data();
+                    String myDocId = myDoc.id; // যেমন: 454488
+                    String myCustomUid = myData['uID']?.toString() ?? '';
+                    List<dynamic> mySoulmatesArray = myData['soulmates'] ?? [];
+
+                    // হার্ড কন্ডিশন ১: কার্ডের মালিক যদি ইউজার নিজেই হয়
+                    bool isCardOwner = (cardOwnerId == myDocId ||
+                        cardOwnerId == myCustomUid ||
+                        cardOwnerId == currentUser.uid ||
+                        cardAuthUid == currentUser.uid ||
+                        cardAuthUid == myDocId);
+
+                    // হার্ড কন্ডিশন ২: ইউজারের নিজের সোলমেট লিস্টে (অ্যারেতে) পার্টনার বা কার্ডের ওনারের আইডি থাকতে হবে
+                    bool isInSoulmateList =
+                        (mySoulmatesArray.contains(partnerId) ||
+                            mySoulmatesArray.contains(cardOwnerId) ||
+                            mySoulmatesArray.contains(cardAuthUid));
+
+                    // যদি এই শর্তগুলোর যেকোনো একটিও পূরণ না হয়, তবে সে পেজে ঢুকতে পারবে না
+                    if (isCardOwner || isInSoulmateList) {
+                      isAuthorized = true;
+                    }
+                  }
+                } catch (e) {
+                  debugPrint("❌ সিকিউরিটি ভ্যালিডেশন ত্রুটি: $e");
+                }
+
+                if (!context.mounted) return;
+
+                // যদি অথরাইজড বা নিজের সোলমেট হয়, তবেই ডিটেইল পেজে যাবে
+                if (isAuthorized) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SoulmateDetailPage(
+                        soulmateData: data,
+                        uIDValue: uIDValue,
+                      ),
+                    ),
+                  );
+                } else {
+                  // অন্য কেউ ঢুকতে গেলে সাথে সাথে ব্লক করে মেসেজ দেখাবে
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content:
+                          Text("Access Denied! This is not your soulmate."),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+              child: Container(
+                margin: const EdgeInsets.only(right: 12, top: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text("Lv.$level",
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold)),
               ),
-              child: Text("Lv.$level",
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold)),
             ),
           ),
           const Spacer(),
@@ -4388,7 +4471,7 @@ class _ProfilePageState extends State<ProfilePage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         title: const Text("Sure end relationship ?",
             style: TextStyle(color: Colors.white, fontSize: 16)),
-        content: const Text("End relationship need 1500 daimond",
+        content: const Text("End relationship need 50000 daimond",
             style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
@@ -4548,11 +4631,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
                   // ১. র ম্যাারেজ ডকুমেন্ট বা পাসের ডেটা থেকে চেক
                   List<String> possibleOwnerIds = [
+                    rawMarriageDoc['myAuthUID'] ?? '',
                     rawMarriageDoc['authUID'] ?? '',
                     rawMarriageDoc['uid'] ?? '',
                     rawMarriageDoc['uID'] ?? '',
                     rawMarriageDoc['userId'] ?? '',
                     rawMarriageDoc['email'] ?? '',
+                    data['myAuthUID'] ?? '',
                     data['authUID'] ?? '',
                     data['uid'] ?? '',
                     data['uID'] ?? '',
@@ -4591,6 +4676,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                         // marriages ডকুমেন্টের বিভিন্ন ফিল্ডের সাথে মিলিয়ে দেখা
                         List<String> dbFieldsToCheck = [
+                          rawMarriageDoc['myAuthUID']?.toString() ?? '',
                           rawMarriageDoc['authUID']?.toString() ?? '',
                           rawMarriageDoc['uid']?.toString() ?? '',
                           rawMarriageDoc['uID']?.toString() ?? '',
@@ -4782,303 +4868,328 @@ class _ProfilePageState extends State<ProfilePage> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.grey[950],
+      backgroundColor: Colors
+          .transparent, // ব্যাকগ্রাউন্ড ট্রান্সপারেন্ট রাখতে হবে যাতে গ্রেডিয়েন্ট কর্নার দেখা যায়
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
       builder: (context) {
         return StatefulBuilder(
           builder: (BuildContext context, setState) {
-            return Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 5,
-                    decoration: BoxDecoration(
-                        color: Colors.grey[700],
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  const SizedBox(height: 20),
-                  Text("💍 $ringName 💍",
-                      style: const TextStyle(
-                          color: Colors.amber,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 15),
+            return Container(
+              decoration: BoxDecoration(
+                // 🌈 ৩/৪ টি কালারের মিক্সড লাক্সারি গ্রেডিয়েন্ট ডিজাইন (Black, Deep Purple, Dark Red, Dark Grey)
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF1a001a), // ডিপ পার্পল/ম্যাজেন্টা শেড
+                    Color(0xFF2b0909), // ডার্ক রেড/মেরুন শেড
+                    Color(0xFF0F0F0F), // রিচ ব্ল্যাক
+                    Color(0xFF000000), // পিওর ব্ল্যাক
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(25)),
+                border: Border.all(
+                  color: Colors.amber.withOpacity(
+                      0.3), // চারপাশে একটি হালকা গোল্ডেন বর্ডার লাক্সারি লুক দেওয়ার জন্য
+                  width: 1.5,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 5,
+                      decoration: BoxDecoration(
+                          color: Colors.amber[700],
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    const SizedBox(height: 20),
+                    Text("💍 $ringName 💍",
+                        style: const TextStyle(
+                            color: Colors.amber,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 15),
 
-                  // 👥 ২ জনের ছবি ও নাম পাশাপাশি গ্রাফিক্স
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      // 👤 নিজের প্রোফাইল (বাম পাশে)
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircleAvatar(
-                              radius: 35,
-                              backgroundColor: Colors.grey[900],
-                              child: ClipOval(
-                                child: myImage.trim().isEmpty
-                                    ? const Icon(Icons.person,
-                                        color: Colors.white, size: 35)
-                                    : CachedNetworkImage(
-                                        imageUrl: myImage.trim(),
-                                        width: 70,
-                                        height: 70,
-                                        fit: BoxFit.cover,
-                                        placeholder: (context, url) =>
-                                            const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: Center(
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 1.5,
-                                              color: Colors.white70,
-                                            ),
-                                          ),
-                                        ),
-                                        errorWidget: (context, error,
-                                                stackTrace) =>
-                                            const Icon(Icons.person,
-                                                color: Colors.white, size: 35),
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              myName,
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // ❤️ মাঝখানের লাভ আইকন
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 5),
-                        child:
-                            Icon(Icons.favorite, color: Colors.red, size: 35),
-                      ),
-
-                      // 👥 পার্টনারের প্রোফাইল (ডান পাশে)
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircleAvatar(
-                              radius: 35,
-                              backgroundColor: Colors.grey[900],
-                              child: ClipOval(
-                                child: partnerImage.trim().isEmpty
-                                    ? const Icon(Icons.person,
-                                        color: Colors.white, size: 35)
-                                    : CachedNetworkImage(
-                                        imageUrl: partnerImage.trim(),
-                                        width: 70,
-                                        height: 70,
-                                        fit: BoxFit.cover,
-                                        placeholder: (context, url) =>
-                                            const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: Center(
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 1.5,
-                                              color: Colors.white70,
-                                            ),
-                                          ),
-                                        ),
-                                        errorWidget: (context, error,
-                                                stackTrace) =>
-                                            const Icon(Icons.person,
-                                                color: Colors.white, size: 35),
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              partnerName,
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 25),
-
-                  // 🗓️ বিয়ের তারিখ সেকশন
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 15, vertical: 10),
-                    decoration: BoxDecoration(
-                        color: Colors.grey[900],
-                        borderRadius: BorderRadius.circular(12)),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    // 👥 ২ জনের ছবি ও নাম পাশাপাশি গ্রাফিক্স
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        const Icon(Icons.calendar_month,
-                            color: Colors.pinkAccent, size: 20),
-                        const SizedBox(width: 10),
-                        Flexible(
-                          child: Text(
-                            "Marriage Date: $marriageDate",
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500),
+                        // 👤 নিজের প্রোফাইল (বাম পাশে)
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircleAvatar(
+                                radius: 35,
+                                backgroundColor: Colors.grey[900],
+                                child: ClipOval(
+                                  child: myImage.trim().isEmpty
+                                      ? const Icon(Icons.person,
+                                          color: Colors.white, size: 35)
+                                      : CachedNetworkImage(
+                                          imageUrl: myImage.trim(),
+                                          width: 70,
+                                          height: 70,
+                                          fit: BoxFit.cover,
+                                          placeholder: (context, url) =>
+                                              const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: Center(
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 1.5,
+                                                color: Colors.white70,
+                                              ),
+                                            ),
+                                          ),
+                                          errorWidget:
+                                              (context, error, stackTrace) =>
+                                                  const Icon(Icons.person,
+                                                      color: Colors.white,
+                                                      size: 35),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                myName,
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // ❤️ মাঝখানের লাভ আইকন
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 5),
+                          child:
+                              Icon(Icons.favorite, color: Colors.red, size: 35),
+                        ),
+
+                        // 👥 পার্টনারের প্রোফাইল (ডান পাশে)
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircleAvatar(
+                                radius: 35,
+                                backgroundColor: Colors.grey[900],
+                                child: ClipOval(
+                                  child: partnerImage.trim().isEmpty
+                                      ? const Icon(Icons.person,
+                                          color: Colors.white, size: 35)
+                                      : CachedNetworkImage(
+                                          imageUrl: partnerImage.trim(),
+                                          width: 70,
+                                          height: 70,
+                                          fit: BoxFit.cover,
+                                          placeholder: (context, url) =>
+                                              const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: Center(
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 1.5,
+                                                color: Colors.white70,
+                                              ),
+                                            ),
+                                          ),
+                                          errorWidget:
+                                              (context, error, stackTrace) =>
+                                                  const Icon(Icons.person,
+                                                      color: Colors.white,
+                                                      size: 35),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                partnerName,
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 25),
+                    const SizedBox(height: 25),
 
-                  // 💔 ডিভোর্স বাটন লজিক (১০০% ফিক্সড এবং হ্যাং ইস্যু মুক্ত)
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15)),
+                    // 🗓️ বিয়ের তারিখ সেকশন
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 15, vertical: 10),
+                      decoration: BoxDecoration(
+                          color: Colors.grey[900],
+                          borderRadius: BorderRadius.circular(12)),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.calendar_month,
+                              color: Colors.pinkAccent, size: 20),
+                          const SizedBox(width: 10),
+                          Flexible(
+                            child: Text(
+                              "Marriage Date: $marriageDate",
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    icon: const Icon(Icons.heart_broken, color: Colors.white),
-                    label: const Text("Divorce Cost(3000 💎)",
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold)),
-                    onPressed: () async {
-                      if (currentUid.isEmpty) return;
+                    const SizedBox(height: 25),
 
-                      bool confirm = await showDialog(
+                    // 💔 ডিভোর্স বাটন লজিক (১০০% ফিক্সড এবং হ্যাং ইস্যু মুক্ত)
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        minimumSize: const Size(double.infinity, 50),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15)),
+                      ),
+                      icon: const Icon(Icons.heart_broken, color: Colors.white),
+                      label: const Text("Divorce Cost(100k 💎)",
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold)),
+                      onPressed: () async {
+                        if (currentUid.isEmpty) return;
+
+                        bool confirm = await showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                  backgroundColor: Colors.grey[900],
+                                  title: const Text("Divorce Confirmation",
+                                      style: TextStyle(color: Colors.white)),
+                                  content: const Text(
+                                      "Are You Sure? 100k Diamonds will be deducted.",
+                                      style: TextStyle(color: Colors.grey)),
+                                  actions: [
+                                    TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, false),
+                                        child: const Text("No")),
+                                    TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, true),
+                                        child: const Text("Yes",
+                                            style:
+                                                TextStyle(color: Colors.red))),
+                                  ]),
+                            ) ??
+                            false;
+
+                        if (confirm) {
+                          // ⏳ লোডিং ডায়ালগ ওপেন
+                          showDialog(
                             context: context,
-                            builder: (context) => AlertDialog(
-                                backgroundColor: Colors.grey[900],
-                                title: const Text("Divorce Confirmation",
-                                    style: TextStyle(color: Colors.white)),
-                                content: const Text(
-                                    "Are You Sure? 3000 Diamonds will be deducted.",
-                                    style: TextStyle(color: Colors.grey)),
-                                actions: [
-                                  TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(context, false),
-                                      child: const Text("No")),
-                                  TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(context, true),
-                                      child: const Text("Yes",
-                                          style: TextStyle(color: Colors.red))),
-                                ]),
-                          ) ??
-                          false;
+                            barrierDismissible: false,
+                            builder: (context) => const Center(
+                                child: CircularProgressIndicator(
+                                    color: Colors.redAccent)),
+                          );
 
-                      if (confirm) {
-                        // ❌ সাবধান: এখানে আগে Navigator.pop(context) কল করা যাবে না।
-                        // করলে কনটেক্সট ডেড হয়ে যাবে এবং অ্যাপ হ্যাং করবে।
+                          try {
+                            // ১. সঠিক ইউজার ডকুমেন্ট খোঁজা (where কুয়েরি দিয়ে)
+                            QuerySnapshot userQuery = await _firestore
+                                .collection('users')
+                                .where('uid', isEqualTo: currentUid)
+                                .limit(1)
+                                .get();
 
-                        // ⏳ লোডিং ডায়ালগ ওপেন
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (context) => const Center(
-                              child: CircularProgressIndicator(
-                                  color: Colors.redAccent)),
-                        );
-
-                        try {
-                          // ১. সঠিক ইউজার ডকুমেন্ট খোঁজা (where কুয়েরি দিয়ে)
-                          QuerySnapshot userQuery = await _firestore
-                              .collection('users')
-                              .where('uid', isEqualTo: currentUid)
-                              .limit(1)
-                              .get();
-
-                          if (userQuery.docs.isEmpty) {
-                            throw "User document not found in database!";
-                          }
-
-                          DocumentReference userRef =
-                              userQuery.docs.first.reference;
-
-                          // ২. ডায়মন্ড চেক এবং কাটা (Transaction)
-                          await _firestore.runTransaction((transaction) async {
-                            DocumentSnapshot userSnapshot =
-                                await transaction.get(userRef);
-
-                            if (!userSnapshot.exists) {
-                              throw "User snapshot does not exist!";
+                            if (userQuery.docs.isEmpty) {
+                              throw "User document not found in database!";
                             }
 
-                            var uData =
-                                userSnapshot.data() as Map<String, dynamic>;
-                            int currentDiamonds = uData['diamonds'] ?? 0;
+                            DocumentReference userRef =
+                                userQuery.docs.first.reference;
 
-                            if (currentDiamonds < 3000) {
-                              throw "Insufficient Diamonds! You need 3000 💎";
-                            }
+                            // ২. ডায়মন্ড চেক এবং কাটা (Transaction)
+                            await _firestore
+                                .runTransaction((transaction) async {
+                              DocumentSnapshot userSnapshot =
+                                  await transaction.get(userRef);
 
-                            transaction.update(userRef, {
-                              'diamonds': currentDiamonds - 3000,
+                              if (!userSnapshot.exists) {
+                                throw "User snapshot does not exist!";
+                              }
+
+                              var uData =
+                                  userSnapshot.data() as Map<String, dynamic>;
+                              int currentDiamonds = uData['diamonds'] ?? 0;
+
+                              if (currentDiamonds < 100000) {
+                                throw "Insufficient Diamonds! You need 100k 💎";
+                              }
+
+                              transaction.update(userRef, {
+                                'diamonds': currentDiamonds - 100000,
+                              });
                             });
-                          });
 
-                          // ৩. দুইজনের ম্যারেজ রেকর্ড মুছে ফেলা (আপনার এবং পার্টনারের)
-                          WriteBatch batch = _firestore.batch();
-                          batch.delete(_firestore
-                              .collection('marriages')
-                              .doc(currentUid));
-                          if (partnerAuthUID.isNotEmpty) {
+                            // ৩. দুইজনের ম্যারেজ রেকর্ড মুছে ফেলা (আপনার এবং পার্টনারের)
+                            WriteBatch batch = _firestore.batch();
                             batch.delete(_firestore
                                 .collection('marriages')
-                                .doc(partnerAuthUID));
+                                .doc(currentUid));
+                            if (partnerAuthUID.isNotEmpty) {
+                              batch.delete(_firestore
+                                  .collection('marriages')
+                                  .doc(partnerAuthUID));
+                            }
+                            await batch.commit();
+
+                            // ৪. সাবধানে ডায়ালগ এবং বটম শিট বন্ধ করা
+                            Navigator.pop(context); // প্রথমে লোডিং ডায়ালগ বন্ধ
+                            Navigator.pop(context); // এরপর বটম শিট বন্ধ
+
+                            // ۵. সাকসেস মেসেজ
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text(
+                                      "💔 Divorce Completed Successfully! 100k 💎 Charged."),
+                                  backgroundColor: Colors.green),
+                            );
+                          } catch (e) {
+                            // এরর হলেও যাতে হ্যাং না হয়, সেজন্য লোডিংটা বন্ধ করতে হবে
+                            Navigator.pop(context);
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text("❌ Error: $e"),
+                                  backgroundColor: Colors.red),
+                            );
                           }
-                          await batch.commit();
-
-                          // ৪. সাবধানে ডায়ালগ এবং বটম শিট বন্ধ করা
-                          Navigator.pop(context); // প্রথমে লোডিং ডায়ালগ বন্ধ
-                          Navigator.pop(context); // এরপর বটম শিট বন্ধ
-
-                          // ۵. সাকসেস মেসেজ
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text(
-                                    "💔 Divorce Completed Successfully! 3000 💎 Charged."),
-                                backgroundColor: Colors.green),
-                          );
-                        } catch (e) {
-                          // এরর হলেও যাতে হ্যাং না হয়, সেজন্য লোডিংটা বন্ধ করতে হবে
-                          Navigator.pop(context);
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                                content: Text("❌ Error: $e"),
-                                backgroundColor: Colors.red),
-                          );
                         }
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                ],
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ),
               ),
             );
           },

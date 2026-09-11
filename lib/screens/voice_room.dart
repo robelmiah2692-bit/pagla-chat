@@ -4146,7 +4146,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                             ],
                                           ),
                                         ),
-                                        const SizedBox(height: 10),
+                                        const SizedBox(height: 5),
 
                                         // --- নামের গ্লাস বর্ডার বক্স (অফিশিয়াল/সুপার এডমিনদের জন্য শিমার ও গোল্ডেন বর্ডার, নরমালদের জন্য সিম্পল) ---
                                         (() {
@@ -4232,7 +4232,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                         })(),
                                         // --- নামের গ্লাস বর্ডার বক্স শেষ ---
 
-                                        const SizedBox(height: 8),
+                                        const SizedBox(height: 5),
 
                                         // --- আইডি সেকশন (কপি করার সুবিধা ও শিমার লুকসহ) ---
                                         GestureDetector(
@@ -4293,8 +4293,154 @@ class _VoiceRoomState extends State<VoiceRoom>
                                             },
                                           ),
                                         ),
+                                        const SizedBox(height: 5),
+// ২. এক সারিতে অ্যাক্টিভ ও গিফট লেভেল (শুধু নাম্বার ও ডাইনামিক কালার)
+                                        Builder(
+                                          builder: (context) {
+                                            // --- Active Level Calculation ---
+                                            int activeXp =
+                                                userData['totalActiveXp'] ?? 0;
+                                            int activeLevel = 1;
+                                            int activeReqXp = 8000;
+                                            int remActiveXp = activeXp;
+                                            while (remActiveXp >= activeReqXp &&
+                                                activeLevel < 50) {
+                                              remActiveXp -= activeReqXp;
+                                              activeLevel++;
+                                              activeReqXp += 2000;
+                                            }
+                                            if (activeLevel >= 50)
+                                              activeLevel = 50;
 
-                                        const SizedBox(height: 15),
+                                            // Active Level Color Logic
+                                            Color activeColor =
+                                                Colors.pinkAccent;
+                                            if (activeLevel >= 10 &&
+                                                activeLevel < 20)
+                                              activeColor =
+                                                  const Color(0xFFFF00FF);
+                                            if (activeLevel >= 20 &&
+                                                activeLevel < 35)
+                                              activeColor = Colors.redAccent;
+                                            if (activeLevel >= 35)
+                                              activeColor =
+                                                  const Color(0xFFFFD700);
+
+                                            // --- Gift Level Calculation ---
+                                            int giftXp =
+                                                userData['totalGiftXp'] ?? 0;
+                                            int giftLevel = 1;
+                                            int giftReqXp = 8000;
+                                            int remGiftXp = giftXp;
+                                            while (remGiftXp >= giftReqXp &&
+                                                giftLevel < 50) {
+                                              remGiftXp -= giftReqXp;
+                                              giftLevel++;
+                                              giftReqXp += 2000;
+                                            }
+                                            if (giftLevel >= 50) giftLevel = 50;
+
+                                            // Gift Level Color Logic
+                                            Color giftColor =
+                                                Colors.purpleAccent;
+                                            if (giftLevel >= 10 &&
+                                                giftLevel < 20)
+                                              giftColor =
+                                                  const Color(0xFFFF00FF);
+                                            if (giftLevel >= 20 &&
+                                                giftLevel < 35)
+                                              giftColor = Colors.pinkAccent;
+                                            if (giftLevel >= 35)
+                                              giftColor = Colors.amberAccent;
+
+                                            return Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                // Active Level Badge
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 3),
+                                                  decoration: BoxDecoration(
+                                                    color: activeColor
+                                                        .withOpacity(0.15),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            10),
+                                                    border: Border.all(
+                                                        color: activeColor
+                                                            .withOpacity(0.6),
+                                                        width: 1),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Icon(Icons.favorite,
+                                                          size: 10,
+                                                          color: activeColor),
+                                                      const SizedBox(width: 3),
+                                                      Text(
+                                                        "Lv.$activeLevel",
+                                                        style: TextStyle(
+                                                          color: activeColor,
+                                                          fontSize: 10,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+
+                                                const SizedBox(width: 6),
+
+                                                // Gift Level Badge
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 3),
+                                                  decoration: BoxDecoration(
+                                                    color: giftColor
+                                                        .withOpacity(0.15),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            10),
+                                                    border: Border.all(
+                                                        color: giftColor
+                                                            .withOpacity(0.6),
+                                                        width: 1),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Icon(Icons.local_florist,
+                                                          size: 10,
+                                                          color: giftColor),
+                                                      const SizedBox(width: 3),
+                                                      Text(
+                                                        "Lv.$giftLevel",
+                                                        style: TextStyle(
+                                                          color: giftColor,
+                                                          fontSize: 10,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        ),
+
+                                        const SizedBox(height: 5),
 
                                         // 🔥 ব্যাজ সেকশন: প্রতিটা ব্যাজ আলাদা আলাদা প্রিমিয়াম মিক্সড কালার ও গ্লাস বর্ডার সহ
                                         Padding(
@@ -4544,7 +4690,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                             ],
                                           ),
                                         ),
-                                        const SizedBox(height: 25),
+                                        const SizedBox(height: 5),
                                         Padding(
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 10),
@@ -5889,6 +6035,11 @@ class _VoiceRoomState extends State<VoiceRoom>
               int unitPrice = (gift['price'] ?? 0).toInt();
               int totalAmount = unitPrice * count;
 
+             // আপনার দেওয়া ডাটা অনুযায়ী রিং গিফট সঠিকভাবে শনাক্ত করার শর্ত (Type অথবা ID চেক)
+              String giftType = gift['type']?.toString() ?? '';
+              String giftId = gift['id']?.toString() ?? '';
+              bool isRingGift = (giftType == 'marriage_ring' || giftId.startsWith('ring_'));
+
               try {
                 bool isFree =
                     (gift['isFree'] == true) || (gift['expiry'] != null);
@@ -5921,11 +6072,12 @@ class _VoiceRoomState extends State<VoiceRoom>
                     giftName: gift['name'] ?? "Gift",
                   );
 
-                  // রুমের এক্সপি আপডেট
-                  if (!isFree && totalAmount > 0) {
+                  // রুমের এক্সপি আপডেট (রিং গিফট হলে রুম এক্সপি ও বক্স আপডেট হবে না)
+                  if (!isFree && totalAmount > 0 && !isRingGift) {
                     await RoomLevelHelper.addXpToRoom(
                         widget.roomId, totalAmount);
-
+                    
+                    
                     // রুম বক্সের ডায়মন্ড আপডেট ও ব্লাস্ট চেক লজিক
                     DocumentReference boxRef = FirebaseFirestore.instance
                         .collection('rooms')
@@ -5967,8 +6119,8 @@ class _VoiceRoomState extends State<VoiceRoom>
                           SetOptions(merge: true));
                     });
                   }
-                  // পিকে স্কোর আপডেট লজিক
-                  if (isPKActive && currentPKData != null) {
+                 // পিকে স্কোর আপডেট লজিক (রিংয়ের ক্ষেত্রে পিকে স্কোর বাড়বে না)
+                  if (isPKActive && currentPKData != null && !isRingGift) {
                     if (receiverDocID ==
                             currentPKData!['u1']?['uID']?.toString() ||
                         receiverDocID ==
@@ -5991,8 +6143,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                       });
                     }
                   }
-                  // এক্সপি ডিস্ট্রিবিউশন লজিক
-                  if (!isFree && totalAmount > 0) {
+                 if (!isFree && totalAmount > 0 && !isRingGift) {
                     final firestore = FirebaseFirestore.instance;
                     int calculatedXp = totalAmount ~/ 700;
 
@@ -6111,6 +6262,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                   }
 
                   String senderSixDigitId = senderDocID;
+
 
                   if (senderSixDigitId.isNotEmpty &&
                       receiverSixDigitId.isNotEmpty) {

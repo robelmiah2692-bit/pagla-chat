@@ -198,97 +198,139 @@ class RoomSettingsHandler {
                   ),
                   const SizedBox(height: 25),
                 ],
-                
-              // --- সিট লেআউট পরিবর্তন করার বাটন (ওনার ও এডমিনদের জন্য) ---
-  if (isOwner || isAdmin) ...[
-    const Padding(
-      padding: EdgeInsets.only(left: 15, top: 15, bottom: 10),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          "Seat Layout Settings",
-          style: TextStyle(
-            color: Colors.amberAccent,
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-    ),
-    StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('rooms')
-          .doc(roomId)
-          .snapshots(),
-      builder: (context, snapshot) {
-        int currentLayout = 10;
-        if (snapshot.hasData && snapshot.data!.exists) {
-          var data = snapshot.data!.data() as Map<String, dynamic>;
-          currentLayout = data['seatLayoutCount'] ?? 10;
-        }
 
-        // লেআউট বাটন তৈরির জন্য একটি ছোট হেল্পার ফাংশন
-        Widget buildLayoutButton(int layoutCount) {
-          bool isSelected = currentLayout == layoutCount;
+                if (isOwner || isAdmin) ...[
+                  const Padding(
+                    padding: EdgeInsets.only(left: 15, top: 5, bottom: 10),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "Seat Layout Settings",
+                        style: TextStyle(
+                          color: Colors.amberAccent,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                  StreamBuilder<DocumentSnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('rooms')
+                        .doc(roomId)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      int layoutCountVal = 10;
+                      int roomLvlVal = 1;
+                      Map<String, dynamic> roomData = {};
 
-          return ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isSelected ? Colors.amber : Colors.white10,
-              foregroundColor: isSelected ? Colors.black : Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onPressed: () async {
-              try {
-                await FirebaseFirestore.instance
-                    .collection('rooms')
-                    .doc(roomId)
-                    .update({
-                  'seatLayoutCount': layoutCount,
-                });
-              } catch (e) {
-                print("Error updating layout: $e");
-              }
-            },
-            child: Text(
-              "$layoutCount Seats",
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-          );
-        }
+                      if (snapshot.hasData && snapshot.data!.exists) {
+                        roomData =
+                            snapshot.data!.data() as Map<String, dynamic>;
+                        layoutCountVal = roomData['seatLayoutCount'] ?? 10;
+                        int totalXp = roomData['totalXp'] ?? 0;
+                        roomLvlVal = RoomLevelHelper.calculateLevel(totalXp);
+                      }
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15),
-          child: Column(
-            children: [
-              // প্রথম সারি: ২, ১০, ১২ সিট
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  buildLayoutButton(2),
-                  buildLayoutButton(10),
-                  buildLayoutButton(12),
+                      bool isLayoutUnlocked(int layoutCount) {
+                        if (layoutCount == 10) return true;
+                        if (layoutCount == 2 && roomLvlVal >= 6) return true;
+                        if (layoutCount == 12 && roomLvlVal >= 10) return true;
+                        if (layoutCount == 18 && roomLvlVal >= 20) return true;
+                        if (layoutCount == 20 && roomLvlVal >= 40) return true;
+
+                        var packageData =
+                            roomData['seat_layout_${layoutCount}_package'];
+                        if (packageData != null &&
+                            packageData['expiry'] != null) {
+                          DateTime expiry =
+                              (packageData['expiry'] as Timestamp).toDate();
+                          if (DateTime.now().isBefore(expiry)) {
+                            return true;
+                          }
+                        }
+                        return false;
+                      }
+
+                      Widget buildLayoutButton(int layoutCount) {
+                        bool isSelected = layoutCountVal == layoutCount;
+                        bool unlocked = isLayoutUnlocked(layoutCount);
+
+                        return ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                isSelected ? Colors.amber : Colors.white10,
+                            foregroundColor:
+                                isSelected ? Colors.black : Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: () async {
+                            if (unlocked) {
+                              try {
+                                await FirebaseFirestore.instance
+                                    .collection('rooms')
+                                    .doc(roomId)
+                                    .update({
+                                  'seatLayoutCount': layoutCount,
+                                });
+                              } catch (e) {
+                                print("Error updating layout: $e");
+                              }
+                            } else {
+                              _showSeatPurchaseDialog(
+                                  context, roomId, layoutCount, roomData);
+                            }
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                "$layoutCount Seats",
+                                style: const TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                              if (!unlocked) ...[
+                                const SizedBox(width: 4),
+                                const Icon(Icons.lock,
+                                    size: 14, color: Colors.redAccent),
+                              ],
+                            ],
+                          ),
+                        );
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 15),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                buildLayoutButton(2),
+                                buildLayoutButton(10),
+                                buildLayoutButton(12),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                buildLayoutButton(18),
+                                buildLayoutButton(20),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 20),
                 ],
-              ),
-              const SizedBox(height: 10),
-              // দ্বিতীয় সারি: ১৮ ও ২০ সিট
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  buildLayoutButton(18),
-                  buildLayoutButton(20),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    ),
-    const SizedBox(height: 20),
-  ],
-                
+
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -396,6 +438,103 @@ class RoomSettingsHandler {
         );
       },
     );
+  }
+
+// --- সিট ক্রয় ডায়ালগ ---
+  static void _showSeatPurchaseDialog(BuildContext context, String roomId,
+      int layoutCount, Map<String, dynamic> roomData) {
+    showDialog(
+      context: context,
+      builder: (dContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF0D1B2A),
+                Color(0xFF1B1A55),
+                Color(0xFF4A154B),
+              ],
+            ),
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Unlock Seat Layout",
+                style: TextStyle(color: Colors.white, fontSize: 20),
+              ),
+              const SizedBox(height: 15),
+              Builder(
+                builder: (BuildContext innerContext) {
+                  return ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(dContext);
+                      await _processSeatPurchase(
+                          innerContext, roomId, layoutCount, 100000);
+                    },
+                    child: const Text("1 Month (100k 💎)"),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- সিট পারচেজ প্রসেসিং লজিক ---
+  static Future<void> _processSeatPurchase(BuildContext context, String roomId,
+      int layoutCount, int diamondsRequired) async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _showMessage(context, "Please login first!");
+      return;
+    }
+
+    try {
+      var userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where(Filter.or(Filter('authUID', isEqualTo: user.uid),
+              Filter('uID', isEqualTo: user.uid)))
+          .limit(1)
+          .get();
+
+      if (userQuery.docs.isEmpty) return;
+      var userDoc = userQuery.docs.first;
+      int myDiamonds = (userDoc.data()['diamonds'] ?? 0).toInt();
+
+      if (myDiamonds >= diamondsRequired) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userDoc.id)
+            .update({'diamonds': myDiamonds - diamondsRequired});
+
+        DateTime expiryDate = DateTime.now().add(const Duration(days: 30));
+        await FirebaseFirestore.instance
+            .collection('rooms')
+            .doc(roomId)
+            .update({
+          'seat_layout_${layoutCount}_package': {
+            'expiry': Timestamp.fromDate(expiryDate),
+            'boughtAt': FieldValue.serverTimestamp(),
+          },
+          'seatLayoutCount': layoutCount,
+        });
+
+        _showMessage(context, "Successfully unlocked for 30 days!");
+      } else {
+        _showMessage(context, "Insufficient Diamonds!");
+      }
+    } catch (e) {
+      debugPrint("Seat Purchase Error: $e");
+    }
   }
 
   static void _handleFeaturePurchase(BuildContext context, String roomId,
