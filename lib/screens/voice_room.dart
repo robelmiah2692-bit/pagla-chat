@@ -6035,10 +6035,11 @@ class _VoiceRoomState extends State<VoiceRoom>
               int unitPrice = (gift['price'] ?? 0).toInt();
               int totalAmount = unitPrice * count;
 
-             // আপনার দেওয়া ডাটা অনুযায়ী রিং গিফট সঠিকভাবে শনাক্ত করার শর্ত (Type অথবা ID চেক)
+              // আপনার দেওয়া ডাটা অনুযায়ী রিং গিফট সঠিকভাবে শনাক্ত করার শর্ত (Type অথবা ID চেক)
               String giftType = gift['type']?.toString() ?? '';
               String giftId = gift['id']?.toString() ?? '';
-              bool isRingGift = (giftType == 'marriage_ring' || giftId.startsWith('ring_'));
+              bool isRingGift =
+                  (giftType == 'marriage_ring' || giftId.startsWith('ring_'));
 
               try {
                 bool isFree =
@@ -6076,8 +6077,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                   if (!isFree && totalAmount > 0 && !isRingGift) {
                     await RoomLevelHelper.addXpToRoom(
                         widget.roomId, totalAmount);
-                    
-                    
+
                     // রুম বক্সের ডায়মন্ড আপডেট ও ব্লাস্ট চেক লজিক
                     DocumentReference boxRef = FirebaseFirestore.instance
                         .collection('rooms')
@@ -6119,7 +6119,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                           SetOptions(merge: true));
                     });
                   }
-                 // পিকে স্কোর আপডেট লজিক (রিংয়ের ক্ষেত্রে পিকে স্কোর বাড়বে না)
+                  // পিকে স্কোর আপডেট লজিক (রিংয়ের ক্ষেত্রে পিকে স্কোর বাড়বে না)
                   if (isPKActive && currentPKData != null && !isRingGift) {
                     if (receiverDocID ==
                             currentPKData!['u1']?['uID']?.toString() ||
@@ -6143,7 +6143,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                       });
                     }
                   }
-                 if (!isFree && totalAmount > 0 && !isRingGift) {
+                  if (!isFree && totalAmount > 0 && !isRingGift) {
                     final firestore = FirebaseFirestore.instance;
                     int calculatedXp = totalAmount ~/ 700;
 
@@ -6163,6 +6163,80 @@ class _VoiceRoomState extends State<VoiceRoom>
                       });
                     }
                   }
+                  // ==========================================
+// ==========================================
+// সঠিক এক্সপি লজিক (প্রতি ৩০০ ডায়মন্ড = ১ এক্সপি) সহ প্যানেল আপডেট কোড
+// ==========================================
+                  if (!isFree && totalAmount > 0 && !isRingGift) {
+                    int earnedXp = (totalAmount / 300).floor();
+
+                    if (earnedXp > 0) {
+                      String senderAuthUid =
+                          FirebaseAuth.instance.currentUser?.uid ?? '';
+
+                      if (senderAuthUid.isNotEmpty) {
+                        var userQuery = await FirebaseFirestore.instance
+                            .collection('users')
+                            .where('authUID', isEqualTo: senderAuthUid)
+                            .limit(1)
+                            .get();
+
+                        if (userQuery.docs.isNotEmpty) {
+                          var userDoc = userQuery.docs.first;
+                          String senderUserId = userDoc.id;
+                          var userData = userDoc.data();
+
+                          String userName = userData['userName'] ?? '';
+                          String userImage = userData['userImage'] ?? '';
+
+                          String panelId = '';
+                          if (userData.containsKey('teamPanel') &&
+                              userData['teamPanel'] is Map) {
+                            var teamPanelMap =
+                                userData['teamPanel'] as Map<String, dynamic>;
+                            panelId = teamPanelMap['Panel ID'] ??
+                                teamPanelMap['panelId'] ??
+                                '';
+                          }
+
+                          if (panelId.isEmpty) {
+                            panelId = userData['teamPanelId'] ?? '';
+                          }
+
+                          if (panelId.isNotEmpty) {
+                            var memberRef = FirebaseFirestore.instance
+                                .collection('team_panels')
+                                .doc(panelId)
+                                .collection('members')
+                                .doc(senderUserId);
+
+                            var memberSnapshot = await memberRef.get();
+                            if (memberSnapshot.exists) {
+                              await memberRef.update({
+                                'memberXp': FieldValue.increment(earnedXp),
+                              });
+                            } else {
+                              await memberRef.set({
+                                'uID': senderUserId,
+                                'userName': userName,
+                                'profilePic': userImage,
+                                'memberXp': earnedXp,
+                                'isOwner': senderUserId == panelId,
+                              }, SetOptions(merge: true));
+                            }
+
+                            await FirebaseFirestore.instance
+                                .collection('team_panels')
+                                .doc(panelId)
+                                .update({
+                              'teamXp': FieldValue.increment(earnedXp),
+                            });
+                          }
+                        }
+                      }
+                    }
+                  }
+// ==========================================
                 } else {
                   return;
                 }
@@ -6262,7 +6336,6 @@ class _VoiceRoomState extends State<VoiceRoom>
                   }
 
                   String senderSixDigitId = senderDocID;
-
 
                   if (senderSixDigitId.isNotEmpty &&
                       receiverSixDigitId.isNotEmpty) {

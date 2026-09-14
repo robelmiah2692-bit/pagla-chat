@@ -33,9 +33,11 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
 
     try {
       // ১. সরাসরি ডকুমেন্ট আইডি (Firestore Doc ID) দিয়ে চেক
-      var directDoc = await FirebaseFirestore.instance.collection('users').doc(input).get();
+      var directDoc =
+          await FirebaseFirestore.instance.collection('users').doc(input).get();
       if (directDoc.exists) {
-        _processFoundUser(directDoc.data() as Map<String, dynamic>, directDoc.id);
+        _processFoundUser(
+            directDoc.data() as Map<String, dynamic>, directDoc.id);
         return;
       }
 
@@ -47,7 +49,7 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
             .where(field, isEqualTo: input)
             .limit(1)
             .get();
-        
+
         if (queryRes.docs.isNotEmpty) {
           _processFoundUser(queryRes.docs.first.data(), queryRes.docs.first.id);
           return;
@@ -65,11 +67,12 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
   void _processFoundUser(Map<String, dynamic> userData, String docId) {
     bool isTargetAgent = userData['isAgent'] ?? false;
     String myAuthUID = FirebaseAuth.instance.currentUser?.uid ?? "";
-    bool isMe = (userData['authUID'] == myAuthUID); 
+    bool isMe = (userData['authUID'] == myAuthUID);
 
     if (isTargetAgent && !isMe) {
       if (mounted) setState(() => isLoading = false);
-      _showSnackBar("You cannot send diamonds to another agent!", isError: true);
+      _showSnackBar("You cannot send diamonds to another agent!",
+          isError: true);
     } else {
       if (mounted) {
         setState(() {
@@ -81,134 +84,175 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
     }
   }
 
- Future<void> confirmTransfer() async {
-  if (foundUser == null || _amountController.text.isEmpty || receiverFirestoreId == null) return;
+  Future<void> confirmTransfer() async {
+    if (foundUser == null ||
+        _amountController.text.isEmpty ||
+        receiverFirestoreId == null) return;
 
-  int amount = int.tryParse(_amountController.text) ?? 0;
-  if (amount <= 0) {
-    _showSnackBar("Enter a valid amount", isError: true);
-    return;
+    int amount = int.tryParse(_amountController.text) ?? 0;
+    if (amount <= 0) {
+      _showSnackBar("Enter a valid amount", isError: true);
+      return;
+    }
+
+    if (mounted) setState(() => isLoading = true);
+
+    try {
+      // ১. এজেন্টকে খুঁজে বের করা
+      var agentQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('authUID', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+          .limit(1)
+          .get();
+
+      if (agentQuery.docs.isEmpty) throw Exception("Agent record not found!");
+
+      DocumentReference senderRef = agentQuery.docs.first.reference;
+      String agentDocId = agentQuery.docs.first.id;
+      DocumentReference receiverRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(receiverFirestoreId!);
+
+      // চেক করা হচ্ছে এটি ঠিক ৩০,০০০ ডায়মন্ডের প্রিমিয়াম কার্ড প্যাকেজ কিনা
+      bool isPremiumCardPackage = (amount == 30000);
+
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        DocumentSnapshot senderSnap = await transaction.get(senderRef);
+        if (!senderSnap.exists) throw Exception("Agent data not found!");
+
+        int currentAgencyWallet =
+            (senderSnap.get('agency_wallet') ?? 0).toInt();
+        if (currentAgencyWallet < amount)
+          throw Exception("Insufficient balance!");
+
+        // এজেন্টের ওয়ালেট থেকে অ্যামাউন্ট কাটা হবে
+        transaction
+            .update(senderRef, {'agency_wallet': currentAgencyWallet - amount});
+
+        int earnedXP = 0;
+        String notificationText = "";
+        String chatLastMsg = "";
+
+        if (isPremiumCardPackage) {
+          // --- ৩০ হাজার রিচার্জের ক্ষেত্রে: কোনো ডায়মন্ড যোগ হবে না, প্রিমিয়াম কার্ড অ্যাক্টিভ হবে ---
+          DateTime premiumExpiry = DateTime.now().add(const Duration(days: 30));
+
+          transaction.update(receiverRef, {
+            'hasPremiumCard': true,
+            'premiumUntil': Timestamp.fromDate(premiumExpiry),
+          });
+
+          notificationText =
+              "🎉 Congratulations! Your Pagla Premium Card has been activated successfully via Agency (30K Recharge) for 1 Month!";
+          chatLastMsg = "🎉 Pagla Premium Card Activated!";
+        } else {
+          // --- সাধারণ রিচার্জের ক্ষেত্রে আগের মতো ডায়মন্ড এবং এক্সপি যোগ হবে ---
+          earnedXP = amount ~/ 250;
+          transaction.update(receiverRef, {
+            'diamonds': FieldValue.increment(amount),
+            'vip_xp': FieldValue.increment(earnedXP),
+          });
+
+          notificationText =
+              "🎉 You've received $amount Diamonds and $earnedXP XP bonus from Official Agency.";
+          chatLastMsg = "🎉 Received $amount Diamonds";
+        }
+
+        // --- ২. ইউজারের ইনবক্সে অফিশিয়াল মেসেজ পাঠানো ---
+        String chatId = "paglachat_official_$receiverFirestoreId";
+        DocumentReference chatDocRef =
+            FirebaseFirestore.instance.collection('chats').doc(chatId);
+        DocumentReference msgRef = chatDocRef.collection('messages').doc();
+
+        Map<String, dynamic> officialMsg = {
+          'senderId': 'paglachat_official',
+          'receiverId': receiverFirestoreId,
+          'text': notificationText,
+          'timestamp': FieldValue.serverTimestamp(),
+          'isRead': false,
+          'type': 'system_msg'
+        };
+
+        transaction.set(msgRef, officialMsg);
+
+        transaction.set(
+            chatDocRef,
+            {
+              'lastMessage': chatLastMsg,
+              'lastTimestamp': FieldValue.serverTimestamp(),
+              'users': ['paglachat_official', receiverFirestoreId],
+              'unReadCount': FieldValue.increment(1),
+            },
+            SetOptions(merge: true));
+
+        // ৩. ডায়মন্ড/ট্রানজেকশন হিস্ট্রি সেভ করা
+        transaction.set(
+            FirebaseFirestore.instance.collection('diamond_history').doc(), {
+          'senderId': agentDocId,
+          'receiverId': receiverFirestoreId,
+          'receiverName': foundUser!['name'] ?? "User",
+          'amount': amount,
+          'earnedXP': earnedXP,
+          'type':
+              isPremiumCardPackage ? 'agency_premium_card' : 'agency_transfer',
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+
+        // ৪. ইউজারের রিচার্জ হিস্টোরি
+        DocumentReference rechargeRef =
+            receiverRef.collection('recharge_history').doc();
+        transaction.set(rechargeRef, {
+          'amount': amount,
+          'timestamp': FieldValue.serverTimestamp(),
+          'method': isPremiumCardPackage
+              ? 'Agency Premium Card (30K)'
+              : 'Agency Transfer',
+          'status': 'Success'
+        });
+      });
+
+      _showSnackBar(isPremiumCardPackage
+          ? "Success! Premium Card Activated for User."
+          : "Success! Diamonds sent & User Notified.");
+
+      if (mounted) {
+        setState(() {
+          foundUser = null;
+          receiverFirestoreId = null;
+          _idController.clear();
+          _amountController.clear();
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => isLoading = false);
+      _showSnackBar(e.toString().replaceAll("Exception:", ""), isError: true);
+    }
   }
 
-  if (mounted) setState(() => isLoading = true);
-
-  try {
-    int earnedXP = amount ~/ 250; 
-
-    // ১. এজেন্টকে খুঁজে বের করা (সব আইডি লজিক দিয়ে)
+  void _openHistorySheet() async {
+    // নিশ্চিত করা হচ্ছে সঠিক এজেন্টের ডকুমেন্ট আইডি নেওয়া হচ্ছে
     var agentQuery = await FirebaseFirestore.instance
         .collection('users')
         .where('authUID', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
         .limit(1)
         .get();
 
-    if (agentQuery.docs.isEmpty) throw Exception("Agent record not found!");
-    
-    DocumentReference senderRef = agentQuery.docs.first.reference;
-    String agentDocId = agentQuery.docs.first.id; // এজেন্টের আসল ডকুমেন্ট আইডি
-    DocumentReference receiverRef = FirebaseFirestore.instance.collection('users').doc(receiverFirestoreId!);
+    if (agentQuery.docs.isNotEmpty) {
+      String agentDocId = agentQuery.docs.first.id;
 
-    await FirebaseFirestore.instance.runTransaction((transaction) async {
-      DocumentSnapshot senderSnap = await transaction.get(senderRef);
-      if (!senderSnap.exists) throw Exception("Agent data not found!");
-
-      int currentAgencyWallet = (senderSnap.get('agency_wallet') ?? 0).toInt();
-      if (currentAgencyWallet < amount) throw Exception("Insufficient balance!");
-
-      // ওয়ালেট আপডেট
-      transaction.update(senderRef, {'agency_wallet': currentAgencyWallet - amount});
-      transaction.update(receiverRef, {
-        'diamonds': FieldValue.increment(amount),
-        'vip_xp': FieldValue.increment(earnedXP),
-      });
-
-     // --- ২. ইউজারের ইনবক্সে অফিশিয়াল মেসেজ পাঠানো ---
-      // আপনার চ্যাট সিস্টেমে chatId যেভাবে তৈরি হয় সেভাবে মেলাতে হবে
-      String chatId = "paglachat_official_$receiverFirestoreId"; 
-      
-      DocumentReference chatDocRef = FirebaseFirestore.instance.collection('chats').doc(chatId);
-      DocumentReference msgRef = chatDocRef.collection('messages').doc();
-
-      // মেসেজ বডি
-      Map<String, dynamic> officialMsg = {
-        'senderId': 'paglachat_official',
-        'receiverId': receiverFirestoreId,
-        'text': "🎉 You've received $amount Diamonds and $earnedXP XP bonus from Official Agency.",
-        'timestamp': FieldValue.serverTimestamp(),
-        'isRead': false,
-        'type': 'system_msg'
-      };
-
-      // মেসেজ সেট করা
-      transaction.set(msgRef, officialMsg);
-
-      // চ্যাট লিস্টে মেসেজটি দেখানোর জন্য মেইন চ্যাট ডকুমেন্ট আপডেট করা
-      transaction.set(chatDocRef, {
-        'lastMessage': "🎉 Received $amount Diamonds",
-        'lastTimestamp': FieldValue.serverTimestamp(),
-        'users': ['paglachat_official', receiverFirestoreId],
-        'unReadCount': FieldValue.increment(1),
-      }, SetOptions(merge: true));
-
-      // ৩. ডায়মন্ড হিস্ট্রি সেভ করা (এজেন্টের আইডি দিয়ে যাতে সে দেখতে পায়)
-      transaction.set(FirebaseFirestore.instance.collection('diamond_history').doc(), {
-        'senderId': agentDocId, // এখানে ফিক্সড আইডি ব্যবহার করছি
-        'receiverId': receiverFirestoreId,
-        'receiverName': foundUser!['name'] ?? "User", // পরে দেখার সুবিধার জন্য নামও রাখলাম
-        'amount': amount,
-        'earnedXP': earnedXP,
-        'type': 'agency_transfer',
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-      
-      // ৪. ইউজারের রিচার্জ হিস্টোরি (ইউজার তার রিচার্জ লিস্টে দেখতে পাবে)
-      DocumentReference rechargeRef = receiverRef.collection('recharge_history').doc();
-      transaction.set(rechargeRef, {
-        'amount': amount,
-        'timestamp': FieldValue.serverTimestamp(),
-        'method': 'Agency Transfer',
-        'status': 'Success'
-      });
-    });
-
-    _showSnackBar("Success! Diamonds sent & User Notified.");
-    if (mounted) {
-      setState(() {
-        foundUser = null;
-        receiverFirestoreId = null;
-        _idController.clear();
-        _amountController.clear();
-        isLoading = false;
-      });
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => TransactionHistoryWidget(agentId: agentDocId),
+      );
+    } else {
+      _showSnackBar("Agent ID not found for history", isError: true);
     }
-  } catch (e) {
-    if (mounted) setState(() => isLoading = false);
-    _showSnackBar(e.toString().replaceAll("Exception:", ""), isError: true);
   }
-}
 
-  void _openHistorySheet() async {
-  // নিশ্চিত করা হচ্ছে সঠিক এজেন্টের ডকুমেন্ট আইডি নেওয়া হচ্ছে
-  var agentQuery = await FirebaseFirestore.instance
-      .collection('users')
-      .where('authUID', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
-      .limit(1)
-      .get();
-  
-  if (agentQuery.docs.isNotEmpty) {
-    String agentDocId = agentQuery.docs.first.id;
-    
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => TransactionHistoryWidget(agentId: agentDocId),
-    );
-  } else {
-    _showSnackBar("Agent ID not found for history", isError: true);
-  }
-}
-void _showSnackBar(String message, {bool isError = false}) {
+  void _showSnackBar(String message, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -218,15 +262,19 @@ void _showSnackBar(String message, {bool isError = false}) {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D1A),
       appBar: AppBar(
-        title: const Text("Agency Diamond Wallet", style: TextStyle(color: Colors.white)),
+        title: const Text("Agency Diamond Wallet",
+            style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF1E1E2F),
         actions: [
-          IconButton(icon: const Icon(Icons.history_rounded, size: 28), onPressed: _openHistorySheet),
+          IconButton(
+              icon: const Icon(Icons.history_rounded, size: 28),
+              onPressed: _openHistorySheet),
         ],
       ),
       body: SingleChildScrollView(
@@ -234,71 +282,87 @@ void _showSnackBar(String message, {bool isError = false}) {
         child: Column(
           children: [
             StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .where('authUID', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const SizedBox();
-                var myData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
-                return Container(
-                  padding: const EdgeInsets.all(15),
-                  margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(
-                    color: Colors.pinkAccent.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: Colors.pinkAccent.withOpacity(0.3)),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text("My Agency Wallet:", style: TextStyle(color: Colors.white70)),
-                          Text("💎 ${myData['agency_wallet'] ?? 0}", 
-                              style: const TextStyle(color: Colors.greenAccent, fontSize: 18, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      // নতুন রিচার্জ বাটন যোগ করা হলো
-                      SizedBox(
-                        width: double.infinity,
-                        height: 40,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const AgencyRechargePage()),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.amber,
-                            foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: const Text(
-                            "RECHARGE AGENCY WALLET (GOOGLE PAY)",
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .where('authUID',
+                        isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty)
+                    return const SizedBox();
+                  var myData =
+                      snapshot.data!.docs.first.data() as Map<String, dynamic>;
+                  return Container(
+                    padding: const EdgeInsets.all(15),
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.pinkAccent.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(15),
+                      border:
+                          Border.all(color: Colors.pinkAccent.withOpacity(0.3)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text("My Agency Wallet:",
+                                style: TextStyle(color: Colors.white70)),
+                            Text("💎 ${myData['agency_wallet'] ?? 0}",
+                                style: const TextStyle(
+                                    color: Colors.greenAccent,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        // নতুন রিচার্জ বাটন যোগ করা হলো
+                        SizedBox(
+                          width: double.infinity,
+                          height: 40,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        const AgencyRechargePage()),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.amber,
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: const Text(
+                              "RECHARGE AGENCY WALLET (GOOGLE PAY)",
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-            ),
+                      ],
+                    ),
+                  );
+                }),
             _buildSearchInput(),
-            if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.pinkAccent)),
+            if (isLoading)
+              const Center(
+                  child: CircularProgressIndicator(color: Colors.pinkAccent)),
             if (foundUser != null && !isLoading) _buildUserCard(),
           ],
         ),
       ),
     );
   }
+
   Widget _buildSearchInput() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(color: const Color(0xFF1E1E2F), borderRadius: BorderRadius.circular(30)),
+      decoration: BoxDecoration(
+          color: const Color(0xFF1E1E2F),
+          borderRadius: BorderRadius.circular(30)),
       child: TextField(
         controller: _idController,
         style: const TextStyle(color: Colors.white),
@@ -319,24 +383,36 @@ void _showSnackBar(String message, {bool isError = false}) {
     return Container(
       margin: const EdgeInsets.only(top: 25),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: const Color(0xFF1E1E2F), borderRadius: BorderRadius.circular(25)),
+      decoration: BoxDecoration(
+          color: const Color(0xFF1E1E2F),
+          borderRadius: BorderRadius.circular(25)),
       child: Column(
         children: [
           CircleAvatar(
             radius: 45,
-            backgroundImage: (foundUser!['profilePic'] != null && foundUser!['profilePic'] != "") 
-                ? NetworkImage(foundUser!['profilePic']) : null,
-            child: (foundUser!['profilePic'] == null || foundUser!['profilePic'] == "") 
-                ? const Icon(Icons.person, size: 50) : null,
+            backgroundImage: (foundUser!['profilePic'] != null &&
+                    foundUser!['profilePic'] != "")
+                ? NetworkImage(foundUser!['profilePic'])
+                : null,
+            child: (foundUser!['profilePic'] == null ||
+                    foundUser!['profilePic'] == "")
+                ? const Icon(Icons.person, size: 50)
+                : null,
           ),
           const SizedBox(height: 15),
-          Text(foundUser!['name'] ?? "User", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(foundUser!['name'] ?? "User",
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold)),
           TextField(
             controller: _amountController,
             style: const TextStyle(color: Colors.white, fontSize: 22),
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
-            decoration: const InputDecoration(hintText: "Enter Amount", hintStyle: TextStyle(color: Colors.white10)),
+            decoration: const InputDecoration(
+                hintText: "Enter Amount",
+                hintStyle: TextStyle(color: Colors.white10)),
           ),
           const SizedBox(height: 25),
           SizedBox(
@@ -344,8 +420,11 @@ void _showSnackBar(String message, {bool isError = false}) {
             height: 50,
             child: ElevatedButton(
               onPressed: confirmTransfer,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
-              child: const Text("SEND DIAMONDS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
+              child: const Text("SEND DIAMONDS",
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -369,8 +448,11 @@ class TransactionHistoryWidget extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 20),
-          const Text("Transaction History", 
-            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text("Transaction History",
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
@@ -385,33 +467,39 @@ class TransactionHistoryWidget extends StatelessWidget {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(20.0),
-                      child: Text("Error: ${snapshot.error}", 
-                        style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-                        textAlign: TextAlign.center),
+                      child: Text("Error: ${snapshot.error}",
+                          style: const TextStyle(
+                              color: Colors.redAccent, fontSize: 12),
+                          textAlign: TextAlign.center),
                     ),
                   );
                 }
 
                 // ২. ডাটা লোড হওয়ার সময়
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
+                  return const Center(
+                      child:
+                          CircularProgressIndicator(color: Colors.pinkAccent));
                 }
 
                 // ৩. যদি ডাটা খালি থাকে
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text("No history found", 
-                    style: TextStyle(color: Colors.white54)));
+                  return const Center(
+                      child: Text("No history found",
+                          style: TextStyle(color: Colors.white54)));
                 }
 
                 return ListView.builder(
                   itemCount: snapshot.data!.docs.length,
                   itemBuilder: (context, index) {
-                    var data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
-                    
+                    var data = snapshot.data!.docs[index].data()
+                        as Map<String, dynamic>;
+
                     // টাইমস্ট্যাম্প সেফলি হ্যান্ডেল করা
                     String date = "Unknown Date";
                     if (data['timestamp'] != null) {
-                      date = DateFormat('dd MMM, hh:mm a').format((data['timestamp'] as Timestamp).toDate());
+                      date = DateFormat('dd MMM, hh:mm a')
+                          .format((data['timestamp'] as Timestamp).toDate());
                     }
 
                     return ListTile(
@@ -419,16 +507,25 @@ class TransactionHistoryWidget extends StatelessWidget {
                         backgroundColor: Colors.white10,
                         child: Icon(Icons.diamond, color: Colors.pinkAccent),
                       ),
-                      title: Text("Receiver: ${data['receiverName'] ?? data['receiverId']}", 
-                        style: const TextStyle(color: Colors.white, fontSize: 14)),
-                      subtitle: Text(date, style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                      title: Text(
+                          "Receiver: ${data['receiverName'] ?? data['receiverId']}",
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 14)),
+                      subtitle: Text(date,
+                          style: const TextStyle(
+                              color: Colors.white38, fontSize: 12)),
                       trailing: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text("${data['amount']} 💎", 
-                            style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 16)),
-                          const Text("Success", style: TextStyle(color: Colors.white24, fontSize: 10)),
+                          Text("${data['amount']} 💎",
+                              style: const TextStyle(
+                                  color: Colors.greenAccent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16)),
+                          const Text("Success",
+                              style: TextStyle(
+                                  color: Colors.white24, fontSize: 10)),
                         ],
                       ),
                     );

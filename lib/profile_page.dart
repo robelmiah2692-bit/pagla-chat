@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:intl/intl.dart';
 import 'package:pagla_chat/agency_badge.dart';
+import 'package:pagla_chat/agency_list_page.dart';
 import 'package:pagla_chat/auth_service.dart';
 import 'package:pagla_chat/delete_account_service.dart';
 import 'package:pagla_chat/help_desk_page.dart';
@@ -53,6 +56,11 @@ class _ProfilePageState extends State<ProfilePage> {
   final DatabaseService _dbService = DatabaseService();
   // ... বাকি ভেরিয়েবলগুলো এখানে থাকবে
 
+// --- ইন-অ্যাপ পারচেজ (Google Pay) ভেরিয়েবলসমূহ ---
+  final InAppPurchase _inAppPurchase = InAppPurchase.instance;
+  bool _isAvailable = false;
+  late StreamSubscription<List<PurchaseDetails>> _subscription;
+
   String sixDigitProfileID = ""; // এটি ক্লাসের শুরুতে ভেরিয়েবল হিসেবে যোগ করুন
   // ক্লাসের একদম উপরে এই ভেরিয়েবলটি যোগ করুন
   String myAuthUID = FirebaseAuth.instance.currentUser?.uid ?? "";
@@ -94,13 +102,191 @@ class _ProfilePageState extends State<ProfilePage> {
   int totalActiveXp = 0;
   int totalGiftXp = 0;
   bool isFriend = false; // নতুন ভেরিয়েবল
+  DateTime? lastClaimTime;
+  bool isClaiming = false;
 
   @override
   void initState() {
     super.initState();
     loadUserData(); // আইডি জেনারেশন বন্ধ, শুধু ডাটা লোড হবে
+    _initializeIAP();
   }
 
+  @override
+  void dispose() {
+    if (_isAvailable) {
+      _subscription.cancel(); // স্ট্রিম ডিসপোজ করা
+    }
+    super.dispose();
+  }
+
+// --- গুগল পে (In-App Purchase) ইনিশিয়াল এবং লিসেনার লজিক ---
+  void _initializeIAP() async {
+    final bool available = await _inAppPurchase.isAvailable();
+    setState(() {
+      _isAvailable = available;
+    });
+
+    if (!available) return;
+
+    final Stream<List<PurchaseDetails>> purchaseUpdated =
+        _inAppPurchase.purchaseStream;
+    _subscription = purchaseUpdated.listen((purchaseDetailsList) {
+      _listenToPurchaseUpdated(purchaseDetailsList);
+    }, onDone: () {
+      _subscription.cancel();
+    }, onError: (error) {
+      // হ্যান্ডেল এরর
+    });
+  }
+
+  // পেমেন্ট স্ট্যাটাস ট্র্যাক করার লজিক
+  void _listenToPurchaseUpdated(
+      List<PurchaseDetails> purchaseDetailsList) async {
+    for (var purchaseDetails in purchaseDetailsList) {
+      if (purchaseDetails.status == PurchaseStatus.pending) {
+        // লোডিং বা প্রসেসিং দেখাতে পারেন
+      } else {
+        if (purchaseDetails.status == PurchaseStatus.error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    "Purchase Failed: ${purchaseDetails.error?.message ?? ''}")),
+          );
+        } else if (purchaseDetails.status == PurchaseStatus.purchased ||
+            purchaseDetails.status == PurchaseStatus.restored) {
+          // পেমেন্ট সফল হলে ফায়ারবেজে প্রিমিয়াম কার্ড অ্যাক্টিভ করা
+          await _activatePremiumCardOnFirebase();
+        }
+
+        if (purchaseDetails.pendingCompletePurchase) {
+          await _inAppPurchase.completePurchase(purchaseDetails);
+        }
+      }
+    }
+  }
+
+  // ফায়ারবেজে ডাটা আপডেট করার ফাংশন
+  Future<void> _activatePremiumCardOnFirebase() async {
+    try {
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return;
+
+      // টার্গেট ইউজার ডক আইডি (uIDValue বা আপনার ৬ ডিজিটের আইডি)
+      String docId = uIDValue.isNotEmpty ? uIDValue : currentUser.uid;
+      DateTime newExpiry = DateTime.now().add(const Duration(days: 30));
+
+      await FirebaseFirestore.instance.collection('users').doc(docId).update({
+        'hasPremiumCard': true,
+        'premiumUntil': Timestamp.fromDate(newExpiry),
+      });
+
+      setState(() {
+        hasPremiumCard = true;
+        premiumUntilDate = newExpiry;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text("Pagla Premium Card activated successfully! 🎉")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error updating database: $e")),
+      );
+    }
+  }
+
+  // --- লাল দাগ দূর করার জন্য প্রয়োজনীয় _initiatePurchase ফাংশন ---
+  Future<void> _initiatePurchase(String productId) async {
+    if (!_isAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text("Google Play Billing is not available on this device!")),
+      );
+      return;
+    }
+
+    const Set<String> kIds = <String>{'premium_card_2usd'};
+    ProductDetailsResponse response =
+        await _inAppPurchase.queryProductDetails(kIds);
+
+    if (response.notFoundIDs.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text("Product not found in Google Play Console!")),
+      );
+      return;
+    }
+
+    final ProductDetails productDetails = response.productDetails.first;
+    final PurchaseParam purchaseParam =
+        PurchaseParam(productDetails: productDetails);
+
+    // গুগল পে এর মাধ্যমে কনজিউমেবল পারচেজ ফ্লো শুরু করা
+    _inAppPurchase.buyConsumable(purchaseParam: purchaseParam);
+  }
+
+Future<void> _claimDailyDiamonds() async {
+    User? currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    setState(() {
+      isClaiming = true;
+    });
+
+    try {
+      String docId = uIDValue.isNotEmpty ? uIDValue : currentUser.uid;
+      DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(docId);
+
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        DocumentSnapshot snapshot = await transaction.get(userRef);
+        if (!snapshot.exists) throw Exception("User not found!");
+
+        var data = snapshot.data() as Map<String, dynamic>;
+        
+        // ডাবল চেক করার জন্য ট্রানজেকশনের ভেতরেও ২৪ ঘণ্টা পার হয়েছে কিনা চেক করা নিরাপদ
+        if (data['lastClaimTime'] != null) {
+          DateTime lastClaim = (data['lastClaimTime'] as Timestamp).toDate();
+          DateTime nextAllowedTime = lastClaim.add(const Duration(hours: 24));
+          if (DateTime.now().isBefore(nextAllowedTime)) {
+            throw Exception("You already claimed within 24 hours!");
+          }
+        }
+
+        int currentDiamonds = data['diamonds'] is int ? data['diamonds'] : int.tryParse(data['diamonds'].toString()) ?? 0;
+        int newDiamonds = currentDiamonds + 1000;
+
+        transaction.update(userRef, {
+          'diamonds': newDiamonds,
+          'lastClaimTime': FieldValue.serverTimestamp(),
+        });
+      });
+
+      // সফলভাবে ক্লেইম হওয়ার পর ইউজারের ডাটা আবার লোড করে লেটেস্ট টাইম ও ডায়মন্ড সিংক্রোনাইজ করা
+      loadUserData();
+
+      setState(() {
+        isClaiming = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("🎉 Successfully claimed 1,000 Diamonds!")),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        isClaiming = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to claim: ${e.toString().replaceAll("Exception:", "").trim()}")),
+        );
+      }
+    }
+  }
   // আইডি জেনারেশন ছাড়া শুধু ডাটা খুঁজে বের করার নিখুঁত লজিক
   void loadUserData() async {
     User? currentUser = FirebaseAuth.instance.currentUser;
@@ -228,6 +414,10 @@ class _ProfilePageState extends State<ProfilePage> {
               hasPremiumCard = false;
               _clearExpiredData('hasPremiumCard', 'premiumUntil');
             }
+          }
+
+          if (data['lastClaimTime'] != null) {
+            lastClaimTime = (data['lastClaimTime'] as Timestamp).toDate();
           }
 
           // ২. Frame ও Special Effect
@@ -1234,47 +1424,123 @@ class _ProfilePageState extends State<ProfilePage> {
   void _pickProfileImage() {
     showModalBottomSheet(
         context: context,
-        backgroundColor: const Color(0xFF1A1A2E),
-        shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-        builder: (context) => Wrap(children: [
-              ListTile(
-                  leading: const Icon(Icons.face, color: Colors.blueAccent),
-                  title: const Text("Real avatar (Free)",
-                      style: TextStyle(color: Colors.white)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showFreeAvatars();
-                  }),
-              ListTile(
-                  leading:
-                      const Icon(Icons.photo_library, color: Colors.pinkAccent),
-                  title: const Text("Gallery photo avatar",
-                      style: TextStyle(color: Colors.white)),
-                  onTap: () async {
-                    if (hasPremiumCard || getVipLevel() >= 1) {
-                      try {
-                        final ImagePicker picker = ImagePicker();
-                        final XFile? pickedFile = await picker.pickImage(
-                            source: ImageSource.gallery, imageQuality: 40);
+        backgroundColor: Colors
+            .transparent, // ব্যাকগ্রাউন্ড ট্রান্সপারেন্ট করে কাস্টম গ্রাডিয়েন্ট ব্যবহার করা হয়েছে
+        isScrollControlled: true,
+        builder: (context) => Container(
+              // আপনার দেওয়া ছবির কালার কম্বিনেশন অনুযায়ী গ্রাডিয়েন্ট ব্যাকগ্রাউন্ড
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF2A1B4E), // ডিপ পার্পল
+                    Color(0xFF1A1A2E), // ডার্ক ব্লু-পার্পল
+                    Color(0xFF0F172A), // ডিপ ব্লু
+                  ],
+                ),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black54,
+                    blurRadius: 15,
+                    spreadRadius: 5,
+                  )
+                ],
+              ),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom +
+                      60, // নিচের দিকে এক্সট্রা খালি জায়গা রাখার জন্য প্যাডিং বাড়ানো হয়েছে
+                  top: 15,
+                  left: 15,
+                  right: 15,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // ড্র্যাগ হ্যান্ডেল
+                    Container(
+                      width: 45,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.white60,
+                        borderRadius: BorderRadius.circular(2.5),
+                      ),
+                    ),
+                    const SizedBox(height: 25),
 
-                        if (pickedFile != null) {
-                          if (!mounted) return;
-                          Navigator.pop(context);
-                          // ফাইল পাঠানোর আগে সিওর হয়ে নিন ফাইলটি এক্সিস্ট করে
-                          await _handleProfileUpdate(File(pickedFile.path));
-                        }
-                      } catch (e) {}
-                    } else {
-                      if (!mounted) return;
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content:
-                              Text("Premium card or VIP 1 needed for Gallery!"),
-                          backgroundColor: Colors.redAccent));
-                    }
-                  }),
-            ]));
+                    // Real avatar অপশন
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(
+                            color: Colors.blueAccent.withOpacity(0.3)),
+                      ),
+                      child: ListTile(
+                          leading: const Icon(Icons.face,
+                              color: Colors.blueAccent, size: 28),
+                          title: const Text("Real avatar (Free)",
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500)),
+                          onTap: () {
+                            Navigator.pop(context);
+                            _showFreeAvatars();
+                          }),
+                    ),
+                    const SizedBox(height: 15),
+
+                    // Gallery photo avatar অপশন
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(
+                            color: Colors.pinkAccent.withOpacity(0.3)),
+                      ),
+                      child: ListTile(
+                          leading: const Icon(Icons.photo_library,
+                              color: Colors.pinkAccent, size: 28),
+                          title: const Text("Gallery photo avatar",
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500)),
+                          onTap: () async {
+                            if (hasPremiumCard || getVipLevel() >= 1) {
+                              try {
+                                final ImagePicker picker = ImagePicker();
+                                final XFile? pickedFile =
+                                    await picker.pickImage(
+                                        source: ImageSource.gallery,
+                                        imageQuality: 40);
+
+                                if (pickedFile != null) {
+                                  if (!mounted) return;
+                                  Navigator.pop(context);
+                                  await _handleProfileUpdate(
+                                      File(pickedFile.path));
+                                }
+                              } catch (e) {}
+                            } else {
+                              if (!mounted) return;
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text(
+                                          "Premium card or VIP 1 needed for Gallery!"),
+                                      backgroundColor: Colors.redAccent));
+                            }
+                          }),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ));
   }
 
   Future<void> _handleProfileUpdate(File newFile) async {
@@ -2305,7 +2571,9 @@ class _ProfilePageState extends State<ProfilePage> {
               color: Colors.white.withOpacity(0.8),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+              boxShadow: const [
+                BoxShadow(color: Colors.black12, blurRadius: 10)
+              ],
             ),
             child: Column(
               children: [
@@ -2350,84 +2618,74 @@ class _ProfilePageState extends State<ProfilePage> {
                       fontWeight: FontWeight.bold),
                 ),
                 const Text(
-                  "Bonus: Premium Frame (10 Days Free!)",
+                  "🎁 Bonus: Premium Frame (10 Days Free!)\n💎 Daily 1,000 Diamonds Back for 1 Month!",
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                       color: Colors.orangeAccent,
                       fontSize: 13,
-                      fontWeight: FontWeight.w600),
+                      fontWeight: FontWeight.w600,
+                      height: 1.4), // লাইন দুটির মাঝের দূরত্ব ঠিক রাখার জন্য
                 ),
+                const SizedBox(height: 8),
                 const Text(
-                  "Cost: 30k 💎",
+                  "Price: \$2.00 (Google Pay) OR 30K Agency Recharge 💎",
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                       color: Colors.blueGrey,
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 20),
+
+                // অপশন ১: Google Pay বাটন ($2 ডলার)
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
+                  child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blueAccent,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30)),
                       elevation: 5,
                     ),
+                    icon: const Icon(Icons.payment),
                     onPressed: () async {
-                      if (diamonds >= 30000) {
-                        try {
-                          DateTime now = DateTime.now();
-                          DateTime cardExpiry =
-                              now.add(const Duration(days: 30));
-                          DateTime frameExpiry =
-                              now.add(const Duration(days: 10));
-
-                          const String frameUrl =
-                              "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumframe.png";
-                          // Firebase আপডেট লজিক
-                          await FirebaseFirestore.instance
-                              .collection('users')
-                              .doc(uIDValue)
-                              .update({
-                            'diamonds': FieldValue.increment(-30000),
-                            'hasPremiumCard': true,
-                            'premiumUntil': Timestamp.fromDate(cardExpiry),
-                            'hasFreeFrame': true,
-                            'frameUntil': Timestamp.fromDate(frameExpiry),
-                            'activeFrameUrl':
-                                "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumframe.png",
-                          });
-
-                          setState(() {
-                            diamonds -= 30000;
-                            hasPremiumCard = true;
-                            premiumUntilDate = cardExpiry;
-                            frameUntilDate = frameExpiry;
-                          });
-
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              backgroundColor: Colors.green,
-                              content:
-                                  Text("Success! Card & Free Frame Added."),
-                            ),
-                          );
-                        } catch (e) {}
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            backgroundColor: Colors.redAccent,
-                            content: Text("Insufficient diamonds!"),
-                          ),
-                        );
-                      }
+                      // এখানে আপনার গুগল পে / ইন-অ্যাপ পারচেজ প্রোডাক্ট আইডি দিন (যেমন: 'premium_card_2usd')
+                      await _initiatePurchase('premium_card_2usd');
                     },
-                    child: const Text("BUY NOW",
+                    label: const Text("BUY WITH GOOGLE PAY (\$2)",
                         style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
+                            fontSize: 15, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // অপশন ২: Agency Recharge প্যানেল দেখানোর বাটন
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple.shade700,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30)),
+                      elevation: 5,
+                    ),
+                    icon: const Icon(Icons.storefront),
+                    onPressed: () {
+                      // এজেন্সি লিস্ট পেজে নিয়ে যাবে যেখান থেকে ৩০ হাজার বা তার বেশি রিচার্জ চেক করা যাবে
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AgencyListPage(),
+                        ),
+                      );
+                    },
+                    label: const Text("BUY VIA AGENCY ",
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -2442,45 +2700,113 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildMyCardsTab() {
     if (!hasPremiumCard) {
       return const Center(
-          child:
-              Text("No Cards Found", style: TextStyle(color: Colors.white54)));
+          child: Text("No Cards Found", style: TextStyle(color: Colors.white54)));
     }
+
+    // ২৪ ঘণ্টা পার হয়েছে কিনা নিখুঁতভাবে চেক করা
+    bool canClaimNow = true;
+    String countdownText = "";
+    
+    if (lastClaimTime != null) {
+      DateTime nextClaimTime = lastClaimTime!.add(const Duration(hours: 24));
+      if (DateTime.now().isBefore(nextClaimTime)) {
+        canClaimNow = false;
+        Duration remaining = nextClaimTime.difference(DateTime.now());
+        
+        int hours = remaining.inHours;
+        int minutes = remaining.inMinutes % 60;
+        int seconds = remaining.inSeconds % 60;
+        
+        countdownText = "Available in ${hours}h ${minutes}m ${seconds}s";
+      }
+    }
+
     return ListView(
       padding: const EdgeInsets.all(15),
       children: [
-        ListTile(
-          leading: CachedNetworkImage(
-            imageUrl:
-                "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png",
-            width: 50,
-            fit: BoxFit.contain,
-            placeholder: (context, url) => const SizedBox(
-              width: 30,
-              height: 30,
-              child: Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.5,
-                  color: Colors.white70,
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: Colors.white24),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+            leading: CachedNetworkImage(
+              imageUrl:
+                  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png",
+              width: 50,
+              fit: BoxFit.contain,
+              placeholder: (context, url) => const SizedBox(
+                width: 30,
+                height: 30,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    color: Colors.white70,
+                  ),
                 ),
               ),
+              errorWidget: (context, url, error) => const Icon(
+                Icons.broken_image,
+                color: Colors.grey,
+                size: 30,
+              ),
             ),
-            errorWidget: (context, url, error) => const Icon(
-              Icons.broken_image,
-              color: Colors.grey,
-              size: 30,
+            title: const Text("Pagla Premium Card",
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                Text(
+                    "Expires: ${premiumUntilDate?.toLocal().toString().split(' ')[0] ?? ''}",
+                    style:
+                        const TextStyle(color: Colors.white54, fontSize: 12)),
+                const SizedBox(height: 2),
+                Text(
+                    canClaimNow
+                        ? "🎁 Daily 1,000 Diamonds Ready!"
+                        : "⏳ $countdownText",
+                    style: TextStyle(
+                        color: canClaimNow
+                            ? Colors.greenAccent
+                            : Colors.orangeAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600)),
+              ],
+            ),
+            trailing: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor:
+                    canClaimNow ? Colors.green : Colors.grey.shade800,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
+              ),
+              // ২৪ ঘণ্টা না হলে বাটন সম্পূর্ণ ডিজেবল (null) থাকবে, ফলে ইউজার বারবার ক্লিক করতে পারবে না
+              onPressed: (canClaimNow && !isClaiming)
+                  ? () => _claimDailyDiamonds()
+                  : null,
+              child: isClaiming
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(canClaimNow ? "GET 1K" : "CLAIMED",
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold)),
             ),
           ),
-          title: const Text("Pagla Premium Card",
-              style: TextStyle(color: Colors.white)),
-          subtitle: Text(
-              "Expires: ${premiumUntilDate?.toLocal().toString().split(' ')[0]}",
-              style: const TextStyle(color: Colors.white54, fontSize: 12)),
-          trailing: const Icon(Icons.check_circle, color: Colors.green),
         ),
       ],
     );
   }
-
   Widget _buildMyEntriesTab() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
