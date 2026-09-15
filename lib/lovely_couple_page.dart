@@ -10,10 +10,17 @@ class LovelyCouplePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // প্রতি মাসের শুরুতে XP রিসেট চেক করা
+    _checkAndResetMonthlyXp();
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('marriages').snapshots(),
+        // XP অনুযায়ী সব সময় বেশি ওয়ালা উপরে থাকবে (descending: true)
+        stream: FirebaseFirestore.instance
+            .collection('marriages')
+            .orderBy('coupleXp', descending: true)
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
@@ -30,7 +37,31 @@ class LovelyCouplePage extends StatelessWidget {
             );
           }
 
-          var coupleDocs = snapshot.data!.docs;
+          var allDocs = snapshot.data!.docs;
+
+          // 🔹 ডাবল কার্ড ফিল্টারিং লজিক: একই কাপল উল্টো করে থাকলে একটিমাত্র রাখব
+          final Map<String, QueryDocumentSnapshot> uniqueCouplesMap = {};
+          for (var doc in allDocs) {
+            var data = doc.data() as Map<String, dynamic>;
+            String uid1 = data['myAuthUID'] ?? '';
+            String uid2 = data['partnerAuthUID'] ?? '';
+
+            if (uid1.isNotEmpty && uid2.isNotEmpty) {
+              // ইউনিক পেয়ার কি তৈরি করা (ছোট আইডি আগে, বড় আইডি পরে সাজিয়ে)
+              List<String> sortedUids = [uid1, uid2]..sort();
+              String coupleKey = "${sortedUids[0]}_${sortedUids[1]}";
+
+              // যেহেতু কুয়েরিটি XP descending করা, প্রথমবার আসা ডকুমেন্টটি বেশি XP ওয়ালা বা সঠিক হবে
+              if (!uniqueCouplesMap.containsKey(coupleKey)) {
+                uniqueCouplesMap[coupleKey] = doc;
+              }
+            } else {
+              // যদি কোনো কারণে ফিল্ড খালি থাকে তবে আইডি দিয়েই ইউনিক ধরে রাখব
+              uniqueCouplesMap[doc.id] = doc;
+            }
+          }
+
+          var coupleDocs = uniqueCouplesMap.values.toList();
 
           return ListView.builder(
             padding: const EdgeInsets.all(12),
@@ -41,12 +72,17 @@ class LovelyCouplePage extends StatelessWidget {
               String myAuthUID = data['myAuthUID'] ?? '';
               String partnerAuthUID = data['partnerAuthUID'] ?? '';
               String ringIconUrl = data['ringIcon'] ?? '';
+              
+              // ডায়মন্ড থেকে XP হিসাব (প্রতি ২০০ ডায়মন্ডে ১ XP)
+              int totalDiamonds = data['totalDiamonds'] ?? data['coupleDiamonds'] ?? 0;
+              int coupleXp = data['coupleXp'] ?? (totalDiamonds ~/ 200);
 
-              // আমরা আলাদা উইজেট ব্যবহার করছি যাতে দুই ইউজারের লাইভ ডাটা (current name & image) রিয়েল-টাইমে লোড হয়
               return _CoupleCardItem(
                 myAuthUID: myAuthUID,
                 partnerAuthUID: partnerAuthUID,
                 ringIconUrl: ringIconUrl,
+                coupleXp: coupleXp,
+                rankIndex: index, // টপ ১, ২, ৩ নির্ধারণের জন্য
                 fallbackMyName: data['myName'] ?? data['name'] ?? 'User 1',
                 fallbackMyImage: data['myImage'] ?? data['profilePic'] ?? '',
                 fallbackPartnerName: data['partnerName'] ?? 'User 2',
@@ -58,6 +94,28 @@ class LovelyCouplePage extends StatelessWidget {
         },
       ),
     );
+  }
+
+  // মাস শেষে XP রিসেট লজিক
+  Future<void> _checkAndResetMonthlyXp() async {
+    try {
+      final prefsRef = FirebaseFirestore.instance.collection('app_settings').doc('couple_xp_reset');
+      final doc = await prefsRef.get();
+      
+      String currentMonthYear = "${DateTime.now().year}-${DateTime.now().month}";
+      
+      if (!doc.exists || doc.data()?['lastResetMonth'] != currentMonthYear) {
+        // নতুন মাস শুরু হয়েছে, সব ম্যারেজ ডকুমেন্টের XP রিসেট করো
+        var marriages = await FirebaseFirestore.instance.collection('marriages').get();
+        for (var doc in marriages.docs) {
+          await doc.reference.update({'coupleXp': 0, 'totalDiamonds': 0});
+        }
+        // মাসের ট্যাগ আপডেট করে দাও
+        await prefsRef.set({'lastResetMonth': currentMonthYear});
+      }
+    } catch (e) {
+      debugPrint("❌ Monthly XP reset error: $e");
+    }
   }
 
   Future<void> _navigateToProfile(BuildContext context, String authUid) async {
@@ -89,11 +147,13 @@ class LovelyCouplePage extends StatelessWidget {
   }
 }
 
-// 🌟 একটি আলাদা উইজেট যা ইউজারের লাইভ প্রোফাইল ডাটা (`users` কালেকশন থেকে) স্ট্রিম করবে
+// 🌟 একটি আলাদা উইজেট যা ইউজারের লাইভ প্রোফাইল ডাটা স্ট্রিম করবে এবং XP দেখাবে
 class _CoupleCardItem extends StatelessWidget {
   final String myAuthUID;
   final String partnerAuthUID;
   final String ringIconUrl;
+  final int coupleXp;
+  final int rankIndex;
   final String fallbackMyName;
   final String fallbackMyImage;
   final String fallbackPartnerName;
@@ -105,6 +165,8 @@ class _CoupleCardItem extends StatelessWidget {
     required this.myAuthUID,
     required this.partnerAuthUID,
     required this.ringIconUrl,
+    required this.coupleXp,
+    required this.rankIndex,
     required this.fallbackMyName,
     required this.fallbackMyImage,
     required this.fallbackPartnerName,
@@ -120,7 +182,6 @@ class _CoupleCardItem extends StatelessWidget {
         _getUserDoc(partnerAuthUID),
       ]),
       builder: (context, userSnapshot) {
-        // ডাটা আসার আগ L পর্যন্ত মেরিজ কালেকশনের ডাটা ফলব্যাক হিসেবে দেখাবে
         String myName = fallbackMyName;
         String myImage = fallbackMyImage;
         String partnerName = fallbackPartnerName;
@@ -144,29 +205,33 @@ class _CoupleCardItem extends StatelessWidget {
         }
 
         return Container(
-          margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+          margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                Colors.purple.shade900.withOpacity(0.7),
-                Colors.pink.shade900.withOpacity(0.5),
-                Colors.deepOrange.shade900.withOpacity(0.4),
+                Colors.purple.shade900.withOpacity(0.8),
+                Colors.pink.shade900.withOpacity(0.6),
+                Colors.deepOrange.shade900.withOpacity(0.5),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.pinkAccent.withOpacity(0.5), width: 1.5),
+            border: Border.all(
+              color: rankIndex < 3 ? Colors.amberAccent.withOpacity(0.8) : Colors.pinkAccent.withOpacity(0.5),
+              width: rankIndex < 3 ? 2 : 1.5,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.pinkAccent.withOpacity(0.2),
-                blurRadius: 10,
+                color: rankIndex < 3 ? Colors.amber.withOpacity(0.3) : Colors.pinkAccent.withOpacity(0.2),
+                blurRadius: rankIndex < 3 ? 14 : 10,
                 spreadRadius: 2,
               ),
             ],
           ),
           child: Stack(
             children: [
+              // ব্যাকগ্রাউন্ড লাভ আইকন প্যাটার্ন
               Positioned.fill(
                 child: Opacity(
                   opacity: 0.08,
@@ -180,6 +245,41 @@ class _CoupleCardItem extends StatelessWidget {
                   ),
                 ),
               ),
+
+              // টপ ১, ২, ৩ কাপল ব্যাজ (উপরের কার্ডগুলোর জন্য)
+              if (rankIndex < 3)
+                Positioned(
+                  top: 0,
+                  right: 20,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Colors.amber, Colors.orange, Colors.amberAccent],
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(12),
+                        bottomRight: Radius.circular(12),
+                      ),
+                      boxShadow: [
+                        BoxShadow(color: Colors.amber.withOpacity(0.5), blurRadius: 6, spreadRadius: 1)
+                      ],
+                    ),
+                    child: Text(
+                      rankIndex == 0
+                          ? "🔥 Top 1 Couple"
+                          : rankIndex == 1
+                              ? "⭐ Top 2 Couple"
+                              : "💎 Top 3 Couple",
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ),
+
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
@@ -227,8 +327,30 @@ class _CoupleCardItem extends StatelessWidget {
                           ),
                         ),
 
-                        // মাঝখানে অ্যানিমেটেড রিং
-                        _InfiniteRingAnimator(ringIconUrl: ringIconUrl),
+                        // মাঝখানে অ্যানিমেটেড রিং ও গোল্ডেন মিক্স কালার XP ব্যাজ
+                        Column(
+                          children: [
+                            _InfiniteRingAnimator(ringIconUrl: ringIconUrl),
+                            const SizedBox(height: 8),
+                            // গোল্ডেন মিক্স কালার ডিজাইনযুক্ত XP টেক্সট
+                            ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [Color(0xFFFFD700), Color(0xFFFF4500), Color(0xFF00FFFF)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds),
+                              child: Text(
+                                "XP : $coupleXp",
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white, // ShaderMask এর জন্য কালার হোয়াইট থাকতে হবে
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
 
                         // ২. পার্টনার ইউজার
                         GestureDetector(
@@ -295,10 +417,8 @@ class _CoupleCardItem extends StatelessWidget {
     );
   }
 
-  // ফায়ারস্টোর থেকে অথ ইউআইডি দিয়ে ইউজারের ডকুমেন্ট খুঁজে আনা
   Future<DocumentSnapshot<Map<String, dynamic>>> _getUserDoc(String authUid) async {
     if (authUid.isEmpty) {
-      // যদি সরাসরি ডকুমেন্ট আইডি হয়
       return await FirebaseFirestore.instance.collection('users').doc(authUid).get();
     }
     
@@ -312,11 +432,9 @@ class _CoupleCardItem extends StatelessWidget {
       return query.docs.first;
     }
 
-    // ফলব্যাক হিসেবে সরাসরি ডক আইডি ধরে ট্রাই করবে
     return await FirebaseFirestore.instance.collection('users').doc(authUid).get();
   }
 }
-
 // 💍 ইনফিনিট রিং অ্যানিমেটর উইজেট
 class _InfiniteRingAnimator extends StatefulWidget {
   final String ringIconUrl;

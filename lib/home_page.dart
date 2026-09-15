@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pagla_chat/reels_ad_widget.dart';
+import 'package:pagla_chat/reward_ads_widget.dart';
 import 'package:pagla_chat/services/call_handler.dart';
 import 'package:pagla_chat/utils/daily_bonus_popup.dart';
 import 'dart:io' as io;
@@ -746,12 +747,23 @@ class _HomePageState extends State<HomePage>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showPostModal,
-        backgroundColor: Colors.cyanAccent.shade700,
-        elevation: 10,
-        child: const Icon(Icons.add_photo_alternate_outlined,
-            size: 28, color: Colors.white),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // ছোট্ট রিওয়ার্ড ট্রেজার বক্স বাটন
+          const RewardAdsBoxWidget(),
+          const SizedBox(height: 10),
+
+          // আপনার মূল পোস্ট আপলোড বাটন
+          FloatingActionButton(
+            onPressed: _showPostModal,
+            backgroundColor: Colors.cyanAccent.shade700,
+            elevation: 10,
+            child: const Icon(Icons.add_photo_alternate_outlined,
+                size: 28, color: Colors.white),
+          ),
+        ],
       ),
     );
   }

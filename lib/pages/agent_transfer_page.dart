@@ -266,92 +266,181 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D1A),
-      appBar: AppBar(
-        title: const Text("Agency Diamond Wallet",
-            style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF1E1E2F),
-        actions: [
-          IconButton(
-              icon: const Icon(Icons.history_rounded, size: 28),
-              onPressed: _openHistorySheet),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('users')
-                    .where('authUID',
-                        isEqualTo: FirebaseAuth.instance.currentUser?.uid)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty)
-                    return const SizedBox();
-                  var myData =
-                      snapshot.data!.docs.first.data() as Map<String, dynamic>;
-                  return Container(
-                    padding: const EdgeInsets.all(15),
-                    margin: const EdgeInsets.only(bottom: 20),
-                    decoration: BoxDecoration(
-                      color: Colors.pinkAccent.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(15),
-                      border:
-                          Border.all(color: Colors.pinkAccent.withOpacity(0.3)),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text("My Agency Wallet:",
-                                style: TextStyle(color: Colors.white70)),
-                            Text("💎 ${myData['agency_wallet'] ?? 0}",
-                                style: const TextStyle(
-                                    color: Colors.greenAccent,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold)),
+      // 🌌 প্রিমিয়াম ব্যাকগ্রাউন্ড গ্রেডিয়েন্ট
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFF1a001a), // ডিপ পার্পল/ম্যাজেন্টা শেড
+              Color(0xFF2b0909), // ডার্ক রেড/মেরুন শেড
+              Color(0xFF0F0F0F), // রিচ ব্ল্যাক
+              Color(0xFF000000), // পিওর ব্ল্যাক
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: Scaffold(
+            backgroundColor: Colors
+                .transparent, // ভেতরের স্ক্যাফোল্ড ট্রান্সপারেন্ট রাখা হলো
+            appBar: AppBar(
+              title: const Text(
+                "Agency Diamond Wallet",
+                style:
+                    TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              backgroundColor: const Color(0xFF1E1E2F).withOpacity(0.8),
+              elevation: 0,
+              iconTheme: const IconThemeData(color: Colors.white),
+              actions: [
+                Container(
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.history_rounded,
+                        size: 24, color: Colors.amber),
+                    onPressed: _openHistorySheet,
+                    tooltip: "History",
+                  ),
+                ),
+              ],
+            ),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  // 💎 এজেন্সি ওয়ালেট কার্ড (প্রিমিয়াম স্টাইল)
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('users')
+                        .where('authUID',
+                            isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const SizedBox();
+                      }
+                      var myData = snapshot.data!.docs.first.data()
+                          as Map<String, dynamic>;
+
+                      return Container(
+                        padding: const EdgeInsets.all(18),
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.pinkAccent.withOpacity(0.15),
+                              Colors.purple.withOpacity(0.1),
+                              const Color(0xFF1E1E2F).withOpacity(0.6),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.pinkAccent.withOpacity(0.4),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.pinkAccent.withOpacity(0.1),
+                              blurRadius: 10,
+                              spreadRadius: 2,
+                            ),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        // নতুন রিচার্জ বাটন যোগ করা হলো
-                        SizedBox(
-                          width: double.infinity,
-                          height: 40,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        const AgencyRechargePage()),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.amber,
-                              foregroundColor: Colors.black,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  "Agency Wallet:",
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                Text(
+                                  "💎 ${myData['agency_wallet'] ?? 0}",
+                                  style: const TextStyle(
+                                    color: Colors.greenAccent,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
-                            child: const Text(
-                              "RECHARGE AGENCY WALLET (GOOGLE PAY)",
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 12),
+                            const SizedBox(height: 15),
+                            // রিচার্জ বাটন
+                            SizedBox(
+                              width: double.infinity,
+                              height: 45,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const AgencyRechargePage(),
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.amber,
+                                  foregroundColor: Colors.black,
+                                  elevation: 5,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text(
+                                  "RECHARGE YOUR AGENCY WALLET",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
+                      );
+                    },
+                  ),
+
+                  // 🔍 সার্চ ইনপুট (আপনার আগের মেথড ঠিক রেখে এটি রিফ্লেক্ট করবে)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E1E2F).withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: Colors.amber.withOpacity(0.2)),
                     ),
-                  );
-                }),
-            _buildSearchInput(),
-            if (isLoading)
-              const Center(
-                  child: CircularProgressIndicator(color: Colors.pinkAccent)),
-            if (foundUser != null && !isLoading) _buildUserCard(),
-          ],
+                    child: _buildSearchInput(),
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  if (isLoading)
+                    const Center(
+                      child:
+                          CircularProgressIndicator(color: Colors.pinkAccent),
+                    ),
+
+                  if (foundUser != null && !isLoading) _buildUserCard(),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -382,49 +471,134 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
   Widget _buildUserCard() {
     return Container(
       margin: const EdgeInsets.only(top: 25),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-          color: const Color(0xFF1E1E2F),
-          borderRadius: BorderRadius.circular(25)),
+        gradient: LinearGradient(
+          colors: [
+            Colors.pinkAccent.withOpacity(0.12),
+            const Color(0xFF1E1E2F).withOpacity(0.8),
+            const Color(0xFF2b0909).withOpacity(0.5),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(30),
+          topRight: Radius.circular(12),
+          bottomLeft: Radius.circular(12),
+          bottomRight: Radius.circular(30),
+        ),
+        border: Border.all(
+          color: Colors.pinkAccent.withOpacity(0.3),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       child: Column(
         children: [
-          CircleAvatar(
-            radius: 45,
-            backgroundImage: (foundUser!['profilePic'] != null &&
-                    foundUser!['profilePic'] != "")
-                ? NetworkImage(foundUser!['profilePic'])
-                : null,
-            child: (foundUser!['profilePic'] == null ||
-                    foundUser!['profilePic'] == "")
-                ? const Icon(Icons.person, size: 50)
-                : null,
+          // প্রোফাইল পিকচার উইথ গ্লোয়িং বর্ডার
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border:
+                  Border.all(color: Colors.amber.withOpacity(0.5), width: 2),
+            ),
+            child: CircleAvatar(
+              radius: 45,
+              backgroundColor: const Color(0xFF1E1E2F),
+              backgroundImage: (foundUser!['profilePic'] != null &&
+                      foundUser!['profilePic'] != "")
+                  ? NetworkImage(foundUser!['profilePic'])
+                  : null,
+              child: (foundUser!['profilePic'] == null ||
+                      foundUser!['profilePic'] == "")
+                  ? const Icon(Icons.person, size: 50, color: Colors.white70)
+                  : null,
+            ),
           ),
           const SizedBox(height: 15),
-          Text(foundUser!['name'] ?? "User",
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold)),
-          TextField(
-            controller: _amountController,
-            style: const TextStyle(color: Colors.white, fontSize: 22),
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            decoration: const InputDecoration(
-                hintText: "Enter Amount",
-                hintStyle: TextStyle(color: Colors.white10)),
+          Text(
+            foundUser!['name'] ?? "User",
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 19,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
           ),
+          const SizedBox(height: 20),
+
+          // 💎 প্রিমিয়াম এমাউন্ট ইনপুট বক্স (আপনার দেওয়া ছবির ভাব ও কালার মিক্সড)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F0F0F).withOpacity(0.7),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.blueAccent.withOpacity(0.4),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blueAccent.withOpacity(0.1),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: TextField(
+              controller: _amountController,
+              style: const TextStyle(
+                color: Colors.greenAccent,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                hintText: "Enter Amount",
+                hintStyle: TextStyle(
+                  color: Colors.white30,
+                  fontSize: 18,
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
+            ),
+          ),
+
           const SizedBox(height: 25),
+
+          // সেন্ড ডায়মন্ডস বাটন
           SizedBox(
             width: double.infinity,
             height: 50,
             child: ElevatedButton(
               onPressed: confirmTransfer,
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
-              child: const Text("SEND DIAMONDS",
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.pinkAccent,
+                foregroundColor: Colors.white,
+                elevation: 6,
+                shadowColor: Colors.pinkAccent.withOpacity(0.4),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: const Text(
+                "SEND DIAMONDS",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  letterSpacing: 1,
+                ),
+              ),
             ),
           ),
         ],

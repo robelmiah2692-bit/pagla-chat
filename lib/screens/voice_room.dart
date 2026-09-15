@@ -6237,6 +6237,101 @@ class _VoiceRoomState extends State<VoiceRoom>
                     }
                   }
 // ==========================================
+                  // ==========================================
+// ম্যারেজ পার্টনার কাপল এক্সপি (Couple XP) আপডেট লজিক
+// ==========================================
+                  if (!isFree && totalAmount > 0 && !isRingGift) {
+                    int coupleEarnedXp = (totalAmount / 200)
+                        .floor(); // প্রতি ২০০ ডায়মন্ড = ১ কাপল এক্সপি
+                    debugPrint(
+                        "❤️ Couple XP Calculation: earned=$coupleEarnedXp, senderDoc=$senderDocID, receiverDoc=$receiverDocID");
+
+                    if (coupleEarnedXp > 0 &&
+                        senderDocID.isNotEmpty &&
+                        receiverDocID.isNotEmpty) {
+                      try {
+                        final firestore = FirebaseFirestore.instance;
+
+                        // ১. senderDocID এবং receiverDocID দিয়ে সরাসরি Auth UID বের করে নেওয়া (যদি এগুলো ডকুমেন্ট আইডি হয়ে থাকে)
+                        String senderAuthUID = senderDocID;
+                        String receiverAuthUID = receiverDocID;
+
+                        // সেন্ডারের authUID চেক করা
+                        var senderUserDoc = await firestore
+                            .collection('users')
+                            .doc(senderDocID)
+                            .get();
+                        if (senderUserDoc.exists &&
+                            senderUserDoc.data()!.containsKey('authUID')) {
+                          senderAuthUID =
+                              senderUserDoc.data()!['authUID'] ?? senderDocID;
+                        }
+
+                        // রিসিভারের authUID চেক করা
+                        var receiverUserDoc = await firestore
+                            .collection('users')
+                            .doc(receiverDocID)
+                            .get();
+                        if (receiverUserDoc.exists &&
+                            receiverUserDoc.data()!.containsKey('authUID')) {
+                          receiverAuthUID =
+                              receiverUserDoc.data()!['authUID'] ??
+                                  receiverDocID;
+                        }
+
+                        debugPrint(
+                            "🔍 Resolved AuthUIDs -> Sender: $senderAuthUID, Receiver: $receiverAuthUID");
+
+                        // ২. marriages কালেকশনে সঠিক Auth UID দিয়ে কুয়েরি করা (যাতে উভয়ের অর্ডার উল্টো হলেও সমস্যা না হয়)
+                        var marriageQuery1 = await firestore
+                            .collection('marriages')
+                            .where('myAuthUID', isEqualTo: senderAuthUID)
+                            .where('partnerAuthUID', isEqualTo: receiverAuthUID)
+                            .limit(1)
+                            .get();
+
+                        QuerySnapshot? targetMarriageDoc = marriageQuery1;
+
+                        if (marriageQuery1.docs.isEmpty) {
+                          var marriageQuery2 = await firestore
+                              .collection('marriages')
+                              .where('myAuthUID', isEqualTo: receiverAuthUID)
+                              .where('partnerAuthUID', isEqualTo: senderAuthUID)
+                              .limit(1)
+                              .get();
+                          targetMarriageDoc = marriageQuery2;
+                        }
+
+                        // ৩. যদি কাপল বা ম্যারেজ কানেকশন পাওয়া যায়, তবে XP এবং Diamonds আপডেট হবে
+                        if (targetMarriageDoc != null &&
+                            targetMarriageDoc.docs.isNotEmpty) {
+                          var marriageDocRef =
+                              targetMarriageDoc.docs.first.reference;
+                          var marriageData = targetMarriageDoc.docs.first.data()
+                              as Map<String, dynamic>;
+
+                          int currentXp = marriageData['coupleXp'] ?? 0;
+                          int currentDiamonds = marriageData['totalDiamonds'] ??
+                              marriageData['coupleDiamonds'] ??
+                              0;
+
+                          await marriageDocRef.update({
+                            'coupleXp': currentXp + coupleEarnedXp,
+                            'totalDiamonds': currentDiamonds + totalAmount,
+                          });
+
+                          debugPrint(
+                              "❤️ Couple XP Successfully Updated: +$coupleEarnedXp XP | Total Diamonds: ${currentDiamonds + totalAmount}");
+                        } else {
+                          debugPrint(
+                              "💔 These users are not married partners or IDs didn't match, couple XP skipped.");
+                        }
+                      } catch (e) {
+                        debugPrint("❌ Couple XP update error: $e");
+                      }
+                    }
+                  }
+// ==========================================
                 } else {
                   return;
                 }

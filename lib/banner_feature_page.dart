@@ -1,5 +1,7 @@
 import 'dart:math';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:pagla_chat/event_rewards_page.dart';
 import 'package:pagla_chat/lovely_couple_page.dart';
 import 'agency_list_page.dart';
 
@@ -116,7 +118,7 @@ class _BannerFeaturePageState extends State<BannerFeaturePage> {
               children: [
                 const AgencyListPage(),
                 const LovelyCouplePage(),
-                _buildSimpleContentTab("Super Event Section", "এখানে সুপার ইভেন্ট সংক্রান্ত তথ্য থাকবে।", themeColor),
+                EventRewardsPage(userId: FirebaseAuth.instance.currentUser!.uid ?? ''),
               ],
             ),
           ),

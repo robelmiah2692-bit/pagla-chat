@@ -5190,6 +5190,10 @@ Future<void> _claimDailyDiamonds() async {
     String partnerImage = marriageData['partnerImage'] ?? '';
     String ringName = marriageData['ringName'] ?? 'Wedding Ring';
 
+// 💎 কাপল XP হিসাব
+    int totalDiamonds = marriageData['totalDiamonds'] ?? marriageData['coupleDiamonds'] ?? 0;
+    int coupleXp = marriageData['coupleXp'] ?? (totalDiamonds ~/ 200);
+
     String currentUid = _auth.currentUser?.uid ?? '';
 
     showModalBottomSheet(
@@ -5299,13 +5303,34 @@ Future<void> _claimDailyDiamonds() async {
                           ),
                         ),
 
-                        // ❤️ মাঝখানের লাভ আইকন
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 5),
-                          child:
-                              Icon(Icons.favorite, color: Colors.red, size: 35),
+                        // ❤️ মাঝখানের লাভ আইকন এবং নিচে XP ব্যাজ
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 5),
+                              child: Icon(Icons.favorite, color: Colors.red, size: 35),
+                            ),
+                            const SizedBox(height: 6),
+                            // গোল্ডেন মিক্স কালার ডিজাইনযুক্ত XP টেক্সট
+                            ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [Color(0xFFFFD700), Color(0xFFFF4500), Color(0xFF00FFFF)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds),
+                              child: Text(
+                                "XP : $coupleXp",
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-
                         // 👥 পার্টনারের প্রোফাইল (ডান পাশে)
                         Expanded(
                           child: Column(
