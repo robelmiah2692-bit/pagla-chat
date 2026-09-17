@@ -47,16 +47,16 @@ class LovelyCouplePage extends StatelessWidget {
             String uid2 = data['partnerAuthUID'] ?? '';
 
             if (uid1.isNotEmpty && uid2.isNotEmpty) {
-              // ইউনিক পেয়ার কি তৈরি করা (ছোট আইডি আগে, বড় আইডি পরে সাজিয়ে)
+              // ইউনিক পেয়ার কি তৈরি করা (ছোট আইডি আগে, বড় আইডি পরে সাজিয়ে)
               List<String> sortedUids = [uid1, uid2]..sort();
               String coupleKey = "${sortedUids[0]}_${sortedUids[1]}";
 
-              // যেহেতু কুয়েরিটি XP descending করা, প্রথমবার আসা ডকুমেন্টটি বেশি XP ওয়ালা বা সঠিক হবে
+              // যেহেতু কুয়েরিটি XP descending করা, প্রথমবার আসা ডকুমেন্টটি বেশি XP ওয়ালা বা সঠিক হবে
               if (!uniqueCouplesMap.containsKey(coupleKey)) {
                 uniqueCouplesMap[coupleKey] = doc;
               }
             } else {
-              // যদি কোনো কারণে ফিল্ড খালি থাকে তবে আইডি দিয়েই ইউনিক ধরে রাখব
+              // যদি কোনো কারণে ফিল্ড খালি থাকে তবে আইডি দিয়েই ইউনিক ধরে রাখব
               uniqueCouplesMap[doc.id] = doc;
             }
           }
@@ -184,8 +184,11 @@ class _CoupleCardItem extends StatelessWidget {
       builder: (context, userSnapshot) {
         String myName = fallbackMyName;
         String myImage = fallbackMyImage;
+        String myFrameUrl = ''; // 🌟 [মার্ক]: প্রথম ইউজারের ফ্রেম লিংক রাখার ভেরিয়েবল
+        
         String partnerName = fallbackPartnerName;
         String partnerImage = fallbackPartnerImage;
+        String partnerFrameUrl = ''; // 🌟 [মার্ক]: পার্টনার ইউজারের ফ্রেম লিংক রাখার ভেরিয়েবল
 
         if (userSnapshot.hasData && userSnapshot.data != null) {
           var myDoc = userSnapshot.data![0];
@@ -195,12 +198,14 @@ class _CoupleCardItem extends StatelessWidget {
             var myData = myDoc.data() as Map<String, dynamic>;
             myName = myData['name'] ?? myName;
             myImage = myData['profilePic'] ?? myImage;
+            myFrameUrl = myData['activeFrameUrl'] ?? ''; // 🌟 [মার্ক]: ডাটাবেস থেকে প্রথম ইউজারের activeFrameUrl আনা হলো
           }
 
           if (partnerDoc.exists && partnerDoc.data() != null) {
             var partnerData = partnerDoc.data() as Map<String, dynamic>;
             partnerName = partnerData['name'] ?? partnerName;
             partnerImage = partnerData['profilePic'] ?? partnerImage;
+            partnerFrameUrl = partnerData['activeFrameUrl'] ?? ''; // 🌟 [মার্ক]: ডাটাবেস থেকে পার্টনারের activeFrameUrl আনা হলো
           }
         }
 
@@ -230,6 +235,7 @@ class _CoupleCardItem extends StatelessWidget {
             ],
           ),
           child: Stack(
+            clipBehavior: Clip.none, // 🌟 [মার্ক]: যাতে টপ ১, ২, ৩ ব্যাজ বা রিং কার্ডের বাইরে গেলে কেটে না যায়
             children: [
               // ব্যাকগ্রাউন্ড লাভ আইকন প্যাটার্ন
               Positioned.fill(
@@ -246,67 +252,84 @@ class _CoupleCardItem extends StatelessWidget {
                 ),
               ),
 
-              // টপ ১, ২, ৩ কাপল ব্যাজ (উপরের কার্ডগুলোর জন্য)
+              // 🌟 [মার্ক]: টপ ১, ২, ৩ কাপল ব্যাজ (এখানে টপ ১,২,৩ কার্ডের ভেতরে রিংয়ের কাছাকাছি বা একদম ওপরের অংশে রিংয়ের ক্ষতি না করে সুন্দরভাবে বসানো হয়েছে)
               if (rankIndex < 3)
                 Positioned(
-                  top: 0,
-                  right: 20,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Colors.amber, Colors.orange, Colors.amberAccent],
+                  top: -12, // রিং বরাবর একটু উপরে বা উপরে সুন্দরভাবে প্লেস করার জন্য
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Colors.amber, Colors.orange, Colors.amberAccent],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(color: Colors.amber.withOpacity(0.6), blurRadius: 8, spreadRadius: 1)
+                        ],
                       ),
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(12),
-                        bottomRight: Radius.circular(12),
-                      ),
-                      boxShadow: [
-                        BoxShadow(color: Colors.amber.withOpacity(0.5), blurRadius: 6, spreadRadius: 1)
-                      ],
-                    ),
-                    child: Text(
-                      rankIndex == 0
-                          ? "🔥 Top 1 Couple"
-                          : rankIndex == 1
-                              ? "⭐ Top 2 Couple"
-                              : "💎 Top 3 Couple",
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
+                      child: Text(
+                        rankIndex == 0
+                            ? "🔥 Top 1 Couple"
+                            : rankIndex == 1
+                                ? "⭐ Top 2 Couple"
+                                : "💎 Top 3 Couple",
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
                       ),
                     ),
                   ),
                 ),
 
               Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 16), // ওপরের ব্যাজের জন্য একটু প্যাডিং বাড়ানো হলো
                 child: Column(
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        // ১. প্রথম ইউজার
+                        // ১. প্রথম ইউজার (ফ্রেমসহ)
                         GestureDetector(
                           onTap: () => onNavigateProfile(myAuthUID),
                           child: Column(
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(3),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.cyanAccent, width: 2),
-                                ),
-                                child: CircleAvatar(
-                                  radius: 35,
-                                  backgroundColor: Colors.grey[800],
-                                  backgroundImage: myImage.isNotEmpty
-                                      ? CachedNetworkImageProvider(myImage)
-                                      : null,
-                                  child: myImage.isEmpty
-                                      ? const Icon(Icons.person, color: Colors.white)
-                                      : null,
+                              // 🌟 [মার্ক]: প্রোফাইল পিকচার এবং কাপল ফ্রেম একসাথে বসানোর জন্য Stack ব্যবহার করা হয়েছে (OverflowBox দিয়ে নাম ধাক্কা দেওয়া ফিক্স করা হলো)
+                              SizedBox(
+                                width: 70,
+                                height: 70,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 35,
+                                      backgroundColor: Colors.grey[800],
+                                      backgroundImage: myImage.isNotEmpty
+                                          ? CachedNetworkImageProvider(myImage)
+                                          : null,
+                                      child: myImage.isEmpty
+                                          ? const Icon(Icons.person, color: Colors.white)
+                                          : null,
+                                    ),
+                                    // যদি ইউজারের activeFrameUrl থাকে তবে তা ওভারলে হিসেবে শো করবে এবং নামকে ধাক্কা দেবে না
+                                    if (myFrameUrl.isNotEmpty)
+                                      OverflowBox(
+                                        maxWidth: 130,
+                                        maxHeight: 130,
+                                        child: Image.network(
+                                          myFrameUrl,
+                                          width: 130,
+                                          height: 130,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                               const SizedBox(height: 6),
@@ -352,26 +375,43 @@ class _CoupleCardItem extends StatelessWidget {
                           ],
                         ),
 
-                        // ২. পার্টনার ইউজার
+                        // ২. পার্টনার ইউজার (ফ্রেমসহ)
                         GestureDetector(
                           onTap: () => onNavigateProfile(partnerAuthUID),
                           child: Column(
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(3),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.pinkAccent, width: 2),
-                                ),
-                                child: CircleAvatar(
-                                  radius: 35,
-                                  backgroundColor: Colors.grey[800],
-                                  backgroundImage: partnerImage.isNotEmpty
-                                      ? CachedNetworkImageProvider(partnerImage)
-                                      : null,
-                                  child: partnerImage.isEmpty
-                                      ? const Icon(Icons.person, color: Colors.white)
-                                      : null,
+                              // 🌟 [মার্ক]: পার্টনারের প্রোফাইল পিকচার এবং ফ্রেমের জন্য Stack
+                              SizedBox(
+                                width: 70,
+                                height: 70,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 35,
+                                      backgroundColor: Colors.grey[800],
+                                      backgroundImage: partnerImage.isNotEmpty
+                                          ? CachedNetworkImageProvider(partnerImage)
+                                          : null,
+                                      child: partnerImage.isEmpty
+                                          ? const Icon(Icons.person, color: Colors.white)
+                                          : null,
+                                    ),
+                                    // পার্টনারের activeFrameUrl থাকলে তা এখানে রেন্ডার হবে এবং নামকে ধাক্কা দেবে না
+                                    if (partnerFrameUrl.isNotEmpty)
+                                      OverflowBox(
+                                        maxWidth: 130,
+                                        maxHeight: 130,
+                                        child: Image.network(
+                                          partnerFrameUrl,
+                                          width: 130,
+                                          height: 130,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                               const SizedBox(height: 6),
@@ -417,6 +457,7 @@ class _CoupleCardItem extends StatelessWidget {
     );
   }
 
+
   Future<DocumentSnapshot<Map<String, dynamic>>> _getUserDoc(String authUid) async {
     if (authUid.isEmpty) {
       return await FirebaseFirestore.instance.collection('users').doc(authUid).get();
@@ -435,6 +476,7 @@ class _CoupleCardItem extends StatelessWidget {
     return await FirebaseFirestore.instance.collection('users').doc(authUid).get();
   }
 }
+
 // 💍 ইনফিনিট রিং অ্যানিমেটর উইজেট
 class _InfiniteRingAnimator extends StatefulWidget {
   final String ringIconUrl;

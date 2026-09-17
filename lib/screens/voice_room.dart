@@ -45,6 +45,7 @@ import 'package:pagla_chat/user_badges_row.dart';
 import 'package:pagla_chat/viewer_ranking_widget.dart';
 
 import 'package:pagla_chat/widgets/entry_effect_handler.dart';
+import 'package:pagla_chat/widgets/youtube_player_widget.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -54,6 +55,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:pagla_chat/room_follower_sheet.dart';
 import 'package:pagla_chat/inbox_page.dart';
 import 'package:pagla_chat/widgets/voice_ripple.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../services/room_service.dart';
 import 'package:pagla_chat/room_sync_service.dart';
 import 'package:pagla_chat/services/database_service.dart';
@@ -193,7 +196,8 @@ class _VoiceRoomState extends State<VoiceRoom>
       _entrySnapshotSubscription;
 
 // ক্লাসের শুরুতে এগুলো যোগ করুন:
-
+// ক্লাসের অন্যান্য ভেরিয়েবলের সাথে এটি যোগ করুন (লাল দাগ দূর করার জন্য)
+  late Stream<DatabaseEvent> roomDatabaseStream;
   StreamSubscription? _roomEndedSub;
   StreamSubscription? _roomDataSnapshotSub;
   String lastProcessedEntryId =
@@ -203,10 +207,16 @@ class _VoiceRoomState extends State<VoiceRoom>
   late ScrollController _roomNameScrollController;
   Timer? _scrollTimer;
   late AnimationController _marqueeController;
+  final YouTubePlayerManager _youtubeManager = YouTubePlayerManager();
 
   @override
   void initState() {
     super.initState();
+    // ফায়ারবেস রিয়েলটাইম ডাটাবেজ স্ট্রিম ইনিশিয়ালাইজেশন (এখানে .asBroadcastStream() যোগ করুন)
+    roomDatabaseStream = FirebaseDatabase.instance
+        .ref('rooms/${widget.roomId}')
+        .onValue
+        .asBroadcastStream(); // 👈 এই জায়গাতে যুক্ত করতে হবে
     _roomNameScrollController = ScrollController();
 
     // স্মুথ ইনফিনিট মারকিউ অ্যানিমেশন কন্ট্রোলার
@@ -2323,9 +2333,13 @@ class _VoiceRoomState extends State<VoiceRoom>
                   ),
                 ),
 
-// 🔥 মুভেবল ব্যানারের উপরে এটি বসবে:
-                RoomFloatingBox(roomId: widget.roomId),
-
+// 🔥 সঠিক নিয়মে মেইন রুমে ফ্লটিং বক্স কল করুন (uID সহ)
+                RoomFloatingBox(
+                  roomId: widget.roomId,
+                  currentUserId: uID.isNotEmpty
+                      ? uID
+                      : (FirebaseAuth.instance.currentUser?.uid ?? ""),
+                ),
                 // ৪. মুভেবল টপ গিফটার ব্যানার কার্ড
                 if (roomData['showBanner'] ?? true)
                   MovingBannerWidget(
@@ -2538,7 +2552,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                     ),
                   ),
 
-                // 🔥 ৩. ট্রেজার বক্স ব্লাস্ট অ্যানিমেশন ওভারলে (রুমের সবাই দেখতে পাবে)
+                // 🔥 ৩. ট্রেজার বক্স ব্লাস্ট অ্যানিমেশন ওভারলে (রুমের সবার জন্য ইউজার-ভিত্তিক)
                 StreamBuilder<DocumentSnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('rooms')
@@ -2546,89 +2560,129 @@ class _VoiceRoomState extends State<VoiceRoom>
                       .collection('room_box')
                       .doc('current_box')
                       .snapshots(),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData || !snapshot.data!.exists) {
+                  builder: (context, boxSnapshot) {
+                    if (!boxSnapshot.hasData || !boxSnapshot.data!.exists) {
                       return const SizedBox.shrink();
                     }
 
-                    var data = snapshot.data!.data() as Map<String, dynamic>?;
+                    var data =
+                        boxSnapshot.data!.data() as Map<String, dynamic>?;
                     if (data == null) return const SizedBox.shrink();
 
                     bool isBlasted = data['isBlasted'] ?? false;
                     if (!isBlasted) return const SizedBox.shrink();
 
-                    return Positioned.fill(
-                      child: Material(
-                        color: Colors.black.withOpacity(0.6),
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 250,
-                                height: 250,
-                                child: Lottie.network(
-                                  'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/officialall/box_blast.json',
-                                  fit: BoxFit.contain,
-                                  repeat: false,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Center(
-                                      child: Icon(Icons.flash_on,
-                                          color: Colors.amber, size: 80),
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              const Text(
-                                "🎉 Treasure Box Blasted! 🎉",
-                                style: TextStyle(
-                                  color: Colors.amber,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              const Text(
-                                "100,000 Diamonds Reached! Rewards distributed.",
-                                style: TextStyle(
-                                    color: Colors.white70, fontSize: 14),
-                              ),
-                              const SizedBox(height: 25),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.amber,
-                                  foregroundColor: Colors.black,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 30, vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
+                    // চেক করা হচ্ছে এই ইউজার ইতিমধ্যে রিওয়ার্ড কালেক্ট করেছে কিনা
+                    return StreamBuilder<DocumentSnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('rooms')
+                          .doc(widget.roomId)
+                          .collection('room_box')
+                          .doc('current_box')
+                          .collection('claimed_users')
+                          .doc(uID.isNotEmpty
+                              ? uID
+                              : FirebaseAuth.instance.currentUser!
+                                  .uid) // আপনার ক্লাসের সঠিক uID ভেরিয়েবল ব্যবহার করা হলো
+                          .snapshots(),
+                      builder: (context, claimSnapshot) {
+                        bool hasClaimed =
+                            claimSnapshot.hasData && claimSnapshot.data!.exists;
+
+                        // যদি ইউজার ইতিমধ্যে কালেক্ট করে থাকে, তবে তার স্ক্রিন থেকে ওভারলে মুছে যাবে
+                        if (hasClaimed) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return Positioned.fill(
+                          child: Material(
+                            color: Colors.black.withOpacity(0.6),
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 250,
+                                    height: 250,
+                                    child: Lottie.network(
+                                      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/officialall/box_blast.json',
+                                      fit: BoxFit.contain,
+                                      repeat: false,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        return const Center(
+                                          child: Icon(Icons.flash_on,
+                                              color: Colors.amber, size: 80),
+                                        );
+                                      },
+                                    ),
                                   ),
-                                ),
-                                onPressed: () async {
-                                  await FirebaseFirestore.instance
-                                      .collection('rooms')
-                                      .doc(widget.roomId)
-                                      .collection('room_box')
-                                      .doc('current_box')
-                                      .update({'isBlasted': false});
-                                },
-                                child: const Text(
-                                  "Collect Rewards",
-                                  style: TextStyle(
+                                  const SizedBox(height: 20),
+                                  const Text(
+                                    "🎉 Treasure Box Blasted! 🎉",
+                                    style: TextStyle(
+                                      color: Colors.amber,
+                                      fontSize: 22,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 16),
-                                ),
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  const Text(
+                                    "100,000 Diamonds Reached! Claim your reward.",
+                                    style: TextStyle(
+                                        color: Colors.white70, fontSize: 14),
+                                  ),
+                                  const SizedBox(height: 25),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.amber,
+                                      foregroundColor: Colors.black,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 30, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                    ),
+                                    onPressed: () async {
+                                      // ১. ডাটাবেজে রেকর্ড করা যে এই ইউজার তার রিওয়ার্ড নিয়ে নিয়েছে
+                                      await FirebaseFirestore.instance
+                                          .collection('rooms')
+                                          .doc(widget.roomId)
+                                          .collection('room_box')
+                                          .doc('current_box')
+                                          .collection('claimed_users')
+                                          .doc(uID.isNotEmpty
+                                              ? uID
+                                              : FirebaseAuth
+                                                  .instance.currentUser!.uid)
+                                          .set({
+                                        'claimedAt':
+                                            FieldValue.serverTimestamp(),
+                                      });
+
+                                      // ২. এখানে আপনার নতুন রিওয়ার্ড ডিস্ট্রিবিউশন লজিক কল করবেন:
+                                      // - টপ ১ গিফটার পাবে ৩,০০০ ডায়মন্ড
+                                      // - টপ ২ গিফটার পাবে ১,৫০০ ডায়মন্ড
+                                      // - টপ ৩ গিফটার পাবে ৫০০ ডায়মন্ড
+                                      // - বাকি রুমে থাকা সবাই পাবে ২০ ডায়মন্ড করে
+                                    },
+                                    child: const Text(
+                                      "Collect Rewards",
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     );
                   },
                 ),
-
                 if (showEntryEffect && currentEntryEffect != null)
                   EntryEffectHandler(
                     userName: entryUserName ?? "User",
@@ -3166,7 +3220,7 @@ class _VoiceRoomState extends State<VoiceRoom>
     _volumeSubscription?.cancel();
     _roomSnapshotSubscription?.cancel();
     _entrySnapshotSubscription?.cancel();
-
+    _youtubeManager.dispose();
     _roomEndedSub?.cancel(); // 👈 নতুন যুক্ত হলো
     _roomDataSnapshotSub?.cancel(); // 👈 নতুন যুক্ত হলো
 
@@ -3743,10 +3797,21 @@ class _VoiceRoomState extends State<VoiceRoom>
           .doc(widget.roomId)
           .snapshots(),
       builder: (context, roomSnapshot) {
-        int currentLayoutItemCount = 10; // ডিফল্ট ১২ সিট লেআউট
+        int currentLayoutItemCount = 10; // ডিফল্ট সিট লেআউট
+
         if (roomSnapshot.hasData && roomSnapshot.data!.exists) {
           var roomData = roomSnapshot.data!.data() as Map<String, dynamic>;
-          currentLayoutItemCount = roomData['seatLayoutCount'] ?? 10;
+          var rawLayout = roomData['seatLayoutCount'];
+
+          // 🔥 ফুল সেফ কনভার্সন (স্টریং বা ইন্ট যাই হোক, কনভার্ট করে int বানিয়ে নেবে)
+          if (rawLayout is int) {
+            currentLayoutItemCount = rawLayout;
+          } else if (rawLayout is String) {
+            currentLayoutItemCount =
+                int.tryParse(rawLayout) ?? (rawLayout == 'video_10' ? 101 : 10);
+          } else if (rawLayout != null) {
+            currentLayoutItemCount = int.tryParse(rawLayout.toString()) ?? 10;
+          }
         }
 
         return StreamBuilder<DatabaseEvent>(
@@ -5019,8 +5084,168 @@ class _VoiceRoomState extends State<VoiceRoom>
               );
             }
 
-            // সুইচ কেস লেআউট রেন্ডার অংশ
+// সুইচ কেস লেআউট রেন্ডার অংশ
             switch (currentLayoutItemCount) {
+              case 101:
+                return Column(
+                  children: [
+                    // ================= 📺 উপরে ইউটিউব ভিডিও প্লেয়ার সেকশন =================
+                    _youtubeManager.buildYouTubePlayerWidgetWithStream(
+                      context,
+                      (fn) => setState(fn),
+                      roomDatabaseStream,
+                      widget.roomId,
+                      (selectedUrl) {
+                        // ডাটাবেজে ভিডিও URL এবং ইনিশিয়াল ডাটা আপডেট করার কোড
+                        FirebaseDatabase.instance
+                            .ref('rooms/${widget.roomId}/youtube')
+                            .set({
+                          'videoUrl': selectedUrl,
+                          'position': 0.0,
+                          'isPlaying': true,
+                        });
+                      },
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    // ================= 🔍 সার্চ বাটন বার =================
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: InkWell(
+                        onTap: () {
+                          _youtubeManager.showYouTubeSearchModal(context,
+                              (selectedUrl) {
+                            // ডাটাবেজে নতুন ভিডিও সেট করুন যাতে সবার রুমে একই সাথে চালু হয়
+                            FirebaseDatabase.instance
+                                .ref('rooms/${widget.roomId}/youtube')
+                                .set({
+                              'videoUrl': selectedUrl,
+                              'position': 0.0,
+                              'isPlaying': true,
+                            });
+                            setState(() {
+                              _youtubeManager.initializeYouTubePlayer(
+                                  selectedUrl,
+                                  0.0,
+                                  true,
+                                  (fn) => setState(fn),
+                                  widget.roomId);
+                            });
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          height: 40,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Colors.purpleAccent, Colors.deepPurple],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.purpleAccent.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.search, color: Colors.white, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                "Search & Play Your Favorite Video",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // ================= 🪑 নিচে সিটগুলোর লেআউট =================
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 2),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // প্রথম সারি (৫টি সিট: index 0 থেকে 4)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: List.generate(
+                              5,
+                              (index) => Expanded(
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 2),
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 70.0,
+                                      height: 80.0,
+                                      child: FittedBox(
+                                        fit: BoxFit.contain,
+                                        child: dynamicItemBuilder(
+                                          context,
+                                          index,
+                                          seatSize: 75.0,
+                                          avatarSize: 55.0,
+                                          frameSize: 90.0,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          // দ্বিতীয় সারি (বাকি ৫টি সিট: index 5 থেকে 9)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: List.generate(
+                              5,
+                              (index) => Expanded(
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 2),
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 70.0,
+                                      height: 80.0,
+                                      child: FittedBox(
+                                        fit: BoxFit.contain,
+                                        child: dynamicItemBuilder(
+                                          context,
+                                          index + 5,
+                                          seatSize: 75.0,
+                                          avatarSize: 55.0,
+                                          frameSize: 90.0,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+
               case 2:
                 return Padding(
                   padding:
@@ -6377,6 +6602,7 @@ class _VoiceRoomState extends State<VoiceRoom>
               if (gift['id'] == 'soulmate_special') {
                 try {
                   String receiverAuthUID = "";
+                  String receiverSixDigitId = "";
 
                   if (seats.isNotEmpty) {
                     for (var seat in seats) {
@@ -6386,11 +6612,49 @@ class _VoiceRoomState extends State<VoiceRoom>
                         receiverAuthUID = seat["userId"]?.toString() ??
                             seat["authUID"]?.toString() ??
                             '';
+                        receiverSixDigitId = seat["uID"]?.toString() ?? "";
                         break;
                       }
                     }
                   }
                   if (receiverAuthUID.isEmpty) receiverAuthUID = receiverDocID;
+                  if (receiverSixDigitId.isEmpty)
+                    receiverSixDigitId = receiverDocID;
+
+                  // ডাটাবেজের 'users' কালেকশন থেকে রিসিভারের ডকুমেন্ট চেক করা (স্ক্রিনশট অনুযায়ী)
+                  var receiverUserDoc = await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(
+                          receiverSixDigitId) // অথবা receiverAuthUID যদি আপনার ডকুমেন্টস সিক্স-ডিজিট আইডি দিয়ে সেভ করা থাকে
+                      .get();
+
+                  // যদি প্রথমবার সিক্স-ডিজিট দিয়ে না পাওয়া যায়, তবে receiverDocID দিয়ে ট্রাই করবে
+                  if (!receiverUserDoc.exists &&
+                      receiverSixDigitId != receiverDocID) {
+                    receiverUserDoc = await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(receiverDocID)
+                        .get();
+                  }
+
+                  if (receiverUserDoc.exists) {
+                    var userData =
+                        receiverUserDoc.data() as Map<String, dynamic>;
+                    // স্ক্রিনশটের 'soulmates' অ্যারে ফিল্ড চেক করা
+                    List soulmateList = userData['soulmates'] ?? [];
+
+                    if (soulmateList.length >= 6) {
+                      // যদি ৬ জন বা তার বেশি থাকে, রিকোয়েস্ট যাবে না এবং ওয়ার্নিং দেখাবে
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                              "এই ইউজারের সোলমেট লিস্টে ইতিমধ্যে ৬ জন যুক্ত রয়েছে! রিকোয়েস্ট পাঠানো সম্ভব নয়।"),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return; // প্রসেস এখানেই বন্ধ হয়ে যাবে
+                    }
+                  }
 
                   if (receiverAuthUID.isNotEmpty &&
                       receiverAuthUID.length > 15) {
@@ -6407,7 +6671,9 @@ class _VoiceRoomState extends State<VoiceRoom>
                       'status': 'pending',
                     });
                   }
-                } catch (soulmateError) {}
+                } catch (soulmateError) {
+                  print("Error in soulmate request: $soulmateError");
+                }
               } else {
                 // সোলমেট এক্সপি আপডেট লজিক
                 if (!isFree &&
@@ -6439,7 +6705,6 @@ class _VoiceRoomState extends State<VoiceRoom>
                   }
                 }
               }
-
               // ম্যারেজ রিং রিকোয়েস্ট প্রসেসর
               if (gift['type'] == 'marriage_ring' ||
                   gift['type'] == 'vip_marriage') {

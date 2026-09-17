@@ -227,20 +227,38 @@ class RoomSettingsHandler {
                       if (snapshot.hasData && snapshot.data!.exists) {
                         roomData =
                             snapshot.data!.data() as Map<String, dynamic>;
-                        layoutCountVal = roomData['seatLayoutCount'] ?? 10;
+
+                        var rawLayout = roomData['seatLayoutCount'] ?? 10;
+                        if (rawLayout is int) {
+                          layoutCountVal = rawLayout;
+                        } else if (rawLayout is String) {
+                          layoutCountVal = int.tryParse(rawLayout) ??
+                              (rawLayout == 'video_10' ? 101 : 10);
+                        }
+
                         int totalXp = roomData['totalXp'] ?? 0;
                         roomLvlVal = RoomLevelHelper.calculateLevel(totalXp);
                       }
 
-                      bool isLayoutUnlocked(int layoutCount) {
-                        if (layoutCount == 10) return true;
-                        if (layoutCount == 2 && roomLvlVal >= 6) return true;
-                        if (layoutCount == 12 && roomLvlVal >= 10) return true;
-                        if (layoutCount == 18 && roomLvlVal >= 20) return true;
-                        if (layoutCount == 20 && roomLvlVal >= 40) return true;
+                      bool isLayoutUnlocked(dynamic layoutCount) {
+                        int countVal = 10;
+                        if (layoutCount is int) {
+                          countVal = layoutCount;
+                        } else if (layoutCount is String) {
+                          countVal = int.tryParse(layoutCount) ??
+                              (layoutCount == 'video_10' ? 101 : 10);
+                        }
+
+                        if (countVal == 10) return true;
+                        if (countVal == 101 && roomLvlVal >= 2)
+                          return true; // রুম লেভেল ২ হলে Video 10 আনলক হবে
+                        if (countVal == 2 && roomLvlVal >= 6) return true;
+                        if (countVal == 12 && roomLvlVal >= 10) return true;
+                        if (countVal == 18 && roomLvlVal >= 20) return true;
+                        if (countVal == 20 && roomLvlVal >= 40) return true;
 
                         var packageData =
-                            roomData['seat_layout_${layoutCount}_package'];
+                            roomData['seat_layout_${countVal}_package'];
                         if (packageData != null &&
                             packageData['expiry'] != null) {
                           DateTime expiry =
@@ -252,7 +270,8 @@ class RoomSettingsHandler {
                         return false;
                       }
 
-                      Widget buildLayoutButton(int layoutCount) {
+                      Widget buildLayoutButton(
+                          dynamic layoutCount, String buttonText) {
                         bool isSelected = layoutCountVal == layoutCount;
                         bool unlocked = isLayoutUnlocked(layoutCount);
 
@@ -289,7 +308,7 @@ class RoomSettingsHandler {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                "$layoutCount Seats",
+                                buttonText,
                                 style: const TextStyle(
                                     fontSize: 12, fontWeight: FontWeight.bold),
                               ),
@@ -310,17 +329,18 @@ class RoomSettingsHandler {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                                buildLayoutButton(2),
-                                buildLayoutButton(10),
-                                buildLayoutButton(12),
+                                buildLayoutButton(2, "2 Seats"),
+                                buildLayoutButton(10, "10 Seats"),
+                                buildLayoutButton(12, "12 Seats"),
                               ],
                             ),
                             const SizedBox(height: 10),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                                buildLayoutButton(18),
-                                buildLayoutButton(20),
+                                buildLayoutButton(101, "Video 10"),
+                                buildLayoutButton(18, "18 Seats"),
+                                buildLayoutButton(20, "20 Seats"),
                               ],
                             ),
                           ],
@@ -330,7 +350,6 @@ class RoomSettingsHandler {
                   ),
                   const SizedBox(height: 20),
                 ],
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [

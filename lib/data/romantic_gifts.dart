@@ -1,36 +1,5 @@
 final List<Map<String, dynamic>> romanticGifts = [
-   {
-    'id': 'lx_lottie_14',
-    'name': 'Lottie Gift 14',
-    'price': 199,
-    'lottieUrl':
-        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(11).json', // সরাসরি .json ফাইলের লিংক
-    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
-  },
-   {
-    'id': 'lx_lottie_15',
-    'name': 'Lottie Gift 15',
-    'price': 299,
-    'lottieUrl':
-        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(12).json', // সরাসরি .json ফাইলের লিংক
-    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
-  },
-   {
-    'id': 'lx_lottie_16',
-    'name': 'Lottie Gift 16',
-    'price': 499,
-    'lottieUrl':
-        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(13).json', // সরাসরি .json ফাইলের লিংক
-    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
-  },
-   {
-    'id': 'lx_lottie_17',
-    'name': 'Lottie Gift 17',
-    'price': 399,
-    'lottieUrl':
-        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(14).json', // সরাসরি .json ফাইলের লিংক
-    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
-  },
+   
   { 
     "id": "soulmate_special",
   "name": "Soulmates",
@@ -46,6 +15,8 @@ final List<Map<String, dynamic>> romanticGifts = [
     "price": 21500, 
     "type": "marriage_ring"
   },
+  
+  
   {
     "id": "ring_37400", 
     "name": "Golden Diamond Stud", 
@@ -60,6 +31,92 @@ final List<Map<String, dynamic>> romanticGifts = [
     "price": 57500, 
     "type": "marriage_ring"
   },
+  
+   {
+    "id": "ring_150000", 
+    "name": "Classic Gold huny", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ring1.png", 
+    "price": 150000, 
+    "type": "marriage_ring"
+  },
+  {
+    "id": "ring_130500", 
+    "name": "Classic love maisa", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ring2.png", 
+    "price": 130500, 
+    "type": "marriage_ring"
+  },
+  {
+    "id": "ring_180500", 
+    "name": "Classic Gold cuty", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ring3.png", 
+    "price": 180500, 
+    "type": "marriage_ring"
+  },
+  {
+    "id": "ring_21500", 
+    "name": "Classic sadiki barat", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ring4.png", 
+    "price": 171500, 
+    "type": "marriage_ring"
+  },
+  {
+    "id": "ring_210500", 
+    "name": "Classic Gold suhagrat", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ring5.png", 
+    "price": 210500, 
+    "type": "marriage_ring"
+  },
+  {
+    "id": "ring_21500", 
+    "name": "Classic Gold mnight", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ring6.png", 
+    "price": 215000, 
+    "type": "marriage_ring"
+  },
+  {
+    "id": "ring_230500", 
+    "name": "Classic Gold valobasa", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ring7.png", 
+    "price": 230500, 
+    "type": "marriage_ring"
+  },
+  {
+    "id": "ring_250500", 
+    "name": "Classic Gold sadi", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ring8.png", 
+    "price": 250500, 
+    "type": "marriage_ring"
+  },
+  {
+    "id": "ring_241500", 
+    "name": "Classic Gold drem", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ring9.png", 
+    "price": 241500, 
+    "type": "marriage_ring"
+  },
+  {
+    "id": "ring_261500", 
+    "name": "Classic Gold fancy piya", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ring10.png", 
+    "price": 261500, 
+    "type": "marriage_ring"
+  },
+  {
+    "id": "ring_255500", 
+    "name": "Classic Gold maisa", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ring11.png", 
+    "price": 255500, 
+    "type": "marriage_ring"
+  },
+  {
+    "id": "ring_301500", 
+    "name": "Classic love", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ring12.png", 
+    "price": 301500, 
+    "type": "marriage_ring"
+  },
+  
   {
     "id": "ring_76400", 
     "name": "Imperial Filigree", 

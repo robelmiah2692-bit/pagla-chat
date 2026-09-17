@@ -7,9 +7,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CustomWheelPainter extends CustomPainter {
   final List<Map<String, dynamic>> segments;
-  final List<int> userBetIndices; // ইনডেক্স নম্বর দিয়ে ট্র্যাক করব
+  final List<String> userBetSlots;
 
-  CustomWheelPainter(this.segments, this.userBetIndices);
+  CustomWheelPainter(this.segments, this.userBetSlots);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -17,32 +17,39 @@ class CustomWheelPainter extends CustomPainter {
     final radius = size.width / 2;
     final paint = Paint()..style = PaintingStyle.fill;
     final List<String> icons = ["7️⃣7️⃣7️⃣", "🍇", "🍎", "🍑", "🍓", "🍉"];
+    double sweepAngle = 2 * pi / segments.length;
 
+    // ঘড়ির কাঁটার বিপরীতে (Counter-clockwise) সাজানো যাতে টপ পয়েন্টারের সাথে নিখুঁত মিলে যায়
     for (int i = 0; i < segments.length; i++) {
       paint.color = segments[i]['color'];
-      canvas.drawArc(Rect.fromCircle(center: center, radius: radius),
-          i * (pi / 3), pi / 3, true, paint);
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        (i * sweepAngle) - (pi / 2) - (sweepAngle / 2),
+        sweepAngle,
+        true,
+        paint,
+      );
 
       final textPainter = TextPainter(
         text: TextSpan(
-            text: icons[i], style: TextStyle(fontSize: (i == 0) ? 30 : 45)),
+            text: icons[i], style: TextStyle(fontSize: (i == 0) ? 28 : 40)),
         textDirection: TextDirection.ltr,
       )..layout();
 
-      final angle = i * (pi / 3) + (pi / 6);
+      final angle = (i * sweepAngle) - (pi / 2);
       final offset = Offset(
-        center.dx + (radius * 0.50) * cos(angle) - textPainter.width / 2,
-        center.dy + (radius * 0.50) * sin(angle) - textPainter.height / 2,
+        center.dx + (radius * 0.55) * cos(angle) - textPainter.width / 2,
+        center.dy + (radius * 0.55) * sin(angle) - textPainter.height / 2,
       );
       textPainter.paint(canvas, offset);
 
-      // মাল্টিপ্লায়ার দেখার লজিক: ইনডেক্স চেক করে
-      if (userBetIndices.contains(i)) {
+      String slotLabel = segments[i]['label'];
+      if (userBetSlots.contains(slotLabel)) {
         final multPainter = TextPainter(
           text: TextSpan(
               text: "${segments[i]['mult']}x",
               style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: 16,
                   color: Colors.yellow,
                   fontWeight: FontWeight.bold)),
           textDirection: TextDirection.ltr,
@@ -83,51 +90,60 @@ class LuckySpinView extends StatefulWidget {
   State<LuckySpinView> createState() => _LuckySpinViewState();
 }
 
-class _LuckySpinViewState extends State<LuckySpinView> {
-  double _rotationAngle = 0;
+class _LuckySpinViewState extends State<LuckySpinView>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  double _currentAngle = 0;
+
   int _countdown = 15;
   bool isSpinning = false;
   String winLoseStatus = "";
   StreamSubscription? _winnersSubscription;
   Timer? _timer;
   List<Map<dynamic, dynamic>> topWinnersList = [];
-  Map<String, int> betMultipliers =
-      {}; // এটি ট্র্যাক করবে কোন স্লটে কত মাল্টিপ্লায়ার ইউজার ধরেছে
-  // আগেরটি মুছে এটি দিন:
-  List<int> userBetIndices = [];
+  Map<String, int> betMultipliers = {};
+  List<String> userBetSlots = [];
 
-  // [আপনার দেওয়া মূল লিস্ট, এখানে হাত দেওয়া হয়নি]
   final List<Map<String, dynamic>> wheelSegments = [
-    {"label": "777", "mult": 25, "deg": 0, "color": Colors.amber},
-    {"label": "Grapes", "mult": 2, "deg": 60, "color": Colors.purple},
-    {"label": "Apple", "mult": 3, "deg": 120, "color": Colors.red},
-    {"label": "Plum", "mult": 4, "deg": 180, "color": Colors.indigo},
-    {"label": "Strawberry", "mult": 5, "deg": 240, "color": Colors.pink},
-    {"label": "Watermelon", "mult": 1, "deg": 300, "color": Colors.green},
+    {"label": "777", "mult": 25, "color": Colors.amber},
+    {"label": "Grapes", "mult": 2, "color": Colors.purple},
+    {"label": "Apple", "mult": 3, "color": Colors.red},
+    {"label": "Plum", "mult": 4, "color": Colors.indigo},
+    {"label": "Strawberry", "mult": 5, "color": Colors.pink},
+    {"label": "Watermelon", "mult": 1, "color": Colors.green},
   ];
 
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    );
+    _animation = Tween<double>(begin: 0, end: 0).animate(_controller);
+
     _startTimer();
     _listenToWinners();
   }
 
   void _listenToWinners() {
-  _winnersSubscription = widget.gameRef.child("luckyWinners").onValue.listen((event) {
-    if (event.snapshot.value != null && mounted) {
-      final data = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
-      List<Map<dynamic, dynamic>> tempList = [];
-      data.forEach((key, value) {
-        tempList.add(Map<dynamic, dynamic>.from(value));
-      });
-      tempList.sort((a, b) => (b['time'] ?? 0).compareTo(a['time'] ?? 0));
-      setState(() {
-        topWinnersList = tempList.take(10).toList();
-      });
-    }
-  });
-}
+    _winnersSubscription =
+        widget.gameRef.child("luckyWinners").onValue.listen((event) {
+      if (event.snapshot.value != null && mounted) {
+        final data = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
+        List<Map<dynamic, dynamic>> tempList = [];
+        data.forEach((key, value) {
+          tempList.add(Map<dynamic, dynamic>.from(value));
+        });
+        tempList.sort((a, b) => (b['time'] ?? 0).compareTo(a['time'] ?? 0));
+        setState(() {
+          topWinnersList = tempList.take(10).toList();
+        });
+      }
+    });
+  }
+
   Future<void> _updateUserDiamonds(int amount) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -135,14 +151,15 @@ class _LuckySpinViewState extends State<LuckySpinView> {
       final collection = FirebaseFirestore.instance.collection('users');
       QuerySnapshot? query =
           await collection.where('authUID', isEqualTo: user.uid).limit(1).get();
-      if (query.docs.isEmpty)
-        query =
-            await collection.where('uID', isEqualTo: user.uid).limit(1).get();
-      if (query.docs.isEmpty && user.email != null)
+      if (query.docs.isEmpty) {
+        query = await collection.where('uID', isEqualTo: user.uid).limit(1).get();
+      }
+      if (query.docs.isEmpty && user.email != null) {
         query = await collection
             .where('email', isEqualTo: user.email)
             .limit(1)
             .get();
+      }
 
       if (query.docs.isNotEmpty) {
         await collection
@@ -164,9 +181,7 @@ class _LuckySpinViewState extends State<LuckySpinView> {
         if (!isSpinning) {
           if (_countdown > 0) {
             setState(() => _countdown--);
-            
           } else {
-            
             _performSpin();
           }
         }
@@ -174,97 +189,127 @@ class _LuckySpinViewState extends State<LuckySpinView> {
     });
   }
 
-Future<void> _performSpin() async {
-  if (isSpinning) return;
+  Future<void> _performSpin() async {
+    if (isSpinning) return;
 
-  setState(() {
-    isSpinning = true;
-    winLoseStatus = "Spinning...";
-  });
+    setState(() {
+      isSpinning = true;
+      winLoseStatus = "Spinning...";
+    });
 
-  widget.playSound("https://github.com/robelmiah2692-bit/vip-badges/raw/refs/heads/main/officialall/spin_sound.mp3.mp3");
+    widget.playSound(
+        "https://github.com/robelmiah2692-bit/vip-badges/raw/refs/heads/main/officialall/spin_sound.mp3.mp3");
 
-  // কঠোর গেম লজিক: ৯০% হারানোর চান্স, মাত্র ১০% জেতার চান্স
-  int randomChance = Random().nextInt(100); // ০ থেকে ৯৯
-  bool shouldWin = randomChance < 15; // ১৫% ইউজার জিতবে, বাকী ৮৫% হাউজ বা অ্যাপ জিতবে (হারবে)
+    final random = Random();
 
-  int winIdx;
-
-  // 777 হলো ইডেক্স ০ (মাল্টিপ্লায়ার ২৫x)। এটি যেন খুব সহজে না পড়ে, তার জন্য অতিরিক্ত সিকিউরিটি চেক
-  bool allow777 = Random().nextInt(100) < 5; // মাত্র ৫% চ্যান্স পুরো গেমের মধ্যে 777 পড়ার
-
-  if (shouldWin && userBetIndices.isNotEmpty) {
-    // ইউজার জিতবে, তবে যদি সে 777 এ ধরে থাকে এবং অ্যালাউড না হয়, তবে অন্য কম মাল্টিপ্লায়ার সিলেক্ট হবে
-    List<int> validWinIndices = List.from(userBetIndices);
-    if (!allow777) {
-      validWinIndices.remove(0); // 777 বাদ দিয়ে বাকিগুলোর মধ্য থেকে জেতাবে
+    // বেট অ্যানালাইসিস এবং হাউস প্রটেকশন লজিক
+    Map<String, int> slotTotalBets = {};
+    for (var segment in wheelSegments) {
+      slotTotalBets[segment['label']] = 0;
     }
 
-    if (validWinIndices.isNotEmpty) {
-      winIdx = validWinIndices[Random().nextInt(validWinIndices.length)];
-    } else {
-      // যদি শুধু 777এই ধরে থাকে কিন্তু অ্যালাউড না হয়, তবে লস করিয়ে দেবো
-      List<int> nonBetIndices = List.generate(wheelSegments.length, (i) => i)
-          .where((i) => !userBetIndices.contains(i))
-          .toList();
-      winIdx = nonBetIndices.isNotEmpty 
-          ? nonBetIndices[Random().nextInt(nonBetIndices.length)] 
-          : Random().nextInt(wheelSegments.length);
-    }
-  } else {
-    // নিশ্চিত হার লজিক: এমন স্লটে থামবে যা ইউজার ধরে নাই, অথবা কম দামি কোনো ফল
-    List<int> nonBetIndices = List.generate(wheelSegments.length, (i) => i)
-        .where((i) => !userBetIndices.contains(i) && i != 0) // 777 থেকে দূরে রাখবে
-        .toList();
-
-    if (nonBetIndices.isNotEmpty) {
-      winIdx = nonBetIndices[Random().nextInt(nonBetIndices.length)];
-    } else {
-      // যদি সব জায়গায় বেট করে, তবে র‍্যান্ডমলি এমন ইনডেক্স পড়বে যেখানে ইউজার লসে থাকবে
-      winIdx = Random().nextInt(wheelSegments.length);
-      if (winIdx == 0 && !allow777) {
-        winIdx = 1 + Random().nextInt(wheelSegments.length - 1); // 🛠️ [সংশোধন করা হয়েছে] 777 এড়িয়ে চলার সঠিক Dart লজিক
+    for (var bet in widget.luckyBets) {
+      String slot = bet['slot'] ?? '';
+      int amount = bet['amount'] ?? 0;
+      if (slotTotalBets.containsKey(slot)) {
+        slotTotalBets[slot] = slotTotalBets[slot]! + amount;
       }
     }
+
+    String? highestBetSlot;
+    int maxBetAmount = -1;
+    slotTotalBets.forEach((slot, totalAmount) {
+      if (totalAmount > maxBetAmount) {
+        maxBetAmount = totalAmount;
+        highestBetSlot = slot;
+      }
+    });
+
+    List<int> safeIndices = [];
+    for (int i = 0; i < wheelSegments.length; i++) {
+      if (wheelSegments[i]['label'] != highestBetSlot) {
+        safeIndices.add(i);
+      }
+    }
+
+    if (safeIndices.isEmpty) {
+      safeIndices = List.generate(wheelSegments.length, (i) => i);
+    }
+
+    int winIdx;
+    bool allow777 = random.nextInt(100) < 5;
+    List<int> preferredIndices = safeIndices.where((i) {
+      if (wheelSegments[i]['label'] == "777" && !allow777) return false;
+      return true;
+    }).toList();
+
+    if (preferredIndices.isNotEmpty) {
+      winIdx = preferredIndices[random.nextInt(preferredIndices.length)];
+    } else {
+      winIdx = safeIndices[random.nextInt(safeIndices.length)];
+    }
+
+    String winningSlotLabel = wheelSegments[winIdx]['label'];
+    debugPrint("DEBUG: Winning Slot -> $winningSlotLabel (Index: $winIdx)");
+
+    // নিখুঁত অ্যাঙ্গেল ক্যালকুলেশন
+    double totalSlices = wheelSegments.length.toDouble();
+    double degreesPerSlice = 360 / totalSlices;
+
+    // কাঙ্ক্ষিত ইনডেক্সটি পয়েন্টারের নিচে ফিক্সড করার ম্যাথমেটিক্যাল হিসাব
+    double targetAngle = 360 - (winIdx * degreesPerSlice);
+    double fullRotations = 360 * 8; // ৮ বার ফুল রোটেট করবে
+    double finalTargetAngle = _currentAngle + fullRotations + (targetAngle - (_currentAngle % 360));
+
+    _animation = Tween<double>(begin: _currentAngle, end: finalTargetAngle)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+
+    _controller.reset();
+    await _controller.forward();
+    _currentAngle = finalTargetAngle;
+
+    if (!mounted) return;
+
+    final currentuID = FirebaseAuth.instance.currentUser?.uid;
+    bool userWon = widget.luckyBets
+        .any((b) => b['id'] == currentuID && b['slot'] == winningSlotLabel);
+
+    if (userWon) {
+      int multiplier =
+          int.tryParse(wheelSegments[winIdx]['mult'].toString()) ?? 0;
+      int totalWin = widget.betAmount * multiplier;
+
+      widget.playSound(
+          "https://github.com/robelmiah2692-bit/vip-badges/raw/refs/heads/main/officialall/winlucy.mp3");
+      setState(() => winLoseStatus = "🎉 WIN! +💎$totalWin");
+      await _updateUserDiamonds(totalWin);
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await widget.gameRef.child("luckyWinners").push().set({
+          "name": user.displayName ?? "User",
+          "amount": totalWin,
+          "time": ServerValue.timestamp,
+        });
+      }
+    } else {
+      widget.playSound(
+          "https://github.com/robelmiah2692-bit/vip-badges/raw/refs/heads/main/officialall/lose.mp3");
+      setState(() => winLoseStatus = "❌ LOSE!");
+    }
+
+    await Future.delayed(const Duration(seconds: 2));
+    await widget.gameRef.child("luckyBets").remove();
+
+    setState(() {
+      _countdown = 15;
+      winLoseStatus = "";
+      isSpinning = false;
+      userBetSlots.clear();
+      betMultipliers.clear();
+    });
   }
 
-  debugPrint("DEBUG: Strict House Logic -> Win Chance: $randomChance%, Target Index: $winIdx");
-
-  // অ্যাঙ্গেল ক্যালকুলেশন
-  double slice = 360 / wheelSegments.length;
-  double targetAngle = (winIdx * slice) + 30; 
-  double targetRot = _rotationAngle + (360 * 5) + (360 - (targetAngle % 360));
-  
-  setState(() => _rotationAngle = targetRot);
-
-  await Future.delayed(const Duration(seconds: 4));
-  if (!mounted) return;
-
-  // রেজাল্ট যাচাই
-  if (userBetIndices.contains(winIdx)) {
-    int multiplier = int.tryParse(wheelSegments[winIdx]['mult'].toString()) ?? 0;
-    int totalWin = widget.betAmount * multiplier;
-    
-    widget.playSound("https://github.com/robelmiah2692-bit/vip-badges/raw/refs/heads/main/officialall/winlucy.mp3");
-    setState(() => winLoseStatus = "🎉 WIN! +💎$totalWin");
-    await _updateUserDiamonds(totalWin);
-  } else {
-    widget.playSound("https://github.com/robelmiah2692-bit/vip-badges/raw/refs/heads/main/officialall/lose.mp3");
-    setState(() => winLoseStatus = "❌ LOSE!");
-  }
-
-  await Future.delayed(const Duration(seconds: 2));
-  await widget.gameRef.child("luckyBets").remove();
-  
-  setState(() {
-    _countdown = 15;
-    winLoseStatus = "";
-    isSpinning = false;
-    userBetIndices.clear();
-    betMultipliers.clear();
-  });
-}
-  
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
@@ -287,27 +332,28 @@ Future<void> _performSpin() async {
               ),
             ),
             const SizedBox(height: 15),
-
-            // [চাকার নতুন ডিজাইন লজিক]
             Stack(
               alignment: Alignment.topCenter,
               children: [
-                AnimatedRotation(
-                  turns: _rotationAngle / (2 * pi),
-                  duration: const Duration(seconds: 4),
-                  curve: Curves.easeOutCubic,
+                AnimatedBuilder(
+                  animation: _animation,
+                  builder: (context, child) {
+                    return Transform.rotate(
+                      angle: (_animation.value * pi / 180),
+                      child: child,
+                    );
+                  },
                   child: Container(
                     width: constraints.maxWidth * 0.65,
                     height: constraints.maxWidth * 0.65,
                     decoration: const BoxDecoration(shape: BoxShape.circle),
                     child: CustomPaint(
-                      painter:
-                          CustomWheelPainter(wheelSegments, userBetIndices),
+                      painter: CustomWheelPainter(wheelSegments, userBetSlots),
                     ),
                   ),
                 ),
                 const Positioned(
-                    top: 0,
+                    top: -2,
                     child: Icon(Icons.arrow_drop_down,
                         color: Colors.red, size: 55)),
               ],
@@ -338,7 +384,6 @@ Future<void> _performSpin() async {
         String slot = wheelSegments[index]['label'];
         int mult = wheelSegments[index]['mult'] as int;
 
-        // ইউজার কি এই স্লটে বেট ধরেছে?
         bool isSelected = widget.luckyBets
             .any((b) => b['id'] == currentuID && b['slot'] == slot);
 
@@ -350,9 +395,9 @@ Future<void> _performSpin() async {
                 _countdown < 2) return;
 
             setState(() {
-              betMultipliers[slot] = mult; // মাল্টিপ্লায়ার সেট হলো
-              if (!userBetIndices.contains(index)) {
-                userBetIndices.add(index); // এখানে ইনডেক্স সেভ করছেন
+              betMultipliers[slot] = mult;
+              if (!userBetSlots.contains(slot)) {
+                userBetSlots.add(slot);
               }
             });
 
@@ -392,7 +437,6 @@ Future<void> _performSpin() async {
                             color: Colors.white54, fontSize: 10)),
                   ],
                 ),
-                // [নতুন ফিচার: ক্লিক করলে উপরে মাল্টিপ্লায়ার দেখাবে]
                 if (isSelected && betMultipliers.containsKey(slot))
                   Positioned(
                     top: 2,
@@ -426,7 +470,7 @@ Future<void> _performSpin() async {
           color: Colors.white.withOpacity(0.03),
           borderRadius: BorderRadius.circular(20)),
       child: Column(
-        children: [
+      children: [
           const Text("TOP 10 WINNERS",
               style: TextStyle(
                   color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
@@ -450,7 +494,8 @@ Future<void> _performSpin() async {
   @override
   void dispose() {
     _timer?.cancel();
-   _winnersSubscription?.cancel();
+    _winnersSubscription?.cancel();
+    _controller.dispose();
     super.dispose();
   }
 }

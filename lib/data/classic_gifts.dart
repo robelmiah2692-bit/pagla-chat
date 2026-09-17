@@ -3,40 +3,6 @@ List<Map<String, dynamic>> classicGifts = [
   
   // আপনার ডাটা ফাইল (luxury_gifts.dart) এ এভাবে রাখবেন:
 
-{
-    'id': 'lx_lottie_22',
-    'name': 'Lottie Gift 22',
-    'price': 399,
-    'lottieUrl':
-        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(19).json', // সরাসরি .json ফাইলের লিংক
-    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
-  },
-
-{
-    'id': 'lx_lottie_23',
-    'name': 'Lottie Gift 23',
-    'price': 399,
-    'lottieUrl':
-        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(20).json', // সরাসরি .json ফাইলের লিংক
-    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
-  },
-
-{
-    'id': 'lx_lottie_24',
-    'name': 'Lottie Gift 24',
-    'price': 399,
-    'lottieUrl':
-        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(21).json', // সরাসরি .json ফাইলের লিংক
-    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
-  },
-{
-    'id': 'lx_lottie_25',
-    'name': 'Lottie Gift 25',
-    'price': 499,
-    'lottieUrl':
-        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(22).json', // সরাসরি .json ফাইলের লিংক
-    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
-  },
 
 
 {

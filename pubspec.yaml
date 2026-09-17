@@ -49,6 +49,7 @@ dependencies:
 
   # --- ইউটিউব ও ওয়েব ---
   webview_flutter: ^4.10.0
+  youtube_player_flutter: ^10.0.1
   http: ^1.2.1
   url_launcher: ^6.3.0
   

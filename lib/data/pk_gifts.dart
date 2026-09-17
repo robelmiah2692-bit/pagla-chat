@@ -35,8 +35,73 @@ final List<Map<String, dynamic>> pkGifts = [
     'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
   },
   
-  
- 
+  {
+    'id': 'lx_lottie_14',
+    'name': 'Lottie Gift 14',
+    'price': 199,
+    'lottieUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(11).json', // সরাসরি .json ফাইলের লিংক
+    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+  },
+   {
+    'id': 'lx_lottie_15',
+    'name': 'Lottie Gift 15',
+    'price': 299,
+    'lottieUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(12).json', // সরাসরি .json ফাইলের লিংক
+    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+  },
+   {
+    'id': 'lx_lottie_16',
+    'name': 'Lottie Gift 16',
+    'price': 499,
+    'lottieUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(13).json', // সরাসরি .json ফাইলের লিংক
+    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+  },
+   {
+    'id': 'lx_lottie_17',
+    'name': 'Lottie Gift 17',
+    'price': 399,
+    'lottieUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(14).json', // সরাসরি .json ফাইলের লিংক
+    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+  },
+ {
+    'id': 'lx_lottie_22',
+    'name': 'Lottie Gift 22',
+    'price': 399,
+    'lottieUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(19).json', // সরাসরি .json ফাইলের লিংক
+    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+  },
+
+{
+    'id': 'lx_lottie_23',
+    'name': 'Lottie Gift 23',
+    'price': 399,
+    'lottieUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(20).json', // সরাসরি .json ফাইলের লিংক
+    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+  },
+
+{
+    'id': 'lx_lottie_24',
+    'name': 'Lottie Gift 24',
+    'price': 399,
+    'lottieUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(21).json', // সরাসরি .json ফাইলের লিংক
+    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+  },
+{
+    'id': 'lx_lottie_25',
+    'name': 'Lottie Gift 25',
+    'price': 499,
+    'lottieUrl':
+        'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(22).json', // সরাসরি .json ফাইলের লিংক
+    'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+  },
+
   
 
   // আরও গিফট এখানে এড করুন...

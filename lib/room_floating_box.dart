@@ -4,34 +4,43 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RoomFloatingBox extends StatelessWidget {
   final String roomId;
+  final String currentUserId; // ইউজারের নিজস্ব আইডি
 
-  const RoomFloatingBox({super.key, required this.roomId});
+  const RoomFloatingBox({super.key, required this.roomId, required this.currentUserId});
 
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      bottom: 220, // ইনবক্স বাটনের সাথে সামঞ্জস্যপূর্ণ পজিশন
+      bottom: 220,
       right: 15,
-      child: GestureDetector(
-        onTap: () => _showBoxRewardDialog(context, roomId),
-        child: StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('rooms')
-              .doc(roomId)
-              .collection('room_box')
-              .doc('current_box')
-              .snapshots(),
-          builder: (context, snapshot) {
-            int currentDiamonds = 0;
-            if (snapshot.hasData && snapshot.data!.exists) {
-              var data = snapshot.data!.data() as Map<String, dynamic>;
-              currentDiamonds = data['totalDiamonds'] ?? 0;
-            }
+      child: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('rooms')
+            .doc(roomId)
+            .collection('room_box')
+            .doc('current_box')
+            .snapshots(),
+        builder: (context, snapshot) {
+          int totalDiamondsAllTime = 0;
+          bool isBlasted = false;
 
-            return Column(
+          if (snapshot.hasData && snapshot.data!.exists) {
+            var data = snapshot.data!.data() as Map<String, dynamic>;
+            totalDiamondsAllTime = data['totalDiamonds'] ?? 0;
+            isBlasted = data['isBlasted'] ?? false;
+          }
+
+          // মডিউলাস লজিক: ১০০k পার হলে কাউন্টার আবার ০ থেকে শুরু হবে
+          int currentDiamonds = totalDiamondsAllTime % 100000;
+          if (totalDiamondsAllTime > 0 && currentDiamonds == 0) {
+            currentDiamonds = 100000;
+          }
+
+          return GestureDetector(
+            onTap: () => _showBoxRewardDialog(context, roomId, isBlasted),
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // বাটন সাইজ ৪৪x৪৪
                 SizedBox(
                   width: 44,
                   height: 44,
@@ -40,17 +49,14 @@ class RoomFloatingBox extends StatelessWidget {
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
                       return const Center(
-                        child: Icon(Icons.card_giftcard,
-                            color: Colors.amber, size: 22),
+                        child: Icon(Icons.card_giftcard, color: Colors.amber, size: 22),
                       );
                     },
                   ),
                 ),
                 const SizedBox(height: 4),
-                // কাউন্টার সাইজ ছোট ও সুন্দর (১ লাখ বা 100k অনুযায়ী)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.7),
                     borderRadius: BorderRadius.circular(10),
@@ -65,14 +71,14 @@ class RoomFloatingBox extends StatelessWidget {
                   ),
                 ),
               ],
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  void _showBoxRewardDialog(BuildContext context, String roomId) {
+  void _showBoxRewardDialog(BuildContext context, String roomId, bool isBlasted) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -99,19 +105,17 @@ class RoomFloatingBox extends StatelessWidget {
             const SizedBox(height: 15),
             const Text(
               "Rules & Rewards:",
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
             const Text(
               "• Total 100,000 Diamonds gifts will blast the box.\n"
-              "• #1 Top Gifter: Avatar Frame + 15,000 Diamonds.\n"
-              "• #2 Top Gifter: 5,000 Diamonds.\n"
-              "• #3 Top Gifter: 3,000 Diamonds.\n"
-              "• Other Users (After top 3): 50 Diamonds each!\n"
-              "• Resets and restarts from 100k automatically.",
-              style:
-                  TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+              "• Top 1 Gifter: 3,000 Diamonds.\n"
+              "• Top 2 Gifter: 1,500 Diamonds.\n"
+              "• Top 3 Gifter: 500 Diamonds.\n"
+              "• Other Room Users: 20 Diamonds each!\n"
+              "• Resets and restarts automatically.",
+              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
             ),
             const Spacer(),
             StreamBuilder<DocumentSnapshot>(
@@ -122,12 +126,13 @@ class RoomFloatingBox extends StatelessWidget {
                   .doc('current_box')
                   .snapshots(),
               builder: (context, snapshot) {
-                int total = 0;
+                int totalAllTime = 0;
                 if (snapshot.hasData && snapshot.data!.exists) {
                   var data = snapshot.data!.data() as Map<String, dynamic>;
-                  total = data['totalDiamonds'] ?? 0;
+                  totalAllTime = data['totalDiamonds'] ?? 0;
                 }
-                double progress = (total / 100000).clamp(0.0, 1.0);
+                int currentProgressVal = totalAllTime % 100000;
+                double progress = (currentProgressVal / 100000).clamp(0.0, 1.0);
 
                 return Column(
                   children: [
@@ -139,9 +144,8 @@ class RoomFloatingBox extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "Progress: $total / 100,000 Diamonds",
-                      style:
-                          const TextStyle(color: Colors.white54, fontSize: 12),
+                      "Progress: $currentProgressVal / 100,000 Diamonds",
+                      style: const TextStyle(color: Colors.white54, fontSize: 12),
                     ),
                   ],
                 );

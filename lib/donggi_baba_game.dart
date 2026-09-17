@@ -139,56 +139,64 @@ class _DonggiBabaGameWidgetState extends State<DonggiBabaGameWidget>
     });
   }
 
-// [নতুন নিখুঁত টাইমার হ্যান্ডলার]: সবাই মিলে কাউন্টডাউন কমানোর কনফ্লিক্ট দূর করার জন্য
-  Timer? _activeSyncTimer;
-  void _startMasterOrSyncCountdown(int currentServerCountdown) {
-    if (_activeSyncTimer?.isActive ?? false) return;
+// [নিখুঁত ও নিরাপদ কাউন্টডাউন হ্যান্ডলার]: ট্রানজেকশনের জ্যাম এড়িয়ে স্মুথ কাউন্টডাউন
+Timer? _activeSyncTimer;
+bool _isMasterTimerRunning = false;
 
-    if (isSoundOn && _bettingAudioPlayer.state != PlayerState.playing) {
-      _playBettingMusic();
+void _startMasterOrSyncCountdown(int currentServerCountdown) {
+  if (_isMasterTimerRunning) return;
+  _isMasterTimerRunning = true;
+
+  if (isSoundOn && _bettingAudioPlayer.state != PlayerState.playing) {
+    _playBettingMusic();
+  }
+
+  _activeSyncTimer?.cancel();
+  _activeSyncTimer =
+      Timer.periodic(const Duration(seconds: 1), (timer) async {
+    if (!mounted) {
+      timer.cancel();
+      _isMasterTimerRunning = false;
+      return;
     }
 
-    _activeSyncTimer =
-        Timer.periodic(const Duration(seconds: 1), (timer) async {
-      if (!mounted) {
+    try {
+      DocumentReference roomRef = FirebaseFirestore.instance
+          .collection('game_rooms')
+          .doc(widget.roomId);
+
+      DocumentSnapshot snapshot = await roomRef.get();
+      if (!snapshot.exists) {
         timer.cancel();
+        _isMasterTimerRunning = false;
         return;
       }
 
-      try {
-        DocumentReference roomRef = FirebaseFirestore.instance
-            .collection('game_rooms')
-            .doc(widget.roomId);
+      int serverTime = snapshot.get('countdown') ?? 20;
+      String currentState = snapshot.get('state') ?? 'waiting';
 
-        // শুধুমাত্র যেকোনো একজন (বা মাস্টার ইউজার) ফায়ারবেসের সেকেন্ড কমাবে, বাকিরা শুধু লিসেন করবে
-        await FirebaseFirestore.instance.runTransaction((transaction) async {
-          DocumentSnapshot snapshot = await transaction.get(roomRef);
-          if (!snapshot.exists) return;
-
-          int serverTime = snapshot.get('countdown') ?? 20;
-          String currentState = snapshot.get('state') ?? 'waiting';
-
-          if (currentState != 'waiting') {
-            timer.cancel();
-            return;
-          }
-
-          if (serverTime > 0) {
-            transaction.update(roomRef, {'countdown': serverTime - 1});
-          } else {
-            timer.cancel();
-            _bettingAudioPlayer.stop();
-
-            // সময় শেষ! মাস্টার উইনার সিলেকশন ট্রিগার করবে
-            _triggerMasterWinnerSelection();
-          }
-        });
-      } catch (e) {
-        debugPrint("Master countdown error: $e");
+      if (currentState != 'waiting') {
+        timer.cancel();
+        _isMasterTimerRunning = false;
+        return;
       }
-    });
-  }
 
+      if (serverTime > 1) {
+        // ফায়ারস্টোর ট্রানজেকশনের কনফ্লিক্ট এড়াতে সিম্পল আপডেট ব্যবহার করা হলো
+        await roomRef.update({'countdown': serverTime - 1});
+      } else {
+        timer.cancel();
+        _isMasterTimerRunning = false;
+        _bettingAudioPlayer.stop();
+
+        // সময় শেষ! মাস্টার উইনার সিলেকশন ট্রিগার করবে (আপনার পুরোনো সুরক্ষিত লজিক সহ)
+        await _triggerMasterWinnerSelection();
+      }
+    } catch (e) {
+      debugPrint("Master countdown error: $e");
+    }
+  });
+}
 // [ফিক্সড]: ফায়ারবেসে গেম রুম না থাকলে প্রথমবার ইনিশিয়ালাইজ করার ফাংশন
   Future<void> _initializeGameRoom() async {
     try {
@@ -248,71 +256,104 @@ class _DonggiBabaGameWidgetState extends State<DonggiBabaGameWidget>
   }
 
 // পুরানো ডুপ্লিকেট _startCountdown() মেথডটি সম্পূর্ণ রিমুভ করা হলো যাতে কনফ্লিক্ট না করে।
-
-// [ফিক্সড]: মাস্টার উইনার সিলেকশন লজিক (ডাবল স্পিন বা লুপ চিরতরে বন্ধ করতে সুরক্ষিত)
-  Future<void> _triggerMasterWinnerSelection() async {
+Future<void> _triggerMasterWinnerSelection() async {
     DocumentReference roomRef =
         FirebaseFirestore.instance.collection('game_rooms').doc(widget.roomId);
 
     bool shouldSpin = false;
     
-    await FirebaseFirestore.instance.runTransaction((transaction) async {
-      DocumentSnapshot snap = await transaction.get(roomRef);
-      if (!snap.exists) return;
+    try {
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        DocumentSnapshot snap = await transaction.get(roomRef);
+        if (!snap.exists) return;
 
-      String currentState = snap.get('state') ?? 'waiting';
-      bool showWinnerPopup = snap.get('showWinnerPopup') ?? false;
+        var data = snap.data() as Map<String, dynamic>? ?? {};
+        String currentState = data['state'] ?? 'waiting';
+        bool showWinnerPopup = data.containsKey('showWinnerPopup') ? (data['showWinnerPopup'] ?? false) : false;
 
-      // যদি গেম অলরেডি স্পিনিং হয়, অথবা অলরেডি উইনার পপ-আপ দেখানো চলতে থাকে, তবে কোনোভাবেই আবার স্পিন হবে না
-      if (currentState == 'spinning' || showWinnerPopup) {
-        return;
-      }
+        // যদি গেম অলরেডি স্পিনিং হয়, অথবা অলরেডি উইনার পপ-আপ দেখানো চলতে থাকে, তবে কোনোভাবেই আবার স্পিন হবে না
+        if (currentState == 'spinning' || showWinnerPopup) {
+          return;
+        }
 
-      shouldSpin = true;
-      transaction.update(roomRef, {
-        'state': 'spinning',
-        'countdown': 0,
-        'showWinnerPopup': false, // নতুন স্পিন শুরু হওয়ার আগে পপ-আপ ফলস নিশ্চিত করা
+        shouldSpin = true;
+        transaction.update(roomRef, {
+          'state': 'spinning',
+          'countdown': 0,
+          'showWinnerPopup': false, // নতুন স্পিন শুরু হওয়ার আগে পপ-আপ ফলস নিশ্চিত করা
+        });
       });
-    });
+    } catch (e) {
+      debugPrint("Transaction error in trigger winner: $e");
+      return;
+    }
 
     if (!shouldSpin) return;
 
     final random = Random();
-    int chance = random.nextInt(100);
     String winnerId;
 
-    // স্মার্ট রিস্ক কন্ট্রোল লজিক
+    // ১. সমস্ত অপশনের মধ্যে কোনটিতে সবচেয়ে বেশি বেট পড়েছে তা খুঁজে বের করা
     String? highestBetOptionId;
-    int maxBetAmount = 0;
-    globalTotalBets.forEach((key, value) {
-      if (value > maxBetAmount) {
-        maxBetAmount = value;
-        highestBetOptionId = key;
+    int maxBetAmount = -1;
+    
+    // কম বেট বা যেগুলোতে বেট কম বা শূন্য সেগুলোর একটি লিস্ট তৈরি করা
+    List<String> lowOrNoBetOptions = [];
+    
+    betOptions.forEach((option) {
+      String optId = option['id'].toString();
+      int optBet = globalTotalBets[optId] ?? 0;
+      
+      if (optBet > maxBetAmount) {
+        maxBetAmount = optBet;
+        highestBetOptionId = optId;
+      }
+      
+      // যে অপশনগুলোতে বেট কম বা জিরো, সেগুলোকে আলাদা করা
+      if (optBet < 500) { 
+        lowOrNoBetOptions.add(optId);
       }
     });
 
-    bool shouldRig = (maxBetAmount >= 3000 && random.nextInt(100) < 75);
+    // ২. হাউস প্রোটেকশন ও কড়া রিগিং লজিক:
+    // যে অপশনে সবথেকে বেশি বেট পড়েছে (highestBetOptionId), সেটি কিছুতেই উইনার হতে পারবে না!
+    // সিস্টেম সবসময় এমন অপশন বেছে নেবে যেখানে বেট কম বা হাউস লাভবান হবে।
+    
+    bool forceRigHouseWin = true; // সবসময় হাউসকে জেতানোর জন্য কড়া গার্ড
 
-    if (shouldRig && highestBetOptionId != null) {
+    if (forceRigHouseWin && highestBetOptionId != null) {
+      // সব অপশন থেকে সবচেয়ে বেশি বেট পড়া অপশনটি বাদ দিয়ে বাকিগুলোর লিস্ট তৈরি করা
       List<String> safeOptions = betOptions
           .map((e) => e['id'].toString())
           .where((id) => id != highestBetOptionId)
           .toList();
-      winnerId = safeOptions[random.nextInt(safeOptions.length)];
-    } else {
-      if (chance < 3) {
-        winnerId = 'chicken';
-      } else if (chance < 8) {
-        winnerId = 'octopus';
-      } else if (chance < 18) {
-        winnerId = 'shrimp';
-      } else if (chance < 33) {
-        winnerId = 'fish';
+
+      // চিকেন, অক্টোপাস, চিংড়ি খুব কড়া নিয়মে ফেলা (যদি এগুলো নিরাপদ লিস্টে থাকেও, এদের আসার চান্স নগ্নতম করা)
+      List<String> highTier = ['chicken', 'octopus', 'shrimp'];
+      
+      // রেন্ডম চ্যান্স চেক (১০০০ এর মধ্যে হিসাব)
+      int chance = random.nextInt(1000);
+
+      if (chance < 10 && safeOptions.contains('chicken')) {
+        winnerId = 'chicken'; // প্রায় ১০০ বারে ১ বার
+      } else if (chance < 20 && safeOptions.contains('octopus')) {
+        winnerId = 'octopus'; // প্রায় ১০০ বারে ১ বার
+      } else if (chance < 35 && safeOptions.contains('shrimp')) {
+        winnerId = 'shrimp';  // খুব বিরল
       } else {
-        List<String> lowTier = ['watermelon', 'cabbage', 'carrot', 'mushroom'];
-        winnerId = lowTier[random.nextInt(lowTier.length)];
+        // বেশিরভাগ সময় লো-টিয়ার বা যেগুলোতে বেট কম পড়েছে বা সাধারণ ফলগুলো উইনার হবে
+        List<String> preferredOptions = safeOptions.where((id) => !highTier.contains(id)).toList();
+        
+        if (preferredOptions.isNotEmpty) {
+          winnerId = preferredOptions[random.nextInt(preferredOptions.length)];
+        } else {
+          winnerId = safeOptions[random.nextInt(safeOptions.length)];
+        }
       }
+    } else {
+      // ফলব্যাক সাধারণ লো-টিয়ার অপশন
+      List<String> lowTier = ['watermelon', 'cabbage', 'carrot', 'mushroom'];
+      winnerId = lowTier[random.nextInt(lowTier.length)];
     }
 
     // ফায়ারবেসে উইনার আইডি এবং উইনিং স্টেট আপডেট করা

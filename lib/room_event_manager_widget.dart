@@ -664,7 +664,12 @@ class _EventCardWidgetState extends State<EventCardWidget>
     String imagePath = widget.eventData['imagePath'] ?? '';
     List topGifters = widget.eventData['topGifters'] ?? [];
 
-    // ক্রিয়েটরের ইনফো ফেচ করা
+    // টুটাল ডাইমন্ড ফিল্ড হ্যান্ডলিং (যদি ডাটাবেজে না থাকে তবে 0 দেখাবে অথবা টপ গিফটারদের গিফট যোগ করে হিসাব করবে)
+    int totalDiamond = widget.eventData['totalDiamond'] ?? 
+        widget.eventData['totalDiamonds'] ?? 
+        topGifters.fold(0, (sum, gifter) => sum + ((gifter['gift'] ?? 0) as num).toInt());
+
+    // ক্রিয়েটার ইনফো ফেচ করা
     String creatorName = widget.eventData['creatorName'] ?? 'Unknown Creator';
     String creatorImage = widget.eventData['creatorImage'] ?? '';
     String creatorUid = widget.eventData['creatorSixDigitUID'] ??
@@ -682,7 +687,7 @@ class _EventCardWidgetState extends State<EventCardWidget>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ==================== ক্রিয়েটর ইনফো সেকশন (যুক্ত করা হয়েছে) ====================
+          // ==================== ক্রিয়েটর ইনফো সেকশন ====================
           Row(
             children: [
               CircleAvatar(
@@ -827,6 +832,32 @@ class _EventCardWidgetState extends State<EventCardWidget>
             ],
           ),
           const Divider(color: Colors.white24, height: 15),
+          
+          // ==================== টুটাল ডাইমন্ড ফিল্ড (নতুন যোগ করা হয়েছে) ====================
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Total Diamond:",
+                style: TextStyle(
+                  color: Colors.amber,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                "$totalDiamond 💎",
+                style: const TextStyle(
+                  color: Colors.amberAccent,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // =========================================================================
+
           const Text(
             "Top Gifters:",
             style: TextStyle(

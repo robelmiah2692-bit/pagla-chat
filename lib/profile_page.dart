@@ -697,8 +697,8 @@ Future<void> _claimDailyDiamonds() async {
   ];
 
   final List<String> vipFrames = [
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20(1).png",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20(2).png",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newanimeframe/VIP1_royal.webp",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newanimeframe/VIP2_bright.webp",
     "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20(3).png",
     "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20(4).png",
     "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20(5).png",
@@ -1777,45 +1777,52 @@ Future<void> _claimDailyDiamonds() async {
       {
         "name": "Royal Gold 4 Star",
         "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/frame%20saling/royelframe%20(1).png",
-        "price": "7000"
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newanimeframe/royal_blue.webp",
+        "price": "8000"
       },
       {
         "name": "Royal Gold",
         "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/frame%20saling/royelframe%20(2).png",
-        "price": "20000"
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newanimeframe/dolphin_flower.webp",
+        "price": "10000"
       },
       {
         "name": "Royal 3 Star",
         "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/frame%20saling/royelframe%20(3).png", // যদি লটি হয়
-        "price": "8000"
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newanimeframe/lovlybluflawer.webp", // যদি লটি হয়
+        "price": "16000"
       },
       {
         "name": "Royal 7",
         "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/frame%20saling/royelframe%20(4).png", // যদি লটি হয়
-        "price": "9000"
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newanimeframe/dragon_frame.webp", // যদি লটি হয়
+        "price": "20000"
       },
       {
         "name": "Royal 11 Star",
         "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/frame%20saling/royelframe%20(5).png", // যদি লটি হয়
-        "price": "10000"
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newanimeframe/blue_moon.webp", // যদি লটি হয়
+        "price": "23000"
       },
       {
         "name": "Royal 7 Star",
         "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/frame%20saling/royelframe%20(6).png", // যদি লটি হয়
-        "price": "11000"
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newanimeframe/redrose.webp", // যদি লটি হয়
+        "price": "25000"
       },
       {
         "name": "Queen Blue",
         "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/framequin.png", // যদি লটি হয়
-        "price": "10500"
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newanimeframe/cupaleframe.webp", // যদি লটি হয়
+        "price": "35500"
       },
+    {
+        "name": "Queen Blue",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newanimeframe/kingframe.webp", // যদি লটি হয়
+        "price": "40500"
+      },
+    
     ];
 
     return GridView.builder(
