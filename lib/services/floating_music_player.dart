@@ -6,6 +6,12 @@ class FloatingMusicPlayer extends StatefulWidget {
   final bool isRoomMusicPlaying;
   final Future<void> Function() onPlayPauseToggle;
   final VoidCallback onClose;
+  final VoidCallback? onNext; // ✅ নেক্সট গান পরিবর্তনের জন্য কলব্যাক
+  final VoidCallback? onPrevious; // ✅ আগের গান যাওয়ার জন্য কলব্যাক
+  final String trackName; // ✅ ট্র্যাক বা গান এর নাম
+  final int currentPositionMs; 
+  final int totalDurationMs; 
+  final Function(double)? onSeek; 
 
   const FloatingMusicPlayer({
     Key? key,
@@ -14,6 +20,12 @@ class FloatingMusicPlayer extends StatefulWidget {
     required this.isRoomMusicPlaying,
     required this.onPlayPauseToggle,
     required this.onClose,
+    this.onNext,
+    this.onPrevious,
+    this.trackName = "Artist - Track Name",
+    this.currentPositionMs = 0,
+    this.totalDurationMs = 0,
+    this.onSeek,
   }) : super(key: key);
 
   @override
@@ -29,7 +41,6 @@ class _FloatingMusicPlayerState extends State<FloatingMusicPlayer> {
     position = widget.initialPosition;
   }
 
-  // ✅ প্রপার্টি আপডেট হলে পজিশন সিংকে রাখার জন্য
   @override
   void didUpdateWidget(covariant FloatingMusicPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -43,7 +54,7 @@ class _FloatingMusicPlayerState extends State<FloatingMusicPlayer> {
     return Positioned(
       left: position.dx,
       top: position.dy,
-      child: RepaintBoundary( // ✅ গ্রাফিক্স রেন্ডারিং আইসোলেট করার জন্য
+      child: RepaintBoundary(
         child: Draggable(
           feedback: _buildPlayerContent(isDragging: true),
           childWhenDragging: Container(),
@@ -63,12 +74,15 @@ class _FloatingMusicPlayerState extends State<FloatingMusicPlayer> {
     return Material(
       color: Colors.transparent,
       child: Container(
-        width: 170,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        width: 260,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF0D0D1F).withOpacity(0.85),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+          gradient: const LinearGradient(
+            colors: [Color(0xFFE91E63), Color(0xFF2196F3)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.4),
@@ -78,52 +92,86 @@ class _FloatingMusicPlayerState extends State<FloatingMusicPlayer> {
           ],
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Icon(
-              Icons.music_note_rounded,
-              color: Colors.pinkAccent,
-              size: 16,
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: widget.onPlayPauseToggle,
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFF0080), Color(0xFF00B2FF)],
+            Expanded(
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.queue_music_rounded,
+                    color: Colors.white,
+                    size: 18,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (widget.isRoomMusicPlaying
-                              ? Colors.pinkAccent
-                              : Colors.blueAccent)
-                          .withOpacity(0.5),
-                      blurRadius: 6,
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      widget.trackName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
-                ),
-                child: Icon(
-                  widget.isRoomMusicPlaying
-                      ? Icons.pause_rounded
-                      : Icons.play_arrow_rounded,
-                  color: Colors.white,
-                  size: 16,
-                ),
+                  ),
+                ],
               ),
             ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ✅ প্রিভিয়াস বাটন সাইজ বড় করা হলো
+                GestureDetector(
+                  onTap: widget.onPrevious,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4.0),
+                    child: Icon(Icons.fast_rewind_rounded, color: Colors.white70, size: 24),
+                  ),
+                ),
+                const SizedBox(width: 2),
+                // ✅ প্লে/পজ বাটন বড় করা হলো
+                GestureDetector(
+                  onTap: widget.onPlayPauseToggle,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.3),
+                    ),
+                    child: Icon(
+                      widget.isRoomMusicPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 2),
+                // ✅ নেক্সট বাটন সাইজ বড় করা হলো
+                GestureDetector(
+                  onTap: widget.onNext,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4.0),
+                    child: Icon(Icons.fast_forward_rounded, color: Colors.white, size: 24),
+                  ),
+                ),
+              ],
+            ),
+            // ✅ ক্রস বাটনটি নেক্সট বাটন থেকে দূরত্ব বজায় রাখার জন্য গ্যাপ বাড়ানো হলো
             const SizedBox(width: 8),
             GestureDetector(
               onTap: widget.onClose,
-              child: const Padding(
-                padding: EdgeInsets.all(4.0),
-                child: Icon(
-                  Icons.close_rounded,
-                  color: Colors.white54,
-                  size: 16,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black26,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 14,
                 ),
               ),
             ),

@@ -4,25 +4,25 @@ class RoomLevelHelper {
   // ১০০০ ডাইমন্ড = ১ XP
   static const int xpPerDiamond = 1000; 
 
-  // সঠিক লেভেল ক্যালকুলেশন লজিক (Level 1 = 250, এরপর প্রতি লেভেলে ৫০০ করে বাড়বে)
+  // সঠিক লেভেল ক্যালকুলেশন লজিক (Level 1 = 250, এরপর প্রতি লেভেলে ৫০০ করে বাড়বে)
   static Map<String, int> calculateLevelAndProgress(int totalXp) {
     int level = 1;
     int remainingXp = totalXp;
     int currentLevelRequiredXp = 250; // লেভেল ১ এর জন্য ২৫০ XP
 
-    while (level < 50) {
+    while (level < 100) {
       if (remainingXp >= currentLevelRequiredXp) {
         remainingXp -= currentLevelRequiredXp;
         level++;
-        currentLevelRequiredXp += 500; // প্রতি লেভেল শেষে ৫০০ XP করে টার্গেট বাড়াবে
+        currentLevelRequiredXp += 500; // প্রতি লেভেল শেষে ৫০০ XP করে টার্গেট বাড়াবে
       } else {
         break;
       }
     }
 
-    if (level >= 50) {
-      level = 50;
-      remainingXp = currentLevelRequiredXp; // ৫০ লেভেলে পৌঁছে গেলে ফুল দেখাবে
+    if (level >= 100) {
+      level = 100;
+      remainingXp = currentLevelRequiredXp; // ১০০ লেভেলে পৌঁছে গেলে ফুল দেখাবে
     }
 
     return {

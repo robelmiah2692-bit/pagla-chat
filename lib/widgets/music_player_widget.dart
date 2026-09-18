@@ -22,6 +22,7 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
   List<String> savedMusicNames = [];
   List<String> savedMusicPaths = [];
   double _currentVolume = 0.5; 
+  int currentMusicIndex = 0; // ✅ বর্তমানে কোন গান বাজছে তার ইনডেক্স ট্র্যাক করার জন্য
 
   @override
   void initState() {
@@ -37,26 +38,42 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
     });
   }
 
-  // 🛠️ ফোনের কমন ফোল্ডারগুলো থেকে অডিও ফাইল খুঁজে বের করার পদ্ধতি
+  // ✅ নেক্সট গান প্লে করার ফাংশন
+  void playNextMusic() {
+    if (savedMusicPaths.isEmpty) return;
+    setState(() {
+      currentMusicIndex = (currentMusicIndex + 1) % savedMusicPaths.length;
+    });
+    String nextPath = savedMusicPaths[currentMusicIndex];
+    widget.onMusicSelect(nextPath);
+  }
+
+  // ✅ আগের গান প্লে করার ফাংশন
+  void playPreviousMusic() {
+    if (savedMusicPaths.isEmpty) return;
+    setState(() {
+      currentMusicIndex = (currentMusicIndex - 1 + savedMusicPaths.length) % savedMusicPaths.length;
+    });
+    String prevPath = savedMusicPaths[currentMusicIndex];
+    widget.onMusicSelect(prevPath);
+  }
+
   Future<void> openPhoneMusicPicker() async {
     PermissionStatus status;
     if (Theme.of(context).platform == TargetPlatform.android) {
       final androidInfo = await DeviceInfoPlugin().androidInfo;
       if (androidInfo.version.sdkInt >= 33) {
-        // অ্যান্ড্রয়েড ১৩ বা উচ্চতর ভার্সনের জন্য READ_MEDIA_AUDIO রিকোয়েস্ট করতে হবে
         status = await Permission.audio.request();
       } else {
-        // পুরনো ভার্সনের জন্য স্টোরেজ পারমিশন
         status = await Permission.storage.request();
       }
     } else {
       status = await Permission.storage.request();
     }
 
-    // যদি পারমিশন না দেয়, তবে সরাসরি সেটিংসে যাওয়ার অপশন বা মেসেজ দেখাবে
     if (!status.isGranted) {
       if (status.isPermanentlyDenied) {
-        openAppSettings(); // ইউজার পারমিশন ব্লক করে রাখলে সরাসরি সেটিংস ওপেন করবে
+        openAppSettings();
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -69,9 +86,8 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
       return;
     }
 
-    // আপনার দেওয়া তালিকা অনুযায়ী সকল কমন ফোল্ডারের পাথ
     List<File> audioFiles = [];
-    Set<String> scannedPaths = {}; // ডুপ্লিকেট এড়ানোর জন্য
+    Set<String> scannedPaths = {}; 
 
     try {
       final directories = [
@@ -127,13 +143,11 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
 
     if (audioFiles.isEmpty) {
       if (mounted) {
-        // যদি সরাসরি ফোল্ডারে না পাওয়া যায়, তবে ম্যানুয়াল পাথ বা লিংক দেওয়ার অপশন ডায়ালগ ওপেন হবে
         _showManualPathDialog();
       }
       return;
     }
 
-    // ৩. গান নির্বাচনের জন্য পপআপ ডায়ালগ
     Set<String> tempSelectedPaths = {};
     
     if (mounted) {
@@ -206,7 +220,7 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                         await prefs.setStringList('my_music_paths', savedMusicPaths);
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("$addedCount Song Added Sucssesfuly।"), backgroundColor: Colors.green)
+                            SnackBar(content: Text("$addedCount Song Added Successfuly!"), backgroundColor: Colors.green)
                           );
                         }
                       }
@@ -222,7 +236,7 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
       );
     }
   }
-  // ফাইলে গান না পেলে সরাসরি নাম ও পাথ লিখে যোগ করার ব্যাকআপ ডায়ালগ
+
   void _showManualPathDialog() {
     TextEditingController nameController = TextEditingController();
     TextEditingController pathController = TextEditingController();
@@ -231,7 +245,7 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text("Add Localy ", style: TextStyle(color: Colors.cyanAccent)),
+        title: const Text("Add Locally", style: TextStyle(color: Colors.cyanAccent)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -244,7 +258,7 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
             TextField(
               controller: pathController,
               style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "File", labelStyle: TextStyle(color: Colors.white54)),
+              decoration: const InputDecoration(labelText: "File Path", labelStyle: TextStyle(color: Colors.white54)),
             ),
           ],
         ),
@@ -294,7 +308,6 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
           const SizedBox(height: 12),
           Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
           
-          // ভলিউম কন্ট্রোল স্লাইডার
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Row(
@@ -358,6 +371,10 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget> {
                               onPressed: () => deleteMusic(index),
                             ),
                             onTap: () {
+                              // ✅ ইনডেক্স সেট করে দেওয়া হলো যাতে প্লেয়ার সঠিক গান ট্র্যাক করতে পারে
+                              setState(() {
+                                currentMusicIndex = index; 
+                              });
                               widget.onMusicSelect(savedMusicPaths[index]);
                               Navigator.pop(context);
                             },

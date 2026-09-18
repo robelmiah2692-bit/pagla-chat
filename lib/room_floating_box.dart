@@ -11,7 +11,7 @@ class RoomFloatingBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      bottom: 220,
+      bottom: 210,
       right: 15,
       child: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance

@@ -218,7 +218,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                 Tab(text: "Free"),
                 Tab(text: "Pk"),
                 Tab(text: "Classic"),
-                Tab(text: "Romantic"),
+                Tab(text: "Cp LoVE"),
                 Tab(text: "Luxury"),
               ],
             ),

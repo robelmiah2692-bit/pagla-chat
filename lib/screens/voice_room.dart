@@ -46,6 +46,7 @@ import 'package:pagla_chat/viewer_ranking_widget.dart';
 
 import 'package:pagla_chat/widgets/entry_effect_handler.dart';
 import 'package:pagla_chat/widgets/youtube_player_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -209,9 +210,15 @@ class _VoiceRoomState extends State<VoiceRoom>
   late AnimationController _marqueeController;
   final YouTubePlayerManager _youtubeManager = YouTubePlayerManager();
 
+  int currentMusicIndex = 0;
+  List<String> savedMusicNames = [];
+  List<String> savedMusicPaths = [];
+
   @override
   void initState() {
     super.initState();
+    _loadSavedMusicOnStart(); // ✅ অ্যাপ বা রুম চালুর সাথে সাথে গান লোড করে নেওয়া
+
     // ফায়ারবেস রিয়েলটাইম ডাটাবেজ স্ট্রিম ইনিশিয়ালাইজেশন (এখানে .asBroadcastStream() যোগ করুন)
     roomDatabaseStream = FirebaseDatabase.instance
         .ref('rooms/${widget.roomId}')
@@ -672,6 +679,8 @@ class _VoiceRoomState extends State<VoiceRoom>
           await _agoraManager.engine.enableLocalAudio(false);
           await _agoraManager.engine
               .setClientRole(role: ClientRoleType.clientRoleAudience);
+
+          _initAgoraAudioMixingListener();
 
           if (mounted) {
             _addUserToViewers();
@@ -1351,6 +1360,97 @@ class _VoiceRoomState extends State<VoiceRoom>
         ),
       ),
     );
+  }
+
+// ✅ ফ্ল্যাগ ডিক্লেয়ার করুন (শুধু প্লেয়ার ক্রস/ক্লোজ করলে এটি true হবে)
+  bool isUserExplicitlyStopped = false;
+
+// ✅ Agora মিউজিক শেষ হওয়ার ইভেন্ট ট্র্যাক করার ফাংশন
+  void _initAgoraAudioMixingListener() {
+    _agoraManager.engine.registerEventHandler(
+      RtcEngineEventHandler(
+        onAudioMixingStateChanged: (state, reason) {
+          // যদি ইউজার নিজে প্লেয়ার ক্লোজ করে, তবেই অটো-নেক্সট বন্ধ থাকবে
+          if (isUserExplicitlyStopped) return;
+
+          if (state == AudioMixingStateType.audioMixingStateStopped) {
+            playNextMusic(); // ✅ অটোমেটিক পরের গান প্লে হবে
+          }
+        },
+      ),
+    );
+  }
+
+// ✅ লোকাল স্টোরেজ থেকে গান লোড করার ফাংশন
+  Future<void> _loadSavedMusicOnStart() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      savedMusicPaths = prefs.getStringList('my_music_paths') ?? [];
+      savedMusicNames = prefs.getStringList('my_music_names') ?? [];
+    });
+  }
+
+// ✅ নেক্সট গান প্লে করার ফাংশন (ইউজার ক্লিক করলে বা অটো-নেক্সট হলে কাজ করবে)
+  void playNextMusic() async {
+    // ম্যানুয়াল ক্লিক বা অটো-নেক্সটের জন্য ফ্ল্যাগ ফলস করে দেওয়া হলো যেন বাধা না পড়ে
+    isUserExplicitlyStopped = false;
+
+    final prefs = await SharedPreferences.getInstance();
+    savedMusicPaths = prefs.getStringList('my_music_paths') ?? [];
+
+    if (savedMusicPaths.isEmpty) return;
+
+    setState(() {
+      currentMusicIndex = (currentMusicIndex + 1) % savedMusicPaths.length;
+    });
+
+    String nextPath = savedMusicPaths[currentMusicIndex];
+
+    try {
+      await _agoraManager.engine.stopAudioMixing();
+      await _agoraManager.engine.startAudioMixing(
+        filePath: nextPath,
+        loopback: false,
+        cycle: 1,
+      );
+      setState(() {
+        isRoomMusicPlaying = true;
+      });
+    } catch (e) {
+      debugPrint("Error playing next music: $e");
+    }
+  }
+
+// ✅ আগের গান প্লে করার ফাংশন (ইউজার ক্লিক করলে কাজ করবে)
+  void playPreviousMusic() async {
+    // ম্যানুয়াল ক্লিকের জন্য ফ্ল্যাগ ফলস করে দেওয়া হলো
+    isUserExplicitlyStopped = false;
+
+    final prefs = await SharedPreferences.getInstance();
+    savedMusicPaths = prefs.getStringList('my_music_paths') ?? [];
+
+    if (savedMusicPaths.isEmpty) return;
+
+    setState(() {
+      currentMusicIndex = (currentMusicIndex - 1 + savedMusicPaths.length) %
+          savedMusicPaths.length;
+    });
+
+    String prevPath = savedMusicPaths[currentMusicIndex];
+
+    try {
+      await _agoraManager.engine.stopAudioMixing();
+      await _agoraManager.engine.startAudioMixing(
+        filePath: prevPath,
+        loopback: false,
+        cycle: 1,
+      );
+      setState(() {
+        isRoomMusicPlaying = true;
+      });
+    } catch (e) {
+      debugPrint("Error playing previous music: $e");
+    }
   }
 
   void _openGiftPanel(String targetUserId) async {
@@ -2103,7 +2203,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                 ),
 // ৩. ইনবক্স বাটন ও চ্যাট আনরিড কাউন্ট স্ট্রিম
                 Positioned(
-                  bottom: 165, // পজিশন সমন্বয় করা হয়েছে
+                  bottom: 155, // পজিশন সমন্বয় করা হয়েছে
                   right: 15,
                   child: GestureDetector(
                     onTap: () {
@@ -2190,7 +2290,7 @@ class _VoiceRoomState extends State<VoiceRoom>
 
 // 🔥 ডংগী বাবা গেম ওপেন করার ফ্লোটিং বাটন:
                 Positioned(
-                  bottom: 110,
+                  bottom: 100,
                   right: 15,
                   child: GestureDetector(
                     onTap: () {
@@ -2226,7 +2326,7 @@ class _VoiceRoomState extends State<VoiceRoom>
 
 // 🔥 মুভেবল ব্যানারের উপরে বা লবি মেনুর ভেতরে মিউজিক ট্যাপ করার সঠিক কোড:
                 Positioned(
-                  bottom: 55,
+                  bottom: 45,
                   right: 15,
                   child: GestureDetector(
                     onTap: () {
@@ -2351,6 +2451,9 @@ class _VoiceRoomState extends State<VoiceRoom>
                   FloatingMusicPlayer(
                     initialPosition: playerPosition,
                     isRoomMusicPlaying: isRoomMusicPlaying,
+                    trackName: savedMusicNames.isNotEmpty
+                        ? savedMusicNames[currentMusicIndex]
+                        : "Room Music",
                     onDragEnd: (newOffset) {
                       playerPosition = newOffset;
                     },
@@ -2366,17 +2469,26 @@ class _VoiceRoomState extends State<VoiceRoom>
                         });
                       }
                     },
-                    onClose: () {
+                    onNext: playNextMusic,
+                    onPrevious: playPreviousMusic,
+                    onClose: () async {
+                      // ✅ এটি যুক্ত করা বাধ্যতামূলক, না হলে গান শেষ হলে অটো-নেক্সট হয়ে গান বেজে উঠবে
+                      isUserExplicitlyStopped = true;
+
                       if (mounted) {
                         setState(() {
                           isFloatingPlayerVisible = false;
                           isRoomMusicPlaying = false;
                         });
                       }
-                      _agoraManager.engine.stopAudioMixing();
+
+                      try {
+                        await _agoraManager.engine.stopAudioMixing();
+                      } catch (e) {
+                        debugPrint("Error stopping audio on close: $e");
+                      }
                     },
                   ),
-
                 if (isPKActive && currentPKData != null)
                   Positioned(
                     left: pkBannerOffset.dx,
@@ -3291,500 +3403,576 @@ class _VoiceRoomState extends State<VoiceRoom>
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(25),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(25),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.15),
-                width: 1.2,
-              ),
-            ),
-            child: Row(
-              children: [
-                // 🖼️ রুমের প্রোফাইল পিকচার এডিট
-                GestureDetector(
-                  onTap: () async {
-                    if (!hasPermission) {
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text(
-                              "Only Owner & Admin can change room picture"),
-                          backgroundColor: Colors.redAccent));
-                      return;
-                    }
-
-                    final ImagePicker picker = ImagePicker();
-                    final XFile? image = await picker.pickImage(
-                        source: ImageSource.gallery, imageQuality: 50);
-
-                    if (image != null) {
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text("Uploading room profile..."),
-                          backgroundColor: Colors.blueAccent));
-
-                      try {
-                        String fileName = 'room_profiles/${widget.roomId}.jpg';
-                        Reference storageRef =
-                            FirebaseStorage.instance.ref().child(fileName);
-                        UploadTask uploadTask =
-                            storageRef.putFile(File(image.path));
-                        TaskSnapshot snapshot = await uploadTask;
-                        String downloadUrl =
-                            await snapshot.ref.getDownloadURL();
-
-                        if (!mounted) return;
-                        setState(() {
-                          roomProfileImage = downloadUrl;
-                        });
-
-                        await _roomService.updateRoomFullData(
-                          roomId: widget.roomId,
-                          roomName: roomName,
-                          roomImage: downloadUrl,
-                          isLocked: isRoomLocked,
-                          wallpaper: roomWallpaperPath,
-                          followers: followerCount,
-                          totalDiamonds: 0,
-                          uID: ownerId,
-                          ownerName: ownerName,
-                        );
-                      } catch (e) {
-                        debugPrint("Room profile update error: $e");
-                      }
-                    }
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white24, width: 1.5),
-                    ),
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: Colors.white12,
-                      backgroundImage: roomProfileImage.isNotEmpty
-                          ? CachedNetworkImageProvider(roomProfileImage)
-                          : null,
-                      child: roomProfileImage.isEmpty
-                          ? const Icon(Icons.camera_alt,
-                              size: 18, color: Colors.white70)
-                          : null,
-                    ),
+      child: Stack(
+        clipBehavior: Clip.none, // ফ্রেম বাইরে ছড়িয়ে পড়ার জন্য
+        children: [
+          // ১. মূল ন্যাভবার গ্লাস কার্ড
+          ClipRRect(
+            borderRadius: BorderRadius.circular(25),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.15),
+                    width: 1.2,
                   ),
                 ),
+                child: Row(
+                  children: [
+                    // 🖼️ রুমের প্রোফাইল পিকচার এডিট
+                    GestureDetector(
+                      onTap: () async {
+                        if (!hasPermission) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                              content: Text(
+                                  "Only Owner & Admin can change room picture"),
+                              backgroundColor: Colors.redAccent));
+                          return;
+                        }
 
-                const SizedBox(width: 10),
+                        final ImagePicker picker = ImagePicker();
+                        final XFile? image = await picker.pickImage(
+                            source: ImageSource.gallery, imageQuality: 50);
 
-                // 🖋️ রুমের নাম, আইডি এবং ফলোয়ার
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          if (!hasPermission) {
+                        if (image != null) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text("Uploading room profile..."),
+                                  backgroundColor: Colors.blueAccent));
+
+                          try {
+                            String fileName =
+                                'room_profiles/${widget.roomId}.jpg';
+                            Reference storageRef =
+                                FirebaseStorage.instance.ref().child(fileName);
+                            UploadTask uploadTask =
+                                storageRef.putFile(File(image.path));
+                            TaskSnapshot snapshot = await uploadTask;
+                            String downloadUrl =
+                                await snapshot.ref.getDownloadURL();
+
                             if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text(
-                                        "Only Owner & Admin can change room name"),
-                                    backgroundColor: Colors.redAccent));
-                            return;
+                            setState(() {
+                              roomProfileImage = downloadUrl;
+                            });
+
+                            await _roomService.updateRoomFullData(
+                              roomId: widget.roomId,
+                              roomName: roomName,
+                              roomImage: downloadUrl,
+                              isLocked: isRoomLocked,
+                              wallpaper: roomWallpaperPath,
+                              followers: followerCount,
+                              totalDiamonds: 0,
+                              uID: ownerId,
+                              ownerName: ownerName,
+                            );
+                          } catch (e) {
+                            debugPrint("Room profile update error: $e");
                           }
-
-                          showDialog(
-                            context: context,
-                            builder: (context) {
-                              TextEditingController nameEditController =
-                                  TextEditingController(text: roomName);
-                              return AlertDialog(
-                                backgroundColor: Colors.black87,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(15)),
-                                title: const Text("Edit Room Name",
-                                    style: TextStyle(color: Colors.white)),
-                                content: TextField(
-                                  controller: nameEditController,
-                                  style: const TextStyle(color: Colors.white),
-                                  decoration: const InputDecoration(
-                                    hintText: "Enter new room name",
-                                    hintStyle: TextStyle(color: Colors.white54),
-                                    enabledBorder: UnderlineInputBorder(
-                                        borderSide:
-                                            BorderSide(color: Colors.amber)),
-                                  ),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text("Cancel",
-                                        style:
-                                            TextStyle(color: Colors.white70)),
-                                  ),
-                                  TextButton(
-                                    onPressed: () async {
-                                      String newName =
-                                          nameEditController.text.trim();
-                                      if (newName.isNotEmpty) {
-                                        if (mounted) {
-                                          setState(() => roomName = newName);
-                                        }
-                                        await _roomService.updateRoomFullData(
-                                          roomId: widget.roomId,
-                                          roomName: newName,
-                                          roomImage: roomProfileImage,
-                                          isLocked: isRoomLocked,
-                                          wallpaper: roomWallpaperPath,
-                                          followers: followerCount,
-                                          totalDiamonds: 0,
-                                          uID: ownerId,
-                                          ownerName: ownerName,
-                                        );
-                                      }
-                                      if (context.mounted) {
-                                        Navigator.pop(context);
-                                      }
-                                    },
-                                    child: const Text("Save",
-                                        style: TextStyle(color: Colors.amber)),
-                                  ),
-                                ],
-                              );
-                            },
-                          );
-                        },
-                        child: SizedBox(
-                          height: 20,
-                          width: 150,
-                          child: ClipRect(
-                            child: AnimatedBuilder(
-                              animation: _marqueeController,
-                              builder: (context, child) {
-                                return LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    // অপ্টিমাইজড উইডথ ক্যালকুলেশন
-                                    final textPainter = TextPainter(
-                                      text: TextSpan(
-                                          text: roomName,
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14)),
-                                      textDirection: TextDirection.ltr,
-                                    )..layout();
-
-                                    double textWidth = textPainter.width;
-                                    double gap = 50.0;
-                                    double totalWidth = textWidth + gap;
-
-                                    double dx = -(_marqueeController.value *
-                                        totalWidth);
-
-                                    return Stack(
-                                      children: [
-                                        Positioned(
-                                          left: dx,
-                                          top: 0,
-                                          bottom: 0,
-                                          child: Row(
-                                            children: [
-                                              Text(
-                                                roomName,
-                                                style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 14),
-                                              ),
-                                              SizedBox(width: gap),
-                                              Text(
-                                                roomName,
-                                                style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 14),
-                                              ),
-                                              SizedBox(width: gap),
-                                              Text(
-                                                roomName,
-                                                style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 14),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                );
-                              },
-                            ),
-                          ),
+                        }
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white24, width: 1.5),
+                        ),
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: Colors.white12,
+                          backgroundImage: roomProfileImage.isNotEmpty
+                              ? CachedNetworkImageProvider(roomProfileImage)
+                              : null,
+                          child: roomProfileImage.isEmpty
+                              ? const Icon(Icons.camera_alt,
+                                  size: 18, color: Colors.white70)
+                              : null,
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      GestureDetector(
-                        onTap: () async {
-                          var roomDoc = await FirebaseFirestore.instance
-                              .collection('rooms')
-                              .doc(widget.roomId)
-                              .get();
+                    ),
 
-                          if (!roomDoc.exists) return;
+                    const SizedBox(width: 10),
 
-                          var data = roomDoc.data();
-                          String owneruIDFromDb =
-                              data?['uID'] ?? data?['ownerId'] ?? "";
+                    // 🖋️ রুমের নাম, আইডি এবং ফলোয়ার
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              if (!hasPermission) {
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            "Only Owner & Admin can change room name"),
+                                        backgroundColor: Colors.redAccent));
+                                return;
+                              }
 
-                          if (!context.mounted) return;
+                              showDialog(
+                                context: context,
+                                builder: (context) {
+                                  TextEditingController nameEditController =
+                                      TextEditingController(text: roomName);
+                                  return AlertDialog(
+                                    backgroundColor: Colors.black87,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(15)),
+                                    title: const Text("Edit Room Name",
+                                        style: TextStyle(color: Colors.white)),
+                                    content: TextField(
+                                      controller: nameEditController,
+                                      style:
+                                          const TextStyle(color: Colors.white),
+                                      decoration: const InputDecoration(
+                                        hintText: "Enter new room name",
+                                        hintStyle:
+                                            TextStyle(color: Colors.white54),
+                                        enabledBorder: UnderlineInputBorder(
+                                            borderSide: BorderSide(
+                                                color: Colors.amber)),
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text("Cancel",
+                                            style: TextStyle(
+                                                color: Colors.white70)),
+                                      ),
+                                      TextButton(
+                                        onPressed: () async {
+                                          String newName =
+                                              nameEditController.text.trim();
+                                          if (newName.isNotEmpty) {
+                                            if (mounted) {
+                                              setState(
+                                                  () => roomName = newName);
+                                            }
+                                            await _roomService
+                                                .updateRoomFullData(
+                                              roomId: widget.roomId,
+                                              roomName: newName,
+                                              roomImage: roomProfileImage,
+                                              isLocked: isRoomLocked,
+                                              wallpaper: roomWallpaperPath,
+                                              followers: followerCount,
+                                              totalDiamonds: 0,
+                                              uID: ownerId,
+                                              ownerName: ownerName,
+                                            );
+                                          }
+                                          if (context.mounted) {
+                                            Navigator.pop(context);
+                                          }
+                                        },
+                                        child: const Text("Save",
+                                            style:
+                                                TextStyle(color: Colors.amber)),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                            child: SizedBox(
+                              height: 20,
+                              width: 150,
+                              child: ClipRect(
+                                child: AnimatedBuilder(
+                                  animation: _marqueeController,
+                                  builder: (context, child) {
+                                    return LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        // অপ্টিমাইজড উইডথ ক্যালকুলেশন
+                                        final textPainter = TextPainter(
+                                          text: TextSpan(
+                                              text: roomName,
+                                              style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14)),
+                                          textDirection: TextDirection.ltr,
+                                        )..layout();
 
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
-                            builder: (context) => RoomFollowerSheet(
-                              roomId: widget.roomId,
-                              ownerId: owneruIDFromDb,
+                                        double textWidth = textPainter.width;
+                                        double gap = 50.0;
+                                        double totalWidth = textWidth + gap;
+
+                                        double dx = -(_marqueeController.value *
+                                            totalWidth);
+
+                                        return Stack(
+                                          children: [
+                                            Positioned(
+                                              left: dx,
+                                              top: 0,
+                                              bottom: 0,
+                                              child: Row(
+                                                children: [
+                                                  Text(
+                                                    roomName,
+                                                    style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 14),
+                                                  ),
+                                                  SizedBox(width: gap),
+                                                  Text(
+                                                    roomName,
+                                                    style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 14),
+                                                  ),
+                                                  SizedBox(width: gap),
+                                                  Text(
+                                                    roomName,
+                                                    style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 14),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
+                              ),
                             ),
-                          );
-                        },
-                        child: Row(
-                          children: [
-                            Text(
-                              "ID: ${widget.roomId}",
-                              style: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
-                                  fontSize: 10),
+                          ),
+                          const SizedBox(height: 10),
+                          GestureDetector(
+                            onTap: () async {
+                              var roomDoc = await FirebaseFirestore.instance
+                                  .collection('rooms')
+                                  .doc(widget.roomId)
+                                  .get();
+
+                              if (!roomDoc.exists) return;
+
+                              var data = roomDoc.data();
+                              String owneruIDFromDb =
+                                  data?['uID'] ?? data?['ownerId'] ?? "";
+
+                              if (!context.mounted) return;
+
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (context) => RoomFollowerSheet(
+                                  roomId: widget.roomId,
+                                  ownerId: owneruIDFromDb,
+                                ),
+                              );
+                            },
+                            child: Row(
+                              children: [
+                                Text(
+                                  "ID: ${widget.roomId}",
+                                  style: TextStyle(
+                                      color: Colors.white.withOpacity(0.6),
+                                      fontSize: 10),
+                                ),
+                                Container(
+                                  margin:
+                                      const EdgeInsets.symmetric(horizontal: 6),
+                                  width: 1,
+                                  height: 8,
+                                  color: Colors.white24,
+                                ),
+                                const Icon(Icons.favorite,
+                                    size: 10, color: Colors.pinkAccent),
+                                const SizedBox(width: 3),
+                                Text(
+                                  "$followerCount Followers",
+                                  style: TextStyle(
+                                      color: Colors.white.withOpacity(0.6),
+                                      fontSize: 10),
+                                ),
+                              ],
                             ),
-                            Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 6),
-                              width: 1,
-                              height: 8,
-                              color: Colors.white24,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // ১. ফলোয়ার বাটন (সংখ্যা বা কাউন্ট বাদ দেওয়া হয়েছে)
+                    if (!isOwner)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              isFollowing
+                                  ? Icons.check_circle
+                                  : Icons.person_add_alt_1,
+                              color: isFollowing
+                                  ? Colors.greenAccent
+                                  : Colors.blueAccent,
+                              size: 20,
                             ),
-                            const Icon(Icons.favorite,
-                                size: 10, color: Colors.pinkAccent),
-                            const SizedBox(width: 3),
-                            Text(
-                              "$followerCount Followers",
-                              style: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
-                                  fontSize: 10),
+                            onPressed: () async {
+                              final currentUser =
+                                  FirebaseAuth.instance.currentUser;
+                              if (currentUser == null) return;
+
+                              try {
+                                var userQuery = await FirebaseFirestore.instance
+                                    .collection('users')
+                                    .where('authUID',
+                                        isEqualTo: currentUser.uid)
+                                    .limit(1)
+                                    .get();
+
+                                if (userQuery.docs.isEmpty) return;
+
+                                String activeUserID = userQuery.docs.first.id;
+                                var roomRef = FirebaseFirestore.instance
+                                    .collection('rooms')
+                                    .doc(widget.roomId);
+
+                                var roomDoc = await roomRef.get();
+                                if (!roomDoc.exists) return;
+
+                                var data = roomDoc.data();
+                                String owneruIDFromDb =
+                                    data?['uID']?.toString() ??
+                                        data?['ownerId']?.toString() ??
+                                        "";
+
+                                if (activeUserID == owneruIDFromDb) return;
+
+                                if (isFollowing) {
+                                  await roomRef.update({
+                                    'followers':
+                                        FieldValue.arrayRemove([activeUserID]),
+                                    'followerCount': FieldValue.increment(-1),
+                                  });
+
+                                  if (mounted) {
+                                    setState(() {
+                                      isFollowing = false;
+                                      followerCount--;
+                                    });
+                                  }
+                                } else {
+                                  await roomRef.update({
+                                    'followers':
+                                        FieldValue.arrayUnion([activeUserID]),
+                                    'followerCount': FieldValue.increment(1),
+                                  });
+
+                                  if (mounted) {
+                                    setState(() {
+                                      isFollowing = true;
+                                      followerCount++;
+                                    });
+                                  }
+                                }
+                              } catch (e) {
+                                debugPrint("Follow action error: $e");
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                      ),
+                    // ৩. সেটিংস বাটন
+                    IconButton(
+                      icon: const Icon(Icons.settings,
+                          color: Color.fromARGB(255, 132, 217, 251), size: 20),
+                      onPressed: _showSettings,
+                    ),
+                    const SizedBox(width: 6),
+
+                    PopupMenuButton<String>(
+                      offset: const Offset(0, 45),
+                      // পপ-আপ মেনুর ব্যাকগ্রাউন্ডে আপনার দেওয়া ছবির সাথে মিলিয়ে মিক্সড কালার গ্রেডিয়েন্ট এফেক্ট
+                      color: const Color(0xFF0D1B2A),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(
+                          color: Colors.cyanAccent.withOpacity(0.5),
+                          width: 1.5,
+                        ),
+                      ),
+                      icon: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          // আপনার দেওয়া ছবির মতো ডিপ পার্পল, ম্যাজেন্টা ও পিংক গ্লোয়িং গ্রেডিয়েন্ট
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFFFF007F),
+                              Color(0xFF7B1FA2),
+                              Color(0xFF4A154B)
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          // আপনার দেওয়া ছবির মতো চারপাশের উজ্জ্বল পিংক/ম্যাজেন্টা লাইটিং এফেক্ট
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.pinkAccent.withOpacity(0.8),
+                              blurRadius: 12,
+                              spreadRadius: 3,
+                            ),
+                            BoxShadow(
+                              color: Colors.purpleAccent.withOpacity(0.5),
+                              blurRadius: 18,
+                              spreadRadius: 2,
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // ১. ফলোয়ার বাটন (সংখ্যা বা কাউন্ট বাদ দেওয়া হয়েছে)
-                if (!isOwner)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          isFollowing
-                              ? Icons.check_circle
-                              : Icons.person_add_alt_1,
-                          color: isFollowing
-                              ? Colors.greenAccent
-                              : Colors.blueAccent,
-                          size: 20,
+                        child: const Icon(
+                          Icons.power_settings_new,
+                          color: Colors.white,
+                          size: 18,
                         ),
-                        onPressed: () async {
-                          final currentUser = FirebaseAuth.instance.currentUser;
-                          if (currentUser == null) return;
+                      ),
+                      onSelected: (value) {
+                        if (value == 'minimize') {
+                          // মিনিমাইজ লজিক
+                          FloatingBubbleService.isMinimized = true;
+                          String imageUrl = roomProfileImage.isNotEmpty
+                              ? roomProfileImage
+                              : 'https://via.placeholder.com/150';
 
-                          try {
-                            var userQuery = await FirebaseFirestore.instance
-                                .collection('users')
-                                .where('authUID', isEqualTo: currentUser.uid)
-                                .limit(1)
-                                .get();
+                          FloatingBubbleService.show(
+                              context, widget.roomId, imageUrl, widget);
+                          Navigator.of(context).pop();
 
-                            if (userQuery.docs.isEmpty) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Room Minimized"),
+                              backgroundColor: Colors.pinkAccent,
+                            ),
+                          );
+                        } else if (value == 'exit') {
+                          // এক্সিট বা লিভ লজিক
+                          RoomSettingsHandler.showExitDialog(context, () async {
+                            try {
+                              await RoomExitHandler.handleExit(
+                                  widget.roomId,
+                                  myuID.toString(),
+                                  adminList.map((e) => e.toString()).toList(),
+                                  ownerId.toString());
 
-                            String activeUserID = userQuery.docs.first.id;
-                            var roomRef = FirebaseFirestore.instance
-                                .collection('rooms')
-                                .doc(widget.roomId);
-
-                            var roomDoc = await roomRef.get();
-                            if (!roomDoc.exists) return;
-
-                            var data = roomDoc.data();
-                            String owneruIDFromDb = data?['uID']?.toString() ??
-                                data?['ownerId']?.toString() ??
-                                "";
-
-                            if (activeUserID == owneruIDFromDb) return;
-
-                            if (isFollowing) {
-                              await roomRef.update({
-                                'followers':
-                                    FieldValue.arrayRemove([activeUserID]),
-                                'followerCount': FieldValue.increment(-1),
-                              });
-
-                              if (mounted) {
-                                setState(() {
-                                  isFollowing = false;
-                                  followerCount--;
-                                });
-                              }
-                            } else {
-                              await roomRef.update({
-                                'followers':
-                                    FieldValue.arrayUnion([activeUserID]),
-                                'followerCount': FieldValue.increment(1),
-                              });
-
-                              if (mounted) {
-                                setState(() {
-                                  isFollowing = true;
-                                  followerCount++;
-                                });
-                              }
+                              await _agoraManager.engine.leaveChannel();
+                              await _agoraManager.engine.release();
+                            } catch (e) {
+                              debugPrint(
+                                  "DEBUG ERROR: background cleanup failed: $e");
                             }
-                          } catch (e) {
-                            debugPrint("Follow action error: $e");
-                          }
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                  ),
-                // ৩. সেটিংস বাটন
-                IconButton(
-                  icon: const Icon(Icons.settings,
-                      color: Color.fromARGB(255, 132, 217, 251), size: 20),
-                  onPressed: _showSettings,
-                ),
-                const SizedBox(width: 6),
-
-                PopupMenuButton<String>(
-                  offset: const Offset(0, 45),
-                  // পপ-আপ মেনুর ব্যাকগ্রাউন্ডে আপনার দেওয়া ছবির সাথে মিলিয়ে মিক্সড কালার গ্রেডিয়েন্ট এফেক্ট
-                  color: const Color(0xFF0D1B2A),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                      color: Colors.cyanAccent.withOpacity(0.5),
-                      width: 1.5,
-                    ),
-                  ),
-                  icon: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      // আপনার দেওয়া ছবির মতো ডিপ পার্পল, ম্যাজেন্টা ও পিংক গ্লোয়িং গ্রেডিয়েন্ট
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFFFF007F),
-                          Color(0xFF7B1FA2),
-                          Color(0xFF4A154B)
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      // আপনার দেওয়া ছবির মতো চারপাশের উজ্জ্বল পিংক/ম্যাজেন্টা লাইটিং এফেক্ট
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.pinkAccent.withOpacity(0.8),
-                          blurRadius: 12,
-                          spreadRadius: 3,
+                          });
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'minimize',
+                          child: Row(
+                            children: [
+                              Icon(Icons.minimize,
+                                  color: Colors.pinkAccent, size: 20),
+                              SizedBox(width: 10),
+                              Text("Minimize Room",
+                                  style: TextStyle(color: Colors.white)),
+                            ],
+                          ),
                         ),
-                        BoxShadow(
-                          color: Colors.purpleAccent.withOpacity(0.5),
-                          blurRadius: 18,
-                          spreadRadius: 2,
+                        const PopupMenuItem(
+                          value: 'exit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.exit_to_app,
+                                  color: Colors.redAccent, size: 20),
+                              SizedBox(width: 10),
+                              Text("Exit Room",
+                                  style: TextStyle(color: Colors.white)),
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.power_settings_new,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                  ),
-                  onSelected: (value) {
-                    if (value == 'minimize') {
-                      // মিনিমাইজ লজিক
-                      FloatingBubbleService.isMinimized = true;
-                      String imageUrl = roomProfileImage.isNotEmpty
-                          ? roomProfileImage
-                          : 'https://via.placeholder.com/150';
-
-                      FloatingBubbleService.show(
-                          context, widget.roomId, imageUrl, widget);
-                      Navigator.of(context).pop();
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Room Minimized"),
-                          backgroundColor: Colors.pinkAccent,
-                        ),
-                      );
-                    } else if (value == 'exit') {
-                      // এক্সিট বা লিভ লজিক
-                      RoomSettingsHandler.showExitDialog(context, () async {
-                        try {
-                          await RoomExitHandler.handleExit(
-                              widget.roomId,
-                              myuID.toString(),
-                              adminList.map((e) => e.toString()).toList(),
-                              ownerId.toString());
-
-                          await _agoraManager.engine.leaveChannel();
-                          await _agoraManager.engine.release();
-                        } catch (e) {
-                          debugPrint(
-                              "DEBUG ERROR: background cleanup failed: $e");
-                        }
-                      });
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'minimize',
-                      child: Row(
-                        children: [
-                          Icon(Icons.minimize,
-                              color: Colors.pinkAccent, size: 20),
-                          SizedBox(width: 10),
-                          Text("Minimize Room",
-                              style: TextStyle(color: Colors.white)),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'exit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.exit_to_app,
-                              color: Colors.redAccent, size: 20),
-                          SizedBox(width: 10),
-                          Text("Exit Room",
-                              style: TextStyle(color: Colors.white)),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
+          // রুমের ওনারের VIP স্ট্যাটাস চেক করে ফ্রেম দেখানোর জন্য FutureBuilder
+          FutureBuilder<DocumentSnapshot>(
+            future: FirebaseFirestore.instance
+                .collection('users')
+                .where('uID',
+                    isEqualTo: ownerId
+                        .toString()) // অথবা doc(ownerId) যদি ডকুমেন্ট আইডি ওনার আইডি হয়
+                .limit(1)
+                .get()
+                .then((snapshot) => snapshot.docs.first),
+            builder: (context, snapshot) {
+              bool isOwnerVip = false;
+
+              if (snapshot.hasData && snapshot.data != null) {
+                var userData = snapshot.data!.data() as Map<String, dynamic>?;
+                int userXp = userData?['vip_xp'] ?? 0;
+                int userExpiry =
+                    userData?['vip_expiry'] ?? 0; // যদি এক্সপায়ারি ফিল্ড থাকে
+
+                // আপনার দেওয়া লজিক অনুযায়ী VIP লেভেল বের করা
+                int vipLevel = getVipLevelFromData(userXp, userExpiry);
+
+                // যদি লেভেল ১ বা তার বেশি হয়, তবেই ওনার ভিআইপি বলে গণ্য হবে
+                if (vipLevel > 0) {
+                  isOwnerVip = true;
+                }
+              }
+
+              // যদি রুমের মালিক VIP না হয়, তবে ফ্রেম দেখাবে না (SizedBox.shrink রিটার্ন করবে)
+              if (!isOwnerVip) {
+                return const SizedBox.shrink();
+              }
+
+              // ওনার VIP হলে এই রাজকীয় ফ্রেমটি শো করবে
+              return Positioned.fill(
+                child: IgnorePointer(
+                  child: Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.identity()
+                      ..scale(1.20, 2.50, 1.0)
+                      ..translate(0.0, -2.80, 0.0),
+                    child: CachedNetworkImage(
+                      imageUrl:
+                          'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newframe/romframe.png',
+                      fit: BoxFit.fill,
+                      placeholder: (context, url) => const SizedBox.shrink(),
+                      errorWidget: (context, url, error) =>
+                          const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
