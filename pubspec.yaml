@@ -44,6 +44,7 @@ dependencies:
   
   # --- ভিডিও প্লেয়ার ও প্রগ্রেস ---
   video_player: ^2.8.1
+  
   chewie: ^1.8.1
   percent_indicator: ^4.2.3 
 

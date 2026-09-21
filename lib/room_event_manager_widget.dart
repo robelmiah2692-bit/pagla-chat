@@ -424,6 +424,7 @@ class _EventDashboardTabState extends State<EventDashboardTab> {
                                 'status': 'Waiting for live',
                                 'createdAt': FieldValue.serverTimestamp(),
                                 'topGifters': [],
+                                'totalDiamonds': 0, // <--- এই ফিল্ডটি নতুন যোগ করা হলো, যা শুরুতেই ০ থাকবে
                                 'createdBy':
                                     resolvedIdentifier, // এটি হলো ইভেন্ট ক্রিয়েটরের আইডি
                                 'creatorName': creatorName,
@@ -665,7 +666,7 @@ class _EventCardWidgetState extends State<EventCardWidget>
     List topGifters = widget.eventData['topGifters'] ?? [];
 
     // টুটাল ডাইমন্ড ফিল্ড হ্যান্ডলিং (যদি ডাটাবেজে না থাকে তবে 0 দেখাবে অথবা টপ গিফটারদের গিফট যোগ করে হিসাব করবে)
-    int totalDiamond = widget.eventData['totalDiamond'] ?? 
+    int totalDiamonds = widget.eventData['totalDiamonds'] ?? 
         widget.eventData['totalDiamonds'] ?? 
         topGifters.fold(0, (sum, gifter) => sum + ((gifter['gift'] ?? 0) as num).toInt());
 
@@ -838,7 +839,7 @@ class _EventCardWidgetState extends State<EventCardWidget>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                "Total Diamond:",
+                "Total Diamonds:",
                 style: TextStyle(
                   color: Colors.amber,
                   fontSize: 12,
@@ -846,7 +847,7 @@ class _EventCardWidgetState extends State<EventCardWidget>
                 ),
               ),
               Text(
-                "$totalDiamond 💎",
+                "$totalDiamonds 💎",
                 style: const TextStyle(
                   color: Colors.amberAccent,
                   fontSize: 13,

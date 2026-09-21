@@ -1528,20 +1528,41 @@ class _VoiceRoomState extends State<VoiceRoom>
                 .toString(), // 🔥 এটি প্রতিবার ডাটাকে ইউনিক করবে
           }
         });
-        // ২. মেসেজ লিস্টে এন্ট্রি ডাটা পাঠানো (মেসেজ হিসেবে দেখানোর জন্য)
+
+        // ২. মেসেজ লিস্টে এন্ট্রি ডাটা পাঠানো (লেভেল ও ব্যাজসহ সঠিক ডাটা যুক্ত করা হলো)
         await FirebaseFirestore.instance
             .collection('rooms')
             .doc(widget.roomId)
-            .collection('messages')
+            .collection(
+                'messages') // আপনার কালেকশন 'messages' হলে এটি ঠিক আছে, 'chats' হলে পরিবর্তন করে নিতে পারেন
             .add({
           'name': userData['name'] ?? "User",
           'uID': userData['uID'] ?? "",
           'senderImage': userData['profilePic'] ?? "",
           'type': 'entry',
           'timestamp': FieldValue.serverTimestamp(),
+
+          // ✅ ফায়ারস্টোর থেকে পাওয়া এক্সপি ও ব্যাজগুলো এখানে যুক্ত করে দেওয়া হলো:
+          'totalActiveXp':
+              userData['totalActiveXp'] ?? userData['activeXp'] ?? 0,
+          'totalGiftXp': userData['totalGiftXp'] ??
+              userData['giftXp'] ??
+              userData['wealthXp'] ??
+              0,
+          'vip_xp': userData['vip_xp'] ?? userData['vipXp'] ?? 0,
+          'vip_expiry': userData['vip_expiry'] ?? userData['vipExpiry'] ?? 0,
+          'hasPremiumCard':
+              userData['hasPremiumCard'] ?? userData['isPremium'] ?? false,
+          'isAgent': userData['isAgent'] ?? userData['agencyId'] != null
+              ? true
+              : false,
+          'isVerified': userData['isVerified'] ?? userData['verified'] ?? false,
+          'isOfficial': userData['isOfficial'] ?? userData['official'] ?? false,
         });
       }
-    } catch (e) {}
+    } catch (e) {
+      print("Error showing own entry: $e");
+    }
   }
 
   // গিফট কাউন্টিং শুরু
@@ -2187,6 +2208,24 @@ class _VoiceRoomState extends State<VoiceRoom>
                                               'name': uName,
                                               'profilePic': uImage,
                                               'text': messageText,
+                                              // ✅ এই ফিল্ডগুলো যুক্ত করে দিন যাতে _buildMessageRow ব্যাজ দেখতে পায়
+                                              'vip_xp': mData['vip_xp'] ?? 0,
+                                              'vip_expiry':
+                                                  mData['vip_expiry'] ?? 0,
+                                              'hasPremiumCard':
+                                                  mData['hasPremiumCard'] ??
+                                                      false,
+                                              'isAgent':
+                                                  mData['isAgent'] ?? false,
+                                              'agencyId': mData['agencyId'],
+                                              'totalActiveXp':
+                                                  mData['totalActiveXp'] ?? 0,
+                                              'totalGiftXp':
+                                                  mData['totalGiftXp'] ?? 0,
+                                              'isVerified':
+                                                  mData['isVerified'] ?? false,
+                                              'isOfficial':
+                                                  mData['isOfficial'] ?? false,
                                             },
                                           )
                                         : _buildActivityRow(mData),
@@ -2684,7 +2723,12 @@ class _VoiceRoomState extends State<VoiceRoom>
                     bool isBlasted = data['isBlasted'] ?? false;
                     if (!isBlasted) return const SizedBox.shrink();
 
-                    // চেক করা হচ্ছে এই ইউজার ইতিমধ্যে রিওয়ার্ড কালেক্ট করেছে কিনা
+                    // 🛑 সবচেয়ে গুরুত্বপূর্ণ অংশ: এই ইউজার অলরেডি রিওয়ার্ড কালেক্ট করেছে কিনা তা চেক করার জন্য সাব-কালেকশন স্ট্রিম
+                    String activeUserId = uID.isNotEmpty
+                        ? uID
+                        : (FirebaseAuth.instance.currentUser?.uid ?? '');
+                    if (activeUserId.isEmpty) return const SizedBox.shrink();
+
                     return StreamBuilder<DocumentSnapshot>(
                       stream: FirebaseFirestore.instance
                           .collection('rooms')
@@ -2692,20 +2736,17 @@ class _VoiceRoomState extends State<VoiceRoom>
                           .collection('room_box')
                           .doc('current_box')
                           .collection('claimed_users')
-                          .doc(uID.isNotEmpty
-                              ? uID
-                              : FirebaseAuth.instance.currentUser!
-                                  .uid) // আপনার ক্লাসের সঠিক uID ভেরিয়েবল ব্যবহার করা হলো
+                          .doc(activeUserId)
                           .snapshots(),
                       builder: (context, claimSnapshot) {
+                        // যদি ইউজার ইতিমধ্যে কালেক্ট করে থাকে (অর্থাৎ ডকুমেন্টস এক্সিস্ট করে), তবে পপ-আপ দেখাবো না
                         bool hasClaimed =
                             claimSnapshot.hasData && claimSnapshot.data!.exists;
-
-                        // যদি ইউজার ইতিমধ্যে কালেক্ট করে থাকে, তবে তার স্ক্রিন থেকে ওভারলে মুছে যাবে
                         if (hasClaimed) {
                           return const SizedBox.shrink();
                         }
 
+                        // যদি কালেক্ট না করে থাকে, তবেই শুধু পপ-আপ ওভারলে দেখাবে
                         return Positioned.fill(
                           child: Material(
                             color: Colors.black.withOpacity(0.6),
@@ -2764,20 +2805,11 @@ class _VoiceRoomState extends State<VoiceRoom>
                                           .collection('room_box')
                                           .doc('current_box')
                                           .collection('claimed_users')
-                                          .doc(uID.isNotEmpty
-                                              ? uID
-                                              : FirebaseAuth
-                                                  .instance.currentUser!.uid)
+                                          .doc(activeUserId)
                                           .set({
                                         'claimedAt':
                                             FieldValue.serverTimestamp(),
                                       });
-
-                                      // ২. এখানে আপনার নতুন রিওয়ার্ড ডিস্ট্রিবিউশন লজিক কল করবেন:
-                                      // - টপ ১ গিফটার পাবে ৩,০০০ ডায়মন্ড
-                                      // - টপ ২ গিফটার পাবে ১,৫০০ ডায়মন্ড
-                                      // - টপ ৩ গিফটার পাবে ৫০০ ডায়মন্ড
-                                      // - বাকি রুমে থাকা সবাই পাবে ২০ ডায়মন্ড করে
                                     },
                                     child: const Text(
                                       "Collect Rewards",
@@ -2893,6 +2925,114 @@ class _VoiceRoomState extends State<VoiceRoom>
     String chatImgUrl = data['imageUrl'] ?? '';
     String messageText = data['text'] ?? '';
 
+    // 🛠️ লেভেল এবং ভিআইপি ডাটা এক্সট্রাক্ট করা (সব সম্ভাব্য ফিল্ড চেক করা হলো)
+    int activeXp =
+        data['totalActiveXp'] ?? data['activeXp'] ?? data['active_xp'] ?? 0;
+    int giftXp = data['totalGiftXp'] ??
+        data['giftXp'] ??
+        data['gift_xp'] ??
+        data['wealthXp'] ??
+        0;
+
+    // ডাটাবেজের vip_xp ফিল্ড থেকে এক্সট্রাক্ট করা
+    int userXp = data['vip_xp'] ?? data['vipXp'] ?? data['vip_XP'] ?? 0;
+    int userExpiry =
+        data['vip_expiry'] ?? data['vipExpiry'] ?? data['vip_expire'] ?? 0;
+
+    // আপনার দেওয়া ভিআইপি লেভেল ক্যালকুলেশন লজিক
+    int getCalculatedVipLevel() {
+      int currentTime = DateTime.now().millisecondsSinceEpoch;
+      if (userExpiry != 0 && currentTime > userExpiry) {
+        return 0;
+      }
+      if (userXp >= 35000) return 8;
+      if (userXp >= 30000) return 7;
+      if (userXp >= 25000) return 6;
+      if (userXp >= 20000) return 5;
+      if (userXp >= 13000) return 4;
+      if (userXp >= 9000) return 3;
+      if (userXp >= 5000) return 2;
+      if (userXp >= 2500) return 1;
+      return 0;
+    }
+
+    // বিভিন্ন সম্ভাব্য ফিল্ড থেকে VIP লেভেল বের করার চেষ্টা
+    int vipLevel = data['vipLevel'] ??
+        data['vip'] ??
+        data['vip_level'] ??
+        data['vip_tier'] ??
+        getCalculatedVipLevel();
+
+    bool hasVip = vipLevel > 0;
+
+    // প্রিমিয়াম কার্ড, এজেন্সি, ভেরিফাইড এবং অফিসিয়াল চেক (স্ট্রিং ও বুলিয়ান উভয় সাপোর্ট করার জন্য)
+    bool hasPremium = data['hasPremiumCard'] == true ||
+        data['hasPremiumCard'] == 'true' ||
+        data['isPremium'] == true ||
+        data['isPremium'] == 'true' ||
+        data['premium'] == true;
+
+    bool isAgent = data['isAgent'] == true ||
+        data['isAgent'] == 'true' ||
+        data['agencyId'] != null ||
+        data['agencyID'] != null ||
+        data['isAgency'] == true ||
+        data['isAgency'] == 'true';
+
+    bool isVerified = data['isVerified'] == true ||
+        data['isVerified'] == 'true' ||
+        data['verified'] == true ||
+        data['verified'] == 'true';
+
+    bool isOfficial = data['isOfficial'] == true ||
+        data['isOfficial'] == 'true' ||
+        data['official'] == true ||
+        data['official'] == 'true';
+
+    
+
+    // --- Active Level Calculation ---
+    int activeLevel = 1;
+    int activeReqXp = 8000;
+    int remActiveXp = activeXp;
+    while (remActiveXp >= activeReqXp && activeLevel < 50) {
+      remActiveXp -= activeReqXp;
+      activeLevel++;
+      activeReqXp += 2000;
+    }
+    if (activeLevel >= 50) activeLevel = 50;
+
+    // Active Level Color Logic
+    Color activeColor = Colors.pinkAccent;
+    if (activeLevel >= 10 && activeLevel < 20) {
+      activeColor = const Color(0xFFFF00FF);
+    } else if (activeLevel >= 20 && activeLevel < 35) {
+      activeColor = Colors.redAccent;
+    } else if (activeLevel >= 35) {
+      activeColor = const Color(0xFFFFD700);
+    }
+
+    // --- Gift Level Calculation ---
+    int giftLevel = 1;
+    int giftReqXp = 8000;
+    int remGiftXp = giftXp;
+    while (remGiftXp >= giftReqXp && giftLevel < 50) {
+      remGiftXp -= giftReqXp;
+      giftLevel++;
+      giftReqXp += 2000;
+    }
+    if (giftLevel >= 50) giftLevel = 50;
+
+    // Gift Level Color Logic
+    Color giftColor = Colors.purpleAccent;
+    if (giftLevel >= 10 && giftLevel < 20) {
+      giftColor = const Color(0xFFFF00FF);
+    } else if (giftLevel >= 20 && giftLevel < 35) {
+      giftColor = Colors.pinkAccent;
+    } else if (giftLevel >= 35) {
+      giftColor = Colors.amberAccent;
+    }
+
     // 🛠️ সঠিক মেনশন এবং ইনপুট বক্স খোলার ফাংশন
     void mentionUserAndOpenInput(String nameToMention) {
       if (nameToMention.isEmpty) return;
@@ -2963,6 +3103,16 @@ class _VoiceRoomState extends State<VoiceRoom>
                         ),
                       ),
                     ),
+                    // ✅ Verified Badge (নামের পাশে)
+                    if (isVerified) ...[
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.verified,
+                        color: Color(0xFF00FBFF),
+                        size: 11, // অন্যান্য ব্যাজের সাথে সামঞ্জস্য রাখা সাইজ
+                      ),
+                    ],
+
                     const SizedBox(width: 4),
                     Text(
                       isGift
@@ -2978,22 +3128,168 @@ class _VoiceRoomState extends State<VoiceRoom>
                   ],
                 ),
 
-                // ✅ সেন্ডারের আইডি (নামের নিচে)
-                if (uId.isNotEmpty) ...[
-                  const SizedBox(height: 1),
-                  Text(
-                    "ID: $uId",
-                    style: const TextStyle(
-                      fontSize: 9,
-                      color: Colors.white54,
-                      letterSpacing: 0.2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                const SizedBox(height: 3),
 
-                // ✅ টেক্সট মেসেজ থাকলে দেখাবে
+                // ✅ ইউজারের নাম ও আইডির নিচে এক সারিতে অ্যাক্টিভ লেভেল, গিফট লেভেল ও ব্যাজগুলো
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    // সেন্ডারের আইডি
+                    if (uId.isNotEmpty)
+                      Text(
+                        "ID: $uId",
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: Colors.white54,
+                          letterSpacing: 0.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+
+                    // ❤️ Active Level Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: activeColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: activeColor.withOpacity(0.6),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.favorite, size: 8.5, color: activeColor),
+                          const SizedBox(width: 2),
+                          Text(
+                            "Lv.$activeLevel",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // 🌸 Gift Level Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: giftColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: giftColor.withOpacity(0.6),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.local_florist,
+                              size: 8.5, color: giftColor),
+                          const SizedBox(width: 2),
+                          Text(
+                            "Lv.$giftLevel",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // ⭐ VIP Badge
+                    if (hasVip)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Colors.purple, Colors.deepOrange],
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          "VIP $vipLevel",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+
+                    // 💎 Premium Card Badge
+                    if (hasPremium)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.amberAccent,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          "PREMIUM",
+                          style: TextStyle(
+                            color: Colors.black87,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+
+                    // 🛡️ Agency Badge
+                    if (isAgent)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.blueAccent,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          "AGENCY",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+
+                    // 🌟 Official Badge
+                    if (isOfficial)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 0.5),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Colors.amber, Colors.orangeAccent],
+                          ),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: const Text(
+                          "OFFICIAL",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 7,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                // টেক্সট মেসেজ থাকলে দেখাবে
                 if (messageText.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
@@ -3002,7 +3298,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                   ),
                 ],
 
-                // ✅ ইমেজ মেসেজ প্রিভিউ (রুমের সবাই দেখতে পাবে এবং ক্লিক করলে ফুলস্ক্রিন হবে)
+                // ইমেজ মেসেজ প্রিভিউ
                 if (isImage && chatImgUrl.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   GestureDetector(
@@ -3041,7 +3337,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                   ),
                 ],
 
-                // ✅ গিফটের রিসিভারের নাম ও আইডি
+                // গিফটের রিসিভারের নাম ও আইডি
                 if (isGift && targetName.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Row(
@@ -3104,7 +3400,7 @@ class _VoiceRoomState extends State<VoiceRoom>
             ),
           ),
 
-          // --- ৩. বড় সাইজের গিফট (লটি/ইমেজ) ও সংখ্যা (Count) ---
+          // বড় সাইজের গিফট ও সংখ্যা
           if (isGift) ...[
             const SizedBox(width: 8),
             Row(
@@ -6124,7 +6420,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                   final String authUID = currentUser?.uid ?? "";
                   if (authUID.isEmpty) return;
 
-                  // ফায়ারস্টোর থেকে বর্তমান ইউজারের ডাটা ফেচ করে ভিআইপি চেক করা
+                  // ফায়ারস্টোর থেকে বর্তমান ইউজারের ডাটা ফেচ করে ভিআইপি চেক করা
                   var userQuery = await FirebaseFirestore.instance
                       .collection('users')
                       .where('authUID', isEqualTo: authUID)
@@ -6160,7 +6456,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                     }
                   }
 
-                  // যদি ইউজার ভিআইপি না হয় (vipLevel <= 0)
+                  // যদি ইউজার ভিআইপি না হয় (vipLevel <= 0)
                   if (vipLevel <= 0) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -6210,36 +6506,51 @@ class _VoiceRoomState extends State<VoiceRoom>
                   // ব্যাকগ্রাউন্ডে ফায়ারবেসে মেসেজ পাঠানো
                   final currentUser = FirebaseAuth.instance.currentUser;
                   final String authUID = currentUser?.uid ?? "";
+                  if (authUID.isEmpty) return;
 
-                  FirebaseFirestore.instance
+                  // ১. প্রথমে ফায়ারস্টোর থেকে ইউজারের সঠিক ডকুমেন্ট ও ডাটা ফেচ করা
+                  var userQuery = await FirebaseFirestore.instance
                       .collection('users')
                       .where('authUID', isEqualTo: authUID)
                       .limit(1)
-                      .get()
-                      .then((userQuery) {
-                    String finalName = currentUser?.displayName ?? "User";
-                    String finalImage = currentUser?.photoURL ?? "";
-                    String finalSenderId = authUID;
+                      .get();
 
-                    if (userQuery.docs.isNotEmpty) {
-                      var uData = userQuery.docs.first.data();
-                      finalName = uData['name'] ?? finalName;
-                      finalImage = uData['profilePic'] ?? finalImage;
-                      finalSenderId = userQuery.docs.first.id;
-                    }
+                  String finalName = currentUser?.displayName ?? "User";
+                  String finalImage = currentUser?.photoURL ?? "";
+                  String finalSenderId = authUID;
 
-                    FirebaseFirestore.instance
-                        .collection('rooms')
-                        .doc(widget.roomId)
-                        .collection('messages')
-                        .add({
-                      'userName': finalName,
-                      'profilePic': finalImage,
-                      'text': msgText,
-                      'type': 'text',
-                      'senderId': finalSenderId,
-                      'timestamp': FieldValue.serverTimestamp(),
-                    });
+                  Map<String, dynamic> uData = {};
+
+                  if (userQuery.docs.isNotEmpty) {
+                    var userDoc = userQuery.docs.first;
+                    uData = userDoc.data();
+                    finalName = uData['name'] ?? finalName;
+                    finalImage = uData['profilePic'] ?? finalImage;
+                    finalSenderId = userDoc.id; // সঠিক ইউজার আইডি
+                  }
+
+                  // ২. মেসেজ কালেকশনে ভিআইপি, প্রিমিয়াম ও এজেন্সি ফিল্ডসহ সঠিক ডাটা সেভ করা
+                  await FirebaseFirestore.instance
+                      .collection('rooms')
+                      .doc(widget.roomId)
+                      .collection('messages')
+                      .add({
+                    'userName': finalName,
+                    'profilePic': finalImage,
+                    'text': msgText,
+                    'type': 'text',
+                    'senderId': finalSenderId,
+                    // 🛠️ ডাটাবেজের ফিল্ডগুলোর সাথে হুবহু মিলিয়ে এখানে পাস করা হলো
+                    'vip_xp': uData['vip_xp'] ?? 0,
+                    'vip_expiry': uData['vip_expiry'] ?? 0,
+                    'hasPremiumCard': uData['hasPremiumCard'] ?? false,
+                    'isAgent': uData['isAgent'] ?? false,
+                    'agencyId': uData['agencyId'],
+                    'totalActiveXp': uData['totalActiveXp'] ?? 0,
+                    'totalGiftXp': uData['totalGiftXp'] ?? 0,
+                    'isVerified': uData['isVerified'] ?? false,
+                    'isOfficial': uData['isOfficial'] ?? false,
+                    'timestamp': FieldValue.serverTimestamp(),
                   });
                 },
               ),
@@ -6272,13 +6583,97 @@ class _VoiceRoomState extends State<VoiceRoom>
     );
   }
 
-  // ✉️ মেসেজ রো উইজেট (মেনশন এবং ইনভাইট সহ)
-  Widget _buildMessageRow(
-      {required BuildContext context, required Map<String, dynamic> msg}) {
+  // ✉️ মেসেজ রো উইজেট (মেনশন, ইনভাইট, ভিআইপি, প্রিমিয়াম, অ্যাক্টিভ, গিফট লেভেল, ভেরিফাইড এবং অফিসিয়াল ব্যাজ সহ)
+  Widget _buildMessageRow({
+    required BuildContext context,
+    required Map<String, dynamic> msg,
+  }) {
     String uId = msg['senderId'] ?? msg['uId'] ?? '';
-    String senderName = msg['name'] ?? "User";
+    String senderName = msg['name'] ?? msg['userName'] ?? "User";
     String senderImage = msg['profilePic'] ?? msg['senderImage'] ?? "";
     String messageText = msg['text'] ?? msg['message'] ?? "";
+
+    // 🛠️ লেভেল এবং ভিআইপি ডাটা এক্সট্রাক্ট করা
+    int activeXp =
+        msg['totalActiveXp'] ?? msg['activeXp'] ?? msg['active_xp'] ?? 0;
+    int giftXp = msg['totalGiftXp'] ?? msg['giftXp'] ?? msg['gift_xp'] ?? 0;
+
+    // ভিআইপি এক্সপি এবং এক্সপায়ারি ফেচ করা
+    int userXp = msg['vip_xp'] ?? msg['vipXp'] ?? 0;
+    int userExpiry = msg['vip_expiry'] ?? msg['vipExpiry'] ?? 0;
+    int currentTime = DateTime.now().millisecondsSinceEpoch;
+
+    // ভিআইপি লেভেল ক্যালকুলেশন লজিক
+    int getCalculatedVipLevel() {
+      if (userExpiry != 0 && currentTime > userExpiry) {
+        return 0;
+      }
+      if (userXp >= 35000) return 8;
+      if (userXp >= 30000) return 7;
+      if (userXp >= 25000) return 6;
+      if (userXp >= 20000) return 5;
+      if (userXp >= 13000) return 4;
+      if (userXp >= 9000) return 3;
+      if (userXp >= 5000) return 2;
+      if (userXp >= 2500) return 1;
+      return 0;
+    }
+
+    int vipLevel = msg['vipLevel'] ?? msg['vip'] ?? getCalculatedVipLevel();
+    bool hasVip = vipLevel > 0;
+
+    // প্রিমিয়াম কার্ড এবং এজেন্সি চেক
+    bool hasPremiumCard =
+        msg['hasPremiumCard'] == true || msg['isPremium'] == true;
+    bool isAgent = msg['isAgent'] == true ||
+        msg['agencyId'] != null ||
+        msg['isAgency'] == true;
+
+    // 🔍 ভেরিফাইড এবং অফিসিয়াল চেক
+    bool isVerified = msg['isVerified'] == true;
+    bool isOfficial = msg['isOfficial'] == true;
+
+    // --- Active Level Calculation ---
+    int activeLevel = 1;
+    int activeReqXp = 8000;
+    int remActiveXp = activeXp;
+    while (remActiveXp >= activeReqXp && activeLevel < 50) {
+      remActiveXp -= activeReqXp;
+      activeLevel++;
+      activeReqXp += 2000;
+    }
+    if (activeLevel >= 50) activeLevel = 50;
+
+    // Active Level Color Logic (Heart Color)
+    Color heartColor = Colors.pinkAccent;
+    if (activeLevel >= 10 && activeLevel < 20) {
+      heartColor = const Color(0xFFFF00FF);
+    } else if (activeLevel >= 20 && activeLevel < 35) {
+      heartColor = Colors.redAccent;
+    } else if (activeLevel >= 35) {
+      heartColor = const Color(0xFFFFD700);
+    }
+
+    // --- Gift Level Calculation ---
+    int giftLevel = 1;
+    int giftReqXp = 8000;
+    int remGiftXp = giftXp;
+    while (remGiftXp >= giftReqXp && giftLevel < 50) {
+      remGiftXp -= giftReqXp;
+      giftLevel++;
+      giftReqXp += 2000;
+    }
+    if (giftLevel >= 50) giftLevel = 50;
+
+    // Gift Level Color Logic (Rose Color)
+    Color roseColor = Colors.purpleAccent;
+    if (giftLevel >= 10 && giftLevel < 20) {
+      roseColor = const Color(0xFFFF00FF);
+    } else if (giftLevel >= 20 && giftLevel < 35) {
+      roseColor = Colors.pinkAccent;
+    } else if (giftLevel >= 35) {
+      roseColor = Colors.amberAccent;
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -6334,29 +6729,195 @@ class _VoiceRoomState extends State<VoiceRoom>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ✍️ নামের ওপর ক্লিক করলে চ্যাট ইনপুটে `@senderName ` মেনশন হয়ে যাবে
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _messageController.text = "@$senderName ";
-                            _messageController.selection =
-                                TextSelection.fromPosition(
-                              TextPosition(
-                                  offset: _messageController.text.length),
-                            );
-                          });
+                      // ✍️ ইউজারনেম এবং নামের পাশে ভেরিফাইড ও অফিসিয়াল ব্যাজ
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _messageController.text = "@$senderName ";
+                                _messageController.selection =
+                                    TextSelection.fromPosition(
+                                  TextPosition(
+                                      offset: _messageController.text.length),
+                                );
+                              });
 
-                          _showChatInputBottomSheet();
-                        },
-                        child: Text(
-                          senderName,
-                          style: const TextStyle(
-                              color: Colors.amber,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 10),
-                        ),
+                              _showChatInputBottomSheet();
+                            },
+                            child: Text(
+                              senderName,
+                              style: const TextStyle(
+                                  color: Colors.amber,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10),
+                            ),
+                          ),
+
+                          // ✅ Verified Badge (নামের পাশে)
+                          if (isVerified) ...[
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.verified,
+                              color: Color(0xFF00FBFF),
+                              size:
+                                  11, // সাইজ অন্যান্য ব্যাজের সাথে সামঞ্জস্য রাখা হয়েছে
+                            ),
+                          ],
+
+                          // 🌟 Official Badge (নামের পাশে)
+                          if (isOfficial) ...[
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 0.5),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Colors.amber, Colors.orangeAccent],
+                                ),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: const Text(
+                                "OFFICIAL",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 7,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
+
+                      // 🏷️ ব্যাজগুলোর রো (লেভেল ও অন্যান্য ব্যাজ)
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 3,
+                        children: [
+                          // ❤️ Active Level Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: heartColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                  color: heartColor.withOpacity(0.6),
+                                  width: 0.8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.favorite,
+                                    size: 8.5, color: heartColor),
+                                const SizedBox(width: 2),
+                                Text(
+                                  "Lv.$activeLevel",
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // 🌸 Gift Level Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: roseColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                  color: roseColor.withOpacity(0.6),
+                                  width: 0.8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.local_florist,
+                                    size: 8.5, color: roseColor),
+                                const SizedBox(width: 2),
+                                Text(
+                                  "Lv.$giftLevel",
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // ⭐ VIP Badge
+                          if (hasVip)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Colors.purple, Colors.deepOrange],
+                                ),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                "VIP $vipLevel",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+
+                          // 💎 Premium Card Badge
+                          if (hasPremiumCard)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: Colors.amberAccent,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                "PREMIUM",
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+
+                          // 🛡️ Agency Badge
+                          if (isAgent)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: Colors.blueAccent,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                "AGENCY",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+
+                      // 💬 মেসেজ টেক্সট
                       Text(
                         messageText,
                         style:
@@ -7062,8 +7623,8 @@ class _VoiceRoomState extends State<VoiceRoom>
                 }, SetOptions(merge: true));
               }
 // ==========================================
-              // নতুন সংযোজন: শুধুমাত্র সচল (Live) ইভেন্টের টপ গিফটার আপডেট লজিক
-              // ==========================================
+// নতুন সংযোজন: শুধুমাত্র সচল (Live) ইভেন্টের টপ গিফটার এবং মোট ডায়মন্ড আপডেট লজিক
+// ==========================================
               if (!isFree && totalAmount > 0 && senderDocID.isNotEmpty) {
                 try {
                   var activeEventsQuery = await FirebaseFirestore.instance
@@ -7098,7 +7659,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                       });
                     }
 
-                    // কয়েন অনুযায়ী বড় থেকে ছোট (Descending) সর্ট করা
+                    // কয়েন অনুযায়ী বড় থেকে ছোট (Descending) সর্ট করা
                     currentTopGifters.sort(
                         (a, b) => (b['gift'] ?? 0).compareTo(a['gift'] ?? 0));
 
@@ -7107,19 +7668,22 @@ class _VoiceRoomState extends State<VoiceRoom>
                       currentTopGifters = currentTopGifters.sublist(0, 3);
                     }
 
-                    // ইভেন্ট ডকুমেন্টে আপডেট সেভ করা
+                    // ইভেন্ট ডকুমেন্টে 'topGifters' এবং 'totalDiamond' আপডেট সেভ করা
                     await FirebaseFirestore.instance
                         .collection('rooms')
                         .doc(widget.roomId)
                         .collection('room_events')
                         .doc(eventId)
-                        .update({'topGifters': currentTopGifters});
+                        .update({
+                      'topGifters': currentTopGifters,
+                      'totalDiamonds': FieldValue.increment(
+                          totalAmount), // <--- ইভেন্ট চলাকালীন মোট গিফট/ডায়মন্ড এখানে জমা হবে
+                    });
                   }
                 } catch (e) {
-                  // কোনো এরর হলে যেন মূল গিফট প্রসেসে সমস্যা না হয়
+                  // কোনো এরর হলে যেন মূল গিফট প্রসেসে সমস্যা না হয়
                 }
               }
-
               // মেসেজ লিস্টে ছবিসহ গিফট হিস্ট্রি পাঠানো
               await FirebaseFirestore.instance
                   .collection('rooms')

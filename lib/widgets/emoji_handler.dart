@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 class EmojiHandler {
   // আপনার সেই ইমোজি লটি লিংকের ম্যাপ
   static final Map<String, String> emojiLottieLinks = {
-    "😘":
-        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/kiss.json",
+    "😘C":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/LovKissEmoji.json",
     "🥰":
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/hartface.json",
     "😭":
@@ -13,14 +13,28 @@ class EmojiHandler {
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/rage.json",
     "👏":
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/clap.json",
+    "😘":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/kiss.json",
+    "🤣":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/Cryingemoji.json",
+    "🤡":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/clown.json",
+    "😤":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/Triumph.json",
     "🥱":
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/sleep.json",
+    "😘a":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/Kissing.json",
     "🤔":
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/thingking.json",
     "😏":
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/smirk.json",
     "🤫":
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/stopmouth.json",
+    "🤣A":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/ROFL.json",
+    "💑":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/Happy.json",
     "🫣":
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/pecking.json",
     "🤭":
@@ -29,6 +43,8 @@ class EmojiHandler {
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/yum.json",
     "🤪":
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/jannyface.json",
+    "👄":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/emoji.json",
     "🤮":
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/vome.json",
     "🤯":
@@ -45,6 +61,28 @@ class EmojiHandler {
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/taiger.json",
     "🥳":
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/party.json",
+    "👹":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/AngryDarkDevil.json",
+    "☹":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/bigfrown.json",
+    "🦦":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/CatCryingemoji.json",
+    "🤤":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/drool.json",
+    "🤗":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/Emoji1.json",
+    "😂":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/emojiTest.json",
+    "🧐":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/WinkingFaceby.json",
+    "🦚":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/peacock.json",
+    "😁":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/Rolling.json",
+    "🐍":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/Snake.json",
+    "🐊":
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/trex.json",
   };
 
   // বটম শিট দেখানোর ফাংশন

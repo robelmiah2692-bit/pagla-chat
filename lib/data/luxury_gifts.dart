@@ -1,4 +1,17 @@
 final List<Map<String, dynamic>> luxuryGifts = [
+  
+  {
+    'id': 'lx14', 
+    'name': 'Luxury 14', 
+    'price': 500, 
+    
+    'videoUrl': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/entry/1789992421091.mp4', 
+    'type': 'lighting'
+  },
+  
+  
+  
+  
   {
     'id': 'lx_lottie_1',
     'name': 'Lottie Gift 1',

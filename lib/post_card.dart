@@ -174,285 +174,543 @@ class PostCard extends StatelessWidget {
         "https://www.w3schools.com/howto/img_avatar.png";
     final String currentFrameUrl =
         liveUserData?['activeFrameUrl'] ?? data['activeFrameUrl'] ?? '';
-    final bool isVerified = liveUserData?['isVerified'] ?? false;
+    
+    // ভেইজ এবং স্ট্যাটাস চেক (লাইভ ডাটা না থাকলে পুরাতন পোস্টের ডাটা থেকে চেক করবে)
+    final bool isVerified = liveUserData?['isVerified'] ?? data['isVerified'] ?? false;
+    final bool isOfficial = liveUserData?['isOfficial'] ?? data['isOfficial'] ?? false;
+    
+    // VIP লেভেল ক্যালকুলেশন
+    int userXp = liveUserData?['vip_xp'] ?? liveUserData?['vipXp'] ?? data['vip_xp'] ?? data['vipXp'] ?? 0;
+    int userExpiry = liveUserData?['vip_expiry'] ?? liveUserData?['vipExpiry'] ?? data['vip_expiry'] ?? data['vipExpiry'] ?? 0;
+    int currentTime = DateTime.now().millisecondsSinceEpoch;
+
+    int getCalculatedVipLevel() {
+      if (userExpiry != 0 && currentTime > userExpiry) {
+        return 0;
+      }
+      if (userXp >= 35000) return 8;
+      if (userXp >= 30000) return 7;
+      if (userXp >= 25000) return 6;
+      if (userXp >= 20000) return 5;
+      if (userXp >= 13000) return 4;
+      if (userXp >= 9000) return 3;
+      if (userXp >= 5000) return 2;
+      if (userXp >= 2500) return 1;
+      return 0;
+    }
+
+    int vipLevel = liveUserData?['vipLevel'] ?? liveUserData?['vip'] ?? data['vipLevel'] ?? data['vip'] ?? getCalculatedVipLevel();
+    bool hasVip = vipLevel > 0;
+
+    // প্রিমিয়াম কার্ড এবং এজেন্সি চেক
+    bool hasPremiumCard = liveUserData?['hasPremiumCard'] == true || 
+        liveUserData?['isPremium'] == true || 
+        data['hasPremiumCard'] == true || 
+        data['isPremium'] == true;
+        
+    bool isAgent = liveUserData?['isAgent'] == true ||
+        liveUserData?['agencyId'] != null ||
+        liveUserData?['isAgency'] == true ||
+        data['isAgent'] == true ||
+        data['agencyId'] != null ||
+        data['isAgency'] == true;
+
+    // --- Active Level Calculation ---
+    int activeXp = liveUserData?['totalActiveXp'] ?? liveUserData?['activeXp'] ?? liveUserData?['active_xp'] ?? 
+                 data['totalActiveXp'] ?? data['activeXp'] ?? data['active_xp'] ?? 0;
+    int activeLevel = 1;
+    int activeReqXp = 8000;
+    int remActiveXp = activeXp;
+    while (remActiveXp >= activeReqXp && activeLevel < 50) {
+      remActiveXp -= activeReqXp;
+      activeLevel++;
+      activeReqXp += 2000;
+    }
+    if (activeLevel >= 50) activeLevel = 50;
+
+    // Active Level Color Logic (Heart Color)
+    Color heartColor = Colors.pinkAccent;
+    if (activeLevel >= 10 && activeLevel < 20) {
+      heartColor = const Color(0xFFFF00FF);
+    } else if (activeLevel >= 20 && activeLevel < 35) {
+      heartColor = Colors.redAccent;
+    } else if (activeLevel >= 35) {
+      heartColor = const Color(0xFFFFD700);
+    }
+
+    // --- Gift Level Calculation ---
+    int giftXp = liveUserData?['totalGiftXp'] ?? liveUserData?['giftXp'] ?? liveUserData?['gift_xp'] ?? 
+                 data['totalGiftXp'] ?? data['giftXp'] ?? data['gift_xp'] ?? 0;
+    int giftLevel = 1;
+    int giftReqXp = 8000;
+    int remGiftXp = giftXp;
+    while (remGiftXp >= giftReqXp && giftLevel < 50) {
+      remGiftXp -= giftReqXp;
+      giftLevel++;
+      giftReqXp += 2000;
+    }
+    if (giftLevel >= 50) giftLevel = 50;
+
+    // Gift Level Color Logic (Rose Color)
+    Color roseColor = Colors.purpleAccent;
+    if (giftLevel >= 10 && giftLevel < 20) {
+      roseColor = const Color(0xFFFF00FF);
+    } else if (giftLevel >= 20 && giftLevel < 35) {
+      roseColor = Colors.pinkAccent;
+    } else if (giftLevel >= 35) {
+      roseColor = const Color(0xFFFFD700);
+    }
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(25),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-          child: Container(
-            decoration: BoxDecoration(
-              color: glassColor,
-              borderRadius: BorderRadius.circular(25),
-              border: Border.all(
-                color: premiumGold.withOpacity(0.4),
-                width: 0.8,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  spreadRadius: 2,
-                )
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ListTile(
-                  leading: GestureDetector(
-                    onTap: () async {
-                      if (targetAuthUID.isEmpty) {
-                        return;
-                      }
-
-                      // সঠিক আইডি খোঁজা প্রোফাইল পেজে যাওয়ার জন্য
-                      String finalIdToPass = targetAuthUID;
-                      try {
-                        var userQuery = await FirebaseFirestore.instance
-                            .collection('users')
-                            .where('authUID', isEqualTo: targetAuthUID)
-                            .limit(1)
-                            .get();
-
-                        if (userQuery.docs.isNotEmpty) {
-                          finalIdToPass = userQuery.docs.first.id;
-                        }
-                      } catch (e) {}
-
-                      if (!context.mounted) return;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              ProfilePage(userId: finalIdToPass),
-                        ),
-                      );
-                    },
-                    child: Stack(
-                      alignment: Alignment.center,
-                      clipBehavior: Clip.none,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(1.5),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(colors: [
-                              cyanOwner,
-                              cyanOwner.withOpacity(0.2)
-                            ]),
-                          ),
-                          child: CircleAvatar(
-                            radius: 22,
-                            backgroundColor: Colors.grey[900],
-                            backgroundImage: NetworkImage(
-                              (currentUserImage.isNotEmpty)
-                                  ? currentUserImage
-                                  : "https://www.w3schools.com/howto/img_avatar.png",
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(25),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: glassColor,
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(
+                    color: premiumGold.withOpacity(0.4),
+                    width: 0.8,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    )
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ListTile(
+                      leading: const SizedBox(width: 40, height: 40),
+                      title: Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: Row(
+                          children: [
+                            Text(
+                              currentUserName,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15),
                             ),
-                          ),
+                            const SizedBox(width: 5),
+                            if (isVerified)
+                              const Icon(Icons.verified, color: cyanOwner, size: 17),
+                            if (isOfficial) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 4, vertical: 0.5),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Colors.amber, Colors.orangeAccent],
+                                  ),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: const Text(
+                                  "OFFICIAL",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 7,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                        if (currentFrameUrl.isNotEmpty)
-                          Positioned.fill(
-                            child: Transform.scale(
-                              scale: 2.2,
-                              child: IgnorePointer(
-                                child: currentFrameUrl.contains('.json')
-                                    ? Lottie.network(
-                                        currentFrameUrl,
-                                        fit: BoxFit.contain,
-                                        errorBuilder:
-                                            (context, error, stackTrace) =>
-                                                const SizedBox(),
-                                      )
-                                    : CachedNetworkImage(
-                                        imageUrl: currentFrameUrl,
-                                        fit: BoxFit.contain,
-                                        placeholder: (context, url) =>
-                                            const SizedBox(),
-                                        errorWidget:
-                                            (context, error, stackTrace) =>
-                                                const SizedBox(),
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 2),
+                            // 🌟 ভেইজ বা ব্যাজগুলো উপরের সারিতে রাখা হয়েছে
+                            Wrap(
+                              spacing: 4,
+                              runSpacing: 2,
+                              children: [
+                                // ❤️ Active Level Badge
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: heartColor.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                        color: heartColor.withOpacity(0.6),
+                                        width: 0.8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.favorite,
+                                          size: 8.5, color: heartColor),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        "Lv.$activeLevel",
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
+                                    ],
+                                  ),
+                                ),
+
+                                // 🌸 Gift Level Badge
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: roseColor.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                        color: roseColor.withOpacity(0.6),
+                                        width: 0.8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.local_florist,
+                                          size: 8.5, color: roseColor),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        "Lv.$giftLevel",
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                // VIP Badge
+                                if (hasVip)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 5, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [Colors.purple, Colors.deepOrange],
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      "VIP $vipLevel",
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+
+                                // Premium Badge
+                                if (hasPremiumCard)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 5, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amberAccent,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      "PREMIUM",
+                                      style: TextStyle(
+                                        color: Colors.black87,
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+
+                                // Agency Badge
+                                if (isAgent)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 5, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blueAccent,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      "AGENCY",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            // 🌟 টাইম আলাদা করে নিচের লাইনে নিয়ে আসা হয়েছে
+                            Text(
+                              _getTimeAgo(data['timestamp']),
+                              style: const TextStyle(
+                                  color: Colors.white38, fontSize: 10),
+                            ),
+                          ],
+                        ),
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.more_horiz, color: Colors.white70),
+                        onPressed: () {
+                          if (isOwner) {
+                            showModalBottomSheet(
+                              context: context,
+                              backgroundColor: const Color(0xFF121212),
+                              shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(25))),
+                              builder: (context) => SafeArea(
+                                child: Wrap(
+                                  children: [
+                                    ListTile(
+                                      leading: const Icon(
+                                          Icons.delete_sweep_rounded,
+                                          color: Colors.redAccent),
+                                      title: const Text("Remove Post",
+                                          style: TextStyle(color: Colors.white)),
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        _deletePost(context);
+                                      },
+                                    ),
+                                    ListTile(
+                                      leading: const Icon(Icons.close,
+                                          color: Colors.white38),
+                                      title: const Text("Cancel",
+                                          style: TextStyle(color: Colors.white38)),
+                                      onTap: () => Navigator.pop(context),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text("Only post owner can delete this")),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    if (data['caption'] != null &&
+                        data['caption'].toString().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(
+                            left: 18, right: 18, bottom: 10, top: 2),
+                        child: Text(
+                          data['caption'],
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 14, height: 1.4),
+                        ),
+                      ),
+                    if (data['storyImage'] != null &&
+                        data['storyImage'].toString().isNotEmpty)
+                      Padding(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: Container(
+                            width: double.infinity,
+                            constraints: const BoxConstraints(
+                                minHeight: 200, maxHeight: 500),
+                            decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.03)),
+                            child: CachedNetworkImage(
+                              imageUrl: data['storyImage'],
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => const SizedBox(
+                                height: 200,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                      color: cyanOwner, strokeWidth: 2),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                height: 150,
+                                color: Colors.white10,
+                                child: const Center(
+                                  child: Icon(Icons.broken_image_outlined,
+                                      color: Colors.white24, size: 40),
+                                ),
                               ),
                             ),
                           ),
+                        ),
+                      ),
+                    if ((data['videoUrl'] != null &&
+                            data['videoUrl'].toString().isNotEmpty) ||
+                        (data['storyVideo'] != null &&
+                            data['storyVideo'].toString().isNotEmpty))
+                      FeedVideoPlayer(
+                          videoUrl: data['videoUrl'] ?? data['storyVideo']),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 10, 18, 5),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.favorite,
+                              color: Colors.redAccent, size: 14),
+                          const SizedBox(width: 6),
+                          Text("${likes.length} People liked",
+                              style: const TextStyle(
+                                  color: Colors.white38, fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 15),
+                      child: Divider(color: Colors.white10, thickness: 0.8),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildVIPBtn(
+                            likes.contains(user?.uid)
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                            likes.contains(user?.uid)
+                                ? Colors.redAccent
+                                : Colors.white70,
+                            "Like", () {
+                          if (postId != null && user != null) {
+                            String postOwnerUID =
+                                (data['authUID'] ?? data['userId'] ?? '')
+                                    .toString();
+                            _toggleLike(postId!, postOwnerUID, likes);
+                          }
+                        }),
+                        _buildVIPBtn(Icons.chat_bubble_outline_rounded,
+                            Colors.white70, "Comment", () {
+                          if (postId != null) {
+                            String postOwnerUID =
+                                (data['authUID'] ?? data['userId'] ?? '')
+                                    .toString();
+                            _showCommentSheet(context, postId!, postOwnerUID);
+                          }
+                        }),
+                        _buildVIPBtn(
+                            Icons.share_rounded, Colors.white70, "Share", () {}),
                       ],
                     ),
-                  ),
-                  title: Row(
-                    children: [
-                      Text(
-                        currentUserName,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15),
-                      ),
-                      const SizedBox(width: 5),
-                      if (isVerified)
-                        const Icon(Icons.verified, color: cyanOwner, size: 17),
-                    ],
-                  ),
-                  subtitle: Text(_getTimeAgo(data['timestamp']),
-                      style:
-                          const TextStyle(color: Colors.white38, fontSize: 10)),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.more_horiz, color: Colors.white70),
-                    onPressed: () {
-                      if (isOwner) {
-                        showModalBottomSheet(
-                          context: context,
-                          backgroundColor: const Color(0xFF121212),
-                          shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(
-                                  top: Radius.circular(25))),
-                          builder: (context) => SafeArea(
-                            child: Wrap(
-                              children: [
-                                ListTile(
-                                  leading: const Icon(
-                                      Icons.delete_sweep_rounded,
-                                      color: Colors.redAccent),
-                                  title: const Text("Remove Post",
-                                      style: TextStyle(color: Colors.white)),
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    _deletePost(context);
-                                  },
-                                ),
-                                ListTile(
-                                  leading: const Icon(Icons.close,
-                                      color: Colors.white38),
-                                  title: const Text("Cancel",
-                                      style: TextStyle(color: Colors.white38)),
-                                  onTap: () => Navigator.pop(context),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text("Only post owner can delete this")),
-                        );
-                      }
-                    },
-                  ),
+                    const SizedBox(height: 10),
+                  ],
                 ),
-                if (data['caption'] != null &&
-                    data['caption'].toString().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(
-                        left: 18, right: 18, bottom: 10, top: 2),
-                    child: Text(
-                      data['caption'],
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 14, height: 1.4),
-                    ),
+              ),
+            ),
+          ),
+
+          // অবতার এবং ফ্রেম অংশ
+          Positioned(
+            top: 12,
+            left: 16,
+            child: GestureDetector(
+              onTap: () async {
+                if (targetAuthUID.isEmpty) {
+                  return;
+                }
+
+                String finalIdToPass = targetAuthUID;
+                try {
+                  var userQuery = await FirebaseFirestore.instance
+                      .collection('users')
+                      .where('authUID', isEqualTo: targetAuthUID)
+                      .limit(1)
+                      .get();
+
+                  if (userQuery.docs.isNotEmpty) {
+                    finalIdToPass = userQuery.docs.first.id;
+                  }
+                } catch (e) {}
+
+                if (!context.mounted) return;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ProfilePage(userId: finalIdToPass),
                   ),
-                if (data['storyImage'] != null &&
-                    data['storyImage'].toString().isNotEmpty)
-                  Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: Container(
-                        width: double.infinity,
-                        constraints: const BoxConstraints(
-                            minHeight: 200, maxHeight: 500),
-                        decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.03)),
-                        child: CachedNetworkImage(
-                          imageUrl: data['storyImage'],
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => const SizedBox(
-                            height: 200,
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                  color: cyanOwner, strokeWidth: 2),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            height: 150,
-                            color: Colors.white10,
-                            child: const Center(
-                              child: Icon(Icons.broken_image_outlined,
-                                  color: Colors.white24, size: 40),
-                            ),
-                          ),
+                );
+              },
+              child: SizedBox(
+                width: 50,
+                height: 50,
+                child: Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(1),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(colors: [
+                          cyanOwner,
+                          cyanOwner.withOpacity(0.2)
+                        ]),
+                      ),
+                      child: CircleAvatar(
+                        radius: 20,
+                        backgroundColor: Colors.grey[900],
+                        backgroundImage: NetworkImage(
+                          (currentUserImage.isNotEmpty)
+                              ? currentUserImage
+                              : "https://www.w3schools.com/howto/img_avatar.png",
                         ),
                       ),
                     ),
-                  ),
-                if ((data['videoUrl'] != null &&
-                        data['videoUrl'].toString().isNotEmpty) ||
-                    (data['storyVideo'] != null &&
-                        data['storyVideo'].toString().isNotEmpty))
-                  FeedVideoPlayer(
-                      videoUrl: data['videoUrl'] ?? data['storyVideo']),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 5),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.favorite,
-                          color: Colors.redAccent, size: 14),
-                      const SizedBox(width: 6),
-                      Text("${likes.length} People liked",
-                          style: const TextStyle(
-                              color: Colors.white38, fontSize: 11)),
-                    ],
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 15),
-                  child: Divider(color: Colors.white10, thickness: 0.8),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildVIPBtn(
-                        likes.contains(user?.uid)
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        likes.contains(user?.uid)
-                            ? Colors.redAccent
-                            : Colors.white70,
-                        "Like", () {
-                      if (postId != null && user != null) {
-                        String postOwnerUID =
-                            (data['authUID'] ?? data['userId'] ?? '')
-                                .toString();
-                        _toggleLike(postId!, postOwnerUID, likes);
-                      }
-                    }),
-                    _buildVIPBtn(Icons.chat_bubble_outline_rounded,
-                        Colors.white70, "Comment", () {
-                      if (postId != null) {
-                        String postOwnerUID =
-                            (data['authUID'] ?? data['userId'] ?? '')
-                                .toString();
-                        _showCommentSheet(context, postId!, postOwnerUID);
-                      }
-                    }),
-                    _buildVIPBtn(
-                        Icons.share_rounded, Colors.white70, "Share", () {}),
+                    if (currentFrameUrl.isNotEmpty)
+                      Positioned.fill(
+                        child: Transform.scale(
+                          scale: 1.55,
+                          child: IgnorePointer(
+                            child: currentFrameUrl.contains('.json')
+                                ? Lottie.network(
+                                    currentFrameUrl,
+                                    fit: BoxFit.contain,
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            const SizedBox(),
+                                  )
+                                : CachedNetworkImage(
+                                    imageUrl: currentFrameUrl,
+                                    fit: BoxFit.contain,
+                                    placeholder: (context, url) =>
+                                        const SizedBox(),
+                                    errorWidget:
+                                        (context, error, stackTrace) =>
+                                            const SizedBox(),
+                                  ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
-                const SizedBox(height: 10),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
-
   Widget _buildVIPBtn(
       IconData icon, Color color, String text, VoidCallback onTap) {
     return InkWell(

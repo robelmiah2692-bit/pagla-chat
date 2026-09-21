@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:wakelock_plus/wakelock_plus.dart'; // স্ক্রিন লাইট ঠিক রাখতে এটি ব্যবহার করা হয়েছে
 
 class VideoGiftOverlay extends StatefulWidget {
   final String url;
@@ -23,9 +24,13 @@ class _VideoGiftOverlayState extends State<VideoGiftOverlay> with SingleTickerPr
   void initState() {
     super.initState();
     
+    // ভিডিও চলাকালীন ফোনের স্ক্রিন যেন ডিম বা অফ না হয়ে যায়, তাই ওয়াকলক এনেবল করা হলো
+    WakelockPlus.enable();
+
+    // ভিডিওর শেষ ২ সেকেন্ডে আস্তে আস্তে মুছার জন্য ডিউরেশন ২ সেকেন্ড (2000ms) করা হয়েছে
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 2000),
     );
     _fadeAnimation = CurvedAnimation(
       parent: _fadeController,
@@ -55,7 +60,7 @@ class _VideoGiftOverlayState extends State<VideoGiftOverlay> with SingleTickerPr
               _isInitialized = true;
             });
             _controller?.play();
-            _fadeController.forward();
+            _fadeController.value = 1.0; // শুরুতে ফুল ভিজিবল থাকবে
           }
         });
 
@@ -65,9 +70,9 @@ class _VideoGiftOverlayState extends State<VideoGiftOverlay> with SingleTickerPr
         final duration = _controller!.value.duration;
         final position = _controller!.value.position;
 
-        // ৩. ভিডিও শেষ হওয়ার ঠিক ৩০০ মিলিগ্রাম আগে ফেড আউট শুরু করে থাম্বনেইল আটকে যাওয়া রোধ করা
-        if (duration - position <= const Duration(milliseconds: 300)) {
-          if (_fadeController.isCompleted) {
+        // ৩. ভিডিও শেষ হওয়ার ঠিক ২ সেকেন্ড আগে থেকে ফেড আউট (আস্তে আস্তে মুছে যাওয়া) শুরু হবে
+        if (duration - position <= const Duration(seconds: 2)) {
+          if (!_fadeController.isAnimating && _fadeController.value > 0.0) {
             _fadeController.reverse();
           }
         }
@@ -77,13 +82,14 @@ class _VideoGiftOverlayState extends State<VideoGiftOverlay> with SingleTickerPr
         }
       });
     } catch (e) {
-     
       widget.onFinished(); // কোনো এরর হলে যেন আটকে না থাকে
     }
   }
 
   @override
   void dispose() {
+    // ভিডিও শেষ বা ক্লোজ হয়ে গেলে স্ক্রিনের ওয়াকলক ডিসেবল করে দেওয়া যাতে নরমাল বিহেভিয়ারে ফিরে আসে
+    WakelockPlus.disable();
     _fadeController.dispose();
     _controller?.dispose();
     super.dispose();
@@ -100,7 +106,7 @@ class _VideoGiftOverlayState extends State<VideoGiftOverlay> with SingleTickerPr
                   opacity: _fadeAnimation,
                   child: AspectRatio(
                     aspectRatio: _controller!.value.aspectRatio,
-                    // চার কোনা বর্ডার বা হার্ড এজ লুক লুকাতে এবং ব্যাকগ্রাউন্ডের সাথে পারফেক্ট মিশে থাকতে BlendMode ব্যবহার করা হয়েছে
+                    // চার কোনা বর্ডার বা হার্ড এজ লুক লুকাতে এবং ব্যাকগ্রাউন্ডের সাথে পারফেক্ট মিশে থাকতে BlendMode ব্যবহার করা হয়েছে
                     child: ShaderMask(
                       shaderCallback: (Rect bounds) {
                         return RadialGradient(

@@ -12,9 +12,7 @@ class GiftOverlayHandler extends StatelessWidget {
   final String senderImage;   
   final String receiverImage; 
   
-  
-
-   GiftOverlayHandler({
+  const GiftOverlayHandler({
     super.key,
     required this.isGiftAnimating,
     required this.currentGiftImage,
@@ -29,11 +27,22 @@ class GiftOverlayHandler extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!isGiftAnimating || currentGiftImage.isEmpty) return const SizedBox.shrink();
 
+    // ==========================================================
+    // ভিডিও গিফটের থাম্বনেইল ইমেজ ফিল্টার চেক: 
+    // যদি লিংকটিতে 'tumbail', 'videogift' অথবা 'Th.' থাকে, তবে এটি ইমেজ ওভারলে হিসেবে দেখাবে না।
+    // কারণ এটি ভিডিও গিফট এবং এর জন্য আলাদা ভিডিও প্লেয়ার কাজ করবে।
+    // ==========================================================
+    bool isVideoThumbnail = currentGiftImage.contains('/tumbail/') || 
+                            currentGiftImage.toLowerCase().contains('th.') ||
+                            currentGiftImage.contains('videogift');
+    if (isVideoThumbnail) {
+      return const SizedBox.shrink();
+    }
+
     final double fullHeight = MediaQuery.of(context).size.height;
     final double fullWidth = MediaQuery.of(context).size.width;
     final int animationType = math.Random().nextInt(3); 
    
-    
     return IgnorePointer(
       ignoring: true,
       child: SizedBox(
@@ -67,14 +76,11 @@ class GiftOverlayHandler extends StatelessWidget {
                 ],
               ),
             ),
-
-            
           ],
         ),
       ),
     );
   }
-
 
   // বিজলি চমকানোর মতো ধামাকা ইফেক্ট
   Widget _buildThunderStrikeEffect() {
@@ -103,41 +109,41 @@ class GiftOverlayHandler extends StatelessWidget {
     );
   }
 
- Widget _buildFullScreenSoftGift(BuildContext context) {
-  bool isLottie = currentGiftImage.toLowerCase().endsWith('.json');
+  Widget _buildFullScreenSoftGift(BuildContext context) {
+    bool isLottie = currentGiftImage.toLowerCase().endsWith('.json');
 
-  return ShaderMask(
-    shaderCallback: (rect) {
-      return RadialGradient(
-        center: Alignment.center,
-        radius: 0.65,
-        colors: [Colors.black, Colors.black.withOpacity(0.8), Colors.transparent],
-        stops: const [0.0, 0.88, 1.0],
-      ).createShader(rect);
-    },
-    blendMode: BlendMode.dstIn,
-    child: SizedBox(
-      width: MediaQuery.of(context).size.width,
-      height: MediaQuery.of(context).size.height,
-      child: isLottie
-          ? Lottie.network(
-              currentGiftImage,
-              fit: BoxFit.contain,
-              repeat: true,
-              errorBuilder: (context, error, stackTrace) =>
-                  const Icon(Icons.thunderstorm, size: 100, color: Colors.yellow),
-            )
-          : CachedNetworkImage(
-              imageUrl: currentGiftImage,
-              fit: BoxFit.contain,
-              alignment: Alignment.center,
-              placeholder: (context, url) => const SizedBox.shrink(),
-              errorWidget: (context, url, error) =>
-                  const Icon(Icons.thunderstorm, size: 100, color: Colors.yellow),
-            ),
-    ),
-  );
-}
+    return ShaderMask(
+      shaderCallback: (rect) {
+        return RadialGradient(
+          center: Alignment.center,
+          radius: 0.65,
+          colors: [Colors.black, Colors.black.withOpacity(0.8), Colors.transparent],
+          stops: const [0.0, 0.88, 1.0],
+        ).createShader(rect);
+      },
+      blendMode: BlendMode.dstIn,
+      child: SizedBox(
+        width: MediaQuery.of(context).size.width,
+        height: MediaQuery.of(context).size.height,
+        child: isLottie
+            ? Lottie.network(
+                currentGiftImage,
+                fit: BoxFit.contain,
+                repeat: true,
+                errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.thunderstorm, size: 100, color: Colors.yellow),
+              )
+            : CachedNetworkImage(
+                imageUrl: currentGiftImage,
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
+                placeholder: (context, url) => const SizedBox.shrink(),
+                errorWidget: (context, url, error) =>
+                    const Icon(Icons.thunderstorm, size: 100, color: Colors.yellow),
+              ),
+      ),
+    );
+  }
 
   Widget _buildNameBadgeWithImages() {
     return Container(
