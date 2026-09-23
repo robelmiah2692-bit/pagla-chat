@@ -177,13 +177,13 @@ class _TeamPanelAndSoulmateSectionState
                     ],
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 5),
 
                 if (_selectedTabIndex == 1)
                   _buildTeamPanelSection(
                       resolvedDocId, teamPanelData, userData),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 5),
               ],
             );
           },
@@ -201,11 +201,9 @@ class _TeamPanelAndSoulmateSectionState
         teamPanelData?['ownerId']?.toString() ??
         inputOwnerDocId;
 
-    print(
-        "DEBUG: Original inputOwnerDocId: $inputOwnerDocId, Corrected realOwnerDocId: $realOwnerDocId");
+    
     String myAuthUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    print("DEBUG: myAuthUid: $myAuthUid");
-
+    
     return FutureBuilder<DocumentSnapshot>(
       // সব সময় সঠিক realOwnerDocId দিয়ে ওনারের ডাটা ফেচ করা হবে
       future: _fetchOwnerData(realOwnerDocId),
@@ -288,8 +286,7 @@ class _TeamPanelAndSoulmateSectionState
                     myAuthUid == panelOwnerUid ||
                     myAuthUid == realOwnerDocId);
 
-                print(
-                    "DEBUG: Final isPanelOwner: $isPanelOwner (Owner ID: $ownerDocumentId, My User ID: $myUniqueUserId)");
+                
 
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 15),
@@ -298,8 +295,7 @@ class _TeamPanelAndSoulmateSectionState
                     children: [
                       GestureDetector(
                         onTap: () {
-                          print(
-                              "DEBUG: Team panel card tapped for panel: $panelName");
+                         
                           _openTeamPanelDetailsModal(
                               context,
                               ownerDocumentId,
@@ -348,8 +344,7 @@ class _TeamPanelAndSoulmateSectionState
                                         color: Colors.transparent,
                                         child: InkWell(
                                           onTap: () {
-                                            print(
-                                                "DEBUG: Change panel picture clicked");
+                                            
                                             _changePanelPicture(
                                                 ownerDocumentId, teamPanelData);
                                           },
@@ -479,8 +474,7 @@ class _TeamPanelAndSoulmateSectionState
                                             onPressed: hasRequested
                                                 ? null
                                                 : () {
-                                                    print(
-                                                        "DEBUG: Join Panel button clicked for owner: $ownerDocumentId");
+                                                   
                                                     _sendJoinRequest(
                                                         ownerDocumentId,
                                                         myUniqueUserId);
@@ -668,7 +662,7 @@ class _TeamPanelAndSoulmateSectionState
       String panelPic,
       bool isPanelOwner,
       Map<String, dynamic> ownerUserData) async {
-    print("DEBUG: _openTeamPanelDetailsModal opened for panel: $panelName");
+    
 
     // বর্তমান ইউজার এই প্যানেলের মেম্বার কিনা বা ওনার কিনা চেক করা
     String currentAuthUid = FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -1025,13 +1019,13 @@ class _TeamPanelAndSoulmateSectionState
   // 🖼️ প্যানেল ছবি পরিবর্তন করার ফাংশন
   Future<void> _changePanelPicture(
       String ownerDocId, Map<String, dynamic>? currentTeamPanelData) async {
-    print("DEBUG: _changePanelPicture started for ownerDocId: $ownerDocId");
+    
     try {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
       if (pickedFile == null) {
-        print("DEBUG: No image selected for panel picture");
+       
         return;
       }
 
@@ -1047,7 +1041,7 @@ class _TeamPanelAndSoulmateSectionState
       UploadTask uploadTask = ref.putFile(file);
       TaskSnapshot snapshot = await uploadTask;
       String downloadUrl = await snapshot.ref.getDownloadURL();
-      print("DEBUG: Panel picture uploaded successfully. URL: $downloadUrl");
+      
 
       Map<String, dynamic> updatedTeamPanel = currentTeamPanelData != null
           ? Map<String, dynamic>.from(currentTeamPanelData)
@@ -1057,14 +1051,14 @@ class _TeamPanelAndSoulmateSectionState
       await FirebaseFirestore.instance.collection('users').doc(ownerDocId).set({
         'teamPanel': updatedTeamPanel,
       }, SetOptions(merge: true));
-      print("DEBUG: Firestore updated with new panel picture URL");
+      
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Panel picture updated successfully!")),
       );
     } catch (e) {
-      print("DEBUG ERROR in _changePanelPicture: $e");
+      
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Failed to update picture: $e")),
@@ -1079,8 +1073,7 @@ class _TeamPanelAndSoulmateSectionState
   }
 
   void _sendJoinRequest(String panelOwnerDocId, String currentAuthUid) async {
-    print(
-        "DEBUG: _sendJoinRequest called for panelOwnerDocId: $panelOwnerDocId, currentAuthUid: $currentAuthUid");
+   
     try {
       // ১. প্যানেল ওনারের সঠিক ডকুমেন্ট আইডি নিশ্চিত করা
       String resolvedOwnerId = panelOwnerDocId;
@@ -1099,7 +1092,7 @@ class _TeamPanelAndSoulmateSectionState
           resolvedOwnerId = queryByUid.docs.first.id;
         }
       }
-      print("DEBUG: Final Resolved panel owner doc id: $resolvedOwnerId");
+      
 
       // ২. authUID দিয়ে users কালেকশন থেকে ইউজারের সঠিক ডকুমেন্ট খুঁজে বের করা
       String uniqueUserId = currentAuthUid;
@@ -1135,8 +1128,7 @@ class _TeamPanelAndSoulmateSectionState
         }
       }
 
-      print(
-          "DEBUG: Resolved Unique User ID: $uniqueUserId, Name: $userName, Pic: $profilePic");
+     
 
       // 🛑 ৩. নতুন চেক: ইউজার ইতিমধ্যে অন্য কোনো প্যানেলের ওনার বা মেম্বার কি না তা যাচাই করা
 
@@ -1196,15 +1188,14 @@ class _TeamPanelAndSoulmateSectionState
         'timestamp': FieldValue.serverTimestamp(),
       });
 
-      print(
-          "DEBUG: Join request successfully written with profile data to team_panels/$resolvedOwnerId/requests/$uniqueUserId");
+      
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Join request sent to panel owner!")),
       );
     } catch (e) {
-      print("DEBUG ERROR in _sendJoinRequest: $e");
+      
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Failed to send request: $e")),
@@ -1233,9 +1224,7 @@ class _TeamPanelAndSoulmateSectionState
 
   void _acceptRequest(String ownerDocId, String requesterUid,
       Map<String, dynamic> uInfo) async {
-    print(
-        "DEBUG: _acceptRequest called for ownerDocId: $ownerDocId, requesterUid: $requesterUid");
-
+    
     // প্যানেলের আসল মালিকের সঠিক authUID এবং ডকুমেন্ট ডাটা বের করার জন্য users কালেকশন চেক করা
     DocumentSnapshot ownerUserDoc = await FirebaseFirestore.instance
         .collection('users')
@@ -1305,25 +1294,22 @@ class _TeamPanelAndSoulmateSectionState
       }
     });
 
-    print(
-        "DEBUG: Request accepted successfully. Correct owner auth ID and document ID mapped, and marked as non-owner for member.");
+    
   }
 
   void _rejectRequest(String ownerId, String requesterUid) async {
-    print(
-        "DEBUG: _rejectRequest called for ownerId: $ownerId, requesterUid: $requesterUid");
+    
     await FirebaseFirestore.instance
         .collection('team_panels')
         .doc(ownerId)
         .collection('requests')
         .doc(requesterUid)
         .delete();
-    print("DEBUG: Request rejected and deleted");
+    
   }
 
   void _removeMember(String ownerId, String memberUid) async {
-    print(
-        "DEBUG: _removeMember called for ownerId: $ownerId, memberUid: $memberUid");
+    
 
     // ১. প্যানেলের members থেকে মেম্বার ডিলিট করা
     await FirebaseFirestore.instance
@@ -1338,7 +1324,7 @@ class _TeamPanelAndSoulmateSectionState
       'teamPanel': FieldValue.delete(),
     });
 
-    print("DEBUG: Member successfully removed from panel and profile");
+    
   }
 }
 

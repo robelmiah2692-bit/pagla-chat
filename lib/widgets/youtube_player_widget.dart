@@ -9,10 +9,9 @@ class YouTubePlayerManager {
   bool isVideoPlaying = false;
   YoutubePlayerController? _youtubeController;
   WebViewController? _browserWebViewController;
-  bool _isSyncingFromFirebase = false; // ইনফাইনাইট লুপ বা ওভারল্যাপ এড়ানোর জন্য
+  bool _isSyncingFromFirebase = false;
 
   void dispose() {
-    print("DEBUG_PLAYER: dispose() called. Resetting player state.");
     currentVideoUrl = null;
     isVideoPlaying = false;
     _youtubeController?.close();
@@ -33,12 +32,12 @@ class YouTubePlayerManager {
         return uri.pathSegments.isNotEmpty ? uri.pathSegments.first : null;
       }
     } catch (e) {
-      print("Error parsing YouTube ID: $e");
+      debugPrint("Error parsing YouTube ID: $e");
     }
     return null;
   }
 
-  // ১. মূল ইউটিউব প্লেয়ার ইনিশিয়ালাইজ করা (সময় এবং প্লে/পোজ স্টেট সহ)
+  // ১. মূল ইউটিউব প্লেয়ার ইনিশিয়ালাইজ করা
   void initializeYouTubePlayer(
     String videoUrl, 
     double startSeconds, 
@@ -46,84 +45,77 @@ class YouTubePlayerManager {
     Function setStateCallback, 
     String roomId
   ) {
-    print("DEBUG_PLAYER: initializePlayer started with URL -> $videoUrl at $startSeconds sec, play: $shouldPlay");
+    if (videoUrl.isEmpty) return;
     
-    if (videoUrl.isNotEmpty) {
-      String? ytId = _extractYouTubeVideoId(videoUrl);
+    String? ytId = _extractYouTubeVideoId(videoUrl);
+    if (ytId == null || ytId.isEmpty) return;
 
-      if (ytId != null && ytId.isNotEmpty) {
-        currentVideoUrl = videoUrl;
+    // যদি একই ভিডিও অলরেডি রানিং থাকে, নতুন করে কন্ট্রোলার রিসেট করার দরকার নেই
+    if (currentVideoUrl == videoUrl && _youtubeController != null) {
+      if (shouldPlay) {
+        _youtubeController?.playVideo();
+      } else {
+        _youtubeController?.pauseVideo();
+      }
+      return;
+    }
 
-        if (_youtubeController != null) {
-          print("DEBUG_PLAYER: Loading new video into existing controller -> $ytId");
-          _youtubeController?.loadVideoById(
-            videoId: ytId,
-            startSeconds: startSeconds,
-          );
-          if (!shouldPlay) {
-            _youtubeController?.pauseVideo();
-          } else {
-            _youtubeController?.playVideo();
-          }
-        } else {
-          print("DEBUG_PLAYER: Creating new YoutubePlayerController for -> $ytId");
-          _youtubeController = YoutubePlayerController.fromVideoId(
-            videoId: ytId,
-            autoPlay: shouldPlay,
-            params: const YoutubePlayerParams(
-              showControls: true,
-              showFullscreenButton: false,
-              strictRelatedVideos: true,
-              playsInline: true,
-              showVideoAnnotations: false,
-              enableCaption: false,
-              loop: false,
-              color: 'dark',
-            ),
-          );
+    currentVideoUrl = videoUrl;
 
-          // যদি জিরো থেকে বেশি সেকেন্ডে শুরু করতে হয়
-          if (startSeconds > 0) {
-            _youtubeController?.seekTo(seconds: startSeconds);
-          }
+    if (_youtubeController != null) {
+      _youtubeController?.loadVideoById(
+        videoId: ytId,
+        startSeconds: startSeconds,
+      );
+      if (!shouldPlay) {
+        _youtubeController?.pauseVideo();
+      } else {
+        _youtubeController?.playVideo();
+      }
+    } else {
+      _youtubeController = YoutubePlayerController.fromVideoId(
+        videoId: ytId,
+        autoPlay: shouldPlay,
+        params: const YoutubePlayerParams(
+          showControls: true,
+          showFullscreenButton: false,
+          strictRelatedVideos: true,
+          playsInline: true,
+          showVideoAnnotations: false,
+          enableCaption: false,
+          loop: false,
+          color: 'dark',
+        ),
+      );
 
-          // প্লেয়ারের নিজস্ব প্লে/পোজ বা সিক (Seek) ইভেন্ট ট্র্যাক করার জন্য লিসেনার
-          _youtubeController?.listen((event) {
-            if (_isSyncingFromFirebase) return; // যদি ফায়ারবেস থেকে আপডেট আসে, তবে ডাটাবেজে আবার পাঠাবো না
+      if (startSeconds > 0) {
+        _youtubeController?.seekTo(seconds: startSeconds);
+      }
 
-            // ইন্টারনেট বা বাফারিং সমস্যা কেটে যাওয়ার পর প্লে স্টেট রিকভার করার জন্য মনিটর করা
-            if (event.playerState == PlayerState.playing) {
-              bool playing = true;
-              _youtubeController?.currentTime.then((position) {
-                FirebaseDatabase.instance.ref('rooms/$roomId/youtube').update({
-                  'isPlaying': playing,
-                  'position': position,
-                });
-              });
-            } else if (event.playerState == PlayerState.paused) {
-              bool playing = false;
-              _youtubeController?.currentTime.then((position) {
-                FirebaseDatabase.instance.ref('rooms/$roomId/youtube').update({
-                  'isPlaying': playing,
-                  'position': position,
-                });
-              });
-            }
+      // প্লেয়ার ইভেন্ট লিসেনার (অপ্রয়োজনীয় ফ্রিকোয়েন্সি কমানো হয়েছে)
+      _youtubeController?.listen((event) {
+        if (_isSyncingFromFirebase) return;
+
+        if (event.playerState == PlayerState.playing || event.playerState == PlayerState.paused) {
+          bool playing = (event.playerState == PlayerState.playing);
+          _youtubeController?.currentTime.then((position) {
+            // শুধুমাত্র স্টেট পরিবর্তনের সময় ফায়ারবেসে ডাটা আপডেট হবে, বারবার নয়
+            FirebaseDatabase.instance.ref('rooms/$roomId/youtube').update({
+              'isPlaying': playing,
+              'position': position,
+            });
           });
         }
-
-        // UI রি-রেন্ডার করার জন্য স্টেট আপডেট নিশ্চিত করা হলো
-        setStateCallback(() {
-          isVideoPlaying = shouldPlay;
-        });
-      }
+      });
     }
+
+    setStateCallback(() {
+      isVideoPlaying = shouldPlay;
+    });
   }
 
-  // ২. অ্যাপের ভেতর ইউটিউব ব্রাউজ করে লিংক অটো তোলার জন্য বটম শিট
+  // ২. অ্যাপের ভেতর ইউটিউব ব্রাউজ করার বটম শিট
   void showYouTubeSearchModal(BuildContext context, Function(String) onVideoSelected) {
-    print("DEBUG_MODAL: Opening YouTube Browse Modal...");
-    
     String selectedCapturedUrl = "";
 
     _browserWebViewController = WebViewController()
@@ -138,7 +130,6 @@ class YouTubePlayerManager {
     _browserWebViewController!.setNavigationDelegate(
       NavigationDelegate(
         onNavigationRequest: (NavigationRequest request) {
-          print("DEBUG_NAV: Navigating to -> ${request.url}");
           if (request.url.contains('/watch?v=') || request.url.contains('/shorts/') || request.url.contains('youtu.be/')) {
             selectedCapturedUrl = request.url;
           }
@@ -212,7 +203,7 @@ class YouTubePlayerManager {
                             currentUrl = currentUrl.replaceAll('"', '');
                           }
                         } catch (e) {
-                          print("DEBUG_JS_ERROR: $e");
+                          debugPrint("JS Error: $e");
                         }
 
                         currentUrl ??= await _browserWebViewController?.currentUrl();
@@ -221,8 +212,6 @@ class YouTubePlayerManager {
                         if (currentUrl != null && (currentUrl.contains('watch?v=') || currentUrl.contains('youtu.be') || currentUrl.contains('shorts'))) {
                           finalUrl = currentUrl;
                         }
-
-                        print("DEBUG_BROWSER: Final Selected URL -> $finalUrl");
                         
                         if (finalUrl.isNotEmpty && (finalUrl.contains('watch?v=') || finalUrl.contains('youtu.be') || finalUrl.contains('shorts'))) {
                           Navigator.pop(context);
@@ -248,7 +237,7 @@ class YouTubePlayerManager {
     );
   }
 
-  // ৩. রুমের ইউআই প্লেয়ার উইজেট (টাইম সিঙ্ক এবং পজ/প্লে হ্যান্ডলিং সহ)
+  // ৩. রুমের ইউআই প্লেয়ার উইজেট (অপ্টিমাইজড ও ফ্রিজ মুক্ত)
   Widget buildYouTubePlayerWidgetWithStream(
     BuildContext context, 
     Function setStateCallback, 
@@ -278,30 +267,30 @@ class YouTubePlayerManager {
             }
 
             if (remoteVideoUrl.isNotEmpty) {
-              // যদি নতুন ভিডিও হয় অথবা প্রথমবার লোড হয়
               if (remoteVideoUrl != currentVideoUrl || _youtubeController == null) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   initializeYouTubePlayer(remoteVideoUrl, remotePosition, remoteIsPlaying, setStateCallback, roomId);
                 });
               } else {
-                // একই ভিডিও চলছে কিন্তু নেট ঠিক হওয়ার পর বা অন্য কারও অ্যাকশনের পর সিঙ্ক করার জন্য
+                // অতিরিক্ত লুপ এড়াতে সিঙ্ক লজিক সিকিউর করা হয়েছে
                 _isSyncingFromFirebase = true;
                 _youtubeController?.currentTime.then((localPos) {
-                  // যদি পজিশনের ব্যবধান ২ সেকেন্ডের বেশি হয় অথবা ইন্টারনেট রিডায়রেক্টে আটকে থাকে তবে সিঙ্ক ফোর্স করা হবে
-                  if ((localPos - remotePosition).abs() > 2.0) {
+                  // ব্যবধান ৪ সেকেন্ডের বেশি হলে তবেই সিক করবে, ছোটখাটো পার্থক্যে ভিডিও আটকে রাখবে না
+                  if ((localPos - remotePosition).abs() > 4.0) {
                     _youtubeController?.seekTo(seconds: remotePosition);
                   }
+                  
                   if (remoteIsPlaying) {
                     _youtubeController?.playVideo();
                   } else {
                     _youtubeController?.pauseVideo();
                   }
-                  Future.delayed(const Duration(milliseconds: 500), () {
+
+                  Future.delayed(const Duration(milliseconds: 800), () {
                     _isSyncingFromFirebase = false;
                   });
                 });
                 
-                // প্লে স্টেট সিঙ্ক নিশ্চিত করতে
                 if (isVideoPlaying != remoteIsPlaying) {
                   setStateCallback(() {
                     isVideoPlaying = remoteIsPlaying;
@@ -310,7 +299,7 @@ class YouTubePlayerManager {
               }
             }
           } catch (e) {
-            print("DEBUG_STREAM_ERROR: $e");
+            debugPrint("Stream Error: $e");
           }
         }
 
@@ -344,7 +333,6 @@ class YouTubePlayerManager {
                             onPressed: () {
                               showYouTubeSearchModal(context, (selectedUrl) {
                                 onVideoStateChangedFromStream(selectedUrl);
-                                // নতুন ভিডিও শুরু হলে পজিশন ০ এবং isPlaying true থাকবে
                                 FirebaseDatabase.instance.ref('rooms/$roomId/youtube').set({
                                   'videoUrl': selectedUrl,
                                   'position': 0.0,

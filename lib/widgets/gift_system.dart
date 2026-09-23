@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:pagla_chat/data/crown_gifts.dart';
 import 'package:pagla_chat/data/romantic_gifts.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
@@ -11,7 +14,7 @@ import 'package:pagla_chat/data/free_gifts.dart';
 import 'package:pagla_chat/data/classic_gifts.dart';
 import 'package:pagla_chat/data/luxury_gifts.dart';
 import 'package:pagla_chat/data/pk_gifts.dart';
-import 'package:pagla_chat/mini_video_thumbnail_player.dart';
+
 
 class GiftBottomSheet extends StatefulWidget {
   final String roomId;
@@ -42,6 +45,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   String? selectedTargetName;
   String? selectedTargetImage;
   final ScrollController _boxScrollController = ScrollController();
+  Timer? _autoScrollTimer; // 🔥 অটো-স্ক্রোল নিয়ন্ত্রণের জন্য টাইমার ভেরিয়েবল
   bool isRandomBoxSelected = false;
   List<dynamic> randomGiftPool = [];
   late List<Map<String, dynamic>> dynamicFreeGifts;
@@ -49,18 +53,42 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   @override
   void initState() {
     super.initState();
-    // টাইমার ও এক্সপায়ার লজিক বাদ দিয়ে শুধু ডাটা ইনিশিয়ালাইজ করা হলো
+    // টাইমার ও এক্সপায়ার লজিক বাদ দিয়ে শুধু ডাটা ইনিশিয়ালাইজ করা হলো
     dynamicFreeGifts = freeGifts.map((g) {
       return Map<String, dynamic>.from(g);
     }).toList();
+
+    _startAutoScroll(); // পেজ আসার পর অটো-স্ক্রোল শুরু হবে
   }
 
   @override
   void dispose() {
+    _autoScrollTimer?.cancel(); // মেমোরি লিক ও ক্র্যাশ রোধ করতে টাইমার বন্ধ করা
     _boxScrollController.dispose();
     super.dispose();
   }
+  // 🔥 নিরাপদ অটো-স্ক্রোল টাইমার লজিক
+  void _startAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
+      if (!isRandomBoxSelected || !mounted) {
+        return;
+      }
 
+      if (_boxScrollController.hasClients) {
+        final maxScroll = _boxScrollController.position.maxScrollExtent;
+        final currentScroll = _boxScrollController.position.pixels;
+
+        if (currentScroll >= maxScroll) {
+          _boxScrollController.jumpTo(0);
+        } else {
+          _boxScrollController.jumpTo(currentScroll + 1.2);
+        }
+      }
+    });
+  }
+  
+  
   void _showUserSelectionList() {
     List activeUsers = widget.currentSeats.where((s) {
       if (s == null) return false;
@@ -172,7 +200,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     }
 
     return DefaultTabController(
-      length: 5,
+      length: 6, // 🔥 মোট ট্যাব সংখ্যা ৫ থেকে বাড়িয়ে ৬ করা হলো
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 400),
         height: 550,
@@ -217,9 +245,10 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
               tabs: [
                 Tab(text: "Free"),
                 Tab(text: "Pk"),
-                Tab(text: "Classic"),
-                Tab(text: "Cp LoVE"),
                 Tab(text: "Luxury"),
+                Tab(text: "LucyBox"),
+                Tab(text: "Cp LoVE"),
+                Tab(text: "Crown Gift"), // 🔥 নতুন ট্যাব যোগ করা হলো
               ],
             ),
             Expanded(
@@ -227,9 +256,10 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                 children: [
                   _buildGrid(dynamicFreeGifts, isFreeTab: true),
                   _buildGrid(pkGifts),
+                  _buildGrid(luxuryGifts),
                   _buildGrid(classicGifts),
                   _buildGrid(romanticGifts),
-                  _buildGrid(luxuryGifts),
+                  _buildGrid(crownGifts), // 🔥 আলাদা ফাইলে থাকা ক্রাউন গিফট লিস্ট এখানে পাস হবে
                 ],
               ),
             ),
@@ -239,7 +269,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       ),
     );
   }
-
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -358,27 +387,34 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     );
   }
 
+ // 🔥 বড় সংখ্যাকে ছোট ফরম্যাটে (যেমন: 100k, 1M) রূপান্তর করার ফাংশন
+  String _formatPrice(dynamic priceVal) {
+    int price = 0;
+    if (priceVal is int) {
+      price = priceVal;
+    } else if (priceVal is String) {
+      price = int.tryParse(priceVal) ?? 0;
+    }
+
+    if (price >= 1000000) {
+      return "${(price / 1000000).toStringAsFixed(price % 1000000 == 0 ? 0 : 1)}M";
+    } else if (price >= 1000) {
+      return "${(price / 1000).toStringAsFixed(price % 1000 == 0 ? 0 : 1)}k";
+    }
+    return price.toString();
+  }
+
   Widget _buildRandomBoxPreview() {
     if (!isRandomBoxSelected || randomGiftPool.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_boxScrollController.hasClients) {
-        if (_boxScrollController.position.pixels >=
-            _boxScrollController.position.maxScrollExtent) {
-          _boxScrollController.jumpTo(0);
-        }
-        _boxScrollController.animateTo(
-          _boxScrollController.position.pixels + 50,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.linear,
-        );
-      }
-    });
+    // আইটেমগুলো অবিরাম লুপ করার জন্য বড় একটি লিস্ট তৈরি করা
+    final extendedGiftPool = List.generate(
+        1000, (index) => randomGiftPool[index % randomGiftPool.length]);
 
     return Container(
-      height: 75,
+      height: 85,
       margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.3),
@@ -395,13 +431,25 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       child: ListView.builder(
         controller: _boxScrollController,
         scrollDirection: Axis.horizontal,
-        itemCount: randomGiftPool.length,
+        physics: const NeverScrollableScrollPhysics(), // ইউজার হাত দিয়ে আটকাতে পারবে না, হেডলাইনের মতো নিজে চলবে
+        itemCount: extendedGiftPool.length,
         itemBuilder: (context, index) {
-          var gift = randomGiftPool[index];
+          var gift = extendedGiftPool[index];
+          
+          // 🔥 লটি ও ক্যাশ হ্যান্ডলিং প্রিভিউ লিস্টের জন্য
+          String giftPath = (gift["lottieUrl"] ??
+                  gift["image"] ??
+                  gift["icon"] ??
+                  gift["url"] ??
+                  "")
+              .toString();
+          bool isJson = giftPath.toLowerCase().endsWith('.json');
+          bool isOnlineLottie = isJson &&
+              (giftPath.startsWith('http://') || giftPath.startsWith('https://'));
+
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
             width: 55,
-            height: 55,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
@@ -412,20 +460,79 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
               border:
                   Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
             ),
-            child: Container(
-              margin: const EdgeInsets.all(3),
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.black26,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(30),
-                child: CachedNetworkImage(
-                  imageUrl: gift['image'] ?? gift['icon'] ?? "",
-                  fit: BoxFit.cover,
-                  errorWidget: (c, u, e) => const Icon(Icons.card_giftcard,
-                      color: Colors.white24, size: 20),
-                ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(30),
+              child: Stack(
+                children: [
+                  // মূল গিফট লটি অথবা ক্যাশড ইমেজ
+                  Positioned.fill(
+                    child: Container(
+                      margin: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.black26,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(30),
+                        child: isJson
+                            ? (isOnlineLottie
+                                ? Lottie.network(
+                                    giftPath,
+                                    animate: false,
+                                    fit: BoxFit.contain,
+                                    addRepaintBoundary: true,
+                                    controller: const AlwaysStoppedAnimation(0.4),
+                                  )
+                                : Lottie.asset(
+                                    giftPath,
+                                    animate: false,
+                                    fit: BoxFit.contain,
+                                    addRepaintBoundary: true,
+                                    controller: const AlwaysStoppedAnimation(0.4),
+                                  ))
+                            : CachedNetworkImage(
+                                imageUrl: gift['image'] ?? gift['icon'] ?? giftPath,
+                                fit: BoxFit.cover,
+                                memCacheWidth: 150,
+                                memCacheHeight: 150,
+                                errorWidget: (c, u, e) => const Icon(
+                                    Icons.card_giftcard,
+                                    color: Colors.white24,
+                                    size: 20),
+                              ),
+                      ),
+                    ),
+                  ),
+
+                  // 🔥 ফরম্যাট করা প্রাইজ দেখানোর জন্য
+                  Positioned(
+                    bottom: 2,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text("💎", style: TextStyle(fontSize: 7)),
+                          const SizedBox(width: 1),
+                          Text(
+                            _formatPrice(gift["price"]),
+                            style: const TextStyle(
+                              color: Colors.amber,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           );
@@ -434,7 +541,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     );
   }
 
-  Widget _buildGrid(List gifts, {bool isFreeTab = false}) {
+ Widget _buildGrid(List gifts, {bool isFreeTab = false}) {
     return GridView.builder(
       padding: const EdgeInsets.all(15),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -457,11 +564,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
         bool isJson = giftPath.toLowerCase().endsWith('.json');
         bool isOnlineLottie = isJson &&
             (giftPath.startsWith('http://') || giftPath.startsWith('https://'));
-
-        bool isVideoGift = gift.containsKey('videoUrl') &&
-            gift['videoUrl'] != null &&
-            gift['videoUrl'].toString().isNotEmpty;
-        String videoUrl = isVideoGift ? gift['videoUrl'].toString() : '';
 
         return GestureDetector(
           onTap: () {
@@ -523,39 +625,38 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
               borderRadius: BorderRadius.circular(13),
               child: Stack(
                 children: [
-                  // 🔥 অপ্টিমাইজড রেন্ডারিং: ইউজার ক্লিক করে সিলেক্ট করলে তবেই লটি/ভিডিও অ্যানিমেশন দেখাবে, নতুবা ক্যাশড ইমেজ দেখাবে যাতে হ্যাং না করে।
+                  // 🔥 লটি ফাইল লোড হওয়ার পর মাঝখানের ফ্রেম (যেমন: ৫০% বা 0.4 প্রোগ্রেস) এ আটকানো থাকবে, যাতে ফাকা না দেখায়
                   Positioned.fill(
-                    child: isVideoGift
-                        ? (isSelected
-                            ? MiniVideoThumbnailPlayer(videoUrl: videoUrl)
-                            : CachedNetworkImage(
-                                imageUrl: gift['image'] ?? gift['icon'] ?? "",
-                                fit: BoxFit.cover,
-                                memCacheWidth: 150,
-                                memCacheHeight: 150,
-                                errorWidget: (c, u, e) => const Icon(
-                                    Icons.card_giftcard,
-                                    color: Colors.white24),
+                    child: isJson
+                        ? (isOnlineLottie
+                            ? Lottie.network(
+                                giftPath,
+                                animate: false,
+                                fit: BoxFit.contain,
+                                addRepaintBoundary: true,
+                                // লটি লোড হওয়ার সাথে সাথে মাঝখানের ফ্রেমে সেট করে দিবে
+                                onLoaded: (composition) {
+                                  // চাইলে composition.duration অনুযায়ী বা সরাসরি controller দিয়ে করা যায়, 
+                                  // তবে নিচের সহজ উপায়টি লটিতে অটো কাজ করে:
+                                },
+                                controller: AlwaysStoppedAnimation(0.4), // 0.4 মানে লটির ৪০% বা মাঝামঝি পজিশন, দরকারমতো 0.3 থেকে 0.5 করতে পারেন
+                              )
+                            : Lottie.asset(
+                                giftPath,
+                                animate: false,
+                                fit: BoxFit.contain,
+                                addRepaintBoundary: true,
+                                controller: const AlwaysStoppedAnimation(0.4), // মাঝখানের ফ্রেম আটকে রাখার জন্য
                               ))
-                        : (isJson && isSelected
-                            ? (isOnlineLottie
-                                ? Lottie.network(giftPath,
-                                    repeat: true,
-                                    fit: BoxFit.contain,
-                                    addRepaintBoundary: true)
-                                : Lottie.asset(giftPath,
-                                    repeat: true,
-                                    fit: BoxFit.contain,
-                                    addRepaintBoundary: true))
-                            : CachedNetworkImage(
-                                imageUrl: gift['image'] ?? gift['icon'] ?? giftPath,
-                                fit: BoxFit.cover,
-                                memCacheWidth: 150,
-                                memCacheHeight: 150,
-                                errorWidget: (c, u, e) => const Icon(
-                                    Icons.card_giftcard,
-                                    color: Colors.white24),
-                              )),
+                        : CachedNetworkImage(
+                            imageUrl: gift['image'] ?? gift['icon'] ?? giftPath,
+                            fit: BoxFit.cover,
+                            memCacheWidth: 150,
+                            memCacheHeight: 150,
+                            errorWidget: (c, u, e) => const Icon(
+                                Icons.card_giftcard,
+                                color: Colors.white24),
+                          ),
                   ),
                   Positioned(
                     bottom: 0,
@@ -607,7 +708,6 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       },
     );
   }
-
   Widget _buildBottomBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),

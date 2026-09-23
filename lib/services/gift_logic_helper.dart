@@ -49,6 +49,16 @@ class GiftLogicHelper {
     final int effectiveTotalPrice = effectiveUnitPrice * count;
     final Map<String, int> split = calculateSplit(effectiveTotalPrice);
 
+// 🛠️ সেন্ডারের লেটেস্ট ব্যাজ ও লেভেল ফেচ করে নেওয়া, যাতে মেসেজে সঠিক ডেটা থাকে
+    DocumentSnapshot senderDocSnap = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(senderAuthId)
+        .get();
+    
+    Map<String, dynamic> senderData = senderDocSnap.exists 
+        ? (senderDocSnap.data() as Map<String, dynamic>) 
+        : {};
+
     WriteBatch batch = FirebaseFirestore.instance.batch();
 
     // ক. সেন্ডারের একাউন্ট আপডেট (ডায়মন্ড কাটা + মোট খরচ বাড়ানো)
@@ -78,7 +88,17 @@ class GiftLogicHelper {
       'targetAuthId': targetAuthId,
       'count': count,
       'totalPrice': totalPrice,
+      'giftPrice': effectiveTotalPrice, // ✅ চ্যাটে দেখানোর জন্য মোট বা একক ডায়মন্ড এখানে যুক্ত করা হলো
       'timestamp': DateTime.now().millisecondsSinceEpoch,
+    // 🛠️ ব্যাজ ও লেভেলের ফিল্ডগুলো এখানে যুক্ত করে দেওয়া হলো
+      'vip_xp': senderData['vip_xp'] ?? 0,
+      'vip_expiry': senderData['vip_expiry'] ?? 0,
+      'totalActiveXp': senderData['totalActiveXp'] ?? senderData['active_xp'] ?? 0,
+      'totalGiftXp': senderData['totalGiftXp'] ?? senderData['gift_xp'] ?? 0,
+      'hasPremiumCard': senderData['hasPremiumCard'] ?? senderData['isPremium'] ?? false,
+      'isAgent': senderData['isAgent'] ?? false,
+      'isVerified': senderData['isVerified'] ?? false,
+      'isOfficial': senderData['isOfficial'] ?? false,
     };
 
     batch.update(roomRef, {

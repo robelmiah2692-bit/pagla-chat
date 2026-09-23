@@ -1123,7 +1123,7 @@ class _RoomListPageState extends State<RoomListPage>
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 15),
-          child: Text("Top Live Spenders",
+          child: Text("Top Live Gifters",
               style: TextStyle(
                   color: Color.fromARGB(255, 6, 250, 209),
                   fontSize: 16,

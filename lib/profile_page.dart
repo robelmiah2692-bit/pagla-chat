@@ -104,16 +104,29 @@ class _ProfilePageState extends State<ProfilePage> {
   bool isFriend = false; // নতুন ভেরিয়েবল
   DateTime? lastClaimTime;
   bool isClaiming = false;
+  // আপনার ক্লাসের ভেতরে এই ভেরিয়েবলগুলো থাকবে
+  final TextEditingController _bioController = TextEditingController();
+  bool _showSaveButton = false;
 
   @override
   void initState() {
     super.initState();
     loadUserData(); // আইডি জেনারেশন বন্ধ, শুধু ডাটা লোড হবে
     _initializeIAP();
+    // টাইপ করার সময় শুধু সেভ বাটন দেখানোর জন্য লিসেনার
+    _bioController.addListener(() {
+      final hasText = _bioController.text.trim().isNotEmpty;
+      if (hasText != _showSaveButton) {
+        setState(() {
+          _showSaveButton = hasText;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _bioController.dispose(); // ডিসপোজ করতে ভুলবেন না
     if (_isAvailable) {
       _subscription.cancel(); // স্ট্রিম ডিসপোজ করা
     }
@@ -228,7 +241,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _inAppPurchase.buyConsumable(purchaseParam: purchaseParam);
   }
 
-Future<void> _claimDailyDiamonds() async {
+  Future<void> _claimDailyDiamonds() async {
     User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
 
@@ -238,14 +251,15 @@ Future<void> _claimDailyDiamonds() async {
 
     try {
       String docId = uIDValue.isNotEmpty ? uIDValue : currentUser.uid;
-      DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(docId);
+      DocumentReference userRef =
+          FirebaseFirestore.instance.collection('users').doc(docId);
 
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         DocumentSnapshot snapshot = await transaction.get(userRef);
         if (!snapshot.exists) throw Exception("User not found!");
 
         var data = snapshot.data() as Map<String, dynamic>;
-        
+
         // ডাবল চেক করার জন্য ট্রানজেকশনের ভেতরেও ২৪ ঘণ্টা পার হয়েছে কিনা চেক করা নিরাপদ
         if (data['lastClaimTime'] != null) {
           DateTime lastClaim = (data['lastClaimTime'] as Timestamp).toDate();
@@ -255,7 +269,9 @@ Future<void> _claimDailyDiamonds() async {
           }
         }
 
-        int currentDiamonds = data['diamonds'] is int ? data['diamonds'] : int.tryParse(data['diamonds'].toString()) ?? 0;
+        int currentDiamonds = data['diamonds'] is int
+            ? data['diamonds']
+            : int.tryParse(data['diamonds'].toString()) ?? 0;
         int newDiamonds = currentDiamonds + 1000;
 
         transaction.update(userRef, {
@@ -273,7 +289,8 @@ Future<void> _claimDailyDiamonds() async {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("🎉 Successfully claimed 1,000 Diamonds!")),
+          const SnackBar(
+              content: Text("🎉 Successfully claimed 1,000 Diamonds!")),
         );
       }
     } catch (e) {
@@ -282,11 +299,14 @@ Future<void> _claimDailyDiamonds() async {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to claim: ${e.toString().replaceAll("Exception:", "").trim()}")),
+          SnackBar(
+              content: Text(
+                  "Failed to claim: ${e.toString().replaceAll("Exception:", "").trim()}")),
         );
       }
     }
   }
+
   // আইডি জেনারেশন ছাড়া শুধু ডাটা খুঁজে বের করার নিখুঁত লজিক
   void loadUserData() async {
     User? currentUser = FirebaseAuth.instance.currentUser;
@@ -586,6 +606,37 @@ Future<void> _claimDailyDiamonds() async {
           .update(updateData);
     } catch (e) {
       // সাইলেন্টলি হ্যান্ডেল করা হয়েছে
+    }
+  }
+
+  Future<void> _saveBio(String docId) async {
+    try {
+      String newBio = _bioController.text.trim();
+      if (newBio.length > 60) {
+        newBio = newBio.substring(0, 60);
+      }
+
+      await FirebaseFirestore.instance.collection('users').doc(docId).update({
+        'bio': newBio,
+      });
+
+      setState(() {
+        _showSaveButton = false; // সফলভাবে সেভ হলে বাটন লুকিয়ে যাবে
+      });
+
+      FocusScope.of(context).unfocus(); // কিবোর্ড বন্ধ করবে
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Bio updated successfully! ✨")),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to update bio: $e")),
+        );
+      }
     }
   }
 
@@ -1816,13 +1867,12 @@ Future<void> _claimDailyDiamonds() async {
             "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newanimeframe/cupaleframe.webp", // যদি লটি হয়
         "price": "35500"
       },
-    {
+      {
         "name": "Queen Blue",
         "url":
             "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newanimeframe/kingframe.webp", // যদি লটি হয়
         "price": "40500"
       },
-    
     ];
 
     return GridView.builder(
@@ -2707,23 +2757,24 @@ Future<void> _claimDailyDiamonds() async {
   Widget _buildMyCardsTab() {
     if (!hasPremiumCard) {
       return const Center(
-          child: Text("No Cards Found", style: TextStyle(color: Colors.white54)));
+          child:
+              Text("No Cards Found", style: TextStyle(color: Colors.white54)));
     }
 
     // ২৪ ঘণ্টা পার হয়েছে কিনা নিখুঁতভাবে চেক করা
     bool canClaimNow = true;
     String countdownText = "";
-    
+
     if (lastClaimTime != null) {
       DateTime nextClaimTime = lastClaimTime!.add(const Duration(hours: 24));
       if (DateTime.now().isBefore(nextClaimTime)) {
         canClaimNow = false;
         Duration remaining = nextClaimTime.difference(DateTime.now());
-        
+
         int hours = remaining.inHours;
         int minutes = remaining.inMinutes % 60;
         int seconds = remaining.inSeconds % 60;
-        
+
         countdownText = "Available in ${hours}h ${minutes}m ${seconds}s";
       }
     }
@@ -2738,7 +2789,8 @@ Future<void> _claimDailyDiamonds() async {
             border: Border.all(color: Colors.white24),
           ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
             leading: CachedNetworkImage(
               imageUrl:
                   "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumcard.png",
@@ -2814,6 +2866,7 @@ Future<void> _claimDailyDiamonds() async {
       ],
     );
   }
+
   Widget _buildMyEntriesTab() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -4223,60 +4276,164 @@ Future<void> _claimDailyDiamonds() async {
                             "Following", following, sixDigitProfileID, context),
                       ],
                     ),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 5),
 
+                    // ফলো বাটনগুলোর নিচে বায়ো সেকশন (স্বচ্ছ গ্লাস ব্যাকগ্রাউন্ড ও ৪০ অক্ষরের সীমা সহ)
+                    Builder(
+                      builder: (context) {
+                        String currentBio = userData['bio'] ?? "";
+                        if (_bioController.text.isEmpty &&
+                            currentBio.isNotEmpty &&
+                            !_showSaveButton) {
+                          _bioController.text = currentBio;
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20.0, vertical: 6.0),
+                          child: isMe
+                              ? Container(
+                                  constraints:
+                                      const BoxConstraints(minHeight: 38),
+                                  decoration: BoxDecoration(
+                                    // স্বচ্ছ গ্লাস ইফেক্ট (Glassmorphism background)
+                                    color: Colors.white.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: const Color(0xFFFFD700)
+                                          .withOpacity(0.4),
+                                      width: 1.2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 8,
+                                        spreadRadius: 1,
+                                      ),
+                                    ],
+                                  ),
+                                  child: TextField(
+                                    controller: _bioController,
+                                    maxLength:
+                                        60, // টেক্সট সীমা ৩০ থেকে বাড়িয়ে ৪০ করা হলো
+                                    maxLines: null,
+                                    keyboardType: TextInputType.multiline,
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 12),
+                                    decoration: InputDecoration(
+                                      counterText: "",
+                                      hintText:
+                                          "Write your 60-char short bio...",
+                                      hintStyle: const TextStyle(
+                                          color: Colors.white54, fontSize: 11),
+                                      border: InputBorder.none,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 10),
+                                      prefixIcon: const Padding(
+                                        padding: EdgeInsets.only(bottom: 2),
+                                        child: Icon(Icons.edit,
+                                            color: Color(0xFFFFD700), size: 14),
+                                      ),
+                                      prefixIconConstraints:
+                                          const BoxConstraints(
+                                              minWidth: 32, minHeight: 0),
+                                      suffixIcon: _showSaveButton
+                                          ? IconButton(
+                                              icon: const Icon(
+                                                  Icons.check_circle,
+                                                  color: Color(0xFFFFD700),
+                                                  size: 18),
+                                              onPressed: () =>
+                                                  _saveBio(targetUserId),
+                                              tooltip: "Save Bio",
+                                            )
+                                          : null,
+                                    ),
+                                    onChanged: (val) {
+                                      final hasChanges =
+                                          val.trim() != currentBio.trim();
+                                      if (hasChanges != _showSaveButton) {
+                                        setState(() {
+                                          _showSaveButton = hasChanges;
+                                        });
+                                      }
+                                    },
+                                  ),
+                                )
+                              : Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    // অন্যের প্রোফাইলের জন্যও স্বচ্ছ গ্লাস ইফেক্ট
+                                    color: Colors.white.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: const Color(0xFFFFD700)
+                                          .withOpacity(0.2),
+                                      width: 1.0,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      currentBio.isNotEmpty
+                                          ? currentBio
+                                          : "This user has no bio.",
+                                      style: TextStyle(
+                                        color: currentBio.isNotEmpty
+                                            ? Colors.white70
+                                            : Colors.white38,
+                                        fontSize: 12,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 5),
                     if (isMe) ...[
-                      // প্রথম লাইন (৪টি বাটন)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildActionBox("Diamond", Icons.diamond, Colors.cyan,
-                              () => _openDiamondStore(userData)),
-                          _buildActionBox("Premium", Icons.card_membership,
-                              Colors.purple, _openPremiumStore),
-                          _buildActionBox("Backpack", Icons.backpack,
-                              Colors.orange, _openBackpack),
-                          _buildActionBox("Visitors", Icons.visibility,
-                              Colors.green, _openVisitors), // নতুন ১
-                        ],
+                      // ৮টি বাটন একই লাইনে সমান দূরত্বে সাজানো
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildActionBox("Diamond", Icons.diamond,
+                                Colors.cyan, () => _openDiamondStore(userData)),
+                            _buildActionBox("Premium", Icons.card_membership,
+                                Colors.purple, _openPremiumStore),
+                            _buildActionBox("Backpack", Icons.backpack,
+                                Colors.orange, _openBackpack),
+                            _buildActionBox("Visitors", Icons.visibility,
+                                Colors.green, _openVisitors),
+                            _buildActionBox("My Post", Icons.post_add,
+                                Colors.blue, _openMyPosts),
+                            _buildActionBox(
+                                "VIP", Icons.star, Colors.amber, _openVIP),
+                            _buildActionBox("Games", Icons.videogame_asset,
+                                Colors.red, _openGames),
+                            _buildActionBox("Facebook", Icons.facebook,
+                                Colors.blueAccent, _openFacebook),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 10), // দুই লাইনের মাঝে ফাঁকা জায়গা
-
-                      // দ্বিতীয় লাইন (৪টি বাটন)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildActionBox("My Post", Icons.post_add,
-                              Colors.blue, _openMyPosts),
-                          _buildActionBox(
-                              "VIP", Icons.star, Colors.amber, _openVIP),
-
-                          _buildActionBox("Games", Icons.videogame_asset,
-                              Colors.red, _openGames),
-
-                          _buildActionBox(
-                              "Facebook",
-                              Icons.facebook,
-                              Colors.blueAccent,
-                              _openFacebook), // নতুন ৪ (লিংকসহ)
-                        ],
-                      ),
-                      const SizedBox(height: 25),
+                      const SizedBox(height: 5),
                     ],
                     const SizedBox(height: 0),
                     // ❤️ সোলমেট সেকশন
                     TeamPanelAndSoulmateSection(uIDValue: uIDValue),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 5),
                     // আপনার মেইন ফাইলের সোলমেট সেকশনটি এখন ঠিক নিচে কল করুন:
                     _buildSoulmateSection(),
-
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 5),
                   ], // Column এর children শেষ
                 ), // Column শেষ
               ), // SingleChildScrollView শেষ
-
               // --- ফুল পেজ ফ্রেম ---
-// 🔍 [প্রিন্ট ৩]: ব্যাকগ্রাউন্ড ফুল পেজ ফ্রেমের লিংক টেস্ট
               () {
                 return const SizedBox();
               }(),
@@ -4351,28 +4508,39 @@ Future<void> _claimDailyDiamonds() async {
   }
 
   Widget _buildActionBox(
-      String title, IconData icon, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        // সাইজ কমিয়ে দিলাম (আপনার আগেরটি ছিল 100x85)
-        width: 75,
-        height: 70,
-        decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10), // রাউন্ড একটু কমিয়ে দিলাম
-            border: Border.all(color: color.withOpacity(0.5))),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, color: color, size: 22), // আইকন সাইজ ২৮ থেকে ২২ করলাম
-          const SizedBox(height: 4),
-          Text(title,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10)) // ফন্ট সাইজ ১১ থেকে ১০ করলাম
-        ]),
+    String title, IconData icon, Color color, VoidCallback onTap) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
+      width: 38,
+      height: 45,
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.5)),
       ),
-    );
-  }
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween, // আইকন উপরে আর টেক্সট একদম নিচে পিন থাকবে
+          children: [
+            Icon(icon, color: color, size: 20), // আইকন সাইজ ১৬ থেকে বাড়িয়ে ২০ করা হলো
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 5,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
 // ✅ ৩. প্রিয়জন (Soulmate) ৬ স্লট মেইন উইজেট (আপডেট করা)
   Widget _buildSoulmateSection() {
@@ -5198,7 +5366,8 @@ Future<void> _claimDailyDiamonds() async {
     String ringName = marriageData['ringName'] ?? 'Wedding Ring';
 
 // 💎 কাপল XP হিসাব
-    int totalDiamonds = marriageData['totalDiamonds'] ?? marriageData['coupleDiamonds'] ?? 0;
+    int totalDiamonds =
+        marriageData['totalDiamonds'] ?? marriageData['coupleDiamonds'] ?? 0;
     int coupleXp = marriageData['coupleXp'] ?? (totalDiamonds ~/ 200);
 
     String currentUid = _auth.currentUser?.uid ?? '';
@@ -5316,13 +5485,18 @@ Future<void> _claimDailyDiamonds() async {
                           children: [
                             const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 5),
-                              child: Icon(Icons.favorite, color: Colors.red, size: 35),
+                              child: Icon(Icons.favorite,
+                                  color: Colors.red, size: 35),
                             ),
                             const SizedBox(height: 6),
                             // গোল্ডেন মিক্স কালার ডিজাইনযুক্ত XP টেক্সট
                             ShaderMask(
                               shaderCallback: (bounds) => const LinearGradient(
-                                colors: [Color(0xFFFFD700), Color(0xFFFF4500), Color(0xFF00FFFF)],
+                                colors: [
+                                  Color(0xFFFFD700),
+                                  Color(0xFFFF4500),
+                                  Color(0xFF00FFFF)
+                                ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ).createShader(bounds),

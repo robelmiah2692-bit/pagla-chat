@@ -51,6 +51,9 @@ class SoulmateAnimationService {
       case 10:
       case 20:
         return (i ~/ 5 == j ~/ 5);
+      // 🟢 নতুন ভিডিও প্লেয়ারসহ ১০ সিটের জন্য সারি লজিক
+      case 101:
+        return (i ~/ 5 == j ~/ 5);
       case 12:
         if (i < 2 && j < 2) return true; // হোস্ট সিট (০ ও ১)
         if (i >= 2 && j >= 2) {
@@ -90,89 +93,104 @@ class SoulmateAnimationService {
 
       switch (layoutCount) {
         // ==========================================
-        // ১. দুই (2) সিটের লেআউট
+        // ১. দুই (2) সিটের লেআউট (পুরাতন ১০০% ঠিক আছে)
         // ==========================================
         case 2:
-          animationSize = 155.0; // অ্যানিমেশনের সাইজ
+          animationSize = 155.0;
           double colWidth = screenWidth / 2;
           int col = leftSeat % 2;
           leftPos = 50 + (col * colWidth) + (colWidth / 2) - (animationSize / 2) + (colWidth / 4); 
-          topPos = 90; // উপর-নিচ পজিশন
+          topPos = 90;
           break;
 
         // ==========================================
-        // ২. দশ (10) সিটের লেআউট (২ সারি: প্রতি সারিতে ৫টি করে)
+        // ২. দশ (10) সিটের লেআউট (পুরাতন ১০০% ঠিক আছে)
         // ==========================================
         case 10:
-          double colWidth = screenWidth / 5;
-          int row = leftSeat ~/ 5;
-          int col = leftSeat % 5;
-          leftPos = 16 + (col * colWidth) + (colWidth / 2);
+          {
+            double colWidth = screenWidth / 5;
+            int row = leftSeat ~/ 5;
+            int col = leftSeat % 5;
+            leftPos = 16 + (col * colWidth) + (colWidth / 2);
 
-          if (row == 0) {
-            // 🟢 ১০ সিটের প্রথম সারি (উপরে)
-            animationSize = 70.0; // প্রথম সারির সাইজ
-            topPos = 5.0;        // প্রথম সারির উপর-নিচ পজিশন
-          } else {
-            // 🟢 ১০ সিটের দ্বিতীয় সারি (নিচে)
-            animationSize = 70.0; // দ্বিতীয় সারির সাইজ
-            topPos = 100.0;       // দ্বিতীয় সারির উপর-নিচ পজিশন
+            if (row == 0) {
+              animationSize = 70.0;
+              topPos = 5.0; 
+            } else {
+              animationSize = 70.0;
+              topPos = 100.0; 
+            }
+          }
+          break;
+
+        // ==========================================
+        // ৩. নতুন ভিডিও প্লেয়ার সহ ১০ সিট (플레이য়ারের নিচের ফাকা জায়গা হিসাব করে নিখুঁত পজিশন)
+        // ==========================================
+        case 101:
+          {
+            double colWidth = screenWidth / 5;
+            int row = leftSeat ~/ 5;
+            int col = leftSeat % 5;
+            leftPos = 16 + (col * colWidth) + (colWidth / 2);
+
+            if (row == 0) {
+              // প্লেয়ার এবং সার্চবারের নিচের প্রথম সারি (০ থেকে ৪ নং সিট)
+              animationSize = 70.0;
+              topPos = 215.0; 
+            } else {
+              // প্লেয়ার এবং সার্চবারের নিচের দ্বিতীয় সারি (৫ থেকে ৯ নং সিট)
+              animationSize = 70.0;
+              topPos = 310.0; 
+            }
           }
           break;
 
        // ==========================================
-        // ৩. বারো (12) সিটের লেআউট (হোস্ট + নিচের সারি)
-        // ==========================================
+       // ৪. বারো (12) সিটের লেআউট (পুরাতন ১০০% ঠিক আছে)
+       // ==========================================
         case 12:
           if (leftSeat < 2) {
-            // 🟢 ১২ সিটের হোস্ট সারি (০ ও ১ নম্বর সিট)
-            animationSize = 135.0; // হোস্ট সারির সাইজ
+            animationSize = 135.0;
             double colWidth = screenWidth / 2;
             leftPos = 65 + (leftSeat * colWidth) + (colWidth / 2) - (animationSize / 2) + (colWidth / 4); 
-            topPos = 0.0;        // হোস্ট সারির উপর-নিচ পজিশন
+            topPos = 0.0;
           } else {
-            // নিচের সিটগুলো (২ থেকে ১১)
             int adj = leftSeat - 2;
             double colWidth = screenWidth / 5;
-            int row = adj ~/ 5; // row 0 মানে প্রথম সারি (সিট ২ থেকে ৬), row 1 মানে দ্বিতীয় সারি (সিট ৭ থেকে ১১)
+            int row = adj ~/ 5; 
             int col = adj % 5;
 
             if (row == 0) {
-              // 🟢 ১২ সিটের নিচের প্রথম সারি (সিট ২, ৩, ৪, ৫, ৬)
-              animationSize = 70.0; // প্রথম সারির সাইজ
-              double leftOffset = 45.0; // 🟢 ডানে-বামে সরানোর জন্য মান পরিবর্তন করুন
-              topPos = 140.0;       // প্রথম সারির উপর-নিচ পজিশন
+              animationSize = 70.0; 
+              double leftOffset = 45.0; 
+              topPos = 140.0;     
               leftPos = leftOffset + (col * colWidth) + (colWidth / 2) - (animationSize / 2);
             } else {
-              // 🟢 ১২ সিটের নিচের দ্বিতীয় সারি (সিট ৭, ৮, ৯, ১০, ১১)
-              animationSize = 70.0; // দ্বিতীয় সারির সাইজ
-              double leftOffset = 45.0; // 🟢 ডানে-বামে সরানোর জন্য মান পরিবর্তন করুন
-              topPos = 235.0;       // দ্বিতীয় সারির উপর-নিচ পজিশন
+              animationSize = 70.0; 
+              double leftOffset = 45.0; 
+              topPos = 235.0;     
               leftPos = leftOffset + (col * colWidth) + (colWidth / 2) - (animationSize / 2);
             }
           }
           break;
 
         // ==========================================
-        // ৪. আঠারো (18) সিটের লেআউট (হোস্ট + মিডল + নিচের সারি)
+        // ৫. আঠারো (18) সিটের লেআউট (পুরাতন ১০০% ঠিক আছে)
         // ==========================================
         case 18:
           if (leftSeat < 3) {
-            // 🟢 ১৮ সিটের হোস্ট সারি (০, ১, ২ নম্বর সিট)
-            animationSize = 90.0; // হোস্ট সারির সাইজ
+            animationSize = 90.0;
             double colWidth = screenWidth / 3;
             leftPos = 60 + (leftSeat * colWidth) + (colWidth / 2) - 25; 
-            topPos = 8.0;        // হোস্ট সারির উপর-নিচ পজিশন
+            topPos = 8.0; 
           } else if (leftSeat < 8) {
-            // 🟢 ১৮ সিটের মাঝের সারি (৩ থেকে ৭ নম্বর সিট)
-            animationSize = 70.0; // মাঝের সারির সাইজ
+            animationSize = 70.0;
             int adj = leftSeat - 3;
             double colWidth = screenWidth / 5;
             int col = adj % 5;
             leftPos = 20 + (col * colWidth) + (colWidth / 2); 
-            topPos = 120.0;       // মাঝের সারির উপর-নিচ পজিশন
+            topPos = 120.0; 
           } else {
-            // 🟢 ১৮ সিটের নিচের সারিগুলো (৮ থেকে ১৭ নম্বর সিট)
             int adj = leftSeat - 8;
             double colWidth = screenWidth / 5;
             int row = adj ~/ 5;
@@ -180,11 +198,9 @@ class SoulmateAnimationService {
             leftPos = 20 + (col * colWidth) + (colWidth / 2);
 
             if (row == 0) {
-              // ১৮ সিটের নিচের প্রথম সারি
               animationSize = 70.0;
               topPos = 210.0;
             } else {
-              // ১৮ সিটের নিচের দ্বিতীয় সারি
               animationSize = 70.0;
               topPos = 295.0;
             }
@@ -192,36 +208,32 @@ class SoulmateAnimationService {
           break;
 
        // ==========================================
-        // ৫. বিশ (20) সিটের লেআউট (৪টি আলাদা সারি)
-        // ==========================================
+       // ৬. বিশ (20) সিটের লেআউট (পুরাতন ১০০% ঠিক আছে)
+       // ==========================================
         case 20:
           double colWidth = screenWidth / 5;
           int row = leftSeat ~/ 5;
           int col = leftSeat % 5;
 
           if (row == 0) {
-            // 🟢 ২০ সিটের ১ম সারি (একেবারে উপরের সারি)
-            animationSize = 70.0;         // ১ম সারির অ্যানিমেশন সাইজ
-            double leftOffset = 55.0;     // 🟢 ১ম সারির ডানে-বামে পজিশন
-            topPos = 10.0;                // 🟢 ১ম সারির উপর-নিচ পজিশন
+            animationSize = 70.0;        
+            double leftOffset = 55.0;    
+            topPos = 10.0;               
             leftPos = leftOffset + (col * colWidth) + (colWidth / 2) - (animationSize / 2);
           } else if (row == 1) {
-            // 🟢 ২০ সিটের ২য় সারি
-            animationSize = 70.0;         // ২য় সারির অ্যানিমেশন সাইজ
-            double leftOffset = 55.0;     // 🟢 ২য় সারির ডানে-বামে পজিশন
-            topPos = 100.0;               // 🟢 ২য় সারির উপর-নিচ পজিশন
+            animationSize = 70.0;        
+            double leftOffset = 55.0;    
+            topPos = 100.0;              
             leftPos = leftOffset + (col * colWidth) + (colWidth / 2) - (animationSize / 2);
           } else if (row == 2) {
-            // 🟢 ২০ সিটের ৩য় সারি
-            animationSize = 70.0;         // ৩য় সারির অ্যানিমেশন সাইজ
-            double leftOffset = 55.0;     // 🟢 ৩য় সারির ডানে-বামে পজিশন
-            topPos = 185.0;               // 🟢 ৩য় সারির উপর-নিচ পজিশন
+            animationSize = 70.0;        
+            double leftOffset = 55.0;    
+            topPos = 185.0;              
             leftPos = leftOffset + (col * colWidth) + (colWidth / 2) - (animationSize / 2);
           } else {
-            // 🟢 ২০ সিটের ৪র্থ সারি (একেবারে নিচের সারি)
-            animationSize = 70.0;         // ৪র্থ সারির অ্যানিমেশন সাইজ
-            double leftOffset = 50.0;     // 🟢 ৪র্থ সারির ডানে-বামে পজিশন
-            topPos = 280.0;               // 🟢 ৪র্থ সারির উপর-নিচ পজিশন
+            animationSize = 70.0;        
+            double leftOffset = 50.0;    
+            topPos = 280.0;              
             leftPos = leftOffset + (col * colWidth) + (colWidth / 2) - (animationSize / 2);
           }
           break;
@@ -233,7 +245,7 @@ class SoulmateAnimationService {
 
       return Positioned(
         left: leftPos, 
-        top: topPos,   
+        top: topPos,  
         child: IgnorePointer(
           child: SizedBox(
             width: animationSize,  

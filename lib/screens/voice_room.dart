@@ -383,7 +383,6 @@ class _VoiceRoomState extends State<VoiceRoom>
               "agorauID": "",
             });
 
-    // ৬. রিয়েলটাইম সিট লিসেনার (১২টি সিটের জন্য আপডেট করা হলো)
     _seatSubscription = FirebaseDatabase.instance
         .ref('rooms/${widget.roomId}/seats')
         .onValue
@@ -391,31 +390,40 @@ class _VoiceRoomState extends State<VoiceRoom>
       final data = event.snapshot.value;
       if (!mounted) return;
 
-      List<Map<String, dynamic>> updatedSeats = List.generate(
+      // ১. পুরাতন seats লিস্টের কপি তৈরি করা যাতে হঠাৎ করে কোনো ডেটা হারিয়ে (empty হয়ে) না যায়
+      List<Map<String, dynamic>> updatedSeats = List<Map<String, dynamic>>.from(
+          seats.map((seat) => Map<String, dynamic>.from(seat)));
+
+      // যদি লিস্ট সাইজ ২০ এর কম হয় তবে ইনিশিয়ালাইজ করে নেওয়া
+      if (updatedSeats.length < 20) {
+        updatedSeats = List.generate(
           20,
           (index) => {
-                "isOccupied": false,
-                "userName": "",
-                "userImage": "",
-                "userFrame": "",
-                "status": "empty",
-                "giftCount": 0,
-                "isMicOn": false,
-                "isTalking": false,
-                "userId": "",
-                "uID": "",
-                "agorauID": "",
-              });
+            "isOccupied": false,
+            "userName": "",
+            "userImage": "",
+            "userFrame": "",
+            "status": "empty",
+            "giftCount": 0,
+            "isMicOn": false,
+            "isTalking": false,
+            "userId": "",
+            "uID": "",
+            "agorauID": "",
+          },
+        );
+      }
 
+      // ২. ফায়ারবেস থেকে আসা ডেটা দিয়ে সিটগুলো আপডেট করা
       if (data != null) {
         Map<dynamic, dynamic> dataMap =
             (data is Map) ? data : (data as List).asMap();
+
+        // প্রথমে ডাটাবেসে যে যে সিটগুলো একটিভ বা আপডেট হয়েছে সেগুলোর ডেটা বসানো
         dataMap.forEach((key, value) {
           int? index = int.tryParse(key.toString());
-          // ইনডেক্স ১১ এর কম বা সমান হতে হবে
           if (index != null &&
               index >= 0 &&
-              index <= 20 &&
               index < updatedSeats.length &&
               value != null) {
             final seatMap = Map<dynamic, dynamic>.from(value as Map);
@@ -435,22 +443,51 @@ class _VoiceRoomState extends State<VoiceRoom>
                 seatMap["agorauID"]?.toString() ?? "";
             updatedSeats[index]["giftCount"] =
                 int.tryParse(seatMap["giftCount"]?.toString() ?? "0") ?? 0;
-
-            if (updatedSeats[index]["userId"] ==
-                FirebaseAuth.instance.currentUser?.uid) {
-              currentSeatIndex = index;
-
-              gameJoinedUsers = updatedSeats
-                  .where((s) => s["isOccupied"] == true)
-                  .map((s) => {"name": s["userName"], "avatar": s["userImage"]})
-                  .toList();
-
-              listenForMarriageRequests();
-            }
           }
         });
       }
 
+      // ৩. বর্তমান ইউজারের সিট ইনডেক্স নিখুঁতভাবে খুঁজে বের করা (যাতে নিজে থেকে গায়েব না হয়)
+      int foundSeatIndex = -1;
+      for (int i = 0; i < updatedSeats.length; i++) {
+        bool isThisMe = (updatedSeats[i]["userId"] ==
+                FirebaseAuth.instance.currentUser?.uid) ||
+            (myuID.isNotEmpty &&
+                updatedSeats[i]["uID"].toString() == myuID.toString());
+
+        if (isThisMe && updatedSeats[i]["isOccupied"] == true) {
+          foundSeatIndex = i;
+          break;
+        }
+      }
+
+      // ফায়ারবেস থেকে রিমুভ হওয়ার আগের মুহূর্তের ল্যাগ বা ক্যাশ এড়ানোর চেক
+      if (currentSeatIndex == -1 && foundSeatIndex != -1) {
+        bool isUserStillActuallyOnSeat = updatedSeats[foundSeatIndex]["userId"] == FirebaseAuth.instance.currentUser?.uid;
+        if (!isUserStillActuallyOnSeat) {
+          foundSeatIndex = -1;
+        }
+      }
+
+      currentSeatIndex = foundSeatIndex;
+
+      // ৪. পুরাতন লজিক অনুযায়ী গেম এবং ম্যারেজ রিকোয়েস্ট আপডেট
+      if (currentSeatIndex != -1) {
+        gameJoinedUsers = updatedSeats
+            .where((s) => s["isOccupied"] == true)
+            .map((s) => {"name": s["userName"], "avatar": s["userImage"]})
+            .toList();
+
+        listenForMarriageRequests();
+      } else {
+        // যদি ইউজার সিটে না থাকে তবুও একটিভ ইউজারদের লিস্ট ঠিক রাখা
+        gameJoinedUsers = updatedSeats
+            .where((s) => s["isOccupied"] == true)
+            .map((s) => {"name": s["userName"], "avatar": s["userImage"]})
+            .toList();
+      }
+
+      // ৫. অপ্রয়োজনীয় রি-রেন্ডারিং এড়াতে ডেটা পরিবর্তনের সঠিক তুলনা
       bool isSeatDataChanged = true;
       try {
         isSeatDataChanged = jsonEncode(seats) != jsonEncode(updatedSeats);
@@ -462,6 +499,7 @@ class _VoiceRoomState extends State<VoiceRoom>
         });
       }
     });
+  
     _roomEndedSub?.cancel();
     _roomEndedSub = FirebaseFirestore.instance
         .collection('rooms')
@@ -546,45 +584,64 @@ class _VoiceRoomState extends State<VoiceRoom>
   }
 
   void _fetchRoomData() {
-    _roomDataSnapshotSub?.cancel(); // আগেরটা থাকলে ক্যানসেল করে নেওয়া হলো
+    _roomDataSnapshotSub?.cancel(); // আগেরটা থাকলে ক্যানসেল করে নেওয়া হলো
     _roomDataSnapshotSub = FirebaseFirestore.instance
         .collection('rooms')
         .doc(widget.roomId)
         .snapshots()
         .listen((doc) {
-      if (doc.exists && mounted) {
-        final rData = doc.data() as Map<String, dynamic>;
+      if (!doc.exists || !mounted) return;
 
-        // ১. ডাটাবেস থেকে নতুন এডমিন লিস্ট আনা
-        List newAdminList = (rData['admins'] as List?) ?? [];
+      final rData = doc.data() as Map<String, dynamic>;
 
-        // ২. রুমের তথ্যগুলো লোকাল ভেরিয়েবলে সেট করা (সব সময় আপডেট হবে)
+      // ১. ডাটাবেস থেকে নতুন এডমিন লিস্ট আনা
+      List newAdminList = (rData['admins'] as List?) ?? [];
+
+      String newRoomName = rData['roomName'] ?? 'Love Line';
+      String newRoomImage = rData['roomImage'] ?? '';
+      int newFollowerCount = rData['followerCount'] ?? 0;
+      String newOwnerId =
+          rData['ownerId']?.toString() ?? rData['uID']?.toString() ?? "";
+      String newOwnerName = rData['ownerName'] ?? 'Hridoy';
+      String newOwnerPic = rData['ownerPic'] ?? "";
+      String newOwnerAuthId = rData['ownerAuthId'] ?? "";
+
+      // ২. ওনার ও অ্যাডমিন চেক
+      bool newIsOwner =
+          (newOwnerAuthId == FirebaseAuth.instance.currentUser?.uid);
+      String myCurrentID = myuID.toString().trim();
+      bool newIsAdmin = myCurrentID.isNotEmpty
+          ? newAdminList.any((admin) => admin.toString().trim() == myCurrentID)
+          : false;
+
+      // ৩. 🔥 নিরাপত্তা চেক: পুরো ম্যাপ বা গুরুত্বপূর্ণ ফিল্ডগুলোতে কোনো পরিবর্তন এসেছে কি না দেখা
+      // এতে রুমের কোনো ফিচার বা লজিক নষ্ট হবে না, অথচ ফালতু রি-রেন্ডার বন্ধ থাকবে।
+      bool isDataChanged = (roomName != newRoomName) ||
+          (roomProfileImage != newRoomImage) ||
+          (followerCount != newFollowerCount) ||
+          (ownerId != newOwnerId) ||
+          (ownerName != newOwnerName) ||
+          (ownerAuthId != newOwnerAuthId) ||
+          (isOwner != newIsOwner) ||
+          (isAdmin != newIsAdmin) ||
+          (adminList.length != newAdminList.length) ||
+          (jsonEncode(roomData) !=
+              jsonEncode(
+                  rData)); // পুরো রুম ডেটার পরিবর্তন নিখুঁতভাবে ধরার জন্য
+
+      if (isDataChanged) {
         setState(() {
           roomData = rData;
           adminList = List.from(newAdminList);
-          roomName = rData['roomName'] ?? 'Love Line';
-          roomProfileImage = rData['roomImage'] ?? '';
-          ownerId =
-              rData['ownerId']?.toString() ?? rData['uID']?.toString() ?? "";
-          ownerName = rData['ownerName'] ?? 'Hridoy';
-          ownerPic = rData['ownerPic'] ?? "";
-          ownerAuthId = rData['ownerAuthId'] ?? "";
-          followerCount = rData['followerCount'] ?? 0;
-
-          // ৩. ওনার চেক
-          isOwner = (ownerAuthId == FirebaseAuth.instance.currentUser?.uid);
-
-          // ৪. অ্যাডমিন চেক (অত্যন্ত গুরুত্বপূর্ণ অংশ)
-          String myCurrentID = myuID.toString().trim();
-
-          if (myCurrentID.isNotEmpty) {
-            // যদি নিজের আইডি থাকে, তবে লিস্টে চেক করো
-            isAdmin = newAdminList
-                .any((admin) => admin.toString().trim() == myCurrentID);
-          } else {
-            // যদি আইডি এখনো না এসে থাকে, তবে আপাতত false
-            isAdmin = false;
-          }
+          roomName = newRoomName;
+          roomProfileImage = newRoomImage;
+          ownerId = newOwnerId;
+          ownerName = newOwnerName;
+          ownerPic = newOwnerPic;
+          ownerAuthId = newOwnerAuthId;
+          followerCount = newFollowerCount;
+          isOwner = newIsOwner;
+          isAdmin = newIsAdmin;
         });
       }
     });
@@ -1625,11 +1682,23 @@ class _VoiceRoomState extends State<VoiceRoom>
   }
 
   void sitOnSeat(int index) async {
+    // যদি অলরেডি অন্য কোনো সিটে থাকে এবং অন্য সিটে ক্লিক করে, তবে আগেরটা রিমুভ করে নতুনটায় বসবে
+    if (currentSeatIndex != -1 && currentSeatIndex != index) {
+      await FirebaseDatabase.instance
+          .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
+          .remove();
+    }
+
     if (currentSeatIndex == index) {
       _showLeaveConfirmation(index);
       return;
     }
-    if (seats[index]["isOccupied"] == true || isRoomLocked) return;
+    
+    // সিট খালি না থাকলে বা রুম লক থাকলে রিটার্ন করবে
+    if (seats[index]["isOccupied"] == true && seats[index]["userId"] != FirebaseAuth.instance.currentUser?.uid) {
+      return;
+    }
+    if (isRoomLocked) return;
 
     try {
       final User? currentUser = FirebaseAuth.instance.currentUser;
@@ -1646,14 +1715,10 @@ class _VoiceRoomState extends State<VoiceRoom>
         await _agoraManager.becomeBroadcaster();
         final int myAgorauID = _agoraManager.localuID ?? 0;
 
-        if (currentSeatIndex != -1) {
-          await FirebaseDatabase.instance
-              .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
-              .remove();
-        }
-
         final seatRef = FirebaseDatabase.instance
             .ref('rooms/${widget.roomId}/seats/$index');
+        
+        // ফায়ারবেসে একদম নিখুঁতভাবে সিট ডাটা সেট করা
         await seatRef.set({
           'name': userData['name'] ?? "Hridoy",
           'profilePic': userData['profilePic'] ?? "",
@@ -1668,9 +1733,7 @@ class _VoiceRoomState extends State<VoiceRoom>
         });
 
         await seatRef.onDisconnect().remove();
-        // 🔥 ঠিক এখানে এই নিচের কোডটুকু বসিয়ে দিন (Firestore-এ ডাটা পাঠানোর জন্য)
 
-        // 🔥 কোড শেষ
         if (mounted) {
           setState(() {
             currentSeatIndex = index;
@@ -1683,9 +1746,10 @@ class _VoiceRoomState extends State<VoiceRoom>
           });
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      print("❌ Error sitting on seat: $e");
+    }
   }
-
   void _showLeaveConfirmation(int index) {
     showGeneralDialog(
       context: context,
@@ -1705,8 +1769,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                 child: Container(
                   width: MediaQuery.of(context).size.width * 0.75,
                   decoration: BoxDecoration(
-                    color:
-                        Colors.black.withOpacity(0.4), // আধা-স্বচ্ছ ডার্ক গ্লাস
+                    color: Colors.black.withOpacity(0.4), // আধা-স্বচ্ছ ডার্ক গ্লাস
                     borderRadius: BorderRadius.circular(25),
                     border: Border.all(color: Colors.white.withOpacity(0.2)),
                   ),
@@ -1731,22 +1794,26 @@ class _VoiceRoomState extends State<VoiceRoom>
                       ),
                       const SizedBox(height: 20),
                       const Divider(color: Colors.white10, height: 1),
-                      // 🔥 YES বাটন (সিট ছাড়ার আসল লজিক)
+                      // 🔥 YES বাটন (সিট ছাড়ার আসল লজিক)
                       _buildPremiumButton(
                         text: "Yes, Leave",
                         icon: Icons.check_circle_outline,
                         textColor: Colors.redAccent,
                         onTap: () async {
+                          // প্রথমে লোকালি সিট ইনডেক্স -1 করে দেওয়া যাতে রিয়েলটাইম লিসেনার কোনো কনফ্লিক্ট না করে
+                          setState(() {
+                            currentSeatIndex = -1;
+                            isMicOn = false;
+                          });
+
                           Navigator.pop(ctx); // ডায়ালগ বন্ধ হবে
+                          
                           await _agoraManager.switchToAudienceMode();
-                          await FirebaseDatabase.instance
-                              .ref('rooms/${widget.roomId}/seats/$index')
-                              .remove();
-                          if (mounted) {
-                            setState(() {
-                              currentSeatIndex = -1;
-                              isMicOn = false;
-                            });
+                          
+                          if (widget.roomId.isNotEmpty) {
+                            await FirebaseDatabase.instance
+                                .ref('rooms/${widget.roomId}/seats/$index')
+                                .remove();
                           }
                         },
                       ),
@@ -1811,7 +1878,6 @@ class _VoiceRoomState extends State<VoiceRoom>
       } else {}
     });
   }
-
   void _updateTalkingStatus(bool talking) async {
     // ১. যদি স্ট্যাটাস আগের মতোই থাকে (উদা: কথা বলছেনই), তবে ডাটাবেসে পাঠানোর দরকার নেই
     if (talking == _lastTalkingStatus) return;
@@ -2899,6 +2965,15 @@ class _VoiceRoomState extends State<VoiceRoom>
     bool isGift = type == 'gift';
     bool isImage = type == 'image'; // ✅ নতুন ইমেজ মেসেজ চেক করার জন্য
 
+    String formatPrice(num price) {
+      if (price >= 1000000) {
+        return '${(price / 1000000).toStringAsFixed(price % 1000000 == 0 ? 0 : 1)}M';
+      } else if (price >= 1000) {
+        return '${(price / 1000).toStringAsFixed(price % 1000 == 0 ? 0 : 1)}k';
+      }
+      return price.toString();
+    }
+
     // 🛠️ নতুন ও পুরাতন সব সম্ভাব্য কী (Key) চেক করে সঠিক সেন্ডার আইডি, নাম ও ছবি বের করা হলো
     String uId = data['senderId'] ??
         data['uID'] ??
@@ -2924,6 +2999,17 @@ class _VoiceRoomState extends State<VoiceRoom>
     // ✅ নতুন ইমেজ মেসেজ ও টেক্সটের জন্য ভ্যারিয়েবল
     String chatImgUrl = data['imageUrl'] ?? '';
     String messageText = data['text'] ?? '';
+
+// 💎 গিফটের ডায়মন্ড এক্সট্রাক্ট করা (সব সম্ভাব্য ফিল্ড চেক করা হলো)
+    var giftPriceVal = data['giftPrice'] ??
+        data['diamond'] ??
+        data['price'] ??
+        data['amount'] ??
+        data['giftDiamond'] ??
+        0;
+    int giftPrice = giftPriceVal is int
+        ? giftPriceVal
+        : int.tryParse(giftPriceVal.toString()) ?? 0;
 
     // 🛠️ লেভেল এবং ভিআইপি ডাটা এক্সট্রাক্ট করা (সব সম্ভাব্য ফিল্ড চেক করা হলো)
     int activeXp =
@@ -2988,8 +3074,6 @@ class _VoiceRoomState extends State<VoiceRoom>
         data['isOfficial'] == 'true' ||
         data['official'] == true ||
         data['official'] == 'true';
-
-    
 
     // --- Active Level Calculation ---
     int activeLevel = 1;
@@ -3400,12 +3484,14 @@ class _VoiceRoomState extends State<VoiceRoom>
             ),
           ),
 
-          // বড় সাইজের গিফট ও সংখ্যা
+          // বড় সাইজের গিফট ও সংখ্যা (কাউন্টের নিচে ডায়মন্ড)
           if (isGift) ...[
             const SizedBox(width: 8),
             Row(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                // গিফটের ছবি বা লটি
                 SizedBox(
                   height: 40,
                   width: 40,
@@ -3438,13 +3524,42 @@ class _VoiceRoomState extends State<VoiceRoom>
                         ),
                 ),
                 const SizedBox(width: 4),
-                Text(
-                  "x${data['giftCount'] ?? '1'}",
-                  style: const TextStyle(
-                    color: Colors.orangeAccent,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
+                // কাউন্ট এবং ডায়মন্ডের জন্য কলাম (কাউন্টের ঠিক নিচে ডায়মন্ড)
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "x${data['giftCount'] ?? '1'}",
+                      style: const TextStyle(
+                        color: Colors.orangeAccent,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
+                    ),
+                    if (giftPrice > 0) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.diamond,
+                            size: 10,
+                            color: Colors.cyanAccent,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            formatPrice(giftPrice), // 1k, 2k ফরম্যাট ফাংশন
+                            style: const TextStyle(
+                              color: Colors.cyanAccent,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -5753,7 +5868,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                   seatSize: 150.0, // সিটের মূল সাইজ
                                   avatarSize:
                                       85.0, // 🟢 প্রফাইল পিকচারের সাইজ (প্রয়োজনমতো কম/বেশি করতে পারেন)
-                                  frameSize: 110.0, // 🟢 অবতার ফ্রেমের সাইজ
+                                  frameSize: 100.0, // 🟢 অবতার ফ্রেমের সাইজ
                                 ),
                               ),
                             ),
@@ -5791,7 +5906,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                       index,
                                       seatSize: 80.0,
                                       avatarSize: 60.0,
-                                      frameSize: 100.0,
+                                      frameSize: 95.0,
                                     ),
                                   ),
                                 ),
@@ -5802,7 +5917,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                       ),
 
                       // ↕️ [১ম সারি থেকে ২য় সারির দূরত্ব ওভারফ্লো রোধ করতে কমানো হয়েছে]
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 15),
 
                       // ================= দ্বিতীয় সারি (Second Row) =================
                       Row(
@@ -5824,7 +5939,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                       index + 5,
                                       seatSize: 80.0,
                                       avatarSize: 60.0,
-                                      frameSize: 100.0,
+                                      frameSize: 95.0,
                                     ),
                                   ),
                                 ),
@@ -5850,18 +5965,17 @@ class _VoiceRoomState extends State<VoiceRoom>
                           Expanded(
                             child: Center(
                               child: SizedBox(
-                                // 🔲 [হোস্ট সিট ১ সাইজ] এখানে সাইজ বাড়াতে পারবেন
-                                width: 120.0,
-                                height: 130.0,
+                                width: 100.0,
+                                height: 110.0,
                                 child: FittedBox(
                                   fit: BoxFit.contain,
                                   child: dynamicItemBuilder(
                                     context,
                                     0,
-                                    seatSize: 120.0,
+                                    seatSize: 100.0,
                                     avatarSize:
-                                        65.0, // 🟢 প্রফাইল পিকচারের সাইজ
-                                    frameSize: 100.0, // 🟢 অবতার ফ্রেমের সাইজ
+                                        55.0, // 🟢 প্রফাইল পিকচারের সাইজ
+                                    frameSize: 90.0, // 🟢 অবতার ফ্রেমের সাইজ
                                   ),
                                 ),
                               ),
@@ -5871,18 +5985,17 @@ class _VoiceRoomState extends State<VoiceRoom>
                           Expanded(
                             child: Center(
                               child: SizedBox(
-                                // 🔲 [হোস্ট সিট ২ সাইজ] এখানে সাইজ বাড়াতে পারবেন
-                                width: 120.0,
-                                height: 130.0,
+                                width: 100.0,
+                                height: 110.0,
                                 child: FittedBox(
                                   fit: BoxFit.contain,
                                   child: dynamicItemBuilder(
                                     context,
                                     1,
-                                    seatSize: 120.0,
+                                    seatSize: 100.0,
                                     avatarSize:
-                                        65.0, // 🟢 প্রফাইল পিকচারের সাইজ
-                                    frameSize: 100.0, // 🟢 অবতার ফ্রেমের সাইজ
+                                        55.0, // 🟢 প্রফাইল পিকচারের সাইজ
+                                    frameSize: 90.0, // 🟢 অবতার ফ্রেমের সাইজ
                                   ),
                                 ),
                               ),
@@ -5891,10 +6004,9 @@ class _VoiceRoomState extends State<VoiceRoom>
                         ],
                       ),
 
-                      // ↕️ [হোস্ট সারি থেকে নিচের সারি দূরত্ব] এখান থেকে গ্যাপ কম বা বেশি করতে পারবেন
-                      const SizedBox(height: 15),
+                      const SizedBox(height: 20),
 
-                      // নিচের প্রথম সারি (index 2 থেকে 6)
+                      // নিচের প্রথম সারি (index 2 থেকে 6) - এখন এখানেও সাইজ কাস্টমাইজ করা যাবে
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: List.generate(
@@ -5905,13 +6017,19 @@ class _VoiceRoomState extends State<VoiceRoom>
                                   const EdgeInsets.symmetric(horizontal: 4),
                               child: Center(
                                 child: SizedBox(
-                                  width: 70.0,
-                                  height: 80.0,
+                                  width: 75.0,
+                                  height: 85.0,
                                   child: FittedBox(
                                     fit: BoxFit.contain,
                                     child: dynamicItemBuilder(
-                                        context, index + 2,
-                                        seatSize: 70.0),
+                                      context,
+                                      index + 2,
+                                      seatSize: 75.0,
+                                      avatarSize:
+                                          60.0, // 🟢 নিচের সিটের প্রফাইল পিকচারের সাইজ (প্রয়োজনে বাড়াতে/কমাতেন পারবেন)
+                                      frameSize:
+                                          95.0, // 🟢 নিচের সিটের অবতার ফ্রেমের সাইজ (প্রয়োজনে বাড়াতে/কমাতেন পারবেন)
+                                    ),
                                   ),
                                 ),
                               ),
@@ -5919,9 +6037,6 @@ class _VoiceRoomState extends State<VoiceRoom>
                           ),
                         ),
                       ),
-
-                      // ↕️ [মাঝের সারি থেকে শেষের সারির দূরত্ব] এখান থেকেও গ্যাপ কন্ট্রোল করতে পারবেন
-                      const SizedBox(height: 20),
 
                       // নিচের শেষ সারি (index 7 থেকে 11)
                       Row(
@@ -5934,13 +6049,18 @@ class _VoiceRoomState extends State<VoiceRoom>
                                   const EdgeInsets.symmetric(horizontal: 4),
                               child: Center(
                                 child: SizedBox(
-                                  width: 70.0,
-                                  height: 80.0,
+                                  width: 75.0,
+                                  height: 85.0,
                                   child: FittedBox(
                                     fit: BoxFit.contain,
                                     child: dynamicItemBuilder(
-                                        context, index + 7,
-                                        seatSize: 70.0),
+                                      context,
+                                      index + 7,
+                                      seatSize: 75.0,
+                                      avatarSize:
+                                          60.0, // 🟢 প্রফাইল পিকচারের সাইজ
+                                      frameSize: 95.0, // 🟢 অবতার ফ্রেমের সাইজ
+                                    ),
                                   ),
                                 ),
                               ),
@@ -5975,7 +6095,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                   seatSize: 100.0,
                                   avatarSize:
                                       60.0, // 🟢 আইডি দূরে যাওয়া ঠেকাতে সাইজ ঠিক রাখা হয়েছে
-                                  frameSize: 100.0,
+                                  frameSize: 95.0,
                                 ),
                               ),
                             ),
@@ -6078,7 +6198,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                           index,
                           seatSize: 50.0,
                           avatarSize: 30.0,
-                          frameSize: 80.0,
+                          frameSize: 70.0,
                         ),
                       ),
                     ),
@@ -6957,6 +7077,16 @@ class _VoiceRoomState extends State<VoiceRoom>
         String senderImgUrl = "";
         String senderDocID = "";
 
+// 🛠️ ব্যাজ ও লেভেলের ভেরিয়েবলগুলো এখানে ডিক্লেয়ার করা হলো
+        int senderVipXp = 0;
+        int senderVipExpiry = 0;
+        int senderTotalActiveXp = 0;
+        int senderTotalGiftXp = 0;
+        bool senderHasPremiumCard = false;
+        bool senderIsAgent = false;
+        bool senderIsVerified = false;
+        bool senderIsOfficial = false;
+
         if (userQuery.docs.isNotEmpty) {
           final doc = userQuery.docs.first;
           final data = doc.data();
@@ -6965,6 +7095,19 @@ class _VoiceRoomState extends State<VoiceRoom>
           senderName = data['name'] ?? data['userName'] ?? "User";
           senderImgUrl =
               data['profilePic'] ?? data['image'] ?? data['userImage'] ?? "";
+
+          // 🛠️ এই ফিল্ডগুলো যুক্ত করতে হবে, যা আপনি নিচে ডিক্লেয়ার করেছিলেন কিন্তু ডেটা তোলেননি
+          senderVipXp = (data['vip_xp'] ?? 0).toInt();
+          senderVipExpiry = (data['vip_expiry'] ?? 0).toInt();
+          senderTotalActiveXp =
+              (data['totalActiveXp'] ?? data['active_xp'] ?? 0).toInt();
+          senderTotalGiftXp =
+              (data['totalGiftXp'] ?? data['gift_xp'] ?? 0).toInt();
+          senderHasPremiumCard =
+              data['hasPremiumCard'] ?? data['isPremium'] ?? false;
+          senderIsAgent = data['isAgent'] ?? false;
+          senderIsVerified = data['isVerified'] ?? false;
+          senderIsOfficial = data['isOfficial'] ?? false;
         }
 
         if (!context.mounted) return;
@@ -7211,14 +7354,11 @@ class _VoiceRoomState extends State<VoiceRoom>
                     }
                   }
 // ==========================================
-                  // ==========================================
 // ম্যারেজ পার্টনার কাপল এক্সপি (Couple XP) আপডেট লজিক
 // ==========================================
                   if (!isFree && totalAmount > 0 && !isRingGift) {
                     int coupleEarnedXp = (totalAmount / 200)
                         .floor(); // প্রতি ২০০ ডায়মন্ড = ১ কাপল এক্সপি
-                    debugPrint(
-                        "❤️ Couple XP Calculation: earned=$coupleEarnedXp, senderDoc=$senderDocID, receiverDoc=$receiverDocID");
 
                     if (coupleEarnedXp > 0 &&
                         senderDocID.isNotEmpty &&
@@ -7226,7 +7366,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                       try {
                         final firestore = FirebaseFirestore.instance;
 
-                        // ১. senderDocID এবং receiverDocID দিয়ে সরাসরি Auth UID বের করে নেওয়া (যদি এগুলো ডকুমেন্ট আইডি হয়ে থাকে)
+                        // ১. senderDocID এবং receiverDocID দিয়ে সরাসরি Auth UID বের করে নেওয়া (যদি এগুলো ডকুমেন্ট আইডি হয়ে থাকে)
                         String senderAuthUID = senderDocID;
                         String receiverAuthUID = receiverDocID;
 
@@ -7253,10 +7393,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                   receiverDocID;
                         }
 
-                        debugPrint(
-                            "🔍 Resolved AuthUIDs -> Sender: $senderAuthUID, Receiver: $receiverAuthUID");
-
-                        // ২. marriages কালেকশনে সঠিক Auth UID দিয়ে কুয়েরি করা (যাতে উভয়ের অর্ডার উল্টো হলেও সমস্যা না হয়)
+                        // ২. marriages কালেকশনে সঠিক Auth UID দিয়ে কুয়েরি করা (যাতে উভয়ের অর্ডার উল্টো হলেও সমস্যা না হয়)
                         var marriageQuery1 = await firestore
                             .collection('marriages')
                             .where('myAuthUID', isEqualTo: senderAuthUID)
@@ -7293,12 +7430,6 @@ class _VoiceRoomState extends State<VoiceRoom>
                             'coupleXp': currentXp + coupleEarnedXp,
                             'totalDiamonds': currentDiamonds + totalAmount,
                           });
-
-                          debugPrint(
-                              "❤️ Couple XP Successfully Updated: +$coupleEarnedXp XP | Total Diamonds: ${currentDiamonds + totalAmount}");
-                        } else {
-                          debugPrint(
-                              "💔 These users are not married partners or IDs didn't match, couple XP skipped.");
                         }
                       } catch (e) {
                         debugPrint("❌ Couple XP update error: $e");
@@ -7312,7 +7443,6 @@ class _VoiceRoomState extends State<VoiceRoom>
               } catch (e) {
                 return;
               }
-
               // সিট কাউন্ট আপডেট লজিক
               if (receiverDocID.isNotEmpty &&
                   target != "All Room" &&
@@ -7396,8 +7526,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                       // যদি ৬ জন বা তার বেশি থাকে, রিকোয়েস্ট যাবে না এবং ওয়ার্নিং দেখাবে
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text(
-                              "এই ইউজারের সোলমেট লিস্টে ইতিমধ্যে ৬ জন যুক্ত রয়েছে! রিকোয়েস্ট পাঠানো সম্ভব নয়।"),
+                          content: Text("Sulmate card full"),
                           backgroundColor: Colors.red,
                         ),
                       );
@@ -7684,20 +7813,32 @@ class _VoiceRoomState extends State<VoiceRoom>
                   // কোনো এরর হলে যেন মূল গিফট প্রসেসে সমস্যা না হয়
                 }
               }
-              // মেসেজ লিস্টে ছবিসহ গিফট হিস্ট্রি পাঠানো
+              // 🛠️ মেসেজ লিস্টে ছবি, senderId এবং ব্যাজসহ গিফট হিস্ট্রি পাঠানো
               await FirebaseFirestore.instance
                   .collection('rooms')
                   .doc(widget.roomId)
                   .collection('messages')
                   .add({
                 'type': 'gift',
+                'senderId': senderDocID, // <--- এটি যুক্ত করা হয়েছে
                 'name': senderName,
                 'senderImage': senderImgUrl,
                 'targetName': target,
                 'receiverImage': receiverImgUrl,
                 'giftImage': giftImg,
                 'giftCount': count,
+                'giftPrice': totalAmount,
                 'timestamp': FieldValue.serverTimestamp(),
+
+                // 🛠️ ডিক্লেয়ার করা ভেরিয়েবলগুলো এখানে ব্যবহার করা হলো (কোনো লাল দাগ আসবে না):
+                'vip_xp': senderVipXp,
+                'vip_expiry': senderVipExpiry,
+                'totalActiveXp': senderTotalActiveXp,
+                'totalGiftXp': senderTotalGiftXp,
+                'hasPremiumCard': senderHasPremiumCard,
+                'isAgent': senderIsAgent,
+                'isVerified': senderIsVerified,
+                'isOfficial': senderIsOfficial,
               });
 
               // এনিমেশন টাইমার
