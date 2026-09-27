@@ -108,36 +108,51 @@ class AgoraManager {
     await forceResumeAudio();
   }
 
-  // ইউজার যখন কথা বলার জন্য মাইক অন করবে বা সিটে বসবে, শুধু তখনই ব্রডকাস্টার হবে
-  Future<void> becomeBroadcaster() async {
-    if (_engine == null) await initAgora();
-    _shouldBeBroadcasting = true;
-    _isMicMutedLocal = false;
+ // ইউজার যখন কথা বলার জন্য মাইক অন করবে বা সিটে বসবে, তখন এটি কল হবে
+Future<void> becomeBroadcaster() async {
+  if (_engine == null) await initAgora();
+  _shouldBeBroadcasting = true;
+  _isMicMutedLocal = false;
 
-    if (!kIsWeb) {
-      var status = await Permission.microphone.status;
+  if (!kIsWeb) {
+    var status = await Permission.microphone.status;
+    if (!status.isGranted) {
+      status = await Permission.microphone.request();
       if (!status.isGranted) {
-        await Permission.microphone.request();
+        debugPrint("❌ [Agora] Microphone permission denied!");
+        return;
       }
     }
+  }
 
-    // রোল ব্রডকাস্টার সেট করা হচ্ছে এবং লোকাল অডিও অন করা হচ্ছে
-    await _engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+  try {
+    // ১. প্রথমে অডিও এনাবল ও লোকাল অডিও নিশ্চিত করা
+    await _engine!.enableAudio();
     await _engine!.enableLocalAudio(true);
+
+    // ২. ব্রডকাস্টার রোল এবং ট্র্যাক পাবলিশ করার অপশন আপডেট
+    await _engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     await _engine!.updateChannelMediaOptions(const ChannelMediaOptions(
       clientRoleType: ClientRoleType.clientRoleBroadcaster,
       publishMicrophoneTrack: true,
       autoSubscribeAudio: true,
     ));
+    
+    // ৩. এক্সট্রা সেফটির জন্য রিজিউম কল করা
+    await forceResumeAudio();
+    debugPrint("🎤 [Agora] Successfully switched to Broadcaster mode.");
+  } catch (e) {
+    debugPrint("❌ [Agora] becomeBroadcaster Error: $e");
   }
-
+}
   // ইউজার মিউট করলে বা সিট থেকে উঠলে সাথে সাথে অডিয়েন্সে রূপান্তর করার ফাংশন (মিনিট বাঁচানোর জন্য মোস্ট ইম্পর্টেন্ট)
-  Future<void> switchToAudienceMode() async {
-    if (_engine == null) return;
-    _shouldBeBroadcasting = false;
-    _isMicMutedLocal = true;
+ Future<void> switchToAudienceMode() async {
+  if (_engine == null) return;
+  _shouldBeBroadcasting = false;
+  _isMicMutedLocal = true;
 
-    // তাৎক্ষণিকভাবে লোকাল অডিও বন্ধ এবং রোল অডিয়েন্স করে দেওয়া হলো যাতে এক পয়সাও বাড়তি খরচ না হয়
+  try {
+    // তাৎক্ষণিকভাবে লোকাল অডিও বন্ধ এবং রোল অডিয়েন্স করে দেওয়া হলো
     await _engine!.enableLocalAudio(false);
     await _engine!.updateChannelMediaOptions(const ChannelMediaOptions(
       clientRoleType: ClientRoleType.clientRoleAudience,
@@ -145,7 +160,10 @@ class AgoraManager {
       autoSubscribeAudio: true,
     ));
     await _engine!.setClientRole(role: ClientRoleType.clientRoleAudience);
+  } catch (e) {
+    debugPrint("❌ [Agora] switchToAudienceMode Error: $e");
   }
+}
 
   Future<void> _ensureAudioPublishing() async {
     if (_engine == null) return;

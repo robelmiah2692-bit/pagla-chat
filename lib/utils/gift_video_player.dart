@@ -5,11 +5,11 @@ class GiftVideoPlayer {
   static void show(BuildContext context, String videoUrl) {
     if (videoUrl.isEmpty) return;
 
-    // আমরা একটি ডায়ালগ ব্যবহার করবো যাতে ভিডিওটা স্ক্রিনের সামনে আসে
+    // barrierColor-এ রঙের অপাসিটি শূন্য (transparent) করে দেওয়া হলো
     showGeneralDialog(
       context: context,
       barrierDismissible: false, // ভিডিও শেষ না হওয়া পর্যন্ত বন্ধ হবে না
-      barrierColor: Colors.black.withOpacity(0.8), // ব্যাকগ্রাউন্ড অন্ধকার হবে
+      barrierColor: Colors.transparent, // কোনো কালো বা অন্ধকার ব্যাকগ্রাউন্ড থাকবে না
       pageBuilder: (context, anim1, anim2) {
         return _VideoPlayerContent(url: videoUrl);
       },
@@ -32,7 +32,6 @@ class _VideoPlayerContentState extends State<_VideoPlayerContent> {
   @override
   void initState() {
     super.initState();
-    // networkUrl ব্যবহার করা হচ্ছে
     _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
       ..initialize().then((_) {
         setState(() {
@@ -59,14 +58,14 @@ class _VideoPlayerContentState extends State<_VideoPlayerContent> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.transparent, // স্ক্যাফোল্ড ব্যাকগ্রাউন্ড সম্পূর্ণ স্বচ্ছ
       body: Center(
         child: _isReady
             ? AspectRatio(
                 aspectRatio: _controller.value.aspectRatio,
                 child: VideoPlayer(_controller),
               )
-            : const CircularProgressIndicator(color: Colors.pinkAccent), // ভিডিও লোড হওয়ার সময় গোল চাকা ঘুরবে
+            : const SizedBox.shrink(), // লোডিংয়ের সময় কোনো এক্সট্রা চাকা বা কালার দেখাবে না, একদম সচ্ছ থাকবে
       ),
     );
   }

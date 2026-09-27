@@ -165,197 +165,209 @@ print("DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as
     );
   }
 
-  Widget _buildUserList() {
-    print("DEBUG_LOG: _buildUserList called.");
+ Widget _buildUserList() {
+  print("DEBUG_LOG: _buildUserList called.");
 
-    // যদি ছয় ডিজিটের uID না থাকে, তবে আগে তা লোকাল বা স্টেট থেকে নিশ্চিত করতে হবে
-    if (currentSixDigitId.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.pinkAccent),
-      );
-    }
+  // যদি ছয় ডিজিটের uID না থাকে, তবে আগে তা লোকাল বা স্টেট থেকে নিশ্চিত করতে হবে
+  if (currentSixDigitId.isEmpty) {
+    return const Center(
+      child: CircularProgressIndicator(color: Colors.pinkAccent),
+    );
+  }
 
-    // সরাসরি chats কালেকশন থেকে স্ট্রিম নেব, যেখানে আপনার uID যুক্ত আছে
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('chats')
-          .orderBy('lastMessageTimestamp', descending: true)
-          .snapshots(),
-      builder: (context, chatSnapshot) {
-        if (!chatSnapshot.hasData) {
-          return const Center(
-            child: CircularProgressIndicator(color: Colors.pinkAccent),
-          );
+  // সরাসরি chats কালেকশন থেকে স্ট্রিম নেব এবং লেটেস্ট মেসেজ অনুযায়ী সর্ট করব
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('chats')
+        .orderBy('lastMessageTimestamp', descending: true)
+        .snapshots(),
+    builder: (context, chatSnapshot) {
+      if (!chatSnapshot.hasData) {
+        return const Center(
+          child: CircularProgressIndicator(color: Colors.pinkAccent),
+        );
+      }
+
+      var chatDocs = chatSnapshot.data!.docs;
+
+      // যে সমস্ত চ্যাট ডকুমেন্টের আইডিতে বর্তমান ইউজারের ছয় ডিজিটের uID আছে বা অফিসিয়াল আইডি আছে
+      var myChats = chatDocs.where((doc) {
+        String chatId = doc.id; // যেমন: "219616_686008" বা অফিসিয়াল চ্যাট আইডি
+        return chatId.contains(currentSixDigitId) || 
+               chatId.contains('paglachat_official') || 
+               chatId.contains('333444');
+      }).toList();
+
+      // ডুপ্লিকেট চ্যাট বা আইডি এভয়েড করার জন্য ইউনিক লিস্ট তৈরি করা
+      Set<String> seenUserIds = {};
+      var uniqueChats = <QueryDocumentSnapshot>[];
+
+      for (var chatDoc in myChats) {
+        String chatId = chatDoc.id;
+        
+        bool isChatOfficial = chatId.contains('paglachat_official') || chatId.contains('333444');
+        String uniqueIdentifier = "";
+
+        if (isChatOfficial) {
+          uniqueIdentifier = "paglachat_official";
+        } else {
+          List<String> ids = chatId.split('_');
+          for (var id in ids) {
+            if (id != currentSixDigitId && id.isNotEmpty) {
+              uniqueIdentifier = id;
+              break;
+            }
+          }
+          if (uniqueIdentifier.isEmpty) {
+            uniqueIdentifier = chatId.replaceAll(currentSixDigitId, "").replaceAll("_", "");
+          }
         }
 
-        var chatDocs = chatSnapshot.data!.docs;
+        // যদি এই আইডি ইতিপূর্বে লিস্টে না যোগ হয়ে থাকে, তবেই নেব (ডাবল এন্ট্রি রোধ করতে)
+        if (uniqueIdentifier.isNotEmpty && !seenUserIds.contains(uniqueIdentifier)) {
+          seenUserIds.add(uniqueIdentifier);
+          uniqueChats.add(chatDoc);
+        }
+      }
 
-        // যে সমস্ত চ্যাট ডকুমেন্টের আইডিতে বর্তমান ইউজারের ছয় ডিজিটের uID আছে বা অফিসিয়াল আইডি আছে, শুধু সেগুলো ফিল্টার করব
-        var myChats = chatDocs.where((doc) {
-          String chatId = doc.id; // যেমন: "219616_686008" বা অফিসিয়াল চ্যাট আইডি
-          return chatId.contains(currentSixDigitId) || 
-                 chatId.contains('paglachat_official') || 
-                 chatId.contains('333444');
-        }).toList();
+      // অফিসিয়াল আইডি সবসময় সবার উপরে রাখার জন্য লিস্ট সর্ট করা, বাকিগুলো লেটেস্ট টাইমস্ট্যাম্প অনুযায়ী থাকবে
+      uniqueChats.sort((a, b) {
+        bool aIsOfficial = a.id.contains('paglachat_official') || a.id.contains('333444');
+        bool bIsOfficial = b.id.contains('paglachat_official') || b.id.contains('333444');
+        
+        if (aIsOfficial && !bIsOfficial) return -1;
+        if (!aIsOfficial && bIsOfficial) return 1;
 
-        // ডুপ্লিকেট চ্যাট বা আইডি এভয়েড করার জন্য ইউনিক লিস্ট তৈরি করা (ডাবল চেক সহ)
-        Set<String> seenUserIds = {};
-        var uniqueChats = <QueryDocumentSnapshot>[];
+        // টাইমস্ট্যাম্প দিয়ে ডিসেন্ডিং সর্টিং (যাতে লাস্ট মেসেজ করা ইউজার উপরে থাকে)
+        var aData = a.data() as Map<String, dynamic>?;
+        var bData = b.data() as Map<String, dynamic>?;
+        
+        Timestamp? aTime = aData?['lastMessageTimestamp'] as Timestamp?;
+        Timestamp? bTime = bData?['lastMessageTimestamp'] as Timestamp?;
 
-        for (var chatDoc in myChats) {
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+
+        return bTime.compareTo(aTime);
+      });
+
+      if (uniqueChats.isEmpty) {
+        return const Center(
+          child: Text(
+            "No chats found",
+            style: TextStyle(color: Colors.white54, fontSize: 14),
+          ),
+        );
+      }
+
+      return ListView.builder(
+        itemCount: uniqueChats.length,
+        padding: const EdgeInsets.all(10),
+        itemBuilder: (context, index) {
+          var chatDoc = uniqueChats[index];
           String chatId = chatDoc.id;
-          
-          // অফিসিয়াল চ্যাট আইডির জন্য ইউনিক কি নির্ধারণ
+
           bool isChatOfficial = chatId.contains('paglachat_official') || chatId.contains('333444');
-          String uniqueIdentifier = "";
+          String otherSixDigitId = "";
 
           if (isChatOfficial) {
-            uniqueIdentifier = "paglachat_official"; // অফিসিয়ালের জন্য ফিক্সড ইউনিক কি যাতে ডাবল না আসে
+            otherSixDigitId = "paglachat_official";
           } else {
             List<String> ids = chatId.split('_');
             for (var id in ids) {
-              if (id != currentSixDigitId) {
-                uniqueIdentifier = id;
+              if (id != currentSixDigitId && id.isNotEmpty) {
+                otherSixDigitId = id;
                 break;
               }
             }
-            if (uniqueIdentifier.isEmpty) {
-              uniqueIdentifier = chatId.replaceAll(currentSixDigitId, "").replaceAll("_", "");
+            if (otherSixDigitId.isEmpty) {
+              otherSixDigitId = chatId.replaceAll(currentSixDigitId, "").replaceAll("_", "");
             }
           }
 
-          // যদি এই আইডি বা অফিসিয়াল চ্যাট ইতিপূর্বে লিস্টে না যোগ হয়ে থাকে, তবেই নেব
-          if (uniqueIdentifier.isNotEmpty && !seenUserIds.contains(uniqueIdentifier)) {
-            seenUserIds.add(uniqueIdentifier);
-            uniqueChats.add(chatDoc);
-          }
-        }
-
-        if (uniqueChats.isEmpty) {
-          return const Center(
-            child: Text(
-              "No chats found",
-              style: TextStyle(color: Colors.white54, fontSize: 14),
-            ),
-          );
-        }
-
-        // অফিসিয়াল আইডি সবসময় সবার উপরে রাখার জন্য লিস্ট সর্ট করা
-        uniqueChats.sort((a, b) {
-          bool aIsOfficial = a.id.contains('paglachat_official') || a.id.contains('333444');
-          bool bIsOfficial = b.id.contains('paglachat_official') || b.id.contains('333444');
-          
-          if (aIsOfficial && !bIsOfficial) return -1;
-          if (!aIsOfficial && bIsOfficial) return 1;
-          return 0;
-        });
-
-        return ListView.builder(
-          itemCount: uniqueChats.length,
-          padding: const EdgeInsets.all(10),
-          itemBuilder: (context, index) {
-            var chatDoc = uniqueChats[index];
-            var chatData = chatDoc.data() as Map<String, dynamic>;
-            String chatId = chatDoc.id;
-
-            bool isChatOfficial = chatId.contains('paglachat_official') || chatId.contains('333444');
-            String otherSixDigitId = "";
-
-            if (isChatOfficial) {
-              otherSixDigitId = "paglachat_official";
-            } else {
-              List<String> ids = chatId.split('_');
-              for (var id in ids) {
-                if (id != currentSixDigitId) {
-                  otherSixDigitId = id;
-                  break;
-                }
-              }
-              if (otherSixDigitId.isEmpty) {
-                otherSixDigitId = chatId.replaceAll(currentSixDigitId, "").replaceAll("_", "");
-              }
-            }
-
-            // অন্য ইউজারের বা অফিসিয়াল প্রোফাইল ডাটা ফেচ করার জন্য FutureBuilder
-            return FutureBuilder<QuerySnapshot>(
-              future: isChatOfficial
-                  ? FirebaseFirestore.instance
+          // ইউজার প্রোফাইল ডাটা ফেচ করার জন্য FutureBuilder (যা শুধু লিস্ট আইটেম রেন্ডার করবে)
+          return FutureBuilder<QuerySnapshot>(
+            future: isChatOfficial
+                ? FirebaseFirestore.instance
+                    .collection('users')
+                    .where('uID', isEqualTo: 'paglachat_official')
+                    .limit(1)
+                    .get()
+                : FirebaseFirestore.instance
+                    .collection('users')
+                    .where('uID', isEqualTo: otherSixDigitId)
+                    .limit(1)
+                    .get(),
+            builder: (context, userSnapshot) {
+              // যদি প্রথম কুয়েরিতে অফিসিয়াল আইডি না পাওয়া যায়, তবে numericID দিয়ে ব্যাকআপ চেক করব
+              if ((!userSnapshot.hasData || userSnapshot.data!.docs.isEmpty) && isChatOfficial) {
+                return FutureBuilder<QuerySnapshot>(
+                  future: FirebaseFirestore.instance
                       .collection('users')
-                      .where('uID', isEqualTo: 'paglachat_official')
-                      .limit(1)
-                      .get()
-                  : FirebaseFirestore.instance
-                      .collection('users')
-                      .where('uID', isEqualTo: otherSixDigitId)
+                      .where('numericID', isEqualTo: '333444')
                       .limit(1)
                       .get(),
-              builder: (context, userSnapshot) {
-                // যদি প্রথম কুয়েরিতে অফিসিয়াল আইডি না পাওয়া যায়, তবে numericID দিয়ে ব্যাকআপ চেক করব
-                if ((!userSnapshot.hasData || userSnapshot.data!.docs.isEmpty) && isChatOfficial) {
-                  return FutureBuilder<QuerySnapshot>(
-                    future: FirebaseFirestore.instance
-                        .collection('users')
-                        .where('numericID', isEqualTo: '333444')
-                        .limit(1)
-                        .get(),
-                    builder: (context, officialSnapshot) {
-                      if (!officialSnapshot.hasData || officialSnapshot.data!.docs.isEmpty) {
+                  builder: (context, officialSnapshot) {
+                    if (!officialSnapshot.hasData || officialSnapshot.data!.docs.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    
+                    var userDoc = officialSnapshot.data!.docs.first;
+                    var userData = userDoc.data() as Map<String, dynamic>;
+                    String userId = userDoc.id;
+
+                    // সার্চ কুয়েরি ফিল্টার
+                    String name = (userData['name'] ?? "").toString().toLowerCase();
+                    String customId = (userData['uID'] ?? "").toString().toLowerCase();
+                    if (_searchQuery.isNotEmpty) {
+                      if (!name.contains(_searchQuery.toLowerCase()) &&
+                          !customId.contains(_searchQuery.toLowerCase())) {
                         return const SizedBox.shrink();
                       }
-                      
-                      var userDoc = officialSnapshot.data!.docs.first;
-                      var userData = userDoc.data() as Map<String, dynamic>;
-                      String userId = userDoc.id;
+                    }
 
-                      // সার্চ কুয়েরি ফিল্টার
-                      String name = (userData['name'] ?? "").toString().toLowerCase();
-                      String customId = (userData['uID'] ?? "").toString().toLowerCase();
-                      if (_searchQuery.isNotEmpty) {
-                        if (!name.contains(_searchQuery.toLowerCase()) &&
-                            !customId.contains(_searchQuery.toLowerCase())) {
-                          return const SizedBox.shrink();
-                        }
-                      }
+                    return _buildGlassChatTile(userData, userId, chatId);
+                  },
+                );
+              }
 
-                      return _buildGlassChatTile(userData, userId, chatId);
-                    },
-                  );
-                }
+              if (!userSnapshot.hasData || userSnapshot.data!.docs.isEmpty) {
+                return const SizedBox.shrink();
+              }
 
-                if (!userSnapshot.hasData || userSnapshot.data!.docs.isEmpty) {
+              var userDoc = userSnapshot.data!.docs.first;
+              var userData = userDoc.data() as Map<String, dynamic>;
+              String userId = userDoc.id;
+
+              // অফিসিয়াল চেক 
+              String friendSixDigitId = (userData['uID'] ?? "").toString();
+              String numericIdVal = (userData['numericID'] ?? "").toString();
+              bool isOfficial = friendSixDigitId == "paglachat_official" || 
+                                numericIdVal == "333444" || 
+                                userId == 'paglachat_official' ||
+                                isChatOfficial;
+
+              // সার্চ কুয়েরি ফিল্টার
+              String name = (userData['name'] ?? "").toString().toLowerCase();
+              String customId = (userData['uID'] ?? "").toString().toLowerCase();
+              if (_searchQuery.isNotEmpty && !isOfficial) {
+                if (!name.contains(_searchQuery.toLowerCase()) &&
+                    !customId.contains(_searchQuery.toLowerCase())) {
                   return const SizedBox.shrink();
                 }
+              }
 
-                var userDoc = userSnapshot.data!.docs.first;
-                var userData = userDoc.data() as Map<String, dynamic>;
-                String userId = userDoc.id; // authUID বা ডকুমেন্ট আইডি
+              return _buildGlassChatTile(userData, userId, chatId);
+            },
+          );
+        },
+      );
+    },
+  );
+}
 
-                // অফিসিয়াল চেক 
-                String friendSixDigitId = (userData['uID'] ?? "").toString();
-                String numericIdVal = (userData['numericID'] ?? "").toString();
-                bool isOfficial = friendSixDigitId == "paglachat_official" || 
-                                  numericIdVal == "333444" || 
-                                  userId == 'paglachat_official' ||
-                                  isChatOfficial;
-
-                // সার্চ কুয়েরি ফিল্টার (যদি ইউজার সার্চ বক্সে কিছু লিখে থাকে)
-                String name = (userData['name'] ?? "").toString().toLowerCase();
-                String customId = (userData['uID'] ?? "").toString().toLowerCase();
-                if (_searchQuery.isNotEmpty && !isOfficial) {
-                  if (!name.contains(_searchQuery.toLowerCase()) &&
-                      !customId.contains(_searchQuery.toLowerCase())) {
-                    return const SizedBox.shrink();
-                  }
-                }
-
-                return _buildGlassChatTile(userData, userId, chatId);
-              },
-            );
-          },
-        );
-      },
-    );
-  }
+             
   Stream<List<Map<String, dynamic>>> _getSortedUserStream(
       List<QueryDocumentSnapshot> users) async* {
     

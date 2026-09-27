@@ -43,8 +43,6 @@ class EmojiHandler {
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/yum.json",
     "🤪":
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/jannyface.json",
-    "👄":
-        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/newemoji/emoji.json",
     "🤮":
         "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/emoji/vome.json",
     "🤯":

@@ -32,7 +32,7 @@ class _RewardAdsBoxWidgetState extends State<RewardAdsBoxWidget>
   void _loadRewardedAd() {
     print("🔄 Loading Rewarded Ad...");
     RewardedAd.load(
-      adUnitId: 'ca-app-pub-3310579844012244/1184656900', 
+      adUnitId: 'ca-app-pub-3310579844012244/1184656900',
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
@@ -41,7 +41,7 @@ class _RewardAdsBoxWidgetState extends State<RewardAdsBoxWidget>
             _rewardedAd = ad;
             _isAdLoaded = true;
           });
-          
+
           _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
             onAdDismissedFullScreenContent: (ad) {
               print("ℹ️ Ad dismissed by user.");
@@ -56,7 +56,8 @@ class _RewardAdsBoxWidgetState extends State<RewardAdsBoxWidget>
           );
         },
         onAdFailedToLoad: (error) {
-          print("❌ Rewarded Ad Failed to Load. Error Code: ${error.code}, Message: ${error.message}");
+          print(
+              "❌ Rewarded Ad Failed to Load. Error Code: ${error.code}, Message: ${error.message}");
           setState(() {
             _isAdLoaded = false;
           });
@@ -125,7 +126,8 @@ class _RewardAdsBoxWidgetState extends State<RewardAdsBoxWidget>
         setState(() => _isLoading = false);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("User document not found in database!")),
+            const SnackBar(
+                content: Text("User document not found in database!")),
           );
         }
         return;
@@ -152,7 +154,8 @@ class _RewardAdsBoxWidgetState extends State<RewardAdsBoxWidget>
         setState(() => _isLoading = false);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("You have already watched 4 ads today!")),
+            const SnackBar(
+                content: Text("You have already watched 4 ads today!")),
           );
         }
         return;
@@ -178,7 +181,8 @@ class _RewardAdsBoxWidgetState extends State<RewardAdsBoxWidget>
               setState(() => _isLoading = false);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Ad failed to load: ${error.message}")),
+                  SnackBar(
+                      content: Text("Ad failed to load: ${error.message}")),
                 );
               }
             },
@@ -188,14 +192,14 @@ class _RewardAdsBoxWidgetState extends State<RewardAdsBoxWidget>
         setState(() => _isLoading = false);
         _showAd(docRef, adsWatchedToday, todayDate, context);
       }
-
     } catch (e) {
       print("❌ Exception caught in _handleWatchAd: $e");
       setState(() => _isLoading = false);
     }
   }
 
-  void _showAd(DocumentReference userDocRef, int adsWatchedToday, String todayDate, BuildContext context) {
+  void _showAd(DocumentReference userDocRef, int adsWatchedToday,
+      String todayDate, BuildContext context) {
     if (_rewardedAd != null) {
       print("🎬 Showing Rewarded Ad now...");
       _rewardedAd!.show(
@@ -209,7 +213,8 @@ class _RewardAdsBoxWidgetState extends State<RewardAdsBoxWidget>
 
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("50 Diamonds added to your account!")),
+              const SnackBar(
+                  content: Text("50 Diamonds added to your account!")),
             );
           }
         },
@@ -250,11 +255,12 @@ class _RewardAdsBoxWidgetState extends State<RewardAdsBoxWidget>
           child: Stack(
             alignment: Alignment.center,
             children: [
+              // উপরে হলুদ গোল জায়গার জায়গায় টেক্সটের জন্য পজিশনড উইজেট
               Positioned(
-                top: 6,
+                top: 5,
                 child: Container(
-                  width: 38,
-                  height: 12,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                   decoration: BoxDecoration(
                     color: Colors.amberAccent,
                     borderRadius: BorderRadius.circular(6),
@@ -262,18 +268,40 @@ class _RewardAdsBoxWidgetState extends State<RewardAdsBoxWidget>
                       BoxShadow(color: Colors.white, blurRadius: 4),
                     ],
                   ),
+                  child: const Text(
+                    "Reward",
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
+
+              // সেন্টারে ডায়মন্ড আইকন
               const Icon(
-                Icons.fiber_manual_record,
+                Icons.diamond,
                 color: Color(0xFFFFD700),
-                size: 26,
+                size: 24,
               ),
-              const Icon(
-                Icons.vpn_key_rounded,
-                color: Color(0xFF8D6E63),
-                size: 14,
+
+              // নিচে "Click Here" টেক্সট
+              Positioned(
+                bottom: 5,
+                child: const Text(
+                  "Click Here",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w600,
+                    shadows: [
+                      Shadow(color: Colors.black, blurRadius: 2),
+                    ],
+                  ),
+                ),
               ),
+
               if (_isLoading)
                 Container(
                   decoration: BoxDecoration(

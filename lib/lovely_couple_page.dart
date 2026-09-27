@@ -319,12 +319,12 @@ class _CoupleCardItem extends StatelessWidget {
                                     // যদি ইউজারের activeFrameUrl থাকে তবে তা ওভারলে হিসেবে শো করবে এবং নামকে ধাক্কা দেবে না
                                     if (myFrameUrl.isNotEmpty)
                                       OverflowBox(
-                                        maxWidth: 130,
-                                        maxHeight: 130,
+                                        maxWidth: 110,
+                                        maxHeight: 110,
                                         child: Image.network(
                                           myFrameUrl,
-                                          width: 130,
-                                          height: 130,
+                                          width: 110,
+                                          height: 110,
                                           fit: BoxFit.contain,
                                           errorBuilder: (context, error, stackTrace) => const SizedBox(),
                                         ),
@@ -401,12 +401,12 @@ class _CoupleCardItem extends StatelessWidget {
                                     // পার্টনারের activeFrameUrl থাকলে তা এখানে রেন্ডার হবে এবং নামকে ধাক্কা দেবে না
                                     if (partnerFrameUrl.isNotEmpty)
                                       OverflowBox(
-                                        maxWidth: 130,
-                                        maxHeight: 130,
+                                        maxWidth: 110,
+                                        maxHeight: 110,
                                         child: Image.network(
                                           partnerFrameUrl,
-                                          width: 130,
-                                          height: 130,
+                                          width: 110,
+                                          height: 110,
                                           fit: BoxFit.contain,
                                           errorBuilder: (context, error, stackTrace) => const SizedBox(),
                                         ),

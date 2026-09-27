@@ -1416,7 +1416,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // 🔥 ফিক্স: আইডি যদি অফিশিয়াল হয়, তবে ফায়ারবেস চেক ছাড়াই সরাসরি গিটহাবের রয়্যাল লোগো দেখাবে
     if (uID == 'paglachat_official' || name == 'Official') {
       const String officialPic =
-          "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/favicon.png";
+          "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newframe/logo.png";
       return GestureDetector(
         onTap: () =>
             _onProfileTap(context, uID), // এখানে নতুন ফাংশনটি কল করা হলো

@@ -23,16 +23,28 @@ class RoomFloatingBox extends StatelessWidget {
         builder: (context, snapshot) {
           int totalDiamondsAllTime = 0;
           bool isBlasted = false;
+          Timestamp? blastedAt;
 
           if (snapshot.hasData && snapshot.data!.exists) {
             var data = snapshot.data!.data() as Map<String, dynamic>;
             totalDiamondsAllTime = data['totalDiamonds'] ?? 0;
             isBlasted = data['isBlasted'] ?? false;
+            blastedAt = data['blastedAt'] as Timestamp?;
           }
 
-          // মডিউলাস লজিক: ১০০k পার হলে কাউন্টার আবার ০ থেকে শুরু হবে
+          // 🔥 ৩ মিনিটের টাইমআউট চেক: ৩ মিনিট পার হলে isBlasted অটো false ধরে নেব
+          if (isBlasted && blastedAt != null) {
+            DateTime blastTime = blastedAt.toDate();
+            if (DateTime.now().difference(blastTime).inMinutes >= 3) {
+              isBlasted = false; // ৩ মিনিট শেষ, তাই বক্স এখন আর ব্লাস্টেড নেই
+            }
+          }
+
+          // মডিউলাস লজিক: ১০০k পার হলে কাউন্টার আবার ০ থেকে শুরু হবে (যদি ৩ মিনিট পার হয়ে যায়)
           int currentDiamonds = totalDiamondsAllTime % 100000;
-          if (totalDiamondsAllTime > 0 && currentDiamonds == 0) {
+          if (totalDiamondsAllTime > 0 && currentDiamonds == 0 && !isBlasted) {
+            currentDiamonds = 0;
+          } else if (totalDiamondsAllTime > 0 && currentDiamonds == 0) {
             currentDiamonds = 100000;
           }
 
@@ -114,7 +126,7 @@ class RoomFloatingBox extends StatelessWidget {
               "• Top 2 Gifter: 1,500 Diamonds.\n"
               "• Top 3 Gifter: 500 Diamonds.\n"
               "• Other Room Users: 20 Diamonds each!\n"
-              "• Resets and restarts automatically.",
+              "• Resets and restarts automatically after 3 mins.",
               style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
             ),
             const Spacer(),

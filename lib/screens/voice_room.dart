@@ -92,7 +92,7 @@ class VoiceRoom extends StatefulWidget {
 }
 
 class _VoiceRoomState extends State<VoiceRoom>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   // Services
   final RoomActiveManager _activeManager = RoomActiveManager();
   final RoomService _roomService = RoomService();
@@ -217,6 +217,9 @@ class _VoiceRoomState extends State<VoiceRoom>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // 🔥 লাইফসাইকেল ট্র্যাক করার জন্য যোগ করা হলো
+    WakelockPlus.enable(); // স্ক্রিন যাতে অফ না হয়
+    
     _loadSavedMusicOnStart(); // ✅ অ্যাপ বা রুম চালুর সাথে সাথে গান লোড করে নেওয়া
 
     // ফায়ারবেস রিয়েলটাইম ডাটাবেজ স্ট্রিম ইনিশিয়ালাইজেশন (এখানে .asBroadcastStream() যোগ করুন)
@@ -273,7 +276,7 @@ class _VoiceRoomState extends State<VoiceRoom>
 
     RoomManager().activeRoomId = widget.roomId;
 
-    WakelockPlus.enable();
+    
     listenForSoulmateRequests();
     listenForMarriageRequests();
 
@@ -387,71 +390,67 @@ class _VoiceRoomState extends State<VoiceRoom>
         .ref('rooms/${widget.roomId}/seats')
         .onValue
         .listen((event) {
-      final data = event.snapshot.value;
       if (!mounted) return;
 
-      // ১. পুরাতন seats লিস্টের কপি তৈরি করা যাতে হঠাৎ করে কোনো ডেটা হারিয়ে (empty হয়ে) না যায়
-      List<Map<String, dynamic>> updatedSeats = List<Map<String, dynamic>>.from(
-          seats.map((seat) => Map<String, dynamic>.from(seat)));
+      final data = event.snapshot.value;
 
-      // যদি লিস্ট সাইজ ২০ এর কম হয় তবে ইনিশিয়ালাইজ করে নেওয়া
-      if (updatedSeats.length < 20) {
-        updatedSeats = List.generate(
-          20,
-          (index) => {
-            "isOccupied": false,
-            "userName": "",
-            "userImage": "",
-            "userFrame": "",
-            "status": "empty",
-            "giftCount": 0,
-            "isMicOn": false,
-            "isTalking": false,
-            "userId": "",
-            "uID": "",
-            "agorauID": "",
-          },
-        );
-      }
+      // ১. সর্বদা ২০টি সিটের একটি ফ্রেশ এবং ক্লিন লিস্ট তৈরি করা
+      List<Map<String, dynamic>> updatedSeats = List.generate(
+        20,
+        (index) => {
+          "isOccupied": false,
+          "userName": "",
+          "userImage": "",
+          "userFrame": "",
+          "status": "empty",
+          "giftCount": 0,
+          "isMicOn": false,
+          "isTalking": false,
+          "userId": "",
+          "uID": "",
+          "agorauID": "",
+        },
+      );
 
-      // ২. ফায়ারবেস থেকে আসা ডেটা দিয়ে সিটগুলো আপডেট করা
+      // ২. ফায়ারবেস থেকে ডেটা আসলে তা ম্যাপে বসানো
       if (data != null) {
         Map<dynamic, dynamic> dataMap =
             (data is Map) ? data : (data as List).asMap();
 
-        // প্রথমে ডাটাবেসে যে যে সিটগুলো একটিভ বা আপডেট হয়েছে সেগুলোর ডেটা বসানো
         dataMap.forEach((key, value) {
           int? index = int.tryParse(key.toString());
-          if (index != null &&
-              index >= 0 &&
-              index < updatedSeats.length &&
-              value != null) {
+          if (index != null && index >= 0 && index < 20 && value != null) {
             final seatMap = Map<dynamic, dynamic>.from(value as Map);
 
-            updatedSeats[index]["isOccupied"] = seatMap["isOccupied"] ?? false;
-            updatedSeats[index]["userName"] =
-                seatMap["name"] ?? seatMap["userName"] ?? "";
-            updatedSeats[index]["userImage"] =
-                seatMap["profilePic"] ?? seatMap["userImage"] ?? "";
-            updatedSeats[index]["userFrame"] =
-                seatMap["activeFrameUrl"] ?? seatMap["userFrame"] ?? "";
-            updatedSeats[index]["isMicOn"] = seatMap["isMicOn"] ?? false;
-            updatedSeats[index]["userId"] =
-                seatMap["authUID"] ?? seatMap["userId"] ?? "";
-            updatedSeats[index]["uID"] = seatMap["uID"] ?? "";
-            updatedSeats[index]["agorauID"] =
-                seatMap["agorauID"]?.toString() ?? "";
-            updatedSeats[index]["giftCount"] =
-                int.tryParse(seatMap["giftCount"]?.toString() ?? "0") ?? 0;
+            // শুধুমাত্র যখন সিট সত্যি occupied থাকবে তখনি ডেটাগুলো বসবে
+            if (seatMap["isOccupied"] == true &&
+                (seatMap["authUID"] != null || seatMap["userId"] != null)) {
+              updatedSeats[index]["isOccupied"] = true;
+              updatedSeats[index]["userName"] =
+                  seatMap["name"] ?? seatMap["userName"] ?? "";
+              updatedSeats[index]["userImage"] =
+                  seatMap["profilePic"] ?? seatMap["userImage"] ?? "";
+              updatedSeats[index]["userFrame"] =
+                  seatMap["activeFrameUrl"] ?? seatMap["userFrame"] ?? "";
+              updatedSeats[index]["isMicOn"] = seatMap["isMicOn"] ?? false;
+              updatedSeats[index]["userId"] =
+                  seatMap["authUID"] ?? seatMap["userId"] ?? "";
+              updatedSeats[index]["uID"] = seatMap["uID"] ?? "";
+              updatedSeats[index]["agorauID"] =
+                  seatMap["agorauID"]?.toString() ?? "";
+              updatedSeats[index]["giftCount"] =
+                  int.tryParse(seatMap["giftCount"]?.toString() ?? "0") ?? 0;
+            }
           }
         });
       }
 
-      // ৩. বর্তমান ইউজারের সিট ইনডেক্স নিখুঁতভাবে খুঁজে বের করা (যাতে নিজে থেকে গায়েব না হয়)
+      // ৩. বর্তমান ইউজারের সঠিক সিট ইনডেক্স খুঁজে বের করা
       int foundSeatIndex = -1;
+      String currentAuthUid = FirebaseAuth.instance.currentUser?.uid ?? "";
+
       for (int i = 0; i < updatedSeats.length; i++) {
-        bool isThisMe = (updatedSeats[i]["userId"] ==
-                FirebaseAuth.instance.currentUser?.uid) ||
+        bool isThisMe = (updatedSeats[i]["userId"] == currentAuthUid) ||
             (myuID.isNotEmpty &&
                 updatedSeats[i]["uID"].toString() == myuID.toString());
 
@@ -461,33 +460,19 @@ class _VoiceRoomState extends State<VoiceRoom>
         }
       }
 
-      // ফায়ারবেস থেকে রিমুভ হওয়ার আগের মুহূর্তের ল্যাগ বা ক্যাশ এড়ানোর চেক
-      if (currentSeatIndex == -1 && foundSeatIndex != -1) {
-        bool isUserStillActuallyOnSeat = updatedSeats[foundSeatIndex]["userId"] == FirebaseAuth.instance.currentUser?.uid;
-        if (!isUserStillActuallyOnSeat) {
-          foundSeatIndex = -1;
-        }
-      }
-
       currentSeatIndex = foundSeatIndex;
 
-      // ৪. পুরাতন লজিক অনুযায়ী গেম এবং ম্যারেজ রিকোয়েস্ট আপডেট
-      if (currentSeatIndex != -1) {
-        gameJoinedUsers = updatedSeats
-            .where((s) => s["isOccupied"] == true)
-            .map((s) => {"name": s["userName"], "avatar": s["userImage"]})
-            .toList();
+      // ৪. গেম এবং অন্যান্যভোক্তা লিস্ট আপডেট
+      gameJoinedUsers = updatedSeats
+          .where((s) => s["isOccupied"] == true)
+          .map((s) => {"name": s["userName"], "avatar": s["userImage"]})
+          .toList();
 
+      if (currentSeatIndex != -1) {
         listenForMarriageRequests();
-      } else {
-        // যদি ইউজার সিটে না থাকে তবুও একটিভ ইউজারদের লিস্ট ঠিক রাখা
-        gameJoinedUsers = updatedSeats
-            .where((s) => s["isOccupied"] == true)
-            .map((s) => {"name": s["userName"], "avatar": s["userImage"]})
-            .toList();
       }
 
-      // ৫. অপ্রয়োজনীয় রি-রেন্ডারিং এড়াতে ডেটা পরিবর্তনের সঠিক তুলনা
+      // ৫. অপ্রয়োজনীয় রি-রেন্ডারিং এড়ানো
       bool isSeatDataChanged = true;
       try {
         isSeatDataChanged = jsonEncode(seats) != jsonEncode(updatedSeats);
@@ -499,7 +484,6 @@ class _VoiceRoomState extends State<VoiceRoom>
         });
       }
     });
-  
     _roomEndedSub?.cancel();
     _roomEndedSub = FirebaseFirestore.instance
         .collection('rooms')
@@ -1313,12 +1297,12 @@ class _VoiceRoomState extends State<VoiceRoom>
         .update({'isMicOn': false, 'isMutedByAdmin': true});
   }
 
+  // 🇧🇩 [মজবুত ও সেফটি প্রুফ লাইভ স্ট্যাটাস আপডেট মেথড]
   void _updateUserLiveStatus(String roomId) async {
     String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
 
     try {
       // ১. আপনার ৬-ডিজিটের uID দিয়ে আপডেট ট্রাই করবে।
-      // .update ব্যবহার করা হয়েছে যাতে নতুন কোনো খালি আইডি তৈরি না হয়।
       if (myuID.isNotEmpty) {
         await FirebaseFirestore.instance.collection('users').doc(myuID).update({
           'currentRoomId': roomId,
@@ -1326,7 +1310,6 @@ class _VoiceRoomState extends State<VoiceRoom>
       }
 
       // ২. Auth UID দিয়ে আপডেট ট্রাই করবে।
-      // যদি এই আইডিটি ডাটাবেসে না থাকে, তবে এটি কোনো নতুন ডকুমেন্ট বানাবে না।
       if (authUID.isNotEmpty && authUID != myuID) {
         await FirebaseFirestore.instance
             .collection('users')
@@ -1335,23 +1318,35 @@ class _VoiceRoomState extends State<VoiceRoom>
           'currentRoomId': roomId,
         });
       }
+
+      // 🔥 অতিরিক্ত সেফটি: রিয়েলটাইম ডাটাবেজেও ইউজারের উপস্থিতি ট্র্যাক করা এবং ডিসকানেক্ট হলে অটো রিমুভ সেট করা
+      if (authUID.isNotEmpty) {
+        final userPresenceRef =
+            FirebaseDatabase.instance.ref('rooms/$roomId/presence/$authUID');
+        await userPresenceRef.set({
+          'online': true,
+          'uID': myuID,
+          'joinedAt': ServerValue.timestamp,
+        });
+        // ইউজার হঠাৎ অ্যাপ কেটে দিলে বা ইন্টারনেট চলে গেলে অটো ডিলিট হয়ে যাবে
+        userPresenceRef.onDisconnect().remove();
+      }
     } catch (e) {
-      // যদি আইডি খুঁজে না পায় তবে এখানে আসবে, কিন্তু নতুন হিবিজিবি আইডি তৈরি হবে না।
+      print("❌ Error updating live status: $e");
     }
   }
 
-  // 🇧🇩 [বাংলা মার্ক - ১০০% ফিক্সড ও সেফটি প্রুফ স্ট্যাটাস ক্লিন মেথড]
+// 🇧🇩 [১০০% ফিক্সড ও ফুলপ্রুফ স্ট্যাটাস ক্লিন মেথড]
   void _clearUserLiveStatus() async {
     String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
 
     try {
-      // ১. প্রথমে myuID (শর্ট আইডি) দিয়ে চেক এবং আপডেট
+      // ১. প্রথমে myuID (শর্ট আইডি) দিয়ে চেক এবং রিমুভ
       if (myuID.isNotEmpty) {
         final shortIdRef =
             FirebaseFirestore.instance.collection('users').doc(myuID);
         final shortIdSnap = await shortIdRef.get();
 
-        // 🎯 সেফটি চেক: যদি ফায়ারস্টোরে এই শর্ট আইডির ডক আসলেই থাকে, তবেই আপডেট হবে ভাই
         if (shortIdSnap.exists) {
           await shortIdRef.update({
             'currentRoomId': FieldValue.delete(),
@@ -1359,20 +1354,28 @@ class _VoiceRoomState extends State<VoiceRoom>
         }
       }
 
-      // ২. এবার authUID (ফায়ারবেস অ্যাথ ইউআইডি) দিয়ে চেক এবং আপডেট
+      // ২. এবার authUID (ফায়ারবেস অ্যাথ ইউআইডি) দিয়ে চেক এবং রিমুভ
       if (authUID.isNotEmpty && authUID != myuID) {
         final authIdRef =
             FirebaseFirestore.instance.collection('users').doc(authUID);
         final authIdSnap = await authIdRef.get();
 
-        // 🎯 সেফটি চেক: যদি ফায়ারস্টোরে এই অ্যাথ আইডির ডক আসলেই থাকে, তবেই আপডেট হবে
         if (authIdSnap.exists) {
           await authIdRef.update({
             'currentRoomId': FieldValue.delete(),
           });
         }
       }
-    } catch (e) {}
+
+      // ৩. রিয়েলটাইম ডাটাবেজ থেকেও উপস্থিতি সাথে সাথে পরিষ্কার করা
+      if (widget.roomId.isNotEmpty && authUID.isNotEmpty) {
+        await FirebaseDatabase.instance
+            .ref('rooms/${widget.roomId}/presence/$authUID')
+            .remove();
+      }
+    } catch (e) {
+      print("❌ Error clearing live status: $e");
+    }
   }
 
 // ৪. ফলো/আনফলো লজিক
@@ -1682,20 +1685,15 @@ class _VoiceRoomState extends State<VoiceRoom>
   }
 
   void sitOnSeat(int index) async {
-    // যদি অলরেডি অন্য কোনো সিটে থাকে এবং অন্য সিটে ক্লিক করে, তবে আগেরটা রিমুভ করে নতুনটায় বসবে
-    if (currentSeatIndex != -1 && currentSeatIndex != index) {
-      await FirebaseDatabase.instance
-          .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
-          .remove();
-    }
-
     if (currentSeatIndex == index) {
       _showLeaveConfirmation(index);
       return;
     }
-    
+
     // সিট খালি না থাকলে বা রুম লক থাকলে রিটার্ন করবে
-    if (seats[index]["isOccupied"] == true && seats[index]["userId"] != FirebaseAuth.instance.currentUser?.uid) {
+    // (এখানে আপনার অরিজিনাল userId চেক লজিক শতভাগ সুরক্ষিত রাখা হয়েছে)
+    if (seats[index]["isOccupied"] == true &&
+        seats[index]["userId"] != FirebaseAuth.instance.currentUser?.uid) {
       return;
     }
     if (isRoomLocked) return;
@@ -1704,6 +1702,14 @@ class _VoiceRoomState extends State<VoiceRoom>
       final User? currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) return;
 
+      // 🔥 ১. অন্য কোনো সিটে থাকলে বা নিজের আগের সিট থাকলে তা সাথে সাথে ফায়ারবেস থেকে রিমুভ ও ক্লিন করা
+      if (currentSeatIndex != -1 && currentSeatIndex != index) {
+        await FirebaseDatabase.instance
+            .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
+            .remove();
+      }
+
+      // ইউজারের প্রোফাইল ডাটা ফেচ করা
       final userSnap = await FirebaseFirestore.instance
           .collection('users')
           .where('authUID', isEqualTo: currentUser.uid)
@@ -1712,13 +1718,19 @@ class _VoiceRoomState extends State<VoiceRoom>
 
       if (userSnap.docs.isNotEmpty) {
         final userData = userSnap.docs.first.data();
+
+        // 🛑 আপনার অরিজিনাল লজিক ঠিক রেখে শুধু এগোরা ব্রডকাস্টার ও ট্র্যাক পাবলিশ নিশ্চিত করা হলো
         await _agoraManager.becomeBroadcaster();
+
+        // সামান্য ব্রিদিং টাইম (মিলিসেকেন্ড) যাতে এগোরা ইঞ্জিন অডিও চ্যানেল পুরোপুরি ধরে ফেলতে পারে
+        await Future.delayed(const Duration(milliseconds: 150));
+
         final int myAgorauID = _agoraManager.localuID ?? 0;
 
         final seatRef = FirebaseDatabase.instance
             .ref('rooms/${widget.roomId}/seats/$index');
-        
-        // ফায়ারবেসে একদম নিখুঁতভাবে সিট ডাটা সেট করা
+
+        // ২. সিটে নিখুঁতভাবে ডাটা সেট করা (আপনার সব ফিল্ড আগের মতোই হুবহু আছে)
         await seatRef.set({
           'name': userData['name'] ?? "Hridoy",
           'profilePic': userData['profilePic'] ?? "",
@@ -1741,7 +1753,7 @@ class _VoiceRoomState extends State<VoiceRoom>
           });
 
           _listenToMicStatus();
-          Future.delayed(const Duration(milliseconds: 300), () {
+          Future.delayed(const Duration(milliseconds: 200), () {
             updateSeatPosition(index, seatKeys[index]);
           });
         }
@@ -1750,6 +1762,7 @@ class _VoiceRoomState extends State<VoiceRoom>
       print("❌ Error sitting on seat: $e");
     }
   }
+
   void _showLeaveConfirmation(int index) {
     showGeneralDialog(
       context: context,
@@ -1769,7 +1782,8 @@ class _VoiceRoomState extends State<VoiceRoom>
                 child: Container(
                   width: MediaQuery.of(context).size.width * 0.75,
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.4), // আধা-স্বচ্ছ ডার্ক গ্লাস
+                    color:
+                        Colors.black.withOpacity(0.4), // আধা-স্বচ্ছ ডার্ক গ্লাস
                     borderRadius: BorderRadius.circular(25),
                     border: Border.all(color: Colors.white.withOpacity(0.2)),
                   ),
@@ -1807,9 +1821,9 @@ class _VoiceRoomState extends State<VoiceRoom>
                           });
 
                           Navigator.pop(ctx); // ডায়ালগ বন্ধ হবে
-                          
+
                           await _agoraManager.switchToAudienceMode();
-                          
+
                           if (widget.roomId.isNotEmpty) {
                             await FirebaseDatabase.instance
                                 .ref('rooms/${widget.roomId}/seats/$index')
@@ -1878,6 +1892,7 @@ class _VoiceRoomState extends State<VoiceRoom>
       } else {}
     });
   }
+
   void _updateTalkingStatus(bool talking) async {
     // ১. যদি স্ট্যাটাস আগের মতোই থাকে (উদা: কথা বলছেনই), তবে ডাটাবেসে পাঠানোর দরকার নেই
     if (talking == _lastTalkingStatus) return;
@@ -2735,12 +2750,13 @@ class _VoiceRoomState extends State<VoiceRoom>
                   ),
 
 // ২. ভিডিও গিফট ওভারলে (এখানেও কঠোর কন্ডিশন ব্যবহার করা হয়েছে)
+                // ২. ভিডিও গিফট ওভারলে (ব্যাকগ্রাউন্ড সম্পূর্ণ স্বচ্ছ করা হলো)
                 if (activeGlobalVideoUrl != null &&
                     activeGlobalVideoUrl!.isNotEmpty)
                   Positioned.fill(
                     child: Material(
-                      color: Colors.black.withOpacity(
-                          0.5), // থাম্বনেইল যেন ব্যাকগ্রাউন্ডের সাথে মিশে না যায়
+                      color: Colors
+                          .transparent, // কোনো কালো কালার বা শ্যাডো থাকবে না, একদম স্বচ্ছ রুমের ব্যাকগ্রাউন্ড দেখাবে
                       child: VideoGiftOverlay(
                         url: activeGlobalVideoUrl!,
                         onFinished: () async {
@@ -2768,8 +2784,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                       ),
                     ),
                   ),
-
-                // 🔥 ৩. ট্রেজার বক্স ব্লাস্ট অ্যানিমেশন ওভারলে (রুমের সবার জন্য ইউজার-ভিত্তিক)
+                // 🔥 ৩. ট্রেজার বক্স ব্লাস্ট অ্যানিমেশন ওভারলে (নিখুঁত ইউজার-ভিত্তিক চেক সহ)
                 StreamBuilder<DocumentSnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('rooms')
@@ -2789,10 +2804,26 @@ class _VoiceRoomState extends State<VoiceRoom>
                     bool isBlasted = data['isBlasted'] ?? false;
                     if (!isBlasted) return const SizedBox.shrink();
 
-                    // 🛑 সবচেয়ে গুরুত্বপূর্ণ অংশ: এই ইউজার অলরেডি রিওয়ার্ড কালেক্ট করেছে কিনা তা চেক করার জন্য সাব-কালেকশন স্ট্রিম
+                    // 🔥 ৩ মিনিটের টাইমআউট চেক
+                    Timestamp? blastedAt = data['blastedAt'] as Timestamp?;
+                    if (blastedAt != null) {
+                      DateTime blastTime = blastedAt.toDate();
+                      Duration difference =
+                          DateTime.now().difference(blastTime);
+
+                      // যদি ৩ মিনিট (১৮০ সেকেন্ড) পার হয়ে যায়, তবে ওভারলে দেখাবো না
+                      if (difference.inMinutes >= 3) {
+                        return const SizedBox.shrink();
+                      }
+                    }
+
+                    // 🛑 সঠিক ইউজার আইডি নিশ্চিত করা (myuID এবং FirebaseAuth দুটোই প্রাইওরিটি অনুযায়ী চেক হবে)
                     String activeUserId = uID.isNotEmpty
                         ? uID
-                        : (FirebaseAuth.instance.currentUser?.uid ?? '');
+                        : (myuID.isNotEmpty
+                            ? myuID
+                            : (FirebaseAuth.instance.currentUser?.uid ?? ''));
+
                     if (activeUserId.isEmpty) return const SizedBox.shrink();
 
                     return StreamBuilder<DocumentSnapshot>(
@@ -2805,6 +2836,12 @@ class _VoiceRoomState extends State<VoiceRoom>
                           .doc(activeUserId)
                           .snapshots(),
                       builder: (context, claimSnapshot) {
+                        // লোডিং স্টেটে থাকাকালীন হঠাৎ যেন ফ্লিক করে ওভারলে না আসে, তাই ওয়েট করতে পারি অথবা ডেটা এক্সিস্ট করলে বাদ দেবো
+                        if (claimSnapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const SizedBox.shrink();
+                        }
+
                         // যদি ইউজার ইতিমধ্যে কালেক্ট করে থাকে (অর্থাৎ ডকুমেন্টস এক্সিস্ট করে), তবে পপ-আপ দেখাবো না
                         bool hasClaimed =
                             claimSnapshot.hasData && claimSnapshot.data!.exists;
@@ -2848,7 +2885,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                   ),
                                   const SizedBox(height: 10),
                                   const Text(
-                                    "100,000 Diamonds Reached! Claim your reward.",
+                                    "100,000 Diamonds Reached! Claim within 3 mins.",
                                     style: TextStyle(
                                         color: Colors.white70, fontSize: 14),
                                   ),
@@ -2864,7 +2901,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                       ),
                                     ),
                                     onPressed: () async {
-                                      // ১. ডাটাবেজে রেকর্ড করা যে এই ইউজার তার রিওয়ার্ড নিয়ে নিয়েছে
+                                      // ১. ডাটাবেজে সঠিক activeUserId দিয়ে রেকর্ড করা যে এই ইউজার তার রিওয়ার্ড নিয়ে নিয়েছে
                                       await FirebaseFirestore.instance
                                           .collection('rooms')
                                           .doc(widget.roomId)
@@ -2875,6 +2912,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                           .set({
                                         'claimedAt':
                                             FieldValue.serverTimestamp(),
+                                        'userId': activeUserId,
                                       });
                                     },
                                     child: const Text(
@@ -3699,6 +3737,14 @@ class _VoiceRoomState extends State<VoiceRoom>
     );
   }
 
+// 🔥 স্ক্রিন অফ হওয়া রোধ করার লাইফসাইকেল হ্যান্ডলার
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      WakelockPlus.enable();
+    }
+  }
   @override
   void dispose() {
     // ১. চেক করছি বাবল কি স্ক্রিনে আছে?
@@ -3786,7 +3832,8 @@ class _VoiceRoomState extends State<VoiceRoom>
     _marqueeController.dispose();
 
     // ৭. স্ক্রিন অফ হওয়ার পারমিশন রিস্টোর করা (Wakelock বন্ধ করা)
-    WakelockPlus.disable();
+   WidgetsBinding.instance.removeObserver(this); // অবজেক্ট রিমুভ করা
+    WakelockPlus.disable(); // রুম থেকে বের হয়ে গেলে ওয়াকলক বন্ধ হবে
 
     // ৮. এগোরা ইঞ্জিন ও চ্যানেল ক্লিনআপ করার জন্য ম্যানেজার কল করুন (await ছাড়া)
     try {

@@ -3701,10 +3701,10 @@ class _ProfilePageState extends State<ProfilePage> {
                                     width: 0,
                                     height: 0,
                                     child: OverflowBox(
-                                      minWidth: 193,
-                                      maxWidth: 193,
-                                      minHeight: 185,
-                                      maxHeight: 185,
+                                      minWidth: 170,
+                                      maxWidth: 170,
+                                      minHeight: 161,
+                                      maxHeight: 161,
                                       child: activeFrameUrl.contains('.json')
                                           ? Transform.scale(
                                               scale: 0.9,

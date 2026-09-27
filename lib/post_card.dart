@@ -680,7 +680,7 @@ class PostCard extends StatelessWidget {
                     if (currentFrameUrl.isNotEmpty)
                       Positioned.fill(
                         child: Transform.scale(
-                          scale: 1.55,
+                          scale: 1.35,
                           child: IgnorePointer(
                             child: currentFrameUrl.contains('.json')
                                 ? Lottie.network(
