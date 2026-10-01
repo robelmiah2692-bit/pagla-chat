@@ -137,9 +137,14 @@ class _AgentTransferPageState extends State<AgentTransferPage> {
           // --- ৩০ হাজার রিচার্জের ক্ষেত্রে: কোনো ডায়মন্ড যোগ হবে না, প্রিমিয়াম কার্ড অ্যাক্টিভ হবে ---
           DateTime premiumExpiry = DateTime.now().add(const Duration(days: 30));
 
+          const String premiumFrameUrl =
+              "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newanimeframe/kingframe.webp";
           transaction.update(receiverRef, {
             'hasPremiumCard': true,
             'premiumUntil': Timestamp.fromDate(premiumExpiry),
+            'hasFreeFrame': true,
+            'frameUntilDate': Timestamp.fromDate(premiumExpiry),
+            'activeFrameUrl': premiumFrameUrl,
           });
 
           notificationText =

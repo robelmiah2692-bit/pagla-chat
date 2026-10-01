@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
 
 class VoiceRipple extends StatefulWidget {
   final Widget child;
   final bool isTalking;
   final int seatIndex;
-  // নতুন প্যারামিটারগুলো এখানে যোগ করলাম
   final bool isMicOn;
   final bool isOccupied;
 
@@ -25,8 +23,8 @@ class VoiceRipple extends StatefulWidget {
 class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
+  // 🟢 নতুন ৪টি মিক্স কালার
   final List<Color> rippleColors = [
-    Colors.pinkAccent,
     Colors.cyanAccent,
     Colors.purpleAccent,
     Colors.orangeAccent,
@@ -38,7 +36,7 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 2200),
     );
 
     if (widget.isTalking) {
@@ -76,35 +74,13 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
         alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: [
+          // 🌊 পানির মতো হালকা ও সফট রিপেল ইফেক্ট (সব সিটের জন্য পারফেক্ট সাইজ)
           if (widget.isTalking) ...[
-            _buildGlossyRipple(0.0, currentColor),
-            _buildGlossyRipple(0.5, currentColor),
-
-            AnimatedBuilder(
-              animation: _controller,
-              builder: (context, child) {
-                return Transform.rotate(
-                  angle: _controller.value * 2 * math.pi,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: List.generate(6, (index) {
-                      final angle = (index * 60) * (math.pi / 180);
-                      return Transform.translate(
-                        offset: Offset(math.cos(angle) * 38, math.sin(angle) * 38),
-                        child: Icon(
-                          index % 2 == 0 ? Icons.favorite : Icons.auto_awesome,
-                          color: currentColor.withOpacity(0.9),
-                          size: 10,
-                        ),
-                      );
-                    }),
-                  ),
-                );
-              },
-            ),
+            _buildWaterRipple(0.0, currentColor),
+            _buildWaterRipple(0.5, currentColor),
           ],
 
-          // ৩. মূল অবতার এবং মাইক আইকন (এনিমেটেড)
+          // মূল অবতার এবং মাইক আইকন
           Stack(
             alignment: Alignment.center,
             clipBehavior: Clip.none,
@@ -117,7 +93,7 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
                   child: AnimatedBuilder(
                     animation: _controller,
                     builder: (context, child) {
-                      double scale = widget.isTalking ? (1.0 + (_controller.value * 0.2)) : 1.0;
+                      double scale = widget.isTalking ? (1.0 + (_controller.value * 0.15)) : 1.0;
                       return Transform.scale(
                         scale: scale,
                         child: Container(
@@ -147,32 +123,23 @@ class _VoiceRippleState extends State<VoiceRipple> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildGlossyRipple(double delay, Color color) {
+  // 💧 পানির মতো হালকা ও সফট রিপেল বিল্ডার (সিটের মাপে সামঞ্জস্যপূর্ণ)
+  Widget _buildWaterRipple(double delay, Color color) {
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
         double progress = (_controller.value + delay) % 1.0;
         return Transform.scale(
-          scale: 1.0 + (progress * 0.6),
+          scale: 1.0 + (progress * 0.65), // সিটের ভেতর থেকে শুরু হয়ে চারদিকে ছড়িয়ে যাবে
           child: Opacity(
-            opacity: (1.0 - progress).clamp(0.0, 1.0),
+            opacity: (1.0 - progress).clamp(0.0, 1.0), // আস্তে আস্তে পানির সাথে মিশে অদৃশ্য হবে
             child: Container(
-              width: 60,
-              height: 60,
+              width: 65,
+              height: 65,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    color.withOpacity(0.0),
-                    color.withOpacity(0.3),
-                    color.withOpacity(0.0),
-                  ],
-                  stops: const [0.4, 0.8, 1.0],
-                ),
-                border: Border.all(color: color.withOpacity(0.4), width: 2),
-                boxShadow: [
-                  BoxShadow(color: color.withOpacity(0.2), blurRadius: 10, spreadRadius: 2)
-                ],
+                border: Border.all(color: color.withOpacity(0.4), width: 1.0),
+                color: color.withOpacity(0.08),
               ),
             ),
           ),

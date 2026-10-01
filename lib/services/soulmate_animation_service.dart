@@ -62,20 +62,29 @@ class SoulmateAnimationService {
           return (adjI ~/ 5 == adjJ ~/ 5) && ((adjI - adjJ).abs() == 1);
         }
         return false;
-      case 18:
-        if (i < 3 && j < 3) return (i - j).abs() == 1; // হোস্ট সিটগুলোর (০, ১, ২) জন্য পাশাপাশি চেক
+     case 18: // আপনার সুইচ কেস অনুযায়ী
+        // যেহেতু এখন কোনো হোস্ট সিট নেই, তাই সব সিটই ৩টি সারিতে বিন্যস্ত (প্রতি সারিতে ৫টি করে)
+        // প্রথম সারি: 0-4, দ্বিতীয় সারি: 5-9, তৃতীয় সারি: 10-14
         
-        if (i >= 3 && i < 8 && j >= 3 && j < 8) {
-          int adjI = i - 3;
-          int adjJ = j - 3;
+        // ১. প্রথম সারি (index 0 থেকে 4) এর জন্য পাশাপাশি চেক
+        if (i >= 0 && i < 5 && j >= 0 && j < 5) {
+          return (i ~/ 5 == j ~/ 5) && ((i - j).abs() == 1);
+        }
+        
+        // ২. দ্বিতীয় সারি (index 5 থেকে 9) এর জন্য পাশাপাশি চেক
+        if (i >= 5 && i < 10 && j >= 5 && j < 10) {
+          int adjI = i - 5;
+          int adjJ = j - 5;
           return (adjI ~/ 5 == adjJ ~/ 5) && ((adjI - adjJ).abs() == 1);
         }
         
-        if (i >= 8 && j >= 8) {
-          int adjI = i - 8;
-          int adjJ = j - 8;
+        // ৩. তৃতীয় সারি (index 10 থেকে 14) এর জন্য পাশাপাশি চেক
+        if (i >= 10 && i < 15 && j >= 10 && j < 15) {
+          int adjI = i - 10;
+          int adjJ = j - 10;
           return (adjI ~/ 5 == adjJ ~/ 5) && ((adjI - adjJ).abs() == 1);
         }
+        
         return false;
       default:
         return (i ~/ 4 == j ~/ 4);
@@ -150,7 +159,7 @@ class SoulmateAnimationService {
        // ==========================================
         case 12:
           if (leftSeat < 2) {
-            animationSize = 135.0;
+            animationSize = 100.0;
             double colWidth = screenWidth / 2;
             leftPos = 65 + (leftSeat * colWidth) + (colWidth / 2) - (animationSize / 2) + (colWidth / 4); 
             topPos = 0.0;
@@ -162,48 +171,45 @@ class SoulmateAnimationService {
 
             if (row == 0) {
               animationSize = 70.0; 
-              double leftOffset = 45.0; 
-              topPos = 140.0;     
+              double leftOffset = 55.0; 
+              topPos = 110.0;     
               leftPos = leftOffset + (col * colWidth) + (colWidth / 2) - (animationSize / 2);
             } else {
               animationSize = 70.0; 
-              double leftOffset = 45.0; 
-              topPos = 235.0;     
+              double leftOffset = 55.0; 
+              topPos = 200.0;     
               leftPos = leftOffset + (col * colWidth) + (colWidth / 2) - (animationSize / 2);
             }
           }
           break;
 
+       // ==========================================
+        // ১৫ সিটের লেআউট (হোস্ট সিট ছাড়া, ৩ সারি × ৫ সিট)
         // ==========================================
-        // ৫. আঠারো (18) সিটের লেআউট (পুরাতন ১০০% ঠিক আছে)
-        // ==========================================
-        case 18:
-          if (leftSeat < 3) {
-            animationSize = 90.0;
-            double colWidth = screenWidth / 3;
-            leftPos = 60 + (leftSeat * colWidth) + (colWidth / 2) - 25; 
-            topPos = 8.0; 
-          } else if (leftSeat < 8) {
+        case 18: // আপনার কোডের সুইচ কেস অনুযায়ী এটি অপরিবর্তিত রাখা হলো
+          if (leftSeat < 5) {
+            // প্রথম সারি (index 0 থেকে 4)
             animationSize = 70.0;
-            int adj = leftSeat - 3;
+            double colWidth = screenWidth / 5;
+            int col = leftSeat % 5;
+            leftPos = 20 + (col * colWidth) + (colWidth / 2); 
+            topPos = 20.0; // প্রথম সারির top পজিশন 
+          } else if (leftSeat < 10) {
+            // দ্বিতীয় সারি (index 5 থেকে 9)
+            animationSize = 70.0;
+            int adj = leftSeat - 5;
             double colWidth = screenWidth / 5;
             int col = adj % 5;
             leftPos = 20 + (col * colWidth) + (colWidth / 2); 
-            topPos = 120.0; 
+            topPos = 110.0; // দ্বিতীয় সারির top পজিশন (প্রয়োজন অনুযায়ী বাড়াতে বা কমাতে পারেন)
           } else {
-            int adj = leftSeat - 8;
+            // তৃতীয় সারি (index 10 থেকে 14)
+            animationSize = 70.0;
+            int adj = leftSeat - 10;
             double colWidth = screenWidth / 5;
-            int row = adj ~/ 5;
             int col = adj % 5;
             leftPos = 20 + (col * colWidth) + (colWidth / 2);
-
-            if (row == 0) {
-              animationSize = 70.0;
-              topPos = 210.0;
-            } else {
-              animationSize = 70.0;
-              topPos = 295.0;
-            }
+            topPos = 200.0; // তৃতীয় সারির top পজিশন (প্রয়োজন অনুযায়ী বাড়াতে বা কমাতে পারেন)
           }
           break;
 

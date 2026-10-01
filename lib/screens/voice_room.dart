@@ -217,9 +217,10 @@ class _VoiceRoomState extends State<VoiceRoom>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // 🔥 লাইফসাইকেল ট্র্যাক করার জন্য যোগ করা হলো
+    WidgetsBinding.instance
+        .addObserver(this); // 🔥 লাইফসাইকেল ট্র্যাক করার জন্য যোগ করা হলো
     WakelockPlus.enable(); // স্ক্রিন যাতে অফ না হয়
-    
+
     _loadSavedMusicOnStart(); // ✅ অ্যাপ বা রুম চালুর সাথে সাথে গান লোড করে নেওয়া
 
     // ফায়ারবেস রিয়েলটাইম ডাটাবেজ স্ট্রিম ইনিশিয়ালাইজেশন (এখানে .asBroadcastStream() যোগ করুন)
@@ -276,7 +277,6 @@ class _VoiceRoomState extends State<VoiceRoom>
 
     RoomManager().activeRoomId = widget.roomId;
 
-    
     listenForSoulmateRequests();
     listenForMarriageRequests();
 
@@ -2143,31 +2143,48 @@ class _VoiceRoomState extends State<VoiceRoom>
                           ),
                         ),
                       ),
-                      Expanded(
-                        flex: 2,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            RepaintBoundary(child: _buildSeatGridArea()),
+                      // ১. সিটের লেআউট এরিয়া (ডায়নামিক উচ্চতা সহ যাতে সিট কেটে না যায় বা মেসেজে না ওপরে ওঠে)
+                      StreamBuilder<DocumentSnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('rooms')
+                            .doc(widget.roomId)
+                            .snapshots(),
+                        builder: (context, roomSnapshot) {
+                          int currentLayoutItemCount = 10;
+                          if (roomSnapshot.hasData &&
+                              roomSnapshot.data!.exists) {
+                            var roomData = roomSnapshot.data!.data()
+                                as Map<String, dynamic>;
+                            currentLayoutItemCount =
+                                roomData['seatLayoutCount'] ?? 10;
+                          }
 
-                            // প্রথমে রুমের লেআউট কাউন্ট পাওয়ার জন্য Firestore StreamBuilder
-                            StreamBuilder<DocumentSnapshot>(
-                              stream: FirebaseFirestore.instance
-                                  .collection('rooms')
-                                  .doc(widget.roomId)
-                                  .snapshots(),
-                              builder: (context, roomSnapshot) {
-                                int currentLayoutItemCount = 10;
-                                if (roomSnapshot.hasData &&
-                                    roomSnapshot.data!.exists) {
-                                  var roomData = roomSnapshot.data!.data()
-                                      as Map<String, dynamic>;
-                                  currentLayoutItemCount =
-                                      roomData['seatLayoutCount'] ?? 10;
-                                }
+                          // 🟢 লেআউট অনুযায়ী সিট এলাকার ডাইনামিক উচ্চতা নির্ধারণ
+                          double calculatedHeight = 200; // ডিফল্ট উচ্চতা
+                          if (currentLayoutItemCount == 2) {
+                            calculatedHeight = 150;
+                          } else if (currentLayoutItemCount == 10) {
+                             calculatedHeight = 180; // সাধারণ ১০ সিটের লেআউট
+                          } else if (currentLayoutItemCount == 101) {
+                                 calculatedHeight = 395;
+                          } else if (currentLayoutItemCount == 12) {
+                            calculatedHeight = 285;
+                          } else if (currentLayoutItemCount == 18) {
+                            calculatedHeight = 270;
+                          } else if (currentLayoutItemCount == 20) {
+                            calculatedHeight = 390;
+                          }
+
+                          return SizedBox(
+                            height:
+                                calculatedHeight, // ডাইনামিক হাইট এখানে সেট করা হলো
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                RepaintBoundary(child: _buildSeatGridArea()),
 
                                 // এরপর সিটের ডাটার জন্য Realtime Database StreamBuilder
-                                return StreamBuilder<DatabaseEvent>(
+                                StreamBuilder<DatabaseEvent>(
                                   stream: FirebaseDatabase.instance
                                       .ref('rooms/${widget.roomId}/seats')
                                       .onValue,
@@ -2233,17 +2250,16 @@ class _VoiceRoomState extends State<VoiceRoom>
                                       },
                                     );
                                   },
-                                );
-                              },
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 10),
 
-                      // ২. মেসেজ এরিয়া (নির্দিষ্ট রুমের মেসেজ, লিমিটেড ২৫ টি)
+// ২. মেসেজ এরিয়া (সিটের পর বাকি সমস্ত খালি জায়গা এই মেসেজ ভিউ নিয়ে নেবে)
                       Expanded(
-                        flex: 1,
                         child: Container(
                           margin: const EdgeInsets.only(left: 10, right: 90),
                           child: StreamBuilder<QuerySnapshot>(
@@ -2289,7 +2305,6 @@ class _VoiceRoomState extends State<VoiceRoom>
                                               'name': uName,
                                               'profilePic': uImage,
                                               'text': messageText,
-                                              // ✅ এই ফিল্ডগুলো যুক্ত করে দিন যাতে _buildMessageRow ব্যাজ দেখতে পায়
                                               'vip_xp': mData['vip_xp'] ?? 0,
                                               'vip_expiry':
                                                   mData['vip_expiry'] ?? 0,
@@ -3646,10 +3661,13 @@ class _VoiceRoomState extends State<VoiceRoom>
             }
 
             bool isBigTwoSeatLayout = (currentLayoutItemCount == 2);
-            double emojiSize = isBigTwoSeatLayout ? 160.0 : 80.0;
+            double emojiSize =
+                isBigTwoSeatLayout ? 150.0 : 65.0; // ১. ইমোজির সাইজ
 
-            double offsetX = isBigTwoSeatLayout ? 80.0 : 40.0;
-            double offsetY = isBigTwoSeatLayout ? 80.0 : 60.0;
+            double offsetX =
+                isBigTwoSeatLayout ? 70.0 : 32.0; // ২. ডানে বা বামে সরানোর জন্য
+            double offsetY =
+                isBigTwoSeatLayout ? 50.0 : 41.0; // ৩. উপরে বা নিচে সরানোর জন্য
 
             return Stack(
               children: dataMap.entries.map((entry) {
@@ -3745,6 +3763,7 @@ class _VoiceRoomState extends State<VoiceRoom>
       WakelockPlus.enable();
     }
   }
+
   @override
   void dispose() {
     // ১. চেক করছি বাবল কি স্ক্রিনে আছে?
@@ -3832,7 +3851,7 @@ class _VoiceRoomState extends State<VoiceRoom>
     _marqueeController.dispose();
 
     // ৭. স্ক্রিন অফ হওয়ার পারমিশন রিস্টোর করা (Wakelock বন্ধ করা)
-   WidgetsBinding.instance.removeObserver(this); // অবজেক্ট রিমুভ করা
+    WidgetsBinding.instance.removeObserver(this); // অবজেক্ট রিমুভ করা
     WakelockPlus.disable(); // রুম থেকে বের হয়ে গেলে ওয়াকলক বন্ধ হবে
 
     // ৮. এগোরা ইঞ্জিন ও চ্যানেল ক্লিনআপ করার জন্য ম্যানেজার কল করুন (await ছাড়া)
@@ -4500,11 +4519,6 @@ class _VoiceRoomState extends State<VoiceRoom>
                       seatData['userImage']?.toString() ??
                       "")
                   : "";
-              String uIDShow =
-                  isOccupied ? (seatData['uID']?.toString() ?? "") : "";
-              String uFrame = isOccupied
-                  ? (seatData['activeFrameUrl']?.toString() ?? "")
-                  : "";
 
               bool isTalking =
                   isOccupied ? (seatData['isTalking'] == true) : false;
@@ -5153,7 +5167,7 @@ class _VoiceRoomState extends State<VoiceRoom>
 
                                         const SizedBox(height: 5),
 
-                                        // 🔥 ব্যাজ সেকশন: প্রতিটা ব্যাজ আলাদা আলাদা প্রিমিয়াম মিক্সড কালার ও গ্লাস বর্ডার সহ
+                                        // 🔥 ব্যাজ সেকশন: ট্রান্সপারেন্ট ব্যাকগ্রাউন্ড ও নো-বক্স ডিজাইন
                                         Padding(
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 20),
@@ -5170,44 +5184,10 @@ class _VoiceRoomState extends State<VoiceRoom>
                                                 children: [
                                                   // ১. VIP Badge (যদি থাকে)
                                                   if (hasVip)
-                                                    Container(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              6),
-                                                      margin: const EdgeInsets
+                                                    Padding(
+                                                      padding: const EdgeInsets
                                                           .symmetric(
                                                           horizontal: 4),
-                                                      decoration: BoxDecoration(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(15),
-                                                        gradient:
-                                                            const LinearGradient(
-                                                          colors: [
-                                                            Colors.purpleAccent,
-                                                            Colors
-                                                                .deepOrangeAccent
-                                                          ],
-                                                          begin:
-                                                              Alignment.topLeft,
-                                                          end: Alignment
-                                                              .bottomRight,
-                                                        ),
-                                                        border: Border.all(
-                                                            color: Colors.white
-                                                                .withOpacity(
-                                                                    0.4),
-                                                            width: 1.2),
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                              color: Colors
-                                                                  .purple
-                                                                  .withOpacity(
-                                                                      0.4),
-                                                              blurRadius: 6,
-                                                              spreadRadius: 1)
-                                                        ],
-                                                      ),
                                                       child: CachedNetworkImage(
                                                         imageUrl: getVipBadge(
                                                             vipLevel),
@@ -5239,43 +5219,10 @@ class _VoiceRoomState extends State<VoiceRoom>
 
                                                   // ২. Premium Card Badge (যদি থাকে)
                                                   if (hasPremium)
-                                                    Container(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              6),
-                                                      margin: const EdgeInsets
+                                                    Padding(
+                                                      padding: const EdgeInsets
                                                           .symmetric(
                                                           horizontal: 4),
-                                                      decoration: BoxDecoration(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(15),
-                                                        gradient:
-                                                            const LinearGradient(
-                                                          colors: [
-                                                            Colors.amberAccent,
-                                                            Colors.pinkAccent
-                                                          ],
-                                                          begin:
-                                                              Alignment.topLeft,
-                                                          end: Alignment
-                                                              .bottomRight,
-                                                        ),
-                                                        border: Border.all(
-                                                            color: Colors.white
-                                                                .withOpacity(
-                                                                    0.4),
-                                                            width: 1.2),
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                              color: Colors
-                                                                  .amber
-                                                                  .withOpacity(
-                                                                      0.4),
-                                                              blurRadius: 6,
-                                                              spreadRadius: 1)
-                                                        ],
-                                                      ),
                                                       child: CachedNetworkImage(
                                                         imageUrl:
                                                             premiumBadgeUrl,
@@ -5307,42 +5254,10 @@ class _VoiceRoomState extends State<VoiceRoom>
 
                                                   // ৩. Agency Badge (যদি থাকে)
                                                   if (isAgent)
-                                                    Container(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              6),
-                                                      margin: const EdgeInsets
+                                                    Padding(
+                                                      padding: const EdgeInsets
                                                           .symmetric(
                                                           horizontal: 4),
-                                                      decoration: BoxDecoration(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(15),
-                                                        gradient:
-                                                            const LinearGradient(
-                                                          colors: [
-                                                            Colors.cyanAccent,
-                                                            Colors.blueAccent
-                                                          ],
-                                                          begin:
-                                                              Alignment.topLeft,
-                                                          end: Alignment
-                                                              .bottomRight,
-                                                        ),
-                                                        border: Border.all(
-                                                            color: Colors.white
-                                                                .withOpacity(
-                                                                    0.4),
-                                                            width: 1.2),
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                              color: Colors.cyan
-                                                                  .withOpacity(
-                                                                      0.4),
-                                                              blurRadius: 6,
-                                                              spreadRadius: 1)
-                                                        ],
-                                                      ),
                                                       child: CachedNetworkImage(
                                                         imageUrl:
                                                             "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/agancy.png",
@@ -5371,6 +5286,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                                                 height: 30),
                                                       ),
                                                     ),
+
                                                   // ৪. Verified Badge (যদি isVerified ট্রু হয়)
                                                   if (userData['isVerified'] ==
                                                       true)
@@ -5554,155 +5470,125 @@ class _VoiceRoomState extends State<VoiceRoom>
                                 height: seatSize,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  gradient: LinearGradient(
-                                    colors: isOccupied
-                                        ? [
-                                            Colors.cyanAccent,
-                                            Colors.purpleAccent,
-                                            Colors.pinkAccent,
-                                          ]
-                                        : [
-                                            Colors.white24,
-                                            Colors.white10,
-                                          ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
+                                  // 🔥 ইউজার বসলে ব্যাকগ্রাউন্ড এবং বর্ডার একদম ক্লিন/স্বচ্ছ হয়ে যাবে
+                                  color: isOccupied
+                                      ? Colors.transparent
+                                      : Colors.white.withOpacity(0.1),
+                                  border: isOccupied
+                                      ? null
+                                      : Border.all(
+                                          color: Colors.white.withOpacity(0.2),
+                                          width: 1.5,
+                                        ),
                                   boxShadow: isOccupied
-                                      ? [
+                                      ? []
+                                      : [
                                           BoxShadow(
-                                            color: Colors.purpleAccent
-                                                .withOpacity(0.4),
+                                            color:
+                                                Colors.black.withOpacity(0.2),
                                             blurRadius: 8,
                                             spreadRadius: 1,
                                           ),
-                                          BoxShadow(
-                                            color: Colors.cyanAccent
-                                                .withOpacity(0.2),
-                                            blurRadius: 12,
-                                            spreadRadius: 2,
-                                          ),
-                                        ]
-                                      : [],
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(2.5),
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.black87,
-                                          Colors.deepPurple.shade900
-                                              .withOpacity(0.8),
                                         ],
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                      ),
-                                    ),
-                                    child: CircleAvatar(
-                                      radius: avatarSize ?? 30,
-                                      backgroundColor: Colors.transparent,
-                                      backgroundImage:
-                                          (isOccupied && uImage.isNotEmpty)
-                                              ? NetworkImage(uImage)
-                                              : null,
-                                      child: (isOccupied)
-                                          ? (uImage.isEmpty
-                                              ? Icon(Icons.person,
-                                                  color: Colors.white24,
-                                                  size: avatarSize != null
-                                                      ? avatarSize * 0.6
-                                                      : 30)
-                                              : null)
-                                          : (seatData != null &&
-                                                  seatData['isLocked'] == true)
-                                              ? Container(
-                                                  decoration: BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    color: Colors.black,
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.cyanAccent
-                                                            .withOpacity(0.7),
-                                                        blurRadius: 10,
-                                                        spreadRadius: 2,
-                                                      ),
-                                                    ],
-                                                    border: Border.all(
-                                                      color: Colors.cyanAccent,
-                                                      width: 2.5,
-                                                    ),
-                                                  ),
-                                                  child: Center(
-                                                    child: Container(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              6),
+                                ),
+                                child: ClipOval(
+                                  child: BackdropFilter(
+                                    filter:
+                                        ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                                    child: Padding(
+                                      padding: EdgeInsets
+                                          .zero, // এখানে প্যাডিং জিরো করে দেওয়া হয়েছে যাতে অবতার বা বর্ডার ছোট না হয়
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Colors.black.withOpacity(0.3),
+                                        ),
+                                        child: CircleAvatar(
+                                          radius: seatSize /
+                                              2, // সিট সাইজের সাথে নিখুঁতভাবে মিল রাখতে রেডিয়্যাস ঠিক করা হয়েছে
+                                          backgroundColor: Colors.transparent,
+                                          backgroundImage:
+                                              (isOccupied && uImage.isNotEmpty)
+                                                  ? NetworkImage(uImage)
+                                                  : null,
+                                          child: (isOccupied)
+                                              ? (uImage.isEmpty
+                                                  ? Icon(Icons.person,
+                                                      color: Colors.white24,
+                                                      size: avatarSize != null
+                                                          ? avatarSize * 0.6
+                                                          : 30)
+                                                  : null)
+                                              : (seatData != null &&
+                                                      seatData['isLocked'] ==
+                                                          true)
+                                                  ? Container(
                                                       decoration: BoxDecoration(
                                                         shape: BoxShape.circle,
+                                                        color: Colors.black,
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors
+                                                                .cyanAccent
+                                                                .withOpacity(
+                                                                    0.7),
+                                                            blurRadius: 10,
+                                                            spreadRadius: 2,
+                                                          ),
+                                                        ],
                                                         border: Border.all(
-                                                          color: Colors
-                                                              .cyanAccent
-                                                              .withOpacity(0.5),
-                                                          width: 1.2,
+                                                          color:
+                                                              Colors.cyanAccent,
+                                                          width: 2.5,
                                                         ),
                                                       ),
-                                                      child: const Icon(
-                                                        Icons.lock_rounded,
-                                                        color:
-                                                            Colors.cyanAccent,
-                                                        size: 18,
+                                                      child: Center(
+                                                        child: Container(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .all(6),
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            shape:
+                                                                BoxShape.circle,
+                                                            border: Border.all(
+                                                              color: Colors
+                                                                  .cyanAccent
+                                                                  .withOpacity(
+                                                                      0.5),
+                                                              width: 1.2,
+                                                            ),
+                                                          ),
+                                                          child: const Icon(
+                                                            Icons.lock_rounded,
+                                                            color: Colors
+                                                                .cyanAccent,
+                                                            size: 18,
+                                                          ),
+                                                        ),
                                                       ),
+                                                    )
+                                                  : const Icon(
+                                                      Icons.mic_rounded,
+                                                      color: Colors.white24,
+                                                      size: 28,
                                                     ),
-                                                  ),
-                                                )
-                                              : const Icon(
-                                                  Icons.chair_rounded,
-                                                  color: Colors.white12,
-                                                  size: 28,
-                                                ),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                              if (isOccupied && uFrame.isNotEmpty)
-                                IgnorePointer(
-                                  child: OverflowBox(
-                                    maxWidth:
-                                        (frameSize ?? (seatSize * 1.8)) * 1.2,
-                                    maxHeight:
-                                        (frameSize ?? (seatSize * 1.8)) * 1.2,
-                                    child: SizedBox(
-                                      width: frameSize ?? (seatSize * 1.8),
-                                      height: frameSize ?? (seatSize * 1.8),
-                                      child: uFrame.contains('.json')
-                                          ? Lottie.network(
-                                              uFrame,
-                                              fit: BoxFit.contain,
-                                              errorBuilder: (c, e, s) =>
-                                                  const SizedBox.shrink(),
-                                            )
-                                          : CachedNetworkImage(
-                                              imageUrl: uFrame,
-                                              fit: BoxFit.contain,
-                                              placeholder: (context, url) =>
-                                                  const SizedBox.shrink(),
-                                              errorWidget: (c, e, s) =>
-                                                  const SizedBox.shrink(),
-                                            ),
-                                    ),
-                                  ),
-                                ),
+                              //ফ্রেম ছিলো এইখানে  সিটের
                             ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 1),
+                      const SizedBox(height: 2),
                       Text(
                         isOccupied ? uName : "${index + 1}",
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 7,
                           color: isOccupied ? Colors.white : Colors.white38,
                           fontWeight:
                               isOccupied ? FontWeight.bold : FontWeight.normal,
@@ -5711,19 +5597,6 @@ class _VoiceRoomState extends State<VoiceRoom>
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (isOccupied && uIDShow.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 1),
-                          child: Text(
-                            "ID: $uIDShow",
-                            style: const TextStyle(
-                                fontSize: 9,
-                                color: Colors.white54,
-                                letterSpacing: 0.2),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -5944,14 +5817,14 @@ class _VoiceRoomState extends State<VoiceRoom>
                                   const EdgeInsets.symmetric(horizontal: 3),
                               child: Center(
                                 child: SizedBox(
-                                  width: 80.0,
-                                  height: 90.0,
+                                  width: 65.0,
+                                  height: 75.0,
                                   child: FittedBox(
                                     fit: BoxFit.contain,
                                     child: dynamicItemBuilder(
                                       context,
                                       index,
-                                      seatSize: 80.0,
+                                      seatSize: 65.0,
                                       avatarSize: 60.0,
                                       frameSize: 95.0,
                                     ),
@@ -5977,14 +5850,14 @@ class _VoiceRoomState extends State<VoiceRoom>
                                   const EdgeInsets.symmetric(horizontal: 3),
                               child: Center(
                                 child: SizedBox(
-                                  width: 80.0,
-                                  height: 90.0,
+                                  width: 65.0,
+                                  height: 75.0,
                                   child: FittedBox(
                                     fit: BoxFit.contain,
                                     child: dynamicItemBuilder(
                                       context,
                                       index + 5,
-                                      seatSize: 80.0,
+                                      seatSize: 65.0,
                                       avatarSize: 60.0,
                                       frameSize: 95.0,
                                     ),
@@ -6005,46 +5878,38 @@ class _VoiceRoomState extends State<VoiceRoom>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // হোস্ট সিট (index 0 এবং 1)
+                      // 🔥 হোস্ট সিট দুটি কাছাকাছি আনার জন্য Row-এ MainAxisAlignment.center ব্যবহার করা হয়েছে
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Expanded(
-                            child: Center(
-                              child: SizedBox(
-                                width: 100.0,
-                                height: 110.0,
-                                child: FittedBox(
-                                  fit: BoxFit.contain,
-                                  child: dynamicItemBuilder(
-                                    context,
-                                    0,
-                                    seatSize: 100.0,
-                                    avatarSize:
-                                        55.0, // 🟢 প্রফাইল পিকচারের সাইজ
-                                    frameSize: 90.0, // 🟢 অবতার ফ্রেমের সাইজ
-                                  ),
-                                ),
+                          SizedBox(
+                            width: 80.0,
+                            height: 90.0,
+                            child: FittedBox(
+                              fit: BoxFit.contain,
+                              child: dynamicItemBuilder(
+                                context,
+                                0,
+                                seatSize: 80.0,
+                                avatarSize: 55.0,
+                                frameSize: 90.0,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Center(
-                              child: SizedBox(
-                                width: 100.0,
-                                height: 110.0,
-                                child: FittedBox(
-                                  fit: BoxFit.contain,
-                                  child: dynamicItemBuilder(
-                                    context,
-                                    1,
-                                    seatSize: 100.0,
-                                    avatarSize:
-                                        55.0, // 🟢 প্রফাইল পিকচারের সাইজ
-                                    frameSize: 90.0, // 🟢 অবতার ফ্রেমের সাইজ
-                                  ),
-                                ),
+                          const SizedBox(
+                              width:
+                                  15), // 🟢 দুটি হোস্ট সিটের মাঝখানের দূরত্ব (প্রয়োজনে বাড়াতে/কমাতেন পারেন)
+                          SizedBox(
+                            width: 80.0,
+                            height: 90.0,
+                            child: FittedBox(
+                              fit: BoxFit.contain,
+                              child: dynamicItemBuilder(
+                                context,
+                                1,
+                                seatSize: 80.0,
+                                avatarSize: 55.0,
+                                frameSize: 90.0,
                               ),
                             ),
                           ),
@@ -6053,63 +5918,46 @@ class _VoiceRoomState extends State<VoiceRoom>
 
                       const SizedBox(height: 20),
 
-                      // নিচের প্রথম সারি (index 2 থেকে 6) - এখন এখানেও সাইজ কাস্টমাইজ করা যাবে
+                      // 🔥 নিচের প্রথম সারি (index 2 থেকে 6) - দূরত্ত বাড়ানোর জন্য spaceBetween দেওয়া হয়েছে
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: List.generate(
                           5,
-                          (index) => Expanded(
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4),
-                              child: Center(
-                                child: SizedBox(
-                                  width: 75.0,
-                                  height: 85.0,
-                                  child: FittedBox(
-                                    fit: BoxFit.contain,
-                                    child: dynamicItemBuilder(
-                                      context,
-                                      index + 2,
-                                      seatSize: 75.0,
-                                      avatarSize:
-                                          60.0, // 🟢 নিচের সিটের প্রফাইল পিকচারের সাইজ (প্রয়োজনে বাড়াতে/কমাতেন পারবেন)
-                                      frameSize:
-                                          95.0, // 🟢 নিচের সিটের অবতার ফ্রেমের সাইজ (প্রয়োজনে বাড়াতে/কমাতেন পারবেন)
-                                    ),
-                                  ),
-                                ),
+                          (index) => SizedBox(
+                            width: 65.0,
+                            height: 75.0,
+                            child: FittedBox(
+                              fit: BoxFit.contain,
+                              child: dynamicItemBuilder(
+                                context,
+                                index + 2,
+                                seatSize: 65.0,
+                                avatarSize: 60.0,
+                                frameSize: 95.0,
                               ),
                             ),
                           ),
                         ),
                       ),
 
-                      // নিচের শেষ সারি (index 7 থেকে 11)
+                      const SizedBox(height: 15),
+
+                      // 🔥 নিচের শেষ সারি (index 7 থেকে 11) - দূরত্ত বাড়ানোর জন্য spaceBetween দেওয়া হয়েছে
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: List.generate(
                           5,
-                          (index) => Expanded(
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4),
-                              child: Center(
-                                child: SizedBox(
-                                  width: 75.0,
-                                  height: 85.0,
-                                  child: FittedBox(
-                                    fit: BoxFit.contain,
-                                    child: dynamicItemBuilder(
-                                      context,
-                                      index + 7,
-                                      seatSize: 75.0,
-                                      avatarSize:
-                                          60.0, // 🟢 প্রফাইল পিকচারের সাইজ
-                                      frameSize: 95.0, // 🟢 অবতার ফ্রেমের সাইজ
-                                    ),
-                                  ),
-                                ),
+                          (index) => SizedBox(
+                            width: 65.0,
+                            height: 75.0,
+                            child: FittedBox(
+                              fit: BoxFit.contain,
+                              child: dynamicItemBuilder(
+                                context,
+                                index + 7,
+                                seatSize: 65.0,
+                                avatarSize: 60.0,
+                                frameSize: 95.0,
                               ),
                             ),
                           ),
@@ -6124,36 +5972,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                   child: Column(
                     children: [
-                      // উপরের ৩টি হোস্ট সিট (index 0, 1, 2)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(
-                          3,
-                          (index) => Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            child: SizedBox(
-                              width: 100.0,
-                              height: 110.0,
-                              child: FittedBox(
-                                fit: BoxFit.contain,
-                                child: dynamicItemBuilder(
-                                  context,
-                                  index,
-                                  seatSize: 100.0,
-                                  avatarSize:
-                                      60.0, // 🟢 আইডি দূরে যাওয়া ঠেকাতে সাইজ ঠিক রাখা হয়েছে
-                                  frameSize: 95.0,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // ↕️ [প্রথম ও দ্বিতীয় সারির মধ্যকার দূরত্ব] এখান থেকে বাড়াতে পারবেন
-                      const SizedBox(height: 1),
-
-                      // মাঝের সারি (index 3 থেকে 7)
+                      // 🟢 প্রথম সারি (index 0 থেকে 4) - ৫টি সিট
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: List.generate(
@@ -6164,14 +5983,14 @@ class _VoiceRoomState extends State<VoiceRoom>
                                   const EdgeInsets.symmetric(horizontal: 4),
                               child: Center(
                                 child: SizedBox(
-                                  width: 70.0,
-                                  height: 80.0,
+                                  width: 65.0,
+                                  height: 75.0,
                                   child: FittedBox(
                                     fit: BoxFit.contain,
                                     child: dynamicItemBuilder(
                                       context,
-                                      index + 3,
-                                      seatSize: 70.0,
+                                      index, // index 0 - 4
+                                      seatSize: 65.0,
                                       avatarSize: 38.0,
                                       frameSize: 95.0,
                                     ),
@@ -6183,34 +6002,67 @@ class _VoiceRoomState extends State<VoiceRoom>
                         ),
                       ),
 
-                      // ↕️ [মাঝের ও শেষের সারির মধ্যকার দূরত্ব] এখান থেকেও বাড়াতে পারবেন
-                      const SizedBox(height: 8),
+                      // ↕️️ [প্রথম ও দ্বিতীয় সারির মধ্যকার দূরত্ব] এখান থেকে বাড়াতে বা কমাতে পারবেন
+                      const SizedBox(height: 12),
 
-                      // নিচের গ্রিড সারিগুলো (index 8 থেকে 17)
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: 10,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 5,
-                          childAspectRatio: 0.85,
-                          // ↕️ [গ্রিড লাইনের মধ্যকার উপর-নিচ দূরত্ব]
-                          mainAxisSpacing: 5,
-                          // ➡️ [গ্রিড লাইনের মধ্যকার পাশাপাশি দূরত্ব]
-                          crossAxisSpacing: 8,
+                      // 🟢 দ্বিতীয় সারি (index 5 থেকে 9) - ৫টি সিট
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(
+                          5,
+                          (index) => Expanded(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 65.0,
+                                  height: 75.0,
+                                  child: FittedBox(
+                                    fit: BoxFit.contain,
+                                    child: dynamicItemBuilder(
+                                      context,
+                                      index + 5, // index 5 - 9
+                                      seatSize: 65.0,
+                                      avatarSize: 38.0,
+                                      frameSize: 95.0,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                        itemBuilder: (context, index) => SizedBox(
-                          width: 70.0,
-                          height: 80.0,
-                          child: FittedBox(
-                            fit: BoxFit.contain,
-                            child: dynamicItemBuilder(
-                              context,
-                              index + 8,
-                              seatSize: 70.0,
-                              avatarSize: 38.0,
-                              frameSize: 95.0,
+                      ),
+
+                      // ↕️ [দ্বিতীয় ও তৃতীয় সারির মধ্যকার দূরত্ব] এখান থেকে বাড়াতে বা কমাতে পারবেন
+                      const SizedBox(height: 12),
+
+                      // 🟢 তৃতীয় সারি (index 10 থেকে 14) - ৫টি সিট
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(
+                          5,
+                          (index) => Expanded(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 65.0,
+                                  height: 75.0,
+                                  child: FittedBox(
+                                    fit: BoxFit.contain,
+                                    child: dynamicItemBuilder(
+                                      context,
+                                      index + 10, // index 10 - 14
+                                      seatSize: 65.0,
+                                      avatarSize: 38.0,
+                                      frameSize: 95.0,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -6751,356 +6603,354 @@ class _VoiceRoomState extends State<VoiceRoom>
   }
 
   // ✉️ মেসেজ রো উইজেট (মেনশন, ইনভাইট, ভিআইপি, প্রিমিয়াম, অ্যাক্টিভ, গিফট লেভেল, ভেরিফাইড এবং অফিসিয়াল ব্যাজ সহ)
-  Widget _buildMessageRow({
-    required BuildContext context,
-    required Map<String, dynamic> msg,
-  }) {
-    String uId = msg['senderId'] ?? msg['uId'] ?? '';
-    String senderName = msg['name'] ?? msg['userName'] ?? "User";
-    String senderImage = msg['profilePic'] ?? msg['senderImage'] ?? "";
-    String messageText = msg['text'] ?? msg['message'] ?? "";
+Widget _buildMessageRow({
+  required BuildContext context,
+  required Map<String, dynamic> msg,
+}) {
+  String uId = msg['senderId'] ?? msg['uId'] ?? '';
+  String senderName = msg['name'] ?? msg['userName'] ?? "User";
+  String senderImage = msg['profilePic'] ?? msg['senderImage'] ?? "";
+  String messageText = msg['text'] ?? msg['message'] ?? "";
 
-    // 🛠️ লেভেল এবং ভিআইপি ডাটা এক্সট্রাক্ট করা
-    int activeXp =
-        msg['totalActiveXp'] ?? msg['activeXp'] ?? msg['active_xp'] ?? 0;
-    int giftXp = msg['totalGiftXp'] ?? msg['giftXp'] ?? msg['gift_xp'] ?? 0;
+  // 🛠️ লেভেল এবং ভিআইপি ডাটা এক্সট্রাক্ট করা
+  int activeXp =
+      msg['totalActiveXp'] ?? msg['activeXp'] ?? msg['active_xp'] ?? 0;
+  int giftXp = msg['totalGiftXp'] ?? msg['giftXp'] ?? msg['gift_xp'] ?? 0;
 
-    // ভিআইপি এক্সপি এবং এক্সপায়ারি ফেচ করা
-    int userXp = msg['vip_xp'] ?? msg['vipXp'] ?? 0;
-    int userExpiry = msg['vip_expiry'] ?? msg['vipExpiry'] ?? 0;
-    int currentTime = DateTime.now().millisecondsSinceEpoch;
+  // ভিআইপি এক্সপি এবং এক্সপায়ারি ফেচ করা
+  int userXp = msg['vip_xp'] ?? msg['vipXp'] ?? 0;
+  int userExpiry = msg['vip_expiry'] ?? msg['vipExpiry'] ?? 0;
+  int currentTime = DateTime.now().millisecondsSinceEpoch;
 
-    // ভিআইপি লেভেল ক্যালকুলেশন লজিক
-    int getCalculatedVipLevel() {
-      if (userExpiry != 0 && currentTime > userExpiry) {
-        return 0;
-      }
-      if (userXp >= 35000) return 8;
-      if (userXp >= 30000) return 7;
-      if (userXp >= 25000) return 6;
-      if (userXp >= 20000) return 5;
-      if (userXp >= 13000) return 4;
-      if (userXp >= 9000) return 3;
-      if (userXp >= 5000) return 2;
-      if (userXp >= 2500) return 1;
+  // ভিআইপি লেভেল ক্যালকুলেশন লজিক
+  int getCalculatedVipLevel() {
+    if (userExpiry != 0 && currentTime > userExpiry) {
       return 0;
     }
+    if (userXp >= 35000) return 8;
+    if (userXp >= 30000) return 7;
+    if (userXp >= 25000) return 6;
+    if (userXp >= 20000) return 5;
+    if (userXp >= 13000) return 4;
+    if (userXp >= 9000) return 3;
+    if (userXp >= 5000) return 2;
+    if (userXp >= 2500) return 1;
+    return 0;
+  }
 
-    int vipLevel = msg['vipLevel'] ?? msg['vip'] ?? getCalculatedVipLevel();
-    bool hasVip = vipLevel > 0;
+  int vipLevel = msg['vipLevel'] ?? msg['vip'] ?? getCalculatedVipLevel();
+  bool hasVip = vipLevel > 0;
 
-    // প্রিমিয়াম কার্ড এবং এজেন্সি চেক
-    bool hasPremiumCard =
-        msg['hasPremiumCard'] == true || msg['isPremium'] == true;
-    bool isAgent = msg['isAgent'] == true ||
-        msg['agencyId'] != null ||
-        msg['isAgency'] == true;
+  // প্রিমিয়াম কার্ড এবং এজেন্সি চেক
+  bool hasPremiumCard =
+      msg['hasPremiumCard'] == true || msg['isPremium'] == true;
+  bool isAgent = msg['isAgent'] == true ||
+      msg['agencyId'] != null ||
+      msg['isAgency'] == true;
 
-    // 🔍 ভেরিফাইড এবং অফিসিয়াল চেক
-    bool isVerified = msg['isVerified'] == true;
-    bool isOfficial = msg['isOfficial'] == true;
+  // 🔍 ভেরিফাইড এবং অফিসিয়াল চেক
+  bool isVerified = msg['isVerified'] == true;
+  bool isOfficial = msg['isOfficial'] == true;
 
-    // --- Active Level Calculation ---
-    int activeLevel = 1;
-    int activeReqXp = 8000;
-    int remActiveXp = activeXp;
-    while (remActiveXp >= activeReqXp && activeLevel < 50) {
-      remActiveXp -= activeReqXp;
-      activeLevel++;
-      activeReqXp += 2000;
-    }
-    if (activeLevel >= 50) activeLevel = 50;
+  // --- Active Level Calculation ---
+  int activeLevel = 1;
+  int activeReqXp = 8000;
+  int remActiveXp = activeXp;
+  while (remActiveXp >= activeReqXp && activeLevel < 50) {
+    remActiveXp -= activeReqXp;
+    activeLevel++;
+    activeReqXp += 2000;
+  }
+  if (activeLevel >= 50) activeLevel = 50;
 
-    // Active Level Color Logic (Heart Color)
-    Color heartColor = Colors.pinkAccent;
-    if (activeLevel >= 10 && activeLevel < 20) {
-      heartColor = const Color(0xFFFF00FF);
-    } else if (activeLevel >= 20 && activeLevel < 35) {
-      heartColor = Colors.redAccent;
-    } else if (activeLevel >= 35) {
-      heartColor = const Color(0xFFFFD700);
-    }
+  // Active Level Color Logic (Heart Color)
+  Color heartColor = Colors.pinkAccent;
+  if (activeLevel >= 10 && activeLevel < 20) {
+    heartColor = const Color(0xFFFF00FF);
+  } else if (activeLevel >= 20 && activeLevel < 35) {
+    heartColor = Colors.redAccent;
+  } else if (activeLevel >= 35) {
+    heartColor = const Color(0xFFFFD700);
+  }
 
-    // --- Gift Level Calculation ---
-    int giftLevel = 1;
-    int giftReqXp = 8000;
-    int remGiftXp = giftXp;
-    while (remGiftXp >= giftReqXp && giftLevel < 50) {
-      remGiftXp -= giftReqXp;
-      giftLevel++;
-      giftReqXp += 2000;
-    }
-    if (giftLevel >= 50) giftLevel = 50;
+  // --- Gift Level Calculation ---
+  int giftLevel = 1;
+  int giftReqXp = 8000;
+  int remGiftXp = giftXp;
+  while (remGiftXp >= giftReqXp && giftLevel < 50) {
+    remGiftXp -= giftReqXp;
+    giftLevel++;
+    giftReqXp += 2000;
+  }
+  if (giftLevel >= 50) giftLevel = 50;
 
-    // Gift Level Color Logic (Rose Color)
-    Color roseColor = Colors.purpleAccent;
-    if (giftLevel >= 10 && giftLevel < 20) {
-      roseColor = const Color(0xFFFF00FF);
-    } else if (giftLevel >= 20 && giftLevel < 35) {
-      roseColor = Colors.pinkAccent;
-    } else if (giftLevel >= 35) {
-      roseColor = Colors.amberAccent;
-    }
+  // Gift Level Color Logic (Rose Color)
+  Color roseColor = Colors.purpleAccent;
+  if (giftLevel >= 10 && giftLevel < 20) {
+    roseColor = const Color(0xFFFF00FF);
+  } else if (giftLevel >= 20 && giftLevel < 35) {
+    roseColor = Colors.pinkAccent;
+  } else if (giftLevel >= 35) {
+    roseColor = Colors.amberAccent;
+  }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 🖼️ প্রোফাইল পিকচার (ক্লিক করলে সিট ইনভাইট পাঠানো হবে)
-          GestureDetector(
-            onTap: () {
-              if (uId.isEmpty) {
-                return;
-              }
-              sendInvite(uId, senderName);
-            },
-            child: CircleAvatar(
-              radius: 14,
-              backgroundColor: Colors.white10,
-              backgroundImage:
-                  senderImage.isNotEmpty ? NetworkImage(senderImage) : null,
-              child: senderImage.isEmpty
-                  ? const Icon(Icons.person, size: 16, color: Colors.white24)
-                  : null,
-            ),
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2.5),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 🖼️ প্রোফাইল পিকচার (ক্লিক করলে সিট ইনভাইট পাঠানো হবে)
+        GestureDetector(
+          onTap: () {
+            if (uId.isEmpty) {
+              return;
+            }
+            sendInvite(uId, senderName);
+          },
+          child: CircleAvatar(
+            radius: 11,
+            backgroundColor: Colors.white10,
+            backgroundImage:
+                senderImage.isNotEmpty ? NetworkImage(senderImage) : null,
+            child: senderImage.isEmpty
+                ? const Icon(Icons.person, size: 13, color: Colors.white24)
+                : null,
           ),
-          const SizedBox(width: 6),
+        ),
+        const SizedBox(width: 5),
 
-          // ✉️ গ্লাস মেসেজ ফ্রেম
-          Flexible(
-            child: ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topRight: Radius.circular(12),
-                bottomLeft: Radius.circular(12),
-                bottomRight: Radius.circular(12),
-              ),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(12),
-                      bottomLeft: Radius.circular(12),
-                      bottomRight: Radius.circular(12),
-                    ),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.15),
-                      width: 0.8,
-                    ),
+        // ✉️ গ্লাস মেসেজ ফ্রেম
+        Flexible(
+          child: ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topRight: Radius.circular(10),
+              bottomLeft: Radius.circular(10),
+              bottomRight: Radius.circular(10),
+            ),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4.5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(10),
+                    bottomLeft: Radius.circular(10),
+                    bottomRight: Radius.circular(10),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ✍️ ইউজারনেম এবং নামের পাশে ভেরিফাইড ও অফিসিয়াল ব্যাজ
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _messageController.text = "@$senderName ";
-                                _messageController.selection =
-                                    TextSelection.fromPosition(
-                                  TextPosition(
-                                      offset: _messageController.text.length),
-                                );
-                              });
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.15),
+                    width: 0.6,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ✍️ ইউজারনেম এবং নামের পাশে ভেরিফাইড ও অফিসিয়াল ব্যাজ
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _messageController.text = "@$senderName ";
+                              _messageController.selection =
+                                  TextSelection.fromPosition(
+                                TextPosition(
+                                    offset: _messageController.text.length),
+                              );
+                            });
 
-                              _showChatInputBottomSheet();
-                            },
-                            child: Text(
-                              senderName,
-                              style: const TextStyle(
-                                  color: Colors.amber,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 10),
-                            ),
+                            _showChatInputBottomSheet();
+                          },
+                          child: Text(
+                            senderName,
+                            style: const TextStyle(
+                                color: Colors.amber,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 9.5),
                           ),
+                        ),
 
-                          // ✅ Verified Badge (নামের পাশে)
-                          if (isVerified) ...[
-                            const SizedBox(width: 4),
-                            const Icon(
-                              Icons.verified,
-                              color: Color(0xFF00FBFF),
-                              size:
-                                  11, // সাইজ অন্যান্য ব্যাজের সাথে সামঞ্জস্য রাখা হয়েছে
-                            ),
-                          ],
-
-                          // 🌟 Official Badge (নামের পাশে)
-                          if (isOfficial) ...[
-                            const SizedBox(width: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 4, vertical: 0.5),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Colors.amber, Colors.orangeAccent],
-                                ),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: const Text(
-                                "OFFICIAL",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 7,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
+                        // ✅ Verified Badge (নামের পাশে)
+                        if (isVerified) ...[
+                          const SizedBox(width: 3),
+                          const Icon(
+                            Icons.verified,
+                            color: Color(0xFF00FBFF),
+                            size: 10,
+                          ),
                         ],
-                      ),
-                      const SizedBox(height: 3),
 
-                      // 🏷️ ব্যাজগুলোর রো (লেভেল ও অন্যান্য ব্যাজ)
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 3,
-                        children: [
-                          // ❤️ Active Level Badge
+                        // 🌟 Official Badge (নামের পাশে)
+                        if (isOfficial) ...[
+                          const SizedBox(width: 3),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 5, vertical: 1),
+                                horizontal: 3, vertical: 0.2),
                             decoration: BoxDecoration(
-                              color: heartColor.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                  color: heartColor.withOpacity(0.6),
-                                  width: 0.8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.favorite,
-                                    size: 8.5, color: heartColor),
-                                const SizedBox(width: 2),
-                                Text(
-                                  "Lv.$activeLevel",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // 🌸 Gift Level Badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 5, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: roseColor.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                  color: roseColor.withOpacity(0.6),
-                                  width: 0.8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.local_florist,
-                                    size: 8.5, color: roseColor),
-                                const SizedBox(width: 2),
-                                Text(
-                                  "Lv.$giftLevel",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // ⭐ VIP Badge
-                          if (hasVip)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 5, vertical: 1),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Colors.purple, Colors.deepOrange],
-                                ),
-                                borderRadius: BorderRadius.circular(4),
+                              gradient: const LinearGradient(
+                                colors: [Colors.amber, Colors.orangeAccent],
                               ),
-                              child: Text(
-                                "VIP $vipLevel",
+                              borderRadius: BorderRadius.circular(2.5),
+                            ),
+                            child: const Text(
+                              "OFFICIAL",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 6.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+
+                    // 🏷️ ব্যাজগুলোর রো (লেভেল ও অন্যান্য ব্যাজ)
+                    Wrap(
+                      spacing: 3,
+                      runSpacing: 2,
+                      children: [
+                        // ❤️ Active Level Badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 0.8),
+                          decoration: BoxDecoration(
+                            color: heartColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(
+                                color: heartColor.withOpacity(0.6),
+                                width: 0.6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.favorite,
+                                  size: 7.5, color: heartColor),
+                              const SizedBox(width: 1.5),
+                              Text(
+                                "Lv.$activeLevel",
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 8,
+                                  fontSize: 7.5,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ),
+                            ],
+                          ),
+                        ),
 
-                          // 💎 Premium Card Badge
-                          if (hasPremiumCard)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 5, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: Colors.amberAccent,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Text(
-                                "PREMIUM",
-                                style: TextStyle(
-                                  color: Colors.black87,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-
-                          // 🛡️ Agency Badge
-                          if (isAgent)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 5, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: Colors.blueAccent,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Text(
-                                "AGENCY",
-                                style: TextStyle(
+                        // 🌸 Gift Level Badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 0.8),
+                          decoration: BoxDecoration(
+                            color: roseColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(
+                                color: roseColor.withOpacity(0.6),
+                                width: 0.6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.local_florist,
+                                  size: 7.5, color: roseColor),
+                              const SizedBox(width: 1.5),
+                              Text(
+                                "Lv.$giftLevel",
+                                style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 8,
+                                  fontSize: 7.5,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 5),
+                            ],
+                          ),
+                        ),
 
-                      // 💬 মেসেজ টেক্সট
-                      Text(
-                        messageText,
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 13),
-                      ),
-                    ],
-                  ),
+                        // ⭐ VIP Badge
+                        if (hasVip)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 0.8),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Colors.purple, Colors.deepOrange],
+                              ),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              "VIP $vipLevel",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 7.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+
+                        // 💎 Premium Card Badge
+                        if (hasPremiumCard)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 0.8),
+                            decoration: BoxDecoration(
+                              color: Colors.amberAccent,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: const Text(
+                              "PREMIUM",
+                              style: TextStyle(
+                                color: Colors.black87,
+                                fontSize: 7.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+
+                        // 🛡️ Agency Badge
+                        if (isAgent)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 0.8),
+                            decoration: BoxDecoration(
+                              color: Colors.blueAccent,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: const Text(
+                              "AGENCY",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 7.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+
+                    // 💬 মেসেজ টেক্সট
+                    Text(
+                      messageText,
+                      style:
+                          const TextStyle(color: Colors.white, fontSize: 11.5),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
+        ),
+      ],
+    ),
+  );
+}
   // গিফট বাটন উইজেট (স্থির, নিরাপদ এবং অপ্টিমাইজড)
   Widget _buildAnimatedGiftButton() {
     return IconButton(

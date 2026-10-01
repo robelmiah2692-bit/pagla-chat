@@ -3239,7 +3239,7 @@ class _ProfilePageState extends State<ProfilePage> {
         List<Map<String, String>> myAvailableFrames = [];
 
         const String premiumFrameUrl =
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/premiumframe.png";
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newanimeframe/kingframe.webp";
         bool isPremiumExpired =
             frameUntilDate != null && frameUntilDate!.isBefore(DateTime.now());
 
@@ -4563,6 +4563,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   fontSize: 18,
                   fontWeight: FontWeight.bold)),
         ),
+        const SizedBox(height: 10),
         StreamBuilder<DocumentSnapshot>(
           // সরাসরি নিজের ডকুমেন্ট থেকে সোলমেট আইডিগুলোর অ্যারে নিচ্ছি
           stream: FirebaseFirestore.instance
@@ -4574,7 +4575,7 @@ class _ProfilePageState extends State<ProfilePage> {
               return const Center(child: CircularProgressIndicator());
             }
 
-            var userData = snapshot.data!.data() as Map<String, dynamic>;
+            var userData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
             List<dynamic> soulmatesList = userData['soulmates'] ?? [];
 
             return GridView.builder(
@@ -4582,18 +4583,18 @@ class _ProfilePageState extends State<ProfilePage> {
               physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 15),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.82,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
+                crossAxisCount: 3, // এক লাইনে ৩টি কার্ড
+                childAspectRatio: 0.68, // ওভারফ্লো রোধ করতে উচ্চতা কিছুটা বাড়ানো হলো
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 12, // লাইনের মাঝের গ্যাপ বাড়িয়ে দেওয়া হলো
               ),
-              itemCount: 6, // সবসময় ৬টি ঘর
+              itemCount: 6, // সবসময় ৬টি ঘর
               itemBuilder: (context, index) {
                 bool hasData = index < soulmatesList.length;
 
                 return Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(12),
                     image: const DecorationImage(
                       image: CachedNetworkImageProvider(soulmateCardUrl),
                       fit: BoxFit.fill,
@@ -4612,7 +4613,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ],
     );
   }
-
 // ✨ নিখুঁত, হালকা ও স্মুথ শিমার শাইনিং ইফেক্ট উইজেট
   Widget _buildShiningBadgeWrapper(Widget child) {
     return SizedBox(

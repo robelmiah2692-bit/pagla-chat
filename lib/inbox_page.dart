@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lottie/lottie.dart';
+import 'package:pagla_chat/services/call_handler.dart';
 import 'package:pagla_chat/widgets/room_settings_handler.dart';
 import 'dart:ui';
 import 'chat_screen.dart';
@@ -31,7 +32,10 @@ class _InboxPageState extends State<InboxPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
   String currentSixDigitId = "";
-
+// কল লিসেনার ডুপ্লিকেট এভয়েড করার জন্য ভ্যারিয়েবল
+  bool _isCallListenerInitialized = false;
+  
+  
   @override
   void initState() {
     super.initState();
@@ -42,23 +46,46 @@ class _InboxPageState extends State<InboxPage> {
   Future<void> _fetchMyDetails() async {
     try {
       print("DEBUG_LOG: Fetching my details from Firestore for authUID: $currentUserId");
+      
+      // ১. প্রথমে authUID দিয়ে খোঁজা
       var userDoc = await FirebaseFirestore.instance
           .collection('users')
           .where('authUID', isEqualTo: currentUserId)
           .get();
 
+      String docId = "";
+
       if (userDoc.docs.isNotEmpty) {
+        docId = userDoc.docs.first.id;
         setState(() {
-          currentSixDigitId =
-              userDoc.docs.first.data()['uID']?.toString() ?? "";
+          currentSixDigitId = userDoc.docs.first.data()['uID']?.toString() ?? "";
           print("DEBUG: Loaded my ID: $currentSixDigitId");
         });
+      } else {
+        // যদি কুয়েরিতে না পায়, সরাসরি డాక్యুমেন্ট আইডি (authUid) দিয়ে চেক করা
+        var directDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUserId)
+            .get();
+
+        if (directDoc.exists) {
+          docId = directDoc.id;
+          setState(() {
+            currentSixDigitId = directDoc.data()?['uID']?.toString() ?? "";
+          });
+        }
       }
+
+      // 🟢 ইনবক্স পেজেও কল শো করার জন্য এখানে কল লিসেনার যুক্ত করা হলো
+      if (docId.isNotEmpty && !_isCallListenerInitialized && mounted) {
+        _isCallListenerInitialized = true;
+         CallHandler.listenForIncomingCalls(context, docId);
+      }
+
     } catch (e) {
       print("Error fetching my details: $e");
     }
   }
-
   void _markAsRead(String chatId) async {
     try {
       print("DEBUG_LOG: _markAsRead triggered for chatId: $chatId");
@@ -168,14 +195,72 @@ print("DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as
  Widget _buildUserList() {
   print("DEBUG_LOG: _buildUserList called.");
 
-  // যদি ছয় ডিজিটের uID না থাকে, তবে আগে তা লোকাল বা স্টেট থেকে নিশ্চিত করতে হবে
+  // যদি ছয় ডিজিটের uID না থাকে, তবে আগে তা লোকাল বা স্টেট থেকে নিশ্চিত করতে হবে
   if (currentSixDigitId.isEmpty) {
     return const Center(
       child: CircularProgressIndicator(color: Colors.pinkAccent),
     );
   }
 
-  // সরাসরি chats কালেকশন থেকে স্ট্রিম নেব এবং লেটেস্ট মেসেজ অনুযায়ী সর্ট করব
+  // যদি সার্চ বারে কিছু লেখা হয়, তবে সরাসরি users কালেকশন থেকে নতুন ইউজারদের নিয়ে আসবে
+  if (_searchQuery.isNotEmpty) {
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance.collection('users').get(),
+      builder: (context, searchSnapshot) {
+        if (!searchSnapshot.hasData) {
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.pinkAccent),
+          );
+        }
+
+        var allUsers = searchSnapshot.data!.docs;
+        
+        // নাম বা আইডি দিয়ে ফিল্টার করা
+        var matchedUsers = allUsers.where((doc) {
+          var data = doc.data() as Map<String, dynamic>;
+          String name = (data['name'] ?? "").toString().toLowerCase();
+          String customId = (data['uID'] ?? "").toString().toLowerCase();
+          String numericId = (data['numericID'] ?? "").toString().toLowerCase();
+          
+          // নিজের আইডি বাদ দিয়ে বাকিদের খুঁজবে
+          if (customId == currentSixDigitId) return false;
+
+          return name.contains(_searchQuery.toLowerCase()) ||
+                 customId.contains(_searchQuery.toLowerCase()) ||
+                 numericId.contains(_searchQuery.toLowerCase());
+        }).toList();
+
+        if (matchedUsers.isEmpty) {
+          return const Center(
+            child: Text(
+              "No users found",
+              style: TextStyle(color: Colors.white54, fontSize: 14),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          itemCount: matchedUsers.length,
+          padding: const EdgeInsets.all(10),
+          itemBuilder: (context, index) {
+            var userDoc = matchedUsers[index];
+            var userData = userDoc.data() as Map<String, dynamic>;
+            String userId = userDoc.id;
+            String userSixDigitId = userData['uID']?.toString() ?? "";
+
+            // চ্যাট রুম আইডি তৈরি বা জেনারেট করার জন্য
+            List<String> ids = [currentSixDigitId, userSixDigitId];
+            ids.sort();
+            String generatedChatId = ids.join("_");
+
+            return _buildGlassChatTile(userData, userId, generatedChatId);
+          },
+        );
+      },
+    );
+  }
+
+  // সরাসরি chats কালেকশন থেকে স্ট্রিম নেব এবং লেটেস্ট মেসেজ অনুযায়ী সর্ট করব (আপনার পুরোনো নিখুঁত কোড)
   return StreamBuilder<QuerySnapshot>(
     stream: FirebaseFirestore.instance
         .collection('chats')
@@ -190,7 +275,7 @@ print("DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as
 
       var chatDocs = chatSnapshot.data!.docs;
 
-      // যে সমস্ত চ্যাট ডকুমেন্টের আইডিতে বর্তমান ইউজারের ছয় ডিজিটের uID আছে বা অফিসিয়াল আইডি আছে
+      // যে সমস্ত চ্যাট ডকুমেন্টের আইডিতে বর্তমান ইউজারের ছয় ডিজিটের uID আছে বা অফিসিয়াল আইডি আছে
       var myChats = chatDocs.where((doc) {
         String chatId = doc.id; // যেমন: "219616_686008" বা অফিসিয়াল চ্যাট আইডি
         return chatId.contains(currentSixDigitId) || 
@@ -223,14 +308,14 @@ print("DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as
           }
         }
 
-        // যদি এই আইডি ইতিপূর্বে লিস্টে না যোগ হয়ে থাকে, তবেই নেব (ডাবল এন্ট্রি রোধ করতে)
+        // যদি এই আইডি ইতিপূর্বে লিস্টে না যোগ হয়ে থাকে, তবেই নেব (ডাবল এন্ট্রি রোধ করতে)
         if (uniqueIdentifier.isNotEmpty && !seenUserIds.contains(uniqueIdentifier)) {
           seenUserIds.add(uniqueIdentifier);
           uniqueChats.add(chatDoc);
         }
       }
 
-      // অফিসিয়াল আইডি সবসময় সবার উপরে রাখার জন্য লিস্ট সর্ট করা, বাকিগুলো লেটেস্ট টাইমস্ট্যাম্প অনুযায়ী থাকবে
+      // অফিসিয়াল আইডি সবসময় সবার উপরে রাখার জন্য লিস্ট সর্ট করা, বাকিগুলো লেটেস্ট টাইমস্ট্যাম্প অনুযায়ী থাকবে
       uniqueChats.sort((a, b) {
         bool aIsOfficial = a.id.contains('paglachat_official') || a.id.contains('333444');
         bool bIsOfficial = b.id.contains('paglachat_official') || b.id.contains('333444');
@@ -238,7 +323,7 @@ print("DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as
         if (aIsOfficial && !bIsOfficial) return -1;
         if (!aIsOfficial && bIsOfficial) return 1;
 
-        // টাইমস্ট্যাম্প দিয়ে ডিসেন্ডিং সর্টিং (যাতে লাস্ট মেসেজ করা ইউজার উপরে থাকে)
+        // টাইমস্ট্যাম্প দিয়ে ডিসেন্ডিং সর্টিং (যাতে লাস্ট মেসেজ করা ইউজার উপরে থাকে)
         var aData = a.data() as Map<String, dynamic>?;
         var bData = b.data() as Map<String, dynamic>?;
         
@@ -300,7 +385,7 @@ print("DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as
                     .limit(1)
                     .get(),
             builder: (context, userSnapshot) {
-              // যদি প্রথম কুয়েরিতে অফিসিয়াল আইডি না পাওয়া যায়, তবে numericID দিয়ে ব্যাকআপ চেক করব
+              // যদি প্রথম কুয়েরিতে অফিসিয়াল আইডি না পাওয়া যায়, তবে numericID দিয়ে ব্যাকআপ চেক করব
               if ((!userSnapshot.hasData || userSnapshot.data!.docs.isEmpty) && isChatOfficial) {
                 return FutureBuilder<QuerySnapshot>(
                   future: FirebaseFirestore.instance
@@ -366,7 +451,6 @@ print("DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as
     },
   );
 }
-
              
   Stream<List<Map<String, dynamic>>> _getSortedUserStream(
       List<QueryDocumentSnapshot> users) async* {

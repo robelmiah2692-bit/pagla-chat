@@ -39,7 +39,7 @@ class _UserListScreenState extends State<UserListScreen> {
       ),
       body: Container(
         decoration: const BoxDecoration(
-          // সেটিংস পেজের হুবহু প্রিমিয়াম ব্লু ও পার্পল গ্রেডিয়েন্ট
+          // সেটিংস পেজের হুবহু প্রিমিয়াম ব্লু ও পার্পল গ্রেডিয়েন্ট
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -157,8 +157,11 @@ class _UserCardState extends State<UserCard> {
           .doc(widget.targetUid)
           .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox();
-        var data = snapshot.data!.data() as Map<String, dynamic>;
+        if (!snapshot.hasData || snapshot.data?.data() == null) {
+          return const SizedBox();
+        }
+        
+        var data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
 
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
@@ -179,35 +182,42 @@ class _UserCardState extends State<UserCard> {
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             onTap: () => _onProfileTap(context, widget.targetUid),
-            leading: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                CircleAvatar(
-                  radius: 25,
-                  backgroundColor: Colors.white24,
-                  backgroundImage: NetworkImage(
-                      data['profilePic'] ?? "https://via.placeholder.com/150"),
-                ),
-                // ফ্রেম লজিক অপরিবর্তিত রাখা হয়েছে
-                if (data['activeFrameUrl'] != null &&
-                    data['activeFrameUrl'].toString().isNotEmpty)
-                  Positioned.fill(
-                    child: Transform.scale(
-                      scale: 2.2,
-                      child: IgnorePointer(
-                        child: data['activeFrameUrl']
-                                .toString()
-                                .contains('.json')
-                            ? Lottie.network(data['activeFrameUrl'],
-                                fit: BoxFit.contain,
-                                errorBuilder: (c, e, s) => const SizedBox())
-                            : Image.network(data['activeFrameUrl'],
-                                fit: BoxFit.contain,
-                                errorBuilder: (c, e, s) => const SizedBox()),
+            leading: SizedBox(
+              width: 55,
+              height: 55,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  // প্রোফাইল পিকচার (রেডিয়াস ২৫ মানে টোটাল সাইজ ৫০x৫০)
+                  CircleAvatar(
+                    radius: 25,
+                    backgroundColor: Colors.white24,
+                    backgroundImage: NetworkImage(
+                        data['profilePic'] ?? "https://via.placeholder.com/150"),
+                  ),
+                  // ফ্রেম লজিক (প্রোফাইল পিকের বর্ডার অনুযায়ী ঠিকঠাক সাইজে ফিট করা হয়েছে)
+                  if (data['activeFrameUrl'] != null &&
+                      data['activeFrameUrl'].toString().isNotEmpty)
+                    Positioned.fill(
+                      child: OverflowBox(
+                        maxWidth: 78,
+                        maxHeight: 78,
+                        child: IgnorePointer(
+                          child: data['activeFrameUrl']
+                                  .toString()
+                                  .contains('.json')
+                              ? Lottie.network(data['activeFrameUrl'],
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (c, e, s) => const SizedBox())
+                              : Image.network(data['activeFrameUrl'],
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (c, e, s) => const SizedBox()),
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
             title: Text(data['name'] ?? "Unknown",
                 style: const TextStyle(

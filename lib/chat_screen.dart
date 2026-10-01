@@ -11,7 +11,6 @@ import 'package:intl/intl.dart';
 import 'package:pagla_chat/full_screen_image_viewer.dart';
 import 'package:pagla_chat/profile_page.dart';
 import 'package:pagla_chat/services/call_handler.dart';
-import 'package:pagla_chat/services/call_screen.dart';
 import 'package:pagla_chat/video_player_screen.dart';
 import 'package:pagla_chat/widgets/room_settings_handler.dart';
 import 'package:record/record.dart';
@@ -63,7 +62,10 @@ class _ChatScreenState extends State<ChatScreen> {
   StreamSubscription? _durationSub;
   bool _isUploading = false;
   double _uploadProgress = 0.0;
-
+// কল লিসেনার ডুপ্লিকেট এভয়েড করার জন্য ভ্যারিয়েবল
+  bool _isCallListenerInitialized = false;
+  
+  
   @override
   void initState() {
     super.initState();
@@ -72,10 +74,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initializeChat() async {
-    // আইডি লোড হওয়া পর্যন্ত অপেক্ষা করুন
+    // আইডি লোড হওয়া পর্যন্ত অপেক্ষা করুন
     await _getMySixDigitId();
 
-    // আইডি লোড হওয়ার পর চেক করুন এবং রিসেট কল করুন
+    // আইডি লোড হওয়ার পর চেক করুন এবং রিসেট কল করুন
     if (currentSixDigitId.isNotEmpty) {
       _loadBlockedList();
 
@@ -83,12 +85,21 @@ class _ChatScreenState extends State<ChatScreen> {
       String chatId = getChatRoomId();
 
       await _resetUnreadCount(chatId); // এখানে await যোগ করুন
+
+      // 🟢 ইনবক্স/চ্যাট পেজে কল রিসিভ করার জন্য লিসেনার যুক্ত করা হলো (পুরাতন কোড ও ফিচার অক্ষুণ্ণ রেখে)
+      if (!_isCallListenerInitialized && mounted) {
+        _isCallListenerInitialized = true;
+        
+        // আপনার ইনবক্সে যেভাবে কল হ্যান্ডলার ব্যবহার করা হয়েছিল:
+         CallHandler.listenForIncomingCalls(context, currentSixDigitId);
+        // অথবা docId দরকার হলে আপনার প্রোজেক্টের রিকোয়ারমেন্ট অনুযায়ী এখানে পাস করতে পারেন।
+      }
+
     } else {
-      // যদি আইডি না পায়, তবে পুনরায় চেষ্টা করুন
+      // যদি আইডি না পায়, তবে পুনরায় চেষ্টা করুন
       Future.delayed(const Duration(milliseconds: 500), _initializeChat);
     }
   }
-
   Future<void> _resetUnreadCount(String chatId) async {
     if (chatId.isEmpty || chatId.contains("null")) return;
 
@@ -377,89 +388,103 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   // ১. মেসেজ পাঠানোর ফাংশন (টাইপ সেফ)
-  // ১. মেসেজ পাঠানোর ফাংশন (টাইপ সেফ)
-  void _sendDataMessage(
-      String content, String type, Map<String, dynamic>? replyData) async {
-    if (content.isEmpty) return;
+  // ১. মেসেজ পাঠানোর ফাংশন (টাইপ সেফ ও অটো ১৫টি মেসেজ রাখার লজিকসহ)
+void _sendDataMessage(
+    String content, String type, Map<String, dynamic>? replyData) async {
+  if (content.isEmpty) return;
 
+  try {
+    final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+
+    // ইউজার ডকুমেন্ট খুঁজে বের করা
+    final userQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .where('authUID', isEqualTo: authUID)
+        .limit(1)
+        .get();
+
+    if (userQuery.docs.isEmpty) {
+      return;
+    }
+
+    final userData = userQuery.docs.first.data();
+    final String mySixDigitId = userData['uID']?.toString() ?? '0';
+    final String myEmail = userData['email'] ?? '';
+    final String myName = userData['name'] ?? 'User';
+    final String myPic =
+        userData['profilepic'] ?? userData['profilePic'] ?? '';
+
+    // ইউনিক চ্যাট রুম আইডি তৈরি
+    String roomId;
+    if (widget.receiverId == "paglachat_official") {
+      roomId = "paglachat_official_$mySixDigitId";
+    } else {
+      List<String> ids = [mySixDigitId, widget.receiverId];
+      ids.sort();
+      roomId = ids.join("_");
+    }
+
+    // চ্যাটের রেফারেন্স তৈরি করা
+    DocumentReference chatRef = FirebaseFirestore.instance.collection('chats').doc(roomId);
+
+    // চ্যাটের ভেতর রিয়েল মেসেজ পাঠানো (এখানে অরিজিনাল কন্টেন্ট বা লিংকই সেভ হবে)
+    await chatRef.collection('messages').add({
+      'senderId': authUID,
+      'senderuID': mySixDigitId,
+      'senderEmail': myEmail,
+      'senderName': myName,
+      'senderImage': myPic,
+      'receiverId': widget.receiverId,
+      'message': content,
+      'type': type,
+      'isRead': false,
+      'timestamp': FieldValue.serverTimestamp(),
+      // রিপ্লাই ডাটা পাঠানো
+      'repliedMessage':
+          replyData != null ? (replyData['message'] ?? "") : null,
+      'repliedBy':
+          replyData != null ? (replyData['senderName'] ?? "User") : null,
+    });
+
+    // 🔥 অটো-ক্লিন ফিচার: মেসেজ পাঠানোর পর যদি মোট মেসেজ ১৫টির বেশি হয়, তবে পুরোনো গুলো ডিলিট করবে
     try {
-      final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
-
-      // ইউজার ডকুমেন্ট খুঁজে বের করা
-      final userQuery = await FirebaseFirestore.instance
-          .collection('users')
-          .where('authUID', isEqualTo: authUID)
-          .limit(1)
+      QuerySnapshot messageSnapshot = await chatRef
+          .collection('messages')
+          .orderBy('timestamp', descending: true)
           .get();
 
-      if (userQuery.docs.isEmpty) {
-        return;
+      if (messageSnapshot.docs.length > 15) {
+        // ১৫টির বেশি যেগুলো আছে, সেগুলোর রেফারেন্স নিয়ে ডিলিট করা
+        for (int i = 15; i < messageSnapshot.docs.length; i++) {
+          await messageSnapshot.docs[i].reference.delete();
+        }
       }
-
-      final userData = userQuery.docs.first.data();
-      final String mySixDigitId = userData['uID']?.toString() ?? '0';
-      final String myEmail = userData['email'] ?? '';
-      final String myName = userData['name'] ?? 'User';
-      final String myPic =
-          userData['profilepic'] ?? userData['profilePic'] ?? '';
-
-      // ইউনিক চ্যাট রুম আইডি তৈরি
-      String roomId;
-      if (widget.receiverId == "paglachat_official") {
-        roomId = "paglachat_official_$mySixDigitId";
-      } else {
-        List<String> ids = [mySixDigitId, widget.receiverId];
-        ids.sort();
-        roomId = ids.join("_");
-      }
-
-      // চ্যাটের ভেতর রিয়েল মেসেজ পাঠানো (এখানে অরিজিনাল কন্টেন্ট বা লিংকই সেভ হবে)
-      await FirebaseFirestore.instance
-          .collection('chats')
-          .doc(roomId)
-          .collection('messages')
-          .add({
-        'senderId': authUID,
-        'senderuID': mySixDigitId,
-        'senderEmail': myEmail,
-        'senderName': myName,
-        'senderImage': myPic,
-        'receiverId': widget.receiverId,
-        'message': content,
-        'type': type,
-        'isRead': false,
-        'timestamp': FieldValue.serverTimestamp(),
-
-        // রিপ্লাই ডাটা পাঠানো
-        'repliedMessage':
-            replyData != null ? (replyData['message'] ?? "") : null,
-        'repliedBy':
-            replyData != null ? (replyData['senderName'] ?? "User") : null,
-      });
-
-      // 🔥 নোটিফিকেশন বা চ্যাট লিস্টের প্রিভিউয়ের জন্য লাস্ট মেসেজ টেক্সট ঠিক করা
-      String displayLastMessage = content;
-      if (type == 'image') {
-        displayLastMessage = '📷 Sent an image';
-      } else if (type == 'video') {
-        displayLastMessage = '🎥 Sent a video';
-      } else if (type == 'audio') {
-        displayLastMessage = '🎤 Sent a voice message';
-      }
-
-      // লাস্ট মেসেজ আপডেট করা
-      await FirebaseFirestore.instance.collection('chats').doc(roomId).set({
-        'lastMessage':
-            displayLastMessage, // এখানে লিংকের বদলে সুন্দর টেক্সট সেভ হবে
-        'lastMessageTimestamp': FieldValue.serverTimestamp(),
-        // রিসিভারের আইডির জন্য কাউন্ট বাড়ান, সেন্ডারের জন্য নয়
-        'unReadCount_${widget.receiverId}': FieldValue.increment(1),
-      }, SetOptions(merge: true));
     } catch (e) {
-      debugPrint("Send message error: $e");
+      debugPrint("Auto delete old messages error: $e");
     }
-  }
 
+    // নোটিফিকেশন বা চ্যাট লিস্টের প্রিভিউয়ের জন্য লাস্ট মেসেজ টেক্সট ঠিক করা
+    String displayLastMessage = content;
+    if (type == 'image') {
+      displayLastMessage = '📷 Sent an image';
+    } else if (type == 'video') {
+      displayLastMessage = '🎥 Sent a video';
+    } else if (type == 'audio') {
+      displayLastMessage = '🎤 Sent a voice message';
+    }
+
+    // লাস্ট মেসেজ আপডেট করা
+    await chatRef.set({
+      'lastMessage': displayLastMessage, // এখানে লিংকের বদলে সুন্দর টেক্সট সেভ হবে
+      'lastMessageTimestamp': FieldValue.serverTimestamp(),
+      // রিসিভারের আইডির জন্য কাউন্ট বাড়ানো, সেন্ডারের জন্য নয়
+      'unReadCount_${widget.receiverId}': FieldValue.increment(1),
+    }, SetOptions(merge: true));
+    
+  } catch (e) {
+    debugPrint("Send message error: $e");
+  }
+}
 // ২. সেন্ড বাটন ক্লিক ফাংশন
   void _sendMessage() async {
     String text = _messageController.text.trim();
