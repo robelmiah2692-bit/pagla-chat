@@ -4,6 +4,15 @@ const { onRequest } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const vision = require('@google-cloud/vision');
 const { google } = require("googleapis");
+const path = require("path");
+const os = require("os");
+const fs = require("fs");
+const ffmpeg = require("fluent-ffmpeg");
+const ffmpegStatic = require("ffmpeg-static");
+
+
+// FFmpeg-এর পাথ সেট করা
+ffmpeg.setFfmpegPath(ffmpegStatic);
 
 admin.initializeApp();
 
@@ -148,4 +157,135 @@ exports.verifyAndAddDiamonds = onRequest({ cors: true, invoker: "public", region
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
+});
+// ৪. নতুন ভিডিও আপলোডের সাথে সাথে সাইজ অপ্টিমাইজ করার লজিক (540p, 9:16, আন্ডার 1MB, 128k audio)
+exports.compressNewVideo = onObjectFinalized(async (event) => {
+    const object = event.data;
+    const filePath = object.name;
+    const contentType = object.contentType;
+
+    if (!contentType || !contentType.startsWith("video/")) return null;
+    if (filePath.startsWith("optimized_")) return null; // লুপ এড়ানোর জন্য
+
+    const bucket = admin.storage().bucket(object.bucket);
+    const fileName = path.basename(filePath);
+    const tempFilePath = path.join(os.tmpdir(), fileName);
+
+    await bucket.file(filePath).download({ destination: tempFilePath });
+
+    const outputFileName = `optimized_${fileName}`;
+    const outputFilePath = path.join(os.tmpdir(), outputFileName);
+
+    return new Promise((resolve, reject) => {
+        ffmpeg(tempFilePath)
+            .outputOptions([
+                "-vf scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2", // 9:16 ফরম্যাট এবং 540p রেজোলিউশন
+                "-b:v 300k",        // বিটরেট কমিয়ে ১ এমবির নিচে নামানোর জন্য অপ্টিমাইজড
+                "-codec:a aac",      
+                "-b:a 128k"         // সাউন্ড ১২৮k
+            ])
+            .toFormat("mp4")
+            .save(outputFilePath)
+            .on("end", async () => {
+                const targetUploadPath = path.join(path.dirname(filePath), outputFileName);
+                await bucket.upload(outputFilePath, {
+                    destination: targetUploadPath,
+                    metadata: { contentType: "video/mp4" },
+                });
+
+                fs.unlinkSync(tempFilePath);
+                fs.unlinkSync(outputFilePath);
+                resolve(null);
+            })
+            .on("error", (err) => {
+                console.error("Error compressing video:", err);
+                if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+                if (fs.existsSync(outputFilePath)) fs.unlinkSync(outputFilePath);
+                reject(err);
+            });
+    });
+});
+
+// ৫. পুরাতন ভিডিওগুলোর সাইজ ছোট করার ফাংশন (ব্যাচ প্রসেসিং, মেটাডাটা চেক ও সাইজ লগ সহ)
+exports.compressExistingVideos = onRequest({ cors: true, timeoutSeconds: 540, memory: "2GiB" }, async (req, res) => {
+    try {
+        const bucket = admin.storage().bucket();
+        const [files] = await bucket.getFiles();
+        let processedCount = 0;
+        let errorCount = 0;
+        let skippedCount = 0;
+
+        let limit = 0;
+
+        for (const file of files) {
+            if (limit >= 10) break; // একবারে সর্বোচ্চ ১০টি ভিডিও
+
+            const [metadata] = await file.getMetadata();
+
+            // যদি ফাইলটি আগেই কম্প্রেস করা থাকে, তবে স্কিপ করবে
+            if (metadata.metadata && metadata.metadata.isCompressed === "true") {
+                skippedCount++;
+                continue; 
+            }
+
+            if (metadata.contentType && metadata.contentType.startsWith("video/")) {
+                limit++;
+                const fileName = path.basename(file.name);
+                const tempFilePath = path.join(os.tmpdir(), fileName);
+                const outputFilePath = path.join(os.tmpdir(), `optimized_${fileName}`);
+
+                try {
+                    await file.download({ destination: tempFilePath });
+
+                    await new Promise((resolve, reject) => {
+                        ffmpeg(tempFilePath)
+                            .outputOptions([
+                                "-vf scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2",
+                                "-b:v 300k",
+                                "-codec:a aac",
+                                "-b:a 128k"
+                            ])
+                            .toFormat("mp4")
+                            .save(outputFilePath)
+                            .on("end", async () => {
+                                await bucket.upload(outputFilePath, {
+                                    destination: file.name,
+                                    metadata: { 
+                                        contentType: "video/mp4",
+                                        metadata: { isCompressed: "true" }
+                                    },
+                                });
+
+                                // কম্প্রেস ও আপলোড শেষে ফাইলের সাইজ চেক করে কনসোলে লগ করার জন্য
+                                const [updatedMetadata] = await bucket.file(file.name).getMetadata();
+                                const fileSizeInMB = (updatedMetadata.size / (1024 * 1024)).toFixed(2);
+                                console.log(`[COMPRESSED OK] File: ${file.name} | Size: ${fileSizeInMB} MB`);
+
+                                if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+                                if (fs.existsSync(outputFilePath)) fs.unlinkSync(outputFilePath);
+                                processedCount++;
+                                resolve(null);
+                            })
+                            .on("error", (err) => {
+                                console.error("Error processing old video:", err);
+                                if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+                                if (fs.existsSync(outputFilePath)) fs.unlinkSync(outputFilePath);
+                                errorCount++;
+                                resolve(null);
+                            });
+                    });
+                } catch (innerErr) {
+                    console.error("File skip error:", innerErr);
+                    errorCount++;
+                }
+            }
+        }
+
+        res.status(200).json({ 
+            success: true, 
+            message: `Batch processed! Compressed: ${processedCount}, Skipped (Already done): ${skippedCount}, Errors: ${errorCount}. Refresh again for next batch.` 
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
 });

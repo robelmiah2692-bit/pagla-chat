@@ -10,6 +10,21 @@ class RoomFloatingBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 🔥 ছোট ফরম্যাটে রূপান্তর করার জন্য ফাংশন (যেমন: 1850 -> 1.8k, 18500 -> 18.5k)
+    String formatDiamondCount(int count) {
+      if (count >= 100000) {
+        return '${(count / 1000).toStringAsFixed(0)}k';
+      } else if (count >= 1000) {
+        String formatted = (count / 1000).toStringAsFixed(1);
+        // যদি দশমিকের পরে .0 থাকে তবে তা বাদ দিয়ে দেবো (যেমন: 5.0k এর বদলে 5k)
+        if (formatted.endsWith('.0')) {
+          formatted = formatted.substring(0, formatted.length - 2);
+        }
+        return '${formatted}k';
+      }
+      return count.toString();
+    }
+
     return Positioned(
       bottom: 210,
       right: 15,
@@ -40,13 +55,16 @@ class RoomFloatingBox extends StatelessWidget {
             }
           }
 
-          // মডিউলাস লজিক: ১০০k পার হলে কাউন্টার আবার ০ থেকে শুরু হবে (যদি ৩ মিনিট পার হয়ে যায়)
+          // মডিউলাস লজিক: ১০০k পার হলে কাউন্টার আবার ০ থেকে শুরু হবে (যদি ৩ মিনিট পার হয়ে যায়)
           int currentDiamonds = totalDiamondsAllTime % 100000;
           if (totalDiamondsAllTime > 0 && currentDiamonds == 0 && !isBlasted) {
             currentDiamonds = 0;
           } else if (totalDiamondsAllTime > 0 && currentDiamonds == 0) {
             currentDiamonds = 100000;
           }
+
+          // বর্তমান ডায়মন্ড কাউন্টটিকে ছোট ফরম্যাটে রূপান্তর করা হলো
+          String formattedCurrent = formatDiamondCount(currentDiamonds);
 
           return GestureDetector(
             onTap: () => _showBoxRewardDialog(context, roomId, isBlasted),
@@ -75,7 +93,7 @@ class RoomFloatingBox extends StatelessWidget {
                     border: Border.all(color: Colors.amber, width: 1),
                   ),
                   child: Text(
-                    "$currentDiamonds/100k",
+                    "$formattedCurrent/100k",
                     style: const TextStyle(
                         color: Colors.amber,
                         fontSize: 9,
@@ -89,7 +107,6 @@ class RoomFloatingBox extends StatelessWidget {
       ),
     );
   }
-
   void _showBoxRewardDialog(BuildContext context, String roomId, bool isBlasted) {
     showModalBottomSheet(
       context: context,

@@ -163,7 +163,7 @@ class PostCard extends StatelessWidget {
     final Color glassColor = const Color(0xFF1E2A47).withOpacity(0.3);
     final user = FirebaseAuth.instance.currentUser;
 
-    // লাইভ ডাটা বা পোস্টের পুরাতন ডাটা ফলব্যাক হিসেবে ব্যবহার
+    // লাইভ ডাটা বা পোস্টের পুরাতন ডাটা ফলব্যাক হিসেবে ব্যবহার (Pre-load / Fallback mechanism)
     final String currentUserName = liveUserData?['name'] ??
         liveUserData?['userName'] ??
         data['userName'] ??
@@ -174,14 +174,24 @@ class PostCard extends StatelessWidget {
         "https://www.w3schools.com/howto/img_avatar.png";
     final String currentFrameUrl =
         liveUserData?['activeFrameUrl'] ?? data['activeFrameUrl'] ?? '';
-    
+
     // ভেইজ এবং স্ট্যাটাস চেক (লাইভ ডাটা না থাকলে পুরাতন পোস্টের ডাটা থেকে চেক করবে)
-    final bool isVerified = liveUserData?['isVerified'] ?? data['isVerified'] ?? false;
-    final bool isOfficial = liveUserData?['isOfficial'] ?? data['isOfficial'] ?? false;
-    
+    final bool isVerified =
+        liveUserData?['isVerified'] ?? data['isVerified'] ?? false;
+    final bool isOfficial =
+        liveUserData?['isOfficial'] ?? data['isOfficial'] ?? false;
+
     // VIP লেভেল ক্যালকুলেশন
-    int userXp = liveUserData?['vip_xp'] ?? liveUserData?['vipXp'] ?? data['vip_xp'] ?? data['vipXp'] ?? 0;
-    int userExpiry = liveUserData?['vip_expiry'] ?? liveUserData?['vipExpiry'] ?? data['vip_expiry'] ?? data['vipExpiry'] ?? 0;
+    int userXp = liveUserData?['vip_xp'] ??
+        liveUserData?['vipXp'] ??
+        data['vip_xp'] ??
+        data['vipXp'] ??
+        0;
+    int userExpiry = liveUserData?['vip_expiry'] ??
+        liveUserData?['vipExpiry'] ??
+        data['vip_expiry'] ??
+        data['vipExpiry'] ??
+        0;
     int currentTime = DateTime.now().millisecondsSinceEpoch;
 
     int getCalculatedVipLevel() {
@@ -199,15 +209,19 @@ class PostCard extends StatelessWidget {
       return 0;
     }
 
-    int vipLevel = liveUserData?['vipLevel'] ?? liveUserData?['vip'] ?? data['vipLevel'] ?? data['vip'] ?? getCalculatedVipLevel();
+    int vipLevel = liveUserData?['vipLevel'] ??
+        liveUserData?['vip'] ??
+        data['vipLevel'] ??
+        data['vip'] ??
+        getCalculatedVipLevel();
     bool hasVip = vipLevel > 0;
 
     // প্রিমিয়াম কার্ড এবং এজেন্সি চেক
-    bool hasPremiumCard = liveUserData?['hasPremiumCard'] == true || 
-        liveUserData?['isPremium'] == true || 
-        data['hasPremiumCard'] == true || 
+    bool hasPremiumCard = liveUserData?['hasPremiumCard'] == true ||
+        liveUserData?['isPremium'] == true ||
+        data['hasPremiumCard'] == true ||
         data['isPremium'] == true;
-        
+
     bool isAgent = liveUserData?['isAgent'] == true ||
         liveUserData?['agencyId'] != null ||
         liveUserData?['isAgency'] == true ||
@@ -216,8 +230,13 @@ class PostCard extends StatelessWidget {
         data['isAgency'] == true;
 
     // --- Active Level Calculation ---
-    int activeXp = liveUserData?['totalActiveXp'] ?? liveUserData?['activeXp'] ?? liveUserData?['active_xp'] ?? 
-                 data['totalActiveXp'] ?? data['activeXp'] ?? data['active_xp'] ?? 0;
+    int activeXp = liveUserData?['totalActiveXp'] ??
+        liveUserData?['activeXp'] ??
+        liveUserData?['active_xp'] ??
+        data['totalActiveXp'] ??
+        data['activeXp'] ??
+        data['active_xp'] ??
+        0;
     int activeLevel = 1;
     int activeReqXp = 8000;
     int remActiveXp = activeXp;
@@ -239,8 +258,13 @@ class PostCard extends StatelessWidget {
     }
 
     // --- Gift Level Calculation ---
-    int giftXp = liveUserData?['totalGiftXp'] ?? liveUserData?['giftXp'] ?? liveUserData?['gift_xp'] ?? 
-                 data['totalGiftXp'] ?? data['giftXp'] ?? data['gift_xp'] ?? 0;
+    int giftXp = liveUserData?['totalGiftXp'] ??
+        liveUserData?['giftXp'] ??
+        liveUserData?['gift_xp'] ??
+        data['totalGiftXp'] ??
+        data['giftXp'] ??
+        data['gift_xp'] ??
+        0;
     int giftLevel = 1;
     int giftReqXp = 8000;
     int remGiftXp = giftXp;
@@ -304,7 +328,8 @@ class PostCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 5),
                             if (isVerified)
-                              const Icon(Icons.verified, color: cyanOwner, size: 17),
+                              const Icon(Icons.verified,
+                                  color: cyanOwner, size: 17),
                             if (isOfficial) ...[
                               const SizedBox(width: 4),
                               Container(
@@ -335,7 +360,7 @@ class PostCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 2),
-                            // 🌟 ভেইজ বা ব্যাজগুলো উপরের সারিতে রাখা হয়েছে
+                            // 🌟 ভেইজ বা ব্যাজগুলো উপরের সারিতে রাখা হয়েছে
                             Wrap(
                               spacing: 4,
                               runSpacing: 2,
@@ -405,7 +430,10 @@ class PostCard extends StatelessWidget {
                                         horizontal: 5, vertical: 1),
                                     decoration: BoxDecoration(
                                       gradient: const LinearGradient(
-                                        colors: [Colors.purple, Colors.deepOrange],
+                                        colors: [
+                                          Colors.purple,
+                                          Colors.deepOrange
+                                        ],
                                       ),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
@@ -459,7 +487,7 @@ class PostCard extends StatelessWidget {
                               ],
                             ),
                             const SizedBox(height: 3),
-                            // 🌟 টাইম আলাদা করে নিচের লাইনে নিয়ে আসা হয়েছে
+                            // 🌟 টাইম আলাদা করে নিচের লাইনে নিয়ে আসা হয়েছে
                             Text(
                               _getTimeAgo(data['timestamp']),
                               style: const TextStyle(
@@ -469,7 +497,8 @@ class PostCard extends StatelessWidget {
                         ),
                       ),
                       trailing: IconButton(
-                        icon: const Icon(Icons.more_horiz, color: Colors.white70),
+                        icon:
+                            const Icon(Icons.more_horiz, color: Colors.white70),
                         onPressed: () {
                           if (isOwner) {
                             showModalBottomSheet(
@@ -486,7 +515,8 @@ class PostCard extends StatelessWidget {
                                           Icons.delete_sweep_rounded,
                                           color: Colors.redAccent),
                                       title: const Text("Remove Post",
-                                          style: TextStyle(color: Colors.white)),
+                                          style:
+                                              TextStyle(color: Colors.white)),
                                       onTap: () {
                                         Navigator.pop(context);
                                         _deletePost(context);
@@ -496,7 +526,8 @@ class PostCard extends StatelessWidget {
                                       leading: const Icon(Icons.close,
                                           color: Colors.white38),
                                       title: const Text("Cancel",
-                                          style: TextStyle(color: Colors.white38)),
+                                          style:
+                                              TextStyle(color: Colors.white38)),
                                       onTap: () => Navigator.pop(context),
                                     ),
                                   ],
@@ -506,7 +537,8 @@ class PostCard extends StatelessWidget {
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                  content: Text("Only post owner can delete this")),
+                                  content:
+                                      Text("Only post owner can delete this")),
                             );
                           }
                         },
@@ -526,8 +558,8 @@ class PostCard extends StatelessWidget {
                     if (data['storyImage'] != null &&
                         data['storyImage'].toString().isNotEmpty)
                       Padding(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(18),
                           child: Container(
@@ -540,6 +572,9 @@ class PostCard extends StatelessWidget {
                               imageUrl: data['storyImage'],
                               width: double.infinity,
                               fit: BoxFit.cover,
+                              // প্রি-লোড ও স্মুথ ক্যাশিং নিশ্চিত করার জন্য নিচের প্রপার্টিগুলো যুক্ত করা হয়েছে
+                              memCacheWidth: 800,
+                              fadeInDuration: const Duration(milliseconds: 200),
                               placeholder: (context, url) => const SizedBox(
                                 height: 200,
                                 child: Center(
@@ -609,8 +644,8 @@ class PostCard extends StatelessWidget {
                             _showCommentSheet(context, postId!, postOwnerUID);
                           }
                         }),
-                        _buildVIPBtn(
-                            Icons.share_rounded, Colors.white70, "Share", () {}),
+                        _buildVIPBtn(Icons.share_rounded, Colors.white70,
+                            "Share", () {}),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -662,10 +697,8 @@ class PostCard extends StatelessWidget {
                       padding: const EdgeInsets.all(1),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: LinearGradient(colors: [
-                          cyanOwner,
-                          cyanOwner.withOpacity(0.2)
-                        ]),
+                        gradient: LinearGradient(
+                            colors: [cyanOwner, cyanOwner.withOpacity(0.2)]),
                       ),
                       child: CircleAvatar(
                         radius: 20,
@@ -683,21 +716,12 @@ class PostCard extends StatelessWidget {
                           scale: 1.35,
                           child: IgnorePointer(
                             child: currentFrameUrl.contains('.json')
-                                ? Lottie.network(
-                                    currentFrameUrl,
-                                    fit: BoxFit.contain,
-                                    errorBuilder:
-                                        (context, error, stackTrace) =>
-                                            const SizedBox(),
-                                  )
+                                ? Lottie.network(currentFrameUrl)
                                 : CachedNetworkImage(
                                     imageUrl: currentFrameUrl,
                                     fit: BoxFit.contain,
-                                    placeholder: (context, url) =>
-                                        const SizedBox(),
-                                    errorWidget:
-                                        (context, error, stackTrace) =>
-                                            const SizedBox(),
+                                    // ফ্রেমের জন্যও মেমোরি ক্যাশ প্রি-লোড নিশ্চিত করা হলো
+                                    memCacheWidth: 150,
                                   ),
                           ),
                         ),
@@ -711,6 +735,7 @@ class PostCard extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildVIPBtn(
       IconData icon, Color color, String text, VoidCallback onTap) {
     return InkWell(

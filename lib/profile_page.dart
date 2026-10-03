@@ -10,7 +10,9 @@ import 'package:pagla_chat/agency_list_page.dart';
 import 'package:pagla_chat/auth_service.dart';
 import 'package:pagla_chat/delete_account_service.dart';
 import 'package:pagla_chat/help_desk_page.dart';
+import 'package:pagla_chat/level_image_config.dart';
 import 'package:pagla_chat/privacy_policy_page.dart';
+import 'package:pagla_chat/services/crown_benefits_screen.dart';
 import 'package:pagla_chat/services/diamond_recharge_view.dart';
 import 'package:pagla_chat/services/follow_service.dart';
 import 'package:pagla_chat/services/soulmate_detail_page.dart';
@@ -3906,221 +3908,232 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 5),
                     UserBadgesRow(userId: uIDValue.toString()),
                     const SizedBox(height: 5),
-                    // VIP এবং ডাইনামিক XP প্রগ্রেস বার সেকশন
+// VIP এবং ডায়নামিক XP প্রগ্রেস বার সেকশন
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 25),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // 🔥 ১. VIP ব্যাজের ওপর শিমার শাইনিং ইফেক্ট (অরিজিনাল লজিক ঠিক রেখে)
+                          // ফাইলটির উপরে इम्पोर्ट করে নিবেন:
+// import 'level_image_config.dart';
+
+// 🌟 ১. এক্টিভ লেভেল ইমেজ বাটন
+                          Builder(
+                            builder: (context) {
+                              int xpValue = userData['total_active_xp'] ??
+                                  userData['totalActiveXp'] ??
+                                  0;
+                              int level = 1;
+                              int currentLevelRequiredXp = 8000;
+
+                              int remainingXp = xpValue;
+                              while (remainingXp >= currentLevelRequiredXp &&
+                                  level < 50) {
+                                remainingXp -= currentLevelRequiredXp;
+                                level++;
+                                currentLevelRequiredXp += 2000;
+                              }
+
+                              if (level >= 50) {
+                                level = 50;
+                              }
+
+                              // কনফিগার ফাইল থেকে লেভেল অনুযায়ী ইমেজ লিংক আনা হচ্ছে
+                              String activeImgUrl =
+                                  LevelImageConfig.getActiveLevelImage(level);
+
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 6.0),
+                                child: GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            ActiveLevelBar(userData: userData),
+                                      ),
+                                    );
+                                  },
+                                  child: SizedBox(
+                                    width:
+                                        45, // আপনার প্রয়োজন অনুযায়ী সাইজ ছোট-বড় করতে পারেন
+                                    height: 35,
+                                    child: Image.network(
+                                      activeImgUrl,
+                                      fit: BoxFit.contain,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        // নেটওয়ার্ক ইমেজ লোড না হলে ফলব্যাক বা ডিফল্ট আইকন দেখাবে
+                                        return const Icon(Icons.shield,
+                                            size: 24, color: Colors.blueGrey);
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+
+// 🎁 ২. গিফট লেভেল ইমেজ বাটন
+                          Builder(
+                            builder: (context) {
+                              int giftXpValue = userData['total_gift_xp'] ??
+                                  userData['totalGiftXp'] ??
+                                  0;
+                              int giftLevel = 1;
+                              int currentGiftRequiredXp = 8000;
+
+                              int remainingGiftXp = giftXpValue;
+                              while (remainingGiftXp >= currentGiftRequiredXp &&
+                                  giftLevel < 50) {
+                                remainingGiftXp -= currentGiftRequiredXp;
+                                giftLevel++;
+                                currentGiftRequiredXp += 2000;
+                              }
+
+                              if (giftLevel >= 50) {
+                                giftLevel = 50;
+                              }
+
+                              // কনফিগার ফাইল থেকে গিফট লেভেল অনুযায়ী ইমেজ লিংক আনা হচ্ছে
+                              String giftImgUrl =
+                                  LevelImageConfig.getGiftLevelImage(giftLevel);
+
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 6.0),
+                                child: GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            GiftLevelBar(userData: userData),
+                                      ),
+                                    );
+                                  },
+                                  child: SizedBox(
+                                    width: 45,
+                                    height: 35,
+                                    child: Image.network(
+                                      giftImgUrl,
+                                      fit: BoxFit.contain,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        return const Icon(Icons.card_giftcard,
+                                            size: 24,
+                                            color: Colors.purpleAccent);
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+
+                          // 👑 ক্রাউন ব্যাজ (যদি লেভেল ১ বা তার বেশি হয়, তবেই দেখাবে, না হলে ফুল ক্লিন হাইড থাকবে)
+                          Builder(
+                            builder: (context) {
+                              int xp = userData['vip_xp'] ?? 0;
+                              int crownLvl = xp >= 60000
+                                  ? 6
+                                  : xp >= 45000
+                                      ? 5
+                                      : xp >= 35000
+                                          ? 4
+                                          : xp >= 25000
+                                              ? 3
+                                              : xp >= 12000
+                                                  ? 2
+                                                  : xp >= 5000
+                                                      ? 1
+                                                      : 0;
+
+                              final Map<int, String> localCrownBadges = {
+                                1: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown1.png',
+                                2: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown2.png',
+                                3: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown3.png',
+                                4: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown4.png',
+                                5: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown5.png',
+                                6: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown6.png',
+                              };
+
+                              String crownUrl =
+                                  localCrownBadges[crownLvl] ?? '';
+
+                              if (crownLvl == 0 ||
+                                  crownUrl.isEmpty ||
+                                  crownUrl.contains('YOUR_CROWN')) {
+                                return const SizedBox.shrink();
+                              }
+
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: CachedNetworkImage(
+                                  imageUrl: crownUrl,
+                                  width: 45,
+                                  height: 45,
+                                  fit: BoxFit.contain,
+                                  errorWidget: (c, e, s) =>
+                                      const SizedBox.shrink(),
+                                ),
+                              );
+                            },
+                          ),
+
+                          // VIP ব্যাজ (কোনো শিমার ছাড়াই, শুধু ক্লিন ইমেজ)
                           if (vipLevel > 0 &&
                               getVipBadge(vipLevel).toString().isNotEmpty &&
                               !getVipBadge(vipLevel)
                                   .toString()
                                   .startsWith('file:'))
-                            _buildShiningBadgeWrapper(
-                              CachedNetworkImage(
-                                imageUrl: getVipBadge(vipLevel),
-                                width: 45,
-                                height: 45,
-                                fit: BoxFit.contain,
-                                placeholder: (context, url) => const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: Center(
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 1.5,
-                                      color: Colors.white70,
-                                    ),
+                            CachedNetworkImage(
+                              imageUrl: getVipBadge(vipLevel),
+                              width: 45,
+                              height: 45,
+                              fit: BoxFit.contain,
+                              placeholder: (context, url) => const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    color: Colors.white70,
                                   ),
-                                ),
-                                errorWidget: (c, e, s) => const Icon(
-                                  Icons.stars_rounded,
-                                  color: Colors.white24,
-                                  size: 40,
                                 ),
                               ),
+                              errorWidget: (c, e, s) => const SizedBox.shrink(),
                             )
                           else
-                            _buildShiningBadgeWrapper(
-                              const Icon(Icons.stars_rounded,
-                                  color: Colors.white24, size: 40),
-                            ),
+                            const SizedBox.shrink(),
 
                           const SizedBox(width: 15),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  vipLevel == 0
-                                      ? "Target VIP 1 (XP: $xp / $nextTarget)"
-                                      : "VIP Level $vipLevel (XP: $xp / $nextTarget)",
-                                  style: const TextStyle(
-                                    color: Colors.amber,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                // Shimmer দিয়ে আগুনের তরঙ্গ এবং মাথায় আলাদা আগুনের শিখা
-                                LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    final double maxWidth =
-                                        constraints.maxWidth;
-                                    final double barWidth =
-                                        maxWidth * progressValue;
 
-                                    return Container(
-                                      height:
-                                          12, // সামান্য মোটা করা হলো যাতে ইফেক্টটি ভালো দেখা যায় ভাই
-                                      width: maxWidth,
-                                      decoration: BoxDecoration(
-                                        color: Colors
-                                            .white10, // বারের ব্যাকগ্রাউন্ড
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(
-                                          color: Colors.white.withOpacity(0.2),
-                                          width: 1,
-                                        ), // বারের ধারালো বর্ডার
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(10),
-                                        child: Stack(
-                                          children: [
-                                            // ১. মূল গোল্ডেন এবং আগুনের রঙের তরঙ্গ (Shimmer Gradient)
-                                            if (barWidth > 0)
-                                              Positioned(
-                                                left: 0,
-                                                top: 0,
-                                                bottom: 0,
-                                                width: barWidth,
-                                                child: Shimmer.fromColors(
-                                                  baseColor: const Color(
-                                                      0xFFFFD700), // মূল গোল্ডেন কালার
-                                                  highlightColor: const Color(
-                                                      0xFFFF4500), // আগুনের তরঙ্গ (Orange-Red)
-                                                  period: const Duration(
-                                                      milliseconds:
-                                                          1500), // অ্যানিমেশন স্পিড
-                                                  child: Container(
-                                                    decoration: BoxDecoration(
-                                                      // গ্রেডিয়েন্ট দেওয়া হলো যাতে শুরু থেকে মাথায় কালার চেঞ্জ হয়
-                                                      gradient:
-                                                          const LinearGradient(
-                                                        colors: [
-                                                          Color(
-                                                              0xFFFFC107), // শুরু গোল্ডেন
-                                                          Color(
-                                                              0xFFFFD700), // মাছ গোল্ডেন
-                                                        ],
-                                                      ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              10),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-
-                                            // ২. মাথায় সেই জ্বলজ্বলে আগুনের শিখা বা বিন্দু (The Glowing Fire Head)
-                                            if (barWidth > 0)
-                                              Positioned(
-                                                left: barWidth -
-                                                    10, // মাথার বিন্দুটি ঠিক প্রগ্রেসের শেষ মাথায় বসবে
-                                                top: 0,
-                                                bottom: 0,
-                                                child: Center(
-                                                  child: Shimmer.fromColors(
-                                                    baseColor: const Color(
-                                                        0xFFFF4500), // আগুনের বিন্দুর বেস (Orange-Red)
-                                                    highlightColor: Colors
-                                                        .yellowAccent, // বিন্দুর জ্বলজ্বল (Yellow)
-                                                    period: const Duration(
-                                                        milliseconds:
-                                                            500), // দ্রুত জ্বলজ্বল
-                                                    child: Container(
-                                                      width: 10,
-                                                      height: 10,
-                                                      decoration: BoxDecoration(
-                                                        shape: BoxShape.circle,
-                                                        color: Colors.orange,
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                            color: Colors
-                                                                .redAccent
-                                                                .withOpacity(
-                                                                    0.8),
-                                                            blurRadius: 6,
-                                                            spreadRadius:
-                                                                2, // বিন্দুর চারপাশে আগুনের আভা
-                                                          ),
-                                                          BoxShadow(
-                                                            color: Colors.orange
-                                                                .withOpacity(
-                                                                    0.6),
-                                                            blurRadius: 10,
-                                                            spreadRadius: 4,
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 15),
-
-                          // 🔥 ২. প্রিমিয়াম ব্যাজের ওপর শিমার শাইনিং ইফেক্ট (অরিজিনাল লজিক ঠিক রেখে)
+                          // প্রিমিয়াম কার্ড (যদি থাকে, তবে এটি ভিআইপির ঠিক পরেই দেখাবে, না থাকলে সম্পূর্ণ হাইড থাকবে)
                           if (hasPremiumCard &&
                               (premiumBadgeUrl ?? '').toString().isNotEmpty &&
                               !premiumBadgeUrl.toString().startsWith('file:'))
-                            _buildShiningBadgeWrapper(
-                              CachedNetworkImage(
-                                imageUrl: premiumBadgeUrl,
-                                width: 45,
-                                height: 45,
-                                fit: BoxFit.contain,
-                                placeholder: (context, url) => const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: Center(
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 1.5,
-                                      color: Colors.white70,
-                                    ),
+                            CachedNetworkImage(
+                              imageUrl: premiumBadgeUrl,
+                              width: 45,
+                              height: 45,
+                              fit: BoxFit.contain,
+                              placeholder: (context, url) => const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    color: Colors.white70,
                                   ),
                                 ),
-                                errorWidget: (c, e, s) =>
-                                    const SizedBox(width: 45),
                               ),
+                              errorWidget: (c, e, s) => const SizedBox.shrink(),
                             )
                           else
-                            const SizedBox(width: 45),
+                            const SizedBox.shrink(),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 5),
-
-// 🇧🇩 [বাংলা মার্ক]: ValueKey যোগ করা হলো—ডাটা আসার সাথে সাথে স্ক্রিন রিয়েল-টাইমে আপডেট হবে ভাই!
-                    ActiveLevelBar(
-                      key: ValueKey(
-                          totalActiveXp), // 👈 এই কি (Key) ভ্যালু পরিবর্তনের সাথে সাথে বার সচল করবে
-                      totalActiveXp: totalActiveXp,
-                    ),
-                    const SizedBox(height: 5),
-
-                    GiftLevelBar(
-                        totalGiftXp:
-                            totalGiftXp), // 👈 userData['totalGiftXp'] কেটে শুধু totalGiftXp
 
                     const SizedBox(height: 5),
 
@@ -4414,8 +4427,21 @@ class _ProfilePageState extends State<ProfilePage> {
                                 Colors.blue, _openMyPosts),
                             _buildActionBox(
                                 "VIP", Icons.star, Colors.amber, _openVIP),
-                            _buildActionBox("Games", Icons.videogame_asset,
-                                Colors.red, _openGames),
+                            // গেমসের জায়গায় ক্রাউন (মুকুট) বাটন
+                            _buildActionBox(
+                              "Crown",
+                              Icons.workspace_premium, // মুকুটের মতো সেরা আইকন
+                              Colors.amberAccent,
+                              () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        CrownBenefitsScreen(userData: userData),
+                                  ),
+                                );
+                              },
+                            ),
                             _buildActionBox("Facebook", Icons.facebook,
                                 Colors.blueAccent, _openFacebook),
                           ],
@@ -4508,39 +4534,42 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildActionBox(
-    String title, IconData icon, Color color, VoidCallback onTap) {
-  return GestureDetector(
-    onTap: onTap,
-    child: Container(
-      width: 38,
-      height: 45,
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween, // আইকন উপরে আর টেক্সট একদম নিচে পিন থাকবে
-          children: [
-            Icon(icon, color: color, size: 20), // আইকন সাইজ ১৬ থেকে বাড়িয়ে ২০ করা হলো
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 5,
+      String title, IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 38,
+        height: 45,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.5)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment
+                .spaceBetween, // আইকন উপরে আর টেক্সট একদম নিচে পিন থাকবে
+            children: [
+              Icon(icon,
+                  color: color,
+                  size: 20), // আইকন সাইজ ১৬ থেকে বাড়িয়ে ২০ করা হলো
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 5,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
 // ✅ ৩. প্রিয়জন (Soulmate) ৬ স্লট মেইন উইজেট (আপডেট করা)
   Widget _buildSoulmateSection() {
@@ -4584,7 +4613,8 @@ class _ProfilePageState extends State<ProfilePage> {
               padding: const EdgeInsets.symmetric(horizontal: 15),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3, // এক লাইনে ৩টি কার্ড
-                childAspectRatio: 0.68, // ওভারফ্লো রোধ করতে উচ্চতা কিছুটা বাড়ানো হলো
+                childAspectRatio:
+                    0.68, // ওভারফ্লো রোধ করতে উচ্চতা কিছুটা বাড়ানো হলো
                 crossAxisSpacing: 8,
                 mainAxisSpacing: 12, // লাইনের মাঝের গ্যাপ বাড়িয়ে দেওয়া হলো
               ),
@@ -4613,6 +4643,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ],
     );
   }
+
 // ✨ নিখুঁত, হালকা ও স্মুথ শিমার শাইনিং ইফেক্ট উইজেট
   Widget _buildShiningBadgeWrapper(Widget child) {
     return SizedBox(

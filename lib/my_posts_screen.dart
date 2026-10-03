@@ -2,6 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:pagla_chat/video_player_screen.dart';
+
 
 class MyPostsScreen extends StatelessWidget {
   const MyPostsScreen({super.key});
@@ -11,7 +13,7 @@ class MyPostsScreen extends StatelessWidget {
     final String currentUid = FirebaseAuth.instance.currentUser!.uid;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF190033), // সেটিংস পেজের সাথে সামঞ্জস্যপূর্ণ বেস কালার
+      backgroundColor: const Color(0xFF190033),
       appBar: AppBar(
         title: const Text("My Posts", style: TextStyle(color: Colors.cyanAccent)),
         backgroundColor: Colors.transparent,
@@ -20,21 +22,19 @@ class MyPostsScreen extends StatelessWidget {
       ),
       body: Container(
         decoration: const BoxDecoration(
-          // সেটিংস পেজের হুবহু প্রিমিয়াম ব্লু ও পার্পল গ্রেডিয়েন্ট
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF00B4DB), // Bright Cyan Blue
-              Color(0xFF0083B0), // Mid Blue tone
-              Color(0xFF4A00E0), // Deep Purple gradient match
-              Color(0xFF190033), // Rich dark purple-blue base
+              Color(0xFF00B4DB),
+              Color(0xFF0083B0),
+              Color(0xFF4A00E0),
+              Color(0xFF190033),
             ],
           ),
         ),
         child: Stack(
           children: [
-            // ব্যাকগ্রাউন্ডে তারার ঝিকিমিকি ইফেক্ট
             ...List.generate(
               15,
               (index) => Positioned(
@@ -75,13 +75,18 @@ class MyPostsScreen extends StatelessWidget {
                   itemCount: snapshot.data!.docs.length,
                   itemBuilder: (context, index) {
                     var doc = snapshot.data!.docs[index];
-                    String imageUrl = doc['storyImage'] ?? "";
-                    String caption = doc['caption'] ?? "";
+                    var data = doc.data() as Map<String, dynamic>;
+                    
+                    String imageUrl = data['storyImage'] ?? "";
+                    String videoUrl = data['videoUrl'] ?? "";
+                    String caption = data['caption'] ?? "";
+
+                    bool hasImage = imageUrl.isNotEmpty;
+                    bool hasVideo = videoUrl.isNotEmpty;
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 15),
                       decoration: BoxDecoration(
-                        // গ্লাস ইফেক্ট কার্ড ডিজাইন
                         color: Colors.white.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(15),
                         border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)),
@@ -96,7 +101,8 @@ class MyPostsScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (imageUrl.isNotEmpty)
+                          // যদি ইমেজ থাকে
+                          if (hasImage)
                             ClipRRect(
                               borderRadius: const BorderRadius.vertical(
                                   top: Radius.circular(15)),
@@ -119,15 +125,71 @@ class MyPostsScreen extends StatelessWidget {
                                 ),
                               ),
                             ),
+
+                          // যদি শুধু ভিডিও থাকে, তবে GestureDetector দিয়ে ভিডিও প্লেয়ার স্ক্রিনে যাওয়ার ব্যবস্থা করা হলো
+                          if (hasVideo && !hasImage)
+                            GestureDetector(
+                              onTap: () {
+                                if (videoUrl.isNotEmpty) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => VideoPlayerScreen(videoUrl: videoUrl),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: Container(
+                                height: 200,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: Colors.black26,
+                                  borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(15)),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.play_circle_fill,
+                                    size: 64,
+                                    color: Colors.cyanAccent,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                          // যদি ইমেজ ও ভিডিও দুটোই থাকে, আলাদাভাবে ভিডিও চালানোর বাটন বা প্রিভিউ রাখতে পারেন
+                          if (hasVideo && hasImage)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.cyanAccent.withOpacity(0.2),
+                                  foregroundColor: Colors.cyanAccent,
+                                ),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => VideoPlayerScreen(videoUrl: videoUrl),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.play_arrow),
+                                label: const Text("Play Video"),
+                              ),
+                            ),
+
                           Padding(
                             padding: const EdgeInsets.all(12),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(caption,
-                                    style: const TextStyle(
-                                        color: Colors.white, fontSize: 14)),
-                                const Divider(color: Colors.white24),
+                                if (caption.isNotEmpty)
+                                  Text(caption,
+                                      style: const TextStyle(
+                                          color: Colors.white, fontSize: 14)),
+                                if (caption.isNotEmpty)
+                                  const Divider(color: Colors.white24),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
@@ -160,6 +222,7 @@ class MyPostsScreen extends StatelessWidget {
     );
   }
 
+ 
   void _showComments(BuildContext context, String storyId) {
     showModalBottomSheet(
       context: context,

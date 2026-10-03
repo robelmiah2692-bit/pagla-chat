@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +9,7 @@ import 'package:video_player/video_player.dart';
 import 'reels_ad_widget.dart'; // 🔥 আলাদা করা অ্যাড ফাইল
 
 class ReelsPage extends StatefulWidget {
-  final bool isActive; 
+  final bool isActive;
 
   const ReelsPage({super.key, required this.isActive});
 
@@ -21,6 +22,9 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
   late PageController _pageController;
   final ValueNotifier<int> _currentIndexNotifier = ValueNotifier<int>(0);
   bool _isAppInForeground = true;
+
+  List<QueryDocumentSnapshot> _shuffledVideoDocs = [];
+  bool _isInitialized = false;
 
   @override
   void initState() {
@@ -52,12 +56,11 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
     }
   }
 
-  // 🔥 ভিডিও শেষ হলে স্মুথলি পরবর্তী ভিডিওতে স্ক্রল করার মেথড
   void jumpToNextVideo(int totalItems) {
     if (!mounted) return;
     int nextIndex = _currentIndexNotifier.value + 1;
     if (nextIndex >= totalItems) {
-      nextIndex = 0; // লিস্ট শেষ হলে আবার প্রথম ভিডিওতে ফিরে আসবে
+      nextIndex = 0;
     }
     _pageController.animateToPage(
       nextIndex,
@@ -78,7 +81,8 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
             .orderBy('timestamp', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              !_isInitialized) {
             return const Center(
               child: CircularProgressIndicator(color: Color(0xFFFF2E93)),
             );
@@ -93,14 +97,28 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
             );
           }
 
-          // 🔥 সকল পোস্ট করা ভিডিও ফিল্টার করে লিস্টে আনা
-          final videoDocs = snapshot.data!.docs.where((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            String videoUrl = data['videoUrl'] ?? '';
-            return videoUrl.isNotEmpty;
-          }).toList();
+          if (!_isInitialized || _shuffledVideoDocs.isEmpty) {
+            final videoDocs = snapshot.data!.docs.where((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              String videoUrl = data['videoUrl'] ?? '';
+              return videoUrl.isNotEmpty;
+            }).toList();
 
-          if (videoDocs.isEmpty) {
+            videoDocs.shuffle();
+            _shuffledVideoDocs = videoDocs;
+            _isInitialized = true;
+
+            // 🔥 প্রথম ভিডিওটি লোড হওয়ার সাথে সাথেই পরবর্তী ভিডিওটি ব্যাকগ্রাউন্ডে প্রিলোড শুরু করবে
+            if (_shuffledVideoDocs.length > 1) {
+              final nextData = _shuffledVideoDocs[1].data() as Map<String, dynamic>;
+              String nextUrl = nextData['videoUrl'] ?? '';
+              if (nextUrl.isNotEmpty) {
+                VideoCacheManager.preloadVideo(nextUrl);
+              }
+            }
+          }
+
+          if (_shuffledVideoDocs.isEmpty) {
             return const Center(
               child: Text(
                 "এই মুহূর্তে কোনো ভিডিও রিল নেই!",
@@ -109,37 +127,44 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
             );
           }
 
-          // 🔥 মোট আইটেম সংখ্যা হিসাব (প্রতি ৩টি ভিডিওর পর ১টি করে নেটিভ অ্যাড স্লট যুক্ত করা)
-          int totalItemsCount = videoDocs.length + (videoDocs.length ~/ 3);
+          int totalItemsCount =
+              _shuffledVideoDocs.length + (_shuffledVideoDocs.length ~/ 3);
 
           return PageView.builder(
             controller: _pageController,
             scrollDirection: Axis.vertical,
             itemCount: totalItemsCount,
             onPageChanged: (index) {
-              _currentIndexNotifier.value = index; 
+              _currentIndexNotifier.value = index;
 
-              // 🔥 ৩টি ভিডিও বা নির্দিষ্ট ইন্টারваলে ইন্টার্সটিশিয়াল অ্যাড ট্রিগার করার লজিক
-              // যখন ইউজার স্ক্রল করে কোনো অ্যাড স্লটে বা নির্দিষ্ট পেজে পৌঁছাবে
               if ((index + 1) % 4 == 0) {
                 ReelsInterstitialAdManager.showAd();
               }
+
+              // 🔥 ইউজার যখনই পরবর্তী ভিডিওতে যাবে, তার পরের ভিডিওটি ব্যাকগ্রাউন্ডে প্রিলোড হবে
+              int currentVideoIndex = index - (index ~/ 4);
+              int nextVideoIndex = currentVideoIndex + 1;
+              if (nextVideoIndex < _shuffledVideoDocs.length) {
+                final nextData = _shuffledVideoDocs[nextVideoIndex].data() as Map<String, dynamic>;
+                String nextUrl = nextData['videoUrl'] ?? '';
+                if (nextUrl.isNotEmpty) {
+                  VideoCacheManager.preloadVideo(nextUrl);
+                }
+              }
             },
             itemBuilder: (context, index) {
-              // চেক করা এটি নেটিভ অ্যাড স্লট কিনা (প্রতি ৪থ ইনডেক্সে অর্থাৎ ৩টি ভিডিওর পর)
               bool isAdSlot = (index > 0 && (index + 1) % 4 == 0);
 
               if (isAdSlot) {
                 return const ReelsAdWidget();
               }
 
-              // রিয়েল ভিডিও ইনডেক্স হিসাব করা (প্রতি ৩টি ভিডিও পর পর অ্যাড বাদ দিয়ে রিয়েল ইনডেক্স বের করা)
               int videoIndex = index - (index ~/ 4);
-              if (videoIndex >= videoDocs.length) {
-                videoIndex = videoDocs.length - 1;
+              if (videoIndex >= _shuffledVideoDocs.length) {
+                videoIndex = _shuffledVideoDocs.length - 1;
               }
 
-              final doc = videoDocs[videoIndex];
+              final doc = _shuffledVideoDocs[videoIndex];
               final data = doc.data() as Map<String, dynamic>;
 
               final String videoUrl = data['videoUrl'] ?? '';
@@ -148,15 +173,15 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
               final String caption = data['caption'] ?? '';
               final List likes = data['likes'] ?? [];
               final String docId = doc.id;
+              final String userId = data['userId'] ?? data['uid'] ?? '';
 
               return ValueListenableBuilder<int>(
                 valueListenable: _currentIndexNotifier,
                 builder: (context, currentIndex, child) {
-                  // 🔥 প্রি-লোডিং লজিক: বর্তমান ভিডিও এবং ঠিক তার পরের ভিডিওটি ব্যাকগ্রাউন্ডে প্রি-লোড বা অ্যাক্টিভ রাখা হবে
-                  final bool isVideoActive = isPageActive && (currentIndex == index);
-                  final bool isPreloadTarget = isPageActive && (index == currentIndex + 1);
-                  final String docId = doc.id;
-                  final String userId = data['userId'] ?? data['uid'] ?? ''; // আপনার ডাটাবেজে ওনারের আইডি ফিল্ডের নাম যা থাকে (যেমন: userId বা uid)
+                  final bool isVideoActive =
+                      isPageActive && (currentIndex == index);
+                  final bool isPreloadTarget =
+                      isPageActive && (index == currentIndex + 1);
 
                   return ReelVideoPlayerItem(
                     videoUrl: videoUrl,
@@ -165,9 +190,8 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
                     caption: caption,
                     likes: likes,
                     docId: docId,
-                    userId: userId, // 👈 এখানে userId পাস করুন
-                    postId: docId,  // 👈 postId-এর জায়গায় docId পাস করুন
-                    
+                    userId: userId,
+                    postId: docId,
                     isActive: isVideoActive,
                     isPreload: isPreloadTarget,
                     onVideoEnded: () {
@@ -183,7 +207,7 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
     );
   }
 }
-// 🔥 গ্লোবাল ভিডিও ক্যাশ ম্যানেজার যাতে একই ভিডিও বারবার রিক্রিয়েট বা রি-লোড না হয়
+
 class VideoCacheManager {
   static final Map<String, VideoPlayerController> _cache = {};
 
@@ -191,10 +215,37 @@ class VideoCacheManager {
     if (_cache.containsKey(url)) {
       return _cache[url]!;
     } else {
-      final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse(url),
+        formatHint: VideoFormat.other,
+      );
       _cache[url] = controller;
       return controller;
     }
+  }
+
+  // 🔥 ব্যাকগ্রাউন্ডে সাইলেন্টলি ভিডিও ইনিশিয়ালাইজ ও প্রিলোড করার মেথড
+  static void preloadVideo(String url) {
+    if (!_cache.containsKey(url) && url.isNotEmpty) {
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse(url),
+        formatHint: VideoFormat.other,
+      );
+      controller.initialize().then((_) {
+        _cache[url] = controller;
+      }).catchError((e) {
+        debugPrint("Preload error: $e");
+      });
+    }
+  }
+
+  static void disposeControllers(List<String> activeUrls) {
+    _cache.keys.toList().forEach((url) {
+      if (!activeUrls.contains(url)) {
+        _cache[url]?.dispose();
+        _cache.remove(url);
+      }
+    });
   }
 }
 
@@ -205,7 +256,7 @@ class ReelVideoPlayerItem extends StatefulWidget {
   final String caption;
   final List likes;
   final String docId;
-  final String userId; // 👈 এখানে userId ডিক্লেয়ার করুন
+  final String userId;
   final String postId;
   final bool isActive;
   final bool isPreload;
@@ -219,7 +270,7 @@ class ReelVideoPlayerItem extends StatefulWidget {
     required this.caption,
     required this.likes,
     required this.docId,
-    required this.userId, // 👈 এখানে required করে দিন
+    required this.userId,
     required this.postId,
     required this.isActive,
     required this.isPreload,
@@ -239,7 +290,7 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
   bool _hasEndedTriggered = false;
 
   @override
-  bool get wantKeepAlive => true; // পেজ সুইচ করলেও উইজেট ও স্টেট মেমোরিতে ধরে রাখবে
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -248,14 +299,18 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
   }
 
   void _initVideoController() {
-    // 🔥 ক্যাশড কন্ট্রোলার ব্যবহার করা হচ্ছে যাতে বারবার ফেচ বা লোড না হয়
     _controller = VideoCacheManager.getController(widget.videoUrl);
 
     if (_controller.value.isInitialized) {
-      setState(() {
-        _isInitialized = true;
-      });
-      _applyPlayState();
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+        if (!_controller.hasListeners) {
+          _controller.addListener(_videoListener);
+        }
+        _applyPlayState();
+      }
     } else {
       _controller.initialize().then((_) {
         if (mounted) {
@@ -263,7 +318,9 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
             _isInitialized = true;
           });
           _controller.setLooping(false);
-          _controller.addListener(_videoListener);
+          if (!_controller.hasListeners) {
+            _controller.addListener(_videoListener);
+          }
           _applyPlayState();
         }
       }).catchError((error) {
@@ -271,7 +328,6 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
       });
     }
 
-    // যদি আগে থেকেই লিসาেনার যুক্ত না থাকে তবে যুক্ত করা
     if (!_controller.hasListeners) {
       _controller.addListener(_videoListener);
     }
@@ -285,7 +341,6 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
         _isPlaying = true;
       }
     } else if (widget.isPreload) {
-      // 🔥 পরবর্তী ভিডিও ব্যাকগ্রাউন্ডে পজ অবস্থায় ইনিশিয়ালাইজ ও প্রস্তুত থাকবে
       _controller.pause();
       _isPlaying = false;
     } else {
@@ -321,7 +376,7 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
         }
       } else {
         if (!widget.isPreload) {
-          _userPaused = false; // অন্য ভিডিওতে চলে গেলে ইউজারের পজ স্ট্যাটাস রিসেট হবে
+          _userPaused = false;
         }
         _controller.pause();
         _isPlaying = false;
@@ -331,7 +386,6 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
 
   @override
   void dispose() {
-    // ক্যাশ ম্যানেজারের কারণে এখানে কন্ট্রোলার পুরোপুরি dispose করা হচ্ছে না যাতে মেমোরিতে ভিডিও ক্যাশ থাকে
     super.dispose();
   }
 
@@ -550,12 +604,13 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
                                         CircleAvatar(
                                           radius: 16,
                                           backgroundColor: Colors.grey[900],
-                                          backgroundImage: NetworkImage(cData[
-                                                          'userImage'] !=
-                                                      null &&
-                                                  cData['userImage'] != ""
-                                              ? cData['userImage']
-                                              : "https://www.w3schools.com/howto/img_avatar.png"),
+                                          backgroundImage:
+                                              CachedNetworkImageProvider(cData[
+                                                              'userImage'] !=
+                                                          null &&
+                                                      cData['userImage'] != ""
+                                                  ? cData['userImage']
+                                                  : "https://www.w3schools.com/howto/img_avatar.png"),
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(
@@ -822,11 +877,9 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
     } catch (e) {}
   }
 
-  @override
+ @override
   Widget build(BuildContext context) {
     super.build(context);
-    // ধরে নিচ্ছি আপনার রিলস অবজেক্টের ডকুমেন্ট আইডি এবং ওনার আইডি এভাবে পাস করা হয় (যেমন widget.postId, widget.userId)
-    // যদি ভ্যারিয়েবল নেম ভিন্ন থাকে, আপনার রিলস মডেল অনুযায়ী পরিবর্তন করে নেবেন।
     final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     final bool isLiked = widget.likes.contains(currentUserId);
 
@@ -885,28 +938,11 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 20,
-                            backgroundColor: Colors.grey.shade800,
-                            backgroundImage: widget.userImage.isNotEmpty
-                                ? NetworkImage(widget.userImage)
-                                : null,
-                            child: widget.userImage.isEmpty
-                                ? const Icon(Icons.person, color: Colors.white)
-                                : null,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            widget.userName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
+                      // 🔥 ঠিক এই জায়গাতে পুরনো কোডগুলো মুছে ReelUserInfo বসানো হলো
+                      ReelUserInfo(
+                        userId: widget.userId,
+                        fallbackName: widget.userName,
+                        fallbackImage: widget.userImage,
                       ),
                       const SizedBox(height: 10),
                       if (widget.caption.isNotEmpty)
@@ -932,9 +968,7 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
                         isLiked
                             ? Icons.favorite_rounded
                             : Icons.favorite_border_rounded,
-                        color: isLiked
-                            ? const Color(0xFFFF2E93)
-                            : Colors.white,
+                        color: isLiked ? const Color(0xFFFF2E93) : Colors.white,
                         size: 32,
                       ),
                     ),
@@ -976,6 +1010,89 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
           ),
         ],
       ),
+    );
+  }
+}
+// 🔥 ইউজার ইনফো রিয়েল-টাইম দেখানোর জন্য একটি ছোট স্টেটলেস উইজেট
+class ReelUserInfo extends StatelessWidget {
+  final String userId;
+  final String fallbackName;
+  final String fallbackImage;
+
+  const ReelUserInfo({
+    super.key,
+    required this.userId,
+    required this.fallbackName,
+    required this.fallbackImage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // যদি userId না থাকে, তবে পোস্টের পুরনো ডাটা ফলব্যাক হিসেবে দেখাবে
+    if (userId.isEmpty) {
+      return Row(
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: Colors.grey.shade800,
+            backgroundImage: fallbackImage.isNotEmpty
+                ? CachedNetworkImageProvider(fallbackImage)
+                : null,
+            child: fallbackImage.isEmpty
+                ? const Icon(Icons.person, color: Colors.white)
+                : null,
+          ),
+          const SizedBox(width: 10),
+          Text(
+            fallbackName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
+      builder: (context, snapshot) {
+        String displayName = fallbackName;
+        String displayImage = fallbackImage;
+
+        if (snapshot.hasData && snapshot.data!.exists) {
+          var userData = snapshot.data!.data() as Map<String, dynamic>?;
+          if (userData != null) {
+            displayName = userData['name'] ?? userData['userName'] ?? fallbackName;
+            displayImage = userData['profilePic'] ?? userData['userImage'] ?? fallbackImage;
+          }
+        }
+
+        return Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: Colors.grey.shade800,
+              backgroundImage: displayImage.isNotEmpty
+                  ? CachedNetworkImageProvider(displayImage)
+                  : null,
+              child: displayImage.isEmpty
+                  ? const Icon(Icons.person, color: Colors.white)
+                  : null,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              displayName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

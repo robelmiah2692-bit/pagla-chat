@@ -97,7 +97,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
               unselectedLabelColor: Colors.black45,
               labelStyle: TextStyle(fontWeight: FontWeight.bold),
               tabs: [
-                Tab(text: "Followers"),
+                Tab(text: "Members"),
                 Tab(text: "Kick List"),
               ],
             ),
@@ -132,7 +132,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
               child: CircularProgressIndicator(color: Colors.pinkAccent));
         if (!snapshot.data!.exists)
           return const Center(
-              child: Text("রুম পাওয়া যায়নি",
+              child: Text("Dont find room",
                   style: TextStyle(color: Colors.white54)));
 
         var roomData = snapshot.data!.data() as Map<String, dynamic>;
@@ -171,7 +171,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
                 if (!userSnap.hasData) return const SizedBox();
                 var userData = userSnap.data ?? {};
 
-                String name = userData['name'] ?? "ইউজার $targetuID";
+                String name = userData['name'] ?? "user $targetuID";
                 String photo =
                     userData['profilepic'] ?? userData['profilePic'] ?? "";
                 String frame = userData['activeFrameUrl'] ?? "";
@@ -281,7 +281,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
 
         if (kickedUsers.isEmpty)
           return const Center(
-              child: Text("কেউ কিক লিস্টে নেই",
+              child: Text("Empaty list",
                   style: TextStyle(color: Colors.white38)));
 
         return ListView.builder(
@@ -336,7 +336,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
     if (isAdmin)
       return const Text("🛡️ Admin",
           style: TextStyle(color: Colors.blueAccent, fontSize: 12));
-    return const Text("Follower",
+    return const Text("Member",
         style: TextStyle(color: Colors.white54, fontSize: 12));
   }
 
