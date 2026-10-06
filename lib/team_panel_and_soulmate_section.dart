@@ -109,9 +109,18 @@ class _TeamPanelAndSoulmateSectionState
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
+                              // ব্যাকগ্রাউন্ডে ইমেজ লিংক ব্যবহারের জন্য Decoration Image এখানে যুক্ত করতে পারেন
+                              image: const DecorationImage(
+                                image: NetworkImage(
+                                    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/hartanime/Hartsolmate.jpg"), // এখানে আপনার লিংক বসাবেন
+                                fit: BoxFit.cover,
+                              ),
                               gradient: LinearGradient(
                                 colors: _selectedTabIndex == 0
-                                    ? [Colors.pinkAccent, Colors.purpleAccent]
+                                    ? [
+                                        Colors.pinkAccent.withOpacity(0.8),
+                                        Colors.purpleAccent.withOpacity(0.8)
+                                      ]
                                     : [
                                         Colors.white.withOpacity(0.1),
                                         Colors.white.withOpacity(0.05)
@@ -126,7 +135,7 @@ class _TeamPanelAndSoulmateSectionState
                               ),
                             ),
                             child: const Text(
-                              "𝐇𝐚𝐫𝐭—̳͟͞͞💗(𝐒𝐨𝐮𝐥𝐦𝐚𝐭𝐞𝐬)",
+                              "𝐇𝐚𝐫𝐭—̳͟͞͞💗(𝐒𝐨𝐮𝐥𝐦𝐚𝐭𝐞𝐬)", // নাম পরিবর্তন করে আপনার প্রয়োজনমতো দিতে পারেন
                               style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 14,
@@ -201,9 +210,8 @@ class _TeamPanelAndSoulmateSectionState
         teamPanelData?['ownerId']?.toString() ??
         inputOwnerDocId;
 
-    
     String myAuthUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    
+
     return FutureBuilder<DocumentSnapshot>(
       // সব সময় সঠিক realOwnerDocId দিয়ে ওনারের ডাটা ফেচ করা হবে
       future: _fetchOwnerData(realOwnerDocId),
@@ -286,8 +294,6 @@ class _TeamPanelAndSoulmateSectionState
                     myAuthUid == panelOwnerUid ||
                     myAuthUid == realOwnerDocId);
 
-                
-
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 15),
                   child: Column(
@@ -295,7 +301,6 @@ class _TeamPanelAndSoulmateSectionState
                     children: [
                       GestureDetector(
                         onTap: () {
-                         
                           _openTeamPanelDetailsModal(
                               context,
                               ownerDocumentId,
@@ -324,7 +329,8 @@ class _TeamPanelAndSoulmateSectionState
                                     radius: 30,
                                     backgroundColor: Colors.grey[800],
                                     backgroundImage: panelPic.isNotEmpty
-                                        ? CachedNetworkImageProvider(panelPic) as ImageProvider
+                                        ? CachedNetworkImageProvider(panelPic)
+                                            as ImageProvider
                                         : null,
                                     child: panelPic.isEmpty
                                         ? const Icon(Icons.person,
@@ -344,7 +350,6 @@ class _TeamPanelAndSoulmateSectionState
                                         color: Colors.transparent,
                                         child: InkWell(
                                           onTap: () {
-                                            
                                             _changePanelPicture(
                                                 ownerDocumentId, teamPanelData);
                                           },
@@ -474,7 +479,6 @@ class _TeamPanelAndSoulmateSectionState
                                             onPressed: hasRequested
                                                 ? null
                                                 : () {
-                                                   
                                                     _sendJoinRequest(
                                                         ownerDocumentId,
                                                         myUniqueUserId);
@@ -548,7 +552,8 @@ class _TeamPanelAndSoulmateSectionState
                                         CircleAvatar(
                                           radius: 25,
                                           backgroundImage: uPic.isNotEmpty
-                                              ? CachedNetworkImageProvider(uPic) as ImageProvider
+                                              ? CachedNetworkImageProvider(uPic)
+                                                  as ImageProvider
                                               : null,
                                           child: uPic.isEmpty
                                               ? const Icon(Icons.person,
@@ -662,8 +667,6 @@ class _TeamPanelAndSoulmateSectionState
       String panelPic,
       bool isPanelOwner,
       Map<String, dynamic> ownerUserData) async {
-    
-
     // বর্তমান ইউজার এই প্যানেলের মেম্বার কিনা বা ওনার কিনা চেক করা
     String currentAuthUid = FirebaseAuth.instance.currentUser?.uid ?? '';
     String currentUserId = '';
@@ -779,7 +782,8 @@ class _TeamPanelAndSoulmateSectionState
                           CircleAvatar(
                             radius: 25,
                             backgroundImage: panelPic.isNotEmpty
-                                ? CachedNetworkImageProvider(panelPic) as ImageProvider
+                                ? CachedNetworkImageProvider(panelPic)
+                                    as ImageProvider
                                 : null,
                             child: panelPic.isEmpty
                                 ? const Icon(Icons.person)
@@ -840,8 +844,7 @@ class _TeamPanelAndSoulmateSectionState
                         ],
                       ),
                     ),
-                    
-                    
+
                     const SizedBox(height: 15),
                     // ট্যাব বার (শুধু ওনার ও মেম্বার হলে দুটি ট্যাব দেখাবে)
                     TabBar(
@@ -926,7 +929,9 @@ class _TeamPanelAndSoulmateSectionState
                                             radius: 20,
                                             backgroundImage: profilePicUrl
                                                     .isNotEmpty
-                                                ? CachedNetworkImageProvider(profilePicUrl) as ImageProvider
+                                                ? CachedNetworkImageProvider(
+                                                        profilePicUrl)
+                                                    as ImageProvider
                                                 : null,
                                             child: profilePicUrl.isEmpty
                                                 ? const Icon(Icons.person,
@@ -1019,13 +1024,11 @@ class _TeamPanelAndSoulmateSectionState
   // 🖼️ প্যানেল ছবি পরিবর্তন করার ফাংশন
   Future<void> _changePanelPicture(
       String ownerDocId, Map<String, dynamic>? currentTeamPanelData) async {
-    
     try {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
       if (pickedFile == null) {
-       
         return;
       }
 
@@ -1041,7 +1044,6 @@ class _TeamPanelAndSoulmateSectionState
       UploadTask uploadTask = ref.putFile(file);
       TaskSnapshot snapshot = await uploadTask;
       String downloadUrl = await snapshot.ref.getDownloadURL();
-      
 
       Map<String, dynamic> updatedTeamPanel = currentTeamPanelData != null
           ? Map<String, dynamic>.from(currentTeamPanelData)
@@ -1051,14 +1053,12 @@ class _TeamPanelAndSoulmateSectionState
       await FirebaseFirestore.instance.collection('users').doc(ownerDocId).set({
         'teamPanel': updatedTeamPanel,
       }, SetOptions(merge: true));
-      
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Panel picture updated successfully!")),
       );
     } catch (e) {
-      
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Failed to update picture: $e")),
@@ -1073,7 +1073,6 @@ class _TeamPanelAndSoulmateSectionState
   }
 
   void _sendJoinRequest(String panelOwnerDocId, String currentAuthUid) async {
-   
     try {
       // ১. প্যানেল ওনারের সঠিক ডকুমেন্ট আইডি নিশ্চিত করা
       String resolvedOwnerId = panelOwnerDocId;
@@ -1092,7 +1091,6 @@ class _TeamPanelAndSoulmateSectionState
           resolvedOwnerId = queryByUid.docs.first.id;
         }
       }
-      
 
       // ২. authUID দিয়ে users কালেকশন থেকে ইউজারের সঠিক ডকুমেন্ট খুঁজে বের করা
       String uniqueUserId = currentAuthUid;
@@ -1127,8 +1125,6 @@ class _TeamPanelAndSoulmateSectionState
           activeFrame = data['activeFrameUrl'] ?? data['activeFrame'] ?? '';
         }
       }
-
-     
 
       // 🛑 ৩. নতুন চেক: ইউজার ইতিমধ্যে অন্য কোনো প্যানেলের ওনার বা মেম্বার কি না তা যাচাই করা
 
@@ -1188,14 +1184,11 @@ class _TeamPanelAndSoulmateSectionState
         'timestamp': FieldValue.serverTimestamp(),
       });
 
-      
-
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Join request sent to panel owner!")),
       );
     } catch (e) {
-      
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Failed to send request: $e")),
@@ -1224,7 +1217,6 @@ class _TeamPanelAndSoulmateSectionState
 
   void _acceptRequest(String ownerDocId, String requesterUid,
       Map<String, dynamic> uInfo) async {
-    
     // প্যানেলের আসল মালিকের সঠিক authUID এবং ডকুমেন্ট ডাটা বের করার জন্য users কালেকশন চেক করা
     DocumentSnapshot ownerUserDoc = await FirebaseFirestore.instance
         .collection('users')
@@ -1293,24 +1285,18 @@ class _TeamPanelAndSoulmateSectionState
             false, // মেম্বারের প্রোফাইলে সে মালিক নয় তা পরিষ্কারভাবে মার্ক করা হলো
       }
     });
-
-    
   }
 
   void _rejectRequest(String ownerId, String requesterUid) async {
-    
     await FirebaseFirestore.instance
         .collection('team_panels')
         .doc(ownerId)
         .collection('requests')
         .doc(requesterUid)
         .delete();
-    
   }
 
   void _removeMember(String ownerId, String memberUid) async {
-    
-
     // ১. প্যানেলের members থেকে মেম্বার ডিলিট করা
     await FirebaseFirestore.instance
         .collection('team_panels')
@@ -1323,8 +1309,6 @@ class _TeamPanelAndSoulmateSectionState
     await FirebaseFirestore.instance.collection('users').doc(memberUid).update({
       'teamPanel': FieldValue.delete(),
     });
-
-    
   }
 }
 

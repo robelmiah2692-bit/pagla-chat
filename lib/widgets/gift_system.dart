@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -760,68 +761,92 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   }
 
   void _handleSendAction() {
-    Map<String, dynamic> giftToSend;
+  if (selectedGift == null) return;
 
-    if (isRandomBoxSelected && randomGiftPool.isNotEmpty) {
-      final random = DateTime.now().millisecondsSinceEpoch;
-      giftToSend = randomGiftPool[random % randomGiftPool.length];
+  Map<String, dynamic> rawGift = selectedGift!;
+
+  // ১. চেক করা এটি বক্স কি না
+  bool isBox = rawGift.containsKey('gifts') && rawGift['gifts'] is List;
+
+  Map<String, dynamic> giftToSend;
+  int unitPrice = 0; // এটি সেন্ডারের কাছ থেকে কাটার জন্য মূল দাম (বক্স হলে বক্সের দাম, না হলে গিফটের দাম)
+
+  if (isBox) {
+    // বক্সের নিজস্ব দাম (যেমন: ১৩০০০)
+    unitPrice = (rawGift['price'] ?? 0) as int;
+
+    // কিন্তু স্ক্রিনে বা রিসিভারের কাছে পাঠানোর জন্য বক্সের ভেতর থেকে রেন্ডমলি একটি গিফট বেছে নেওয়া হলো
+    List<dynamic> boxGifts = rawGift['gifts'];
+    if (boxGifts.isNotEmpty) {
+      final random = Random();
+      giftToSend = Map<String, dynamic>.from(boxGifts[random.nextInt(boxGifts.length)]);
+      
+      // 🔑 অত্যন্ত গুরুত্বপূর্ণ: ভেতরের রেন্ডম গিফটের ভেতরে বক্সের আসল দাম এবং বক্সের আইডি বসিয়ে দেওয়া হলো,
+      // যাতে ব্যাকএন্ড বা হেল্পার ফাইল সেন্ডারের একাউন্ট কাটার সময় বক্সের দামটাই কাটে!
+      giftToSend['boxPrice'] = unitPrice; 
+      giftToSend['isBoxSend'] = true;
     } else {
-      if (selectedGift == null) return;
-      giftToSend = selectedGift!;
+      giftToSend = rawGift;
     }
-
-    int unitPrice = (giftToSend['price'] ?? 0) as int;
-    bool isFree = giftToSend['price'] == null || (giftToSend['price'] ?? 0) == 0;
-
-    int multiplier = 1;
-    if (targetType == "All Mic") {
-      multiplier = widget.currentSeats.where((s) => s != null).length;
-    } else if (targetType == "All Room") {
-      multiplier = widget.viewerCount > 0 ? widget.viewerCount : 1;
-    }
-
-    int totalPrice = unitPrice * selectedCount * multiplier;
-
-    if (!isFree && widget.diamondBalance < totalPrice) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          backgroundColor: Colors.redAccent,
-          content: Text("Insufficient Diamonds! Need $totalPrice 💎",
-              style: const TextStyle(color: Colors.white))));
-      return;
-    }
-
-    if (isFree && targetType != "Target") {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text("Free gifts can only be sent to a specific user!")));
-      return;
-    }
-
-    String finalTargetValue;
-    if (targetType == "All Room" || targetType == "All Mic") {
-      finalTargetValue = targetType;
-    } else {
-      finalTargetValue = selectedTargetName ?? "Target";
-    }
-
-    bool isVideoGift =
-        giftToSend.containsKey('videoUrl') && giftToSend['videoUrl'] != null;
-
-    widget.onGiftSend(giftToSend, selectedCount, finalTargetValue);
-
-    if (isVideoGift) {
-      sendRoomVideoGift(giftToSend['videoUrl']);
-    }
-
-    if (isFree) {
-      setState(() {
-        dynamicFreeGifts.removeWhere((g) => g['id'] == giftToSend['id']);
-        selectedGift = null;
-        isRandomBoxSelected = false;
-      });
-    }
-
-    Navigator.pop(context);
+  } else {
+    // সাধারণ গিফট হলে নিজের দামই unitPrice
+    unitPrice = (rawGift['price'] ?? 0) as int;
+    giftToSend = rawGift;
   }
+
+  bool isFree = unitPrice == 0;
+
+  int multiplier = 1;
+  if (targetType == "All Mic") {
+    multiplier = widget.currentSeats.where((s) => s != null).length;
+  } else if (targetType == "All Room") {
+    multiplier = widget.viewerCount > 0 ? widget.viewerCount : 1;
+  }
+
+  // ✅ সেন্ডারের কাছ থেকে কাটার মোট দাম (বক্স হলে অবশ্যই বক্সের দাম অনুযায়ী কাটবে)
+  int totalPrice = unitPrice * selectedCount * multiplier;
+
+  if (!isFree && widget.diamondBalance < totalPrice) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: Colors.redAccent,
+        content: Text("Insufficient Diamonds! Need $totalPrice 💎",
+            style: const TextStyle(color: Colors.white))));
+    return;
+  }
+
+  if (isFree && targetType != "Target") {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("Free gifts can only be sent to a specific user!")));
+    return;
+  }
+
+  String finalTargetValue;
+  if (targetType == "All Room" || targetType == "All Mic") {
+    finalTargetValue = targetType;
+  } else {
+    finalTargetValue = selectedTargetName ?? "Target";
+  }
+
+  bool isVideoGift =
+      giftToSend.containsKey('videoUrl') && giftToSend['videoUrl'] != null;
+
+  // এখানে giftToSend এর মধ্যে ভেতরের রেন্ডম গিফট যাচ্ছে, যা স্ক্রিনে ও রিসিভারের কাছে শো করবে
+  widget.onGiftSend(giftToSend, selectedCount, finalTargetValue);
+
+  if (isVideoGift) {
+    sendRoomVideoGift(giftToSend['videoUrl']);
+  }
+
+  if (isFree) {
+    setState(() {
+      dynamicFreeGifts.removeWhere((g) => g['id'] == giftToSend['id']);
+      selectedGift = null;
+      isRandomBoxSelected = false;
+    });
+  }
+
+  Navigator.pop(context);
+}
 
   void sendRoomVideoGift(String giftUrl) {
     String path = '${widget.roomId}/latestVideoGift';

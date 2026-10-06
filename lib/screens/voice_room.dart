@@ -1342,33 +1342,26 @@ class _VoiceRoomState extends State<VoiceRoom>
     String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
 
     try {
-      // ১. প্রথমে myuID (শর্ট আইডি) দিয়ে চেক এবং রিমুভ
+      // ১. Batch রাইট ব্যবহার করে একসাথে সব জায়গা থেকে রিমুভ করা যাতে ফেইলিওর চান্স না থাকে
+      WriteBatch batch = FirebaseFirestore.instance.batch();
+
       if (myuID.isNotEmpty) {
-        final shortIdRef =
+        DocumentReference shortIdRef =
             FirebaseFirestore.instance.collection('users').doc(myuID);
-        final shortIdSnap = await shortIdRef.get();
-
-        if (shortIdSnap.exists) {
-          await shortIdRef.update({
-            'currentRoomId': FieldValue.delete(),
-          });
-        }
+        batch.update(shortIdRef,
+            {'currentRoomId': FieldValue.delete(), 'isOnline': false});
       }
 
-      // ২. এবার authUID (ফায়ারবেস অ্যাথ ইউআইডি) দিয়ে চেক এবং রিমুভ
       if (authUID.isNotEmpty && authUID != myuID) {
-        final authIdRef =
+        DocumentReference authIdRef =
             FirebaseFirestore.instance.collection('users').doc(authUID);
-        final authIdSnap = await authIdRef.get();
-
-        if (authIdSnap.exists) {
-          await authIdRef.update({
-            'currentRoomId': FieldValue.delete(),
-          });
-        }
+        batch.update(authIdRef,
+            {'currentRoomId': FieldValue.delete(), 'isOnline': false});
       }
 
-      // ৩. রিয়েলটাইম ডাটাবেজ থেকেও উপস্থিতি সাথে সাথে পরিষ্কার করা
+      await batch.commit();
+
+      // ২. রিয়েলটাইম ডাটাবেজ থেকেও উপস্থিতি সাথে সাথে পরিষ্কার করা
       if (widget.roomId.isNotEmpty && authUID.isNotEmpty) {
         await FirebaseDatabase.instance
             .ref('rooms/${widget.roomId}/presence/$authUID')

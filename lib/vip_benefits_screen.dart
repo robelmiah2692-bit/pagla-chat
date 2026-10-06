@@ -127,7 +127,7 @@ class _VIPBenefitsScreenState extends State<VIPBenefitsScreen> {
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
                     children: [
-                      _buildFeatureIcon(Icons.badge, "VIP Badge"),
+                      _buildVipBadgeGridCard(context),
                       _buildFeatureIcon(Icons.crop_original, "VIP Frame"),
                       _buildFeatureIcon(Icons.card_giftcard, "Exclusive Gifts"),
                       _buildFeatureIcon(Icons.chat_bubble, "Chat Privileges"),
@@ -203,6 +203,84 @@ class _VIPBenefitsScreenState extends State<VIPBenefitsScreen> {
             style: const TextStyle(
                 color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
             textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+// --- ভিআইপি ব্যাজ প্রিভিউ কার্ড (সচ্ছ গ্লাস ইফেক্ট এবং ৩ লাইনে নির্দিষ্ট সংখ্যক ব্যাজ সাজানো) ---
+  Widget _buildVipBadgeGridCard(BuildContext context) {
+    final String githubBaseUrl =
+        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main";
+
+    // ১ থেকে ৮ পর্যন্ত ব্যাজগুলোর ইউআরএল আলাদা করা
+    final List<String> row1Urls = [
+      "$githubBaseUrl/vip1.png",
+      "$githubBaseUrl/vip2.png",
+      "$githubBaseUrl/vip3.png",
+    ];
+    final List<String> row2Urls = [
+      "$githubBaseUrl/vip4.png",
+      "$githubBaseUrl/vip5.png",
+      "$githubBaseUrl/vip6.png",
+    ];
+    final List<String> row3Urls = [
+      "$githubBaseUrl/vip7.png",
+      "$githubBaseUrl/vip8.png",
+    ];
+
+    // একটি সিঙ্গেল ব্যাজ উইজেট তৈরির হেল্পার মেথড
+    Widget buildBadgeItem(String url) {
+      return Container(
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.transparent,
+          border: Border.all(
+            color: Colors.white.withOpacity(0.2),
+            width: 0.8,
+          ),
+        ),
+        child: Image.network(
+          url,
+          width:
+              26, // কার্ডের ভেতরে সুন্দরভাবে ফিট করার জন্য সাইজ পারফেক্ট রাখা হয়েছে
+          height: 26,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) =>
+              const Icon(Icons.error, size: 12, color: Colors.red),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        // 🔥 সচ্ছ গ্লাস ব্যাকগ্রাউন্ড ও বর্ডার
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.amberAccent.withOpacity(0.2)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // প্রথম লাইন (৩টি ব্যাজ)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: row1Urls.map((url) => buildBadgeItem(url)).toList(),
+          ),
+          const SizedBox(height: 4),
+          // দ্বিতীয় লাইন (৩টি ব্যাজ)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: row2Urls.map((url) => buildBadgeItem(url)).toList(),
+          ),
+          const SizedBox(height: 4),
+          // তৃতীয় লাইন (২টি ব্যাজ)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: row3Urls.map((url) => buildBadgeItem(url)).toList(),
           ),
         ],
       ),

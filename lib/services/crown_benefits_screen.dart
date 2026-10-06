@@ -74,7 +74,7 @@ class _CrownBenefitsScreenState extends State<CrownBenefitsScreen> {
             children: [
               AppBar(
                 title: Text(
-                  "Crown Benefits (Crown $currentLevel)",
+                  "Crown $currentLevel",
                   style: const TextStyle(
                       color: Colors.amberAccent, fontWeight: FontWeight.bold),
                 ),
@@ -178,8 +178,7 @@ class _CrownBenefitsScreenState extends State<CrownBenefitsScreen> {
                           "Exclusive custom frame"),
                       _buildFeatureCard(Icons.bolt, "Room Entry Effect",
                           "Special animation on join"),
-                      _buildFeatureCard(Icons.stars, "Crown Badge Entry",
-                          "High-tier crown badge"),
+                      _buildCrownBadgeCard(context),
                       _buildFeatureCard(Icons.card_giftcard,
                           "Weekly 70% Bonus Pack", "Massive weekly rewards"),
                       _buildFeatureCard(Icons.local_fire_department,
@@ -249,6 +248,80 @@ class _CrownBenefitsScreenState extends State<CrownBenefitsScreen> {
             style: const TextStyle(color: Colors.white70, fontSize: 10),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+// --- ক্রাউন লেভেল ব্যাজ প্রিভিউ কার্ড (সচ্ছ গ্লাস ইফেক্ট এবং দুই লাইনে সাজানো) ---
+  Widget _buildCrownBadgeCard(BuildContext context) {
+    final Map<int, String> crownBadges = {
+      1: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown1.png',
+      2: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown2.png',
+      3: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown3.png',
+      4: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown4.png',
+      5: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown5.png',
+      6: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown6.png',
+    };
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        // 🔥 সচ্ছ গ্লাস ব্যাকগ্রাউন্ড
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.amberAccent.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.stars, color: Colors.amberAccent, size: 20),
+              SizedBox(width: 6),
+              Text(
+                "Crown Badges",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // 🔥 ক্রাউন ব্যাজগুলোর সাইজ বড় করে দুই লাইনে সাজানো হয়েছে
+          Expanded(
+            child: Center(
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                alignment: WrapAlignment.center,
+                children: crownBadges.values.map((url) {
+                  return Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.transparent,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.2),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Image.network(
+                      url,
+                      width: 32, // ক্রাউন ব্যাজের সাইজ
+                      height: 32,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.error, size: 16, color: Colors.red),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
           ),
         ],
       ),

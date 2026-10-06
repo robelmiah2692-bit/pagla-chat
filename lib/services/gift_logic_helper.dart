@@ -11,7 +11,7 @@ class GiftLogicHelper {
     };
   }
 
-  // --- NEW BOX LOGIC --- (নতুন যোগ করা হয়েছে)
+  // --- NEW BOX LOGIC --- (নতুন যোগ করা হয়েছে)
   static Map<String, dynamic> pickRandomGiftFromBox(List<dynamic> giftsInBox) {
     final _random = Random();
     final randomList = List.from(giftsInBox)..shuffle(_random);
@@ -19,7 +19,7 @@ class GiftLogicHelper {
   }
   // ---------------------
 
-  // ২. গিফট প্রসেসিং (সোলমেট রিকোয়েস্ট লজিকসহ)
+ // ২. গিফট প্রসেসিং (সোলমেট রিকোয়েস্ট লজিকসহ)
   static Future<void> processGift({
     required String senderAuthId, // লগইন করা ইউজারের লম্বা uID
     required String targetAuthId, // রিসিভারের লম্বা uID
@@ -32,24 +32,47 @@ class GiftLogicHelper {
     required String receiverImage,
     required String giftName,
   }) async {
-    // --- NEW BOX LOGIC --- (নতুন যোগ করা হয়েছে)
-    bool isBox = gift.containsKey('gifts') && gift['gifts'] is List;
+    // --- FIXED BOX LOGIC ---
+    // চেক করা এটি বক্স কি না অথবা ভেতর থেকে বক্সের প্রাইস পাঠানো হয়েছে কি না
+    bool isBox = (gift.containsKey('gifts') && gift['gifts'] is List) || 
+                 (gift.containsKey('isBoxSend') && gift['isBoxSend'] == true);
+
     Map<String, dynamic> finalGiftData = gift;
-    final int unitPrice = (gift['price'] ?? 0) as int;
+    
+    // বক্স হলে বক্সের নিজস্ব দাম (boxPrice বা মূল price) ধরবে, অন্যথায় সাধারণ গিফটের দাম
+    int unitPrice = 0;
+    if (gift.containsKey('boxPrice') && gift['boxPrice'] != null) {
+      unitPrice = (gift['boxPrice'] ?? 0) as int;
+    } else {
+      unitPrice = (gift['price'] ?? 0) as int;
+    }
+
     int effectiveUnitPrice = unitPrice;
 
-    if (isBox) {
-      final randomGift = pickRandomGiftFromBox(gift['gifts']);
-      finalGiftData = randomGift;
-      effectiveUnitPrice = (randomGift['price'] ?? 0).toInt();
+    if (gift.containsKey('gifts') && gift['gifts'] is List) {
+      // যদি রিসিভ করা অবজেক্টটি সরাসরি মেইন বক্স হয়, তবে ভেতর থেকে রেন্ডম গিফট বেছে নেব
+      List<dynamic> giftsInBox = gift['gifts'];
+      if (giftsInBox.isNotEmpty) {
+        final randomGift = pickRandomGiftFromBox(giftsInBox);
+        finalGiftData = Map<String, dynamic>.from(randomGift);
+        // স্ক্রিন বা ব্যানারের জন্য ভেতরের গিফটের দাম নেব, কিন্তু সেন্ডারের ডায়মন্ড কাটার সময় unitPrice (বক্সের দাম) অপরিবর্তিত থাকবে!
+        effectiveUnitPrice = (randomGift['price'] ?? 0).toInt();
+        
+        // ভেতরের ডেটাতে বক্সের প্রাইসটা যুক্ত করে দেব যাতে ব্যানার বা অন্য কোথাও মিস না হয়
+        finalGiftData['boxPrice'] = unitPrice;
+        finalGiftData['isBoxSend'] = true;
+      }
+    } else if (isBox) {
+      // যদি অলরেডি ভেতর থেকে রেন্ডম গিফট পাঠানো হয়ে থাকে, তবে কার্যকর দাম হবে ভেতরের গিফটের নিজস্ব দাম
+      effectiveUnitPrice = (gift['price'] ?? 0).toInt();
     }
     // ---------------------
 
-    final int totalPrice = unitPrice * count;
-    final int effectiveTotalPrice = effectiveUnitPrice * count;
+    final int totalPrice = unitPrice * count; // 🔑 সেন্ডারের কাছ থেকে কাটার মোট দাম (সবসময় বক্সের দাম অনুযায়ী কাটবে!)
+    final int effectiveTotalPrice = effectiveUnitPrice * count; // রিসিভার বা রুমের ডায়মন্ড যোগ হওয়ার কার্যকর দাম
     final Map<String, int> split = calculateSplit(effectiveTotalPrice);
 
-// 🛠️ সেন্ডারের লেটেস্ট ব্যাজ ও লেভেল ফেচ করে নেওয়া, যাতে মেসেজে সঠিক ডেটা থাকে
+    // 🛠️ সেন্ডারের লেটেস্ট ব্যাজ ও লেভেল ফেচ করে নেওয়া, যাতে মেসেজে সঠিক ডেটা থাকে
     DocumentSnapshot senderDocSnap = await FirebaseFirestore.instance
         .collection('users')
         .doc(senderAuthId)
@@ -61,12 +84,12 @@ class GiftLogicHelper {
 
     WriteBatch batch = FirebaseFirestore.instance.batch();
 
-    // ক. সেন্ডারের একাউন্ট আপডেট (ডায়মন্ড কাটা + মোট খরচ বাড়ানো)
+    // ক. সেন্ডারের একাউন্ট আপডেট (বক্সের আসল দাম কাটা + মোট খরচ বাড়ানো)
     if (unitPrice > 0) {
       DocumentReference senderRef =
           FirebaseFirestore.instance.collection('users').doc(senderAuthId);
       batch.update(senderRef, {
-        'diamonds': FieldValue.increment(-totalPrice),
+        'diamonds': FieldValue.increment(-totalPrice), // ✅ এখানে ১০০% নিশ্চিত বক্সের দামই কাটবে!
         'totalSpent': FieldValue.increment(totalPrice),
       });
     }
@@ -83,14 +106,14 @@ class GiftLogicHelper {
           finalGiftData['icon'],
       'senderAuthId': senderAuthId,
       'senderName': senderName,
-      'senderImage': senderImage,    // নতুন যোগ করা হলো
-      'receiverImage': receiverImage, // নতুন যোগ করা হলো
+      'senderImage': senderImage,    
+      'receiverImage': receiverImage, 
       'targetAuthId': targetAuthId,
       'count': count,
-      'totalPrice': totalPrice,
-      'giftPrice': effectiveTotalPrice, // ✅ চ্যাটে দেখানোর জন্য মোট বা একক ডায়মন্ড এখানে যুক্ত করা হলো
+      'totalPrice': totalPrice, // সেন্ডারের কত কাটল (বক্সের দাম)
+      'giftPrice': effectiveTotalPrice, // রেন্ডম গিফটের কার্যকর মোট মূল্য
       'timestamp': DateTime.now().millisecondsSinceEpoch,
-    // 🛠️ ব্যাজ ও লেভেলের ফিল্ডগুলো এখানে যুক্ত করে দেওয়া হলো
+    // 🛠 ব্যাজ ও লেভেলের ফিল্ডগুলো এখানে যুক্ত করে দেওয়া হলো
       'vip_xp': senderData['vip_xp'] ?? 0,
       'vip_expiry': senderData['vip_expiry'] ?? 0,
       'totalActiveXp': senderData['totalActiveXp'] ?? senderData['active_xp'] ?? 0,
@@ -103,10 +126,10 @@ class GiftLogicHelper {
 
     batch.update(roomRef, {
       'last_gift': giftBanner,
-      'totalDiamonds': FieldValue.increment(totalPrice),
+      'totalDiamonds': FieldValue.increment(effectiveTotalPrice), 
     });
 
-    // গ. রিসিভারের একাউন্টে ৪০% যোগ করা
+    // গ. রিসিভারের একাউন্টে ৪০% যোগ করা (রেন্ডম গিফটের দামের উপর ভিত্তি করে)
     if (targetAuthId != 'All Room' && targetAuthId != 'All Mic') {
       DocumentReference targetRef =
           FirebaseFirestore.instance.collection('users').doc(targetAuthId);
@@ -130,7 +153,6 @@ class GiftLogicHelper {
     // ট্রানজেকশন সম্পন্ন করা
     await batch.commit();
   }
-
   // ৩. সিটে থাকা ইউজারদের ফিল্টার (সংশোধিত ভার্সন)
   static List<Map<String, dynamic>> getAllMicUsers(List<dynamic> currentSeats) {
     List<Map<String, dynamic>> micUsers = [];

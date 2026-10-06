@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lottie/lottie.dart';
+import 'package:pagla_chat/admin_panel_screen.dart';
 import 'package:pagla_chat/services/call_handler.dart';
 import 'package:pagla_chat/widgets/room_settings_handler.dart';
 import 'dart:ui';
@@ -137,27 +138,98 @@ print("DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as
     );
   }
 
-  Widget _buildAppBar() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-      height: 100,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        image: const DecorationImage(
-          image: CachedNetworkImageProvider(
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/inboxbenar.jpg",
-          ),
-          fit: BoxFit.fill,
-        ),
-        border: Border.all(
-          color: Colors.amber.shade700,
-          width: 2,
-        ),
-      ),
-    );
-  }
+ Widget _buildAppBar() {
+  final String authUid = FirebaseAuth.instance.currentUser?.uid ?? "";
 
+  return Container(
+    margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+    height: 100,
+    width: double.infinity,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(20),
+      image: const DecorationImage(
+        image: CachedNetworkImageProvider(
+          "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/inboxbenar.jpg",
+        ),
+        fit: BoxFit.fill,
+      ),
+      border: Border.all(
+        color: Colors.amber.shade700,
+        width: 2,
+      ),
+    ),
+    child: authUid.isEmpty
+        ? const SizedBox.shrink()
+        : FutureBuilder<QuerySnapshot>(
+            future: FirebaseFirestore.instance
+                .collection('users')
+                .where('uid', isEqualTo: authUid)
+                .limit(1)
+                .get(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox.shrink();
+              }
+
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const SizedBox.shrink();
+              }
+
+              var userDoc = snapshot.data!.docs.first;
+              var data = userDoc.data() as Map<String, dynamic>;
+              
+              String customDocId = userDoc.id; 
+              bool hasAccess = data['canAccessAdminPanel'] == true || data['isOwner'] == true;
+
+              if (!hasAccess) {
+                return const SizedBox.shrink();
+              }
+
+              return Stack(
+                children: [
+                  Positioned(
+                    right: 12,
+                    top: 12,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AdminPanelScreen(myUid: customDocId),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.cyanAccent, width: 1),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.admin_panel_settings, color: Colors.cyanAccent, size: 16),
+                            SizedBox(width: 5),
+                            Text(
+                              "Pagla&Pagli",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+  );
+}
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),

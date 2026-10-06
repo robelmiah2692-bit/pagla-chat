@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:intl/intl.dart';
 import 'package:pagla_chat/agency_badge.dart';
@@ -109,7 +110,7 @@ class _ProfilePageState extends State<ProfilePage> {
   // আপনার ক্লাসের ভেতরে এই ভেরিয়েবলগুলো থাকবে
   final TextEditingController _bioController = TextEditingController();
   bool _showSaveButton = false;
-
+  String profileWallpaper = ""; // স্টেট ভেরিয়েবল ডিক্লেয়ার করুন
   @override
   void initState() {
     super.initState();
@@ -447,6 +448,8 @@ class _ProfilePageState extends State<ProfilePage> {
           hasSpecialEffect = data['hasSpecialEffect'] ?? false;
           hasFreeFrame = data['hasFreeFrame'] ?? false;
           activeFrameUrl = data['activeFrameUrl'] ?? "";
+          profileWallpaper = data['profileWallpaper'] ?? "";
+
           if (data['frameUntil'] != null) {
             frameUntilDate = (data['frameUntil'] as Timestamp).toDate();
             if (now.isAfter(frameUntilDate!)) {
@@ -614,8 +617,8 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _saveBio(String docId) async {
     try {
       String newBio = _bioController.text.trim();
-      if (newBio.length > 60) {
-        newBio = newBio.substring(0, 60);
+      if (newBio.length > 70) {
+        newBio = newBio.substring(0, 70);
       }
 
       await FirebaseFirestore.instance.collection('users').doc(docId).update({
@@ -623,7 +626,7 @@ class _ProfilePageState extends State<ProfilePage> {
       });
 
       setState(() {
-        _showSaveButton = false; // সফলভাবে সেভ হলে বাটন লুকিয়ে যাবে
+        _showSaveButton = false; // সফলভাবে সেভ হলে বাটন লুকিয়ে যাবে
       });
 
       FocusScope.of(context).unfocus(); // কিবোর্ড বন্ধ করবে
@@ -1478,10 +1481,10 @@ class _ProfilePageState extends State<ProfilePage> {
     showModalBottomSheet(
         context: context,
         backgroundColor: Colors
-            .transparent, // ব্যাকগ্রাউন্ড ট্রান্সপারেন্ট করে কাস্টম গ্রাডিয়েন্ট ব্যবহার করা হয়েছে
+            .transparent, // ব্যাকগ্রাউন্ড ট্রান্সপারেন্ট করে কাস্টম গ্রাডিয়েন্ট ব্যবহার করা হয়েছে
         isScrollControlled: true,
         builder: (context) => Container(
-              // আপনার দেওয়া ছবির কালার কম্বিনেশন অনুযায়ী গ্রাডিয়েন্ট ব্যাকগ্রাউন্ড
+              // আপনার দেওয়া ছবির কালার কম্বিনেশন অনুযায়ী গ্রাডিয়েন্ট ব্যাকগ্রাউন্ড
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -1504,7 +1507,7 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Padding(
                 padding: EdgeInsets.only(
                   bottom: MediaQuery.of(context).viewInsets.bottom +
-                      60, // নিচের দিকে এক্সট্রা খালি জায়গা রাখার জন্য প্যাডিং বাড়ানো হয়েছে
+                      60, // নিচের দিকে এক্সট্রা খালি জায়গা রাখার জন্য প্যাডিং বাড়ানো হয়েছে
                   top: 15,
                   left: 15,
                   right: 15,
@@ -1566,16 +1569,24 @@ class _ProfilePageState extends State<ProfilePage> {
                             if (hasPremiumCard || getVipLevel() >= 1) {
                               try {
                                 final ImagePicker picker = ImagePicker();
-                                final XFile? pickedFile =
-                                    await picker.pickImage(
-                                        source: ImageSource.gallery,
-                                        imageQuality: 40);
+                                final XFile? pickedFile = await picker.pickImage(
+                                    source: ImageSource.gallery,
+                                    imageQuality:
+                                        100); // অরিজিনাল কোয়ালিটি নিয়ে আমাদের লজিক দিয়ে কন্ট্রোল করব
 
                                 if (pickedFile != null) {
+                                  // ছবি কম্প্রেস করে সাইজ ১০০ কেবি বা তার নিচে নিয়ে আসার লজিক
+                                  File originalFile = File(pickedFile.path);
+                                  File? compressedFile =
+                                      await _compressImageToTargetSize(
+                                          originalFile);
+
                                   if (!mounted) return;
                                   Navigator.pop(context);
+
+                                  // কম্প্রেসড ফাইলটি পাস করা হলো (যদি কম্প্রেস ফেইল করে তবে অরিজিনাল ফাইল যাবে)
                                   await _handleProfileUpdate(
-                                      File(pickedFile.path));
+                                      compressedFile ?? originalFile);
                                 }
                               } catch (e) {}
                             } else {
@@ -1596,30 +1607,81 @@ class _ProfilePageState extends State<ProfilePage> {
             ));
   }
 
+// সংশোধিত ও নিখুঁত কম্প্রেস মেথড যা নিশ্চিত করবে সাইজ ১০০ কেবির নিচে থাকে
+  Future<File?> _compressImageToTargetSize(File file) async {
+    try {
+      int originalSizeInBytes = await file.length();
+      print(
+          "📌 Original Image Size: ${(originalSizeInBytes / 1024).toStringAsFixed(2)} KB");
+
+      final filePath = file.absolute.path;
+      final lastIndex =
+          filePath.lastIndexOf(RegExp(r'.jp(e)?g', caseSensitive: false));
+      final splitPath =
+          (lastIndex != -1) ? filePath.substring(0, lastIndex) : filePath;
+      final targetPath = "${splitPath}_compressed.jpg";
+
+      File resultFile = file;
+      int quality = 85;
+      int width = 600;
+      int height = 600;
+
+      // লুপ চালিয়ে সাইজ ১০০ কেবি (১০২৪০০ বাইট) এর নিচে নামানোর চেষ্টা করা হবে
+      for (int i = 0; i < 4; i++) {
+        var result = await FlutterImageCompress.compressAndGetFile(
+          filePath,
+          targetPath,
+          quality: quality,
+          minWidth: width,
+          minHeight: height,
+        );
+
+        if (result != null) {
+          resultFile = File(result.path);
+          int sizeInBytes = await resultFile.length();
+          print(
+              "🔄 Compression Step ${i + 1} (Quality: $quality, Resolution: ${width}x${height}): ${(sizeInBytes / 1024).toStringAsFixed(2)} KB");
+
+          if (sizeInBytes <= 102400) {
+            break; // ১০০ কেবির নিচে আসলে লুপ শেষ
+          }
+        }
+
+        // প্রতি ধাপে কোয়ালিটি এবং রেজুলেশন কমানো হচ্ছে যাতে কোনোভাবেই সাইজ বেশি না থাকে
+        quality = (quality - 15).clamp(10, 90);
+        width = (width * 0.8).toInt();
+        height = (height * 0.8).toInt();
+      }
+
+      int finalSizeInBytes = await resultFile.length();
+      print(
+          "✅ Final Compressed Size: ${(finalSizeInBytes / 1024).toStringAsFixed(2)} KB");
+
+      return resultFile;
+    } catch (e) {
+      print("❌ Compression Error: $e");
+      return file;
+    }
+  }
+
   Future<void> _handleProfileUpdate(File newFile) async {
     try {
-      // ১. আপনার লোকাল ভেরিয়েবল বা স্টেট থেকে আইডি নিন (স্ক্রিনশট অনুযায়ী আপনার আইডি হলো '454488')
-      // নিশ্চিত করুন যে এই 'uIDValue' বা যেই ভেরিয়েবলে আপনার আইডি আছে, সেটি সঠিক।
       String targetUID = uIDValue.toString();
 
       String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
       String fileName = 'profile_$timestamp.jpg';
 
-      // ২. স্টোরেজ রেফারেন্স (এখানেও FirebaseAuth UID এর বদলে আপনার 'targetUID' ব্যবহার করুন)
       Reference storageFolder = FirebaseStorage.instance
           .ref()
           .child('user_profiles')
           .child(targetUID);
       Reference newStorageRef = storageFolder.child(fileName);
 
-      // ৩. ছবি আপলোড
       UploadTask uploadTask = newStorageRef.putFile(
           newFile, SettableMetadata(contentType: 'image/jpeg'));
       TaskSnapshot snapshot = await uploadTask;
       String newDownloadUrl = await snapshot.ref.getDownloadURL();
 
-      // ৪. গুরুত্বপূর্ণ পরিবর্তন: কোয়েরি করে সঠিক ডকুমেন্টটি খুঁজে বের করা
-      // এখানে আমরা 'uID' ফিল্ডটি চেক করছি যা আপনার ডাটাবেসে আছে
       final querySnapshot = await FirebaseFirestore.instance
           .collection('users')
           .where('uID', isEqualTo: targetUID)
@@ -1627,27 +1689,23 @@ class _ProfilePageState extends State<ProfilePage> {
           .get();
 
       if (querySnapshot.docs.isNotEmpty) {
-        // সঠিক ডকুমেন্ট পাওয়া গেছে, এখন আপডেট করুন
         String docId = querySnapshot.docs.first.id;
         await FirebaseFirestore.instance.collection('users').doc(docId).update({
           'profilePic': newDownloadUrl,
         });
       } else {
-        // যদি ডাটাবেসে ডকুমেন্ট না থাকে, তবে নতুন করে তৈরি করুন
         await FirebaseFirestore.instance.collection('users').add({
           'uID': targetUID,
           'profilePic': newDownloadUrl,
         });
       }
 
-      // ৫. ইন্টারফেস আপডেট
       if (mounted) {
         setState(() {
           userImageURL = newDownloadUrl;
         });
       }
 
-      // ৬. পুরাতন ফাইল ডিলিট করার লজিক
       final ListResult result = await storageFolder.listAll();
       for (var item in result.items) {
         if (item.name != fileName) {
@@ -1715,7 +1773,6 @@ class _ProfilePageState extends State<ProfilePage> {
     UserProfileFeatures.openVIP(context, userDataMap);
   }
 
-  void _openGames() => UserProfileFeatures.openGames(context);
 // এটি আপনার ফাইলে যোগ করুন
   void _openFacebook() async {
     final Uri url =
@@ -1737,7 +1794,7 @@ class _ProfilePageState extends State<ProfilePage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
       builder: (context) => DefaultTabController(
-        length: 4,
+        length: 5,
         child: Container(
           height: MediaQuery.of(context).size.height * 0.75,
           decoration: BoxDecoration(
@@ -1802,6 +1859,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       Tab(text: "Frames"),
                       Tab(text: "Entry"),
                       Tab(text: "Special"),
+                      Tab(text: "Wallpapers"),
                     ],
                   ),
 
@@ -1812,6 +1870,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         _buildFrameStoreTab(),
                         _buildEntryStoreTab(),
                         _buildSpecialStoreTab(),
+                        _buildWallpaperStoreTab(),
                       ],
                     ),
                   ),
@@ -2116,6 +2175,78 @@ class _ProfilePageState extends State<ProfilePage> {
             "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(15).json",
         "price": "13000"
       },
+      {
+        "name": "RoyalEntry 16",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/entry%20(15).json",
+        "price": "13000"
+      },
+
+      // নিচে ভিডিও এন্ট্রি (যেগুলোতে thumb দেওয়া আছে)
+      {
+        "name": "royalcar",
+        "thumb":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newvediogift/1789989712700Th.jpg",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newvediogift/1789989712700.mp4",
+        "price": "20000"
+      },
+      {
+        "name": "royaltigar",
+        "thumb":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newvediogift/1789992421091Th.jpg",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newvediogift/1789992421091.mp4",
+        "price": "84000"
+      },
+      {
+        "name": "royalDolphin",
+        "thumb":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newvediogift/1790051784471Th.jpg",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newvediogift/1790051784471.mp4",
+        "price": "210000"
+      },
+      {
+        "name": "golddragon",
+        "thumb":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newvediogift/1790052357253Th.jpg",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newvediogift/1790052357253.mp4",
+        "price": "80000"
+      },
+      {
+        "name": "kingqwinentry",
+        "thumb":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newvediogift/1790266052402Th.jpg",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newvediogift/1790266052402.mp4",
+        "price": "90000"
+      },
+      {
+        "name": "ballukentry",
+        "thumb":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newvediogift/2026092245Th.jpg",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newvediogift/2026092245.mp4",
+        "price": "250000"
+      },
+      {
+        "name": "Dragonfir",
+        "thumb":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newvediogift/20260922Th.jpg",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newvediogift/20260922.mp4",
+        "price": "75000"
+      },
+      {
+        "name": "fararientry",
+        "thumb":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newvediogift/2026092232Th.jpg",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newvediogift/2026092232.mp4",
+        "price": "85000"
+      },
     ];
 
     return GridView.builder(
@@ -2129,7 +2260,11 @@ class _ProfilePageState extends State<ProfilePage> {
       itemBuilder: (context, index) {
         var item = entryList[index];
         int itemPrice = int.parse(item['price']!);
-        String url = item['url']!;
+
+        // চেক করা হচ্ছে এটি ভিডিও এন্ট্রি নাকি লটি ফাইল
+        bool isVideoEntry = item.containsKey('thumb') && item['thumb'] != null;
+        String? thumbUrl = item['thumb'];
+        String entryUrl = item['url']!; // লটি বা ভিডিওর মূল লিংক
 
         return Container(
           padding: const EdgeInsets.all(10),
@@ -2137,27 +2272,18 @@ class _ProfilePageState extends State<ProfilePage> {
             color: Colors.white.withOpacity(0.9),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: Colors.cyan, width: 2),
-            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
           ),
           child: Column(
             children: [
+              // প্রিভিউ সেকশন: ভিডিও হলে থাম্বনেইল, লটি ফাইল হলে Lottie.network দিয়ে সরাসরি অ্যানিমেশন দেখাবে
               Expanded(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: url.endsWith('.json')
-                      ? Lottie.network(
-                          url,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Icon(
-                            Icons.auto_awesome,
-                            size: 40,
-                            color: Colors.cyan,
-                          ),
-                        )
-                      : CachedNetworkImage(
-                          imageUrl: url,
-                          fit: BoxFit.contain,
+                  child: isVideoEntry
+                      ? CachedNetworkImage(
+                          imageUrl: thumbUrl!,
+                          fit: BoxFit.cover,
                           placeholder: (context, url) => Container(
                             color: Colors.white10,
                             child: const Center(
@@ -2166,16 +2292,29 @@ class _ProfilePageState extends State<ProfilePage> {
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 1.5,
-                                  color: Colors.white70,
+                                  color: Colors.cyan,
                                 ),
                               ),
                             ),
                           ),
                           errorWidget: (context, url, error) => const Icon(
-                            Icons.auto_awesome,
+                            Icons.videocam,
                             size: 40,
                             color: Colors.cyan,
                           ),
+                        )
+                      : Lottie.network(
+                          entryUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Center(
+                              child: Icon(
+                                Icons.error_outline,
+                                size: 40,
+                                color: Colors.redAccent,
+                              ),
+                            );
+                          },
                         ),
                 ),
               ),
@@ -2206,13 +2345,11 @@ class _ProfilePageState extends State<ProfilePage> {
                         DateTime now = DateTime.now();
                         DateTime expiry = now.add(const Duration(days: 15));
 
-                        // --- ডায়মন্ড কাটা এবং ব্যাকপ্যাকে পাঠানোর আসল লজিক শুরু ---
                         WriteBatch batch = FirebaseFirestore.instance.batch();
                         DocumentReference userRef = FirebaseFirestore.instance
                             .collection('users')
                             .doc(uIDValue);
 
-                        // ব্যাকপ্যাকের জন্য সাব-কালেকশন রেফারেন্স
                         DocumentReference backpackRef =
                             userRef.collection('myEntries').doc(item['name']);
 
@@ -2221,27 +2358,245 @@ class _ProfilePageState extends State<ProfilePage> {
                           'diamonds': FieldValue.increment(-itemPrice),
                         });
 
-                        // ২. ব্যাকপ্যাকে এন্ট্রি সেভ করা (যাতে পরে ব্যাকপ্যাক থেকে Pick করা যায়)
+                        // ২. ব্যাকপ্যাকে মূল লিংক (লটি বা ভিডিও লিংক) সেভ করা হলো
+                        batch.set(backpackRef, {
+                          'name': item['name'],
+                          'url': entryUrl,
+                          'expiryDate': Timestamp.fromDate(expiry),
+                          'isPicked': true,
+                        });
+
+                        await batch.commit();
+
+                        setState(() {
+                          diamonds -= itemPrice;
+                          activeEntryUrl = entryUrl;
+                        });
+
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              backgroundColor: Colors.green,
+                              content: Text(
+                                  "Successfully Bought & Added to Backpack!")),
+                        );
+                      } catch (e) {
+                        // Error handling
+                      }
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            backgroundColor: Colors.redAccent,
+                            content: Text("Not enough diamonds!")),
+                      );
+                    }
+                  },
+                  child: const Text("BUY",
+                      style: TextStyle(color: Colors.white, fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWallpaperStoreTab() {
+    final List<Map<String, String>> wallpaperList = [
+      {
+        "name": "Neon Wallpaper 1",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpaper-1.jpg", // আপনার জেসন বা ইমেজ লিংক এখানে দেবেন
+        "price": "20500"
+      },
+      {
+        "name": "Neon Wallpaper 2",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpaper-2.jpg",
+        "price": "16000"
+      },
+      {
+        "name": "Neon Wallpaper 1",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpaper-3.jpg", // আপনার জেসন বা ইমেজ লিংক এখানে দেবেন
+        "price": "5000"
+      },
+      {
+        "name": 'Sher Queen',
+        'url':
+            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/shherqwin.jpg',
+        'price': "120000"
+      },
+      {
+        "name": 'Royal Queen',
+        'url':
+            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/royalqwin.jpg',
+        'price': "130000"
+      },
+      {
+        "name": 'Romantic Love',
+        'url':
+            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/romanticlove.jpg',
+        'price': "110000"
+      },
+      {
+        "name": 'Romantic',
+        'url':
+            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/romantic.jpg',
+        'price': "85000"
+      },
+      {
+        "name": 'King & Queen Wallpaper',
+        'url':
+            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/kingweenwallpepar.jpg',
+        'price': "95000"
+      },
+      {
+        "name": 'King Royal',
+        'url':
+            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/kingroyal.jpg',
+        'price': "90000"
+      },
+      {
+        "name": 'King & Queen Love',
+        'url':
+            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/kingqwinlove.jpg',
+        'price': "100000"
+      },
+      {
+        "name": 'King',
+        'url':
+            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/king.jpg',
+        'price': "76000"
+      },
+      {
+        "name": 'Couple Wallpaper',
+        'url':
+            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/cuplewallpepar.jpg',
+        'price': "75000"
+      },
+      {
+        "name": 'Blue Queen',
+        'url':
+            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/bluqwen.jpg',
+        'price': "88000"
+      },
+    ];
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(15),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.72,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12),
+      itemCount: wallpaperList.length,
+      itemBuilder: (context, index) {
+        var item = wallpaperList[index];
+        int itemPrice = int.parse(item['price']!);
+        String url = item['url']!;
+
+        return Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.cyan, width: 2),
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
+          ),
+          child: Column(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: CachedNetworkImage(
+                    imageUrl: url,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: Colors.white10,
+                      child: const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => const Icon(
+                      Icons.wallpaper,
+                      size: 40,
+                      color: Colors.cyan,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(item['name']!,
+                  style: const TextStyle(
+                      color: Colors.blueAccent,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold)),
+              Text("${item['price']} 💎",
+                  style: const TextStyle(
+                      color: Colors.blueGrey,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                height: 35,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.cyan,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    if (diamonds >= itemPrice) {
+                      try {
+                        DateTime now = DateTime.now();
+                        DateTime expiry = now.add(const Duration(days: 15));
+
+                        WriteBatch batch = FirebaseFirestore.instance.batch();
+                        DocumentReference userRef = FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(uIDValue);
+
+                        // ব্যাকপ্যাকে সাব-কালেকশন হিসেবে ওয়ালপেপার সেভ করার জন্য
+                        DocumentReference backpackRef = userRef
+                            .collection('myWallpapers')
+                            .doc(item['name']);
+
+                        // ১. ডায়মন্ড কাটা
+                        batch.update(userRef, {
+                          'diamonds': FieldValue.increment(-itemPrice),
+                        });
+
+                        // ২. ব্যাকপ্যাকে ওয়ালপেপার যোগ করা
                         batch.set(backpackRef, {
                           'name': item['name'],
                           'url': url,
                           'expiryDate': Timestamp.fromDate(expiry),
-                          'isPicked': true, // কেনার সাথে সাথে পিক হয়ে যাবে
+                          'isPicked': true,
                         });
 
                         await batch.commit();
-                        // --- লজিক শেষ ---
 
                         setState(() {
                           diamonds -= itemPrice;
-                          activeEntryUrl = url;
+                          profileWallpaper =
+                              url; // কেনার সাথে সাথে ব্যাকগ্রাউন্ডে সেট হয়ে যাবে
                         });
 
-                        Navigator.pop(context); // স্টোর বন্ধ করা
+                        Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                               backgroundColor: Colors.green,
-                              content: Text("Bought & Added to Backpack!")),
+                              content: Text("Wallpaper Bought & Added!")),
                         );
                       } catch (e) {}
                     } else {
@@ -2524,7 +2879,7 @@ class _ProfilePageState extends State<ProfilePage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
       builder: (context) => DefaultTabController(
-        length: 4,
+        length: 5,
         child: Container(
           height: MediaQuery.of(context).size.height * 0.75,
           decoration: BoxDecoration(
@@ -2592,6 +2947,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       Tab(text: "My Frames"),
                       Tab(text: "Entry Effects"),
                       Tab(text: "My Special"),
+                      Tab(text: "Wallpapers"),
                     ],
                   ),
 
@@ -2603,6 +2959,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         _buildMyFramesTab(),
                         _buildMyEntriesTab(),
                         _buildMySpecialTab(),
+                        _buildMyWallpapersTab(),
                       ],
                     ),
                   ),
@@ -3009,6 +3366,150 @@ class _ProfilePageState extends State<ProfilePage> {
                           setState(() {
                             activeEntryUrl = newUrl;
                             hasEntryEffect = newStatus;
+                          });
+                        },
+                        child: Text(isPicked ? "Unpick" : "Pick",
+                            style: const TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildMyWallpapersTab() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uIDValue)
+          .collection('myWallpapers')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData)
+          return const Center(child: CircularProgressIndicator());
+
+        var myWallpapers = snapshot.data!.docs;
+        if (myWallpapers.isEmpty) {
+          return const Center(
+            child: Text("আপনার কোনো ওয়ালপেপার নেই",
+                style: TextStyle(color: Colors.blueGrey, fontSize: 16)),
+          );
+        }
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(12),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.75,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10),
+          itemCount: myWallpapers.length,
+          itemBuilder: (context, index) {
+            var data = myWallpapers[index].data() as Map<String, dynamic>;
+            String url = data['url'] ?? "";
+            String name = data['name'] ?? "Unknown";
+            bool isPicked =
+                profileWallpaper == url; // বর্তমানে সেট করা থাকলে পিক দেখাবে
+
+            Timestamp? expiryTimestamp = data['expiryDate'] as Timestamp?;
+            DateTime expiryDate = expiryTimestamp?.toDate() ?? DateTime.now();
+            Duration remaining = expiryDate.difference(DateTime.now());
+
+            String timeText = remaining.inDays > 0
+                ? "${remaining.inDays} days left"
+                : "${remaining.inHours} hours left";
+
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                    color:
+                        isPicked ? Colors.orangeAccent : Colors.blue.shade100,
+                    width: 2),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black12, blurRadius: 5)
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: CachedNetworkImage(
+                          imageUrl: url,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: Colors.white10,
+                            child: const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => const Icon(
+                            Icons.broken_image,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Text(name,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 13)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(timeText,
+                        style: TextStyle(
+                            color: remaining.inDays < 2
+                                ? Colors.red
+                                : Colors.blueGrey,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500)),
+                  ),
+                  Padding(
+                    padding:
+                        const EdgeInsets.only(bottom: 10, left: 8, right: 8),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 30,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              isPicked ? Colors.redAccent : Colors.green,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                        onPressed: () async {
+                          String newUrl = isPicked ? "" : url;
+
+                          // ফায়ারস্টোরে প্রোফাইল ওয়ালপেপার আপডেট
+                          await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(uIDValue)
+                              .update({
+                            'profileWallpaper': newUrl,
+                          });
+
+                          setState(() {
+                            profileWallpaper = newUrl;
                           });
                         },
                         child: Text(isPicked ? "Unpick" : "Pick",
@@ -3470,7 +3971,7 @@ class _ProfilePageState extends State<ProfilePage> {
           appBar: AppBar(
             backgroundColor: const Color.fromARGB(125, 4, 2, 58),
             elevation: 0,
-            // leadinWidth বাদ দেওয়া হলো যাতে ডাইমন্ডের টেক্সট বড় বা ছোট হলে বক্স নিজে থেকেই জায়গা অ্যাডজাস্ট করে নিতে পারে
+            // leadingWidth বাদ দেওয়া হলো যাতে ডাইমন্ডের টেক্সট বড় বা ছোট হলে বক্স নিজে থেকেই জায়গা অ্যাডজাস্ট করে নিতে পারে
             leadingWidth: isMe ? 150 : 56,
             leading: isMe
                 ? Align(
@@ -3480,7 +3981,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       margin: const EdgeInsets.only(left: 8),
                       decoration: BoxDecoration(
-                        // প্রিমিয়াম মাল্টি-কালার গ্লাস ব্যাকগ্রাউন্ড (বর্ডারের ভেতরের মিক্স কালার)
+                        // প্রিমিয়াম মাল্টি-কালার গ্লাস ব্যাকগ্রাউন্ড (বর্ডার ছাড়া)
                         gradient: LinearGradient(
                           colors: [
                             Colors.purple.shade900.withOpacity(0.6),
@@ -3491,24 +3992,12 @@ class _ProfilePageState extends State<ProfilePage> {
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: const Color(
-                              0xFFFFD700), // রিয়েল গোল্ডেন চিকন বর্ডার
-                          width: 1.2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFFD700).withOpacity(0.25),
-                            blurRadius: 8,
-                            spreadRadius: 1,
-                          ),
-                        ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize
-                            .min, // ডাইমন্ড কম-বেশি হলে বক্স অটো ছোট-বড় হবে
+                            .min, // ডাইমন্ড কম-বেশি হলে বক্স অটো ছোট-বড় হবে
                         children: [
-                          // প্রিমিয়াম রিয়ালিস্টিক ডায়মন্ড লুক টেক্সট শ্যাডো সহ
+                          // প্রিমিয়াম রিয়ালিস্টিক ডায়মন্ড লুক টেক্সট শ্যাডো সহ
                           ShaderMask(
                             shaderCallback: (bounds) => const LinearGradient(
                               colors: [
@@ -3548,7 +4037,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     width: 32,
                     margin: const EdgeInsets.only(right: 12),
                     decoration: BoxDecoration(
-                      // সেটিংস বাটনেও প্রিমিয়াম মাল্টি-কালার মিক্স গ্লাস ব্যাকগ্রাউন্ড
+                      // সেটিংস বাটনেও প্রিমিয়াম মাল্টি-কালার মিক্স গ্লাস ব্যাকগ্রাউন্ড (বর্ডার ছাড়া)
                       gradient: LinearGradient(
                         colors: [
                           Colors.blue.shade900.withOpacity(0.6),
@@ -3559,24 +4048,13 @@ class _ProfilePageState extends State<ProfilePage> {
                         end: Alignment.bottomRight,
                       ),
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(
-                            0xFFFFD700), // রিয়েল গোল্ডেন চিকন বর্ডার
-                        width: 1.2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFFFD700).withOpacity(0.25),
-                          blurRadius: 8,
-                          spreadRadius: 1,
-                        ),
-                      ],
                     ),
                     child: IconButton(
                       padding: EdgeInsets.zero,
                       icon: const Icon(
                         Icons.settings,
-                        color: Color(0xFF80D8FF), // প্রিমিয়াম ব্রাইট আইকন কালার
+                        color:
+                            Color(0xFF80D8FF), // প্রিমিয়াম ব্রাইট আইকন কালার
                         size: 16,
                       ),
                       onPressed: _openSettings,
@@ -3587,10 +4065,43 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           body: Stack(
             children: [
+              // ১. ব্যাকগ্রাউন্ড ওয়ালপেপার অথবা ডিফল্ট ডিজাইন চেক (হাফ স্ক্রিন ও ফেড ইফেক্ট সহ)
               Positioned.fill(
-                child: CustomPaint(
-                  painter: RainbowCascadePainter(),
-                ),
+                child: profileWallpaper.isNotEmpty
+                    ? ShaderMask(
+                        shaderCallback: (rect) {
+                          return LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: const [
+                              Colors
+                                  .white, // ওপরের দিকে ওয়ালপেপার ফুল ব্রাইট থাকবে
+                              Colors.white, // মিডল পর্যন্ত ঠিক থাকবে
+                              Colors
+                                  .transparent, // নিচের দিকে আস্তে আস্তে মিলিয়ে যাবে
+                            ],
+                            stops: const [
+                              0.0,
+                              0.5,
+                              0.8
+                            ], // কতদূর পর্যন্ত ওয়ালপেপার দেখা যাবে (এখানে ০.৫ মানে অর্ধেক স্ক্রিন)
+                          ).createShader(rect);
+                        },
+                        blendMode: BlendMode.dstIn,
+                        child: CachedNetworkImage(
+                          imageUrl: profileWallpaper,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => CustomPaint(
+                            painter: RainbowCascadePainter(),
+                          ),
+                          errorWidget: (context, url, error) => CustomPaint(
+                            painter: RainbowCascadePainter(),
+                          ),
+                        ),
+                      )
+                    : CustomPaint(
+                        painter: RainbowCascadePainter(),
+                      ),
               ),
 
               SingleChildScrollView(
@@ -3680,6 +4191,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             alignment: Alignment.center,
                             clipBehavior: Clip.none,
                             children: [
+                              // ১. ইউজার অবতার
                               GestureDetector(
                                 onTap: isMe ? _pickProfileImage : null,
                                 child: CircleAvatar(
@@ -3696,6 +4208,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                       : null,
                                 ),
                               ),
+                              // ২. ফ্রেম (সাইজ ছোট করে অবতারের মাপে নিয়ে আসা হয়েছে)
                               if (activeFrameUrl.isNotEmpty &&
                                   !activeFrameUrl.startsWith('file:'))
                                 IgnorePointer(
@@ -3703,13 +4216,14 @@ class _ProfilePageState extends State<ProfilePage> {
                                     width: 0,
                                     height: 0,
                                     child: OverflowBox(
-                                      minWidth: 170,
-                                      maxWidth: 170,
-                                      minHeight: 161,
-                                      maxHeight: 161,
+                                      minWidth:
+                                          120, // অবতারের সাইজের সাথে মিলিয়ে কমানো হলো
+                                      maxWidth: 120,
+                                      minHeight: 120,
+                                      maxHeight: 120,
                                       child: activeFrameUrl.contains('.json')
                                           ? Transform.scale(
-                                              scale: 0.9,
+                                              scale: 1.0,
                                               child: Lottie.network(
                                                 activeFrameUrl,
                                                 fit: BoxFit.contain,
@@ -3734,9 +4248,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       },
                     ),
 
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 5),
 
-                    // --- নামের গ্লাস বর্ডার বক্স ---
+                    // --- নামের গ্লাস বর্ডার বক্স বাদ দিয়ে ফ্লাট ডিজাইন ---
                     (() {
                       // রোল বা স্ট্যাটাস চেক করার লজিক
                       bool isOfficial = (userData['isOfficial'] == true) ||
@@ -3745,69 +4259,39 @@ class _ProfilePageState extends State<ProfilePage> {
                           (userData['role'] == 'super_admin');
                       bool isSpecialUser = isOfficial || isSuperAdmin;
 
-                      // অফিশিয়াল বা সুপার এডমিন হলে স্পেশাল শিমার ডিজাইন, না হলে নরমাল ডিজাইন
+                      // অফিশিয়াল বা সুপার এডমিন হলে স্পেশাল শিমার ডিজাইন, না হলে নরমাল ডিজাইন (কোনো ব্যাকগ্রাউন্ড বা বর্ডার ছাড়াই)
                       return GestureDetector(
                         onTap: isMe ? () => _editName(userData) : null,
-                        child: Container(
-                          // 🌟 প্যাডিং কমিয়ে স্লিম ও স্মুথ করা হলো (ব্যাজের মতো করে)
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isSpecialUser
-                                ? Colors.black.withOpacity(0.4)
-                                : Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(
-                                20), // বর্ডার রেডিয়াসও একটু স্লিম লুকের জন্য অ্যাডজাস্ট করা হলো
-                            border: Border.all(
-                              color: isSpecialUser
-                                  ? const Color(0xFFFFD700)
-                                  : Colors.white.withOpacity(
-                                      0.3), // গোল্ডেন বর্ডার শুধু স্পেশালদের জন্য
-                              width: 1.2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: isSpecialUser
-                                    ? const Color(0xFFFFD700).withOpacity(0.3)
-                                    : Colors.purpleAccent.withOpacity(0.15),
-                                blurRadius: isSpecialUser ? 6 : 10,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: isSpecialUser
-                              ? Shimmer.fromColors(
-                                  baseColor: isOfficial
-                                      ? Colors.amber
-                                      : Colors.purpleAccent,
-                                  highlightColor: Colors.white,
-                                  period: const Duration(milliseconds: 1500),
-                                  child: Text(
-                                    userName,
-                                    style: const TextStyle(
-                                      fontSize:
-                                          16, // সাইজও প্রফাইলের সাথে সামঞ্জস্য রাখা হলো
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.8,
-                                      height: 1.0,
-                                    ),
-                                  ),
-                                )
-                              : Text(
+                        child: isSpecialUser
+                            ? Shimmer.fromColors(
+                                baseColor: isOfficial
+                                    ? Colors.amber
+                                    : Colors.purpleAccent,
+                                highlightColor: Colors.white,
+                                period: const Duration(milliseconds: 1500),
+                                child: Text(
                                   userName,
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.white,
                                     letterSpacing: 0.8,
                                     height: 1.0,
                                   ),
                                 ),
-                        ),
+                              )
+                            : Text(
+                                userName,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  letterSpacing: 0.8,
+                                  height: 1.0,
+                                ),
+                              ),
                       );
                     })(),
 // --- নামের গ্লাস বর্ডার বক্স শেষ ---
-
                     Stack(
                       clipBehavior: Clip
                           .none, // এটা খুব জরুরি, যাতে ব্যাজটি আইডির সীমানার বাইরেও ভেসে থাকতে পারে
@@ -3862,43 +4346,32 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ),
 
-                        // ২. ভাসমান ব্যাজ (এটি আইডির ওপর বা পাশে ভাসবে)
-                        Positioned(
-                          left: -80,
-                          top: -5,
-                          child: UserBadgeWidget(
-                            gender:
-                                gender, // এটি আপনার ওই ভেরিয়েবল যা ডাটা লোড হওয়ার পর আপডেট হয়েছে
-                            age: age.toString(), // এটি আপনার ওই age ভেরিয়েবল
-                          ),
-                        ),
-
-                        // ৩. ডান পাশের ব্যাজ (এজেন্সি এবং ভেরিফাইড ব্যাজ একসাথে বা আলাদা দেখানোর জন্য)
+                        // ৩. ডান পাশের ব্যাজ (ভেরিফাইড ব্যাজ আগে এবং এজেন্সি ব্যাজ পরে)
                         Positioned(
                           right:
-                              -110, // দুটি একসাথে আসলে জায়গা অ্যাডজাস্ট করার জন্য বাড়ানো হলো
-                          top: -5,
+                              -55, // দুটি একসাথে আসলে জায়গা অ্যাডজাস্ট করার জন্য
+                          top: -3,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // ১. এজেন্সি থাকলে এজেন্সি ব্যাজ দেখাবে
-                              if (isAgent)
-                                AgencyBadgeWidget(
-                                  isAgent: isAgent,
-                                  imageUrl:
-                                      "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/agancy.png",
-                                ),
-
-                              // দুটোই থাকলে মাঝে সামান্য গ্যাপ
-                              if (isAgent && (userData['isVerified'] == true))
-                                const SizedBox(width: 4),
-
-                              // ২. ভেরিফাইড ট্রু হলে ভেরিফাইড ব্যাজ দেখাবে
+                              // ১. ভেরিফাইড ট্রু হলে প্রথমে ভেরিফাইড ব্যাজ দেখাবে
                               if (userData['isVerified'] == true)
                                 const Icon(
                                   Icons.verified,
                                   color: Color(0xFF00FBFF),
                                   size: 17,
+                                ),
+
+                              // দুটোই থাকলে মাঝে সামান্য গ্যাপ
+                              if ((userData['isVerified'] == true) && isAgent)
+                                const SizedBox(width: 4),
+
+                              // ২. এজেন্সি থাকলে এরপরে এজেন্সি ব্যাজ দেখাবে
+                              if (isAgent)
+                                AgencyBadgeWidget(
+                                  isAgent: isAgent,
+                                  imageUrl:
+                                      "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/agancy.png",
                                 ),
                             ],
                           ),
@@ -3910,14 +4383,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 5),
 // VIP এবং ডায়নামিক XP প্রগ্রেস বার সেকশন
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 25),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal:
+                              15), // প্যাডিং সামান্য কমানো হলো যাতে উভয় পাশে পর্যাপ্ত জায়গা থাকে
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // ফাইলটির উপরে इम्पोर्ट করে নিবেন:
-// import 'level_image_config.dart';
-
-// 🌟 ১. এক্টিভ লেভেল ইমেজ বাটন
+                          // 🌟 ১. এক্টিভ লেভেল ইমেজ বাটন
                           Builder(
                             builder: (context) {
                               int xpValue = userData['total_active_xp'] ??
@@ -3938,12 +4410,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                 level = 50;
                               }
 
-                              // কনফিগার ফাইল থেকে লেভেল অনুযায়ী ইমেজ লিংক আনা হচ্ছে
-                              String activeImgUrl =
-                                  LevelImageConfig.getActiveLevelImage(level);
-
                               return Padding(
-                                padding: const EdgeInsets.only(right: 6.0),
+                                padding: const EdgeInsets.only(
+                                    right: 4.0), // স্পেস একটু অপ্টিমাইজ করা হলো
                                 child: GestureDetector(
                                   onTap: () {
                                     Navigator.push(
@@ -3954,27 +4423,16 @@ class _ProfilePageState extends State<ProfilePage> {
                                       ),
                                     );
                                   },
-                                  child: SizedBox(
-                                    width:
-                                        45, // আপনার প্রয়োজন অনুযায়ী সাইজ ছোট-বড় করতে পারেন
-                                    height: 35,
-                                    child: Image.network(
-                                      activeImgUrl,
-                                      fit: BoxFit.contain,
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                        // নেটওয়ার্ক ইমেজ লোড না হলে ফলব্যাক বা ডিফল্ট আইকন দেখাবে
-                                        return const Icon(Icons.shield,
-                                            size: 24, color: Colors.blueGrey);
-                                      },
-                                    ),
+                                  child: DynamicLevelBadgeView(
+                                    level: level,
+                                    isGift: false,
                                   ),
                                 ),
                               );
                             },
                           ),
 
-// 🎁 ২. গিফট লেভেল ইমেজ বাটন
+                          // 🎁 ২. গিফট লেভেল ইমেজ বাটন
                           Builder(
                             builder: (context) {
                               int giftXpValue = userData['total_gift_xp'] ??
@@ -3995,12 +4453,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                 giftLevel = 50;
                               }
 
-                              // কনফিগার ফাইল থেকে গিফট লেভেল অনুযায়ী ইমেজ লিংক আনা হচ্ছে
-                              String giftImgUrl =
-                                  LevelImageConfig.getGiftLevelImage(giftLevel);
-
                               return Padding(
-                                padding: const EdgeInsets.only(right: 6.0),
+                                padding: const EdgeInsets.only(right: 4.0),
                                 child: GestureDetector(
                                   onTap: () {
                                     Navigator.push(
@@ -4011,26 +4465,16 @@ class _ProfilePageState extends State<ProfilePage> {
                                       ),
                                     );
                                   },
-                                  child: SizedBox(
-                                    width: 45,
-                                    height: 35,
-                                    child: Image.network(
-                                      giftImgUrl,
-                                      fit: BoxFit.contain,
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                        return const Icon(Icons.card_giftcard,
-                                            size: 24,
-                                            color: Colors.purpleAccent);
-                                      },
-                                    ),
+                                  child: DynamicLevelBadgeView(
+                                    level: giftLevel,
+                                    isGift: true,
                                   ),
                                 ),
                               );
                             },
                           ),
 
-                          // 👑 ক্রাউন ব্যাজ (যদি লেভেল ১ বা তার বেশি হয়, তবেই দেখাবে, না হলে ফুল ক্লিন হাইড থাকবে)
+                          // 👑 ক্রাউন ব্যাজ
                           Builder(
                             builder: (context) {
                               int xp = userData['vip_xp'] ?? 0;
@@ -4067,11 +4511,12 @@ class _ProfilePageState extends State<ProfilePage> {
                               }
 
                               return Padding(
-                                padding: const EdgeInsets.only(right: 8.0),
+                                padding: const EdgeInsets.only(right: 4.0),
                                 child: CachedNetworkImage(
                                   imageUrl: crownUrl,
-                                  width: 45,
-                                  height: 45,
+                                  width:
+                                      36, // সাইজ সামান্য অ্যাডজাস্ট করা হয়েছে যেন লাইনে পারফেক্ট বসে
+                                  height: 36,
                                   fit: BoxFit.contain,
                                   errorWidget: (c, e, s) =>
                                       const SizedBox.shrink(),
@@ -4080,61 +4525,77 @@ class _ProfilePageState extends State<ProfilePage> {
                             },
                           ),
 
-                          // VIP ব্যাজ (কোনো শিমার ছাড়াই, শুধু ক্লিন ইমেজ)
+                          // প্রিমিয়াম কার্ড
+                          if (hasPremiumCard &&
+                              (premiumBadgeUrl ?? '').toString().isNotEmpty &&
+                              !premiumBadgeUrl.toString().startsWith('file:'))
+                            Padding(
+                              padding: const EdgeInsets.only(right: 4.0),
+                              child: CachedNetworkImage(
+                                imageUrl: premiumBadgeUrl,
+                                width: 36,
+                                height: 36,
+                                fit: BoxFit.contain,
+                                placeholder: (context, url) => const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ),
+                                errorWidget: (c, e, s) =>
+                                    const SizedBox.shrink(),
+                              ),
+                            )
+                          else
+                            const SizedBox.shrink(),
+
+                          // VIP ব্যাজ
                           if (vipLevel > 0 &&
                               getVipBadge(vipLevel).toString().isNotEmpty &&
                               !getVipBadge(vipLevel)
                                   .toString()
                                   .startsWith('file:'))
-                            CachedNetworkImage(
-                              imageUrl: getVipBadge(vipLevel),
-                              width: 45,
-                              height: 45,
-                              fit: BoxFit.contain,
-                              placeholder: (context, url) => const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 1.5,
-                                    color: Colors.white70,
+                            Padding(
+                              padding: const EdgeInsets.only(right: 4.0),
+                              child: CachedNetworkImage(
+                                imageUrl: getVipBadge(vipLevel),
+                                width: 36,
+                                height: 36,
+                                fit: BoxFit.contain,
+                                placeholder: (context, url) => const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: Colors.white70,
+                                    ),
                                   ),
                                 ),
+                                errorWidget: (c, e, s) =>
+                                    const SizedBox.shrink(),
                               ),
-                              errorWidget: (c, e, s) => const SizedBox.shrink(),
                             )
                           else
                             const SizedBox.shrink(),
 
-                          const SizedBox(width: 15),
-
-                          // প্রিমিয়াম কার্ড (যদি থাকে, তবে এটি ভিআইপির ঠিক পরেই দেখাবে, না থাকলে সম্পূর্ণ হাইড থাকবে)
-                          if (hasPremiumCard &&
-                              (premiumBadgeUrl ?? '').toString().isNotEmpty &&
-                              !premiumBadgeUrl.toString().startsWith('file:'))
-                            CachedNetworkImage(
-                              imageUrl: premiumBadgeUrl,
-                              width: 45,
-                              height: 45,
-                              fit: BoxFit.contain,
-                              placeholder: (context, url) => const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 1.5,
-                                    color: Colors.white70,
-                                  ),
-                                ),
+                          // 🌟 ৩. বয়স ও জেন্ডার ব্যাজ
+                          Flexible(
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 2.0),
+                              child: UserBadgeWidget(
+                                gender: gender,
+                                age: "$age yrs",
                               ),
-                              errorWidget: (c, e, s) => const SizedBox.shrink(),
-                            )
-                          else
-                            const SizedBox.shrink(),
+                            ),
+                          ),
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 5),
 
                     // Followers & Following
@@ -4291,7 +4752,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     const SizedBox(height: 5),
 
-                    // ফলো বাটনগুলোর নিচে বায়ো সেকশন (স্বচ্ছ গ্লাস ব্যাকগ্রাউন্ড ও ৪০ অক্ষরের সীমা সহ)
+                    // ফলো বাটনগুলোর নিচে বায়ো সেকশন (বর্ডার ও ব্যাকগ্রাউন্ড ছাড়া, মেইন থিমের সাথে মিশে থাকবে)
                     Builder(
                       builder: (context) {
                         String currentBio = userData['bio'] ?? "";
@@ -4309,48 +4770,54 @@ class _ProfilePageState extends State<ProfilePage> {
                                   constraints:
                                       const BoxConstraints(minHeight: 38),
                                   decoration: BoxDecoration(
-                                    // স্বচ্ছ গ্লাস ইফেক্ট (Glassmorphism background)
-                                    color: Colors.white.withOpacity(0.08),
+                                    // সচ্ছ গ্লাস ব্যাকগ্রাউন্ড ইফেক্ট
+                                    color: Colors.white.withOpacity(0.06),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: const Color(0xFFFFD700)
-                                          .withOpacity(0.4),
-                                      width: 1.2,
+                                          .withOpacity(0.3),
+                                      width: 1.0,
                                     ),
                                     boxShadow: [
                                       BoxShadow(
                                         color: Colors.black.withOpacity(0.1),
-                                        blurRadius: 8,
+                                        blurRadius: 6,
                                         spreadRadius: 1,
                                       ),
                                     ],
                                   ),
                                   child: TextField(
                                     controller: _bioController,
-                                    maxLength:
-                                        60, // টেক্সট সীমা ৩০ থেকে বাড়িয়ে ৪০ করা হলো
+                                    maxLength: 70, // টেক্সট সীমা ৭০ করা হলো
                                     maxLines: null,
                                     keyboardType: TextInputType.multiline,
                                     style: const TextStyle(
                                         color: Colors.white, fontSize: 12),
                                     decoration: InputDecoration(
+                                      filled: true,
+                                      fillColor: Colors.transparent,
                                       counterText: "",
                                       hintText:
-                                          "Write your 60-char short bio...",
+                                          "Write your 70-char short bio...",
                                       hintStyle: const TextStyle(
                                           color: Colors.white54, fontSize: 11),
                                       border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      disabledBorder: InputBorder.none,
+                                      isDense: true,
                                       contentPadding:
                                           const EdgeInsets.symmetric(
-                                              horizontal: 12, vertical: 10),
+                                              horizontal: 10, vertical: 10),
                                       prefixIcon: const Padding(
-                                        padding: EdgeInsets.only(bottom: 2),
+                                        padding: EdgeInsets.only(
+                                            bottom: 2, left: 4, right: 4),
                                         child: Icon(Icons.edit,
                                             color: Color(0xFFFFD700), size: 14),
                                       ),
                                       prefixIconConstraints:
                                           const BoxConstraints(
-                                              minWidth: 32, minHeight: 0),
+                                              minWidth: 24, minHeight: 0),
                                       suffixIcon: _showSaveButton
                                           ? IconButton(
                                               icon: const Icon(
@@ -4362,6 +4829,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                               tooltip: "Save Bio",
                                             )
                                           : null,
+                                      suffixIconConstraints:
+                                          const BoxConstraints(
+                                              minWidth: 30, minHeight: 0),
                                     ),
                                     onChanged: (val) {
                                       final hasChanges =
@@ -4379,12 +4849,12 @@ class _ProfilePageState extends State<ProfilePage> {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 12, vertical: 10),
                                   decoration: BoxDecoration(
-                                    // অন্যের প্রোফাইলের জন্যও স্বচ্ছ গ্লাস ইফেক্ট
-                                    color: Colors.white.withOpacity(0.05),
+                                    // অন্যের প্রোফাইলের বায়োতেও একই সচ্ছ গ্লাস ইফেক্ট রাখা হয়েছে
+                                    color: Colors.white.withOpacity(0.04),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: const Color(0xFFFFD700)
-                                          .withOpacity(0.2),
+                                          .withOpacity(0.15),
                                       width: 1.0,
                                     ),
                                   ),
@@ -4427,10 +4897,15 @@ class _ProfilePageState extends State<ProfilePage> {
                                 Colors.blue, _openMyPosts),
                             _buildActionBox(
                                 "VIP", Icons.star, Colors.amber, _openVIP),
-                            // গেমসের জায়গায় ক্রাউন (মুকুট) বাটন
+                            // গেমসের জায়গায় ক্রাউন (মুকুট) বাটন
                             _buildActionBox(
                               "Crown",
-                              Icons.workspace_premium, // মুকুটের মতো সেরা আইকন
+                              const Text(
+                                "👑",
+                                style: TextStyle(
+                                    fontSize:
+                                        10), // ইমোজির সাইজ প্রয়োজনমতো ছোট-বড় করতে পারেন
+                              ),
                               Colors.amberAccent,
                               () {
                                 Navigator.push(
@@ -4455,6 +4930,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 5),
                     // আপনার মেইন ফাইলের সোলমেট সেকশনটি এখন ঠিক নিচে কল করুন:
                     _buildSoulmateSection(),
+                    const SizedBox(height: 5),
+                    // 🎁 নতুন গিফট সেকশন (৫০ হাজারের বেশি ভ্যালুর লাস্ট ১০টি গিফট)
+                 
                     const SizedBox(height: 5),
                   ], // Column এর children শেষ
                 ), // Column শেষ
@@ -4534,7 +5012,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildActionBox(
-      String title, IconData icon, Color color, VoidCallback onTap) {
+      String title, dynamic iconOrWidget, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -4548,12 +5026,12 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment
-                .spaceBetween, // আইকন উপরে আর টেক্সট একদম নিচে পিন থাকবে
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon,
-                  color: color,
-                  size: 20), // আইকন সাইজ ১৬ থেকে বাড়িয়ে ২০ করা হলো
+              // এখানে চেক করা হচ্ছে ইনপুটটি উইজেট (যেমন Text ইমোজি) নাকি সাধারণ IconData
+              iconOrWidget is Widget
+                  ? iconOrWidget
+                  : Icon(iconOrWidget, color: color, size: 20),
               Text(
                 title,
                 style: const TextStyle(
@@ -4586,7 +5064,7 @@ class _ProfilePageState extends State<ProfilePage> {
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-          child: Text("𝐇𝐚𝐫𝐭—̳͟͞͞💗(𝐒𝐨𝐮𝐥𝐦𝐚𝐭𝐞𝐬)",
+          child: Text("💞(𝐒𝐨𝐮𝐥𝐦𝐚𝐭𝐞𝐬)",
               style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,

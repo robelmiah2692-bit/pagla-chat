@@ -392,6 +392,12 @@ static void _showThemesDialog(BuildContext context, String roomId, Function(Stri
   // প্রতিটি থিমের সাথে নাম (name) যুক্ত করা হয়েছে
   final List<Map<String, dynamic>> wallpapers = [
     {
+      'name': 'dreem night',
+      'url': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/wallpaper-1.jpg',
+      'price': 5000,
+    },
+    
+    {
       'name': 'Sher Queen',
       'url': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/shherqwin.jpg',
       'price': 120000,

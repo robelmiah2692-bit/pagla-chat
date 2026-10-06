@@ -12,7 +12,8 @@ class ActiveLevelBar extends StatefulWidget {
   State<ActiveLevelBar> createState() => _ActiveLevelBarState();
 }
 
-class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProviderStateMixin {
+class _ActiveLevelBarState extends State<ActiveLevelBar>
+    with SingleTickerProviderStateMixin {
   late AnimationController _fireController;
 
   @override
@@ -33,11 +34,13 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
     // আপনার পুরোনো ১০০% কাজ করা সঠিক এক্সপি লজিক
-    int xpValue = widget.userData['total_active_xp'] ?? widget.userData['totalActiveXp'] ?? 0;
+    int xpValue = widget.userData['total_active_xp'] ??
+        widget.userData['totalActiveXp'] ??
+        0;
 
     // লেভেল ক্যালকুলেশন লজিক
     int level = 1;
-    int currentLevelRequiredXp = 8000; 
+    int currentLevelRequiredXp = 8000;
 
     int remainingXp = xpValue;
     while (remainingXp >= currentLevelRequiredXp && level < 50) {
@@ -49,13 +52,14 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
     // সর্বোচ্চ লেভেল ৫০ লিমিট করা
     if (level >= 50) {
       level = 50;
-      currentLevelRequiredXp = 8000 + (49 * 2000); 
-      remainingXp = currentLevelRequiredXp; 
+      currentLevelRequiredXp = 8000 + (49 * 2000);
+      remainingXp = currentLevelRequiredXp;
     }
 
     // প্রোগ্রেস ক্যালকুলেশন
     double progress = (currentLevelRequiredXp > 0)
-        ? (remainingXp.toDouble() / currentLevelRequiredXp.toDouble()).clamp(0.0, 1.0)
+        ? (remainingXp.toDouble() / currentLevelRequiredXp.toDouble())
+            .clamp(0.0, 1.0)
         : 0.0;
 
     Color heartColor = Colors.pinkAccent;
@@ -99,7 +103,8 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.amberAccent.withOpacity(0.3)),
+                    border:
+                        Border.all(color: Colors.amberAccent.withOpacity(0.3)),
                   ),
                   child: Column(
                     children: [
@@ -126,14 +131,16 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
                                 Text(
                                   "Active Level Progress",
                                   style: TextStyle(
-                                      color: Colors.amberAccent.withOpacity(0.9),
+                                      color:
+                                          Colors.amberAccent.withOpacity(0.9),
                                       fontSize: 11),
                                 ),
                               ],
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: heartColor.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(10),
@@ -141,11 +148,15 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.favorite, size: 14, color: heartColor),
+                                Icon(Icons.favorite,
+                                    size: 14, color: heartColor),
                                 const SizedBox(width: 4),
                                 Text(
                                   "Lv.$level",
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12),
                                 ),
                               ],
                             ),
@@ -153,7 +164,7 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
                         ],
                       ),
                       const SizedBox(height: 15),
-                      
+
                       // এক্সপি বার ও শিমার ইফেক্ট
                       Row(
                         children: [
@@ -162,22 +173,30 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     const Text(
                                       "Active Level",
-                                      style: TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.bold),
+                                      style: TextStyle(
+                                          color: Colors.white60,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold),
                                     ),
                                     Text(
                                       "$remainingXp / $currentLevelRequiredXp XP",
-                                      style: const TextStyle(color: Colors.cyanAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                                      style: const TextStyle(
+                                          color: Colors.cyanAccent,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 6),
                                 LayoutBuilder(
                                   builder: (context, constraints) {
-                                    final double maxWidth = constraints.maxWidth;
+                                    final double maxWidth =
+                                        constraints.maxWidth;
                                     final double barWidth = maxWidth * progress;
 
                                     return Container(
@@ -186,7 +205,10 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
                                       decoration: BoxDecoration(
                                         color: Colors.white.withOpacity(0.05),
                                         borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: Colors.white.withOpacity(0.1), width: 0.8),
+                                        border: Border.all(
+                                            color:
+                                                Colors.white.withOpacity(0.1),
+                                            width: 0.8),
                                       ),
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(10),
@@ -197,12 +219,18 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
                                               Container(
                                                 width: barWidth,
                                                 decoration: BoxDecoration(
-                                                  gradient: const LinearGradient(
-                                                    colors: [Colors.deepOrange, Colors.redAccent, Colors.orange],
+                                                  gradient:
+                                                      const LinearGradient(
+                                                    colors: [
+                                                      Colors.deepOrange,
+                                                      Colors.redAccent,
+                                                      Colors.orange
+                                                    ],
                                                     begin: Alignment.centerLeft,
                                                     end: Alignment.centerRight,
                                                   ),
-                                                  borderRadius: BorderRadius.circular(10),
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
                                                 ),
                                               ),
                                             if (barWidth > 4)
@@ -212,9 +240,11 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
                                                 bottom: 0,
                                                 child: Center(
                                                   child: Shimmer.fromColors(
-                                                    baseColor: Colors.amber, 
-                                                    highlightColor: const Color(0xFFFF4500), 
-                                                    period: const Duration(milliseconds: 1000),
+                                                    baseColor: Colors.amber,
+                                                    highlightColor:
+                                                        const Color(0xFFFF4500),
+                                                    period: const Duration(
+                                                        milliseconds: 1000),
                                                     child: Container(
                                                       width: 8,
                                                       height: 8,
@@ -223,7 +253,10 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
                                                         color: Colors.orange,
                                                         boxShadow: [
                                                           BoxShadow(
-                                                            color: Colors.redAccent.withOpacity(0.8),
+                                                            color: Colors
+                                                                .redAccent
+                                                                .withOpacity(
+                                                                    0.8),
                                                             blurRadius: 4,
                                                             spreadRadius: 1,
                                                           ),
@@ -259,12 +292,17 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
                     mainAxisSpacing: 12,
                     childAspectRatio: 1.4,
                     children: [
-                      _buildFeatureCard(Icons.crop_original, "Profile Frame", "Exclusive custom frame"),
-                      _buildFeatureCard(Icons.bolt, "Room Entry Effect", "Special animation on join"),
-                      _buildFeatureCard(Icons.stars, "Active Badge", "High-tier active level badge"),
-                      _buildFeatureCard(Icons.card_giftcard, "Weekly 70% Bonus Pack", "Massive weekly rewards"),
-                      _buildFeatureCard(Icons.local_fire_department, "XP Boost Privilege", "Faster milestone unlocks"),
-                      _buildFeatureCard(Icons.verified_user, "Active Perks", "Special room & chat features"),
+                      _buildFeatureCard(Icons.crop_original, "Profile Frame",
+                          "Exclusive custom frame"),
+                      _buildFeatureCard(Icons.bolt, "Room Entry Effect",
+                          "Special animation on join"),
+                      _buildFeatureCard(Icons.stars, "Active Badge",
+                          "High-tier active level badge"),
+                      _buildActiveLevelBadgeCard(context),
+                      _buildFeatureCard(Icons.local_fire_department,
+                          "XP Boost Privilege", "Faster milestone unlocks"),
+                      _buildFeatureCard(Icons.verified_user, "Active Perks",
+                          "Special room & chat features"),
                     ],
                   ),
                 ),
@@ -328,6 +366,80 @@ class _ActiveLevelBarState extends State<ActiveLevelBar> with SingleTickerProvid
             style: const TextStyle(color: Colors.white70, fontSize: 10),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+// --- অ্যাক্টিভ লেভেল ব্যাজ প্রিভিউ কার্ড (সচ্ছ গ্লাস ইফেক্ট এবং দুই লাইনে সাজানো) ---
+  Widget _buildActiveLevelBadgeCard(BuildContext context) {
+    final List<String> badgeUrls = [
+      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/activelavel/Lva.webp',
+      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/activelavel/Lva1.webp',
+      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/activelavel/Lva2.webp',
+      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/activelavel/Lva3.webp',
+      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/activelavel/Lva4.webp',
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        // 🔥 সচ্ছ গ্লাস ব্যাকগ্রাউন্ড
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.amberAccent.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.military_tech, color: Colors.amberAccent, size: 20),
+              SizedBox(width: 6),
+              Text(
+                "Active Badges",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // 🔥 ব্যাজগুলো দুই লাইনে সুন্দরভাবে দেখানোর জন্য Wrap উইজেট
+          Expanded(
+            child: Center(
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                alignment: WrapAlignment.center,
+                children: badgeUrls.map((url) {
+                  return Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      // 🔥 ট্রান্সপারেন্ট ব্যাকগ্রাউন্ড ও হালকা বর্ডার
+                      color: Colors.transparent,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.2),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Image.network(
+                      url,
+                      width: 35,
+                      height: 35,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.error, size: 14, color: Colors.red),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
           ),
         ],
       ),

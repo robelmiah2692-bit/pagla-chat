@@ -88,8 +88,8 @@ class _VideoGiftOverlayState extends State<VideoGiftOverlay> with SingleTickerPr
 
   @override
   void dispose() {
-    // ভিডিও শেষ বা ক্লোজ হয়ে গেলে স্ক্রিনের ওয়াকলক ডিসেবল করে দেওয়া যাতে নরমাল বিহেভিয়ারে ফিরে আসে
-    WakelockPlus.disable();
+   
+    
     _fadeController.dispose();
     _controller?.dispose();
     super.dispose();

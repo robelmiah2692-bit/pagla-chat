@@ -34,7 +34,8 @@ class _GiftLevelBarState extends State<GiftLevelBar>
   @override
   Widget build(BuildContext context) {
     // ইউজার ডাটা থেকে গিফট এক্সপি রিড করা
-    int xpValue = widget.userData['total_gift_xp'] ?? widget.userData['totalGiftXp'] ?? 0;
+    int xpValue =
+        widget.userData['total_gift_xp'] ?? widget.userData['totalGiftXp'] ?? 0;
 
     // নতুন লজিক: লেভেল ১ = ৮০০০, লেভেল ২ = ১০০০০, লেভেল ৩ = ১২০০০...
     int level = 1;
@@ -57,7 +58,8 @@ class _GiftLevelBarState extends State<GiftLevelBar>
 
     // প্রোগ্রেস ক্যালকুলেশন
     double progress = (currentLevelRequiredXp > 0)
-        ? (remainingXp.toDouble() / currentLevelRequiredXp.toDouble()).clamp(0.0, 1.0)
+        ? (remainingXp.toDouble() / currentLevelRequiredXp.toDouble())
+            .clamp(0.0, 1.0)
         : 0.0;
 
     Color roseColor = Colors.purpleAccent;
@@ -193,24 +195,21 @@ class _GiftLevelBarState extends State<GiftLevelBar>
                                   builder: (context, constraints) {
                                     final double maxWidth =
                                         constraints.maxWidth;
-                                    final double barWidth =
-                                        maxWidth * progress;
+                                    final double barWidth = maxWidth * progress;
 
                                     return Container(
                                       height: 8,
                                       width: maxWidth,
                                       decoration: BoxDecoration(
                                         color: Colors.white.withOpacity(0.05),
-                                        borderRadius:
-                                            BorderRadius.circular(10),
+                                        borderRadius: BorderRadius.circular(10),
                                         border: Border.all(
-                                            color: Colors.white
-                                                .withOpacity(0.1),
+                                            color:
+                                                Colors.white.withOpacity(0.1),
                                             width: 0.8),
                                       ),
                                       child: ClipRRect(
-                                        borderRadius:
-                                            BorderRadius.circular(10),
+                                        borderRadius: BorderRadius.circular(10),
                                         child: Stack(
                                           clipBehavior: Clip.none,
                                           children: [
@@ -218,7 +217,8 @@ class _GiftLevelBarState extends State<GiftLevelBar>
                                               Container(
                                                 width: barWidth,
                                                 decoration: BoxDecoration(
-                                                  gradient: const LinearGradient(
+                                                  gradient:
+                                                      const LinearGradient(
                                                     colors: [
                                                       Colors.purple,
                                                       Colors.purpleAccent,
@@ -228,8 +228,7 @@ class _GiftLevelBarState extends State<GiftLevelBar>
                                                     end: Alignment.centerRight,
                                                   ),
                                                   borderRadius:
-                                                      BorderRadius.circular(
-                                                          10),
+                                                      BorderRadius.circular(10),
                                                 ),
                                               ),
                                             if (barWidth > 4)
@@ -241,8 +240,7 @@ class _GiftLevelBarState extends State<GiftLevelBar>
                                                   child: Shimmer.fromColors(
                                                     baseColor: Colors.amber,
                                                     highlightColor:
-                                                        const Color(
-                                                            0xFFFF4500),
+                                                        const Color(0xFFFF4500),
                                                     period: const Duration(
                                                         milliseconds: 1000),
                                                     child: Container(
@@ -293,8 +291,7 @@ class _GiftLevelBarState extends State<GiftLevelBar>
                     children: [
                       _buildFeatureCard(Icons.card_giftcard, "Gift Effect",
                           "Special animation on gifting"),
-                      _buildFeatureCard(Icons.local_florist, "Rose Badge",
-                          "Exclusive high-tier badge"),
+                      _buildGiftLevelBadgeCard(context),
                       _buildFeatureCard(Icons.star_border, "Gift Glow",
                           "Special frame & glow perks"),
                       _buildFeatureCard(Icons.trending_up, "Bonus XP",
@@ -368,6 +365,79 @@ class _GiftLevelBarState extends State<GiftLevelBar>
             style: const TextStyle(color: Colors.white60, fontSize: 10),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+// --- গিফট লেভেল ব্যাজ প্রিভিউ কার্ড (সচ্ছ গ্লাস ইফেক্ট এবং দুই লাইনে সাজানো) ---
+  Widget _buildGiftLevelBadgeCard(BuildContext context) {
+    final List<String> giftBadgeUrls = [
+      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftlavel/gi.webp',
+      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftlavel/gi1.webp',
+      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftlavel/gi2.webp',
+      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftlavel/gi3.webp',
+      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftlavel/gi4.webp',
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        // 🔥 সচ্ছ গ্লাস ব্যাকগ্রাউন্ড
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.amberAccent.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.local_florist, color: Colors.amberAccent, size: 20),
+              SizedBox(width: 6),
+              Text(
+                "Gift Level Badges",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // 🔥 গিফট ব্যাজগুলোর সাইজ বড় করে দুই লাইনে সাজানো হয়েছে
+          Expanded(
+            child: Center(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                alignment: WrapAlignment.center,
+                children: giftBadgeUrls.map((url) {
+                  return Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.transparent,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.2),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Image.network(
+                      url,
+                      width: 38, // ব্যাজের সাইজ
+                      height: 38,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.error, size: 18, color: Colors.red),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
           ),
         ],
       ),

@@ -771,7 +771,7 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
   }
 }
 
-// --- মেইন নেভিগেশন (এখানে টাইমার, হার্টবিট ও সঠিক পেজ সুইচিং বসানো হয়েছে) ---
+// --- মেইন নেভিগেশন (পাকাপোক্ত অনলাইন/অফলাইন স্ট্যাটাস হ্যান্ডেলার সহ) ---
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
   @override
@@ -786,28 +786,38 @@ class _MainNavigationState extends State<MainNavigation>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance
-        .addObserver(this); // অ্যাপ লাইফসাইকেল ট্র্যাক করার জন্য
+    WidgetsBinding.instance.addObserver(this);
     _updateFCMToken();
     _updateDeviceIdIfMissing();
 
-    // 🔥 অ্যাপ চালুর সাথে সাথেই অনলাইন স্ট্যাটাস আপডেট করা
+    // 🔥 অ্যাপ চালুর সাথে সাথেই অনলাইন স্ট্যাটাস true করা
     _updateUserPresence(true);
 
-    // 🔥 প্রতি ৩০ সেকেন্ড পর পর ফায়ারস্টোরে `lastSeen` ও `isOnline` আপডেট করবে (হার্টবিট)
+    // 🔥 প্রতি ৩০ সেকেন্ড পর পর ফায়ারস্টোরে হার্টবিট পাঠানো
+    _startHeartbeat();
+  }
+
+  // হার্টবিট শুরু করার ফাংশন
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      _updateUserPresence(true);
+      // শুধুমাত্র অ্যাপ ফোরগ্রাউন্ডে থাকলেই হার্টবিট ট্রু করবে
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        _updateUserPresence(true);
+      }
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
+    
     if (state == AppLifecycleState.resumed) {
       _updateUserPresence(true); // অ্যাপে ফিরে আসলে অনলাইন
+      _startHeartbeat(); // হার্টবিট পুনরায় চালু
     } else {
-      _updateUserPresence(
-          false); // ব্যাকগ্রাউন্ডে চলে গেলে বা মিনিমাইজ করলে অফলাইন
+      _heartbeatTimer?.cancel(); // ব্যাকগ্রাউন্ডে গেলে টাইমার বন্ধ
+      _updateUserPresence(false); // সাথে সাথে অফলাইন করে দেওয়া
     }
   }
 
@@ -815,13 +825,18 @@ class _MainNavigationState extends State<MainNavigation>
   Future<void> _updateUserPresence(bool isOnline) async {
     if (AppData.myID.isEmpty) return;
     try {
+      Map<String, dynamic> updateData = {
+        'lastSeen': FieldValue.serverTimestamp(),
+      };
+      
+      // যদি অফলাইন হয়, তবে সরাসরি isOnline false করে দেবো
+      // আর যদি অনলাইন হয়, তবে true করব
+      updateData['isOnline'] = isOnline;
+
       await FirebaseFirestore.instance
           .collection('users')
           .doc(AppData.myID)
-          .update({
-        'isOnline': isOnline,
-        'lastSeen': FieldValue.serverTimestamp(),
-      });
+          .update(updateData);
     } catch (e) {
       debugPrint("Error updating presence: $e");
     }
@@ -875,7 +890,6 @@ class _MainNavigationState extends State<MainNavigation>
     }
   }
 
-  // ইউজার যেই পেজে থাকবে, শুধুমাত্র সেই পেজটিই রেন্ডার হবে (অন্য পেজ সম্পূর্ণ ডিসপোজ হয়ে যাবে)
   Widget _getSelectedPage(int index) {
     switch (index) {
       case 0:
@@ -898,16 +912,13 @@ class _MainNavigationState extends State<MainNavigation>
     final String currentUserId = AppData.myID;
 
     return Scaffold(
-      extendBody:
-          false, // 🔥 কন্টেন্ট যেন নেভিগেশন বারের নিচে না যায়, সেফ রাখার জন্য false করা হলো
+      extendBody: false,
       backgroundColor: Colors.black,
-      // ডাইনামিক সুইচিং ব্যবহার করা হলো যাতে অন্য ট্যাবে গেলে রিলস বা ভিডিও বন্ধ থাকে
       body: SafeArea(
-        bottom: false, // যেহেতু নিচে কাস্টম নেভিগেশন বার আছে
+        bottom: false,
         child: _getSelectedPage(_currentIndex),
       ),
       bottomNavigationBar: Container(
-        // 🔥 পরিবর্তন ১: নিচে কালো ব্যাকগ্রাউন্ডের বদলে একটি সুন্দর রঙিন গ্রেডিয়েন্ট ডিজাইন বসানো হলো
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
@@ -922,7 +933,6 @@ class _MainNavigationState extends State<MainNavigation>
         child: SafeArea(
           top: false,
           child: Container(
-            // 🔥 পরিবর্তন ২: উচ্চতা ও নিচের ফাঁকা জায়গা বা মার্জিন কমিয়ে ছোট করা হলো
             height: 65,
             margin:
                 const EdgeInsets.only(left: 15, right: 15, bottom: 2, top: 2),
@@ -930,7 +940,6 @@ class _MainNavigationState extends State<MainNavigation>
               clipBehavior: Clip.none,
               alignment: Alignment.center,
               children: [
-                // ব্যাকগ্রাউন্ড কার্ভড কালারফুল নেভিগেশন বার
                 Positioned(
                   bottom: 0,
                   left: 0,
@@ -938,8 +947,7 @@ class _MainNavigationState extends State<MainNavigation>
                   child: Container(
                     height: 58,
                     decoration: BoxDecoration(
-                      color: const Color(
-                          0xFF14082C), // ডিপ রয়্যাল পার্পল ও ব্ল্যাক থিম
+                      color: const Color(0xFF14082C),
                       borderRadius: BorderRadius.circular(30),
                       border: Border.all(
                         color: Colors.white.withOpacity(0.2),
@@ -961,8 +969,7 @@ class _MainNavigationState extends State<MainNavigation>
                             currentUserId),
                         _buildNavItem(1, Icons.video_collection_rounded,
                             "Reels", false, currentUserId),
-                        const SizedBox(
-                            width: 50), // মাঝখানের রুম বাটনের জন্য গ্যাপ
+                        const SizedBox(width: 50),
                         _buildNavItem(3, Icons.mail_rounded, "Message", true,
                             currentUserId),
                         _buildNavItem(4, Icons.person_rounded, "Profile", false,
@@ -971,13 +978,12 @@ class _MainNavigationState extends State<MainNavigation>
                     ),
                   ),
                 ),
-                // মাঝখানের গোল রুম বাটন (হালকা উপরে ভাসমান এবং আকর্ষণীয় গ্রেডিয়েন্ট সহ)
                 Positioned(
                   top: -10,
                   child: GestureDetector(
                     onTap: () {
                       setState(() {
-                        _currentIndex = 2; // Rooms page index
+                        _currentIndex = 2;
                       });
                     },
                     child: Container(
@@ -1027,7 +1033,6 @@ class _MainNavigationState extends State<MainNavigation>
     );
   }
 
-  // কালারফুল বাটন এবং ডিজিটাল কালারিং চ্যাট আইকন উইজেট
   Widget _buildNavItem(int index, IconData icon, String label, bool isInbox,
       String currentUserId) {
     bool isSelected = _currentIndex == index;
