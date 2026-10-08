@@ -11,35 +11,35 @@ class CrownBenefitsScreen extends StatefulWidget {
 }
 
 class _CrownBenefitsScreenState extends State<CrownBenefitsScreen> {
-  // 👑 ৬টি ক্রাউনের লিংক বসানোর জায়গা (এখানে আপনার ইমেজ লিংকগুলো বসিয়ে দেবেন)
+  // 👑 ৬টি ক্রাউনের লোকাল অ্যাসেট পাথ
   final Map<int, String> crownBadges = {
-    1: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown1.png',
-    2: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown2.png',
-    3: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown3.png',
-    4: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown4.png',
-    5: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown5.png',
-    6: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown6.png',
+    1: 'assets/images/crown/crown1.webp',
+    2: 'assets/images/crown/crown2.webp',
+    3: 'assets/images/crown/crown3.webp',
+    4: 'assets/images/crown/crown4.webp',
+    5: 'assets/images/crown/crown5.webp',
+    6: 'assets/images/crown/crown6.webp',
   };
 
   // 👑 ক্রাউন লেভেল ও এক্সপি ক্যালকুলেশন (vip_xp থেকে চেক করবে)
   int getCrownLevel(int xp) {
-    if (xp >= 60000) return 6;
-    if (xp >= 45000) return 5;
-    if (xp >= 35000) return 4;
-    if (xp >= 25000) return 3;
-    if (xp >= 12000) return 2;
-    if (xp >= 5000) return 1;
+    if (xp >= 120000) return 6;
+    if (xp >= 85000) return 5;
+    if (xp >= 65000) return 4;
+    if (xp >= 45000) return 3;
+    if (xp >= 25000) return 2;
+    if (xp >= 12000) return 1;
     return 0; // No Crown
   }
 
   int getNextCrownTarget(int currentXP) {
-    if (currentXP < 5000) return 5000;
     if (currentXP < 12000) return 12000;
     if (currentXP < 25000) return 25000;
-    if (currentXP < 35000) return 35000;
     if (currentXP < 45000) return 45000;
-    if (currentXP < 60000) return 60000;
-    return 60000; // Max Target
+    if (currentXP < 65000) return 65000;
+    if (currentXP < 85000) return 85000;
+    if (currentXP < 120000) return 120000;
+    return 120000; // Max Target
   }
 
   String getCrownBadge(int level) {
@@ -53,7 +53,8 @@ class _CrownBenefitsScreenState extends State<CrownBenefitsScreen> {
     int currentLevel = getCrownLevel(currentXP);
     int targetXP = getNextCrownTarget(currentXP);
     double progress = (currentXP / targetXP).clamp(0.0, 1.0);
-    String badgeUrl = getCrownBadge(currentLevel);
+    // ক্রাউন ব্যাজের পাথ লোকাল ভেরিয়েবলে নিয়ে নেওয়া
+    String crownPath = getCrownBadge(currentLevel);
 
     return Scaffold(
       body: Container(
@@ -100,7 +101,7 @@ class _CrownBenefitsScreenState extends State<CrownBenefitsScreen> {
                         children: [
                           CircleAvatar(
                             radius: 25,
-                            backgroundImage: NetworkImage(
+                            backgroundImage: CachedNetworkImageProvider(
                                 widget.userData['profilePic'] ?? ''),
                           ),
                           const SizedBox(width: 12),
@@ -126,18 +127,22 @@ class _CrownBenefitsScreenState extends State<CrownBenefitsScreen> {
                               ],
                             ),
                           ),
-                          if (currentLevel > 0 && badgeUrl.isNotEmpty)
-                            CachedNetworkImage(
-                              imageUrl: badgeUrl,
+                          // ক্রাউন ব্যাজ চেক এবং রেন্ডার
+                          if (currentLevel > 0 && crownPath.isNotEmpty)
+                            Image.asset(
+                              crownPath,
                               width: 45,
                               height: 45,
                               fit: BoxFit.contain,
-                              errorWidget: (c, e, s) => const Icon(
+                              errorBuilder: (c, e, s) => const Icon(
                                 Icons.stars,
                                 color: Colors.amberAccent,
                                 size: 35,
                               ),
-                            ),
+                            )
+                          else
+                            const SizedBox
+                                .shrink(), // লেভেল ০ বা ব্যাজ না থাকলে ফাকা রাখবে
                         ],
                       ),
                       const SizedBox(height: 15),
@@ -254,21 +259,49 @@ class _CrownBenefitsScreenState extends State<CrownBenefitsScreen> {
     );
   }
 
-// --- ক্রাউন লেভেল ব্যাজ প্রিভিউ কার্ড (সচ্ছ গ্লাস ইফেক্ট এবং দুই লাইনে সাজানো) ---
+// --- ক্রাউন লেভেল ব্যাজ প্রিভিউ কার্ড (সচ্ছ গ্লাস ইফেক্ট এবং দুই লাইনে ৩টি করে সাজানো) ---
   Widget _buildCrownBadgeCard(BuildContext context) {
-    final Map<int, String> crownBadges = {
-      1: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown1.png',
-      2: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown2.png',
-      3: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown3.png',
-      4: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown4.png',
-      5: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown5.png',
-      6: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown6.png',
-    };
+    final String assetBasePath = "assets/images/crown";
+
+    // ১ থেকে ৬ পর্যন্ত ক্রাউন ব্যাজগুলোর লোকাল অ্যাসেট পাথ (webp ফরম্যাট)
+    final List<String> row1Paths = [
+      "$assetBasePath/crown1.webp",
+      "$assetBasePath/crown2.webp",
+      "$assetBasePath/crown3.webp",
+    ];
+    final List<String> row2Paths = [
+      "$assetBasePath/crown4.webp",
+      "$assetBasePath/crown5.webp",
+      "$assetBasePath/crown6.webp",
+    ];
+
+    // একটি সিঙ্গেল ব্যাজ উইজেট তৈরির হেল্পার মেথড
+    Widget buildCrownItem(String assetPath) {
+      return Container(
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.transparent,
+          border: Border.all(
+            color: Colors.white.withOpacity(0.2),
+            width: 0.8,
+          ),
+        ),
+        child: Image.asset(
+          assetPath,
+          width: 32, // ক্রাউন ব্যাজের সাইজ
+          height: 32,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) =>
+              const Icon(Icons.error, size: 16, color: Colors.red),
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        // 🔥 সচ্ছ গ্লাস ব্যাকগ্রাউন্ড
+        // 🔥 সচ্ছ গ্লাস ব্যাকগ্রাউন্ড ও বর্ডার
         color: Colors.white.withOpacity(0.08),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: Colors.amberAccent.withOpacity(0.2)),
@@ -291,36 +324,26 @@ class _CrownBenefitsScreenState extends State<CrownBenefitsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          // 🔥 ক্রাউন ব্যাজগুলোর সাইজ বড় করে দুই লাইনে সাজানো হয়েছে
+          const SizedBox(height: 8),
+          // 🔥 দুই লাইনে ৩টি করে ব্যাজ সাজানো
           Expanded(
-            child: Center(
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                alignment: WrapAlignment.center,
-                children: crownBadges.values.map((url) {
-                  return Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.transparent,
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.2),
-                        width: 0.8,
-                      ),
-                    ),
-                    child: Image.network(
-                      url,
-                      width: 32, // ক্রাউন ব্যাজের সাইজ
-                      height: 32,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.error, size: 16, color: Colors.red),
-                    ),
-                  );
-                }).toList(),
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // প্রথম লাইন (৩টি ক্রাউন ব্যাজ)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children:
+                      row1Paths.map((path) => buildCrownItem(path)).toList(),
+                ),
+                const SizedBox(height: 4),
+                // দ্বিতীয় লাইন (৩টি ক্রাউন ব্যাজ)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children:
+                      row2Paths.map((path) => buildCrownItem(path)).toList(),
+                ),
+              ],
             ),
           ),
         ],

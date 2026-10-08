@@ -775,21 +775,21 @@ void _sendDataMessage(
 
                         int vipLevel = 0;
                         if (!(vipExpiry != 0 && currentTime > vipExpiry)) {
-                          if (vipXp >= 35000) {
+                          if (vipXp >= 65000) {
                             vipLevel = 8;
-                          } else if (vipXp >= 30000) {
+                          } else if (vipXp >= 60000) {
                             vipLevel = 7;
-                          } else if (vipXp >= 25000) {
+                          } else if (vipXp >= 38000) {
                             vipLevel = 6;
-                          } else if (vipXp >= 20000) {
+                          } else if (vipXp >= 28000) {
                             vipLevel = 5;
-                          } else if (vipXp >= 13000) {
+                          } else if (vipXp >= 18000) {
                             vipLevel = 4;
-                          } else if (vipXp >= 9000) {
+                          } else if (vipXp >= 14000) {
                             vipLevel = 3;
-                          } else if (vipXp >= 5000) {
+                          } else if (vipXp >= 8000) {
                             vipLevel = 2;
-                          } else if (vipXp >= 2500) {
+                          } else if (vipXp >= 3500) {
                             vipLevel = 1;
                           }
                         }

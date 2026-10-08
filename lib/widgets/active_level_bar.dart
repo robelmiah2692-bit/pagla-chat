@@ -31,7 +31,22 @@ class _ActiveLevelBarState extends State<ActiveLevelBar>
     super.dispose();
   }
 
-  @override
+  // লেভেল অনুযায়ী সঠিক অ্যাসেট ব্যাজ পাথ রিটার্ন করার ফাংশন
+  String getActiveBadgePath(int level) {
+    if (level <= 10) {
+      return 'assets/images/activelavel/Lva.webp';
+    } else if (level <= 20) {
+      return 'assets/images/activelavel/Lva1.webp';
+    } else if (level <= 30) {
+      return 'assets/images/activelavel/Lva2.webp';
+    } else if (level <= 40) {
+      return 'assets/images/activelavel/Lva3.webp';
+    } else {
+      return 'assets/images/activelavel/Lva4.webp';
+    }
+  }
+
+ @override
   Widget build(BuildContext context) {
     // আপনার পুরোনো ১০০% কাজ করা সঠিক এক্সপি লজিক
     int xpValue = widget.userData['total_active_xp'] ??
@@ -62,10 +77,8 @@ class _ActiveLevelBarState extends State<ActiveLevelBar>
             .clamp(0.0, 1.0)
         : 0.0;
 
-    Color heartColor = Colors.pinkAccent;
-    if (level >= 10 && level < 20) heartColor = const Color(0xFFFF00FF);
-    if (level >= 20 && level < 35) heartColor = Colors.redAccent;
-    if (level >= 35) heartColor = const Color(0xFFFFD700);
+    // বর্তমান লেভেলের জন্য অ্যাসেট ব্যাজ পাথ
+    String badgePath = getActiveBadgePath(level);
 
     return Scaffold(
       body: Container(
@@ -112,7 +125,7 @@ class _ActiveLevelBarState extends State<ActiveLevelBar>
                         children: [
                           CircleAvatar(
                             radius: 25,
-                            backgroundImage: NetworkImage(
+                            backgroundImage: CachedNetworkImageProvider(
                                 widget.userData['profilePic'] ?? ''),
                           ),
                           const SizedBox(width: 12),
@@ -138,33 +151,45 @@ class _ActiveLevelBarState extends State<ActiveLevelBar>
                               ],
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: heartColor.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: heartColor),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.favorite,
-                                    size: 14, color: heartColor),
-                                const SizedBox(width: 4),
-                                Text(
+                          // 🔥 ব্যাজ এবং লেভেল টেক্সট একসাথে দেখানোর জন্য Stack
+                          Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // লোকাল ব্যাজ ইমেজ
+                              Image.asset(
+                                badgePath,
+                                width: 55,
+                                height: 55,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const Icon(Icons.stars,
+                                        color: Colors.amberAccent, size: 32),
+                              ),
+                              // 🔥 লেভেল টেক্সট (এখন ডিজাইনের খালি জায়গায় নয়, ব্যাজের ওপরে বসানো হয়েছে)
+                              Positioned(
+                                bottom: 6, // ব্যাজের নিচের দিকে বসার জন্য
+                                child: Text(
                                   "Lv.$level",
                                   style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12),
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    // টেক্সট স্পষ্ট করার জন্য শ্যাডো
+                                    shadows: [
+                                      Shadow(
+                                        blurRadius: 2.0,
+                                        color: Colors.black,
+                                        offset: Offset(1.0, 1.0),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                       const SizedBox(height: 15),
-
                       // এক্সপি বার ও শিমার ইফেক্ট
                       Row(
                         children: [
@@ -281,7 +306,7 @@ class _ActiveLevelBarState extends State<ActiveLevelBar>
                   ),
                 ),
               ),
-
+           
               // গ্রিড কার্ডস
               Expanded(
                 child: Padding(
@@ -374,12 +399,12 @@ class _ActiveLevelBarState extends State<ActiveLevelBar>
 
 // --- অ্যাক্টিভ লেভেল ব্যাজ প্রিভিউ কার্ড (সচ্ছ গ্লাস ইফেক্ট এবং দুই লাইনে সাজানো) ---
   Widget _buildActiveLevelBadgeCard(BuildContext context) {
-    final List<String> badgeUrls = [
-      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/activelavel/Lva.webp',
-      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/activelavel/Lva1.webp',
-      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/activelavel/Lva2.webp',
-      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/activelavel/Lva3.webp',
-      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/activelavel/Lva4.webp',
+    final List<String> badgeAssetPaths = [
+      'assets/images/activelavel/Lva.webp',
+      'assets/images/activelavel/Lva1.webp',
+      'assets/images/activelavel/Lva2.webp',
+      'assets/images/activelavel/Lva3.webp',
+      'assets/images/activelavel/Lva4.webp',
     ];
 
     return Container(
@@ -416,7 +441,7 @@ class _ActiveLevelBarState extends State<ActiveLevelBar>
                 spacing: 6,
                 runSpacing: 4,
                 alignment: WrapAlignment.center,
-                children: badgeUrls.map((url) {
+                children: badgeAssetPaths.map((assetPath) {
                   return Container(
                     padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
@@ -428,8 +453,8 @@ class _ActiveLevelBarState extends State<ActiveLevelBar>
                         width: 0.8,
                       ),
                     ),
-                    child: Image.network(
-                      url,
+                    child: Image.asset(
+                      assetPath,
                       width: 35,
                       height: 35,
                       fit: BoxFit.contain,

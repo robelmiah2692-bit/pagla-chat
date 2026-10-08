@@ -31,6 +31,21 @@ class _GiftLevelBarState extends State<GiftLevelBar>
     super.dispose();
   }
 
+  // লেভেল অনুযায়ী সঠিক অ্যাসেট ব্যাজ পাথ রিটার্ন করার ফাংশন (০ থেকে ৫০ পর্যন্ত ৫টি ব্যাজের সাথে মিল রেখে)
+  String getGiftBadgePath(int level) {
+    if (level <= 10) {
+      return 'assets/images/activelavel/Lva.webp';
+    } else if (level <= 20) {
+      return 'assets/images/activelavel/Lva1.webp';
+    } else if (level <= 30) {
+      return 'assets/images/activelavel/Lva2.webp';
+    } else if (level <= 40) {
+      return 'assets/images/activelavel/Lva3.webp';
+    } else {
+      return 'assets/images/activelavel/Lva4.webp';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // ইউজার ডাটা থেকে গিফট এক্সপি রিড করা
@@ -66,6 +81,9 @@ class _GiftLevelBarState extends State<GiftLevelBar>
     if (level >= 10 && level < 20) roseColor = const Color(0xFFFF00FF);
     if (level >= 20 && level < 35) roseColor = Colors.pinkAccent;
     if (level >= 35) roseColor = Colors.amberAccent;
+
+    // বর্তমান লেভেলের জন্য অ্যাসেট ব্যাজ পাথ
+    String badgePath = getGiftBadgePath(level);
 
     return Scaffold(
       body: Container(
@@ -111,7 +129,7 @@ class _GiftLevelBarState extends State<GiftLevelBar>
                         children: [
                           CircleAvatar(
                             radius: 25,
-                            backgroundImage: NetworkImage(
+                            backgroundImage: CachedNetworkImageProvider(
                                 widget.userData['profilePic'] ?? ''),
                           ),
                           const SizedBox(width: 12),
@@ -136,33 +154,42 @@ class _GiftLevelBarState extends State<GiftLevelBar>
                               ],
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: roseColor.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: roseColor),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.local_florist,
-                                    size: 14, color: roseColor),
-                                const SizedBox(width: 4),
-                                Text(
+                          // 🔥 টেক্সট বক্সের পরিবর্তে লোকাল ব্যাজ এবং তার ওপর লেভেল কাউন্ট (Stack দিয়ে)
+                          Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Image.asset(
+                                badgePath,
+                                width: 55,
+                                height: 55,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const Icon(Icons.stars,
+                                        color: Colors.amberAccent, size: 32),
+                              ),
+                              Positioned(
+                                bottom: 6,
+                                child: Text(
                                   "Lv.$level",
                                   style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12),
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    shadows: [
+                                      Shadow(
+                                        blurRadius: 2.0,
+                                        color: Colors.black,
+                                        offset: Offset(1.0, 1.0),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                       const SizedBox(height: 15),
-
                       // এক্সপি বার ও শিমার ইফেক্ট
                       Row(
                         children: [
@@ -373,12 +400,12 @@ class _GiftLevelBarState extends State<GiftLevelBar>
 
 // --- গিফট লেভেল ব্যাজ প্রিভিউ কার্ড (সচ্ছ গ্লাস ইফেক্ট এবং দুই লাইনে সাজানো) ---
   Widget _buildGiftLevelBadgeCard(BuildContext context) {
-    final List<String> giftBadgeUrls = [
-      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftlavel/gi.webp',
-      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftlavel/gi1.webp',
-      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftlavel/gi2.webp',
-      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftlavel/gi3.webp',
-      'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/giftlavel/gi4.webp',
+    final List<String> giftBadgeAssetPaths = [
+      'assets/images/giftlavel/gi.webp',
+      'assets/images/giftlavel/gi1.webp',
+      'assets/images/giftlavel/gi2.webp',
+      'assets/images/giftlavel/gi3.webp',
+      'assets/images/giftlavel/gi4.webp',
     ];
 
     return Container(
@@ -408,14 +435,14 @@ class _GiftLevelBarState extends State<GiftLevelBar>
             ],
           ),
           const SizedBox(height: 6),
-          // 🔥 গিফট ব্যাজগুলোর সাইজ বড় করে দুই লাইনে সাজানো হয়েছে
+          // 🔥 গিফট ব্যাজগুলোর সাইজ বড় করে দুই লাইনে সাজানো হয়েছে
           Expanded(
             child: Center(
               child: Wrap(
                 spacing: 8,
                 runSpacing: 4,
                 alignment: WrapAlignment.center,
-                children: giftBadgeUrls.map((url) {
+                children: giftBadgeAssetPaths.map((assetPath) {
                   return Container(
                     padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
@@ -426,8 +453,8 @@ class _GiftLevelBarState extends State<GiftLevelBar>
                         width: 0.8,
                       ),
                     ),
-                    child: Image.network(
-                      url,
+                    child: Image.asset(
+                      assetPath,
                       width: 38, // ব্যাজের সাইজ
                       height: 38,
                       fit: BoxFit.contain,

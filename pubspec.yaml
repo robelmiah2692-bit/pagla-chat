@@ -106,5 +106,9 @@ flutter:
   assets:
     - assets/logo.png
     - assets/images/
+    - assets/images/activelavel/
+    - assets/images/giftlavel/
+    - assets/images/crown/
+    - assets/images/vip/
     - assets/sounds/
     - shorebird.yaml

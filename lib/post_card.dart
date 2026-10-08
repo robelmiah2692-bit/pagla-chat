@@ -198,14 +198,14 @@ class PostCard extends StatelessWidget {
       if (userExpiry != 0 && currentTime > userExpiry) {
         return 0;
       }
-      if (userXp >= 35000) return 8;
-      if (userXp >= 30000) return 7;
-      if (userXp >= 25000) return 6;
-      if (userXp >= 20000) return 5;
-      if (userXp >= 13000) return 4;
-      if (userXp >= 9000) return 3;
-      if (userXp >= 5000) return 2;
-      if (userXp >= 2500) return 1;
+      if (userXp >= 65000) return 8;
+      if (userXp >= 60000) return 7;
+      if (userXp >= 38000) return 6;
+      if (userXp >= 28000) return 5;
+      if (userXp >= 18000) return 4;
+      if (userXp >= 14000) return 3;
+      if (userXp >= 8000) return 2;
+      if (userXp >= 3500) return 1;
       return 0;
     }
 

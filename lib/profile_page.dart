@@ -762,38 +762,37 @@ class _ProfilePageState extends State<ProfilePage> {
     "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20(7).png",
     "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/vipframe/framevip%20(8).png",
   ];
-  // ১. গিটহাবের বেস লিঙ্ক (সব ছবির জন্য কমন)
-  final String githubBaseUrl =
-      "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main";
+  // ১. লোকাল অ্যাসেটের বেস পাথ (সব ছবির জন্য কমন)
+  final String assetBasePath = "assets/images/vip";
 
-// ২. VIP বেইজ লিংকের ফাংশন (গিটহাব থেকে সরাসরি লোড হবে)
+// ২. VIP বেইজ লিংকের ফাংশন (লোকাল অ্যাসেট থেকে লোড হবে)
   String getVipBadge(int level) {
     if (level == 0) return "";
 
     switch (level) {
       case 1:
-        return "$githubBaseUrl/vip1.png";
+        return "$assetBasePath/vip1.webp";
       case 2:
-        return "$githubBaseUrl/vip2.png";
+        return "$assetBasePath/vip2.webp";
       case 3:
-        return "$githubBaseUrl/vip3.png";
+        return "$assetBasePath/vip3.webp";
       case 4:
-        return "$githubBaseUrl/vip4.png";
+        return "$assetBasePath/vip4.webp";
       case 5:
-        return "$githubBaseUrl/vip5.png";
+        return "$assetBasePath/vip5.webp";
       case 6:
-        return "$githubBaseUrl/vip6.png";
+        return "$assetBasePath/vip6.webp";
       case 7:
-        return "$githubBaseUrl/vip7.png";
+        return "$assetBasePath/vip7.webp";
       case 8:
-        return "$githubBaseUrl/vip8.png";
+        return "$assetBasePath/vip8.webp";
       default:
         return "";
     }
   }
 
-// ৩. প্রিমিয়াম ব্যাজের জন্য ডাইনামিক লিঙ্ক
-  String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
+// ৩. প্রিমিয়াম ব্যাজের জন্য লোকাল অ্যাসেট পাথ
+  String get premiumBadgePath => "$assetBasePath/premium.webp";
 
   // VIP লেভেল ক্যালকুলেশন (মেয়াদসহ)
   int getVipLevel() {
@@ -804,14 +803,14 @@ class _ProfilePageState extends State<ProfilePage> {
       return 0;
     }
 
-    if (xp >= 35000) return 8;
-    if (xp >= 30000) return 7;
-    if (xp >= 25000) return 6;
-    if (xp >= 20000) return 5;
-    if (xp >= 13000) return 4;
-    if (xp >= 9000) return 3;
-    if (xp >= 5000) return 2;
-    if (xp >= 2500) return 1;
+    if (xp >= 65000) return 8;
+    if (xp >= 60000) return 7;
+    if (xp >= 38000) return 6;
+    if (xp >= 28000) return 5;
+    if (xp >= 18000) return 4;
+    if (xp >= 14000) return 3;
+    if (xp >= 8000) return 2;
+    if (xp >= 3500) return 1;
     return 0;
   }
 
@@ -3890,14 +3889,14 @@ class _ProfilePageState extends State<ProfilePage> {
 
     // পরবর্তী লেভেলের টার্গেট বের করার লজিক
     int getNextLevelTarget(int currentXP) {
-      if (currentXP < 2500) return 2500;
-      if (currentXP < 5000) return 5000;
-      if (currentXP < 9000) return 9000;
-      if (currentXP < 13000) return 13000;
-      if (currentXP < 20000) return 20000;
-      if (currentXP < 25000) return 25000;
-      if (currentXP < 30000) return 30000;
-      return 35000; // VIP 8 এর টার্গেট
+      if (currentXP < 3500) return 3500;
+      if (currentXP < 8000) return 8000;
+      if (currentXP < 14000) return 14000;
+      if (currentXP < 18000) return 18000;
+      if (currentXP < 28000) return 28000;
+      if (currentXP < 38000) return 38000;
+      if (currentXP < 60000) return 60000;
+      return 65000; // VIP 8 এর টার্গেট
     }
 
     return StreamBuilder<DocumentSnapshot>(
@@ -4478,111 +4477,81 @@ class _ProfilePageState extends State<ProfilePage> {
                           Builder(
                             builder: (context) {
                               int xp = userData['vip_xp'] ?? 0;
-                              int crownLvl = xp >= 60000
+                              int crownLvl = xp >= 120000
                                   ? 6
-                                  : xp >= 45000
+                                  : xp >= 85000
                                       ? 5
-                                      : xp >= 35000
+                                      : xp >= 65000
                                           ? 4
-                                          : xp >= 25000
+                                          : xp >= 45000
                                               ? 3
-                                              : xp >= 12000
+                                              : xp >= 25000
                                                   ? 2
-                                                  : xp >= 5000
+                                                  : xp >= 12000
                                                       ? 1
                                                       : 0;
 
                               final Map<int, String> localCrownBadges = {
-                                1: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown1.png',
-                                2: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown2.png',
-                                3: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown3.png',
-                                4: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown4.png',
-                                5: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown5.png',
-                                6: 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/crown/crown6.png',
+                                1: 'assets/images/crown/crown1.webp',
+                                2: 'assets/images/crown/crown2.webp',
+                                3: 'assets/images/crown/crown3.webp',
+                                4: 'assets/images/crown/crown4.webp',
+                                5: 'assets/images/crown/crown5.webp',
+                                6: 'assets/images/crown/crown6.webp',
                               };
 
-                              String crownUrl =
+                              String crownPath =
                                   localCrownBadges[crownLvl] ?? '';
 
-                              if (crownLvl == 0 ||
-                                  crownUrl.isEmpty ||
-                                  crownUrl.contains('YOUR_CROWN')) {
+                              if (crownLvl == 0 || crownPath.isEmpty) {
                                 return const SizedBox.shrink();
                               }
 
                               return Padding(
                                 padding: const EdgeInsets.only(right: 4.0),
-                                child: CachedNetworkImage(
-                                  imageUrl: crownUrl,
+                                child: Image.asset(
+                                  crownPath,
                                   width:
-                                      36, // সাইজ সামান্য অ্যাডজাস্ট করা হয়েছে যেন লাইনে পারফেক্ট বসে
+                                      36, // সাইজ সামান্য অ্যাডজাস্ট করা হয়েছে যেন লাইনে পারফেক্ট বসে
                                   height: 36,
                                   fit: BoxFit.contain,
-                                  errorWidget: (c, e, s) =>
+                                  errorBuilder: (c, e, s) =>
                                       const SizedBox.shrink(),
                                 ),
                               );
                             },
                           ),
-
                           // প্রিমিয়াম কার্ড
-                          if (hasPremiumCard &&
-                              (premiumBadgeUrl ?? '').toString().isNotEmpty &&
-                              !premiumBadgeUrl.toString().startsWith('file:'))
+                          if (hasPremiumCard && premiumBadgePath.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(right: 4.0),
-                              child: CachedNetworkImage(
-                                imageUrl: premiumBadgeUrl,
+                              child: Image.asset(
+                                premiumBadgePath,
                                 width: 36,
                                 height: 36,
                                 fit: BoxFit.contain,
-                                placeholder: (context, url) => const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: Center(
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 1.5,
-                                      color: Colors.white70,
-                                    ),
-                                  ),
-                                ),
-                                errorWidget: (c, e, s) =>
+                                errorBuilder: (c, e, s) =>
                                     const SizedBox.shrink(),
                               ),
                             )
                           else
                             const SizedBox.shrink(),
 
-                          // VIP ব্যাজ
-                          if (vipLevel > 0 &&
-                              getVipBadge(vipLevel).toString().isNotEmpty &&
-                              !getVipBadge(vipLevel)
-                                  .toString()
-                                  .startsWith('file:'))
+// VIP ব্যাজ
+                          if (vipLevel > 0 && getVipBadge(vipLevel).isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(right: 4.0),
-                              child: CachedNetworkImage(
-                                imageUrl: getVipBadge(vipLevel),
+                              child: Image.asset(
+                                getVipBadge(vipLevel),
                                 width: 36,
                                 height: 36,
                                 fit: BoxFit.contain,
-                                placeholder: (context, url) => const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: Center(
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 1.5,
-                                      color: Colors.white70,
-                                    ),
-                                  ),
-                                ),
-                                errorWidget: (c, e, s) =>
+                                errorBuilder: (c, e, s) =>
                                     const SizedBox.shrink(),
                               ),
                             )
                           else
                             const SizedBox.shrink(),
-
                           // 🌟 ৩. বয়স ও জেন্ডার ব্যাজ
                           Flexible(
                             child: Padding(
@@ -4932,7 +4901,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     _buildSoulmateSection(),
                     const SizedBox(height: 5),
                     // 🎁 নতুন গিফট সেকশন (৫০ হাজারের বেশি ভ্যালুর লাস্ট ১০টি গিফট)
-                 
+
                     const SizedBox(height: 5),
                   ], // Column এর children শেষ
                 ), // Column শেষ

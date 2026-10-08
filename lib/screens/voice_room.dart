@@ -57,8 +57,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:pagla_chat/room_follower_sheet.dart';
 import 'package:pagla_chat/inbox_page.dart';
 import 'package:pagla_chat/widgets/voice_ripple.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+
 import '../services/room_service.dart';
 import 'package:pagla_chat/room_sync_service.dart';
 import 'package:pagla_chat/services/database_service.dart';
@@ -1223,37 +1222,36 @@ class _VoiceRoomState extends State<VoiceRoom>
     });
   }
 
-// ১. গিটহাবের বেস লিঙ্ক
-  final String githubBaseUrl =
-      "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main";
+// ১. লোকাল অ্যাসেটের বেস পাথ (সব ভিআইপি ছবির জন্য কমন)
+  final String assetBasePath = "assets/images/vip";
 
-// ২. VIP বেইজ লিংকের ফাংশন (ডায়ালগ থেকে কল করার জন্য)
+// ২. VIP ব্যাজ পাথ পাওয়ার ফাংশন (লোকাল অ্যাসেট থেকে লোড হবে)
   String getVipBadge(int level) {
     if (level <= 0) return "";
-    // আপনার গিটহাবের ফাইল নেম অনুযায়ী (vip1.png, vip2.png ইত্যাদি)
-    return "$githubBaseUrl/vip$level.png";
+    // লোকাল অ্যাসেট ফোল্ডার থেকে .webp ফরম্যাটে ফাইল রিটার্ন করবে
+    return "$assetBasePath/vip$level.webp";
   }
 
-// ৩. প্রিমিয়াম ব্যাজের জন্য লিঙ্ক
-  String get premiumBadgeUrl => "$githubBaseUrl/premium.png";
+// ৩. প্রিমিয়াম ব্যাজের জন্য লোকাল অ্যাসেট পাথ
+  String get premiumBadgePath => "$assetBasePath/premium.webp";
 
-// ৪. VIP লেভেল ক্যালকুলেশন (ডায়ালগের ডাটা অনুযায়ী)
+// ৪. VIP লেভেল ক্যালকুলেশন (ডায়ালগের ডাটা অনুযায়ী)
   int getVipLevelFromData(int userXp, int userExpiry) {
     int currentTime = DateTime.now().millisecondsSinceEpoch;
 
-    // যদি মেয়াদ থাকে এবং শেষ হয়ে যায়
+    // যদি মেয়াদ থাকে এবং শেষ হয়ে যায়
     if (userExpiry != 0 && currentTime > userExpiry) {
       return 0;
     }
 
-    if (userXp >= 35000) return 8;
-    if (userXp >= 30000) return 7;
-    if (userXp >= 25000) return 6;
-    if (userXp >= 20000) return 5;
-    if (userXp >= 13000) return 4;
-    if (userXp >= 9000) return 3;
-    if (userXp >= 5000) return 2;
-    if (userXp >= 2500) return 1;
+    if (userXp >= 65000) return 8;
+    if (userXp >= 60000) return 7;
+    if (userXp >= 38000) return 6;
+    if (userXp >= 28000) return 5;
+    if (userXp >= 18000) return 4;
+    if (userXp >= 14000) return 3;
+    if (userXp >= 8000) return 2;
+    if (userXp >= 3500) return 1;
     return 0;
   }
 
@@ -3078,14 +3076,14 @@ class _VoiceRoomState extends State<VoiceRoom>
       if (userExpiry != 0 && currentTime > userExpiry) {
         return 0;
       }
-      if (userXp >= 35000) return 8;
-      if (userXp >= 30000) return 7;
-      if (userXp >= 25000) return 6;
-      if (userXp >= 20000) return 5;
-      if (userXp >= 13000) return 4;
-      if (userXp >= 9000) return 3;
-      if (userXp >= 5000) return 2;
-      if (userXp >= 2500) return 1;
+      if (userXp >= 65000) return 8;
+      if (userXp >= 60000) return 7;
+      if (userXp >= 38000) return 6;
+      if (userXp >= 28000) return 5;
+      if (userXp >= 18000) return 4;
+      if (userXp >= 14000) return 3;
+      if (userXp >= 8000) return 2;
+      if (userXp >= 3500) return 1;
       return 0;
     }
 
@@ -5202,32 +5200,19 @@ class _VoiceRoomState extends State<VoiceRoom>
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
                                                   // ১. VIP Badge (যদি থাকে)
-                                                  if (hasVip)
+                                                  if (hasVip &&
+                                                      getVipBadge(vipLevel)
+                                                          .isNotEmpty)
                                                     Padding(
                                                       padding: const EdgeInsets
                                                           .symmetric(
                                                           horizontal: 4),
-                                                      child: CachedNetworkImage(
-                                                        imageUrl: getVipBadge(
-                                                            vipLevel),
+                                                      child: Image.asset(
+                                                        getVipBadge(vipLevel),
                                                         width: 30,
                                                         height: 30,
                                                         fit: BoxFit.contain,
-                                                        placeholder:
-                                                            (context, url) =>
-                                                                const SizedBox(
-                                                          width: 20,
-                                                          height: 20,
-                                                          child: Center(
-                                                            child:
-                                                                CircularProgressIndicator(
-                                                              strokeWidth: 1.5,
-                                                              color: Colors
-                                                                  .white70,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        errorWidget: (context,
+                                                        errorBuilder: (context,
                                                                 error,
                                                                 stackTrace) =>
                                                             const SizedBox(
@@ -5242,27 +5227,12 @@ class _VoiceRoomState extends State<VoiceRoom>
                                                       padding: const EdgeInsets
                                                           .symmetric(
                                                           horizontal: 4),
-                                                      child: CachedNetworkImage(
-                                                        imageUrl:
-                                                            premiumBadgeUrl,
+                                                      child: Image.asset(
+                                                        premiumBadgePath,
                                                         width: 30,
                                                         height: 30,
                                                         fit: BoxFit.contain,
-                                                        placeholder:
-                                                            (context, url) =>
-                                                                const SizedBox(
-                                                          width: 20,
-                                                          height: 20,
-                                                          child: Center(
-                                                            child:
-                                                                CircularProgressIndicator(
-                                                              strokeWidth: 1.5,
-                                                              color: Colors
-                                                                  .white70,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        errorWidget: (context,
+                                                        errorBuilder: (context,
                                                                 error,
                                                                 stackTrace) =>
                                                             const SizedBox(
@@ -6528,21 +6498,21 @@ class _VoiceRoomState extends State<VoiceRoom>
 
                   int vipLevel = 0;
                   if (!(vipExpiry != 0 && currentTime > vipExpiry)) {
-                    if (vipXp >= 35000) {
+                    if (vipXp >= 65000) {
                       vipLevel = 8;
-                    } else if (vipXp >= 30000) {
+                    } else if (vipXp >= 60000) {
                       vipLevel = 7;
-                    } else if (vipXp >= 25000) {
+                    } else if (vipXp >= 38000) {
                       vipLevel = 6;
-                    } else if (vipXp >= 20000) {
+                    } else if (vipXp >= 28000) {
                       vipLevel = 5;
-                    } else if (vipXp >= 13000) {
+                    } else if (vipXp >= 18000) {
                       vipLevel = 4;
-                    } else if (vipXp >= 9000) {
+                    } else if (vipXp >= 14000) {
                       vipLevel = 3;
-                    } else if (vipXp >= 5000) {
+                    } else if (vipXp >= 8000) {
                       vipLevel = 2;
-                    } else if (vipXp >= 2500) {
+                    } else if (vipXp >= 3500) {
                       vipLevel = 1;
                     }
                   }
@@ -6699,14 +6669,14 @@ class _VoiceRoomState extends State<VoiceRoom>
       if (userExpiry != 0 && currentTime > userExpiry) {
         return 0;
       }
-      if (userXp >= 35000) return 8;
-      if (userXp >= 30000) return 7;
-      if (userXp >= 25000) return 6;
-      if (userXp >= 20000) return 5;
-      if (userXp >= 13000) return 4;
-      if (userXp >= 9000) return 3;
-      if (userXp >= 5000) return 2;
-      if (userXp >= 2500) return 1;
+      if (userXp >= 65000) return 8;
+      if (userXp >= 60000) return 7;
+      if (userXp >= 38000) return 6;
+      if (userXp >= 28000) return 5;
+      if (userXp >= 18000) return 4;
+      if (userXp >= 14000) return 3;
+      if (userXp >= 8000) return 2;
+      if (userXp >= 3500) return 1;
       return 0;
     }
 

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:pagla_chat/services/diamond_recharge_view.dart';
 
@@ -12,27 +13,33 @@ class VIPBenefitsScreen extends StatefulWidget {
 class _VIPBenefitsScreenState extends State<VIPBenefitsScreen> {
   // Correct VIP Level and Target XP Calculation matching your project logic
   int getVipLevel(int xp) {
-    if (xp >= 35000) return 8;
-    if (xp >= 30000) return 7;
-    if (xp >= 25000) return 6;
-    if (xp >= 20000) return 5;
-    if (xp >= 13000) return 4;
-    if (xp >= 9000) return 3;
-    if (xp >= 5000) return 2;
-    if (xp >= 2500) return 1;
+    if (xp >= 65000) return 8;
+    if (xp >= 60000) return 7;
+    if (xp >= 38000) return 6;
+    if (xp >= 28000) return 5;
+    if (xp >= 18000) return 4;
+    if (xp >= 14000) return 3;
+    if (xp >= 8000) return 2;
+    if (xp >= 3500) return 1;
     return 0;
   }
 
   int getNextLevelTarget(int currentXP) {
-    if (currentXP < 2500) return 2500;
-    if (currentXP < 5000) return 5000;
-    if (currentXP < 9000) return 9000;
-    if (currentXP < 13000) return 13000;
-    if (currentXP < 20000) return 20000;
-    if (currentXP < 25000) return 25000;
-    if (currentXP < 30000) return 30000;
-    if (currentXP < 35000) return 35000;
-    return 35000; // Max level target
+    if (currentXP < 3500) return 3500;
+    if (currentXP < 8000) return 8000;
+    if (currentXP < 14000) return 14000;
+    if (currentXP < 18000) return 18000;
+    if (currentXP < 28000) return 28000;
+    if (currentXP < 38000) return 38000;
+    if (currentXP < 60000) return 60000;
+    if (currentXP < 65000) return 65000;
+    return 65000; // Max level target
+  }
+
+// ভিআইপি ব্যাজ পাথ পাওয়ার ফাংশন (লোকাল webp অ্যাসেট)
+  String getVipBadgePath(int level) {
+    if (level <= 0) return "";
+    return "assets/images/vip/vip$level.webp"; // আপনার ফোল্ডার স্ট্রাকচার অনুযায়ী পাথ
   }
 
   @override
@@ -41,7 +48,8 @@ class _VIPBenefitsScreenState extends State<VIPBenefitsScreen> {
     int currentLevel = getVipLevel(currentXP);
     int targetXP = getNextLevelTarget(currentXP);
     double progress = (currentXP / targetXP).clamp(0.0, 1.0);
-
+// বর্তমান ভিআইপি লেভেলের ব্যাজ পাথ
+    String vipBadgePath = getVipBadgePath(currentLevel);
     return Scaffold(
       // Background matched with your provided design image (Blue and Purple gradient, no solid black)
       body: Container(
@@ -84,14 +92,35 @@ class _VIPBenefitsScreenState extends State<VIPBenefitsScreen> {
                       Row(
                         children: [
                           CircleAvatar(
-                              backgroundImage: NetworkImage(
+                              backgroundImage: CachedNetworkImageProvider(
                                   widget.userData['profilePic'] ?? '')),
                           const SizedBox(width: 10),
-                          Text(widget.userData['name'] ?? 'User',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold)),
+                          // নামের পাশেই ভিআইপি ব্যাজ ও নাম দেখানোর অংশ
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Text(
+                                  widget.userData['name'] ?? 'User',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // যদি লেভেল ০ এর বেশি হয় তবে লোকাল ব্যাজ শো করবে
+                                if (currentLevel > 0 && vipBadgePath.isNotEmpty)
+                                  Image.asset(
+                                    vipBadgePath,
+                                    width: 32,
+                                    height: 32,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        const Icon(Icons.stars, color: Colors.amberAccent, size: 24),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 15),
@@ -211,27 +240,26 @@ class _VIPBenefitsScreenState extends State<VIPBenefitsScreen> {
 
 // --- ভিআইপি ব্যাজ প্রিভিউ কার্ড (সচ্ছ গ্লাস ইফেক্ট এবং ৩ লাইনে নির্দিষ্ট সংখ্যক ব্যাজ সাজানো) ---
   Widget _buildVipBadgeGridCard(BuildContext context) {
-    final String githubBaseUrl =
-        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main";
+    final String assetBasePath = "assets/images/vip";
 
-    // ১ থেকে ৮ পর্যন্ত ব্যাজগুলোর ইউআরএল আলাদা করা
-    final List<String> row1Urls = [
-      "$githubBaseUrl/vip1.png",
-      "$githubBaseUrl/vip2.png",
-      "$githubBaseUrl/vip3.png",
+    // ১ থেকে ৮ পর্যন্ত ব্যাজগুলোর লোকাল অ্যাসেট পাথ আলাদা করা
+    final List<String> row1Paths = [
+      "$assetBasePath/vip1.webp",
+      "$assetBasePath/vip2.webp",
+      "$assetBasePath/vip3.webp",
     ];
-    final List<String> row2Urls = [
-      "$githubBaseUrl/vip4.png",
-      "$githubBaseUrl/vip5.png",
-      "$githubBaseUrl/vip6.png",
+    final List<String> row2Paths = [
+      "$assetBasePath/vip4.webp",
+      "$assetBasePath/vip5.webp",
+      "$assetBasePath/vip6.webp",
     ];
-    final List<String> row3Urls = [
-      "$githubBaseUrl/vip7.png",
-      "$githubBaseUrl/vip8.png",
+    final List<String> row3Paths = [
+      "$assetBasePath/vip7.webp",
+      "$assetBasePath/vip8.webp",
     ];
 
-    // একটি সিঙ্গেল ব্যাজ উইজেট তৈরির হেল্পার মেথড
-    Widget buildBadgeItem(String url) {
+    // একটি সিঙ্গেল ব্যাজ উইজেট তৈরির হেল্পার মেথড (লোক্যাল অ্যাসেটের জন্য)
+    Widget buildBadgeItem(String assetPath) {
       return Container(
         padding: const EdgeInsets.all(2),
         decoration: BoxDecoration(
@@ -242,10 +270,9 @@ class _VIPBenefitsScreenState extends State<VIPBenefitsScreen> {
             width: 0.8,
           ),
         ),
-        child: Image.network(
-          url,
-          width:
-              26, // কার্ডের ভেতরে সুন্দরভাবে ফিট করার জন্য সাইজ পারফেক্ট রাখা হয়েছে
+        child: Image.asset(
+          assetPath,
+          width: 26, // কার্ডের ভেতরে সুন্দরভাবে ফিট করার জন্য সাইজ পারফেক্ট রাখা হয়েছে
           height: 26,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) =>
@@ -268,19 +295,19 @@ class _VIPBenefitsScreenState extends State<VIPBenefitsScreen> {
           // প্রথম লাইন (৩টি ব্যাজ)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: row1Urls.map((url) => buildBadgeItem(url)).toList(),
+            children: row1Paths.map((path) => buildBadgeItem(path)).toList(),
           ),
           const SizedBox(height: 4),
-          // দ্বিতীয় লাইন (৩টি ব্যাজ)
+          // দ্বিতীয় লাইন (৩টি ব্যাজ)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: row2Urls.map((url) => buildBadgeItem(url)).toList(),
+            children: row2Paths.map((path) => buildBadgeItem(path)).toList(),
           ),
           const SizedBox(height: 4),
-          // তৃতীয় লাইন (২টি ব্যাজ)
+          // তৃতীয় লাইন (২টি ব্যাজ)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: row3Urls.map((url) => buildBadgeItem(url)).toList(),
+            children: row3Paths.map((path) => buildBadgeItem(path)).toList(),
           ),
         ],
       ),

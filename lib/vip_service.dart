@@ -28,14 +28,14 @@ class VipService {
       return 0;
     }
 
-    if (xp >= 35000) return 8;
-    if (xp >= 30000) return 7;
-    if (xp >= 25000) return 6;
-    if (xp >= 20000) return 5;
-    if (xp >= 13000) return 4;
-    if (xp >= 9000)  return 3;
-    if (xp >= 5000)  return 2;
-    if (xp >= 2500)  return 1;
+    if (xp >= 65000) return 8;
+    if (xp >= 60000) return 7;
+    if (xp >= 38000) return 6;
+    if (xp >= 28000) return 5;
+    if (xp >= 18000) return 4;
+    if (xp >= 14000)  return 3;
+    if (xp >= 8000)  return 2;
+    if (xp >= 3500)  return 1;
     
     return 0;
   }
