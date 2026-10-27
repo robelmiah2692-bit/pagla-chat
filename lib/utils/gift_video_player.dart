@@ -53,7 +53,7 @@ class _VideoPlayerContentState extends State<_VideoPlayerContent> {
             _isReady = true;
           });
           _controller.play();
-          _controller.setVolume(1.0);
+          _controller.setVolume(0.2);
           WakelockPlus.enable(); // প্লে হওয়ার সময়ও এনাবল রাখা হলো
         }
       });

@@ -5,59 +5,61 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class CustomWheelPainter extends CustomPainter {
+// শুধু আইকন এবং মাল্টিপ্লাইয়ার রেন্ডার করার জন্য পেইন্টার (অ্যাসেট হুইলের আইকনের সাথে নিখুঁতভাবে ম্যাচ করা)
+class WheelContentPainter extends CustomPainter {
   final List<Map<String, dynamic>> segments;
   final List<String> userBetSlots;
 
-  CustomWheelPainter(this.segments, this.userBetSlots);
+  WheelContentPainter(this.segments, this.userBetSlots);
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
-    final paint = Paint()..style = PaintingStyle.fill;
-    final List<String> icons = ["7️⃣7️⃣7️⃣", "🍇", "🍎", "🍑", "🍓", "🍉"];
-    double sweepAngle = 2 * pi / segments.length;
+    // 777 এবং অন্যান্য ফলের আইকন লিস্ট
+    final List<String> icons = ["7️⃣\n7️⃣\n7️⃣", "🍇", "🍎", "🍑", "🍓", "🍉"];
+    double totalSlices = segments.length.toDouble();
+    double sweepAngle = (2 * pi) / totalSlices;
 
-    // ঘড়ির কাঁটার বিপরীতে (Counter-clockwise) সাজানো যাতে টপ পয়েন্টারের সাথে নিখুঁত মিলে যায়
     for (int i = 0; i < segments.length; i++) {
-      paint.color = segments[i]['color'];
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        (i * sweepAngle) - (pi / 2) - (sweepAngle / 2),
-        sweepAngle,
-        true,
-        paint,
-      );
+      // প্রতিটি সেগমেন্টের সেন্টার পয়েন্ট নিখুঁতভাবে হিসাব করা
+      final angle = (i * sweepAngle) + (sweepAngle / 2);
 
+      // আইকন রেন্ডারিং
       final textPainter = TextPainter(
         text: TextSpan(
-            text: icons[i], style: TextStyle(fontSize: (i == 0) ? 28 : 40)),
+            text: icons[i], 
+            style: TextStyle(
+              fontSize: (i == 0) ? 14 : 30,
+              height: 1.1,
+            )),
         textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
       )..layout();
 
-      final angle = (i * sweepAngle) - (pi / 2);
+      // হুইলের ভেতর আইকনের সঠিক দূরত্ব (radius * 0.52)
       final offset = Offset(
-        center.dx + (radius * 0.55) * cos(angle) - textPainter.width / 2,
-        center.dy + (radius * 0.55) * sin(angle) - textPainter.height / 2,
+        center.dx + (radius * 0.52) * cos(angle - pi / 2) - textPainter.width / 2,
+        center.dy + (radius * 0.52) * sin(angle - pi / 2) - textPainter.height / 2,
       );
       textPainter.paint(canvas, offset);
 
+      // ইউজার বেট করলে মাল্টিপ্লাইয়ার রেন্ডারিং
       String slotLabel = segments[i]['label'];
       if (userBetSlots.contains(slotLabel)) {
         final multPainter = TextPainter(
           text: TextSpan(
               text: "${segments[i]['mult']}x",
               style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   color: Colors.yellow,
                   fontWeight: FontWeight.bold)),
           textDirection: TextDirection.ltr,
         )..layout();
 
         final multOffset = Offset(
-          center.dx + (radius * 0.25) * cos(angle) - multPainter.width / 2,
-          center.dy + (radius * 0.25) * sin(angle) - multPainter.height / 2,
+          center.dx + (radius * 0.25) * cos(angle - pi / 2) - multPainter.width / 2,
+          center.dy + (radius * 0.25) * sin(angle - pi / 2) - multPainter.height / 2,
         );
         multPainter.paint(canvas, multOffset);
       }
@@ -65,7 +67,7 @@ class CustomWheelPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomWheelPainter oldDelegate) => true;
+  bool shouldRepaint(covariant WheelContentPainter oldDelegate) => true;
 }
 
 class LuckySpinView extends StatefulWidget {
@@ -252,12 +254,12 @@ class _LuckySpinViewState extends State<LuckySpinView>
     String winningSlotLabel = wheelSegments[winIdx]['label'];
     debugPrint("DEBUG: Winning Slot -> $winningSlotLabel (Index: $winIdx)");
 
-    // নিখুঁত অ্যাঙ্গেল ক্যালকুলেশন
+    // 🎯 একদম সঠিক আইকনের বরবার থামার জন্য নিখুঁত ম্যাথমেটিক্যাল ক্যালকুলেশন
     double totalSlices = wheelSegments.length.toDouble();
     double degreesPerSlice = 360 / totalSlices;
-
-    // কাঙ্ক্ষিত ইনডেক্সটি পয়েন্টারের নিচে ফিক্সড করার ম্যাথমেটিক্যাল হিসাব
-    double targetAngle = 360 - (winIdx * degreesPerSlice);
+    
+    // টপ পয়েন্টারের সাথে হুইলের সেগমেন্ট নিখুঁতভাবে মেলানোর অ্যাঙ্গেল
+    double targetAngle = 360 - (winIdx * degreesPerSlice) - (degreesPerSlice / 2);
     double fullRotations = 360 * 8; // ৮ বার ফুল রোটেট করবে
     double finalTargetAngle = _currentAngle + fullRotations + (targetAngle - (_currentAngle % 360));
 
@@ -313,7 +315,9 @@ class _LuckySpinViewState extends State<LuckySpinView>
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
-      return SingleChildScrollView(
+      double wheelSize = constraints.maxWidth * 0.65;
+      return 
+      SingleChildScrollView(
         child: Column(
           children: [
             Container(
@@ -333,8 +337,9 @@ class _LuckySpinViewState extends State<LuckySpinView>
             ),
             const SizedBox(height: 15),
             Stack(
-              alignment: Alignment.topCenter,
+              alignment: Alignment.center,
               children: [
+                // সম্পূর্ণ হুইল (ব্যাকগ্রাউন্ড অ্যাসেট ইমেজ + আইকনগুলো) একসাথে ঘুরবে
                 AnimatedBuilder(
                   animation: _animation,
                   builder: (context, child) {
@@ -344,16 +349,30 @@ class _LuckySpinViewState extends State<LuckySpinView>
                     );
                   },
                   child: Container(
-                    width: constraints.maxWidth * 0.65,
-                    height: constraints.maxWidth * 0.65,
-                    decoration: const BoxDecoration(shape: BoxShape.circle),
+                    width: wheelSize,
+                    height: wheelSize,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      image: const DecorationImage(
+                        image: AssetImage('assets/images/Wheel.webp'), // আপনার অ্যাসেট হুইল ডিজাইন
+                        fit: BoxFit.cover,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                        )
+                      ],
+                    ),
                     child: CustomPaint(
-                      painter: CustomWheelPainter(wheelSegments, userBetSlots),
+                      painter: WheelContentPainter(wheelSegments, userBetSlots),
                     ),
                   ),
                 ),
+                // ওপরের ফিক্সড ইন্ডিকেটর বা পয়েন্টার অ্যারো (এটি ঘুরবে না)
                 const Positioned(
-                    top: -2,
+                    top: 0,
                     child: Icon(Icons.arrow_drop_down,
                         color: Colors.red, size: 55)),
               ],
@@ -470,7 +489,7 @@ class _LuckySpinViewState extends State<LuckySpinView>
           color: Colors.white.withOpacity(0.03),
           borderRadius: BorderRadius.circular(20)),
       child: Column(
-      children: [
+        children: [
           const Text("TOP 10 WINNERS",
               style: TextStyle(
                   color: Colors.orangeAccent, fontWeight: FontWeight.bold)),

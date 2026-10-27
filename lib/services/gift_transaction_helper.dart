@@ -29,7 +29,7 @@ class GiftTransactionHelper {
 
         // ২. রিসিভার পাবে ২০%
         if (receiverId != "All Room" && receiverId != "All Mic") {
-          int userShare = (totalPrice * 0.20).floor();
+          int userShare = (totalPrice * 0.10).floor();
           DocumentReference receiverRef = _firestore.collection('users').doc(receiverId);
           batch.update(receiverRef, {'diamonds': FieldValue.increment(userShare)});
         }
@@ -37,7 +37,7 @@ class GiftTransactionHelper {
         // ৩. রুমের মালিক পাবে ৩%
         var roomDoc = await _firestore.collection('rooms').doc(roomId).get();
         if (roomDoc.exists) {
-          int ownerShare = (totalPrice * 0.03).floor();
+          int ownerShare = (totalPrice * 0.02).floor();
           String? ownerId = roomDoc.data()?['ownerId'];
           if (ownerId != null && ownerId.isNotEmpty) {
             DocumentReference ownerRef = _firestore.collection('users').doc(ownerId);

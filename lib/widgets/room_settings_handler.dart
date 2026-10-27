@@ -157,9 +157,10 @@ class RoomSettingsHandler {
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       itemCount: 3,
                       itemBuilder: (context, index) {
-                        // আপনার আগের কোডটি এই নতুন লজিক দিয়ে রিপ্লেস করুন
-                        String wallUrl =
-                            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpaper-${index + 1}.jpg";
+                        // লোকাল অ্যাসেট পাথ (যথা: assets/images/wallpaper-1.jpg)
+                        String wallPath =
+                            "assets/images/wallpaper-${index + 1}.webp";
+
                         return GestureDetector(
                           onTap: () async {
                             try {
@@ -167,9 +168,9 @@ class RoomSettingsHandler {
                                   .collection('rooms')
                                   .doc(roomId)
                                   .update({
-                                'currentWallpaper': wallUrl,
+                                'currentWallpaper': wallPath,
                               });
-                              onSetWallpaper(wallUrl);
+                              onSetWallpaper(wallPath);
                             } catch (e) {
                               _showMessage(
                                   context, "Error saving wallpaper: $e");
@@ -182,7 +183,7 @@ class RoomSettingsHandler {
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: Colors.white24),
                               image: DecorationImage(
-                                image: CachedNetworkImageProvider(wallUrl),
+                                image: AssetImage(wallPath),
                                 fit: BoxFit.cover,
                               ),
                             ),
@@ -336,7 +337,7 @@ class RoomSettingsHandler {
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
                                 buildLayoutButton(101, "Video 10"),
-                                buildLayoutButton(18, "18 Seats"),
+                                buildLayoutButton(18, "15 Seats"),
                                 buildLayoutButton(20, "20 Seats"),
                               ],
                             ),
@@ -388,236 +389,272 @@ class RoomSettingsHandler {
     );
   }
 
-static void _showThemesDialog(BuildContext context, String roomId, Function(String) onSetWallpaper) async {
-  // প্রতিটি থিমের সাথে নাম (name) যুক্ত করা হয়েছে
-  final List<Map<String, dynamic>> wallpapers = [
-    {
-      'name': 'dreem night',
-      'url': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/wallpaper-1.jpg',
-      'price': 5000,
-    },
-    
-    {
-      'name': 'Sher Queen',
-      'url': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/shherqwin.jpg',
-      'price': 120000,
-    },
-    {
-      'name': 'Royal Queen',
-      'url': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/royalqwin.jpg',
-      'price': 130000,
-    },
-    {
-      'name': 'Romantic Love',
-      'url': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/romanticlove.jpg',
-      'price': 110000,
-    },
-    {
-      'name': 'Romantic',
-      'url': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/romantic.jpg',
-      'price': 85000,
-    },
-    {
-      'name': 'King & Queen Wallpaper',
-      'url': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/kingweenwallpepar.jpg',
-      'price': 95000,
-    },
-    {
-      'name': 'King Royal',
-      'url': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/kingroyal.jpg',
-      'price': 90000,
-    },
-    {
-      'name': 'King & Queen Love',
-      'url': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/kingqwinlove.jpg',
-      'price': 100000,
-    },
-    {
-      'name': 'King',
-      'url': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/king.jpg',
-      'price': 76000,
-    },
-    {
-      'name': 'Couple Wallpaper',
-      'url': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/cuplewallpepar.jpg',
-      'price': 75000,
-    },
-    {
-      'name': 'Blue Queen',
-      'url': 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/bluqwen.jpg',
-      'price': 88000,
-    },
-  ];
+  static void _showThemesDialog(BuildContext context, String roomId,
+      Function(String) onSetWallpaper) async {
+    // প্রতিটি থিমের সাথে লোকাল অ্যাসেট পাথ যুক্ত করা হয়েছে
+    final List<Map<String, dynamic>> wallpapers = [
+      {
+        'name': 'dreem night',
+        'url': 'assets/images/wallpaper-1.webp',
+        'price': 5000,
+      },
+      {
+        'name': 'Sher Queen',
+        'url': 'assets/images/shherqwin.webp',
+        'price': 120000,
+      },
+      {
+        'name': 'Royal Queen',
+        'url': 'assets/images/royalqwin.webp',
+        'price': 130000,
+      },
+      {
+        'name': 'Romantic Love',
+        'url': 'assets/images/romanticlove.webp',
+        'price': 110000,
+      },
+      {
+        'name': 'Romantic',
+        'url': 'assets/images/romantic.webp',
+        'price': 85000,
+      },
+      {
+        'name': 'King & Queen Wallpaper',
+        'url': 'assets/images/kingweenwallpepar.webp',
+        'price': 95000,
+      },
+      {
+        'name': 'King Royal',
+        'url': 'assets/images/kingroyal.webp',
+        'price': 90000,
+      },
+      {
+        'name': 'King & Queen Love',
+        'url': 'assets/images/kingqwinlove.webp',
+        'price': 100000,
+      },
+      {
+        'name': 'King',
+        'url': 'assets/images/king.webp',
+        'price': 76000,
+      },
+      {
+        'name': 'Couple Wallpaper',
+        'url': 'assets/images/cuplewallpepar.webp',
+        'price': 75000,
+      },
+      {
+        'name': 'Blue Queen',
+        'url': 'assets/images/bluqwen.webp',
+        'price': 88000,
+      },
+    ];
 
-  // রুমের বর্তমান কেনা থিম বা ডেটা চেক করার জন্য
-  var roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(roomId).get();
-  var roomData = roomDoc.data() ?? {};
-  List purchasedWallpapers = roomData['purchasedWallpapers'] ?? [];
-  String currentWallpaper = roomData['currentWallpaper'] ?? '';
+    // রুমের বর্তমান কেনা থিম বা ডেটা চেক করার জন্য
+    var roomDoc =
+        await FirebaseFirestore.instance.collection('rooms').doc(roomId).get();
+    var roomData = roomDoc.data() ?? {};
+    List purchasedWallpapers = roomData['purchasedWallpapers'] ?? [];
+    String currentWallpaper = roomData['currentWallpaper'] ?? '';
 
-  showDialog(
-    context: context,
-    builder: (dContext) => StatefulBuilder(
-      builder: (context, setState) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF0D1B2A),
-                Color(0xFF1B1A55),
-                Color(0xFF4A154B),
-              ],
-            ),
-            border: Border.all(color: Colors.cyanAccent.withOpacity(0.3), width: 1.2),
-          ),
-          padding: const EdgeInsets.all(20),
-          height: 450,
-          child: Column(
-            children: [
-              const Text(
-                "Room Themes & Wallpapers",
-                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+    showDialog(
+      context: context,
+      builder: (dContext) => StatefulBuilder(
+        builder: (context, setState) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(30),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF0D1B2A),
+                  Color(0xFF1B1A55),
+                  Color(0xFF4A154B),
+                ],
               ),
-              const SizedBox(height: 15),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: wallpapers.length,
-                  itemBuilder: (context, index) {
-                    var item = wallpapers[index];
-                    String themeName = item['name'] ?? 'Theme ${index + 1}'; // থিমের নাম লোড করা
-                    String wpUrl = item['url'];
-                    int price = item['price'];
-                    bool isBought = purchasedWallpapers.contains(wpUrl) || price == 0; // ফ্রি বা কেনা থাকলে
+              border: Border.all(
+                  color: Colors.cyanAccent.withOpacity(0.3), width: 1.2),
+            ),
+            padding: const EdgeInsets.all(20),
+            height: 450,
+            child: Column(
+              children: [
+                const Text(
+                  "Room Themes & Wallpapers",
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 15),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: wallpapers.length,
+                    itemBuilder: (context, index) {
+                      var item = wallpapers[index];
+                      String themeName = item['name'] ??
+                          'Theme ${index + 1}'; // থিমের নাম লোড করা
+                      String wpUrl = item['url']; // এখানে অ্যাসেট পাথ কাজ করবে
+                      int price = item['price'];
+                      bool isBought = purchasedWallpapers.contains(wpUrl) ||
+                          price == 0; // ফ্রি বা কেনা থাকলে
 
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 15),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: Colors.white12),
-                      ),
-                      child: Row(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.network(
-                              wpUrl,
-                              width: 70,
-                              height: 70,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Container(
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 15),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(color: Colors.white12),
+                        ),
+                        child: Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.asset(
+                                wpUrl,
                                 width: 70,
                                 height: 70,
-                                color: Colors.grey,
-                                child: const Icon(Icons.image, color: Colors.white),
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Container(
+                                  width: 70,
+                                  height: 70,
+                                  color: Colors.grey,
+                                  child: const Icon(Icons.image,
+                                      color: Colors.white),
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 15),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  themeName, // এখানে এখন প্রতিটি থিমের নিজস্ব নাম শো করবে
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                ),
-                                const SizedBox(height: 5),
-                                Text(
-                                  isBought ? "Unlocked" : "Price: $price 💎",
-                                  style: TextStyle(color: isBought ? Colors.greenAccent : Colors.cyanAccent, fontSize: 13),
-                                ),
-                              ],
+                            const SizedBox(width: 15),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    themeName, // এখানে প্রতিটি থিমের নিজস্ব নাম শো করবে
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    isBought ? "Unlocked" : "Price: $price 💎",
+                                    style: TextStyle(
+                                        color: isBought
+                                            ? Colors.greenAccent
+                                            : Colors.cyanAccent,
+                                        fontSize: 13),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          // কেনা না থাকলে 'Buy' বাটন, কেনা থাকলে 'Pick' বাটন দেখাবে
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isBought ? Colors.cyanAccent.withOpacity(0.2) : Colors.purpleAccent.withOpacity(0.3),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                            onPressed: () async {
-                              if (isBought) {
-                                // পিক করলে মেইন রুমে ওয়ালপেপার সেট হয়ে যাবে
-                                await FirebaseFirestore.instance.collection('rooms').doc(roomId).update({
-                                  'currentWallpaper': wpUrl,
-                                });
-                                onSetWallpaper(wpUrl);
-                                Navigator.pop(dContext);
-                                _showMessage(context, "Wallpaper applied successfully!");
-                              } else {
-                                // ডায়মন্ড কেটে কেনার লজিক
-                                _handleThemePurchase(context, roomId, wpUrl, price, (updatedList) {
-                                  setState(() {
-                                    purchasedWallpapers = updatedList;
+                            // কেনা না থাকলে 'Buy' বাটন, কেনা থাকলে 'Pick' বাটন দেখাবে
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isBought
+                                    ? Colors.cyanAccent.withOpacity(0.2)
+                                    : Colors.purpleAccent.withOpacity(0.3),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                              ),
+                              onPressed: () async {
+                                if (isBought) {
+                                  // পিক করলে মেইন রুমে ওয়ালপেপার সেট হয়ে যাবে
+                                  await FirebaseFirestore.instance
+                                      .collection('rooms')
+                                      .doc(roomId)
+                                      .update({
+                                    'currentWallpaper': wpUrl,
                                   });
-                                });
-                              }
-                            },
-                            child: Text(
-                              isBought ? "Pick" : "Buy",
-                              style: TextStyle(color: isBought ? Colors.cyanAccent : Colors.white, fontWeight: FontWeight.bold),
+                                  onSetWallpaper(wpUrl);
+                                  Navigator.pop(dContext);
+                                  _showMessage(context,
+                                      "Wallpaper applied successfully!");
+                                } else {
+                                  // ডায়মন্ড কেটে কেনার লজিক
+                                  _handleThemePurchase(
+                                      context, roomId, wpUrl, price,
+                                      (updatedList) {
+                                    setState(() {
+                                      purchasedWallpapers = updatedList;
+                                    });
+                                  });
+                                }
+                              },
+                              child: Text(
+                                isBought ? "Pick" : "Buy",
+                                style: TextStyle(
+                                    color: isBought
+                                        ? Colors.cyanAccent
+                                        : Colors.white,
+                                    fontWeight: FontWeight.bold),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
+
 // থিম কেনার ব্যাকএন্ড লজিক
-static void _handleThemePurchase(BuildContext context, String roomId, String wpUrl, int price, Function(List) onBoughtSuccess) async {
-  final User? user = _auth.currentUser;
-  if (user == null) {
-    _showMessage(context, "Please login first!");
-    return;
-  }
-
-  try {
-    var userQuery = await _firestore
-        .collection('users')
-        .where(Filter.or(Filter('authUID', isEqualTo: user.uid), Filter('uID', isEqualTo: user.uid)))
-        .limit(1)
-        .get();
-
-    if (userQuery.docs.isEmpty) return;
-    var userDoc = userQuery.docs.first;
-    int myDiamonds = (userDoc.data()['diamonds'] ?? 0).toInt();
-
-    if (myDiamonds >= price) {
-      // ইউজারের ডায়মন্ড কমানো
-      await _firestore.collection('users').doc(userDoc.id).update({'diamonds': myDiamonds - price});
-
-      var roomRef = _firestore.collection('rooms').doc(roomId);
-      var roomSnap = await roomRef.get();
-      List purchased = roomSnap.data()?['purchasedWallpapers'] ?? [];
-      purchased.add(wpUrl);
-
-      // রুমে লিস্ট আপডেট করা
-      await roomRef.update({'purchasedWallpapers': purchased});
-
-      onBoughtSuccess(purchased);
-      _showMessage(context, "Theme purchased successfully!");
-    } else {
-      _showMessage(context, "Insufficient Diamonds!");
+  static void _handleThemePurchase(BuildContext context, String roomId,
+      String wpUrl, int price, Function(List) onBoughtSuccess) async {
+    final User? user = _auth.currentUser;
+    if (user == null) {
+      _showMessage(context, "Please login first!");
+      return;
     }
-  } catch (e) {
-    debugPrint("Theme Purchase Error: $e");
+
+    try {
+      var userQuery = await _firestore
+          .collection('users')
+          .where(Filter.or(Filter('authUID', isEqualTo: user.uid),
+              Filter('uID', isEqualTo: user.uid)))
+          .limit(1)
+          .get();
+
+      if (userQuery.docs.isEmpty) return;
+      var userDoc = userQuery.docs.first;
+      int myDiamonds = (userDoc.data()['diamonds'] ?? 0).toInt();
+
+      if (myDiamonds >= price) {
+        // ইউজারের ডায়মন্ড কমানো
+        await _firestore
+            .collection('users')
+            .doc(userDoc.id)
+            .update({'diamonds': myDiamonds - price});
+
+        var roomRef = _firestore.collection('rooms').doc(roomId);
+        var roomSnap = await roomRef.get();
+        List purchased = roomSnap.data()?['purchasedWallpapers'] ?? [];
+        purchased.add(wpUrl);
+
+        // রুমে লিস্ট আপডেট করা
+        await roomRef.update({'purchasedWallpapers': purchased});
+
+        onBoughtSuccess(purchased);
+        _showMessage(context, "Theme purchased successfully!");
+      } else {
+        _showMessage(context, "Insufficient Diamonds!");
+      }
+    } catch (e) {
+      debugPrint("Theme Purchase Error: $e");
+    }
   }
-}
+
 // --- সিট ক্রয় ডায়ালগ ---
   static void _showSeatPurchaseDialog(BuildContext context, String roomId,
       int layoutCount, Map<String, dynamic> roomData) {
@@ -1120,10 +1157,10 @@ static void _handleThemePurchase(BuildContext context, String roomId, String wpU
                     ),
                     onPressed: () {
                       Navigator.pop(dContext);
-                      onBuy(24, 400);
+                      onBuy(24, 16000);
                     },
                     child: const Text(
-                      "24 Hours 400💎",
+                      "24 Hours 16k💎",
                       style: TextStyle(
                         color: Colors.cyanAccent,
                         fontWeight: FontWeight.bold,
@@ -1143,10 +1180,10 @@ static void _handleThemePurchase(BuildContext context, String roomId, String wpU
                     ),
                     onPressed: () {
                       Navigator.pop(dContext);
-                      onBuy(720, 9000);
+                      onBuy(720, 110000);
                     },
                     child: const Text(
-                      "30 Days 9k💎",
+                      "30 Days 110k💎",
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,

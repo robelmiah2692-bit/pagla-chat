@@ -1130,7 +1130,7 @@ class _RoomListPageState extends State<RoomListPage>
                   fontWeight: FontWeight.bold)),
         ),
         const SizedBox(height: 10),
-        // গোল্ডেন ফ্রেম ব্যাকগ্রাউন্ড
+        // গোল্ডেন ফ্রেম ব্যাকগ্রাউন্ড (লোকাল অ্যাসেট এবং webp ফরম্যাটে আপডেট করা হলো)
         Container(
           height: 110,
           margin: const EdgeInsets.symmetric(horizontal: 10),
@@ -1138,8 +1138,7 @@ class _RoomListPageState extends State<RoomListPage>
               horizontal: 8), // সাইড গ্যাপ ঠিক রাখা হলো
           decoration: BoxDecoration(
             image: const DecorationImage(
-              image: CachedNetworkImageProvider(
-                  "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/topuser.jpg"),
+              image: AssetImage("assets/images/topuser.webp"),
               fit: BoxFit.fill,
             ),
             border: Border.all(color: Colors.amber.shade700, width: 2),
@@ -1180,7 +1179,7 @@ class _RoomListPageState extends State<RoomListPage>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // প্রোফাইল পিকচারে ক্লিক করলে প্রোফাইলে যাওয়ার জন্য GestureDetector যোগ করা হয়েছে
+                        // প্রোফাইল পিকচারে ক্লিক করলে প্রোফাইলে যাওয়ার জন্য GestureDetector যোগ করা হয়েছে
                         GestureDetector(
                           onTap: () => _navigateToProfile(context, uId),
                           child: Stack(
@@ -1237,7 +1236,6 @@ class _RoomListPageState extends State<RoomListPage>
       ],
     );
   }
-
   // প্রোফাইলে নেভিগেট করার কার্যকরী ফাংশন (আপনার কোড অনুযায়ী যুক্ত করা হয়েছে)
   Future<void> _navigateToProfile(BuildContext context, String uId) async {
     String finalIdToPass = uId;

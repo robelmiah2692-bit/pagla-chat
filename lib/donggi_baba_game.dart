@@ -29,16 +29,16 @@ class _DonggiBabaGameWidgetState extends State<DonggiBabaGameWidget>
   final AudioPlayer _bettingAudioPlayer =
       AudioPlayer(); // ১৫ সেকেন্ড বেটিং সময়ের জন্য আলাদা অডিও প্লেয়ার
 
-  // বেট অপশন এবং মাল্টিপ্লায়ার
+ // বেট অপশন এবং নতুন আপডেট করা মাল্টিপ্লায়ার
   final List<Map<String, dynamic>> betOptions = [
-    {'id': 'chicken', 'name': 'Chicken', 'multiplier': 45, 'icon': '🍗'},
-    {'id': 'octopus', 'name': 'Octopus', 'multiplier': 25, 'icon': '🐙'},
-    {'id': 'shrimp', 'name': 'Shrimp', 'multiplier': 15, 'icon': '🦐'},
-    {'id': 'fish', 'name': 'Fish', 'multiplier': 10, 'icon': '🐟'},
-    {'id': 'watermelon', 'name': 'Watermelon', 'multiplier': 5, 'icon': '🍉'},
-    {'id': 'cabbage', 'name': 'Cabbage', 'multiplier': 5, 'icon': '🥬'},
-    {'id': 'carrot', 'name': 'Carrot', 'multiplier': 5, 'icon': '🥕'},
+    {'id': 'chicken', 'name': 'Chicken', 'multiplier': 20, 'icon': '🍗'},
+    {'id': 'octopus', 'name': 'Octopus', 'multiplier': 15, 'icon': '🐙'},
+    {'id': 'shrimp', 'name': 'Shrimp', 'multiplier': 10, 'icon': '🦐'},
+    {'id': 'fish', 'name': 'Fish', 'multiplier': 5, 'icon': '🐟'},
     {'id': 'mushroom', 'name': 'Mushroom', 'multiplier': 5, 'icon': '🍄'},
+    {'id': 'watermelon', 'name': 'Watermelon', 'multiplier': 3, 'icon': '🍉'},
+    {'id': 'cabbage', 'name': 'Cabbage', 'multiplier': 2, 'icon': '🥬'},
+    {'id': 'carrot', 'name': 'Carrot', 'multiplier': 2, 'icon': '🥕'},
   ];
 
   int selectedChip = 1000;
@@ -255,7 +255,6 @@ void _startMasterOrSyncCountdown(int currentServerCountdown) {
     });
   }
 
-// পুরানো ডুপ্লিকেট _startCountdown() মেথডটি সম্পূর্ণ রিমুভ করা হলো যাতে কনফ্লিক্ট না করে।
 Future<void> _triggerMasterWinnerSelection() async {
     DocumentReference roomRef =
         FirebaseFirestore.instance.collection('game_rooms').doc(widget.roomId);
@@ -297,9 +296,6 @@ Future<void> _triggerMasterWinnerSelection() async {
     String? highestBetOptionId;
     int maxBetAmount = -1;
     
-    // কম বেট বা যেগুলোতে বেট কম বা শূন্য সেগুলোর একটি লিস্ট তৈরি করা
-    List<String> lowOrNoBetOptions = [];
-    
     betOptions.forEach((option) {
       String optId = option['id'].toString();
       int optBet = globalTotalBets[optId] ?? 0;
@@ -308,40 +304,33 @@ Future<void> _triggerMasterWinnerSelection() async {
         maxBetAmount = optBet;
         highestBetOptionId = optId;
       }
-      
-      // যে অপশনগুলোতে বেট কম বা জিরো, সেগুলোকে আলাদা করা
-      if (optBet < 500) { 
-        lowOrNoBetOptions.add(optId);
-      }
     });
 
-    // ২. হাউস প্রোটেকশন ও কড়া রিগিং লজিক:
-    // যে অপশনে সবথেকে বেশি বেট পড়েছে (highestBetOptionId), সেটি কিছুতেই উইনার হতে পারবে না!
-    // সিস্টেম সবসময় এমন অপশন বেছে নেবে যেখানে বেট কম বা হাউস লাভবান হবে।
-    
-    bool forceRigHouseWin = true; // সবসময় হাউসকে জেতানোর জন্য কড়া গার্ড
+    // ২. হাউস প্রোটেকশন ও কড়া রিগিং লজিক (নতুন মাল্টিপ্লায়ার অনুযায়ী আপডেট করা):
+    // যে অপশনে সবথেকে বেশি বেট পড়েছে (highestBetOptionId), সেটি কিছুতেই উইনার হতে পারবে না!
+    bool forceRigHouseWin = true; 
 
     if (forceRigHouseWin && highestBetOptionId != null) {
-      // সব অপশন থেকে সবচেয়ে বেশি বেট পড়া অপশনটি বাদ দিয়ে বাকিগুলোর লিস্ট তৈরি করা
+      // সবচেয়ে বেশি বেট পড়া অপশনটি বাদ দিয়ে বাকিগুলোর লিস্ট তৈরি করা
       List<String> safeOptions = betOptions
           .map((e) => e['id'].toString())
           .where((id) => id != highestBetOptionId)
           .toList();
 
-      // চিকেন, অক্টোপাস, চিংড়ি খুব কড়া নিয়মে ফেলা (যদি এগুলো নিরাপদ লিস্টে থাকেও, এদের আসার চান্স নগ্নতম করা)
+      // হাই-টিয়ার অপশনগুলোর (যাদের গুণ বেশি যেমন ২০x, ১৫x, ১০x) আসার চান্স খুব নগ্নতম রাখা
       List<String> highTier = ['chicken', 'octopus', 'shrimp'];
       
       // রেন্ডম চ্যান্স চেক (১০০০ এর মধ্যে হিসাব)
       int chance = random.nextInt(1000);
 
-      if (chance < 10 && safeOptions.contains('chicken')) {
-        winnerId = 'chicken'; // প্রায় ১০০ বারে ১ বার
-      } else if (chance < 20 && safeOptions.contains('octopus')) {
-        winnerId = 'octopus'; // প্রায় ১০০ বারে ১ বার
-      } else if (chance < 35 && safeOptions.contains('shrimp')) {
-        winnerId = 'shrimp';  // খুব বিরল
+      if (chance < 8 && safeOptions.contains('chicken')) {
+        winnerId = 'chicken'; // ২০ গুণ খুব কম আসবে
+      } else if (chance < 15 && safeOptions.contains('octopus')) {
+        winnerId = 'octopus'; // ১৫ গুণ বিরল
+      } else if (chance < 25 && safeOptions.contains('shrimp')) {
+        winnerId = 'shrimp';  // ১০ গুণ কম আসবে
       } else {
-        // বেশিরভাগ সময় লো-টিয়ার বা যেগুলোতে বেট কম পড়েছে বা সাধারণ ফলগুলো উইনার হবে
+        // বেশিরভাগ সময় লো-টিয়ার (যেমন ৫x, ৩x, ২x) বা যেগুলোতে বেট কম পড়েছে সেগুলো উইনার হবে
         List<String> preferredOptions = safeOptions.where((id) => !highTier.contains(id)).toList();
         
         if (preferredOptions.isNotEmpty) {
@@ -351,8 +340,8 @@ Future<void> _triggerMasterWinnerSelection() async {
         }
       }
     } else {
-      // ফলব্যাক সাধারণ লো-টিয়ার অপশন
-      List<String> lowTier = ['watermelon', 'cabbage', 'carrot', 'mushroom'];
+      // ফলব্যাক সাধারণ লো-টিয়ার অপশন (যেমন ২x বা ৩x ওয়ালা অপশনগুলো)
+      List<String> lowTier = ['watermelon', 'cabbage', 'carrot'];
       winnerId = lowTier[random.nextInt(lowTier.length)];
     }
 
@@ -384,8 +373,7 @@ Future<void> _triggerMasterWinnerSelection() async {
     }
   }
 
-// [ফিক্সড]: ক্লায়েন্ট সাইড স্পিন এবং উইনিং অ্যানিমেশন সিকোয়েন্স (ডাবল স্পিন চিরতরে রোধ করতে সুরক্ষিত)
-  Future<void> _executeClientSpinSequence(String? serverWinner) async {
+Future<void> _executeClientSpinSequence(String? serverWinner) async {
     _activeSyncTimer?.cancel();
 
     if (isSoundOn) {
@@ -450,7 +438,7 @@ Future<void> _triggerMasterWinnerSelection() async {
       lastResultIcon = winningOption['icon'];
     });
 
-    // পেমেন্ট ও উইনিং চেক (শুধুমাত্র যার বেট মিলেছে সে তার নিজের ডায়মন্ড যোগ করবে)
+    // পেমেন্ট ও উইনিং চেক (যার বেট মিলেছে সে তার নিজের ডায়মন্ড যোগ করবে)
     int userBetOnWinner = myCurrentBets[winnerId] ?? 0;
 
     if (userBetOnWinner > 0) {
@@ -458,8 +446,7 @@ Future<void> _triggerMasterWinnerSelection() async {
       await _awardUserWinnings(winAmount);
     }
 
-    // [গুরুত্বপূর্ণ ফিক্স]: ডাবল স্পিন রোধ করতে এবং উইনার পপআপ সবার জন্য সিঙ্ক রাখতে 
-    // শুধুমাত্র মাস্টার বা যে উইন করেছে সে একবারই ফায়ারবেসে পপআপ ডেটা লক করবে (যদি আগে থেকে পপআপ অন না থাকে)
+    // উইনার পপআপ সবার জন্য সিঙ্ক রাখা
     try {
       DocumentReference roomRef = FirebaseFirestore.instance.collection('game_rooms').doc(widget.roomId);
       DocumentSnapshot roomSnap = await roomRef.get();
@@ -492,7 +479,7 @@ Future<void> _triggerMasterWinnerSelection() async {
           'winningAmount': winAmount,
           'winningIconName': winningOption['name'],
           'winningMultiplier': winningOption['multiplier'],
-          'state': 'result_popup', // স্টেট লক করে রাখা যাতে ডাবল স্পিন না হয়
+          'state': 'result_popup',
         }, SetOptions(merge: true));
       }
     } catch (e) {
@@ -501,10 +488,9 @@ Future<void> _triggerMasterWinnerSelection() async {
 
     await _clearUserBets();
 
-    // ৫ সেকেন্ড পর রুম রিসেট করা (যাতে উইনিং দেখার পর্যাপ্ত সময় পাওয়া যায়)
+    // ৫ সেকেন্ড পর রুম রিসেট করা
     await Future.delayed(const Duration(seconds: 5));
 
-    // রুম সম্পূর্ণ রিসেট করে আবার ওয়েটিং স্টেটে পাঠানো
     try {
       await FirebaseFirestore.instance
           .collection('game_rooms')
@@ -526,7 +512,6 @@ Future<void> _triggerMasterWinnerSelection() async {
       debugPrint("Reset room error: $e");
     }
   }
-
   Future<void> _awardUserWinnings(int winAmount) async {
     try {
       await FirebaseFirestore.instance.runTransaction((transaction) async {

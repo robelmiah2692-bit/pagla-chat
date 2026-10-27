@@ -19,38 +19,34 @@ class RoomTopGiftersBanner extends StatefulWidget {
   State<RoomTopGiftersBanner> createState() => _RoomTopGiftersBannerState();
 }
 
-class _RoomTopGiftersBannerState extends State<RoomTopGiftersBanner>
-    with SingleTickerProviderStateMixin {
+class _RoomTopGiftersBannerState extends State<RoomTopGiftersBanner> {
   PageController? _pageController;
   Timer? _autoScrollTimer;
-  Timer? _rotatorTimer;
+  Timer? _fetchIntervalTimer;
   List<Map<String, dynamic>> _topGifters = [];
-  StreamSubscription<QuerySnapshot>? _giftersSubscription;
-
-  late AnimationController _shimmerController;
-  static const String _cacheKeyPrefix = 'cached_top_spenders_';
+  
+  static const String _cacheKeyPrefix = 'cached_top_gifters_smooth_';
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(viewportFraction: 1.0);
 
-    _shimmerController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    )..repeat();
-
+    // ১. প্রথমে ক্যাশ থেকে লোড করা যাতে অ্যাপ ওপেন হওয়ার সাথে সাথে ইনস্ট্যান্ট দেখায়
     _loadFromCacheFirst();
-    _listenTopSpenders();
+
+    // ২. ডাটাবেজে চাপ কমানোর জন্য লাইভ স্ট্রিম (snapshots) বাদ দিয়ে ৫ মিনিট পর পর ডাটা ফেচ করার লজিক দেওয়া হলো
+    _fetchTopGifters();
+    _fetchIntervalTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
+      _fetchTopGifters();
+    });
   }
 
   @override
   void dispose() {
     _autoScrollTimer?.cancel();
-    _rotatorTimer?.cancel();
-    _giftersSubscription?.cancel();
+    _fetchIntervalTimer?.cancel();
     _pageController?.dispose();
-    _shimmerController.dispose();
     super.dispose();
   }
 
@@ -85,19 +81,21 @@ class _RoomTopGiftersBannerState extends State<RoomTopGiftersBanner>
     }
   }
 
-  void _listenTopSpenders() {
-    // এখানে ২০ জনের ডাটা নিয়ে আসার জন্য limit(20) করে দেওয়া হয়েছে
-    _giftersSubscription = FirebaseFirestore.instance
-        .collection('users')
-        .orderBy('totalSpent', descending: true)
-        .limit(20)
-        .snapshots()
-        .listen((snapshot) {
+  // ডাটাবেজের ওপর চাপ কমাতে ஒன்-টাইম গেট (get()) ব্যবহার করা হলো
+  Future<void> _fetchTopGifters() async {
+    try {
+      // আপনি চাইলে এখানে নির্দিষ্ট টাইম ফিল্টার বা টপ স্পেন্ডার কুয়েরি করতে পারেন
+      var snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .orderBy('totalSpent', descending: true)
+          .limit(20)
+          .get();
+
       List<Map<String, dynamic>> gifters = [];
 
       for (int i = 0; i < snapshot.docs.length; i++) {
         var doc = snapshot.docs[i];
-        var userData = doc.data() as Map<String, dynamic>;
+        var userData = doc.data();
 
         gifters.add({
           'uid': doc.id,
@@ -109,26 +107,24 @@ class _RoomTopGiftersBannerState extends State<RoomTopGiftersBanner>
         });
       }
 
-      if (mounted) {
-        if (gifters.isNotEmpty) {
-          setState(() {
-            _topGifters = gifters;
-          });
-          _saveToCache(gifters);
-          _startAutoSlide();
-        }
+      if (mounted && gifters.isNotEmpty) {
+        setState(() {
+          _topGifters = gifters;
+        });
+        _saveToCache(gifters);
+        _startAutoSlide();
       }
-    }, onError: (e) {
-      debugPrint("❌ Firestore error: $e");
-    });
+    } catch (e) {
+      debugPrint("❌ Firestore fetch error: $e");
+    }
   }
 
-  // ১ সেকেন্ড পরপর অটো স্লাইড করার লজিক
+  // অটো স্লাইড লজিক
   void _startAutoSlide() {
     _autoScrollTimer?.cancel();
     if (_topGifters.length <= 1) return;
 
-    _autoScrollTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (mounted && _pageController != null && _pageController!.hasClients) {
         int nextPage = (_pageController!.page?.toInt() ?? 0) + 1;
         if (nextPage >= _topGifters.length) {
@@ -137,7 +133,7 @@ class _RoomTopGiftersBannerState extends State<RoomTopGiftersBanner>
 
         _pageController!.animateToPage(
           nextPage,
-          duration: const Duration(milliseconds: 400),
+          duration: const Duration(milliseconds: 500),
           curve: Curves.easeInOut,
         );
       }
@@ -157,13 +153,12 @@ class _RoomTopGiftersBannerState extends State<RoomTopGiftersBanner>
     return Material(
       color: Colors.transparent,
       child: SizedBox(
-        width: 150, // চিকন সাইজ
-        height: 38, // লম্বাটে ও কম উচ্চতা যাতে সিট ঢাকা না পরে
+        width: 160,
+        height: 38,
         child: PageView.builder(
           controller: _pageController,
           itemCount: _topGifters.isNotEmpty ? _topGifters.length : 1,
-          physics:
-              const NeverScrollableScrollPhysics(), // ইউজার যেন হাত দিয়ে টানতে না পারে
+          physics: const NeverScrollableScrollPhysics(),
           itemBuilder: (context, index) {
             var gifter = _topGifters.isNotEmpty
                 ? _topGifters[index]
@@ -171,156 +166,115 @@ class _RoomTopGiftersBannerState extends State<RoomTopGiftersBanner>
 
             return GestureDetector(
               onTap: () => _navigateToProfile(context, gifter['uid'] ?? ''),
-              child: AnimatedBuilder(
-                animation: _shimmerController,
-                builder: (context, child) {
-                  return Container(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFF12711), Color(0xFFF5AF19)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.amberAccent, width: 1),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.amber.withOpacity(0.3),
-                          blurRadius: 5,
-                          spreadRadius: 0.5,
-                        )
-                      ],
-                    ),
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
-                            child: Align(
-                              alignment: Alignment(
-                                (_shimmerController.value * 4) - 2,
-                                0,
+              // ভারী শিমার অ্যানিমেশন বাদ দিয়ে স্ক্রিনশটের মতো একটি প্রিমিয়াম ও হালকা ট্রান্সপারেন্ট ডিজাইন
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(
+                    color: Colors.amberAccent.withOpacity(0.5),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 4,
+                      spreadRadius: 1,
+                    )
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                  child: Row(
+                    children: [
+                      // অবতার ও র‍্যাংক ব্যাজ
+                      Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: Colors.amberAccent, width: 1.2),
+                            ),
+                            child: ClipOval(
+                              child: gifter['avatar'] != "" &&
+                                      gifter['avatar'] != null
+                                  ? CachedNetworkImage(
+                                      imageUrl: gifter['avatar'],
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) =>
+                                          const SizedBox(
+                                              width: 12,
+                                              height: 12,
+                                              child: CircularProgressIndicator(
+                                                  strokeWidth: 1)),
+                                      errorWidget: (context, url, error) =>
+                                          const Icon(Icons.person,
+                                              color: Colors.white, size: 16),
+                                    )
+                                  : const Icon(Icons.person,
+                                      color: Colors.white, size: 16),
+                            ),
+                          ),
+                          if (gifter['rank'] != null && gifter['rank'] > 0)
+                            Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(
+                                color: Colors.amber,
+                                shape: BoxShape.circle,
                               ),
-                              child: Container(
-                                width: 30,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.white.withOpacity(0.0),
-                                      Colors.white.withOpacity(0.3),
-                                      Colors.white.withOpacity(0.0),
-                                    ],
-                                  ),
+                              child: Text(
+                                "${gifter['rank']}",
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 7,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 3),
-                          child: Row(
-                            children: [
-                              Stack(
-                                alignment: Alignment.bottomRight,
-                                children: [
-                                  Container(
-                                    width: 30,
-                                    height: 30,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                          color: Colors.white, width: 1.5),
-                                    ),
-                                    child: ClipOval(
-                                      child: gifter['avatar'] != "" &&
-                                              gifter['avatar'] != null
-                                          ? CachedNetworkImage(
-                                              imageUrl: gifter['avatar'],
-                                              fit: BoxFit.cover,
-                                              placeholder: (context, url) =>
-                                                  const CircularProgressIndicator(
-                                                      strokeWidth: 1),
-                                              errorWidget:
-                                                  (context, url, error) =>
-                                                      const Icon(Icons.person,
-                                                          color: Colors.white,
-                                                          size: 16),
-                                            )
-                                          : const Icon(Icons.person,
-                                              color: Colors.white, size: 18),
-                                    ),
-                                  ),
-                                  if (gifter['rank'] != null &&
-                                      gifter['rank'] > 0)
-                                    Container(
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.amber,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Text(
-                                        "${gifter['rank']}",
-                                        style: const TextStyle(
-                                          color: Colors.black,
-                                          fontSize: 8,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                ],
+                        ],
+                      ),
+                      const SizedBox(width: 6),
+                      // নাম ও টপ স্পেন্ডার ইনফো
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              gifter['rank'] != null && gifter['rank'] > 0
+                                  ? "Top Spender #${gifter['rank']}"
+                                  : "Top Spender",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.amberAccent.withOpacity(0.9),
+                                fontSize: 7.5,
+                                fontWeight: FontWeight.w600,
+                                height: 1.0,
                               ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize
-                                      .min, // অতিরিক্ত জায়গা নেওয়া বন্ধ করবে
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // প্রথমে "Top Spender #X" লেখাটি উপরে থাকবে
-                                    Text(
-                                      gifter['rank'] != null &&
-                                              gifter['rank'] > 0
-                                          ? "Top Spender #${gifter['rank']}"
-                                          : "Top Spender",
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.w600,
-                                        height:
-                                            1.0, // লেখার ভেতরের গ্যাপ কমানোর জন্য
-                                      ),
-                                    ),
-                                    const SizedBox(
-                                        height:
-                                            2), // গ্যাপ একদম সর্বনিম্ন রাখা হলো
-                                    // ইউজারনেমটি ঠিক তার নিচে দেখাবে
-                                    Text(
-                                      gifter['name'] ?? 'User',
-                                      maxLines: 1,
-                                      overflow: TextOverflow
-                                          .ellipsis, // নাম বড় হলে ডট ডট (...) হয়ে ভেতরেই থাকবে, ধাক্কা দিয়ে বের হবে না
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        height:
-                                            1.0, // লেখার ভেতরের গ্যাপ কমানোর জন্য
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              gifter['name'] ?? 'User',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                height: 1.0,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  );
-                },
+                      ),
+                    ],
+                  ),
+                ),
               ),
             );
           },

@@ -109,10 +109,9 @@ class _TeamPanelAndSoulmateSectionState
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              // ব্যাকগ্রাউন্ডে ইমেজ লিংক ব্যবহারের জন্য Decoration Image এখানে যুক্ত করতে পারেন
+                              // লোকাল অ্যাসেট ইমেজ পাথ ব্যবহার করা হলো
                               image: const DecorationImage(
-                                image: NetworkImage(
-                                    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/hartanime/Hartsolmate.jpg"), // এখানে আপনার লিংক বসাবেন
+                                image: AssetImage("assets/images/Hartsolmate.webp"),
                                 fit: BoxFit.cover,
                               ),
                               gradient: LinearGradient(
@@ -135,7 +134,7 @@ class _TeamPanelAndSoulmateSectionState
                               ),
                             ),
                             child: const Text(
-                              "𝐇𝐚𝐫𝐭—̳͟͞͞💗(𝐒𝐨𝐮𝐥𝐦𝐚𝐭𝐞𝐬)", // নাম পরিবর্তন করে আপনার প্রয়োজনমতো দিতে পারেন
+                              "𝐇𝐚𝐫𝐭—̳͟͞͞💗(𝐒𝐨𝐮𝐥𝐦𝐚𝐭𝐞𝐬)",
                               style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 14,
@@ -201,7 +200,7 @@ class _TeamPanelAndSoulmateSectionState
     );
   }
 
-  // ✅ টিম প্যানেল মেইন সেকশন (সম্পূর্ণ ত্রুটিমুক্ত সংস্করণ ও লেভেল-এক্সপি যুক্ত)
+  // ✅ টিম প্যানেল মেইন সেকশন (সম্পূর্ণ ত্রুটিমুক্ত ও ফিক্সড সাইজ সংস্করণ)
   Widget _buildTeamPanelSection(String inputOwnerDocId,
       Map<String, dynamic>? teamPanelData, Map<String, dynamic> ownerUserData) {
     // ডাটাবেস বা প্যানেল ডাটা থেকে আসল ওনারের আইডি বা uID বের করে আনা (যাতে ভুল আইডি পাস হলেও সমস্যা না হয়)
@@ -251,17 +250,15 @@ class _TeamPanelAndSoulmateSectionState
             int xpForNextLevel = 1000;
             int tempXp = totalXp;
 
-// লজিক: লেভেল ১ এর জন্য ১০০০, এরপর প্রতি লেভেলে ৫০০ করে বাড়বে (যেমন: লেভেল ২ এর জন্য ১৫০০, লেভেল ৩ এর জন্য ২০০০ এভাবে)
+// লজিক: লেভেল ১ এর জন্য ১০০০, এরপর প্রতি লেভেলে ৫০০ করে বাড়বে
             while (tempXp >= xpForNextLevel && currentLevel < 100) {
               tempXp -= xpForNextLevel;
               currentLevel++;
-              xpForNextLevel +=
-                  500; // প্রতি লেভেল পার হওয়ার পর পরবর্তী লেভেলের রিকোয়ারমেন্ট ৫০০ করে বাড়বে
+              xpForNextLevel += 500;
             }
 
 // সর্বোচ্চ লেভেল ১০০ পর্যন্ত সীমাবদ্ধ রাখা
             if (currentLevel > 100) {
-              currentLevel = 100;
               currentLevel = 100;
             }
 
@@ -286,7 +283,7 @@ class _TeamPanelAndSoulmateSectionState
                   myUniqueUserId = currentUserDocId;
                 }
 
-                // সঠিক ওনারশিপ যাচাই শর্ত (এখানে মেম্বারের আইডি আর ওনারের আইডি কোনোভাবেই এক হবে না)
+                // সঠিক ওনারশিপ যাচাই শর্ত
                 bool isPanelOwner = (currentUserDocId == ownerDocumentId ||
                     currentUidField == panelOwnerUid ||
                     currentUidField == realOwnerDocId ||
@@ -310,7 +307,7 @@ class _TeamPanelAndSoulmateSectionState
                               actualOwnerData);
                         },
                         child: Container(
-                          padding: const EdgeInsets.all(15),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
                               colors: [Color(0xFF1F1C2C), Color(0xFF928DAB)],
@@ -326,7 +323,7 @@ class _TeamPanelAndSoulmateSectionState
                               Stack(
                                 children: [
                                   CircleAvatar(
-                                    radius: 30,
+                                    radius: 28,
                                     backgroundColor: Colors.grey[800],
                                     backgroundImage: panelPic.isNotEmpty
                                         ? CachedNetworkImageProvider(panelPic)
@@ -334,7 +331,7 @@ class _TeamPanelAndSoulmateSectionState
                                         : null,
                                     child: panelPic.isEmpty
                                         ? const Icon(Icons.person,
-                                            color: Colors.white, size: 30)
+                                            color: Colors.white, size: 28)
                                         : null,
                                   ),
                                   if (_isUploadingPic)
@@ -356,23 +353,24 @@ class _TeamPanelAndSoulmateSectionState
                                           borderRadius:
                                               BorderRadius.circular(12),
                                           child: Container(
-                                            padding: const EdgeInsets.all(6),
+                                            padding: const EdgeInsets.all(4),
                                             decoration: const BoxDecoration(
                                               color: Colors.amber,
                                               shape: BoxShape.circle,
                                             ),
                                             child: const Icon(Icons.camera_alt,
-                                                size: 14, color: Colors.black),
+                                                size: 12, color: Colors.black),
                                           ),
                                         ),
                                       ),
                                     ),
                                 ],
                               ),
-                              const SizedBox(width: 15),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Row(
                                       mainAxisAlignment:
@@ -381,16 +379,19 @@ class _TeamPanelAndSoulmateSectionState
                                         Expanded(
                                           child: Text(
                                             panelName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(
                                                 color: Color(0xFFFFD700),
-                                                fontSize: 16,
+                                                fontSize: 15,
                                                 fontWeight: FontWeight.bold),
                                           ),
                                         ),
-                                        // মেইন কার্ডে লেভেল এবং এক্সপি ব্যাজ যোগ করা হলো
+                                        const SizedBox(width: 8),
+                                        // মেইন কার্ডে ফিক্সড লেভেল এবং এক্সপি ব্যাজ
                                         Container(
                                           padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 3),
+                                              horizontal: 6, vertical: 3),
                                           decoration: BoxDecoration(
                                             gradient: const LinearGradient(
                                               colors: [
@@ -399,23 +400,22 @@ class _TeamPanelAndSoulmateSectionState
                                               ],
                                             ),
                                             borderRadius:
-                                                BorderRadius.circular(12),
+                                                BorderRadius.circular(10),
                                             boxShadow: [
                                               BoxShadow(
                                                 color: Colors.amber
                                                     .withOpacity(0.4),
-                                                blurRadius: 4,
-                                                offset: const Offset(0, 2),
+                                                blurRadius: 3,
+                                                offset: const Offset(0, 1),
                                               )
                                             ],
                                           ),
                                           child: Text(
-                                            "Lvl $currentLevel • $totalXp XP",
+                                            "Lvl $currentLevel - $totalXp XP",
                                             style: const TextStyle(
-                                              color: Colors.black,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                                color: Colors.black,
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold),
                                           ),
                                         ),
                                       ],
@@ -423,16 +423,20 @@ class _TeamPanelAndSoulmateSectionState
                                     const SizedBox(height: 4),
                                     Text(
                                       "Owner: ${actualOwnerData['userName'] ?? actualOwnerData['name'] ?? 'Owner'}",
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                           color: Colors.white70,
-                                          fontSize: 13,
+                                          fontSize: 12,
                                           fontWeight: FontWeight.w500),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
                                       "ID: ${actualOwnerData['uID'] ?? realOwnerDocId}",
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                          color: Colors.white54, fontSize: 11),
+                                          color: Colors.white54, fontSize: 10),
                                     ),
                                   ],
                                 ),
@@ -456,7 +460,8 @@ class _TeamPanelAndSoulmateSectionState
                                         return const Text("Joined",
                                             style: TextStyle(
                                                 color: Colors.greenAccent,
-                                                fontWeight: FontWeight.bold));
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12));
                                       }
 
                                       return StreamBuilder<DocumentSnapshot>(
@@ -470,25 +475,32 @@ class _TeamPanelAndSoulmateSectionState
                                           bool hasRequested = reqSnap.hasData &&
                                               reqSnap.data!.exists;
 
-                                          return ElevatedButton(
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: hasRequested
-                                                  ? Colors.grey
-                                                  : Colors.amber,
-                                            ),
-                                            onPressed: hasRequested
-                                                ? null
-                                                : () {
-                                                    _sendJoinRequest(
-                                                        ownerDocumentId,
-                                                        myUniqueUserId);
-                                                  },
-                                            child: Text(
-                                              hasRequested
-                                                  ? "Requested"
-                                                  : "Join Panel",
-                                              style: const TextStyle(
-                                                  color: Colors.black),
+                                          return SizedBox(
+                                            height: 32,
+                                            child: ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: hasRequested
+                                                    ? Colors.grey
+                                                    : Colors.amber,
+                                                padding: const EdgeInsets
+                                                    .symmetric(
+                                                    horizontal: 10),
+                                              ),
+                                              onPressed: hasRequested
+                                                  ? null
+                                                  : () {
+                                                      _sendJoinRequest(
+                                                          ownerDocumentId,
+                                                          myUniqueUserId);
+                                                    },
+                                              child: Text(
+                                                hasRequested
+                                                    ? "Requested"
+                                                    : "Join",
+                                                style: const TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: 11),
+                                              ),
                                             ),
                                           );
                                         },
@@ -578,7 +590,7 @@ class _TeamPanelAndSoulmateSectionState
                                                     fontWeight:
                                                         FontWeight.bold),
                                               ),
-                                              const SizedBox(height: 15),
+                                              const SizedBox(height: 10),
                                               Row(
                                                 children: [
                                                   InkWell(
@@ -591,7 +603,7 @@ class _TeamPanelAndSoulmateSectionState
                                                     child: const Icon(
                                                         Icons.check_circle,
                                                         color: Colors.green,
-                                                        size: 28),
+                                                        size: 26),
                                                   ),
                                                   const SizedBox(width: 20),
                                                   InkWell(
@@ -603,7 +615,7 @@ class _TeamPanelAndSoulmateSectionState
                                                     child: const Icon(
                                                         Icons.cancel,
                                                         color: Colors.red,
-                                                        size: 28),
+                                                        size: 26),
                                                   ),
                                                 ],
                                               )
@@ -630,7 +642,6 @@ class _TeamPanelAndSoulmateSectionState
       },
     );
   }
-
   // ওনারের সঠিক ডাটা ফেচ করার হেল্পার ফাংশন
   Future<DocumentSnapshot> _fetchOwnerData(String ownerDocId) async {
     try {
@@ -727,17 +738,15 @@ class _TeamPanelAndSoulmateSectionState
             int xpForNextLevel = 1000;
             int tempXp = totalXp;
 
-// লজিক: লেভেল ১ এর জন্য ১০০০, এরপর প্রতি লেভেলে ৫০০ করে বাড়বে (যেমন: লেভেল ২ এর জন্য ১৫০০, লেভেল ৩ এর জন্য ২০০০ এভাবে)
+// লজিক: লেভেল ১ এর জন্য ১০০০, এরপর প্রতি লেভেলে ৫০০ করে বাড়বে
             while (tempXp >= xpForNextLevel && currentLevel < 100) {
               tempXp -= xpForNextLevel;
               currentLevel++;
-              xpForNextLevel +=
-                  500; // প্রতি লেভেল পার হওয়ার পর পরবর্তী লেভেলের রিকোয়ারমেন্ট ৫০০ করে বাড়বে
+              xpForNextLevel += 500;
             }
 
 // সর্বোচ্চ লেভেল ১০০ পর্যন্ত সীমাবদ্ধ রাখা
             if (currentLevel > 100) {
-              currentLevel = 100;
               currentLevel = 100;
             }
 
@@ -781,12 +790,13 @@ class _TeamPanelAndSoulmateSectionState
                         children: [
                           CircleAvatar(
                             radius: 25,
+                            backgroundColor: Colors.grey[800],
                             backgroundImage: panelPic.isNotEmpty
                                 ? CachedNetworkImageProvider(panelPic)
                                     as ImageProvider
                                 : null,
                             child: panelPic.isEmpty
-                                ? const Icon(Icons.person)
+                                ? const Icon(Icons.person, color: Colors.white)
                                 : null,
                           ),
                           const SizedBox(width: 12),
@@ -806,7 +816,6 @@ class _TeamPanelAndSoulmateSectionState
                                             color: Colors.white54,
                                             fontSize: 11)),
                                     const SizedBox(width: 8),
-                                    // সুন্দর মিক্স ডিজাইনের টিম লেভেল এবং এক্সপি উইজেট
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 8, vertical: 3),
@@ -828,12 +837,11 @@ class _TeamPanelAndSoulmateSectionState
                                         ],
                                       ),
                                       child: Text(
-                                        "Lvl $currentLevel • $totalXp XP",
+                                        "Lvl $currentLevel -$totalXp XP",
                                         style: const TextStyle(
-                                          color: Colors.black,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                            color: Colors.black,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold),
                                       ),
                                     ),
                                   ],
@@ -846,7 +854,7 @@ class _TeamPanelAndSoulmateSectionState
                     ),
 
                     const SizedBox(height: 15),
-                    // ট্যাব বার (শুধু ওনার ও মেম্বার হলে দুটি ট্যাব দেখাবে)
+                    // ট্যাব বার
                     TabBar(
                       indicatorColor: Colors.amber,
                       labelColor: Colors.amberAccent,
@@ -864,7 +872,7 @@ class _TeamPanelAndSoulmateSectionState
                     Expanded(
                       child: TabBarView(
                         children: [
-                          // ট্যাব ১: অল প্যানেল মেম্বার লিস্ট ও তাদের தனிப்பட்ட XP
+                          // ট্যাব ১: অল প্যানেল মেম্বার লিস্ট (ইউজারের বর্তমান নাম ও ছবিসহ)
                           StreamBuilder<QuerySnapshot>(
                             stream: FirebaseFirestore.instance
                                 .collection('team_panels')
@@ -884,7 +892,7 @@ class _TeamPanelAndSoulmateSectionState
 
                               for (var doc in members) {
                                 var mData = doc.data() as Map<String, dynamic>;
-                                bool isOwner = mData['uID'] == ownerDocId;
+                                bool isOwner = mData['uID'] == ownerDocId || doc.id == ownerDocId;
                                 if (isOwner) {
                                   ownerMemberData = mData;
                                 } else {
@@ -910,101 +918,126 @@ class _TeamPanelAndSoulmateSectionState
                                 itemCount: sortedMembers.length,
                                 itemBuilder: (context, index) {
                                   var mData = sortedMembers[index];
+                                  String memberDocId = mData['uID'] ?? ownerDocId;
                                   bool isThisOwner =
-                                      index == 0 || mData['uID'] == ownerDocId;
-                                  String profilePicUrl = mData['profilePic'] ??
-                                      mData['userImage'] ??
-                                      '';
-                                  String frameUrl = mData['frame'] ?? '';
-                                  int memberXp = mData['memberXp'] ?? 0;
+                                      index == 0 || memberDocId == ownerDocId;
 
-                                  return ListTile(
-                                    leading: SizedBox(
-                                      width: 45,
-                                      height: 45,
-                                      child: Stack(
-                                        alignment: Alignment.center,
-                                        children: [
-                                          CircleAvatar(
-                                            radius: 20,
-                                            backgroundImage: profilePicUrl
-                                                    .isNotEmpty
-                                                ? CachedNetworkImageProvider(
-                                                        profilePicUrl)
-                                                    as ImageProvider
-                                                : null,
-                                            child: profilePicUrl.isEmpty
-                                                ? const Icon(Icons.person,
-                                                    size: 20)
-                                                : null,
+                                  // রিয়েল-টাইমে `users` কালেকশন থেকে মেম্বারের বর্তমান নাম ও ছবি ফেচ করার জন্য StreamBuilder
+                                  return StreamBuilder<DocumentSnapshot>(
+                                    stream: FirebaseFirestore.instance
+                                        .collection('users')
+                                        .doc(memberDocId)
+                                        .snapshots(),
+                                    builder: (context, userDocSnap) {
+                                      String liveName = mData['userName'] ?? mData['name'] ?? 'Member';
+                                      String livePicUrl = mData['profilePic'] ?? mData['userImage'] ?? '';
+                                      String liveFrameUrl = mData['frame'] ?? '';
+
+                                      if (userDocSnap.hasData && userDocSnap.data != null && userDocSnap.data!.exists) {
+                                        var uMap = userDocSnap.data!.data() as Map<String, dynamic>?;
+                                        if (uMap != null) {
+                                          liveName = uMap['userName'] ?? uMap['name'] ?? liveName;
+                                          livePicUrl = uMap['userImage'] ?? uMap['profilePic'] ?? livePicUrl;
+                                          liveFrameUrl = uMap['activeFrameUrl'] ?? uMap['frame'] ?? liveFrameUrl;
+                                        }
+                                      }
+
+                                      int memberXp = mData['memberXp'] ?? 0;
+
+                                      return ListTile(
+                                        leading: SizedBox(
+                                          width: 45,
+                                          height: 45,
+                                          child: Stack(
+                                            alignment: Alignment.center,
+                                            children: [
+                                              CircleAvatar(
+                                                radius: 20,
+                                                backgroundColor: Colors.grey[800],
+                                                backgroundImage: livePicUrl
+                                                        .isNotEmpty
+                                                    ? CachedNetworkImageProvider(
+                                                        livePicUrl)
+                                                        as ImageProvider
+                                                    : null,
+                                                child: livePicUrl.isEmpty
+                                                    ? const Icon(Icons.person,
+                                                        size: 20, color: Colors.white)
+                                                    : null,
+                                              ),
+                                              if (liveFrameUrl.isNotEmpty)
+                                                Positioned.fill(
+                                                  child: Image.network(liveFrameUrl,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (context, error,
+                                                              stackTrace) =>
+                                                          const SizedBox()),
+                                                ),
+                                            ],
                                           ),
-                                          if (frameUrl.isNotEmpty)
-                                            Positioned.fill(
-                                              child: Image.network(frameUrl,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (context, error,
-                                                          stackTrace) =>
-                                                      const SizedBox()),
+                                        ),
+                                        title: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(liveName,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                      color: Colors.white)),
                                             ),
-                                        ],
-                                      ),
-                                    ),
-                                    title: Row(
-                                      children: [
-                                        Text(mData['userName'] ?? 'Member',
-                                            style: const TextStyle(
-                                                color: Colors.white)),
-                                        if (isThisOwner) ...[
-                                          const SizedBox(width: 6),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                                color: Colors.amber,
-                                                borderRadius:
-                                                    BorderRadius.circular(4)),
-                                            child: const Text("Owner",
-                                                style: TextStyle(
-                                                    color: Colors.black,
-                                                    fontSize: 10,
-                                                    fontWeight:
-                                                        FontWeight.bold)),
-                                          ),
-                                        ]
-                                      ],
-                                    ),
-                                    subtitle: Row(
-                                      children: [
-                                        Text("ID: ${mData['uID']}",
-                                            style: const TextStyle(
-                                                color: Colors.white60,
-                                                fontSize: 11)),
-                                        const SizedBox(width: 8),
-                                        Text("XP: $memberXp",
-                                            style: const TextStyle(
-                                                color: Colors.amberAccent,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w500)),
-                                      ],
-                                    ),
-                                    trailing: isPanelOwner && !isThisOwner
-                                        ? IconButton(
-                                            icon: const Icon(
-                                                Icons.remove_circle,
-                                                color: Colors.redAccent),
-                                            onPressed: () {
-                                              _removeMember(
-                                                  ownerDocId, mData['uID']);
-                                            },
-                                          )
-                                        : null,
+                                            if (isThisOwner) ...[
+                                              const SizedBox(width: 6),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                    horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                    color: Colors.amber,
+                                                    borderRadius:
+                                                        BorderRadius.circular(4)),
+                                                child: const Text("Owner",
+                                                    style: TextStyle(
+                                                        color: Colors.black,
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.bold)),
+                                              ),
+                                            ]
+                                          ],
+                                        ),
+                                        subtitle: Row(
+                                          children: [
+                                            Text("ID: $memberDocId",
+                                                style: const TextStyle(
+                                                    color: Colors.white60,
+                                                    fontSize: 11)),
+                                            const SizedBox(width: 8),
+                                            Text("XP: $memberXp",
+                                                style: const TextStyle(
+                                                    color: Colors.amberAccent,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w500)),
+                                          ],
+                                        ),
+                                        trailing: isPanelOwner && !isThisOwner
+                                            ? IconButton(
+                                                icon: const Icon(
+                                                    Icons.remove_circle,
+                                                    color: Colors.redAccent),
+                                                onPressed: () {
+                                                  _removeMember(
+                                                      ownerDocId, memberDocId);
+                                                },
+                                              )
+                                            : null,
+                                      );
+                                    },
                                   );
                                 },
                               );
                             },
                           ),
 
-                          // ট্যাব ২: মেম্বার রুম (গ্রুপ চ্যাট) - শুধু মেম্বার/ওনার দেখতে পাবে
+                          // ট্যাব ২: মেম্বার রুম (গ্রুপ চ্যাট)
                           if (isTeamMember)
                             TeamPanelChatRoom(
                                 ownerDocId: ownerDocId, panelName: panelName),
@@ -1020,7 +1053,6 @@ class _TeamPanelAndSoulmateSectionState
       },
     );
   }
-
   // 🖼️ প্যানেল ছবি পরিবর্তন করার ফাংশন
   Future<void> _changePanelPicture(
       String ownerDocId, Map<String, dynamic>? currentTeamPanelData) async {

@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:ui';
 import 'package:lottie/lottie.dart';
+import 'package:pagla_chat/level_image_config.dart';
 import 'package:pagla_chat/profile_page.dart';
 import 'package:pagla_chat/widgets/video_post_widget.dart'; // গ্লাস ইফেক্টের জন্য
 
@@ -151,6 +152,30 @@ class PostCard extends StatelessWidget {
     );
   }
 
+// 🛠️ VIP ব্যাজ পাথ রিটার্ন করার হেল্পার মেথড (যদি ক্লাসে না থাকে তবে এটি যুক্ত করে নিন)
+  String getVipBadge(int level) {
+    switch (level) {
+      case 1:
+        return 'assets/images/vip/vip1.webp';
+      case 2:
+        return 'assets/images/vip/vip2.webp';
+      case 3:
+        return 'assets/images/vip/vip3.webp';
+      case 4:
+        return 'assets/images/vip/vip4.webp';
+      case 5:
+        return 'assets/images/vip/vip5.webp';
+      case 6:
+        return 'assets/images/vip/vip6.webp';
+      case 7:
+        return 'assets/images/vip/vip7.webp';
+      case 8:
+        return 'assets/images/vip/vip8.webp';
+      default:
+        return '';
+    }
+  }
+
 // আলাদা একটি মেথড যা পুরো পোস্ট UI রেন্ডার করবে
   Widget _buildPostWidget(
       BuildContext context,
@@ -216,11 +241,18 @@ class PostCard extends StatelessWidget {
         getCalculatedVipLevel();
     bool hasVip = vipLevel > 0;
 
-    // প্রিমিয়াম কার্ড এবং এজেন্সি চেক
-    bool hasPremiumCard = liveUserData?['hasPremiumCard'] == true ||
+    // প্রিমিয়াম কার্ড, এজেন্সি ও অন্যান্য চেক
+    bool hasPremium = liveUserData?['hasPremiumCard'] == true ||
+        liveUserData?['hasPremiumCard'] == 'true' ||
         liveUserData?['isPremium'] == true ||
+        liveUserData?['isPremium'] == 'true' ||
+        liveUserData?['premium'] == true ||
         data['hasPremiumCard'] == true ||
         data['isPremium'] == true;
+
+    String premiumBadgePath = liveUserData?['premiumBadgePath'] ??
+        data['premiumBadgePath'] ??
+        'assets/images/vip/premium.webp';
 
     bool isAgent = liveUserData?['isAgent'] == true ||
         liveUserData?['agencyId'] != null ||
@@ -247,16 +279,6 @@ class PostCard extends StatelessWidget {
     }
     if (activeLevel >= 50) activeLevel = 50;
 
-    // Active Level Color Logic (Heart Color)
-    Color heartColor = Colors.pinkAccent;
-    if (activeLevel >= 10 && activeLevel < 20) {
-      heartColor = const Color(0xFFFF00FF);
-    } else if (activeLevel >= 20 && activeLevel < 35) {
-      heartColor = Colors.redAccent;
-    } else if (activeLevel >= 35) {
-      heartColor = const Color(0xFFFFD700);
-    }
-
     // --- Gift Level Calculation ---
     int giftXp = liveUserData?['totalGiftXp'] ??
         liveUserData?['giftXp'] ??
@@ -274,16 +296,6 @@ class PostCard extends StatelessWidget {
       giftReqXp += 2000;
     }
     if (giftLevel >= 50) giftLevel = 50;
-
-    // Gift Level Color Logic (Rose Color)
-    Color roseColor = Colors.purpleAccent;
-    if (giftLevel >= 10 && giftLevel < 20) {
-      roseColor = const Color(0xFFFF00FF);
-    } else if (giftLevel >= 20 && giftLevel < 35) {
-      roseColor = Colors.pinkAccent;
-    } else if (giftLevel >= 35) {
-      roseColor = const Color(0xFFFFD700);
-    }
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -365,105 +377,100 @@ class PostCard extends StatelessWidget {
                               spacing: 4,
                               runSpacing: 2,
                               children: [
-                                // ❤️ Active Level Badge
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 5, vertical: 1),
-                                  decoration: BoxDecoration(
-                                    color: heartColor.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(
-                                        color: heartColor.withOpacity(0.6),
-                                        width: 0.8),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.favorite,
-                                          size: 8.5, color: heartColor),
-                                      const SizedBox(width: 2),
-                                      Text(
-                                        "Lv.$activeLevel",
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 8,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
+                                // ❤️ Active Level Image Badge (ডাইনামিক ইমেজ ব্যাজ)
+                                SizedBox(
+                                  width: 50,
+                                  height: 24,
+                                  child: FittedBox(
+                                    fit: BoxFit.contain,
+                                    child: DynamicLevelBadgeView(
+                                      level: activeLevel,
+                                      isGift: false,
+                                    ),
                                   ),
                                 ),
 
-                                // 🌸 Gift Level Badge
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 5, vertical: 1),
-                                  decoration: BoxDecoration(
-                                    color: roseColor.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(
-                                        color: roseColor.withOpacity(0.6),
-                                        width: 0.8),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.local_florist,
-                                          size: 8.5, color: roseColor),
-                                      const SizedBox(width: 2),
-                                      Text(
-                                        "Lv.$giftLevel",
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 8,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
+                                // 🌸 Gift Level Image Badge (ডাইনামিক ইমেজ ব্যাজ)
+                                SizedBox(
+                                  width: 50,
+                                  height: 24,
+                                  child: FittedBox(
+                                    fit: BoxFit.contain,
+                                    child: DynamicLevelBadgeView(
+                                      level: giftLevel,
+                                      isGift: true,
+                                    ),
                                   ),
                                 ),
 
+                                // 👑 ক্রাউন ব্যাজ
+                                Builder(
+                                  builder: (context) {
+                                    int crownXp = userXp;
+                                    int crownLvl = crownXp >= 120000
+                                        ? 6
+                                        : crownXp >= 85000
+                                            ? 5
+                                            : crownXp >= 65000
+                                                ? 4
+                                                : crownXp >= 45000
+                                                    ? 3
+                                                    : crownXp >= 25000
+                                                        ? 2
+                                                        : crownXp >= 12000
+                                                            ? 1
+                                                            : 0;
+
+                                    final Map<int, String> localCrownBadges = {
+                                      1: 'assets/images/crown/crown1.webp',
+                                      2: 'assets/images/crown/crown2.webp',
+                                      3: 'assets/images/crown/crown3.webp',
+                                      4: 'assets/images/crown/crown4.webp',
+                                      5: 'assets/images/crown/crown5.webp',
+                                      6: 'assets/images/crown/crown6.webp',
+                                    };
+
+                                    String crownPath =
+                                        localCrownBadges[crownLvl] ?? '';
+
+                                    if (crownLvl == 0 || crownPath.isEmpty) {
+                                      return const SizedBox.shrink();
+                                    }
+
+                                    return Image.asset(
+                                      crownPath,
+                                      width: 22,
+                                      height: 22,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (c, e, s) =>
+                                          const SizedBox.shrink(),
+                                    );
+                                  },
+                                ),
                                 // VIP Badge
-                                if (hasVip)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 5, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Colors.purple,
-                                          Colors.deepOrange
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      "VIP $vipLevel",
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                                // ⭐ VIP Badge Image (অরজিনাল অ্যাসেট ব্যাজ)
+                                if (hasVip && getVipBadge(vipLevel).isNotEmpty)
+                                  Image.asset(
+                                    getVipBadge(vipLevel),
+                                    width: 24,
+                                    height: 24,
+                                    fit: BoxFit.contain,
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            const SizedBox.shrink(),
                                   ),
-
-                                // Premium Badge
-                                if (hasPremiumCard)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 5, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: Colors.amberAccent,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: const Text(
-                                      "PREMIUM",
-                                      style: TextStyle(
-                                        color: Colors.black87,
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                                // 💎 Premium Badge Image (অরজিনাল অ্যাসেট ইমেজ)
+                                if (hasPremium)
+                                  Image.asset(
+                                    liveUserData?['premiumBadgePath'] ??
+                                        data['premiumBadgePath'] ??
+                                        'assets/images/vip/premium.webp', // আপনার ফোল্ডার পাথ অনুযায়ী এখানে পাথ ঠিক করে নিবেন
+                                    width: 24,
+                                    height: 24,
+                                    fit: BoxFit.contain,
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            const SizedBox.shrink(),
                                   ),
 
                                 // Agency Badge

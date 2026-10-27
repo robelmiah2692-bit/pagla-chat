@@ -108,7 +108,7 @@ class _GamesScreenState extends State<GamesScreen> {
                 children: [
                   _gameIcon("CRAZY FRUIT", "assets/images/crazyfrut.png",
                       Colors.yellow),
-                  _gameIcon("LUCKY", "assets/images/spin_logo.png",
+                  _gameIcon("LUCKY", "assets/images/Lucky_777.webp",
                       Colors.orangeAccent),
                 ],
               ),

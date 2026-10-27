@@ -24,6 +24,7 @@ import 'package:pagla_chat/VideoGiftOverlay.dart';
 import 'package:pagla_chat/chat_screen.dart';
 import 'package:pagla_chat/donggi_baba_game.dart';
 import 'package:pagla_chat/full_screen_image_viewer.dart';
+import 'package:pagla_chat/level_image_config.dart';
 import 'package:pagla_chat/moving_banner_widget.dart';
 
 import 'package:pagla_chat/pk_manager.dart';
@@ -221,6 +222,52 @@ class _VoiceRoomState extends State<VoiceRoom>
         .addObserver(this); // 🔥 লাইফসাইকেল ট্র্যাক করার জন্য যোগ করা হলো
     WakelockPlus.enable(); // স্ক্রিন যাতে অফ না হয়
 
+// 🔥 ১. নতুন রুমে প্রবেশের আগেই পুরাতন রুমের আইডি মিল না থাকলে ফোর্স এক্সিট কল করা
+    if (RoomManager().activeRoomId != null &&
+        RoomManager().activeRoomId != widget.roomId) {
+      debugPrint(
+          "🔄 [RoomSwitch] Switching from old room (${RoomManager().activeRoomId}) to new room (${widget.roomId}). Forcing exit on old room first...");
+      RoomManager().forceExitOldRoom();
+    }
+
+    // সংরক্ষণের জন্য পুরাতন রুম আইডি ক্যাশ করে রাখা (ক্লিনআপের সময় কাজে লাগবে)
+    final String currentRoomIdForCleanup = widget.roomId;
+
+    // ২. ক্লিনআপ লজিক সেট করা (পুরাতন রুম থেকে বের হওয়ার সময় এটি ট্রিগার হবে)
+    RoomManager().onForceExit = () {
+      if (mounted) {
+        _removeUserFromViewers();
+        _clearUserLiveStatus();
+
+        if (currentSeatIndex != -1) {
+          // পুরাতন রুমের সিট ক্লিয়ার করা
+          _roomService.updateSeatData(
+              roomId: currentRoomIdForCleanup,
+              seatIndex: currentSeatIndex,
+              uName: "",
+              uImage: "",
+              isOccupied: false);
+
+          FirebaseFirestore.instance
+              .collection('rooms')
+              .doc(currentRoomIdForCleanup)
+              .collection('seats')
+              .doc(currentSeatIndex.toString())
+              .update({
+            'isOccupied': false,
+            'userName': '',
+            'userImage': '',
+            'status': 'empty',
+            'isMicOn': false
+          });
+        }
+        _activeManager.stopTimer();
+      }
+    };
+
+    // ৩. বর্তমান নতুন রুম আইডি সেট করা
+    RoomManager().activeRoomId = widget.roomId;
+
     _loadSavedMusicOnStart(); // ✅ অ্যাপ বা রুম চালুর সাথে সাথে গান লোড করে নেওয়া
 
     // ফায়ারবেস রিয়েলটাইম ডাটাবেজ স্ট্রিম ইনিশিয়ালাইজেশন (এখানে .asBroadcastStream() যোগ করুন)
@@ -237,45 +284,6 @@ class _VoiceRoomState extends State<VoiceRoom>
     )..repeat();
 
     _setupAgoraAndRipple();
-
-    // ১. রুম সুইচিং চেক
-    if (RoomManager().activeRoomId != null &&
-        RoomManager().activeRoomId != widget.roomId) {
-      RoomManager().forceExitOldRoom();
-    }
-
-    // ২. ক্লিনআপ লজিক সেট করা
-    RoomManager().onForceExit = () {
-      if (mounted) {
-        _removeUserFromViewers();
-        _clearUserLiveStatus();
-
-        if (currentSeatIndex != -1) {
-          _roomService.updateSeatData(
-              roomId: widget.roomId,
-              seatIndex: currentSeatIndex,
-              uName: "",
-              uImage: "",
-              isOccupied: false);
-
-          FirebaseFirestore.instance
-              .collection('rooms')
-              .doc(widget.roomId)
-              .collection('seats')
-              .doc(currentSeatIndex.toString())
-              .update({
-            'isOccupied': false,
-            'userName': '',
-            'userImage': '',
-            'status': 'empty',
-            'isMicOn': false
-          });
-        }
-        _activeManager.stopTimer();
-      }
-    };
-
-    RoomManager().activeRoomId = widget.roomId;
 
     listenForSoulmateRequests();
     listenForMarriageRequests();
@@ -384,15 +392,23 @@ class _VoiceRoomState extends State<VoiceRoom>
               "userId": "",
               "uID": "",
               "agorauID": "",
+              "vip_xp": 0, // 👈 এখানেও যোগ করে দিন
             });
 
-    _seatSubscription = FirebaseDatabase.instance
+ _seatSubscription = FirebaseDatabase.instance
         .ref('rooms/${widget.roomId}/seats')
         .onValue
-        .listen((event) {
+        .listen((event) async {
       if (!mounted) return;
 
       final data = event.snapshot.value;
+
+      // 🔥 সেফটি গার্ড ১: ফায়ারবেস থেকে যদি কোনো কারণে সাময়িকভাবে null ডেটা আসে, 
+      // তবে আগের সিটগুলো হুট করে মুছে ফেলা যাবে না! এই চেকটিই সবাইকে গায়েব হওয়া থেকে বাঁচায়।
+      if (data == null && seats.any((s) => s["isOccupied"] == true)) {
+        debugPrint("⚠️ [SafetyGuard] Ignored null seat snapshot to prevent sudden clearing.");
+        return; 
+      }
 
       // ১. সর্বদা ২০টি সিটের একটি ফ্রেশ এবং ক্লিন লিস্ট তৈরি করা
       List<Map<String, dynamic>> updatedSeats = List.generate(
@@ -409,22 +425,26 @@ class _VoiceRoomState extends State<VoiceRoom>
           "userId": "",
           "uID": "",
           "agorauID": "",
+          "vip_xp": 0,
         },
       );
 
-      // ২. ফায়ারবেস থেকে ডেটা আসলে তা ম্যাপে বসানো
+      // ২. ফায়ারবেস থেকে ডেটা আসলে তা ম্যাপে বসানো
       if (data != null) {
-        Map<dynamic, dynamic> dataMap =
-            (data is Map) ? data : (data as List).asMap();
+        Map<dynamic, dynamic> dataMap;
+        try {
+          dataMap = (data is Map) ? data : (data as List).asMap();
+        } catch (_) {
+          return; // ফর্মেট ভুল হলে ক্র্যাশ এড়াতে রিটার্ন করবে
+        }
 
         dataMap.forEach((key, value) {
           int? index = int.tryParse(key.toString());
           if (index != null && index >= 0 && index < 20 && value != null) {
             final seatMap = Map<dynamic, dynamic>.from(value as Map);
 
-            // শুধুমাত্র যখন সিট সত্যি occupied থাকবে তখনি ডেটাগুলো বসবে
             if (seatMap["isOccupied"] == true &&
-                (seatMap["authUID"] != null || seatMap["userId"] != null)) {
+                (seatMap["authUID"] != null || seatMap["userId"] != null || seatMap["uID"] != null)) {
               updatedSeats[index]["isOccupied"] = true;
               updatedSeats[index]["userName"] =
                   seatMap["name"] ?? seatMap["userName"] ?? "";
@@ -433,6 +453,7 @@ class _VoiceRoomState extends State<VoiceRoom>
               updatedSeats[index]["userFrame"] =
                   seatMap["activeFrameUrl"] ?? seatMap["userFrame"] ?? "";
               updatedSeats[index]["isMicOn"] = seatMap["isMicOn"] ?? false;
+              updatedSeats[index]["isTalking"] = seatMap["isTalking"] ?? false;
               updatedSeats[index]["userId"] =
                   seatMap["authUID"] ?? seatMap["userId"] ?? "";
               updatedSeats[index]["uID"] = seatMap["uID"] ?? "";
@@ -440,12 +461,17 @@ class _VoiceRoomState extends State<VoiceRoom>
                   seatMap["agorauID"]?.toString() ?? "";
               updatedSeats[index]["giftCount"] =
                   int.tryParse(seatMap["giftCount"]?.toString() ?? "0") ?? 0;
+              updatedSeats[index]["vip_xp"] = int.tryParse(
+                      seatMap["vip_xp"]?.toString() ??
+                          seatMap["xp"]?.toString() ??
+                          "0") ??
+                  0;
             }
           }
         });
       }
 
-      // ৩. বর্তমান ইউজারের সঠিক সিট ইনডেক্স খুঁজে বের করা
+      // ৩. বর্তমান ইউজারের সিট ইনডেক্স খুঁজে বের করা
       int foundSeatIndex = -1;
       String currentAuthUid = FirebaseAuth.instance.currentUser?.uid ?? "";
 
@@ -460,9 +486,21 @@ class _VoiceRoomState extends State<VoiceRoom>
         }
       }
 
-      currentSeatIndex = foundSeatIndex;
+      if (currentSeatIndex != -1 && foundSeatIndex == -1) {
+        debugPrint("🚨 My seat is cleared from server. Stopping Agora...");
+        await _agoraManager.switchToAudienceMode();
 
-      // ৪. গেম এবং অন্যান্যভোক্তা লিস্ট আপডেট
+        if (mounted) {
+          setState(() {
+            currentSeatIndex = -1;
+            isMicOn = false;
+          });
+        }
+      } else {
+        currentSeatIndex = foundSeatIndex;
+      }
+
+      // ৪. গেম এবং অন্যান্য ইউজার লিস্ট আপডেট
       gameJoinedUsers = updatedSeats
           .where((s) => s["isOccupied"] == true)
           .map((s) => {"name": s["userName"], "avatar": s["userImage"]})
@@ -472,7 +510,7 @@ class _VoiceRoomState extends State<VoiceRoom>
         listenForMarriageRequests();
       }
 
-      // ৫. অপ্রয়োজনীয় রি-রেন্ডারিং এড়ানো
+      // ৫. অপ্রয়োজনীয় রি-রেন্ডারিং এড়ানো
       bool isSeatDataChanged = true;
       try {
         isSeatDataChanged = jsonEncode(seats) != jsonEncode(updatedSeats);
@@ -709,25 +747,30 @@ class _VoiceRoomState extends State<VoiceRoom>
     // ১. এগোরা ইনি এবং জয়েন (রুমে ঢোকার সময় শুধু লিসেনার বা অডিও শোনার জন্য)
     Future.microtask(() async {
       try {
-        if (!FloatingBubbleService.isMinimized) {
-          await _agoraManager.initAgora();
-          final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
+        // 🔥 এখানে মিনিমাইজ চেকটি বাদ দেওয়া হলো, কারণ রুম আইডি ভিন্ন হলে নতুন রুমে এগোরা ফ্রেশভাবে ইনিট হতেই হবে
+        await _agoraManager.initAgora();
 
-          // রুমে ঢোকার সময় ইউজার শুধু শুনবে, মাইক বন্ধ থাকবে (লিসেনার মোড)
-          await _agoraManager.joinAsListener(widget.roomId, authUID);
+        // নতুন তৈরি হওয়া এগোরা ইঞ্জিনটি রুম ম্যানেজারে রেজিস্টার করে দেওয়া হলো
+        RoomManager().engine = _agoraManager.engine;
 
-          // নিশ্চিত করার জন্য লোকাল অডিও ডিজেবল করে দেওয়া হলো যাতে রুমে ঢুকেই কলিং শুরু না হয়
-          await _agoraManager.engine.enableLocalAudio(false);
-          await _agoraManager.engine
-              .setClientRole(role: ClientRoleType.clientRoleAudience);
+        final String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-          _initAgoraAudioMixingListener();
+        // রুমে ঢোকার সময় ইউজার শুধু শুনবে, মাইক বন্ধ থাকবে (লিসেনার মোড)
+        await _agoraManager.joinAsListener(widget.roomId, authUID);
 
-          if (mounted) {
-            _addUserToViewers();
-          }
+        // নিশ্চিত করার জন্য লোকাল অডিও ডিজেবল করে দেওয়া হলো যাতে রুমে ঢুকেই কলিং শুরু না হয়
+        await _agoraManager.engine.enableLocalAudio(false);
+        await _agoraManager.engine
+            .setClientRole(role: ClientRoleType.clientRoleAudience);
+
+        _initAgoraAudioMixingListener();
+
+        if (mounted) {
+          _addUserToViewers();
         }
-      } catch (e) {}
+      } catch (e) {
+        debugPrint("❌ Error in _setupAgoraAndRipple: $e");
+      }
     });
 
     // ২. ম্যানেজারের স্ট্রিম থেকে সরাসরি স্পিকার ডেটা শোনা (রিপেল অ্যানিমেশনের জন্য)
@@ -1296,38 +1339,75 @@ class _VoiceRoomState extends State<VoiceRoom>
         .update({'isMicOn': false, 'isMutedByAdmin': true});
   }
 
-  // 🇧🇩 [মজবুত ও সেফটি প্রুফ লাইভ স্ট্যাটাস আপডেট মেথড]
+  // 🇧🇩 [ফোর্সড বর্তমান ডকুমেন্ট ফাইন্ড ও আপডেট মেথড - কোনো নতুন ডকুমেন্ট বানাবে না]
   void _updateUserLiveStatus(String roomId) async {
     String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
 
     try {
-      // ১. আপনার ৬-ডিজিটের uID দিয়ে আপডেট ট্রাই করবে।
-      if (myuID.isNotEmpty) {
-        await FirebaseFirestore.instance.collection('users').doc(myuID).update({
-          'currentRoomId': roomId,
-        });
-      }
+      FirebaseFirestore firestore = FirebaseFirestore.instance;
+      DocumentReference? targetDocRef;
 
-      // ২. Auth UID দিয়ে আপডেট ট্রাই করবে।
-      if (authUID.isNotEmpty && authUID != myuID) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(authUID)
-            .update({
-          'currentRoomId': roomId,
-        });
-      }
-
-      // 🔥 অতিরিক্ত সেফটি: রিয়েলটাইম ডাটাবেজেও ইউজারের উপস্থিতি ট্র্যাক করা এবং ডিসকানেক্ট হলে অটো রিমুভ সেট করা
+      // ১. প্রথমে authUID দিয়ে চেক করব যে এই ডকুমেন্টটি রিয়েলি ফায়ারস্টোরে এক্সিস্ট করে কি না
       if (authUID.isNotEmpty) {
+        var authDocSnap =
+            await firestore.collection('users').doc(authUID).get();
+        if (authDocSnap.exists) {
+          targetDocRef = authDocSnap.reference;
+        }
+      }
+
+      // ২. যদি authUID দিয়ে না পাওয়া যায়, তবে myuID (যেমন ৬-ডিজিটের uID বা ডকুমেন্ট আইডি) দিয়ে চেক করব
+      if (targetDocRef == null && myuID.isNotEmpty) {
+        var myIdDocSnap = await firestore.collection('users').doc(myuID).get();
+        if (myIdDocSnap.exists) {
+          targetDocRef = myIdDocSnap.reference;
+        } else {
+          // যদি সরাসরি ডেস্টিনেশন আইডি না পায়, তবে 'uid' বা 'uID' ফিল্ড দিয়ে কুয়েরি করে বর্তমান ডকুমেন্ট ফোর্সবর্জিতভাবে বের করব
+          var querySnapshot = await firestore
+              .collection('users')
+              .where('uid', isEqualTo: authUID)
+              .limit(1)
+              .get();
+
+          if (querySnapshot.docs.isEmpty && myuID.isNotEmpty) {
+            querySnapshot = await firestore
+                .collection('users')
+                .where('uID', isEqualTo: myuID)
+                .limit(1)
+                .get();
+          }
+
+          if (querySnapshot.docs.isNotEmpty) {
+            targetDocRef = querySnapshot.docs.first.reference;
+          }
+        }
+      }
+
+      // ৩. যদি সঠিক বর্তমান ডকুমেন্ট পাওয়া যায়, কেবল তবেই আপডেট হবে। কোনো নতুন ডকুমেন্ট ক্রিয়েট হবে না।
+      if (targetDocRef != null) {
+        await targetDocRef.update({
+          'currentRoomId': roomId,
+          'isOnline': true,
+        });
+        debugPrint(
+            "✅ Live status updated successfully for existing document: ${targetDocRef.id}");
+      } else {
+        debugPrint(
+            "❌ Error: No existing user document found in Firestore to update live status.");
+      }
+
+      // ৪. রিয়েলটাইম ডাটাবেজে উপস্থিতি ট্র্যাক করা
+      if (authUID.isNotEmpty && roomId.isNotEmpty) {
         final userPresenceRef =
             FirebaseDatabase.instance.ref('rooms/$roomId/presence/$authUID');
+
         await userPresenceRef.set({
           'online': true,
-          'uID': myuID,
+          'uID': myuID.toString(),
           'joinedAt': ServerValue.timestamp,
         });
-        // ইউজার হঠাৎ অ্যাপ কেটে দিলে বা ইন্টারনেট চলে গেলে অটো ডিলিট হয়ে যাবে
+
+        // ইউজার হঠাৎ অ্যাপ কেটে দিলে বা ইন্টারনেট চলে গেলে অটো ডিলিট হয়ে যাবে
         userPresenceRef.onDisconnect().remove();
       }
     } catch (e) {
@@ -1335,31 +1415,44 @@ class _VoiceRoomState extends State<VoiceRoom>
     }
   }
 
-// 🇧🇩 [১০০% ফিক্সড ও ফুলপ্রুফ স্ট্যাটাস ক্লিন মেথড]
+// 🇧🇩 [১০০% ফিক্সড ও ফুলপ্রুফ স্ট্যাটাস ক্লিন মেথড - নট ফাউন্ড এরর মুক্ত]
   void _clearUserLiveStatus() async {
     String authUID = FirebaseAuth.instance.currentUser?.uid ?? "";
 
     try {
-      // ১. Batch রাইট ব্যবহার করে একসাথে সব জায়গা থেকে রিমুভ করা যাতে ফেইলিওর চান্স না থাকে
       WriteBatch batch = FirebaseFirestore.instance.batch();
+      bool hasUpdate = false;
 
+      // ১. যদি myuID থাকে এবং সেটি ফায়ারস্টোরে রিয়েলি এক্সিস্ট করে তবেই ব্যাচে যোগ করব
       if (myuID.isNotEmpty) {
         DocumentReference shortIdRef =
             FirebaseFirestore.instance.collection('users').doc(myuID);
-        batch.update(shortIdRef,
-            {'currentRoomId': FieldValue.delete(), 'isOnline': false});
+        var docSnap = await shortIdRef.get();
+        if (docSnap.exists) {
+          batch.update(shortIdRef,
+              {'currentRoomId': FieldValue.delete(), 'isOnline': false});
+          hasUpdate = true;
+        }
       }
 
+      // ২. যদি authUID থাকে এবং সেটি myuID থেকে আলাদা হয়, তবে সেটিও চেক করে যোগ করব
       if (authUID.isNotEmpty && authUID != myuID) {
         DocumentReference authIdRef =
             FirebaseFirestore.instance.collection('users').doc(authUID);
-        batch.update(authIdRef,
-            {'currentRoomId': FieldValue.delete(), 'isOnline': false});
+        var docSnap = await authIdRef.get();
+        if (docSnap.exists) {
+          batch.update(authIdRef,
+              {'currentRoomId': FieldValue.delete(), 'isOnline': false});
+          hasUpdate = true;
+        }
       }
 
-      await batch.commit();
+      // যদি ডকুমেন্টসগুলো পাওয়া যায় তবেই কেবল কমিট হবে, ফালতু নট-ফাউন্ড এরর আসবে না
+      if (hasUpdate) {
+        await batch.commit();
+      }
 
-      // ২. রিয়েলটাইম ডাটাবেজ থেকেও উপস্থিতি সাথে সাথে পরিষ্কার করা
+      // ৩. রিয়েলটাইম ডাটাবেজ থেকেও উপস্থিতি সাথে সাথে পরিষ্কার করা
       if (widget.roomId.isNotEmpty && authUID.isNotEmpty) {
         await FirebaseDatabase.instance
             .ref('rooms/${widget.roomId}/presence/$authUID')
@@ -1442,68 +1535,80 @@ class _VoiceRoomState extends State<VoiceRoom>
     });
   }
 
-// ✅ নেক্সট গান প্লে করার ফাংশন (ইউজার ক্লিক করলে বা অটো-নেক্সট হলে কাজ করবে)
-  void playNextMusic() async {
-    // ম্যানুয়াল ক্লিক বা অটো-নেক্সটের জন্য ফ্ল্যাগ ফলস করে দেওয়া হলো যেন বাধা না পড়ে
-    isUserExplicitlyStopped = false;
+// ✅ নেক্সট গান প্লে করার ফাংশন
+void playNextMusic() async {
+  isUserExplicitlyStopped = false;
 
-    final prefs = await SharedPreferences.getInstance();
-    savedMusicPaths = prefs.getStringList('my_music_paths') ?? [];
+  final prefs = await SharedPreferences.getInstance();
+  savedMusicPaths = prefs.getStringList('my_music_paths') ?? [];
 
-    if (savedMusicPaths.isEmpty) return;
+  if (savedMusicPaths.isEmpty) return;
 
-    setState(() {
-      currentMusicIndex = (currentMusicIndex + 1) % savedMusicPaths.length;
-    });
+  setState(() {
+    currentMusicIndex = (currentMusicIndex + 1) % savedMusicPaths.length;
+  });
 
-    String nextPath = savedMusicPaths[currentMusicIndex];
+  String nextPath = savedMusicPaths[currentMusicIndex];
 
-    try {
-      await _agoraManager.engine.stopAudioMixing();
-      await _agoraManager.engine.startAudioMixing(
-        filePath: nextPath,
-        loopback: false,
-        cycle: 1,
-      );
-      setState(() {
-        isRoomMusicPlaying = true;
-      });
-    } catch (e) {
-      debugPrint("Error playing next music: $e");
-    }
-  }
-
-// ✅ আগের গান প্লে করার ফাংশন (ইউজার ক্লিক করলে কাজ করবে)
-  void playPreviousMusic() async {
-    // ম্যানুয়াল ক্লিকের জন্য ফ্ল্যাগ ফলস করে দেওয়া হলো
-    isUserExplicitlyStopped = false;
-
-    final prefs = await SharedPreferences.getInstance();
-    savedMusicPaths = prefs.getStringList('my_music_paths') ?? [];
-
-    if (savedMusicPaths.isEmpty) return;
+  try {
+    await _agoraManager.engine.stopAudioMixing();
+    await _agoraManager.engine.startAudioMixing(
+      filePath: nextPath,
+      loopback: false,
+      cycle: 1,
+    );
+    
+    await _agoraManager.engine.updateChannelMediaOptions(const ChannelMediaOptions(
+      publishMicrophoneTrack: true,
+      publishMediaPlayerAudioTrack: true, // 🔥 এখানেও যুক্ত করা হলো
+      autoSubscribeAudio: true,
+    ));
 
     setState(() {
-      currentMusicIndex = (currentMusicIndex - 1 + savedMusicPaths.length) %
-          savedMusicPaths.length;
+      isRoomMusicPlaying = true;
     });
-
-    String prevPath = savedMusicPaths[currentMusicIndex];
-
-    try {
-      await _agoraManager.engine.stopAudioMixing();
-      await _agoraManager.engine.startAudioMixing(
-        filePath: prevPath,
-        loopback: false,
-        cycle: 1,
-      );
-      setState(() {
-        isRoomMusicPlaying = true;
-      });
-    } catch (e) {
-      debugPrint("Error playing previous music: $e");
-    }
+  } catch (e) {
+    debugPrint("Error playing next music: $e");
   }
+}
+
+// ✅ আগের গান প্লে করার ফাংশন
+void playPreviousMusic() async {
+  isUserExplicitlyStopped = false;
+
+  final prefs = await SharedPreferences.getInstance();
+  savedMusicPaths = prefs.getStringList('my_music_paths') ?? [];
+
+  if (savedMusicPaths.isEmpty) return;
+
+  setState(() {
+    currentMusicIndex = (currentMusicIndex - 1 + savedMusicPaths.length) %
+        savedMusicPaths.length;
+  });
+
+  String prevPath = savedMusicPaths[currentMusicIndex];
+
+  try {
+    await _agoraManager.engine.stopAudioMixing();
+    await _agoraManager.engine.startAudioMixing(
+      filePath: prevPath,
+      loopback: false,
+      cycle: 1,
+    );
+
+    await _agoraManager.engine.updateChannelMediaOptions(const ChannelMediaOptions(
+      publishMicrophoneTrack: true,
+      publishMediaPlayerAudioTrack: true, // 🔥 এখানেও যুক্ত করা হলো
+      autoSubscribeAudio: true,
+    ));
+
+    setState(() {
+      isRoomMusicPlaying = true;
+    });
+  } catch (e) {
+    debugPrint("Error playing previous music: $e");
+  }
+}
 
   void _openGiftPanel(String targetUserId) async {
     // ১. বর্তমান ইউজারের সঠিক AuthUID বের করা
@@ -1676,85 +1781,114 @@ class _VoiceRoomState extends State<VoiceRoom>
     }
   }
 
-  void sitOnSeat(int index) async {
-    if (currentSeatIndex == index) {
-      _showLeaveConfirmation(index);
-      return;
-    }
-
-    // সিট খালি না থাকলে বা রুম লক থাকলে রিটার্ন করবে
-    // (এখানে আপনার অরিজিনাল userId চেক লজিক শতভাগ সুরক্ষিত রাখা হয়েছে)
-    if (seats[index]["isOccupied"] == true &&
-        seats[index]["userId"] != FirebaseAuth.instance.currentUser?.uid) {
-      return;
-    }
-    if (isRoomLocked) return;
-
-    try {
-      final User? currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) return;
-
-      // 🔥 ১. অন্য কোনো সিটে থাকলে বা নিজের আগের সিট থাকলে তা সাথে সাথে ফায়ারবেস থেকে রিমুভ ও ক্লিন করা
-      if (currentSeatIndex != -1 && currentSeatIndex != index) {
-        await FirebaseDatabase.instance
-            .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
-            .remove();
-      }
-
-      // ইউজারের প্রোফাইল ডাটা ফেচ করা
-      final userSnap = await FirebaseFirestore.instance
-          .collection('users')
-          .where('authUID', isEqualTo: currentUser.uid)
-          .limit(1)
-          .get();
-
-      if (userSnap.docs.isNotEmpty) {
-        final userData = userSnap.docs.first.data();
-
-        // 🛑 আপনার অরিজিনাল লজিক ঠিক রেখে শুধু এগোরা ব্রডকাস্টার ও ট্র্যাক পাবলিশ নিশ্চিত করা হলো
-        await _agoraManager.becomeBroadcaster();
-
-        // সামান্য ব্রিদিং টাইম (মিলিসেকেন্ড) যাতে এগোরা ইঞ্জিন অডিও চ্যানেল পুরোপুরি ধরে ফেলতে পারে
-        await Future.delayed(const Duration(milliseconds: 150));
-
-        final int myAgorauID = _agoraManager.localuID ?? 0;
-
-        final seatRef = FirebaseDatabase.instance
-            .ref('rooms/${widget.roomId}/seats/$index');
-
-        // ২. সিটে নিখুঁতভাবে ডাটা সেট করা (আপনার সব ফিল্ড আগের মতোই হুবহু আছে)
-        await seatRef.set({
-          'name': userData['name'] ?? "Hridoy",
-          'profilePic': userData['profilePic'] ?? "",
-          'activeFrameUrl': userData['activeFrameUrl'] ?? "",
-          'uID': userData['uID'] ?? "",
-          'authUID': currentUser.uid,
-          'isOccupied': true,
-          'isMicOn': true,
-          'agorauID': myAgorauID,
-          'status': 'occupied',
-          'at': ServerValue.timestamp,
-        });
-
-        await seatRef.onDisconnect().remove();
-
-        if (mounted) {
-          setState(() {
-            currentSeatIndex = index;
-            isMicOn = true;
-          });
-
-          _listenToMicStatus();
-          Future.delayed(const Duration(milliseconds: 200), () {
-            updateSeatPosition(index, seatKeys[index]);
-          });
-        }
-      }
-    } catch (e) {
-      print("❌ Error sitting on seat: $e");
-    }
+void sitOnSeat(int index) async {
+  if (currentSeatIndex == index) {
+    _showLeaveConfirmation(index);
+    return;
   }
 
+  // সিট খালি না থাকলে বা রুম লক থাকলে রিটার্ন করবে
+  if (seats[index]["isOccupied"] == true &&
+      seats[index]["userId"] != FirebaseAuth.instance.currentUser?.uid) {
+    return;
+  }
+  if (isRoomLocked) return;
+
+  try {
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    // ইউজারের প্রোফাইল ডাটা ফেচ করা
+    final userSnap = await FirebaseFirestore.instance
+        .collection('users')
+        .where('authUID', isEqualTo: currentUser.uid)
+        .limit(1)
+        .get();
+
+    if (userSnap.docs.isEmpty) return;
+
+    final userData = userSnap.docs.first.data();
+
+    int userVipXp = 0;
+    if (userData['vip_xp'] != null) {
+      userVipXp = userData['vip_xp'] is int
+          ? userData['vip_xp']
+          : int.tryParse(userData['vip_xp'].toString()) ?? 0;
+    }
+
+    final int myAgorauID = _agoraManager.localuID ?? 0;
+
+    // চেক করা হচ্ছে ইউজার কি আগে থেকেই অন্য কোনো সিটে ছিল কি না
+    bool wasAlreadyOnSeat = (currentSeatIndex != -1);
+
+    // ১. আগের সিট থেকে থাকলে তা ডিলিট করা
+    if (wasAlreadyOnSeat && currentSeatIndex != index) {
+      await FirebaseDatabase.instance
+          .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
+          .remove();
+    }
+
+    // ২. নতুন সিট রেফারেন্স
+    final newSeatRef =
+        FirebaseDatabase.instance.ref('rooms/${widget.roomId}/seats/$index');
+
+    // ৩. নতুন সিটে নিখুঁতভাবে ডাটা সেট করা (🔥 এখানে মিউজিক চলার সময় isTalking: true নিশ্চিত করা হলো)
+    await newSeatRef.set({
+      'name': userData['name'] ?? "User",
+      'profilePic': userData['profilePic'] ?? "",
+      'activeFrameUrl': userData['activeFrameUrl'] ?? "",
+      'uID': userData['uID'] ?? "",
+      'authUID': currentUser.uid,
+      'isOccupied': true,
+      'isMicOn': true,
+      'isTalking': isRoomMusicPlaying, // 🔥 মিউজিক চললে সিট বদলানোর পরেও রিপেল চালু রাখবে
+      'agorauID': myAgorauID,
+      'status': 'occupied',
+      'vip_xp': userVipXp,
+      'at': ServerValue.timestamp,
+    });
+
+    // ৪. ডিসকানেক্ট হ্যান্ডলার সেট করা
+    await newSeatRef.onDisconnect().remove();
+
+    // ৫. 🔥 পারফেক্ট ব্রডকাস্টার ও মিডিয়া সিঙ্ক লজিক:
+    await _agoraManager.becomeBroadcaster();
+    
+    // মিডিয়া অপশনে মাইক এবং যদি মিউজিক চলে তবে তা পাবলিশ অন রাখা
+    await _agoraManager.engine.updateChannelMediaOptions(
+      ChannelMediaOptions(
+        clientRoleType: ClientRoleType.clientRoleBroadcaster,
+        publishMicrophoneTrack: true,
+        publishMediaPlayerAudioTrack: isRoomMusicPlaying,
+        autoSubscribeAudio: true,
+      ),
+    );
+
+    await _agoraManager.toggleMic(false); // মাইক সবসময় অন রাখা
+    await _agoraManager.engine.adjustRecordingSignalVolume(100);
+
+    if (mounted) {
+      setState(() {
+        currentSeatIndex = index;
+        isMicOn = true;
+        _lastKnownMicState = true;
+      });
+
+      _listenToMicStatus();
+      
+      // লোকাল টকিং স্ট্যাটাস আপডেট রাখা
+      if (isRoomMusicPlaying) {
+        _updateTalkingStatus(true);
+      }
+
+      Future.delayed(const Duration(milliseconds: 200), () {
+        updateSeatPosition(index, seatKeys[index]);
+      });
+    }
+  } catch (e) {
+    print("❌ Error sitting on seat: $e");
+  }
+}
   void _showLeaveConfirmation(int index) {
     showGeneralDialog(
       context: context,
@@ -1906,17 +2040,25 @@ class _VoiceRoomState extends State<VoiceRoom>
 
   void onMicTogglePressed(bool isMuting) async {
     if (isMuting) {
-      // ইউজার মিউট করলে ব্রডকাস্টিং টোটালি বন্ধ করে অডিয়েন্স মোডে পাঠিয়ে দেবো
-      await _agoraManager.switchToAudienceMode();
+      // ✅ সঠিক পদ্ধতি: মাইক্রোফোনের রেকর্ডিং ভলিউম ০ করে দেওয়া
+      // এতে আপনার মুখের কথা কেউ শুনবে না, কিন্তু ব্যাকগ্রাউন্ড মিউজিক (Audio Mixing) ঠিকই চলতে থাকবে।
+      await _agoraManager.engine.adjustRecordingSignalVolume(0);
     } else {
-      // ইউজার আনমিউট করলে আবার ব্রডকাস্টার মোড চালু হবে
-      await _agoraManager.becomeBroadcaster();
+      // আনমিউট করলে রেকর্ডিং ভলিউম আবার স্বাভাবিক (১০০) করে দেওয়া
+      await _agoraManager.engine.adjustRecordingSignalVolume(100);
+    }
+
+    // ফায়ারবেস ডাটাবেসে সিটের মাইক স্ট্যাটাস আপডেট করা
+    if (currentSeatIndex != -1) {
+      await FirebaseDatabase.instance
+          .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
+          .update({
+        'isMicOn': !isMuting,
+      });
     }
 
     if (mounted) {
       setState(() {
-        // আপনার ক্লাসে যদি isMicOn থাকে, তবে এভাবে উল্টো করে দিতে পারেন
-        // অথবা আপনার আসল ভেরিয়েবল নাম এখানে বসাবেন
         isMicOn = !isMuting;
       });
     }
@@ -2010,19 +2152,21 @@ class _VoiceRoomState extends State<VoiceRoom>
                 }
               });
             }
-            // --- গিফট এবং এন্ট্রি ইফেক্টের ইনফিনাইট লুপ প্রিভেন্ট করার জন্য সেফ চেক ---
+            // --- গিফট এবং এন্ট্রি ইফেক্টের ইনফিনাইট লুপ প্রিভেন্ট করার জন্য ফিক্সড সেফ চেক ---
             var lastGift = roomData['last_gift'];
             if (lastGift != null && !isGiftAnimating) {
               int giftTime = 0;
               if (lastGift['timestamp'] is int) {
                 giftTime = lastGift['timestamp'];
               } else if (lastGift['timestamp'] is Timestamp) {
-                giftTime =
-                    (lastGift['timestamp'] as Timestamp).millisecondsSinceEpoch;
+                giftTime = (lastGift['timestamp'] as Timestamp).millisecondsSinceEpoch;
               }
 
               int now = DateTime.now().millisecondsSinceEpoch;
-              if (now - giftTime < 5000) {
+              
+              // 🔥 ফিক্স ১: গিফটটি যদি ৫ সেকেন্ডের মধ্যে হয়ে থাকে কেবল তবেই দেখাবে, 
+              // এবং রুম এন্টার করার সময়ের চেয়ে পুরনো হলে ভুলেও দেখাবে না (১ ঘণ্টা আগের গিফট আটকে থাকা ফিক্সড)
+              if (giftTime > 0 && (now - giftTime < 5000)) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted && !isGiftAnimating) {
                     setState(() {
@@ -2036,7 +2180,15 @@ class _VoiceRoomState extends State<VoiceRoom>
                       isGiftAnimating = true;
                     });
 
-                    // ফায়ারস্টোরে আপডেট লুপ এড়াতে এটি বাইরে হ্যান্ডেল করা হয়েছে
+                    // 🔥 ফিক্স ২: একবার অ্যানিমেশন ট্রিগার হওয়ার সাথে সাথেই ফায়ারবেস থেকে last_gift মুছে ফেলা
+                    // যাতে পেজ রিফ্রেশ হলে বা বারবার স্ট্রিম বিল্ড হলে পুরনো গিফট আর আটকে না থাকে।
+                    FirebaseFirestore.instance
+                        .collection('rooms')
+                        .doc(widget.roomId)
+                        .update({
+                      'last_gift': FieldValue.delete(),
+                    }).catchError((_) {});
+
                     Timer(const Duration(seconds: 5), () {
                       if (mounted) setState(() => isGiftAnimating = false);
                     });
@@ -2051,8 +2203,21 @@ class _VoiceRoomState extends State<VoiceRoom>
               var lastEntry = roomData['lastEntry'];
               String currentEntryId = lastEntry['entryId']?.toString() ?? "";
 
+              int entryTime = 0;
+              if (lastEntry['timestamp'] is int) {
+                entryTime = lastEntry['timestamp'];
+              } else if (lastEntry['timestamp'] is Timestamp) {
+                entryTime = (lastEntry['timestamp'] as Timestamp).millisecondsSinceEpoch;
+              }
+
+              int now = DateTime.now().millisecondsSinceEpoch;
+
+              // 🔥 ফিক্স ৩: এন্ট্রি আইডি নতুন হতে হবে, গত ১০ সেকেন্ডের মধ্যে হতে হবে 
+              // এবং আপনি রুমে ঢোকার আগের (পুরনো) এন্ট্রি হলে কখনো শো করবে না।
               if (currentEntryId.isNotEmpty &&
-                  currentEntryId != lastProcessedEntryId) {
+                  currentEntryId != lastProcessedEntryId &&
+                  entryTime > 0 && 
+                  (now - entryTime < 10000)) {
                 String? effectLink = lastEntry['activeEntryUrl'];
 
                 if (effectLink != null && effectLink.isNotEmpty) {
@@ -2068,35 +2233,52 @@ class _VoiceRoomState extends State<VoiceRoom>
                         showEntryEffect = true;
                       });
 
-                      // 🔥 অত্যন্ত গুরুত্বপূর্ণ: এন্ট্রি একবার ট্রিগার হওয়ার সাথে সাথেই ফায়ারবেস থেকে ফিল্ড মুছে দিন
-                      // এতে রুমে অন্য কেউ ঢুকলে বা রিফ্রেশ হলে আর বারবার পুরোনো এন্ট্রি দেখাবে না।
+                      // 🔥 অত্যন্ত গুরুত্বপূর্ণ: এন্ট্রি একবার ট্রিগার হওয়ার সাথেই ফায়ারবেস থেকে ফিল্ড মুছে দিন
                       FirebaseFirestore.instance
                           .collection('rooms')
                           .doc(widget.roomId)
                           .update({
                         'lastEntry': FieldValue.delete(),
-                      });
+                      }).catchError((_) {});
                     }
                   });
                 }
+              } else if (currentEntryId.isNotEmpty && currentEntryId != lastProcessedEntryId) {
+                // যদি এন্ট্রিটি ১ ঘণ্টার পুরনো বা আগের হয়, তবে অ্যানিমেশন ছাড়াই ফায়ারবেস থেকে জাস্ট ডিলিট করে ক্লিন করে দেবে
+                lastProcessedEntryId = currentEntryId;
+                FirebaseFirestore.instance
+                    .collection('rooms')
+                    .doc(widget.roomId)
+                    .update({
+                  'lastEntry': FieldValue.delete(),
+                }).catchError((_) {});
               }
             }
             return Stack(
               children: [
-                // ১. ওয়ালপেপার একদম নিচে পুরো স্ক্রিন জুড়ে থাকবে
+                // ১. ওয়ালপেপার একদম নিচে পুরো স্ক্রিন জুড়ে থাকবে (লোকাল অ্যাসেট সাপোর্ট সহ)
                 Positioned.fill(
                   child: RepaintBoundary(
                     child: (wallpaperUrl != null && wallpaperUrl.isNotEmpty)
-                        ? CachedNetworkImage(
-                            imageUrl: wallpaperUrl,
-                            fit: BoxFit.cover,
-                            color: Colors.black.withOpacity(0.2),
-                            colorBlendMode: BlendMode.darken,
-                            placeholder: (context, url) =>
-                                Container(color: const Color(0xFF0B1222)),
-                            errorWidget: (context, url, error) =>
-                                Container(color: const Color(0xFF0B1222)),
-                          )
+                        ? (wallpaperUrl.startsWith('http')
+                            ? CachedNetworkImage(
+                                imageUrl: wallpaperUrl,
+                                fit: BoxFit.cover,
+                                color: Colors.black.withOpacity(0.2),
+                                colorBlendMode: BlendMode.darken,
+                                placeholder: (context, url) =>
+                                    Container(color: const Color(0xFF0B1222)),
+                                errorWidget: (context, url, error) =>
+                                    Container(color: const Color(0xFF0B1222)),
+                              )
+                            : Image.asset(
+                                wallpaperUrl, // ফায়ারস্টোর থেকে আসা অ্যাসেট পাথ (যেমন: assets/images/...)
+                                fit: BoxFit.cover,
+                                color: Colors.black.withOpacity(0.2),
+                                colorBlendMode: BlendMode.darken,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Container(color: const Color(0xFF0B1222)),
+                              ))
                         : Container(color: const Color(0xFF0B1222)),
                   ),
                 ),
@@ -3131,16 +3313,6 @@ class _VoiceRoomState extends State<VoiceRoom>
     }
     if (activeLevel >= 50) activeLevel = 50;
 
-    // Active Level Color Logic
-    Color activeColor = Colors.pinkAccent;
-    if (activeLevel >= 10 && activeLevel < 20) {
-      activeColor = const Color(0xFFFF00FF);
-    } else if (activeLevel >= 20 && activeLevel < 35) {
-      activeColor = Colors.redAccent;
-    } else if (activeLevel >= 35) {
-      activeColor = const Color(0xFFFFD700);
-    }
-
     // --- Gift Level Calculation ---
     int giftLevel = 1;
     int giftReqXp = 8000;
@@ -3151,16 +3323,6 @@ class _VoiceRoomState extends State<VoiceRoom>
       giftReqXp += 2000;
     }
     if (giftLevel >= 50) giftLevel = 50;
-
-    // Gift Level Color Logic
-    Color giftColor = Colors.purpleAccent;
-    if (giftLevel >= 10 && giftLevel < 20) {
-      giftColor = const Color(0xFFFF00FF);
-    } else if (giftLevel >= 20 && giftLevel < 35) {
-      giftColor = Colors.pinkAccent;
-    } else if (giftLevel >= 35) {
-      giftColor = Colors.amberAccent;
-    }
 
     // 🛠️ সঠিক মেনশন এবং ইনপুট বক্স খোলার ফাংশন
     void mentionUserAndOpenInput(String nameToMention) {
@@ -3278,103 +3440,94 @@ class _VoiceRoomState extends State<VoiceRoom>
                         overflow: TextOverflow.ellipsis,
                       ),
 
-                    // ❤️ Active Level Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: activeColor.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: activeColor.withOpacity(0.6),
-                          width: 0.8,
+// 👑 ক্রাউন ব্যাজ
+                    Builder(
+                      builder: (context) {
+                        int crownXp = data['vip_xp'] ?? data['vipXp'] ?? 0;
+                        int crownLvl = crownXp >= 120000
+                            ? 6
+                            : crownXp >= 85000
+                                ? 5
+                                : crownXp >= 65000
+                                    ? 4
+                                    : crownXp >= 45000
+                                        ? 3
+                                        : crownXp >= 25000
+                                            ? 2
+                                            : crownXp >= 12000
+                                                ? 1
+                                                : 0;
+
+                        final Map<int, String> localCrownBadges = {
+                          1: 'assets/images/crown/crown1.webp',
+                          2: 'assets/images/crown/crown2.webp',
+                          3: 'assets/images/crown/crown3.webp',
+                          4: 'assets/images/crown/crown4.webp',
+                          5: 'assets/images/crown/crown5.webp',
+                          6: 'assets/images/crown/crown6.webp',
+                        };
+
+                        String crownPath = localCrownBadges[crownLvl] ?? '';
+
+                        if (crownLvl == 0 || crownPath.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return Image.asset(
+                          crownPath,
+                          width: 22,
+                          height: 22,
+                          fit: BoxFit.contain,
+                          errorBuilder: (c, e, s) => const SizedBox.shrink(),
+                        );
+                      },
+                    ),
+
+                    // ❤️ Active Level Image Badge (ডাইনামিক ইমেজ ব্যাজ)
+                    SizedBox(
+                      width: 50,
+                      height: 24,
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: DynamicLevelBadgeView(
+                          level: activeLevel,
+                          isGift: false,
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.favorite, size: 8.5, color: activeColor),
-                          const SizedBox(width: 2),
-                          Text(
-                            "Lv.$activeLevel",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
                       ),
                     ),
 
-                    // 🌸 Gift Level Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: giftColor.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: giftColor.withOpacity(0.6),
-                          width: 0.8,
+                    // 🌸 Gift Level Image Badge (ডাইনামিক ইমেজ ব্যাজ)
+                    SizedBox(
+                      width: 50,
+                      height: 24,
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: DynamicLevelBadgeView(
+                          level: giftLevel,
+                          isGift: true,
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.local_florist,
-                              size: 8.5, color: giftColor),
-                          const SizedBox(width: 2),
-                          Text(
-                            "Lv.$giftLevel",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
                       ),
                     ),
-
-                    // ⭐ VIP Badge
-                    if (hasVip)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Colors.purple, Colors.deepOrange],
-                          ),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          "VIP $vipLevel",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                    // ⭐ VIP Badge Image
+                    if (hasVip && getVipBadge(vipLevel).isNotEmpty)
+                      Image.asset(
+                        getVipBadge(vipLevel),
+                        width: 24,
+                        height: 24,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const SizedBox.shrink(),
                       ),
-
                     // 💎 Premium Card Badge
+                    // 💎 Premium Card Badge Image (অরজিনাল অ্যাসেট ইমেজ)
                     if (hasPremium)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: Colors.amberAccent,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          "PREMIUM",
-                          style: TextStyle(
-                            color: Colors.black87,
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                      Image.asset(
+                        premiumBadgePath,
+                        width: 24,
+                        height: 24,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const SizedBox.shrink(),
                       ),
 
                     // 🛡️ Agency Badge
@@ -3676,16 +3829,20 @@ class _VoiceRoomState extends State<VoiceRoom>
                   return const SizedBox.shrink();
                 }
 
-                String lottieUrl = "";
+                String assetPath = "";
                 if (val is Map) {
-                  lottieUrl = val['currentEmoji']?.toString() ?? "";
+                  assetPath = val['currentEmoji']?.toString() ?? "";
                 } else if (val is String) {
-                  lottieUrl = val;
+                  assetPath = val;
                 }
 
-                if (lottieUrl.isEmpty) {
+                if (assetPath.isEmpty) {
                   return const SizedBox.shrink();
                 }
+
+                // 🔄 কিস ইমোজি হলেই যেকোনো সিটে ফিক্সড ফ্লিপ হয়ে যাবে (জোড়/বিজোড় ম্যাটার করবে না)
+                bool isKissEmoji = assetPath.contains('kiss.json');
+                bool shouldFlip = isKissEmoji;
 
                 Offset pos = seatPositions[seatIndex];
 
@@ -3698,7 +3855,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                       duration: const Duration(
                           seconds: 7), // ৭ সেকেন্ডের টোটাল লাইফটাইম
                       builder: (context, opacityValue, child) {
-                        // শেষের ১.৫ সেকেন্ডে স্মুথলি ফেড আউট হয়ে মিশে যাবে
+                        // শেষের ১.৫ সেকেন্ডে স্মুথলি ফেড আউট হয়ে মিশে যাবে
                         double smoothOpacity =
                             opacityValue < 0.25 ? opacityValue * 4 : 1.0;
 
@@ -3707,12 +3864,19 @@ class _VoiceRoomState extends State<VoiceRoom>
                           child: SizedBox(
                             width: emojiSize,
                             height: emojiSize,
-                            child: Lottie.network(
-                              lottieUrl,
-                              repeat: true, // একটানা চালু থাকবে, থেমে থাকবে না
-                              animate: true,
-                              errorBuilder: (_, __, ___) =>
-                                  const SizedBox.shrink(),
+                            child: Transform(
+                              alignment: Alignment.center,
+                              transform: Matrix4.identity()
+                                ..scale(shouldFlip ? -1.0 : 1.0,
+                                    1.0), // 👈 কিস ইমোজি ফিক্সড উল্টানোর জন্য
+                              child: Lottie.asset(
+                                assetPath, // 👈 লোকাল অ্যাসেট পাথ থেকে লোড হবে
+                                repeat:
+                                    true, // একটানা চালু থাকবে, থেমে থাকবে না
+                                animate: true,
+                                errorBuilder: (_, __, ___) =>
+                                    const SizedBox.shrink(),
+                              ),
                             ),
                           ),
                         );
@@ -4393,7 +4557,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                 .collection('users')
                 .where('uID',
                     isEqualTo: ownerId
-                        .toString()) // অথবা doc(ownerId) যদি ডকুমেন্ট আইডি ওনার আইডি হয়
+                        .toString()) // অথবা doc(ownerId) যদি ডকুমেন্ট আইডি ওনার আইডি হয়
                 .limit(1)
                 .get()
                 .then((snapshot) => snapshot.docs.first),
@@ -4406,21 +4570,21 @@ class _VoiceRoomState extends State<VoiceRoom>
                 int userExpiry =
                     userData?['vip_expiry'] ?? 0; // যদি এক্সপায়ারি ফিল্ড থাকে
 
-                // আপনার দেওয়া লজিক অনুযায়ী VIP লেভেল বের করা
+                // আপনার দেওয়া লজিক অনুযায়ী VIP লেভেল বের করা
                 int vipLevel = getVipLevelFromData(userXp, userExpiry);
 
-                // যদি লেভেল ১ বা তার বেশি হয়, তবেই ওনার ভিআইপি বলে গণ্য হবে
+                // যদি লেভেল ১ বা তার বেশি হয়, তবেই ওনার ভিআইপি বলে গণ্য হবে
                 if (vipLevel > 0) {
                   isOwnerVip = true;
                 }
               }
 
-              // যদি রুমের মালিক VIP না হয়, তবে ফ্রেম দেখাবে না (SizedBox.shrink রিটার্ন করবে)
+              // যদি রুমের মালিক VIP না হয়, তবে ফ্রেম দেখাবে না (SizedBox.shrink রিটার্ন করবে)
               if (!isOwnerVip) {
                 return const SizedBox.shrink();
               }
 
-              // ওনার VIP হলে এই রাজকীয় ফ্রেমটি শো করবে
+              // ওনার VIP হলে এই রাজকীয় ফ্রেমটি লোকাল অ্যাসেটস থেকে শো করবে
               return Positioned.fill(
                 child: IgnorePointer(
                   child: Transform(
@@ -4428,13 +4592,9 @@ class _VoiceRoomState extends State<VoiceRoom>
                     transform: Matrix4.identity()
                       ..scale(1.20, 2.50, 1.0)
                       ..translate(0.0, -2.80, 0.0),
-                    child: CachedNetworkImage(
-                      imageUrl:
-                          'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newframe/romframe.png',
+                    child: Image.asset(
+                      'assets/images/romframe.webp', // আপনার ফাইলের এক্সটেনশন অনুযায়ী .png বা .webp দিন
                       fit: BoxFit.fill,
-                      placeholder: (context, url) => const SizedBox.shrink(),
-                      errorWidget: (context, url, error) =>
-                          const SizedBox.shrink(),
                     ),
                   ),
                 ),
@@ -4445,6 +4605,26 @@ class _VoiceRoomState extends State<VoiceRoom>
       ),
     );
   }
+
+// --- ক্রাউন লেভেল ক্যালকুলেশন ফাংশনটি (যদি উইজেটের ভেতরে বা ক্লাসে থাকে) ---
+  int getCrownLevel(int xp) {
+    if (xp >= 120000) return 6;
+    if (xp >= 85000) return 5;
+    if (xp >= 65000) return 4;
+    if (xp >= 45000) return 3;
+    if (xp >= 25000) return 2;
+    if (xp >= 12000) return 1;
+    return 0; // No Crown
+  }
+
+  final Map<int, String> crownBadges = {
+    1: 'assets/images/crown/crown1.webp',
+    2: 'assets/images/crown/crown2.webp',
+    3: 'assets/images/crown/crown3.webp',
+    4: 'assets/images/crown/crown4.webp',
+    5: 'assets/images/crown/crown5.webp',
+    6: 'assets/images/crown/crown6.webp',
+  };
 
 // --- মেইন সিট এরিয়া (বিভিন্ন লেআউট সহ) ---
   Widget _buildSeatGridArea() {
@@ -5036,7 +5216,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                           ),
                                         ),
                                         const SizedBox(height: 5),
-// ২. এক সারিতে অ্যাক্টিভ ও গিফট লেভেল (শুধু নাম্বার ও ডাইনামিক কালার)
+// ২. এক সারিতে অ্যাক্টিভ ও গিফট লেভেল (ডাইনামিক ইমেজ ব্যাজ সহ)
                                         Builder(
                                           builder: (context) {
                                             // --- Active Level Calculation ---
@@ -5054,20 +5234,6 @@ class _VoiceRoomState extends State<VoiceRoom>
                                             if (activeLevel >= 50)
                                               activeLevel = 50;
 
-                                            // Active Level Color Logic
-                                            Color activeColor =
-                                                Colors.pinkAccent;
-                                            if (activeLevel >= 10 &&
-                                                activeLevel < 20)
-                                              activeColor =
-                                                  const Color(0xFFFF00FF);
-                                            if (activeLevel >= 20 &&
-                                                activeLevel < 35)
-                                              activeColor = Colors.redAccent;
-                                            if (activeLevel >= 35)
-                                              activeColor =
-                                                  const Color(0xFFFFD700);
-
                                             // --- Gift Level Calculation ---
                                             int giftXp =
                                                 userData['totalGiftXp'] ?? 0;
@@ -5082,106 +5248,28 @@ class _VoiceRoomState extends State<VoiceRoom>
                                             }
                                             if (giftLevel >= 50) giftLevel = 50;
 
-                                            // Gift Level Color Logic
-                                            Color giftColor =
-                                                Colors.purpleAccent;
-                                            if (giftLevel >= 10 &&
-                                                giftLevel < 20)
-                                              giftColor =
-                                                  const Color(0xFFFF00FF);
-                                            if (giftLevel >= 20 &&
-                                                giftLevel < 35)
-                                              giftColor = Colors.pinkAccent;
-                                            if (giftLevel >= 35)
-                                              giftColor = Colors.amberAccent;
-
                                             return Row(
                                               mainAxisAlignment:
                                                   MainAxisAlignment.center,
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
-                                                // Active Level Badge
-                                                Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 6,
-                                                      vertical: 3),
-                                                  decoration: BoxDecoration(
-                                                    color: activeColor
-                                                        .withOpacity(0.15),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            10),
-                                                    border: Border.all(
-                                                        color: activeColor
-                                                            .withOpacity(0.6),
-                                                        width: 1),
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Icon(Icons.favorite,
-                                                          size: 10,
-                                                          color: activeColor),
-                                                      const SizedBox(width: 3),
-                                                      Text(
-                                                        "Lv.$activeLevel",
-                                                        style: TextStyle(
-                                                          color: activeColor,
-                                                          fontSize: 10,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
+                                                // Active Level Image Badge
+                                                DynamicLevelBadgeView(
+                                                  level: activeLevel,
+                                                  isGift: false,
                                                 ),
 
                                                 const SizedBox(width: 6),
 
-                                                // Gift Level Badge
-                                                Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 6,
-                                                      vertical: 3),
-                                                  decoration: BoxDecoration(
-                                                    color: giftColor
-                                                        .withOpacity(0.15),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            10),
-                                                    border: Border.all(
-                                                        color: giftColor
-                                                            .withOpacity(0.6),
-                                                        width: 1),
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Icon(Icons.local_florist,
-                                                          size: 10,
-                                                          color: giftColor),
-                                                      const SizedBox(width: 3),
-                                                      Text(
-                                                        "Lv.$giftLevel",
-                                                        style: TextStyle(
-                                                          color: giftColor,
-                                                          fontSize: 10,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
+                                                // Gift Level Image Badge
+                                                DynamicLevelBadgeView(
+                                                  level: giftLevel,
+                                                  isGift: true,
                                                 ),
                                               ],
                                             );
                                           },
                                         ),
-
                                         const SizedBox(height: 5),
 
                                         // 🔥 ব্যাজ সেকশন: ট্রান্সপারেন্ট ব্যাকগ্রাউন্ড ও নো-বক্স ডিজাইন
@@ -5192,13 +5280,75 @@ class _VoiceRoomState extends State<VoiceRoom>
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               // -------------------------------------------------------------
-                                              // 🟢 ১ম লাইন: আইকন ব্যাজসমূহ (VIP, Premium, Agency Image)
+                                              // 🟢 ১ম লাইন: আইকন ব্যাজসমূহ (Crown, VIP, Premium, Agency Image, Verified)
                                               // -------------------------------------------------------------
                                               Row(
                                                 mainAxisAlignment:
                                                     MainAxisAlignment.center,
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
+                                                  // 👑 ০০. ক্রাউন ব্যাজ (VIP ব্যাজের ঠিক আগে শো করবে যদি থাকে)
+                                                  Builder(
+                                                    builder: (context) {
+                                                      int xp =
+                                                          userData['vip_xp'] ??
+                                                              0;
+                                                      int crownLvl = xp >=
+                                                              120000
+                                                          ? 6
+                                                          : xp >= 85000
+                                                              ? 5
+                                                              : xp >= 65000
+                                                                  ? 4
+                                                                  : xp >= 45000
+                                                                      ? 3
+                                                                      : xp >= 25000
+                                                                          ? 2
+                                                                          : xp >= 12000
+                                                                              ? 1
+                                                                              : 0;
+
+                                                      final Map<int, String>
+                                                          localCrownBadges = {
+                                                        1: 'assets/images/crown/crown1.webp',
+                                                        2: 'assets/images/crown/crown2.webp',
+                                                        3: 'assets/images/crown/crown3.webp',
+                                                        4: 'assets/images/crown/crown4.webp',
+                                                        5: 'assets/images/crown/crown5.webp',
+                                                        6: 'assets/images/crown/crown6.webp',
+                                                      };
+
+                                                      String crownPath =
+                                                          localCrownBadges[
+                                                                  crownLvl] ??
+                                                              '';
+
+                                                      if (crownLvl == 0 ||
+                                                          crownPath.isEmpty) {
+                                                        return const SizedBox
+                                                            .shrink();
+                                                      }
+
+                                                      return Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal:
+                                                                    4.0),
+                                                        child: Image.asset(
+                                                          crownPath,
+                                                          width: 32,
+                                                          height: 32,
+                                                          fit: BoxFit.contain,
+                                                          errorBuilder: (c, e,
+                                                                  s) =>
+                                                              const SizedBox
+                                                                  .shrink(),
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+
                                                   // ১. VIP Badge (যদি থাকে)
                                                   if (hasVip &&
                                                       getVipBadge(vipLevel)
@@ -5276,19 +5426,18 @@ class _VoiceRoomState extends State<VoiceRoom>
                                                       ),
                                                     ),
 
-                                                  // ৪. Verified Badge (যদি isVerified ট্রু হয়)
+                                                  // ৪. Verified Badge (যদি isVerified ট্রু হয়)
                                                   if (userData['isVerified'] ==
                                                       true)
-                                                    Padding(
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
-                                                          horizontal: 4),
-                                                      child: const Icon(
+                                                    const Padding(
+                                                      padding:
+                                                          EdgeInsets.symmetric(
+                                                              horizontal: 4),
+                                                      child: Icon(
                                                         Icons.verified,
                                                         color:
                                                             Color(0xFF00FBFF),
-                                                        size:
-                                                            22, // সাইজ চাইলে আপনার পছন্দমতো বাড়িয়ে বা কমিয়ে নিতে পারেন
+                                                        size: 22,
                                                       ),
                                                     ),
                                                 ],
@@ -5345,6 +5494,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                             ],
                                           ),
                                         ),
+                                        // এখানে কন্ডিশন চেক করা হচ্ছে যে শুধুমাত্র রুম মালিক (isOwner) হলে তবেই এডমিন এড/রিমুভ করার অপশন কাজ করবে
                                         if (isOwner || isAdmin) ...[
                                           const Divider(
                                               color: Colors.white10,
@@ -5356,7 +5506,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                               mainAxisAlignment:
                                                   MainAxisAlignment.spaceAround,
                                               children: [
-                                                // ১. Admin বাটন
+                                                // ১. Admin বাটন (শুধু মালিক ক্লিক করতে পারবে, এডমিনরা শুধু দেখতে ও কালার দেখতে পারবে)
                                                 Expanded(
                                                   child: _buildAdminAction(
                                                     icon: Icons.verified_user,
@@ -5365,60 +5515,100 @@ class _VoiceRoomState extends State<VoiceRoom>
                                                             seatUserId)
                                                         ? Colors.green
                                                         : Colors.white70,
-                                                    onTap: () => _toggleAdmin(
-                                                        seatUserId,
-                                                        adminList.contains(
-                                                            seatUserId)),
+                                                    onTap: isOwner
+                                                        ? () => _toggleAdmin(
+                                                            seatUserId,
+                                                            adminList.contains(
+                                                                seatUserId))
+                                                        : () {
+                                                            // ফ্লাটারের নিজস্ব সঠিক স্নাকবার পদ্ধতি ব্যবহার করা হলো
+                                                            ScaffoldMessenger
+                                                                    .of(context)
+                                                                .showSnackBar(
+                                                              const SnackBar(
+                                                                content: Text(
+                                                                    "only owner can change"),
+                                                                backgroundColor:
+                                                                    Colors
+                                                                        .redAccent,
+                                                                duration:
+                                                                    Duration(
+                                                                        seconds:
+                                                                            2),
+                                                              ),
+                                                            );
+                                                          },
                                                   ),
                                                 ),
 
-                                                // ২. Mute/Unmute বাটন
+                                              // ২. Mute/Unmute বাটন (মডিফাইড: শুধুমাত্র মিউট করার জন্য)
                                                 Expanded(
-                                                  child: _buildAdminAction(
-                                                    icon:
-                                                        (seatData?['isMicOn'] ==
-                                                                false)
-                                                            ? Icons.mic_off
-                                                            : Icons.mic,
-                                                    label:
-                                                        (seatData?['isMicOn'] ==
-                                                                false)
-                                                            ? "Unmute"
-                                                            : "Mute",
-                                                    color:
-                                                        (seatData?['isMicOn'] ==
-                                                                false)
+                                                  child: Builder(
+                                                    builder: (context) {
+                                                      // বর্তমান মাইক স্ট্যাটাস চেক করা
+                                                      bool isMicOn = seatData?[
+                                                              'isMicOn'] ??
+                                                          true;
+
+                                                      // শর্ত: শুধুমাত্র ওনার বা এডমিন হলে এবং মাইক অন থাকলে বাটনটি সক্রিয় থাকবে।
+                                                      // যদি মাইক অফ থাকে (মিউটেড), তবে কালার ও অ্যাকশন এমন হবে যেন এটি আনমিউটেবল।
+                                                      bool canMute = (isOwner ||
+                                                              isAdmin) &&
+                                                          isMicOn;
+
+                                                      return _buildAdminAction(
+                                                        icon: Icons
+                                                            .mic_off, // আইকন সবসময় mic_off ই থাকবে কারণ এটি আনমিউট করবে না
+                                                        label:
+                                                            "Mute", // লেবেল সবসময় "Mute" থাকবে
+
+                                                        // যদি মিউট করার অনুমতি থাকে তবে লাল দেখাবে, নাহলে গ্রে (অ্যাক্টিভ না)
+                                                        color: canMute
                                                             ? Colors.redAccent
-                                                            : Colors
-                                                                .greenAccent,
-                                                    onTap: () async {
-                                                      int sIndex = index;
-                                                      bool currentMicStatus =
-                                                          seatData?[
-                                                                  'isMicOn'] ??
-                                                              true;
-                                                      bool newMicStatus =
-                                                          !currentMicStatus;
-                                                      try {
-                                                        await HapticFeedback
-                                                            .lightImpact();
-                                                        await FirebaseDatabase
-                                                            .instance
-                                                            .ref(
-                                                                'rooms/${widget.roomId}/seats/$sIndex')
-                                                            .update({
-                                                          'isMicOn':
-                                                              newMicStatus,
-                                                          'isTalking': false,
-                                                        });
-                                                      } catch (e) {
-                                                        debugPrint(
-                                                            "Admin Control Error: $e");
-                                                      }
+                                                            : Colors.grey,
+
+                                                        onTap: () async {
+                                                          // 🔥 মূল লজিক: শুধুমাত্র তখনই কাজ করবে যদি মাইক অন থাকে এবং আপনি কন্ট্রোল করার যোগ্য হন।
+                                                          if (!canMute) {
+                                                            // যদি ইউজার অলরেডি মিউট থাকে অথবা আপনার পারমিশন না থাকে, কিছু করবে না।
+                                                            if (!isMicOn) {
+                                                              // ঐচ্ছিক: মেসেজ দেখাতে পারেন
+                                                              // ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("User is already muted")));
+                                                            }
+                                                            return;
+                                                          }
+
+                                                          int sIndex =
+                                                              index; // seatIndex
+
+                                                          try {
+                                                            // Haptic feedback
+                                                            await HapticFeedback
+                                                                .lightImpact();
+
+                                                            // 🔥 ফায়ারবেস আপডেট: শুধুমাত্র 'isMicOn' কে false করবে। 'isTalking' ও false করে দেওয়া ভালো।
+                                                            await FirebaseDatabase
+                                                                .instance
+                                                                .ref(
+                                                                    'rooms/${widget.roomId}/seats/$sIndex')
+                                                                .update({
+                                                              'isMicOn': false,
+                                                              'isTalking':
+                                                                  false,
+                                                              // 'isMutedByAdmin': true, // ঐচ্ছিক: চাইলে এই ফ্ল্যাগ রাখতে পারেন
+                                                            });
+
+                                                            debugPrint(
+                                                                "Seat $sIndex muted by admin.");
+                                                          } catch (e) {
+                                                            debugPrint(
+                                                                "Admin Mute Control Error: $e");
+                                                          }
+                                                        },
+                                                      );
                                                     },
                                                   ),
                                                 ),
-
                                                 // ৩. Kick বাটন
                                                 Expanded(
                                                   child: _buildAdminAction(
@@ -5500,9 +5690,10 @@ class _VoiceRoomState extends State<VoiceRoom>
                           isOccupied: isOccupied,
                           child: Stack(
                             alignment: Alignment.center,
-                            clipBehavior: Clip.none,
+                            clipBehavior: Clip
+                                .none, // বাইরে ক্রাউন ওভারফ্লো করার জন্য এটি অত্যন্ত জরুরি
                             children: [
-                              // 🔥 ইউজার না থাকলে সিটের ডিজাইন দেখাবে, আর বসলে সম্পূর্ণ হাইড (transparent) হয়ে যাবে
+                              // 🔥 ইউজার না থাকলে সিটের ডিজাইন দেখাবে, আর বসলে সম্পূর্ণ হাইড (transparent) হয়ে যাবে
                               Container(
                                 width: seatSize,
                                 height: seatSize,
@@ -5530,8 +5721,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                 ),
                                 child: ClipOval(
                                   child: isOccupied
-                                      ? const SizedBox
-                                          .shrink() // ইউজার বসলে ভেতরের ব্লার ও ব্যাকগ্রাউন্ড হাইড হবে
+                                      ? const SizedBox.shrink()
                                       : BackdropFilter(
                                           filter: ImageFilter.blur(
                                               sigmaX: 5, sigmaY: 5),
@@ -5617,12 +5807,79 @@ class _VoiceRoomState extends State<VoiceRoom>
                                 ),
                               ),
 
-                              //ফ্রেম ছিলো এইখানে সিটের (এখানে আপনার সিটের ফ্রেম বা অ্যাক্টিভ ফ্রেম কোድ বসানো থাকবে)
+                              // ফ্রেম থাকলে তা রেন্ডার করার কোড এখানে থাকবে...
+
+                              // ✨ ক্রাউন ব্যাজ লজিক: পজিশনিং এবং সাইজ নিয়ন্ত্রণ করার গাইড
+                              if (isOccupied) ...[
+                                Builder(
+                                  builder: (context) {
+                                    int userXp = 0;
+                                    if (seatData != null &&
+                                        seatData['vip_xp'] != null) {
+                                      userXp = seatData['vip_xp'] is int
+                                          ? seatData['vip_xp']
+                                          : int.tryParse(seatData['vip_xp']
+                                                  .toString()) ??
+                                              0;
+                                    }
+
+                                    int crownLvl = getCrownLevel(userXp);
+                                    String crownAsset =
+                                        crownBadges[crownLvl] ?? '';
+
+                                    if (crownLvl > 0 && crownAsset.isNotEmpty) {
+                                      return Positioned(
+                                        top:
+                                            null, // ⬅️ উপরে থেকে দূরত্ব দিতে চাইলে এখানে পিক্সেল দিন
+                                        bottom: -5, // ⬇️ নিচ থেকে দূরত্ব
+                                        left: 3, // ⬅️ বাম দিক থেকে দূরত্ব
+                                        right: null,
+                                        child: Stack(
+                                          alignment: Alignment.center,
+                                          children: [
+                                            // ১. মূল ক্রাউন ইমেজ (এটি তার স্বাভাবিক রঙে নিচে স্থির থাকবে)
+                                            Image.asset(
+                                              crownAsset,
+                                              width: seatSize * 0.55,
+                                              height: seatSize * 0.55,
+                                              fit: BoxFit.contain,
+                                              errorBuilder:
+                                                  (context, error, stackTrace) {
+                                                return const SizedBox.shrink();
+                                              },
+                                            ),
+
+                                            // ২. ✨ শিমার প্যাকেজ দিয়ে নিখুঁত চলমান শাইনিং লাইট এফেক্ট
+                                            Positioned.fill(
+                                              child: Shimmer.fromColors(
+                                                baseColor: Colors
+                                                    .transparent, // বেস কালার ট্রান্সপারেন্ট থাকবে যাতে মূল ক্রাউন ঢাকা না পড়ে
+                                                highlightColor: Colors
+                                                    .white, // শিমার বা আলোর উজ্জ্বল সাদা অংশ
+                                                period: const Duration(
+                                                    milliseconds:
+                                                        1500), // অ্যানিমেশনের গতি (কমলে দ্রুত, বাড়লে ধীরে চলবে)
+                                                child: Image.asset(
+                                                  crownAsset,
+                                                  width: seatSize * 0.55,
+                                                  height: seatSize * 0.55,
+                                                  fit: BoxFit.contain,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }
+                                    return const SizedBox.shrink();
+                                  },
+                                ),
+                              ],
                             ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
                         isOccupied
                             ? (uName.length > 11
@@ -5630,7 +5887,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                 : uName)
                             : "${index + 1}",
                         style: TextStyle(
-                          fontSize: 7,
+                          fontSize: 10,
                           color: isOccupied ? Colors.white : Colors.white38,
                           fontWeight:
                               isOccupied ? FontWeight.bold : FontWeight.normal,
@@ -6291,15 +6548,14 @@ class _VoiceRoomState extends State<VoiceRoom>
           ),
           const SizedBox(width: 8),
 
-          // ৩. মাইক কন্ট্রোল বাটন 🎤 (খরচ অপ্টিমাইজড সহ)
+          // ৩. মাইক কন্ট্রোল বাটন 🎤
           StatefulBuilder(
             builder: (context, setButtonState) {
               return GestureDetector(
                 onTap: () async {
                   if (currentSeatIndex == -1) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text("আগে সিটে বসুন তারপর মাইক অন করুন!")),
+                      const SnackBar(content: Text("Take seat First👆!")),
                     );
                     return;
                   }
@@ -6308,7 +6564,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                   } catch (_) {}
 
                   bool newMicState =
-                      !isMicOn; // true মানে মাইক অন করতে চাচ্ছে, false মানে মিউট
+                      !isMicOn; // true মানে মাইক অন, false মানে মিউট
 
                   setButtonState(() {
                     isMicOn = newMicState;
@@ -6320,17 +6576,25 @@ class _VoiceRoomState extends State<VoiceRoom>
                   });
 
                   try {
-                    // 🔥 খরচ বাঁচানোর মূল লজিক: মাইক বন্ধ থাকলে অডিয়েন্স মোড, চালু হলে ব্রডকাস্টার মোড
-                    if (!newMicState) {
-                      await _agoraManager.switchToAudienceMode();
-                    } else {
+                    if (newMicState) {
+                      // 🔥 আনমিউট করার সময়: প্রথমে ব্রডকাস্টার মোড এবং ট্র্যাক পাবলিশ নিশ্চিত করা, তারপর ভলিউম ১০০ করা
                       await _agoraManager.becomeBroadcaster();
+                      await _agoraManager
+                          .toggleMic(false); // false মানে মিউট নয় (অন)
+                      await _agoraManager.engine
+                          .adjustRecordingSignalVolume(100);
+                    } else {
+                      // 🔥 মিউট করার সময়: রেকর্ডিং ভলিউম ০ করে দেওয়া (যাতে মিউজিক বা অন্য লজিক ঠিক থাকে)
+                      await _agoraManager.engine.adjustRecordingSignalVolume(0);
+                      await _agoraManager.toggleMic(true); // true মানে মিউট
                     }
 
-                    await _agoraManager.toggleMic(!newMicState);
-                    await FirebaseDatabase.instance
-                        .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
-                        .update({'isMicOn': newMicState});
+                    // ফায়ারবেসে সিটের মাইক স্ট্যাটাস আপডেট
+                    if (currentSeatIndex != -1) {
+                      await FirebaseDatabase.instance
+                          .ref('rooms/${widget.roomId}/seats/$currentSeatIndex')
+                          .update({'isMicOn': newMicState});
+                    }
                   } catch (e) {
                     setButtonState(() {
                       isMicOn = !newMicState;
@@ -6644,7 +6908,7 @@ class _VoiceRoomState extends State<VoiceRoom>
     );
   }
 
-  // ✉️ মেসেজ রো উইজেট (মেনশন, ইনভাইট, ভিআইপি, প্রিমিয়াম, অ্যাক্টিভ, গিফট লেভেল, ভেরিফাইড এবং অফিসিয়াল ব্যাজ সহ)
+  // ✉️ মেসেজ রো উইজেট (ক্রাউন, ডাইনামিক ইমেজ লেভেল, ভিআইপি, প্রিমিয়াম, এজেন্সি, ভেরিফাইড এবং অফিসিয়াল ব্যাজ সহ)
   Widget _buildMessageRow({
     required BuildContext context,
     required Map<String, dynamic> msg,
@@ -6705,16 +6969,6 @@ class _VoiceRoomState extends State<VoiceRoom>
     }
     if (activeLevel >= 50) activeLevel = 50;
 
-    // Active Level Color Logic (Heart Color)
-    Color heartColor = Colors.pinkAccent;
-    if (activeLevel >= 10 && activeLevel < 20) {
-      heartColor = const Color(0xFFFF00FF);
-    } else if (activeLevel >= 20 && activeLevel < 35) {
-      heartColor = Colors.redAccent;
-    } else if (activeLevel >= 35) {
-      heartColor = const Color(0xFFFFD700);
-    }
-
     // --- Gift Level Calculation ---
     int giftLevel = 1;
     int giftReqXp = 8000;
@@ -6725,16 +6979,6 @@ class _VoiceRoomState extends State<VoiceRoom>
       giftReqXp += 2000;
     }
     if (giftLevel >= 50) giftLevel = 50;
-
-    // Gift Level Color Logic (Rose Color)
-    Color roseColor = Colors.purpleAccent;
-    if (giftLevel >= 10 && giftLevel < 20) {
-      roseColor = const Color(0xFFFF00FF);
-    } else if (giftLevel >= 20 && giftLevel < 35) {
-      roseColor = Colors.pinkAccent;
-    } else if (giftLevel >= 35) {
-      roseColor = Colors.amberAccent;
-    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.5),
@@ -6850,111 +7094,106 @@ class _VoiceRoomState extends State<VoiceRoom>
                           ],
                         ],
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
 
-                      // 🏷️ ব্যাজগুলোর রো (লেভেল ও অন্যান্য ব্যাজ)
+                      // 🏷️ ব্যাজগুলোর রো (ক্রাউন, অ্যাক্টিভ লেভেল, গিফট লেভেল, ভিআইপি, প্রিমিয়াম, এজেন্সি)
                       Wrap(
-                        spacing: 3,
+                        spacing: 4,
                         runSpacing: 2,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          // ❤️ Active Level Badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 4, vertical: 0.8),
-                            decoration: BoxDecoration(
-                              color: heartColor.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(3),
-                              border: Border.all(
-                                  color: heartColor.withOpacity(0.6),
-                                  width: 0.6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.favorite,
-                                    size: 7.5, color: heartColor),
-                                const SizedBox(width: 1.5),
-                                Text(
-                                  "Lv.$activeLevel",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 7.5,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
+                          // 👑 ক্রাউন ব্যাজ (VIP বা লেভেলের আগে শো করবে)
+                          Builder(
+                            builder: (context) {
+                              int crownXp = msg['vip_xp'] ?? msg['vipXp'] ?? 0;
+                              int crownLvl = crownXp >= 120000
+                                  ? 6
+                                  : crownXp >= 85000
+                                      ? 5
+                                      : crownXp >= 65000
+                                          ? 4
+                                          : crownXp >= 45000
+                                              ? 3
+                                              : crownXp >= 25000
+                                                  ? 2
+                                                  : crownXp >= 12000
+                                                      ? 1
+                                                      : 0;
+
+                              final Map<int, String> localCrownBadges = {
+                                1: 'assets/images/crown/crown1.webp',
+                                2: 'assets/images/crown/crown2.webp',
+                                3: 'assets/images/crown/crown3.webp',
+                                4: 'assets/images/crown/crown4.webp',
+                                5: 'assets/images/crown/crown5.webp',
+                                6: 'assets/images/crown/crown6.webp',
+                              };
+
+                              String crownPath =
+                                  localCrownBadges[crownLvl] ?? '';
+
+                              if (crownLvl == 0 || crownPath.isEmpty) {
+                                return const SizedBox.shrink();
+                              }
+
+                              return Image.asset(
+                                crownPath,
+                                width: 22,
+                                height: 22,
+                                fit: BoxFit.contain,
+                                errorBuilder: (c, e, s) =>
+                                    const SizedBox.shrink(),
+                              );
+                            },
+                          ),
+
+                          // ❤️ Active Level Image Badge (পুরনো টেক্সট বাদ দিয়ে ডাইনামিক ইমেজ ব্যাজ)
+                          SizedBox(
+                            width: 50,
+                            height: 24,
+                            child: FittedBox(
+                              fit: BoxFit.contain,
+                              child: DynamicLevelBadgeView(
+                                level: activeLevel,
+                                isGift: false,
+                              ),
                             ),
                           ),
 
-                          // 🌸 Gift Level Badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 4, vertical: 0.8),
-                            decoration: BoxDecoration(
-                              color: roseColor.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(3),
-                              border: Border.all(
-                                  color: roseColor.withOpacity(0.6),
-                                  width: 0.6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.local_florist,
-                                    size: 7.5, color: roseColor),
-                                const SizedBox(width: 1.5),
-                                Text(
-                                  "Lv.$giftLevel",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 7.5,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
+                          // 🌸 Gift Level Image Badge (পুরনো টেক্সট বাদ দিয়ে ডাইনামিক ইমেজ ব্যাজ)
+                          SizedBox(
+                            width: 50,
+                            height: 24,
+                            child: FittedBox(
+                              fit: BoxFit.contain,
+                              child: DynamicLevelBadgeView(
+                                level: giftLevel,
+                                isGift: true,
+                              ),
                             ),
                           ),
 
                           // ⭐ VIP Badge
-                          if (hasVip)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 4, vertical: 0.8),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Colors.purple, Colors.deepOrange],
-                                ),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: Text(
-                                "VIP $vipLevel",
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 7.5,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                          if (hasVip && getVipBadge(vipLevel).isNotEmpty)
+                            Image.asset(
+                              getVipBadge(vipLevel),
+                              width: 24,
+                              height: 24,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const SizedBox.shrink(),
                             ),
 
-                          // 💎 Premium Card Badge
+                          // 💎 Premium Card Badge (অরজিনাল অ্যাসেট ইমেজ সহ)
                           if (hasPremiumCard)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 4, vertical: 0.8),
-                              decoration: BoxDecoration(
-                                color: Colors.amberAccent,
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: const Text(
-                                "PREMIUM",
-                                style: TextStyle(
-                                  color: Colors.black87,
-                                  fontSize: 7.5,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                            Image.asset(
+                              premiumBadgePath,
+                              width: 24,
+                              height: 24,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const SizedBox.shrink(),
                             ),
-
                           // 🛡️ Agency Badge
                           if (isAgent)
                             Container(
@@ -6968,7 +7207,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                                 "AGENCY",
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 7.5,
+                                  fontSize: 7,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),

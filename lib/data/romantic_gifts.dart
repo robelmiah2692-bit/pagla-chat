@@ -3,8 +3,8 @@ final List<Map<String, dynamic>> romanticGifts = [
   { 
     "id": "soulmate_special",
   "name": "Soulmates",
-  "price": 8000, // আপনার পছন্দমতো প্রাইজ সেট করুন
-  "icon": 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/Soulmates.jpg',
+  "price": 12000, // আপনার পছন্দমতো প্রাইজ সেট করুন
+  "icon": 'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/sulmate.webp',
   "type": 'romantic',
 },
   
@@ -174,5 +174,32 @@ final List<Map<String, dynamic>> romanticGifts = [
     "price": 270500, 
     "type": "marriage_ring"
   },
-
+{
+    "id": "ring_360500", 
+    "name": "king Band", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/king.webp", 
+    "price": 360500, 
+    "type": "marriage_ring"
+  },
+{
+    "id": "ring_310500", 
+    "name": "qwin Band", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/qwin.webp", 
+    "price": 310500, 
+    "type": "marriage_ring"
+  },
+{
+    "id": "ring_410500", 
+    "name": "romanticBand", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/romantic.webp", 
+    "price": 410500, 
+    "type": "marriage_ring"
+  },
+{
+    "id": "ring_380500", 
+    "name": "loveBand", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/love.webp", 
+    "price": 410500, 
+    "type": "marriage_ring"
+  },
 ];

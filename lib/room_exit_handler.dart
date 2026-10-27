@@ -3,7 +3,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 
 class RoomExitHandler {
-  // ১. রুম এন্ড এবং সব ডাটা ক্লিনিং (RTDB ভিউয়ার্স সহ)
+  // ১. রুম এন্ড এবং সব ডাটা ক্লিনিং (RTDB ভিউয়ার্স ও সিট সহ)
   static Future<void> endRoom(String roomId) async {
     try {
       final firestore = FirebaseFirestore.instance;
@@ -24,66 +24,85 @@ class RoomExitHandler {
 
       // ব্যাকগ্রাউন্ডে ট্রানজেকশনের মাধ্যমে অন্যান্য ক্লিনিং
       firestore.runTransaction((transaction) async {
-        // ইউজার কালেকশন
         var roomUsers = await roomRef.collection('users').get();
         for (var doc in roomUsers.docs) {
           transaction.delete(doc.reference);
         }
 
-        // মেসেজ কালেকশন
         var chatMessages = await roomRef.collection('messages').get();
         for (var msgDoc in chatMessages.docs) {
           transaction.delete(msgDoc.reference);
         }
       });
-      debugPrint("DEBUG: Room $roomId ended completely and viewers cleaned.");
+      debugPrint("DEBUG: Room $roomId ended completely.");
     } catch (e) {
       debugPrint("DEBUG ERROR: endRoom failed: $e");
     }
   }
 
-  // ২. ইউজার রুম থেকে বের হওয়ার সময় RTDB ভিউয়ার্স থেকে রিমুভ করার ফাংশন
+  // ২. ইউজার রুম থেকে বের হওয়ার সময় RTDB ভিউয়ার্স থেকে রিমুভ করার ফাংশন
   static Future<void> removeUserFromRoom(String roomId, String userId) async {
     try {
-      // ক) ফায়ারস্টোর থেকে রিমুভ
+      if (userId.isEmpty) return;
+
       await FirebaseFirestore.instance.collection('rooms').doc(roomId).update({
         'usersInRoom': FieldValue.arrayRemove([userId.toString()])
       });
 
-      // খ) ✅ রিয়েলটাইম ডাটাবেস (RTDB) এর viewers লিস্ট থেকে ইউজারের নোড রিমুভ করা
-      if (userId.isNotEmpty) {
-        await FirebaseDatabase.instance
-            .ref('rooms/$roomId/viewers/$userId')
-            .remove();
-      }
+      await FirebaseDatabase.instance
+          .ref('rooms/$roomId/viewers/$userId')
+          .remove();
     } catch (e) {
       debugPrint("DEBUG ERROR: Remove user failed: $e");
     }
   }
 
+  // ৩. সেফ হ্যান্ডল এক্সিট লজিক (যা আর সাধারণ ইউজারের জন্য ভুলবশত রুম বন্ধ করবে না)
   static Future<bool> handleExit(String roomId, String currentUserId,
       List<String> adminList, String ownerId) async {
     try {
-      // ১. ইউজার রিমুভ করুন (এটি এখন RTDB থেকেও ভিউয়ার্স রিমুভ করবে)
+      // ইউজারকে ভিউয়ার্স থেকে রিমুভ করা
       await removeUserFromRoom(roomId, currentUserId);
-      await Future.delayed(const Duration(seconds: 2));
 
       String ownerIdStr = ownerId.toString().trim();
       List<String> adminIdsStr = adminList.map((e) => e.toString().trim()).toList();
+      String currentUserIdStr = currentUserId.toString().trim();
+
+      // 🔥 সেফটি গার্ড: যদি বের হওয়া ইউজার নিজে মালিক বা কোনো অ্যাডমিন না হয়, 
+      // তবে রুম বন্ধ করার কোনো প্রশ্নই আসে না! সরাসরি রিটার্ন করবে।
+      bool isExitingUserOwnerOrAdmin = (currentUserIdStr == ownerIdStr || adminIdsStr.contains(currentUserIdStr));
+      
+      if (!isExitingUserOwnerOrAdmin) {
+        debugPrint("DEBUG: সাধারণ ইউজার বের হয়েছে, রুম আগের মতোই সচল থাকবে।");
+        return true;
+      }
+
+      await Future.delayed(const Duration(milliseconds: 500));
+
       bool isPresent = false;
 
       // ২. সিট চেক করা (RTDB)
       DatabaseReference seatsRef = FirebaseDatabase.instance.ref('rooms/$roomId/seats');
       DataSnapshot seatsSnapshot = await seatsRef.get();
 
-      if (seatsSnapshot.exists) {
-        Map<dynamic, dynamic> seatsData = seatsSnapshot.value as Map<dynamic, dynamic>;
+      if (seatsSnapshot.exists && seatsSnapshot.value != null) {
+        Map<dynamic, dynamic> seatsData = (seatsSnapshot.value is Map)
+            ? seatsSnapshot.value as Map
+            : (seatsSnapshot.value as List).asMap();
+
         for (var key in seatsData.keys) {
           var seat = seatsData[key];
-          String seatUID = seat['uID']?.toString().trim() ?? "";
-          if (seatUID.isNotEmpty && (seatUID == ownerIdStr || adminIdsStr.contains(seatUID))) {
-            isPresent = true;
-            break;
+          if (seat != null && seat is Map) {
+            String seatUID = seat['uID']?.toString().trim() ?? "";
+            String seatAuth = seat['authUID']?.toString().trim() ?? "";
+            String seatUserId = seat['userId']?.toString().trim() ?? "";
+
+            // স্ট্রং ম্যাচিং: অনার বা যেকোনো অ্যাডমিন সিটে আছে কি না
+            if ((ownerIdStr.isNotEmpty && (seatUID == ownerIdStr || seatAuth == ownerIdStr || seatUserId == ownerIdStr)) ||
+                adminIdsStr.any((adminId) => adminId.isNotEmpty && (seatUID == adminId || seatAuth == adminId || seatUserId == adminId))) {
+              isPresent = true;
+              break;
+            }
           }
         }
       }
@@ -93,25 +112,33 @@ class RoomExitHandler {
         DatabaseReference viewersRef = FirebaseDatabase.instance.ref('rooms/$roomId/viewers');
         DataSnapshot viewersSnapshot = await viewersRef.get();
 
-        if (viewersSnapshot.exists) {
-          Map<dynamic, dynamic> viewersData = viewersSnapshot.value as Map<dynamic, dynamic>;
+        if (viewersSnapshot.exists && viewersSnapshot.value != null) {
+          Map<dynamic, dynamic> viewersData = (viewersSnapshot.value is Map)
+              ? viewersSnapshot.value as Map
+              : (viewersSnapshot.value as List).asMap();
+
           for (var key in viewersData.keys) {
             var viewer = viewersData[key];
-            String viewerUID = viewer['uID']?.toString().trim() ?? "";
-            if (viewerUID.isNotEmpty && (viewerUID == ownerIdStr || adminIdsStr.contains(viewerUID))) {
-              isPresent = true;
-              break;
+            if (viewer != null && viewer is Map) {
+              String viewerUID = viewer['uID']?.toString().trim() ?? "";
+              String viewerAuth = viewer['authUID']?.toString().trim() ?? "";
+
+              if ((ownerIdStr.isNotEmpty && (viewerUID == ownerIdStr || viewerAuth == ownerIdStr)) ||
+                  adminIdsStr.any((adminId) => adminId.isNotEmpty && (viewerUID == adminId || viewerAuth == adminId))) {
+                isPresent = true;
+                break;
+              }
             }
           }
         }
       }
 
-      // ৪. রুম বন্ধ করার লজিক
+      // ৪. শুধুমাত্র তখনই রুম বন্ধ হবে যখন রুমে মালিক বা অ্যাডমিনদের কেউই থাকবে না!
       if (!isPresent) {
-        debugPrint("DEBUG: কোথাও মালিক বা এডমিন নেই, রুম বন্ধ করা হচ্ছে।");
+        debugPrint("DEBUG: রুমে মালিক বা কোনো অ্যাডমিন উপস্থিত নেই, রুম বন্ধ করা হচ্ছে।");
         await endRoom(roomId);
       } else {
-        debugPrint("DEBUG: রুমে মালিক বা এডমিন উপস্থিত আছে, রুম বন্ধ হবে না।");
+        debugPrint("DEBUG: রুমে মালিক বা অ্যাডমিন এখনো আছে, রুম বন্ধ হবে না।");
       }
 
       return true;

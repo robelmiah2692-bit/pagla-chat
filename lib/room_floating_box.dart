@@ -6,7 +6,8 @@ class RoomFloatingBox extends StatelessWidget {
   final String roomId;
   final String currentUserId; // ইউজারের নিজস্ব আইডি
 
-  const RoomFloatingBox({super.key, required this.roomId, required this.currentUserId});
+  const RoomFloatingBox(
+      {super.key, required this.roomId, required this.currentUserId});
 
   @override
   Widget build(BuildContext context) {
@@ -74,19 +75,21 @@ class RoomFloatingBox extends StatelessWidget {
                 SizedBox(
                   width: 44,
                   height: 44,
-                  child: Lottie.network(
-                    'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/officialall/gift_box.json',
+                  child: Image.asset(
+                    'assets/images/gift_box.webp', // আপনার প্রজেক্টের এসেট পাথ এখানে দিন
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
                       return const Center(
-                        child: Icon(Icons.card_giftcard, color: Colors.amber, size: 22),
+                        child: Icon(Icons.card_giftcard,
+                            color: Colors.amber, size: 22),
                       );
                     },
                   ),
                 ),
                 const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.7),
                     borderRadius: BorderRadius.circular(10),
@@ -107,7 +110,9 @@ class RoomFloatingBox extends StatelessWidget {
       ),
     );
   }
-  void _showBoxRewardDialog(BuildContext context, String roomId, bool isBlasted) {
+
+  void _showBoxRewardDialog(
+      BuildContext context, String roomId, bool isBlasted) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -134,7 +139,8 @@ class RoomFloatingBox extends StatelessWidget {
             const SizedBox(height: 15),
             const Text(
               "Rules & Rewards:",
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
             const Text(
@@ -144,7 +150,8 @@ class RoomFloatingBox extends StatelessWidget {
               "• Top 3 Gifter: 500 Diamonds.\n"
               "• Other Room Users: 20 Diamonds each!\n"
               "• Resets and restarts automatically after 3 mins.",
-              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+              style:
+                  TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
             ),
             const Spacer(),
             StreamBuilder<DocumentSnapshot>(
@@ -174,7 +181,8 @@ class RoomFloatingBox extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       "Progress: $currentProgressVal / 100,000 Diamonds",
-                      style: const TextStyle(color: Colors.white54, fontSize: 12),
+                      style:
+                          const TextStyle(color: Colors.white54, fontSize: 12),
                     ),
                   ],
                 );

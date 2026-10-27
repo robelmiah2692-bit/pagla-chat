@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:pagla_chat/crazy_fruit_game.dart';
+import 'package:pagla_chat/teen_patti_game_page.dart';
 import 'lucky_spin_view.dart';
 
 class GamePanelView extends StatefulWidget {
@@ -236,7 +237,7 @@ class _GamePanelViewState extends State<GamePanelView> {
     );
   }
 
- // --- ২. গেম লবি আপডেট (সংশোধিত) ---
+// --- ২. গেম লবি আপডেট (সংশোধিত) ---
 Widget _buildGameLobby() {
   return SingleChildScrollView(
     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -256,11 +257,12 @@ Widget _buildGameLobby() {
           crossAxisSpacing: 20,
           children: [
             // LUCKY গেমটি আগের মতোই
-            _gameIcon("LUCKY", "assets/images/spin_logo.png", Colors.orangeAccent, false),
-            // নতুন CRAZY FRUIT গেম (কোনো url নেই)
+            _gameIcon("LUCKY", "assets/images/Lucky_777.webp", Colors.orangeAccent, false),
+            // CRAZY FRUIT গেম
             _gameIcon("CRAZY FRUIT", "assets/images/crazyfrut.png", Colors.yellow, false),
+            // TEEN PATTI গেম (কামিং সুন বাদ দিয়ে লাইভ করা হলো)
+            _gameIcon("TEEN PATTI", "assets/images/Ten_Patti.webp", Colors.amber, false),
             _gameIcon("LODU", "assets/images/coming_soon.png", Colors.grey, true),
-            _gameIcon("TEEN PATTI", "assets/images/coming_soon.png", Colors.grey, true),
             _gameIcon("RACING", "assets/images/coming_soon.png", Colors.grey, true),
             _gameIcon("BATTLE", "assets/images/coming_soon.png", Colors.grey, true),
           ],
@@ -277,14 +279,12 @@ Widget _gameIcon(String name, String asset, Color color, bool isComingSoon) {
       if (isComingSoon) {
         _showError("Coming Soon! Stay tuned.");
       } else if (name == "CRAZY FRUIT") {
-        // এখানে আপনার নেটিভ ফ্লাটার গেমের ক্লাসটি বসবে
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => CrazyFruitGame(
               userBalance: userBalance,
               onUpdateBalance: (newBalance) {
-                // ফায়ারবেস আপডেট লজিক
                 FirebaseFirestore.instance
                     .collection('users')
                     .doc(FirebaseAuth.instance.currentUser?.uid)
@@ -293,12 +293,20 @@ Widget _gameIcon(String name, String asset, Color color, bool isComingSoon) {
             ),
           ),
         );
+      } else if (name == "TEEN PATTI") {
+        // 🔥 নতুন টেন পাত্তি গেম পেজে নেভিগেশন
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TeenPattiGamePage(
+              roomId: widget.roomId,
+              currentUserId: FirebaseAuth.instance.currentUser?.uid ?? "",
+            ),
+          ),
+        );
       } else if (name == "LUCKY") {
-        // আপনার আগের "LUCKY" গেমের নেভিগেশন লজিক (এটি মুছে গিয়েছিল)
         setState(() => selectedGame = name);
-      
       } else {
-        // অন্যান্য গেমের জন্য
         setState(() => selectedGame = name);
       }
     },

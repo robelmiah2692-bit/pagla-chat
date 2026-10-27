@@ -3,11 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class GiftLogicHelper {
-  // ১. ডায়মন্ড ভাগাভাগি লজিক (৪০% রিসিভার, ১০% রুম ওনার)
+  // ১. ডায়মন্ড ভাগাভাগি লজিক (১০% রিসিভার, ০২% রুম ওনার)
   static Map<String, int> calculateSplit(int totalPrice) {
     return {
-      'userShare': (totalPrice * 0.40).floor(),
-      'ownerShare': (totalPrice * 0.10).floor(),
+      'userShare': (totalPrice * 0.10).floor(),
+      'ownerShare': (totalPrice * 0.02).floor(),
     };
   }
 

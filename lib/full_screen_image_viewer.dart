@@ -10,9 +10,6 @@ class FullScreenImageViewer extends StatefulWidget {
   final String imageUrl;
 
   const FullScreenImageViewer({Key? key, required this.imageUrl}) : super(key: key);
-  
-  // কারেক্টেড কনস্ট্রাক্টর:
-  // const FullScreenImageViewer({Key? key, required this.imageUrl}) : super(key: key);
 
   @override
   State<FullScreenImageViewer> createState() => _FullScreenImageViewerState();
@@ -28,22 +25,27 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
     });
 
     try {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Downloading image...")),
-        );
+      if (widget.imageUrl.startsWith('http')) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Downloading image...")),
+          );
+        }
+
+        final HttpClient httpClient = HttpClient();
+        final HttpClientRequest request = await httpClient.getUrl(Uri.parse(widget.imageUrl));
+        final HttpClientResponse response = await request.close();
+        final Uint8List bytes = await consolidateHttpClientResponseBytes(response);
+
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/temp_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        await file.writeAsBytes(bytes);
+
+        await Gal.putImage(file.path);
+      } else {
+        // যদি লোকাল ফাইল হয় তবে সরাসরি গ্যালারিতে সেভ হবে
+        await Gal.putImage(widget.imageUrl);
       }
-
-      final HttpClient httpClient = HttpClient();
-      final HttpClientRequest request = await httpClient.getUrl(Uri.parse(widget.imageUrl));
-      final HttpClientResponse response = await request.close();
-      final Uint8List bytes = await consolidateHttpClientResponseBytes(response);
-
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/temp_${DateTime.now().millisecondsSinceEpoch}.jpg');
-      await file.writeAsBytes(bytes);
-
-      await Gal.putImage(file.path);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -68,6 +70,8 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
 
   @override
   Widget build(BuildContext context) {
+    bool isHttp = widget.imageUrl.startsWith('http');
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -82,27 +86,39 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
         ],
       ),
       body: GestureDetector(
-        // ফুলস্ক্রিন অবস্থায় লং প্রেস করলে ডাউনলোড অপশন বা ডায়লগ ট্রিগার হবে
         onLongPress: _downloadImage,
         child: Center(
           child: InteractiveViewer(
             minScale: 0.5,
             maxScale: 4.0,
-            child: CachedNetworkImage(
-              imageUrl: widget.imageUrl,
-              fit: BoxFit.contain,
-              placeholder: (context, url) => const Center(
-                child: CircularProgressIndicator(color: Colors.white70),
-              ),
-              errorWidget: (context, error, stackTrace) => const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.broken_image, color: Colors.white54, size: 60),
-                  SizedBox(height: 10),
-                  Text("Failed to load image", style: TextStyle(color: Colors.white54)),
-                ],
-              ),
-            ),
+            child: isHttp
+                ? CachedNetworkImage(
+                    imageUrl: widget.imageUrl,
+                    fit: BoxFit.contain,
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(color: Colors.white70),
+                    ),
+                    errorWidget: (context, error, stackTrace) => const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.broken_image, color: Colors.white54, size: 60),
+                        SizedBox(height: 10),
+                        Text("Failed to load image", style: TextStyle(color: Colors.white54)),
+                      ],
+                    ),
+                  )
+                : Image.file(
+                    File(widget.imageUrl),
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.broken_image, color: Colors.white54, size: 60),
+                        SizedBox(height: 10),
+                        Text("Failed to load local image", style: TextStyle(color: Colors.white54)),
+                      ],
+                    ),
+                  ),
           ),
         ),
       ),

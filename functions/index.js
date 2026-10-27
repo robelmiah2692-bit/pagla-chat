@@ -9,7 +9,7 @@ const os = require("os");
 const fs = require("fs");
 const ffmpeg = require("fluent-ffmpeg");
 const ffmpegStatic = require("ffmpeg-static");
-
+const sharp = require("sharp");
 
 // FFmpeg-এর পাথ সেট করা
 ffmpeg.setFfmpegPath(ffmpegStatic);
@@ -205,7 +205,59 @@ exports.compressNewVideo = onObjectFinalized(async (event) => {
             });
     });
 });
+// 📌 [নতুন ফিচার] ৫. নতুন ছবি আপলোড হওয়ার সাথে সাথে কমপ্রেস করে 20kb-50kb এর মধ্যে আনার লজিক ও প্রিন্ট লগ
+exports.compressNewImage = onObjectFinalized(async (event) => {
+    const object = event.data;
+    const filePath = object.name;
+    const contentType = object.contentType;
 
+    if (!contentType || !contentType.startsWith("image/")) return null;
+    if (filePath.startsWith("optimized_") || filePath.startsWith("compressed_")) return null;
+
+    const bucket = admin.storage().bucket(object.bucket);
+    const fileName = path.basename(filePath);
+    const tempFilePath = path.join(os.tmpdir(), fileName);
+    const outputFilePath = path.join(os.tmpdir(), `compressed_${fileName}`);
+
+    try {
+        await bucket.file(filePath).download({ destination: tempFilePath });
+        
+        // মূল ফাইলের সাইজ চেক (KB-তে)
+        const [originalMetadata] = await bucket.file(filePath).getMetadata();
+        const originalSizeKB = (originalMetadata.size / 1024).toFixed(2);
+
+        // শার্প (Sharp) ব্যবহার করে ছবি রিসাইজ ও কোয়ালিটি কমিয়ে 20kb-50kb এর মধ্যে আনা
+        await sharp(tempFilePath)
+            .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 40 }) // কোয়ালিটি অ্যাডজাস্ট করে সাইজ ছোট করা হচ্ছে
+            .toFile(outputFilePath);
+
+        const targetUploadPath = path.join(path.dirname(filePath), `compressed_${fileName}`);
+        await bucket.upload(outputFilePath, {
+            destination: targetUploadPath,
+            metadata: { 
+                contentType: contentType,
+                metadata: { isImageCompressed: "true" }
+            },
+        });
+
+        // কমপ্রেস হওয়ার পরের সাইজ চেক
+        const [updatedMetadata] = await bucket.file(targetUploadPath).getMetadata();
+        const compressedSizeKB = (updatedMetadata.size / 1024).toFixed(2);
+
+        console.log(`[NEW IMAGE COMPRESSED] File: ${filePath} | Before: ${originalSizeKB} KB ---> After: ${compressedSizeKB} KB`);
+
+        if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+        if (fs.existsSync(outputFilePath)) fs.unlinkSync(outputFilePath);
+
+        return null;
+    } catch (error) {
+        console.error("Error compressing new image:", error);
+        if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+        if (fs.existsSync(outputFilePath)) fs.unlinkSync(outputFilePath);
+        return null;
+    }
+});
 // ৫. পুরাতন ভিডিওগুলোর সাইজ ছোট করার ফাংশন (ব্যাচ প্রসেসিং, মেটাডাটা চেক ও সাইজ লগ সহ)
 exports.compressExistingVideos = onRequest({ cors: true, timeoutSeconds: 540, memory: "2GiB" }, async (req, res) => {
     try {
@@ -284,6 +336,134 @@ exports.compressExistingVideos = onRequest({ cors: true, timeoutSeconds: 540, me
         res.status(200).json({ 
             success: true, 
             message: `Batch processed! Compressed: ${processedCount}, Skipped (Already done): ${skippedCount}, Errors: ${errorCount}. Refresh again for next batch.` 
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 📌 ৫. নতুন ছবি আপলোড হওয়ার সাথে সাথে কমপ্রেস করার লজিক (লুপ ফিক্সড)
+exports.compressNewImage = onObjectFinalized(async (event) => {
+    const object = event.data;
+    const filePath = object.name;
+    const contentType = object.contentType;
+
+    if (!contentType || !contentType.startsWith("image/")) return null;
+    
+    // 🔥 ফাইলের নামে বা পাথে ইতিমধ্যে compressed_ বা optimized_ থাকলে তা আর প্রসেস করবে না (লুপ রোধ করতে)
+    if (filePath.includes("compressed_") || filePath.includes("optimized_")) {
+        return null; 
+    }
+
+    const bucket = admin.storage().bucket(object.bucket);
+    const fileName = path.basename(filePath);
+    const tempFilePath = path.join(os.tmpdir(), fileName);
+    const outputFilePath = path.join(os.tmpdir(), `compressed_${fileName}`);
+
+    try {
+        await bucket.file(filePath).download({ destination: tempFilePath });
+        
+        // মূল ফাইলের সাইজ চেক (KB-তে)
+        const [originalMetadata] = await bucket.file(filePath).getMetadata();
+        const originalSizeKB = (originalMetadata.size / 1024).toFixed(2);
+
+        // শার্প (Sharp) ব্যবহার করে ছবি রিসাইজ ও কোয়ালিটি কমিয়ে সাইজ ছোট করা
+        await sharp(tempFilePath)
+            .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 40 })
+            .toFile(outputFilePath);
+
+        const targetUploadPath = path.join(path.dirname(filePath), `compressed_${fileName}`);
+        await bucket.upload(outputFilePath, {
+            destination: targetUploadPath,
+            metadata: { 
+                contentType: contentType,
+                metadata: { isImageCompressed: "true" }
+            },
+        });
+
+        // কমপ্রেস হওয়ার পরের সাইজ চেক
+        const [updatedMetadata] = await bucket.file(targetUploadPath).getMetadata();
+        const compressedSizeKB = (updatedMetadata.size / 1024).toFixed(2);
+
+        console.log(`[NEW IMAGE COMPRESSED] File: ${filePath} | Before: ${originalSizeKB} KB ---> After: ${compressedSizeKB} KB`);
+
+        if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+        if (fs.existsSync(outputFilePath)) fs.unlinkSync(outputFilePath);
+
+        return null;
+    } catch (error) {
+        console.error("Error compressing new image:", error);
+        if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+        if (fs.existsSync(outputFilePath)) fs.unlinkSync(outputFilePath);
+        return null;
+    }
+});
+
+// 📌 ৭. পুরাতন ছবিগুলো একসাথে কমপ্রেস করার সঠিক ফাংশন (টাইমআউট ফিক্সড)
+exports.compressExistingImages = onRequest({ cors: true, timeoutSeconds: 540, memory: "2GiB" }, async (req, res) => {
+    try {
+        const bucket = admin.storage().bucket();
+        const [files] = await bucket.getFiles();
+        let processedImages = 0;
+        let skippedImages = 0;
+        let errorImages = 0;
+        let imageLimit = 0;
+
+        for (const file of files) {
+            if (imageLimit >= 15) break; // প্রতি ব্যাচে সর্বোচ্চ ১৫টি ছবি কমপ্রেস করবে
+
+            const [metadata] = await file.getMetadata();
+
+            // যদি ছবিটি ইতিমধ্যে কমপ্রেস করা থাকে তবে স্কিপ করবে
+            if (metadata.metadata && metadata.metadata.isImageCompressed === "true") {
+                skippedImages++;
+                continue;
+            }
+
+            if (metadata.contentType && metadata.contentType.startsWith("image/")) {
+                imageLimit++;
+                const fileName = path.basename(file.name);
+                const tempFilePath = path.join(os.tmpdir(), fileName);
+                const outputFilePath = path.join(os.tmpdir(), `compressed_${fileName}`);
+
+                try {
+                    await file.download({ destination: tempFilePath });
+                    const originalSizeKB = (metadata.size / 1024).toFixed(2);
+
+                    await sharp(tempFilePath)
+                        .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
+                        .jpeg({ quality: 40 })
+                        .toFile(outputFilePath);
+
+                    await bucket.upload(outputFilePath, {
+                        destination: file.name,
+                        metadata: {
+                            contentType: metadata.contentType,
+                            metadata: { isImageCompressed: "true" }
+                        },
+                    });
+
+                    const [updatedMetadata] = await bucket.file(file.name).getMetadata();
+                    const compressedSizeKB = (updatedMetadata.size / 1024).toFixed(2);
+
+                    console.log(`[OLD IMAGE COMPRESSED OK] File: ${file.name} | Before: ${originalSizeKB} KB ---> After: ${compressedSizeKB} KB`);
+
+                    if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+                    if (fs.existsSync(outputFilePath)) fs.unlinkSync(outputFilePath);
+                    processedImages++;
+                } catch (imgErr) {
+                    console.error("Error processing old image:", imgErr);
+                    if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+                    if (fs.existsSync(outputFilePath)) fs.unlinkSync(outputFilePath);
+                    errorImages++;
+                }
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Images Batch Processed! Compressed: ${processedImages}, Skipped: ${skippedImages}, Errors: ${errorImages}. Refresh again for next batch.`
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });

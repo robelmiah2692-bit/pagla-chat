@@ -233,88 +233,17 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
+        // আপনার অ্যাসেট থেকে ব্যাকগ্রাউন্ড ওয়ালপেপার সেট করা হলো
         decoration: const BoxDecoration(
-          // আপনার কাঙ্ক্ষিত রেডিয়েন্ট গ্রেডিয়েন্ট ব্যাকগ্রাউন্ড
-          gradient: RadialGradient(
-            center: Alignment.center,
-            radius: 0.9,
-            colors: [
-              Color(0xFF063838), // Center dark emerald/teal glow tone
-              Color(0xFF031633), // Mid deep blue
-              Color(0xFF050514), // Outer dark cosmos boundary
-            ],
-            stops: [0.1, 0.5, 1.0],
+          image: DecorationImage(
+            image: AssetImage(
+                'assets/images/game_bg.webp'), // আপনার ব্যাকগ্রাউন্ড ইমেজের পাথ এখানে দিন
+            fit: BoxFit.cover,
           ),
         ),
         child: Stack(
           children: [
-            // ১. টপ-রাইট ম্যাজেন্টা/পার্পল গ্লো ইফেক্ট
-            Positioned(
-              top: -50,
-              right: -50,
-              child: Container(
-                width: 250,
-                height: 250,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.pinkAccent.withOpacity(0.35),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.purpleAccent.withOpacity(0.5),
-                      blurRadius: 100,
-                      spreadRadius: 50,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // ২. बॉटम-লেফট সায়ান/ব্লু গ্লো ইফেক্ট
-            Positioned(
-              bottom: -50,
-              left: -50,
-              child: Container(
-                width: 250,
-                height: 250,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.cyanAccent.withOpacity(0.25),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.blueAccent.withOpacity(0.4),
-                      blurRadius: 100,
-                      spreadRadius: 50,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // ৩. ব্যাকগ্রাউন্ডের ছোট ছোট আলোর কণা বা স্টার ডাস্ট
-            ...List.generate(
-              25,
-              (index) => Positioned(
-                top: (index * 37.0) % 800,
-                left: (index * 29.0) % 400,
-                child: Container(
-                  width: index % 3 == 0 ? 4 : 2,
-                  height: index % 3 == 0 ? 4 : 2,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: index % 2 == 0 ? Colors.cyanAccent : Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.cyanAccent.withOpacity(0.8),
-                        blurRadius: 6,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // ৪. আসল লোগো, স্টাইলিশ গ্রেডিয়েন্ট টেক্সট এবং লোডার ঠিক মাঝখানে
+            // আসল লোগো, স্টাইলিশ গ্রেডিয়েন্ট টেক্সট এবং লোডার ঠিক মাঝখানে
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -328,14 +257,14 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // লোগোর সাথে ম্যাচিং করা স্টাইলিশ গ্রেডিয়েন্ট টেক্সট
+                  // লোগোর সাথে ম্যাচিং করা স্টাইলিশ গ্রেডিয়েন্ট টেক্সট
                   ShaderMask(
                     shaderCallback: (bounds) => const LinearGradient(
                       colors: [
                         Color(0xFFFFD700), // ব্রাইট গোল্ডেন (Pagla অংশের জন্য)
                         Color(0xFFFFA500), // ডিপ গোল্ড
                         Color(0xFFFF007F), // নিয়ন পিংক/ম্যাজেন্টা
-                        Color(0xFF00FFFF), // সায়ান/ব্লু (Chat অংশের জন্য)
+                        Color(0xFF00FFFF), // সায়ান/ব্লু (Chat অংশের জন্য)
                       ],
                       stops: [0.0, 0.4, 0.7, 1.0],
                       begin: Alignment.topLeft,
@@ -349,7 +278,7 @@ class _SplashScreenState extends State<SplashScreen> {
                         fontWeight: FontWeight.w900,
                         letterSpacing: 4,
                         color: Colors
-                            .white, // ShaderMask কাজ করার জন্য হোয়াইট থাকতে হবে
+                            .white, // ShaderMask কাজ করার জন্য হোয়াইট থাকতে হবে
                         shadows: [
                           Shadow(
                             color: Colors.black54,
@@ -811,7 +740,7 @@ class _MainNavigationState extends State<MainNavigation>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
+
     if (state == AppLifecycleState.resumed) {
       _updateUserPresence(true); // অ্যাপে ফিরে আসলে অনলাইন
       _startHeartbeat(); // হার্টবিট পুনরায় চালু
@@ -828,7 +757,7 @@ class _MainNavigationState extends State<MainNavigation>
       Map<String, dynamic> updateData = {
         'lastSeen': FieldValue.serverTimestamp(),
       };
-      
+
       // যদি অফলাইন হয়, তবে সরাসরি isOnline false করে দেবো
       // আর যদি অনলাইন হয়, তবে true করব
       updateData['isOnline'] = isOnline;
@@ -1143,49 +1072,34 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _rocketAnimController;
-  late AnimationController _smokeAnimController;
-  late AnimationController
-      _shimmerAnimController; // শিমার শাইনিং অ্যানিমেশন কন্ট্রোলার
-
+class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    // রকেট ও ধোঁয়ার রিয়েল লাইফ অ্যানিমেশন কন্ট্রোলার (চলতে থাকবে)
-    _rocketAnimController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-
-    _smokeAnimController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat();
-
-    // শিমার শাইনিং ইফেক্টের জন্য কন্ট্রোলার (সময় একটু বাড়িয়ে স্মুথ করা হয়েছে)
-    _shimmerAnimController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2500),
-    )..repeat();
   }
 
   @override
   void dispose() {
-    _rocketAnimController.dispose();
-    _smokeAnimController.dispose();
-    _shimmerAnimController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
-    double logoSize = screenWidth * 0.22; // লোগোর সাইজ রেসপনসিভ রাখার জন্য
+    double logoSize = screenWidth * 0.28; // লোগোর সাইজ রেসপনসিভ রাখার জন্য
 
     return Scaffold(
-      body: CosmicBackground(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        // অ্যাসেট থেকে ব্যাকগ্রাউন্ড ওয়ালপেপার সেট করা হলো
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage(
+                'assets/images/game_bg.webp'), // আপনার ব্যাকগ্রাউন্ড ইমেজের পাথ এখানে দিন
+            fit: BoxFit.cover,
+          ),
+        ),
         child: Center(
           child: SingleChildScrollView(
             child: Padding(
@@ -1193,218 +1107,50 @@ class _LoginScreenState extends State<LoginScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // ১. রকেট, ফায়ার ও ধোঁয়ার অ্যানিমেটেড উইজেট
-                  AnimatedBuilder(
-                    animation: Listenable.merge([
-                      _rocketAnimController,
-                      _smokeAnimController,
-                      _shimmerAnimController
-                    ]),
-                    builder: (context, child) {
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // রকেট উইজেট
-                          Transform.translate(
-                            offset: Offset(0,
-                                sin(_rocketAnimController.value * 2 * pi) * 6),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.orangeAccent.withOpacity(
-                                            0.6 +
-                                                (_rocketAnimController.value *
-                                                    0.4)),
-                                        blurRadius: 25,
-                                        spreadRadius: 8,
-                                      ),
-                                      BoxShadow(
-                                        color:
-                                            Colors.pinkAccent.withOpacity(0.4),
-                                        blurRadius: 15,
-                                        spreadRadius: 3,
-                                      ),
-                                    ],
-                                  ),
-                                  child: CustomPaint(
-                                    size: const Size(80, 90),
-                                    painter: RocketPainter(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // রকেটের ইঞ্জিন থেকে বের হওয়া রিয়েল ফায়ার ও ধোঁয়া
-                          SizedBox(
-                            height: 70,
-                            child: Stack(
-                              alignment: Alignment.topCenter,
-                              children: [
-                                Positioned(
-                                  top: 0,
-                                  child: Container(
-                                    width: 16,
-                                    height: 25 +
-                                        (sin(_rocketAnimController.value *
-                                                2 *
-                                                pi) *
-                                            5),
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Colors.yellow,
-                                          Colors.orange,
-                                          Colors.red
-                                        ],
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                      ),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                ),
-                                Positioned(
-                                  top: 15,
-                                  child: SizedBox(
-                                    width: 80,
-                                    height: 50,
-                                    child: Stack(
-                                      alignment: Alignment.topCenter,
-                                      children: List.generate(4, (index) {
-                                        double progress =
-                                            (_smokeAnimController.value +
-                                                    (index * 0.25)) %
-                                                1.0;
-                                        double sizeFactor =
-                                            10.0 + (progress * 14);
-
-                                        return Positioned(
-                                          top: progress * 40,
-                                          child: Transform.translate(
-                                            offset: Offset(
-                                                sin(progress * 2 * pi + index) *
-                                                    10,
-                                                0),
-                                            child: Opacity(
-                                              opacity: (1.0 - progress)
-                                                  .clamp(0.0, 1.0),
-                                              child: Container(
-                                                width: sizeFactor,
-                                                height: sizeFactor,
-                                                decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  gradient: RadialGradient(
-                                                    colors: [
-                                                      Colors.white
-                                                          .withOpacity(0.9),
-                                                      Colors.cyanAccent
-                                                          .withOpacity(0.4),
-                                                      Colors.transparent,
-                                                    ],
-                                                    stops: const [
-                                                      0.2,
-                                                      0.7,
-                                                      1.0
-                                                    ],
-                                                  ),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.white
-                                                          .withOpacity(0.3),
-                                                      blurRadius: 6,
-                                                      spreadRadius: 2,
-                                                    )
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      }),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // ২. পিএনজি লোগো যার ওপর হালকা ও পাতলা শাইনিং লাইট ইফেক্ট দেওয়া হয়েছে
-                          SizedBox(
-                            width: logoSize,
-                            height: logoSize,
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                // মূল লোগো
-                                Image.asset(
-                                  'assets/logo.png',
-                                  width: logoSize,
-                                  height: logoSize,
-                                  fit: BoxFit.contain,
-                                ),
-                                // লোগোর ওপর স্লাইড হওয়া হালকা শাইনিং লাইট বিম (অত্যন্ত পাতলা ও স্বচ্ছ)
-                                Positioned.fill(
-                                  child: ClipRRect(
-                                    borderRadius:
-                                        BorderRadius.circular(logoSize / 2),
-                                    child: LayoutBuilder(
-                                      builder: (context, constraints) {
-                                        double pos = (_shimmerAnimController
-                                                    .value *
-                                                (constraints.maxWidth * 2.5)) -
-                                            constraints.maxWidth;
-                                        return Transform.translate(
-                                          offset: Offset(pos, 0),
-                                          child: Transform.rotate(
-                                            angle:
-                                                0.35, // হালকা কোনাকোনি বা বাঁকা করার জন্য
-                                            child: Container(
-                                              width:
-                                                  25, // লাইট বিম আরও চিকন করা হয়েছে
-                                              height:
-                                                  constraints.maxHeight * 1.5,
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  colors: [
-                                                    Colors.white
-                                                        .withOpacity(0.0),
-                                                    Colors.white.withOpacity(
-                                                        0.25), // গাঢ় ভাব কমিয়ে একদম হালকা করা হয়েছে
-                                                    Colors.white
-                                                        .withOpacity(0.0),
-                                                  ],
-                                                  begin: Alignment.topCenter,
-                                                  end: Alignment.bottomCenter,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+                  // লোগো উইজেট (রকেট ও শিমার শাইনিং বাদ দেওয়া হয়েছে)
+                  SizedBox(
+                    width: logoSize,
+                    height: logoSize,
+                    child: Image.asset(
+                      'assets/logo.png',
+                      width: logoSize,
+                      height: logoSize,
+                      fit: BoxFit.contain,
+                    ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 25),
 
-                  const Text("WELCOME TO PAGLA CHAT",
+                  ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [
+                        Color(0xFFFFD700), // ব্রাইট গোল্ডেন
+                        Color(0xFFFFA500), // ডিপ গোল্ড
+                        Color(0xFFFF007F), // নিয়ন পিংক/ম্যাজেন্টা
+                        Color(0xFF00FFFF), // সায়ান/ব্লু
+                      ],
+                      stops: [0.0, 0.4, 0.7, 1.0],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ).createShader(
+                        Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+                    child: const Text(
+                      "WELCOME TO PAGLA CHAT",
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white)),
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: Colors
+                            .white, // ShaderMask কাজ করার জন্য এটি হোয়াইট থাকতে হবে
+                        shadows: [
+                          Shadow(
+                            color: Colors.black54,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 40),
 
                   // গুগল সাইন-ইন বাটন (মূল ফাংশনালিটি সহ)
@@ -1494,72 +1240,4 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
-}
-
-// --- আপনার ছবির কালার অনুযায়ী নিখুঁত রকেট পেইন্টার ---
-class RocketPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    Paint paint = Paint()..style = PaintingStyle.fill;
-
-    final Rect bodyRect = Rect.fromLTWH(size.width * 0.25, size.height * 0.15,
-        size.width * 0.5, size.height * 0.7);
-    paint.shader = const LinearGradient(
-      colors: [Color(0xFFFFD54F), Color(0xFFFF5722), Color(0xFFE91E63)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    ).createShader(bodyRect);
-
-    Path bodyPath = Path()
-      ..addRRect(RRect.fromRectAndRadius(bodyRect, const Radius.circular(25)));
-    canvas.drawPath(bodyPath, paint);
-
-    Path nosePath = Path()
-      ..moveTo(size.width * 0.5, 0)
-      ..lineTo(size.width * 0.25, size.height * 0.25)
-      ..lineTo(size.width * 0.75, size.height * 0.25)
-      ..close();
-    paint.shader = const LinearGradient(
-      colors: [Colors.yellowAccent, Color(0xFFFF9800)],
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-    ).createShader(Rect.fromLTWH(
-        size.width * 0.25, 0, size.width * 0.5, size.height * 0.25));
-    canvas.drawPath(nosePath, paint);
-
-    paint.shader = const LinearGradient(
-      colors: [Color(0xFFFF5722), Color(0xFFC2185B)],
-      begin: Alignment.centerLeft,
-      end: Alignment.centerRight,
-    ).createShader(
-        Rect.fromLTWH(0, size.height * 0.5, size.width, size.height * 0.4));
-
-    Path leftWing = Path()
-      ..moveTo(size.width * 0.25, size.height * 0.5)
-      ..lineTo(0, size.height * 0.75)
-      ..lineTo(size.width * 0.25, size.height * 0.8)
-      ..close();
-    canvas.drawPath(leftWing, paint);
-
-    Path rightWing = Path()
-      ..moveTo(size.width * 0.75, size.height * 0.5)
-      ..lineTo(size.width, size.height * 0.75)
-      ..lineTo(size.width * 0.75, size.height * 0.8)
-      ..close();
-    canvas.drawPath(rightWing, paint);
-
-    Paint windowBg = Paint()..color = const Color(0xFF00E5FF);
-    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.38),
-        size.width * 0.13, windowBg);
-
-    Paint windowBorder = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0;
-    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.38),
-        size.width * 0.13, windowBorder);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

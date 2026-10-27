@@ -1476,7 +1476,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _pickProfileImage() {
+ void _pickProfileImage() {
     showModalBottomSheet(
         context: context,
         backgroundColor: Colors
@@ -1570,11 +1570,30 @@ class _ProfilePageState extends State<ProfilePage> {
                                 final ImagePicker picker = ImagePicker();
                                 final XFile? pickedFile = await picker.pickImage(
                                     source: ImageSource.gallery,
-                                    imageQuality:
-                                        100); // অরিজিনাল কোয়ালিটি নিয়ে আমাদের লজিক দিয়ে কন্ট্রোল করব
+                                    imageQuality: 100);
 
                                 if (pickedFile != null) {
-                                  // ছবি কম্প্রেস করে সাইজ ১০০ কেবি বা তার নিচে নিয়ে আসার লজিক
+                                  // 🔥 ফরম্যাট ও ভিআইপি ভ্যালিডেশন চেক
+                                  String fileExtension = pickedFile.path
+                                      .split('.')
+                                      .last
+                                      .toLowerCase();
+                                  
+                                  // যদি ফাইলটি webp বা gif হয়, তবে অবশ্যই ভিআইপি লেভেল ১ বা তার বেশি হতে হবে
+                                  if (fileExtension == 'webp' || fileExtension == 'gif') {
+                                    if (getVipLevel() < 1) {
+                                      if (!mounted) return;
+                                      Navigator.pop(context);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                              content: Text(
+                                                  "WebP and GIF formats are restricted to VIP users only!"),
+                                              backgroundColor: Colors.redAccent));
+                                      return;
+                                    }
+                                  }
+
+                                  // ছবি কম্প্রেস করে সাইজ ১০০ কেবি বা তার নিচে নিয়ে আসার লজিক
                                   File originalFile = File(pickedFile.path);
                                   File? compressedFile =
                                       await _compressImageToTargetSize(
@@ -1606,7 +1625,6 @@ class _ProfilePageState extends State<ProfilePage> {
             ));
   }
 
-// সংশোধিত ও নিখুঁত কম্প্রেস মেথড যা নিশ্চিত করবে সাইজ ১০০ কেবির নিচে থাকে
   Future<File?> _compressImageToTargetSize(File file) async {
     try {
       int originalSizeInBytes = await file.length();
@@ -1614,47 +1632,47 @@ class _ProfilePageState extends State<ProfilePage> {
           "📌 Original Image Size: ${(originalSizeInBytes / 1024).toStringAsFixed(2)} KB");
 
       final filePath = file.absolute.path;
-      final lastIndex =
-          filePath.lastIndexOf(RegExp(r'.jp(e)?g', caseSensitive: false));
-      final splitPath =
-          (lastIndex != -1) ? filePath.substring(0, lastIndex) : filePath;
-      final targetPath = "${splitPath}_compressed.jpg";
+      
+      // ফাইলের এক্সটেনশন চেক করা (png নাকি jpg/webp)
+      bool isPng = filePath.toLowerCase().endsWith('.png');
+
+      // যদি পিএনজি হয় তবে কম্প্রেস না করে সরাসরি রিটার্ন করা ভালো, কারণ কম্প্রেস করলে ট্রান্সপারেন্সি নষ্ট হয়ে যায়
+      final targetPath = isPng 
+          ? filePath.replaceAll('.png', '_compressed.png')
+          : filePath.replaceAll(RegExp(r'.jp(e)?g', caseSensitive: false), '_compressed.jpg');
 
       File resultFile = file;
       int quality = 85;
       int width = 600;
       int height = 600;
 
-      // লুপ চালিয়ে সাইজ ১০০ কেবি (১০২৪০০ বাইট) এর নিচে নামানোর চেষ্টা করা হবে
       for (int i = 0; i < 4; i++) {
         var result = await FlutterImageCompress.compressAndGetFile(
           filePath,
           targetPath,
-          quality: quality,
+          quality: isPng ? 100 : quality, // PNG-এর ক্ষেত্রে কোয়ালিটি কমানোর দরকার নেই, ট্রান্সপারেন্সি ঠিক থাকবে
           minWidth: width,
           minHeight: height,
+          format: isPng ? CompressFormat.png : CompressFormat.jpeg,
         );
 
         if (result != null) {
           resultFile = File(result.path);
           int sizeInBytes = await resultFile.length();
           print(
-              "🔄 Compression Step ${i + 1} (Quality: $quality, Resolution: ${width}x${height}): ${(sizeInBytes / 1024).toStringAsFixed(2)} KB");
+              "🔄 Compression Step ${i + 1}: ${(sizeInBytes / 1024).toStringAsFixed(2)} KB");
 
           if (sizeInBytes <= 102400) {
-            break; // ১০০ কেবির নিচে আসলে লুপ শেষ
+            break; // ১০০ কেবির নিচে আসলে লুপ ব্রেক
           }
         }
 
-        // প্রতি ধাপে কোয়ালিটি এবং রেজুলেশন কমানো হচ্ছে যাতে কোনোভাবেই সাইজ বেশি না থাকে
-        quality = (quality - 15).clamp(10, 90);
+        if (!isPng) {
+          quality = (quality - 15).clamp(10, 90);
+        }
         width = (width * 0.8).toInt();
         height = (height * 0.8).toInt();
       }
-
-      int finalSizeInBytes = await resultFile.length();
-      print(
-          "✅ Final Compressed Size: ${(finalSizeInBytes / 1024).toStringAsFixed(2)} KB");
 
       return resultFile;
     } catch (e) {
@@ -1666,9 +1684,16 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _handleProfileUpdate(File newFile) async {
     try {
       String targetUID = uIDValue.toString();
-
       String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      String fileName = 'profile_$timestamp.jpg';
+      
+      // ফাইলের অরিজিনাল এক্সটেনশন অনুযায়ী ফাইলের নাম ও কন্টেন্ট টাইপ নির্ধারণ করা
+      String extension = newFile.path.split('.').last.toLowerCase();
+      String contentType = 'image/jpeg';
+      if (extension == 'png') contentType = 'image/png';
+      if (extension == 'webp') contentType = 'image/webp';
+      if (extension == 'gif') contentType = 'image/gif';
+
+      String fileName = 'profile_$timestamp.$extension';
 
       Reference storageFolder = FirebaseStorage.instance
           .ref()
@@ -1677,7 +1702,7 @@ class _ProfilePageState extends State<ProfilePage> {
       Reference newStorageRef = storageFolder.child(fileName);
 
       UploadTask uploadTask = newStorageRef.putFile(
-          newFile, SettableMetadata(contentType: 'image/jpeg'));
+          newFile, SettableMetadata(contentType: contentType));
       TaskSnapshot snapshot = await uploadTask;
       String newDownloadUrl = await snapshot.ref.getDownloadURL();
 
@@ -1705,6 +1730,7 @@ class _ProfilePageState extends State<ProfilePage> {
         });
       }
 
+      // পুরানো ছবিগুলো ফায়ারবেজ স্টোরেজ থেকে ডিলিট করা
       final ListResult result = await storageFolder.listAll();
       for (var item in result.items) {
         if (item.name != fileName) {
@@ -1725,7 +1751,6 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     }
   }
-
   void _openDiamondStore([Map<String, dynamic>? userData]) {
     // যদি বাইরে থেকে userData আসে তবে সেটা নিবে, নয়তো লোকাল ভেরিয়েবল নিবে
     Map<String, dynamic> currentData = userData ??
@@ -2405,82 +2430,86 @@ class _ProfilePageState extends State<ProfilePage> {
     final List<Map<String, String>> wallpaperList = [
       {
         "name": "Neon Wallpaper 1",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpaper-1.jpg", // আপনার জেসন বা ইমেজ লিংক এখানে দেবেন
+        "url": "assets/images/wallpaper-1.webp",
         "price": "20500"
       },
       {
         "name": "Neon Wallpaper 2",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpaper-2.jpg",
+        "url": "assets/images/wallpaper-2.webp",
         "price": "16000"
       },
       {
-        "name": "Neon Wallpaper 1",
-        "url":
-            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpaper-3.jpg", // আপনার জেসন বা ইমেজ লিংক এখানে দেবেন
+        "name": "Neon Wallpaper 3",
+        "url": "assets/images/wallpaper-3.webp",
         "price": "5000"
       },
       {
         "name": 'Sher Queen',
-        'url':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/shherqwin.jpg',
+        'url': 'assets/images/shherqwin.webp',
         'price': "120000"
       },
       {
         "name": 'Royal Queen',
-        'url':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/royalqwin.jpg',
+        'url': 'assets/images/royalqwin.webp',
         'price': "130000"
       },
       {
         "name": 'Romantic Love',
-        'url':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/romanticlove.jpg',
+        'url': 'assets/images/romanticlove.webp',
         'price': "110000"
       },
       {
         "name": 'Romantic',
-        'url':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/romantic.jpg',
+        'url': 'assets/images/romantic.webp',
         'price': "85000"
       },
       {
         "name": 'King & Queen Wallpaper',
-        'url':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/kingweenwallpepar.jpg',
+        'url': 'assets/images/kingweenwallpepar.webp',
         'price': "95000"
       },
       {
         "name": 'King Royal',
-        'url':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/kingroyal.jpg',
+        'url': 'assets/images/kingroyal.webp',
         'price': "90000"
       },
       {
         "name": 'King & Queen Love',
-        'url':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/kingqwinlove.jpg',
+        'url': 'assets/images/kingqwinlove.webp',
         'price': "100000"
       },
-      {
-        "name": 'King',
-        'url':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/king.jpg',
-        'price': "76000"
-      },
+      {"name": 'King', 'url': 'assets/images/king.webp', 'price': "76000"},
       {
         "name": 'Couple Wallpaper',
-        'url':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/cuplewallpepar.jpg',
+        'url': 'assets/images/cuplewallpepar.webp',
         'price': "75000"
       },
       {
         "name": 'Blue Queen',
-        'url':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/wallpeparnew/bluqwen.jpg',
+        'url': 'assets/images/bluqwen.webp',
         'price': "88000"
       },
+    {
+        "name": 'fire Queen',
+        'url': 'assets/images/dealer_bg.webp',
+        'price': "308000"
+      },
+     {
+        "name": 'fire Queen',
+        'url': 'assets/images/game_bg.webp',
+        'price': "208000"
+      },
+     {
+        "name": 'Gold Queen',
+        'url': 'assets/images/gold_qween.webp',
+        'price': "308000"
+      },
+     {
+        "name": 'sulmate',
+        'url': 'assets/images/sulmate.webp',
+        'price': "208000"
+      },
+    
     ];
 
     return GridView.builder(
@@ -2494,7 +2523,7 @@ class _ProfilePageState extends State<ProfilePage> {
       itemBuilder: (context, index) {
         var item = wallpaperList[index];
         int itemPrice = int.parse(item['price']!);
-        String url = item['url']!;
+        String assetPath = item['url']!;
 
         return Container(
           padding: const EdgeInsets.all(10),
@@ -2509,23 +2538,10 @@ class _ProfilePageState extends State<ProfilePage> {
               Expanded(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: CachedNetworkImage(
-                    imageUrl: url,
+                  child: Image.asset(
+                    assetPath,
                     fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: Colors.white10,
-                      child: const Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5,
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => const Icon(
+                    errorBuilder: (context, error, stackTrace) => const Icon(
                       Icons.wallpaper,
                       size: 40,
                       color: Colors.cyan,
@@ -2575,10 +2591,10 @@ class _ProfilePageState extends State<ProfilePage> {
                           'diamonds': FieldValue.increment(-itemPrice),
                         });
 
-                        // ২. ব্যাকপ্যাকে ওয়ালপেপার যোগ করা
+                        // ২. ব্যাকপ্যাকে ওয়ালপেপার যোগ করা (লোকাল অ্যাসেট পাথ সহ)
                         batch.set(backpackRef, {
                           'name': item['name'],
-                          'url': url,
+                          'url': assetPath,
                           'expiryDate': Timestamp.fromDate(expiry),
                           'isPicked': true,
                         });
@@ -2588,7 +2604,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         setState(() {
                           diamonds -= itemPrice;
                           profileWallpaper =
-                              url; // কেনার সাথে সাথে ব্যাকগ্রাউন্ডে সেট হয়ে যাবে
+                              assetPath; // কেনার সাথে সাথে ব্যাকগ্রাউন্ডে সেট হয়ে যাবে
                         });
 
                         Navigator.pop(context);
@@ -3239,7 +3255,7 @@ class _ProfilePageState extends State<ProfilePage> {
         var myEntries = snapshot.data!.docs;
         if (myEntries.isEmpty) {
           return const Center(
-            child: Text("আপনার কোনো এন্ট্রি ইফেক্ট নেই",
+            child: Text("No Have Any Efect",
                 style: TextStyle(color: Colors.blueGrey, fontSize: 16)),
           );
         }
@@ -3396,7 +3412,7 @@ class _ProfilePageState extends State<ProfilePage> {
         var myWallpapers = snapshot.data!.docs;
         if (myWallpapers.isEmpty) {
           return const Center(
-            child: Text("আপনার কোনো ওয়ালপেপার নেই",
+            child: Text("no items",
                 style: TextStyle(color: Colors.blueGrey, fontSize: 16)),
           );
         }
@@ -3444,27 +3460,38 @@ class _ProfilePageState extends State<ProfilePage> {
                       padding: const EdgeInsets.all(8.0),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(10),
-                        child: CachedNetworkImage(
-                          imageUrl: url,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            color: Colors.white10,
-                            child: const Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.5,
-                                  color: Colors.white70,
+                        child: url.startsWith('http')
+                            ? CachedNetworkImage(
+                                imageUrl: url,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => Container(
+                                  color: Colors.white10,
+                                  child: const Center(
+                                    child: SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.5,
+                                        color: Colors.white70,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                errorWidget: (context, url, error) =>
+                                    const Icon(
+                                  Icons.broken_image,
+                                  color: Colors.grey,
+                                ),
+                              )
+                            : Image.asset(
+                                url,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const Icon(
+                                  Icons.broken_image,
+                                  color: Colors.grey,
                                 ),
                               ),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => const Icon(
-                            Icons.broken_image,
-                            color: Colors.grey,
-                          ),
-                        ),
                       ),
                     ),
                   ),
@@ -3499,7 +3526,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         onPressed: () async {
                           String newUrl = isPicked ? "" : url;
 
-                          // ফায়ারস্টোরে প্রোফাইল ওয়ালপেপার আপডেট
+                          // ফায়ারস্টোরে প্রোফাইল ওয়ালপেপার আপডেট
                           await FirebaseFirestore.instance
                               .collection('users')
                               .doc(uIDValue)
@@ -4077,7 +4104,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   .white, // ওপরের দিকে ওয়ালপেপার ফুল ব্রাইট থাকবে
                               Colors.white, // মিডল পর্যন্ত ঠিক থাকবে
                               Colors
-                                  .transparent, // নিচের দিকে আস্তে আস্তে মিলিয়ে যাবে
+                                  .transparent, // নিচের দিকে আস্তে আস্তে মিলিয়ে যাবে
                             ],
                             stops: const [
                               0.0,
@@ -4087,22 +4114,31 @@ class _ProfilePageState extends State<ProfilePage> {
                           ).createShader(rect);
                         },
                         blendMode: BlendMode.dstIn,
-                        child: CachedNetworkImage(
-                          imageUrl: profileWallpaper,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => CustomPaint(
-                            painter: RainbowCascadePainter(),
-                          ),
-                          errorWidget: (context, url, error) => CustomPaint(
-                            painter: RainbowCascadePainter(),
-                          ),
-                        ),
+                        child: profileWallpaper.startsWith('http')
+                            ? CachedNetworkImage(
+                                imageUrl: profileWallpaper,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => CustomPaint(
+                                  painter: RainbowCascadePainter(),
+                                ),
+                                errorWidget: (context, url, error) =>
+                                    CustomPaint(
+                                  painter: RainbowCascadePainter(),
+                                ),
+                              )
+                            : Image.asset(
+                                profileWallpaper,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    CustomPaint(
+                                  painter: RainbowCascadePainter(),
+                                ),
+                              ),
                       )
                     : CustomPaint(
                         painter: RainbowCascadePainter(),
                       ),
               ),
-
               SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 child: Column(
@@ -5025,9 +5061,6 @@ class _ProfilePageState extends State<ProfilePage> {
       currentId = FirebaseAuth.instance.currentUser?.uid ?? '';
     }
 
-    const String soulmateCardUrl =
-        "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/soulmatecard.jpg";
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -5061,9 +5094,9 @@ class _ProfilePageState extends State<ProfilePage> {
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3, // এক লাইনে ৩টি কার্ড
                 childAspectRatio:
-                    0.68, // ওভারফ্লো রোধ করতে উচ্চতা কিছুটা বাড়ানো হলো
+                    0.68, // ওভারফ্লো রোধ করতে উচ্চতা কিছুটা বাড়ানো হলো
                 crossAxisSpacing: 8,
-                mainAxisSpacing: 12, // লাইনের মাঝের গ্যাপ বাড়িয়ে দেওয়া হলো
+                mainAxisSpacing: 12, // লাইনের মাঝের গ্যাপ বাড়িয়ে দেওয়া হলো
               ),
               itemCount: 6, // সবসময় ৬টি ঘর
               itemBuilder: (context, index) {
@@ -5073,7 +5106,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     image: const DecorationImage(
-                      image: CachedNetworkImageProvider(soulmateCardUrl),
+                      image: AssetImage("assets/images/soulmatecard.webp"),
                       fit: BoxFit.fill,
                     ),
                   ),
@@ -5088,47 +5121,6 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         const SizedBox(height: 20),
       ],
-    );
-  }
-
-// ✨ নিখুঁত, হালকা ও স্মুথ শিমার শাইনিং ইফেক্ট উইজেট
-  Widget _buildShiningBadgeWrapper(Widget child) {
-    return SizedBox(
-      width: 45,
-      height: 45,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          child,
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Shimmer.fromColors(
-                baseColor: Colors.white.withOpacity(0.05),
-                highlightColor: Colors.white
-                    .withOpacity(0.85), // খুব বেশি কড়া নয়, একদম ন্যাচারাল
-                period: const Duration(
-                    milliseconds:
-                        2200), // গতি একটু ধীর করা হয়েছে যাতে স্মুথ লাগে
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withOpacity(0.05),
-                        Colors.amberAccent
-                            .withOpacity(0.25), // হালকা সোনালী আভা
-                        Colors.white.withOpacity(0.4),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
