@@ -256,401 +256,341 @@ class _RoomListPageState extends State<RoomListPage>
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F0C29),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0F0C29),
-        elevation: 0,
-        centerTitle: true,
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: Colors.transparent,
+    body: Stack(
+      children: [
+        // 🔥 ১. একদম নিচে পুরো স্ক্রিন জুড়ে অ্যাসেট ওয়ালপেপার ইমেজ (অ্যাপবার সহ পুরো পেইজে থাকবে)
+        Positioned.fill(
+          child: Image.asset(
+            'assets/images/roomlistnew.webp', // আপনার অ্যাসেট পাথ
+            fit: BoxFit.cover,
+          ),
+        ),
 
-        // 🛠️ [কাস্টমাইজেশন - সাইজ]: ৩টি বড় চারকোনা ফ্রেম অবতার সমানভাবে ধরার জন্য leadingWidth ঠিক করা হয়েছে
-        leadingWidth: 145,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 8.0, top: 4, bottom: 4),
-          child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('users')
-                .where('isOnline', isEqualTo: true)
-                .snapshots(),
-            builder: (context, snapshot) {
-              List<String> avatarUrls = [];
-              if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                for (var doc in snapshot.data!.docs) {
-                  var data = doc.data() as Map<String, dynamic>;
-                  if (data['profilePic'] != null &&
-                      data['profilePic'].toString().isNotEmpty) {
-                    avatarUrls.add(data['profilePic']);
-                  }
-                }
-              }
+        // ২. মূল লেআউট (AppBar এবং Body একসাথে সাজানো যাতে কোনো লেআউট ত্রুটি বা কালো স্ক্রিন না আসে)
+        SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              // কাস্টম AppBar-এর বিকল্প Container ডিজাইন (যাতে লেআউট সাইজ নিয়ে কোনো সমস্যা না হয়)
+              Container(
+                padding: const EdgeInsets.only(top: 4, bottom: 4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // উপরের মেইন রো (Leading, Title, Actions)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // বাম দিকের অনলাইন ইউজারদের ৩টি ফ্রেম অবতার
+                        SizedBox(
+                          width: 145,
+                          height: 42,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 8.0),
+                            child: StreamBuilder<QuerySnapshot>(
+                              stream: FirebaseFirestore.instance
+                                  .collection('users')
+                                  .where('isOnline', isEqualTo: true)
+                                  .snapshots(),
+                              builder: (context, snapshot) {
+                                List<String> avatarUrls = [];
+                                if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                                  for (var doc in snapshot.data!.docs) {
+                                    var data = doc.data() as Map<String, dynamic>;
+                                    if (data['profilePic'] != null &&
+                                        data['profilePic'].toString().isNotEmpty) {
+                                      avatarUrls.add(data['profilePic']);
+                                    }
+                                  }
+                                }
 
-              // পর্যাপ্ত ইউজার না থাকলে রেন্ডম ফলব্যাক অবতার
-              List<String> fallbackAvatars = [
-                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
-                'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
-                'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
-                'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100',
-              ];
+                                List<String> fallbackAvatars = [
+                                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
+                                  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
+                                  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
+                                  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100',
+                                ];
 
-              if (avatarUrls.length < 3) {
-                avatarUrls.addAll(fallbackAvatars);
-              }
+                                if (avatarUrls.length < 3) {
+                                  avatarUrls.addAll(fallbackAvatars);
+                                }
 
-              avatarUrls.shuffle();
-              List<String> displayAvatars = avatarUrls.take(3).toList();
+                                avatarUrls.shuffle();
+                                List<String> displayAvatars = avatarUrls.take(3).toList();
 
-              // Row ব্যবহার করে সমান গ্যাপে ৩টি বড় চারকোনা ফ্রেম অবতার দেখানো হচ্ছে
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: displayAvatars.map((url) {
-                  return Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      // 🛠️ [কাস্টমাইজেশন - চারকোনা ফ্রেম]: এখানে বর্ডার রেডিয়াস পরিবর্তন করতে পারবেন
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: Colors.cyanAccent.withOpacity(0.9),
-                          width: 1.5),
-                      // 🛠️ [কাস্টমাইজেশন - পানির মতো রিপেল ইফেক্ট]: মাল্টি লেয়ার শ্যাডো দিয়ে পানির মতো গ্লো তৈরি করা হয়েছে
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.cyanAccent.withOpacity(0.6),
-                          blurRadius: 10,
-                          spreadRadius: 2,
-                        ),
-                        BoxShadow(
-                          color: Colors.blueAccent.withOpacity(0.3),
-                          blurRadius: 16,
-                          spreadRadius: 4,
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(9),
-                      // 🔥 ক্যাশড নেটওয়ার্ক ইমেজ ব্যবহার করা হলো
-                      child: CachedNetworkImage(
-                        imageUrl: url,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          color: Colors.white12,
-                          child: const Center(
-                            child: SizedBox(
-                              width: 12,
-                              height: 12,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 1.5, color: Colors.cyanAccent),
+                                return Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  children: displayAvatars.map((url) {
+                                    return Container(
+                                      width: 38,
+                                      height: 38,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                            color: Colors.cyanAccent.withOpacity(0.9),
+                                            width: 1.5),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.cyanAccent.withOpacity(0.6),
+                                            blurRadius: 10,
+                                            spreadRadius: 2,
+                                          ),
+                                          BoxShadow(
+                                            color: Colors.blueAccent.withOpacity(0.3),
+                                            blurRadius: 16,
+                                            spreadRadius: 4,
+                                          ),
+                                        ],
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(9),
+                                        child: CachedNetworkImage(
+                                          imageUrl: url,
+                                          fit: BoxFit.cover,
+                                          placeholder: (context, url) => Container(
+                                            color: Colors.white12,
+                                            child: const Center(
+                                              child: SizedBox(
+                                                width: 12,
+                                                height: 12,
+                                                child: CircularProgressIndicator(
+                                                    strokeWidth: 1.5,
+                                                    color: Colors.cyanAccent),
+                                              ),
+                                            ),
+                                          ),
+                                          errorWidget: (context, url, error) =>
+                                              const Icon(Icons.person,
+                                                  color: Colors.white, size: 20),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                );
+                              },
                             ),
                           ),
                         ),
-                        errorWidget: (context, url, error) => const Icon(
-                            Icons.person,
-                            color: Colors.white,
-                            size: 20),
+
+                        // মাঝখানের সার্চ বক্স
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                            child: GestureDetector(
+                              onTap: () {
+                                _showSearchDialog(context);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(25),
+                                  color: Colors.white.withOpacity(0.08),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.2),
+                                    width: 1.2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.cyanAccent.withOpacity(0.1),
+                                      blurRadius: 8,
+                                      spreadRadius: 0.5,
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: const [
+                                    Icon(Icons.search_rounded,
+                                        color: Colors.cyanAccent, size: 16),
+                                    SizedBox(width: 5),
+                                    Expanded(
+                                      child: Text(
+                                        "Search uID / Room ID",
+                                        style: TextStyle(
+                                          color: Color.fromARGB(211, 52, 206, 245),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // ডান দিকের রুম তৈরির প্লাস বাটন
+                        Padding(
+                          padding: const EdgeInsets.only(right: 12.0),
+                          child: GestureDetector(
+                            onTap: () {
+                              _showCreateRoomDialog();
+                            },
+                            child: Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Colors.white,
+                                    Colors.white.withOpacity(0.6),
+                                    Colors.grey.shade400,
+                                  ],
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.cyanAccent.withOpacity(0.4),
+                                    blurRadius: 10,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              padding: const EdgeInsets.all(2.5),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Color(0xFF8E2DE2),
+                                      Color(0xFF4A00E0),
+                                      Color(0xFF00C6FF),
+                                    ],
+                                  ),
+                                ),
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.home_rounded,
+                                      color: Colors.white70,
+                                      size: 22,
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.black.withOpacity(0.3),
+                                      ),
+                                      child: const Icon(
+                                        Icons.add,
+                                        color: Colors.cyanAccent,
+                                        size: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    // নিচের ট্যাব বার (Live Room, Following, My Room)
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      padding: const EdgeInsets.all(4),
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.12),
+                          width: 1.0,
+                        ),
                       ),
-                    ),
-                  );
-                }).toList(),
-              );
-            },
-          ),
-        ),
-
-        // 🔍 [Title]: সার্চ বক্সটি একদম কাছাকাছি এবং কম্প্যাক্ট রাখা হয়েছে
-        title: Align(
-          alignment: Alignment.centerLeft,
-          child: GestureDetector(
-            onTap: () {
-              _showSearchDialog(context);
-            },
-            child: Container(
-              // 🛠️ [কাস্টমাইজেশন - সার্চ বক্সের সাইজ]: এখান থেকে প্যাডিং কন্ট্রোল করতে পারবেন
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(25),
-                color: Colors.white.withOpacity(0.08),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
-                  width: 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.cyanAccent.withOpacity(0.1),
-                    blurRadius: 8,
-                    spreadRadius: 0.5,
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.search_rounded,
-                      color: Colors.cyanAccent, size: 16),
-                  SizedBox(width: 5),
-                  Text(
-                    "Search uID / Room ID",
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-
-        // ➕ [Actions]: ডান কোণায় রিয়েল-টাইপ গ্লসি হোম এবং প্লাস বাটনযুক্ত রুম তৈরির বাটন
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12.0),
-            child: GestureDetector(
-              onTap: () {
-                _showCreateRoomDialog(); // রুম তৈরির ডায়ালগ কল করবে
-              },
-              child: Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white,
-                      Colors.white.withOpacity(0.6),
-                      Colors.grey.shade400,
-                    ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.cyanAccent.withOpacity(0.4),
-                      blurRadius: 10,
-                      spreadRadius: 2,
+                      child: TabBar(
+                        controller: _tabController,
+                        indicator: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Colors.purpleAccent, Colors.cyanAccent],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(25),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.purpleAccent.withOpacity(0.4),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        labelColor: Colors.black,
+                        unselectedLabelColor: Colors.white70,
+                        labelStyle: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                        unselectedLabelStyle: const TextStyle(
+                          fontWeight: FontWeight.normal,
+                          fontSize: 13,
+                        ),
+                        tabs: const [
+                          Tab(
+                            child: Align(
+                              alignment: Alignment.center,
+                              child: Text("Live Room"),
+                            ),
+                          ),
+                          Tab(
+                            child: Align(
+                              alignment: Alignment.center,
+                              child: Text("Following"),
+                            ),
+                          ),
+                          Tab(
+                            child: Align(
+                              alignment: Alignment.center,
+                              child: Text("My Room"),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-                padding: const EdgeInsets.all(2.5),
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Color(0xFF8E2DE2),
-                        Color(0xFF4A00E0),
-                        Color(0xFF00C6FF),
-                      ],
+              ),
+
+              // বডির বাকি অংশ (Banner, Spenders, TabBarView)
+              Expanded(
+                child: Column(
+                  children: [
+                    _buildBanner(),
+                    _buildTopSpendersSection(),
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildLiveRoomList(),
+                          _buildFollowingRoomList(currentLoggedInUID),
+                          _buildMyRoomList(),
+                        ],
+                      ),
                     ),
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      const Icon(
-                        Icons.home_rounded,
-                        color: Colors.white70,
-                        size: 22,
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.black.withOpacity(0.3),
-                        ),
-                        child: const Icon(
-                          Icons.add,
-                          color: Colors.cyanAccent,
-                          size: 14,
-                        ),
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
-            ),
-          ),
-        ],
-
-        // 📏 [ট্যাব বার ও প্রিমিয়াম গ্লাস লুক]:
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(54),
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color:
-                  Colors.white.withOpacity(0.06), // হালকা গ্লাস ব্যাকগ্রাউন্ড
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.12),
-                width: 1.0,
-              ),
-            ),
-            child: TabBar(
-              controller: _tabController,
-              // ডিফল্ট লাইন ইন্ডিকেটর বাদ দিয়ে ফুল ট্যাব ব্যাকগ্রাউন্ড ইন্ডিকেটর করা হয়েছে
-              indicator: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Colors.purpleAccent, Colors.cyanAccent],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(25),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.purpleAccent.withOpacity(0.4),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-              labelColor: Colors
-                  .black, // সিলেক্টেড টেক্সট কালার (বোল্ড ও স্পষ্ট দেখাবে)
-              unselectedLabelColor: Colors.white70,
-              labelStyle: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-              unselectedLabelStyle: const TextStyle(
-                fontWeight: FontWeight.normal,
-                fontSize: 13,
-              ),
-              tabs: const [
-                Tab(
-                  child: Align(
-                    alignment: Alignment.center,
-                    child: Text("Live Room"),
-                  ),
-                ),
-                Tab(
-                  child: Align(
-                    alignment: Alignment.center,
-                    child: Text("Following"),
-                  ),
-                ),
-                Tab(
-                  child: Align(
-                    alignment: Alignment.center,
-                    child: Text("My Room"),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-
-      // ফুল স্ক্রিন ব্যাকগ্রাউন্ড থিম (অ্যাপবার থেকে শুরু করে নিচ পর্যন্ত এক সমান গ্রেডিয়েন্ট)
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F0C29),
-              Color(0xFF302B63),
-              Color(0xFF24243E),
             ],
           ),
         ),
-        child: Stack(
-          children: [
-            // ১. নেবুলা ইফেক্ট
-            Positioned(
-              top: -100,
-              right: -50,
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.purple.withOpacity(0.2),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.purpleAccent.withOpacity(0.1),
-                        blurRadius: 100,
-                        spreadRadius: 50)
-                  ],
-                ),
-              ),
-            ),
-
-            // ২. গ্যালাক্সি তারা (Glowing Stars)
-            ...List.generate(50, (index) {
-              double size = Random().nextDouble() * 2.5;
-              return Positioned(
-                top: Random().nextDouble() * MediaQuery.of(context).size.height,
-                left: Random().nextDouble() * MediaQuery.of(context).size.width,
-                child: Container(
-                  width: size,
-                  height: size,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(Random().nextDouble()),
-                    boxShadow: [
-                      BoxShadow(
-                        color: index % 7 == 0
-                            ? Colors.purpleAccent
-                            : Colors.white70,
-                        blurRadius: index % 10 == 0 ? 4 : 0,
-                        spreadRadius: 0.5,
-                      )
-                    ],
-                  ),
-                ),
-              );
-            }),
-
-            // ৩. আলোর বৃষ্টি (Light Strings)
-            ...List.generate(
-                12,
-                (index) => Positioned(
-                      top: -10,
-                      left: (index * 45.0) % MediaQuery.of(context).size.width,
-                      child: Container(
-                        width: 1.2,
-                        height: 100 + (index * 15.0),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.blueAccent.withOpacity(0.3),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
-                      ),
-                    )),
-
-            // মেইন কন্টেন্ট লেয়ার
-            Column(
-              children: [
-                _buildBanner(),
-                _buildTopSpendersSection(),
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildLiveRoomList(),
-                      _buildFollowingRoomList(currentLoggedInUID),
-                      _buildMyRoomList(),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
+      ],
+    ),
+  );
+}
 // সাহায্যকারী সার্চ ডায়ালগ বা মেথড
   void _showSearchDialog(BuildContext context) {
     SearchHelper.showSearchDialog(context);

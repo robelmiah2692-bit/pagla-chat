@@ -9,26 +9,26 @@ final List<Map<String, dynamic>> romanticGifts = [
 },
   
   {
-    "id": "ring_21500", 
-    "name": "Classic Gold Band", 
-    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring_2500.png", 
-    "price": 21500, 
+    "id": "ring_26500", 
+    "name": "rings1", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/rings1.webp", 
+    "price": 26500, 
     "type": "marriage_ring"
   },
   
   
   {
-    "id": "ring_37400", 
-    "name": "Golden Diamond Stud", 
-    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring_3000.png", 
-    "price": 37400, 
+    "id": "ring_38500", 
+    "name": "rings2", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/rings2.webp", 
+    "price": 38500, 
     "type": "marriage_ring"
   },
   {
-    "id": "ring_57500", 
-    "name": "Royal Leaf Ring", 
-    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring_3500.png", 
-    "price": 57500, 
+    "id": "ring_45500", 
+    "name": "rings3", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/rings3.webp", 
+    "price": 45500, 
     "type": "marriage_ring"
   },
   
@@ -119,58 +119,58 @@ final List<Map<String, dynamic>> romanticGifts = [
   
   {
     "id": "ring_76400", 
-    "name": "Imperial Filigree", 
-    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring_4200.png", 
+    "name": "rings4", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/rings4.webp", 
     "price": 76400, 
     "type": "marriage_ring"
   },
   {
-    "id": "ring_150000", 
-    "name": "Black Gold Majesty", 
-    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring_150000.png", 
-    "price": 150000, 
+    "id": "ring_145000", 
+    "name": "Ringsb1", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/Ringsb1.webp", 
+    "price": 145000, 
     "type": "marriage_ring"
   },
   {
     "id": "ring_160000", 
-    "name": "Double Royal Band", 
-    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring_160000.png", 
+    "name": "Ringsb2", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/Ringsb2.webp", 
     "price": 160000, 
     "type": "marriage_ring"
   },
   {
     "id": "ring_180000", 
-    "name": "Ornate Golden Heirloom", 
-    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring_180000.png", 
+    "name": "Ringsb3", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/Ringsb3.webp", 
     "price": 180000, 
     "type": "marriage_ring"
   },
   {
     "id": "ring_200000", 
-    "name": "Eternal Crown Diamond", 
-    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring_200000.png", 
+    "name": "Ringsb4", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/Ringsb4.webp", 
     "price": 200000, 
     "type": "marriage_ring"
   },
    
 {
     "id": "ring_220000", 
-    "name": "Classic Daimond Band", 
-    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ringdj.png", 
+    "name": "Ringsb5", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/Ringsb5.webp", 
     "price": 220000, 
     "type": "marriage_ring"
   },
 {
     "id": "ring_250500", 
-    "name": "Classic life Band", 
-    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ringking.png", 
+    "name": "Ringsb6", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/Ringsb6.webp", 
     "price": 250500, 
     "type": "marriage_ring"
   },
 {
     "id": "ring_270500", 
-    "name": "Classic king Band", 
-    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/ringpop.png", 
+    "name": "Ringsb7", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/Ringsb7.webp", 
     "price": 270500, 
     "type": "marriage_ring"
   },
@@ -199,7 +199,36 @@ final List<Map<String, dynamic>> romanticGifts = [
     "id": "ring_380500", 
     "name": "loveBand", 
     "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/love.webp", 
-    "price": 410500, 
+    "price": 380500, 
     "type": "marriage_ring"
   },
+{
+    "id": "ring_310300", 
+    "name": "paglach_at_marriage_ring", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/paglach_at_marriage_ring.webp", 
+    "price": 310300, 
+    "type": "marriage_ring"
+  },
+{
+    "id": "ring_250300", 
+    "name": "ring/Jeweledring", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/Jeweledring.webp", 
+    "price": 250300, 
+    "type": "marriage_ring"
+  },
+{
+    "id": "ring_350300", 
+    "name": "ring/Ornate_ring", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/Ornate_ring.webp", 
+    "price": 350300, 
+    "type": "marriage_ring"
+  },
+{
+    "id": "ring_333300", 
+    "name": "ring/Ornatering", 
+    "icon": "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/ring/Ornatering.webp", 
+    "price": 350300, 
+    "type": "marriage_ring"
+  },
+
 ];

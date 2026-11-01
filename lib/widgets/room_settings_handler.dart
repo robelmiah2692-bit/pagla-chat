@@ -399,6 +399,21 @@ class RoomSettingsHandler {
         'price': 5000,
       },
       {
+        'name': 'nightking',
+        'url': 'assets/images/homewallpepar.webp',
+        'price': 15000,
+      },
+      {
+        'name': 'dreemking',
+        'url': 'assets/images/roomlistnew.webp',
+        'price': 25000,
+      },
+      {
+        'name': 'dreemrose',
+        'url': 'assets/images/roomlistwallpaper.webp',
+        'price': 28000,
+      },
+      {
         'name': 'Sher Queen',
         'url': 'assets/images/shherqwin.webp',
         'price': 120000,

@@ -12,10 +12,7 @@ class HomeBanner extends StatefulWidget {
 
 class _HomeBannerState extends State<HomeBanner> {
   final List<String> _bannerList = [
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/homebenar2.jpg",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/homebenar1.jpg",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/homebenar3.jpg",
-    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/officialbenar.jpg",
+    "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/video_clear.webp",
   ];
 
   int _currentBannerIndex = 0;
@@ -28,7 +25,8 @@ class _HomeBannerState extends State<HomeBanner> {
       _bannerTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
         if (mounted) {
           setState(() {
-            _currentBannerIndex = (_currentBannerIndex + 1) % _bannerList.length;
+            _currentBannerIndex =
+                (_currentBannerIndex + 1) % _bannerList.length;
           });
         }
       });
@@ -88,7 +86,8 @@ class _HomeBannerState extends State<HomeBanner> {
                 }
 
                 // ফ্লিকারিং বা কাপাকাপি রোধ করতে ডার্ট কোড দিয়ে লেটেস্ট ইউজার আগে সাজানো হলো
-                final onlineDocs = List<QueryDocumentSnapshot>.from(userSnapshot.data!.docs);
+                final onlineDocs =
+                    List<QueryDocumentSnapshot>.from(userSnapshot.data!.docs);
                 onlineDocs.sort((a, b) {
                   final aData = a.data() as Map<String, dynamic>;
                   final bData = b.data() as Map<String, dynamic>;
@@ -97,10 +96,15 @@ class _HomeBannerState extends State<HomeBanner> {
                   return bTime.toString().compareTo(aTime.toString());
                 });
 
-                final int displayCount = onlineDocs.length > 4 ? 4 : onlineDocs.length;
+                // 🔥 ৪ এর জায়গায় ৬ জন বাড়িয়ে দেওয়া হলো (আপনার ইচ্ছামতো ৫ বা ৬ দিতে পারেন)
+                const int maxUserToShow = 6;
+                final int displayCount = onlineDocs.length > maxUserToShow
+                    ? maxUserToShow
+                    : onlineDocs.length;
 
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(30),
@@ -115,23 +119,29 @@ class _HomeBannerState extends State<HomeBanner> {
                         child: Stack(
                           clipBehavior: Clip.none,
                           children: List.generate(displayCount, (index) {
-                            final uData = onlineDocs[index].data() as Map<String, dynamic>;
-                            final userPic = uData['profilePic'] ?? uData['userImage'] ?? '';
+                            final uData = onlineDocs[index].data()
+                                as Map<String, dynamic>;
+                            final userPic =
+                                uData['profilePic'] ?? uData['userImage'] ?? '';
 
                             return Positioned(
                               left: index * 16.0,
                               child: Container(
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.pinkAccent, width: 1.5),
+                                  border: Border.all(
+                                      color: Colors.pinkAccent, width: 1.5),
                                 ),
                                 child: CircleAvatar(
                                   radius: 12,
-                                  backgroundColor: Colors.black.withOpacity(0.34),
+                                  backgroundColor:
+                                      Colors.black.withOpacity(0.34),
                                   child: userPic.isEmpty
-                                      ? const Icon(Icons.person, size: 12, color: Colors.white)
+                                      ? const Icon(Icons.person,
+                                          size: 12, color: Colors.white)
                                       : ClipRRect(
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                           child: CachedNetworkImage(
                                             imageUrl: userPic,
                                             width: 24,
@@ -142,8 +152,12 @@ class _HomeBannerState extends State<HomeBanner> {
                                             memCacheHeight: 60,
                                             fadeInDuration: Duration.zero,
                                             fadeOutDuration: Duration.zero,
-                                            placeholder: (context, url) => const SizedBox(),
-                                            errorWidget: (c, e, s) => const Icon(Icons.person, size: 12, color: Colors.white),
+                                            placeholder: (context, url) =>
+                                                const SizedBox(),
+                                            errorWidget: (c, e, s) =>
+                                                const Icon(Icons.person,
+                                                    size: 12,
+                                                    color: Colors.white),
                                           ),
                                         ),
                                 ),
@@ -163,12 +177,17 @@ class _HomeBannerState extends State<HomeBanner> {
                               color: Colors.cyanAccent,
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              shadows: [Shadow(color: Colors.cyan, blurRadius: 4)],
+                              shadows: [
+                                Shadow(color: Colors.cyan, blurRadius: 4)
+                              ],
                             ),
                           ),
                           const Text(
-                            "VIEWERS ONLINE",
-                            style: TextStyle(color: Colors.white70, fontSize: 7, fontWeight: FontWeight.bold),
+                            "ONLINE",
+                            style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 7,
+                                fontWeight: FontWeight.bold),
                           ),
                         ],
                       )

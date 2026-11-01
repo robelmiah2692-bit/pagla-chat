@@ -4,9 +4,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pagla_chat/app_update_manager.dart';
 import 'package:pagla_chat/device_service.dart';
 import 'package:pagla_chat/reels_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'auth_service.dart';
 import 'package:pagla_chat/services/notification_service.dart';
@@ -176,6 +178,8 @@ class CosmicBackground extends StatelessWidget {
   }
 }
 
+
+
 // --- স্প্ল্যাশ স্ক্রিন ---
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -185,43 +189,165 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  bool _isCheckingUpdate = true;
+
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(seconds: 3), () async {
-      if (!mounted) return;
+    _initializeApp();
+  }
 
-      User? user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        var userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .where('email', isEqualTo: user.email)
-            .limit(1)
-            .get();
+  // ফায়ারস্টোর থেকে ভার্সন চেক এবং সিকোয়েন্স মেইনটেইন করার ফাংশন
+  Future<void> _initializeApp() async {
+    await Future.delayed(const Duration(seconds: 2));
 
-        if (userDoc.docs.isNotEmpty) {
-          // AppData.myID = userDoc.docs.first.id;
+    if (!mounted) return;
+
+    bool updateNeeded = await _checkVersionAndForceUpdate();
+
+    if (!updateNeeded && mounted) {
+      _proceedWithNavigation();
+    }
+  }
+
+  // ১. ভার্সন চেক করার লজিক
+  Future<bool> _checkVersionAndForceUpdate() async {
+    try {
+      PackageInfo packageInfo = await PackageInfo.fromPlatform();
+      String currentVersion = packageInfo.version;
+
+      DocumentSnapshot versionDoc = await FirebaseFirestore.instance
+          .collection('app_settings')
+          .doc('version_control')
+          .get();
+
+      if (versionDoc.exists) {
+        var data = versionDoc.data() as Map<String, dynamic>;
+        String latestVersion = data['latest_version'] ?? "1.0.0";
+        bool isForceUpdate = data['is_force_update'] ?? false;
+
+        if (_isVersionLessThan(currentVersion, latestVersion)) {
           if (mounted) {
-            Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const MainNavigation()));
+            setState(() {
+              _isCheckingUpdate = false;
+            });
+            _showUpdateDialog(isForceUpdate);
+            return true;
           }
-        } else {
-          if (mounted) {
-            Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const CreateProfilePage()));
-          }
+        }
+      }
+    } catch (e) {
+      // Error handling without print
+    }
+    return false;
+  }
+
+  // ২. ভার্সন নাম্বার তুলনা করার ফাংশন
+  bool _isVersionLessThan(String current, String latest) {
+    List<String> currentParts = current.split('.');
+    List<String> latestParts = latest.split('.');
+
+    for (int i = 0; i < 3; i++) {
+      int c = i < currentParts.length ? int.tryParse(currentParts[i]) ?? 0 : 0;
+      int l = i < latestParts.length ? int.tryParse(latestParts[i]) ?? 0 : 0;
+
+      if (c < l) return true;
+      if (c > l) return false;
+    }
+    return false;
+  }
+
+  // ৩. আপডেট পপআপ ডায়ালগ (ইংরেজি টেক্সটসহ)
+  void _showUpdateDialog(bool isForceUpdate) {
+    showDialog(
+      context: context,
+      barrierDismissible: !isForceUpdate,
+      builder: (BuildContext context) {
+        return WillPopScope(
+          onWillPop: () async => !isForceUpdate,
+          child: AlertDialog(
+            backgroundColor: const Color(0xFF1E1E2C),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: const BorderSide(color: Colors.cyanAccent, width: 1),
+            ),
+            title: const Text(
+              "🚀 New Update Available!",
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            content: const Text(
+              "A new and improved version of our app is available on the Play Store. Please update the app for the best experience.",
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            actions: [
+              if (!isForceUpdate)
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _proceedWithNavigation();
+                  },
+                  child: const Text("Later", style: TextStyle(color: Colors.grey)),
+                ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.cyanAccent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () async {
+                  final Uri url = Uri.parse(
+                    "https://play.google.com/store/apps/details?id=com.pagla.chat&pcampaignid=web_share",
+                  );
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  }
+                },
+                child: const Text(
+                  "Update Now",
+                  style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ৪. ইউজার লগইন স্ট্যাটাস চেক করে নির্দিষ্ট পেজে নিয়ে যাওয়ার লজিক
+  void _proceedWithNavigation() async {
+    if (!mounted) return;
+
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      var userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: user.email)
+          .limit(1)
+          .get();
+
+      if (userDoc.docs.isNotEmpty) {
+        if (mounted) {
+          Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const MainNavigation()));
         }
       } else {
         if (mounted) {
-          Navigator.pushReplacement(context,
-              MaterialPageRoute(builder: (context) => const LoginScreen()));
+          Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const CreateProfilePage()));
         }
       }
-    });
+    } else {
+      if (mounted) {
+        Navigator.pushReplacement(context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()));
+      }
+    }
   }
 
   @override
@@ -233,22 +359,18 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        // আপনার অ্যাসেট থেকে ব্যাকগ্রাউন্ড ওয়ালপেপার সেট করা হলো
         decoration: const BoxDecoration(
           image: DecorationImage(
-            image: AssetImage(
-                'assets/images/game_bg.webp'), // আপনার ব্যাকগ্রাউন্ড ইমেজের পাথ এখানে দিন
+            image: AssetImage('assets/images/game_bg.webp'),
             fit: BoxFit.cover,
           ),
         ),
         child: Stack(
           children: [
-            // আসল লোগো, স্টাইলিশ গ্রেডিয়েন্ট টেক্সট এবং লোডার ঠিক মাঝখানে
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // লোগো ইমেজ
                   Image.asset(
                     'assets/logo.png',
                     width: logoSize,
@@ -256,15 +378,13 @@ class _SplashScreenState extends State<SplashScreen> {
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 20),
-
-                  // লোগোর সাথে ম্যাচিং করা স্টাইলিশ গ্রেডিয়েন্ট টেক্সট
                   ShaderMask(
                     shaderCallback: (bounds) => const LinearGradient(
                       colors: [
-                        Color(0xFFFFD700), // ব্রাইট গোল্ডেন (Pagla অংশের জন্য)
-                        Color(0xFFFFA500), // ডিপ গোল্ড
-                        Color(0xFFFF007F), // নিয়ন পিংক/ম্যাজেন্টা
-                        Color(0xFF00FFFF), // সায়ান/ব্লু (Chat অংশের জন্য)
+                        Color(0xFFFFD700),
+                        Color(0xFFFFA500),
+                        Color(0xFFFF007F),
+                        Color(0xFF00FFFF),
                       ],
                       stops: [0.0, 0.4, 0.7, 1.0],
                       begin: Alignment.topLeft,
@@ -277,8 +397,7 @@ class _SplashScreenState extends State<SplashScreen> {
                         fontSize: 26,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 4,
-                        color: Colors
-                            .white, // ShaderMask কাজ করার জন্য হোয়াইট থাকতে হবে
+                        color: Colors.white,
                         shadows: [
                           Shadow(
                             color: Colors.black54,
@@ -289,10 +408,7 @@ class _SplashScreenState extends State<SplashScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 8),
-
-                  // সাবটাইটেল
                   const Text(
                     "LIVE VOICE CHAT",
                     style: TextStyle(
@@ -302,7 +418,6 @@ class _SplashScreenState extends State<SplashScreen> {
                       color: Colors.white70,
                     ),
                   ),
-
                   const SizedBox(height: 25),
                   const CircularProgressIndicator(color: Colors.cyanAccent),
                 ],
@@ -314,7 +429,6 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
-
 // --- ক্রিয়েট প্রোফাইল পেজ (ফিক্সড ডাটা লজিক) ---
 // --- প্রফাইল ক্রিয়েট পেইজ (মাল্টি-কালার গ্লোয়িং ডিজাইন ও আগের সব লজিকসহ) ---
 class CreateProfilePage extends StatefulWidget {
