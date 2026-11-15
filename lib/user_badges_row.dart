@@ -9,7 +9,7 @@ class UserBadgesRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ইউজার আইডি খালি থাকলে কোনো জায়গা নেবে না (0 size)
+    // ইউজার আইডি খালি থাকলে কোনো জায়গা নেবে না (0 size)
     if (userId.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -21,7 +21,7 @@ class UserBadgesRow extends StatelessWidget {
             .doc(userId)
             .get(const GetOptions(source: Source.serverAndCache)),
         builder: (context, snapshot) {
-          // লোডিং বা ডেটা না থাকলে কোনো জায়গা বা ফাকা স্পেস নেবে না
+          // লোডিং বা ডেটা না থাকলে কোনো জায়গা বা ফাকা স্পেস নেবে না
           if (snapshot.connectionState == ConnectionState.waiting ||
               !snapshot.hasData ||
               !snapshot.data!.exists ||
@@ -39,8 +39,10 @@ class UserBadgesRow extends StatelessWidget {
           bool isAgency =
               (userData['isAgency'] == true) || (userData['isAgent'] == true);
 
-          // নতুন ব্যাজগুলোর জন্য ডেটা চেক
+          // নতুন ও ভলেন্টিয়ার ব্যাজগুলোর জন্য ডেটা চেক
           bool isSuperHost = userData['isSuperHost'] == true;
+          bool isVolunteer = (userData['isVolunteer'] == true) ||
+              (userData['role'] == 'volunteer');
           bool isLovelyCouple =
               userData['isMarried'] == true || userData['lovelyCouple'] == true;
 
@@ -54,9 +56,9 @@ class UserBadgesRow extends StatelessWidget {
           bool hasTeamPanel = teamPanelName.isNotEmpty;
 
           bool hasTopRow = isOfficial || isSuperAdmin || isAgency;
-          bool hasBottomRow = isSuperHost || isLovelyCouple || hasTeamPanel;
+          bool hasBottomRow = isSuperHost || isVolunteer || isLovelyCouple || hasTeamPanel;
 
-          // কোনো ব্যাজ না থাকলে ফিক্সড হাইট বাদ দিয়ে একদম শূন্য সাইজ রিটার্ন করবে, ফলে নিচের বার উপরে উঠে যাবে
+          // কোনো ব্যাজ না থাকলে ফিক্সড হাইট বাদ দিয়ে একদম শূন্য সাইজ রিটার্ন করবে, ফলে নিচের বার উপরে উঠে যাবে
           if (!hasTopRow && !hasBottomRow) {
             return const SizedBox.shrink();
           }
@@ -98,7 +100,7 @@ class UserBadgesRow extends StatelessWidget {
                     ),
                   ),
 
-                // ২. দ্বিতীয় সারি (নতুন ৩টি ভেইজ - সুপার হোস্ট, লাভলি কাপল, টিম প্যানেল)
+                // ২. দ্বিতীয় সারি (সুপার হোস্ট, ভলেন্টিয়ার, লাভলি কাপল, টিম প্যানেল)
                 if (hasBottomRow)
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -110,7 +112,13 @@ class UserBadgesRow extends StatelessWidget {
                           _buildShimmerBadge("SUPER HOST",
                               const [Colors.greenAccent, Colors.tealAccent]),
                         ],
-                        if (isSuperHost && (isLovelyCouple || hasTeamPanel))
+                        if (isSuperHost && (isVolunteer || isLovelyCouple || hasTeamPanel))
+                          const SizedBox(width: 8),
+                        if (isVolunteer) ...[
+                          _buildShimmerBadge("VOLUNTEER",
+                              const [Colors.deepPurpleAccent, Colors.indigoAccent]),
+                        ],
+                        if (isVolunteer && (isLovelyCouple || hasTeamPanel))
                           const SizedBox(width: 8),
                         if (isLovelyCouple) ...[
                           _buildShimmerBadge("LOVELY COUPLE",

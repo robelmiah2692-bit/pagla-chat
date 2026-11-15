@@ -65,11 +65,10 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
     setState(() => _isLoading = false);
   }
 
-  // 🛡️ ইউএফ ফিল্ড আপডেট করার সময় মালিকের আইডি প্রটেকশন চেক
+  // 🛡️ ইউজার ফিল্ড আপডেট করার সময় মালিকের আইডি প্রটেকশন চেক
   void _updateUserField(String targetDocId, Map<String, dynamic> updates, {String? targetUid}) async {
     // যদি টার্গেট ইউজার স্পেশাল আইডিগুলোর একটি হয়
     if (targetUid != null && specialOwnerIds.contains(targetUid)) {
-      // যদি ব্লক বা জেন্ডার বা ট্যাগ রিমুভ করার চেষ্টা করা হয়
       bool isTryingToBlock = updates.containsKey('isBlocked') && updates['isBlocked'] == true;
       bool isTryingToDeviceBlock = updates.containsKey('isDeviceBlocked') && updates['isDeviceBlocked'] == true;
       
@@ -230,6 +229,193 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
     }
   }
 
+  // 📌 সকল ব্লক করা ইউজার এবং ডিভাইস দেখার ডায়ালগ (Device Block, 24h Block বা সাধারণ Block)
+void _showBlockedUsersList(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return DefaultTabController(
+        length: 2,
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF1E1E2C),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("Blocked Management", style: TextStyle(color: Colors.redAccent, fontSize: 18)),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white70),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 450,
+            child: Column(
+              children: [
+                // ট্যাব বার (User Blocks এবং Device Blocks আলাদা দেখার জন্য)
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const TabBar(
+                    indicatorColor: Colors.redAccent,
+                    labelColor: Colors.redAccent,
+                    unselectedLabelColor: Colors.white60,
+                    tabs: [
+                      Tab(text: "User Blocks"),
+                      Tab(text: "Device Blocks"),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      // ১. ইউজার ব্লক লিস্ট (users কালেকশন থেকে)
+                      StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('users')
+                            .where('isBlocked', isEqualTo: true)
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            return const Center(child: CircularProgressIndicator(color: Colors.redAccent));
+                          }
+                          var docs = snapshot.data!.docs;
+                          if (docs.isEmpty) {
+                            return const Center(child: Text("No blocked users found.", style: TextStyle(color: Colors.white70)));
+                          }
+                          return ListView.builder(
+                            itemCount: docs.length,
+                            itemBuilder: (context, index) {
+                              var data = docs[index].data() as Map<String, dynamic>;
+                              String name = data['name'] ?? 'Unknown';
+                              String uid = data['uID'] ?? docs[index].id;
+                              bool isDeviceBlk = data['isDeviceBlocked'] ?? false;
+                              
+                              return ListTile(
+                                title: Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                subtitle: Text("UID: $uid | ${isDeviceBlk ? 'Device Blocked' : 'Normal/24h Block'}", style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+                              );
+                            },
+                          );
+                        },
+                      ),
+
+                      // ২. ডিভাইস ব্লক লিস্ট (blocked_devices কালেকশন থেকে আপনার স্ক্রিনশট অনুযায়ী)
+                      StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('blocked_devices')
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            return const Center(child: CircularProgressIndicator(color: Colors.redAccent));
+                          }
+                          var docs = snapshot.data!.docs;
+                          if (docs.isEmpty) {
+                            return const Center(child: Text("No blocked devices found.", style: TextStyle(color: Colors.white70)));
+                          }
+                          return ListView.builder(
+                            itemCount: docs.length,
+                            itemBuilder: (context, index) {
+                              var data = docs[index].data() as Map<String, dynamic>;
+                              String deviceId = docs[index].id; // ডকুমেন্টের আইডিই হলো ডিভাইস আইডি
+                              
+                              return ListTile(
+                                leading: const Icon(Icons.phone_android, color: Colors.redAccent),
+                                title: Text(deviceId, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                                subtitle: const Text("Status: Blocked Device", style: TextStyle(color: Colors.redAccent, fontSize: 11)),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Close", style: TextStyle(color: Colors.cyanAccent)),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+  // 📌 সকল ট্যাগ ইউজার লিস্ট দেখার ডায়ালগ (Official, Super Host, Super Admin, Volunteer ইত্যাদি)
+  void _showTaggedUsersList(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E1E2C),
+          title: const Text("Tagged Special Users", style: TextStyle(color: Colors.amberAccent)),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 400,
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                var taggedDocs = snapshot.data!.docs.where((doc) {
+                  var data = doc.data() as Map<String, dynamic>;
+                  return (data['isOfficial'] == true) ||
+                         (data['isSuperAdmin'] == true) ||
+                         (data['isSuperHost'] == true) ||
+                         (data['isVolunteer'] == true) ;
+                         
+                }).toList();
+
+                if (taggedDocs.isEmpty) {
+                  return const Center(child: Text("No tagged users found.", style: TextStyle(color: Colors.white70)));
+                }
+
+                return ListView.builder(
+                  itemCount: taggedDocs.length,
+                  itemBuilder: (context, index) {
+                    var data = taggedDocs[index].data() as Map<String, dynamic>;
+                    String name = data['name'] ?? 'Unknown';
+                    String uid = data['uID'] ?? taggedDocs[index].id;
+                    
+                    List<String> tags = [];
+                    if (data['isSuperAdmin'] == true) tags.add("Super Admin");
+                    if (data['isOfficial'] == true) tags.add("Official");
+                    if (data['isSuperHost'] == true) tags.add("Super Host");
+                    if (data['isVolunteer'] == true) tags.add("Volunteer");
+                    
+
+                    return ListTile(
+                      title: Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      subtitle: Text("UID: $uid\nTags: ${tags.join(', ')}", style: const TextStyle(color: Colors.cyanAccent, fontSize: 12)),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Close", style: TextStyle(color: Colors.cyanAccent)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -276,6 +462,29 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                 children: [
                   const Text("User Control & Management:", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
+                  
+                  // 🚀 নতুন দুটি বাটন (Blocked Users লিস্ট এবং Tagged Users লিস্ট দেখার জন্য)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent.withOpacity(0.8)),
+                          onPressed: () => _showBlockedUsersList(context),
+                          child: const Text("Blocked Users List", style: TextStyle(color: Colors.white, fontSize: 12)),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.amber.withOpacity(0.8)),
+                          onPressed: () => _showTaggedUsersList(context),
+                          child: const Text("Tagged Users List", style: TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
                   Row(
                     children: [
                       Expanded(
@@ -317,6 +526,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                       bool isOfficial = data['isOfficial'] ?? false;
                       bool isSuperAdmin = data['isSuperAdmin'] ?? false;
                       bool isSuperHost = data['isSuperHost'] ?? false;
+                      bool isVolunteer = data['isVolunteer'] ?? false; // ভলেন্টিয়ার ফিল্ড
                       String gender = data['gender'] ?? "Unfixed";
 
                       return Container(
@@ -436,6 +646,20 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                                     _updateUserField(docId, {'isSuperHost': !isSuperHost}, targetUid: userUid);
                                   },
                                   child: Text(isSuperHost ? "Remove Super Host" : "Make Super Host"),
+                                ),
+                                // 🌟 ভলেন্টিয়ার মেক এবং রিমুভ বাটন (Volunteer Make/Remove)
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
+                                  onPressed: () {
+                                    if (isSpecialOwner) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text("⚠️ Owner's roles cannot be removed!"), backgroundColor: Colors.redAccent),
+                                      );
+                                      return;
+                                    }
+                                    _updateUserField(docId, {'isVolunteer': !isVolunteer}, targetUid: userUid);
+                                  },
+                                  child: Text(isVolunteer ? "Remove Volunteer" : "Make Volunteer"),
                                 ),
                                 // Gender Switch (Male/Female Toggle)
                                 ElevatedButton(

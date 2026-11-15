@@ -398,6 +398,47 @@ class RoomSettingsHandler {
         'url': 'assets/images/wallpaper-1.webp',
         'price': 5000,
       },
+      
+      {
+        'name': 'dreem cuple',
+        'url': 'assets/images/arvi1.jpg',
+        'price': 6000,
+      },
+      {
+        'name': 'dreem hush',
+        'url': 'assets/images/arvi2.jpg',
+        'price': 8000,
+      },
+      {
+        'name': 'dreem yan',
+        'url': 'assets/images/arvi3.jpg',
+        'price': 4000,
+      },
+      {
+        'name': 'dreem san',
+        'url': 'assets/images/arvi4.jpg',
+        'price': 6000,
+      },
+      {
+        'name': 'dreem kal',
+        'url': 'assets/images/arvi5.jpg',
+        'price': 7000,
+      },
+      {
+        'name': 'dreem jino',
+        'url': 'assets/images/arvi6.jpg',
+        'price': 8000,
+      },
+      {
+        'name': 'dreem pino',
+        'url': 'assets/images/arvi7.jpg',
+        'price': 7500,
+      },
+      {
+        'name': 'dreem latani',
+        'url': 'assets/images/arvi8.jpg',
+        'price': 9000,
+      },
       {
         'name': 'nightking',
         'url': 'assets/images/homewallpepar.webp',

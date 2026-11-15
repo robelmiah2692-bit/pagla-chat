@@ -58,6 +58,16 @@ class _ViewerRankingWidgetState extends State<ViewerRankingWidget> with SingleTi
     super.dispose();
   }
 
+  // সংখ্যা ফরম্যাট করার ফাংশন (যেমন: 1050 -> 1.1k)
+  String _formatNumber(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(1)}M';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}k';
+    }
+    return count.toString();
+  }
+
   void _openEventPage() {
     showModalBottomSheet(
       context: context,
@@ -81,26 +91,9 @@ class _ViewerRankingWidgetState extends State<ViewerRankingWidget> with SingleTi
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 55, 
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2C).withOpacity(0.85),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(
-          color: const Color(0xFFFFD700).withOpacity(0.6), 
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFFD700).withOpacity(0.25),
-            blurRadius: 8,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
+      height: 48, 
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       child: StreamBuilder<QuerySnapshot>(
-        // রুমের ইভেন্টগুলো রিয়েল-টাইমে মনিটর করার জন্য
         stream: FirebaseFirestore.instance
             .collection('rooms')
             .doc(widget.roomId)
@@ -115,89 +108,76 @@ class _ViewerRankingWidgetState extends State<ViewerRankingWidget> with SingleTi
           }
 
           return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // টফি বা ইভেন্ট লাইভ বাটন (একই ডিজাইনের ভেতর কন্ডিশন)
+              // ১. বাম পাশে টফি বা ট্রফি আইকন এবং তার ঠিক নিচে ছোট টেক্সট
               GestureDetector(
                 onTap: _openEventPage,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    gradient: isEventLive
-                        ? const LinearGradient(
-                            // আকর্ষণীয় প্রিমিয়াম মিক্স কালার থিম (লাইভ থাকার জন্য)
-                            colors: [Color(0xFFFF416C), Color(0xFFFF4B2B), Color(0xFFFFA07A), Color(0xFFFFD700)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : const LinearGradient(
-                            // গোল্ডেন থিম (সাধারণ অবস্থায় টফি)
-                            colors: [Color(0xFFBF953F), Color(0xFFFCF6BA), Color(0xFFB38728), Color(0xFFFBF5B7)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: isEventLive
-                        ? [
-                            BoxShadow(
-                              color: const Color(0xFFFF416C).withOpacity(0.5),
-                              blurRadius: 10,
-                              spreadRadius: 2,
-                            )
-                          ]
-                        : [],
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: const BoxDecoration(
+                    color: Colors.transparent, // ক্লিন ব্যাকগ্রাউন্ড
                   ),
-                  child: Row(
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        isEventLive ? Icons.fiber_manual_record : Icons.local_fire_department,
-                        color: isEventLive ? const Color.fromARGB(255, 66, 245, 11) : const Color(0xFF5A3E1B),
-                        size: 16,
+                      // ওপরে রিয়েল গোল্ড গ্রেডিয়েন্ট ট্রফি আইকন
+                      ShaderMask(
+                        shaderCallback: (bounds) => const LinearGradient(
+                          colors: [Color(0xFFFFD700), Color(0xFFFFA500), Color(0xFFFF8C00)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ).createShader(bounds),
+                        child: Icon(
+                          isEventLive ? Icons.fiber_manual_record : Icons.emoji_events,
+                          color: isEventLive ? const Color(0xFF42F50B) : Colors.white,
+                          size: 22,
+                        ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(height: 2),
+                      // ঠিক ট্রফির নিচে ছোট সাইজে 1k, 2k ফরম্যাটের রিয়াল গোল্ড কাউন্ট
                       isEventLive
                           ? FadeTransition(
                               opacity: _shiningAnimation,
                               child: const Text(
-                                "Event Live",
+                                "Live",
                                 style: TextStyle(
-                                  color: Color.fromARGB(255, 92, 248, 2),
+                                  color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                  shadows: [
-                                    Shadow(
-                                      color: Colors.amberAccent,
-                                      blurRadius: 10,
-                                    ),
-                                  ],
+                                  fontSize: 9,
                                 ),
                               ),
                             )
-                          : TweenAnimationBuilder<int>(
-                              tween: IntTween(begin: 0, end: _toffeeCount),
-                              duration: const Duration(milliseconds: 800),
-                              builder: (context, value, child) {
-                                return Text(
-                                  "Toffee: $value",
-                                  style: const TextStyle(
-                                    color: Color(0xFF3D2300),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 11,
-                                  ),
-                                );
-                              },
+                          : ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds),
+                              child: Text(
+                                _formatNumber(_toffeeCount),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
               
-              // ভিউয়ার লিস্ট এলাকা
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: widget.viewerListWidget,
+              // ২. ডান পাশে ভিউয়ার লিস্ট এলাকা
+              Flexible(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: widget.viewerListWidget,
+                  ),
                 ),
               ),
             ],

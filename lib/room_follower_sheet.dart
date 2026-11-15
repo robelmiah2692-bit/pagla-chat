@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lottie/lottie.dart';
+import 'package:pagla_chat/profile_page.dart';
 // আর protected_users.dart লোকাল ফাইলটি এখানে আর আমদানী করার দরকার নেই
 
 class RoomFollowerSheet extends StatefulWidget {
@@ -120,7 +121,7 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
     );
   }
 
-  Widget _buildFollowerList() {
+ Widget _buildFollowerList() {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection('rooms')
@@ -166,9 +167,13 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
             bool isTargetAdmin = admins.contains(targetuID);
 
             return FutureBuilder<Map<String, dynamic>>(
+
               future: _getUserData(targetuID),
+
               builder: (context, userSnap) {
+
                 if (!userSnap.hasData) return const SizedBox();
+
                 var userData = userSnap.data ?? {};
 
                 String name = userData['name'] ?? "user $targetuID";
@@ -184,26 +189,39 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
                     border: Border.all(color: Colors.white.withOpacity(0.2)),
                   ),
                   child: ListTile(
-                    leading: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        CircleAvatar(
-                          radius: 22,
-                          backgroundColor: Colors.black,
-                          backgroundImage:
-                              photo.isNotEmpty ? NetworkImage(photo) : null,
-                          child: photo.isEmpty
-                              ? const Icon(Icons.person, color: Colors.white54)
-                              : null,
-                        ),
-                        if (frame.isNotEmpty) _buildFrame(frame),
-                        if (isTargetOwner)
-                          const Positioned(
-                              right: -2,
-                              bottom: -2,
-                              child: Icon(Icons.stars,
-                                  color: Colors.amber, size: 18)),
-                      ],
+                    // 👈 প্রফাইল পিকচারে ক্লিক করলে প্রোফাইল ভিজিট করার জন্য GestureDetector যুক্ত করা হলো
+                    leading: GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ProfilePage(
+                              userId: targetuID, // নির্দিষ্ট ইউজারের আইডি পাস করা হলো
+                            ),
+                          ),
+                        );
+                      },
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          CircleAvatar(
+                            radius: 22,
+                            backgroundColor: Colors.black,
+                            backgroundImage:
+                                photo.isNotEmpty ? NetworkImage(photo) : null,
+                            child: photo.isEmpty
+                                ? const Icon(Icons.person, color: Colors.white54)
+                                : null,
+                          ),
+                          if (frame.isNotEmpty) _buildFrame(frame),
+                          if (isTargetOwner)
+                            const Positioned(
+                                right: -2,
+                                bottom: -2,
+                                child: Icon(Icons.stars,
+                                    color: Colors.amber, size: 18)),
+                        ],
+                      ),
                     ),
                     title: Text(name,
                         style: const TextStyle(
@@ -235,7 +253,6 @@ class _RoomFollowerSheetState extends State<RoomFollowerSheet> {
       },
     );
   }
-
   Widget _buildFrame(String frameUrl) {
     if (frameUrl.isEmpty) return const SizedBox();
 

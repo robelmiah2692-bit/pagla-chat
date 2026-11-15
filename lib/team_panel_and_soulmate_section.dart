@@ -7,19 +7,16 @@ import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:pagla_chat/team_panel_chat_room.dart';
 
-class TeamPanelAndSoulmateSection extends StatefulWidget {
+class TeamPanelSectionWidget extends StatefulWidget {
   final String uIDValue;
 
-  const TeamPanelAndSoulmateSection({super.key, required this.uIDValue});
+  const TeamPanelSectionWidget({super.key, required this.uIDValue});
 
   @override
-  State<TeamPanelAndSoulmateSection> createState() =>
-      _TeamPanelAndSoulmateSectionState();
+  State<TeamPanelSectionWidget> createState() => _TeamPanelSectionWidgetState();
 }
 
-class _TeamPanelAndSoulmateSectionState
-    extends State<TeamPanelAndSoulmateSection> {
-  int _selectedTabIndex = 0; // 0 = Soulmates, 1 = Team Panel
+class _TeamPanelSectionWidgetState extends State<TeamPanelSectionWidget> {
   bool _isUploadingPic = false;
 
   // সঠিক ডকুমেন্ট আইডি খুঁজে পাওয়ার হেল্পার মেথড
@@ -66,7 +63,7 @@ class _TeamPanelAndSoulmateSectionState
       future: _resolveUserDocId(widget.uIDValue),
       builder: (context, docIdSnapshot) {
         if (!docIdSnapshot.hasData) {
-          return const Center(child: CircularIndicatorOrSizedBox());
+          return const SizedBox();
         }
 
         String resolvedDocId = docIdSnapshot.data!;
@@ -83,113 +80,66 @@ class _TeamPanelAndSoulmateSectionState
 
             var userData = snapshot.data!.data() as Map<String, dynamic>;
 
+            // টিম প্যানেল ডেটা আছে কি না চেক করা হচ্ছে
             bool hasTeamPanel = userData.containsKey('teamPanel') &&
                 userData['teamPanel'] != null;
-            var teamPanelData = hasTeamPanel
-                ? (userData['teamPanel'] as Map<String, dynamic>)
-                : null;
 
-            if (!hasTeamPanel && _selectedTabIndex == 1) {
-              _selectedTabIndex = 0;
+            // যদি টিম প্যানেল না থাকে, তবে কোড কোনো জায়গা নেবে না (একদম ক্লিন থাকবে)
+            if (!hasTeamPanel) {
+              return const SizedBox.shrink();
             }
+
+            var teamPanelData = userData['teamPanel'] as Map<String, dynamic>;
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // --- হেডার সুইচিং বাটন ---
+                // --- টিম প্যানেল হেডার বাটন বা ডিজাইন (অ্যাসেট ছাড়া স্লিক গ্রেডিয়েন্ট লুক) ---
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _selectedTabIndex = 0),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              // লোকাল অ্যাসেট ইমেজ পাথ ব্যবহার করা হলো
-                              image: const DecorationImage(
-                                image: AssetImage("assets/images/Hartsolmate.webp"),
-                                fit: BoxFit.cover,
-                              ),
-                              gradient: LinearGradient(
-                                colors: _selectedTabIndex == 0
-                                    ? [
-                                        Colors.pinkAccent.withOpacity(0.8),
-                                        Colors.purpleAccent.withOpacity(0.8)
-                                      ]
-                                    : [
-                                        Colors.white.withOpacity(0.1),
-                                        Colors.white.withOpacity(0.05)
-                                      ],
-                              ),
-                              borderRadius: BorderRadius.circular(15),
-                              border: Border.all(
-                                color: _selectedTabIndex == 0
-                                    ? Colors.pinkAccent
-                                    : Colors.white24,
-                                width: 1.2,
-                              ),
-                            ),
-                            child: const Text(
-                              "𝐇𝐚𝐫𝐭—̳͟͞͞💗(𝐒𝐨𝐮𝐥𝐦𝐚𝐭𝐞𝐬)",
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 12, horizontal: 16),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      // 👈 অ্যাসেট পাথ বাদ দিয়ে প্রিমিয়াম ও আকর্ষণীয় গ্রেডিয়েন্ট দেওয়া হলো
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.amber.shade800.withOpacity(0.8),
+                          Colors.deepOrange.shade900.withOpacity(0.8),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      if (hasTeamPanel) ...[
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => setState(() => _selectedTabIndex = 1),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: _selectedTabIndex == 1
-                                      ? [
-                                          const Color(0xFFFFD700),
-                                          Colors.deepOrangeAccent
-                                        ]
-                                      : [
-                                          Colors.white.withOpacity(0.1),
-                                          Colors.white.withOpacity(0.05)
-                                        ],
-                                ),
-                                borderRadius: BorderRadius.circular(15),
-                                border: Border.all(
-                                  color: _selectedTabIndex == 1
-                                      ? const Color(0xFFFFD700)
-                                      : Colors.white24,
-                                  width: 1.2,
-                                ),
-                              ),
-                              child: const Text(
-                                "🛡️(𝐓𝐞𝐚𝐦 𝐏𝐚𝐧𝐞𝐥)",
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: const Color(0xFFFFD700),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.amber.withOpacity(0.4),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
                       ],
-                    ],
+                    ),
+                    child: const Text(
+                      "🛡️(𝐓𝐞𝐚𝐦 𝐏𝐚𝐧𝐞ල්)",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 5),
 
-                if (_selectedTabIndex == 1)
-                  _buildTeamPanelSection(
-                      resolvedDocId, teamPanelData, userData),
+                // --- টিম প্যানেলের মূল সেকশন বা কন্টেন্ট ---
+                _buildTeamPanelSection(resolvedDocId, teamPanelData, userData),
 
                 const SizedBox(height: 5),
               ],
@@ -482,9 +432,9 @@ class _TeamPanelAndSoulmateSectionState
                                                 backgroundColor: hasRequested
                                                     ? Colors.grey
                                                     : Colors.amber,
-                                                padding: const EdgeInsets
-                                                    .symmetric(
-                                                    horizontal: 10),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 10),
                                               ),
                                               onPressed: hasRequested
                                                   ? null
@@ -642,6 +592,7 @@ class _TeamPanelAndSoulmateSectionState
       },
     );
   }
+
   // ওনারের সঠিক ডাটা ফেচ করার হেল্পার ফাংশন
   Future<DocumentSnapshot> _fetchOwnerData(String ownerDocId) async {
     try {
@@ -892,7 +843,8 @@ class _TeamPanelAndSoulmateSectionState
 
                               for (var doc in members) {
                                 var mData = doc.data() as Map<String, dynamic>;
-                                bool isOwner = mData['uID'] == ownerDocId || doc.id == ownerDocId;
+                                bool isOwner = mData['uID'] == ownerDocId ||
+                                    doc.id == ownerDocId;
                                 if (isOwner) {
                                   ownerMemberData = mData;
                                 } else {
@@ -918,7 +870,8 @@ class _TeamPanelAndSoulmateSectionState
                                 itemCount: sortedMembers.length,
                                 itemBuilder: (context, index) {
                                   var mData = sortedMembers[index];
-                                  String memberDocId = mData['uID'] ?? ownerDocId;
+                                  String memberDocId =
+                                      mData['uID'] ?? ownerDocId;
                                   bool isThisOwner =
                                       index == 0 || memberDocId == ownerDocId;
 
@@ -929,16 +882,31 @@ class _TeamPanelAndSoulmateSectionState
                                         .doc(memberDocId)
                                         .snapshots(),
                                     builder: (context, userDocSnap) {
-                                      String liveName = mData['userName'] ?? mData['name'] ?? 'Member';
-                                      String livePicUrl = mData['profilePic'] ?? mData['userImage'] ?? '';
-                                      String liveFrameUrl = mData['frame'] ?? '';
+                                      String liveName = mData['userName'] ??
+                                          mData['name'] ??
+                                          'Member';
+                                      String livePicUrl = mData['profilePic'] ??
+                                          mData['userImage'] ??
+                                          '';
+                                      String liveFrameUrl =
+                                          mData['frame'] ?? '';
 
-                                      if (userDocSnap.hasData && userDocSnap.data != null && userDocSnap.data!.exists) {
-                                        var uMap = userDocSnap.data!.data() as Map<String, dynamic>?;
+                                      if (userDocSnap.hasData &&
+                                          userDocSnap.data != null &&
+                                          userDocSnap.data!.exists) {
+                                        var uMap = userDocSnap.data!.data()
+                                            as Map<String, dynamic>?;
                                         if (uMap != null) {
-                                          liveName = uMap['userName'] ?? uMap['name'] ?? liveName;
-                                          livePicUrl = uMap['userImage'] ?? uMap['profilePic'] ?? livePicUrl;
-                                          liveFrameUrl = uMap['activeFrameUrl'] ?? uMap['frame'] ?? liveFrameUrl;
+                                          liveName = uMap['userName'] ??
+                                              uMap['name'] ??
+                                              liveName;
+                                          livePicUrl = uMap['userImage'] ??
+                                              uMap['profilePic'] ??
+                                              livePicUrl;
+                                          liveFrameUrl =
+                                              uMap['activeFrameUrl'] ??
+                                                  uMap['frame'] ??
+                                                  liveFrameUrl;
                                         }
                                       }
 
@@ -953,23 +921,27 @@ class _TeamPanelAndSoulmateSectionState
                                             children: [
                                               CircleAvatar(
                                                 radius: 20,
-                                                backgroundColor: Colors.grey[800],
+                                                backgroundColor:
+                                                    Colors.grey[800],
                                                 backgroundImage: livePicUrl
                                                         .isNotEmpty
                                                     ? CachedNetworkImageProvider(
-                                                        livePicUrl)
+                                                            livePicUrl)
                                                         as ImageProvider
                                                     : null,
                                                 child: livePicUrl.isEmpty
                                                     ? const Icon(Icons.person,
-                                                        size: 20, color: Colors.white)
+                                                        size: 20,
+                                                        color: Colors.white)
                                                     : null,
                                               ),
                                               if (liveFrameUrl.isNotEmpty)
                                                 Positioned.fill(
-                                                  child: Image.network(liveFrameUrl,
+                                                  child: Image.network(
+                                                      liveFrameUrl,
                                                       fit: BoxFit.cover,
-                                                      errorBuilder: (context, error,
+                                                      errorBuilder: (context,
+                                                              error,
                                                               stackTrace) =>
                                                           const SizedBox()),
                                                 ),
@@ -981,19 +953,23 @@ class _TeamPanelAndSoulmateSectionState
                                             Expanded(
                                               child: Text(liveName,
                                                   maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                   style: const TextStyle(
                                                       color: Colors.white)),
                                             ),
                                             if (isThisOwner) ...[
                                               const SizedBox(width: 6),
                                               Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                    horizontal: 6, vertical: 2),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 2),
                                                 decoration: BoxDecoration(
                                                     color: Colors.amber,
                                                     borderRadius:
-                                                        BorderRadius.circular(4)),
+                                                        BorderRadius.circular(
+                                                            4)),
                                                 child: const Text("Owner",
                                                     style: TextStyle(
                                                         color: Colors.black,
@@ -1015,7 +991,8 @@ class _TeamPanelAndSoulmateSectionState
                                                 style: const TextStyle(
                                                     color: Colors.amberAccent,
                                                     fontSize: 11,
-                                                    fontWeight: FontWeight.w500)),
+                                                    fontWeight:
+                                                        FontWeight.w500)),
                                           ],
                                         ),
                                         trailing: isPanelOwner && !isThisOwner
@@ -1053,6 +1030,7 @@ class _TeamPanelAndSoulmateSectionState
       },
     );
   }
+
   // 🖼️ প্যানেল ছবি পরিবর্তন করার ফাংশন
   Future<void> _changePanelPicture(
       String ownerDocId, Map<String, dynamic>? currentTeamPanelData) async {
