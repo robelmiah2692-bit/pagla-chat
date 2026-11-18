@@ -246,7 +246,7 @@ class _RoomTopGiftersBannerState extends State<RoomTopGiftersBanner> {
                           children: [
                             Text(
                               gifter['rank'] != null && gifter['rank'] > 0
-                                  ? "Top Spender #${gifter['rank']}"
+                                  ? "Top Gifter #${gifter['rank']}"
                                   : "Top Spender",
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,

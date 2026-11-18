@@ -214,6 +214,8 @@ class _VoiceRoomState extends State<VoiceRoom>
   int currentMusicIndex = 0;
   List<String> savedMusicNames = [];
   List<String> savedMusicPaths = [];
+  DateTime? _roomEntryTime;
+  bool _isTrackingTime = false;
 
   @override
   void initState() {
@@ -221,7 +223,7 @@ class _VoiceRoomState extends State<VoiceRoom>
     WidgetsBinding.instance
         .addObserver(this); // 🔥 লাইফসাইকেল ট্র্যাক করার জন্য যোগ করা হলো
     WakelockPlus.enable(); // স্ক্রিন যাতে অফ না হয়
-
+    _startDutyTimeTracking();
 // 🔥 ১. নতুন রুমে প্রবেশের আগেই পুরাতন রুমের আইডি মিল না থাকলে ফোর্স এক্সিট কল করা
     if (RoomManager().activeRoomId != null &&
         RoomManager().activeRoomId != widget.roomId) {
@@ -236,6 +238,7 @@ class _VoiceRoomState extends State<VoiceRoom>
     // ২. ক্লিনআপ লজিক সেট করা (পুরাতন রুম থেকে বের হওয়ার সময় এটি ট্রিগার হবে)
     RoomManager().onForceExit = () {
       if (mounted) {
+        _stopAndSaveDutyTime();
         _removeUserFromViewers();
         _clearUserLiveStatus();
 
@@ -328,6 +331,7 @@ class _VoiceRoomState extends State<VoiceRoom>
 
     // ২. ইউজার এবং রুম ডাটা চেক
     _fetchMyuID().then((_) {
+     
       bool isUserValidForXp =
           uID.isNotEmpty && FirebaseAuth.instance.currentUser != null;
 
@@ -608,8 +612,101 @@ class _VoiceRoomState extends State<VoiceRoom>
     } catch (e) {}
   }
 
+
+  
+
+  // রুম এন্ট্রি বা পেজ ওপেন হওয়ার সাথে সাথে টাইমার চালু করা
+  void _startDutyTimeTracking() {
+    if (_isTrackingTime) return;
+    
+    _roomEntryTime = DateTime.now();
+    _isTrackingTime = true;
+    debugPrint("⏱️ [DutyTimer] SUCCESS: Started tracking time at: $_roomEntryTime");
+  }
+
+  // রুম থেকে বের হওয়ার সময় বা dispose-এ সরাসরি Auth দিয়ে uID খুঁজে ফায়ারস্টোরে সেভ করা
+  Future<void> _stopAndSaveDutyTime() async {
+    debugPrint("🛑 [DutyTimer] _stopAndSaveDutyTime called. isTracking: $_isTrackingTime");
+
+    if (!_isTrackingTime || _roomEntryTime == null) {
+      debugPrint("⚠️ [DutyTimer] Tracking skipped: Tracking not active or entry time is null.");
+      return;
+    }
+
+    // ১. ফায়ারবেস অথ থেকে আসল authUID বের করা
+    String currentAuthUid = FirebaseAuth.instance.currentUser?.uid ?? "";
+    if (currentAuthUid.isEmpty) {
+      debugPrint("❌ [DutyTimer] No authenticated user found!");
+      return;
+    }
+
+    try {
+      // ২. authUID দিয়ে সরাসরি ফায়ারস্টোর থেকে ইউজারের নিজস্ব সংক্ষিপ্ত uID খুঁজে বের করা
+      String resolvedUID = "";
+      var userQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('authUID', isEqualTo: currentAuthUid)
+          .limit(1)
+          .get();
+
+      if (userQuery.docs.isNotEmpty) {
+        resolvedUID = userQuery.docs.first.data()['uID']?.toString() ?? "";
+      }
+
+      // যদি এভাবে না পাওয়া যায়, তবে সরাসরি ডকুমেন্টের আইডি বা অন্য ফিল্ড চেক করা যেতে পারে
+      if (resolvedUID.isEmpty) {
+        resolvedUID = userQuery.docs.isNotEmpty ? userQuery.docs.first.id : currentAuthUid;
+      }
+
+      debugPrint("🔍 [DutyTimer] Resolved uID for saving time: $resolvedUID");
+
+      Duration spentDuration = DateTime.now().difference(_roomEntryTime!);
+      int spentSeconds = spentDuration.inSeconds;
+      
+      debugPrint("⏱️ [DutyTimer] Total time spent in room: $spentSeconds seconds");
+
+      _isTrackingTime = false;
+      _roomEntryTime = null;
+
+      // টেস্ট করার জন্য ৫ সেকেন্ড থাকলেই সেভ হবে (পরে এটি বাড়িয়ে ১ মিনিট বা .inMinutes করে দেবেন)
+      if (spentSeconds < 5) {
+        debugPrint("⚠️ [DutyTimer] Stayed less than 5 seconds. Skipping save.");
+        return;
+      }
+
+      int minutesToAdd = (spentSeconds / 60).clamp(1, 99999).toInt();
+
+      debugPrint("🔥 [DutyTimer] Attempting to save $minutesToAdd minutes to Firestore for uID: $resolvedUID");
+
+      // সরাসরি সংগৃহীত resolvedUID দিয়ে ফায়ারস্টোরে আপডেট করা
+      DocumentReference userDocRef =
+          FirebaseFirestore.instance.collection('users').doc(resolvedUID.toString());
+
+      DocumentSnapshot snapshot = await userDocRef.get();
+      int existingMinutes = 0;
+      
+      if (snapshot.exists && snapshot.data() != null) {
+        var data = snapshot.data() as Map<String, dynamic>;
+        existingMinutes = data['totalRoomMinutes'] ?? 0;
+      }
+
+      int totalMinutes = existingMinutes + minutesToAdd;
+      double totalHours = totalMinutes / 60.0;
+
+      await userDocRef.set({
+        'totalRoomMinutes': totalMinutes,
+        'totalRoomHours': double.parse(totalHours.toStringAsFixed(2)),
+        'lastActiveRoom': widget.roomId,
+        'lastActiveTime': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      debugPrint("✅ [DutyTimer] SUCCESS! Saved total $totalMinutes minutes for uID: $resolvedUID");
+    } catch (e) {
+      debugPrint("❌ [DutyTimer] Error saving time to Firestore: $e");
+    }
+  }
   void _fetchRoomData() {
-    _roomDataSnapshotSub?.cancel(); // আগেরটা থাকলে ক্যানসেল করে নেওয়া হলো
+    _roomDataSnapshotSub?.cancel(); // আগেরটা থাকলে ক্যানসেল করে নেওয়া হলো
     _roomDataSnapshotSub = FirebaseFirestore.instance
         .collection('rooms')
         .doc(widget.roomId)
@@ -639,8 +736,14 @@ class _VoiceRoomState extends State<VoiceRoom>
           ? newAdminList.any((admin) => admin.toString().trim() == myCurrentID)
           : false;
 
-      // ৩. 🔥 নিরাপত্তা চেক: পুরো ম্যাপ বা গুরুত্বপূর্ণ ফিল্ডগুলোতে কোনো পরিবর্তন এসেছে কি না দেখা
-      // এতে রুমের কোনো ফিচার বা লজিক নষ্ট হবে না, অথচ ফালতু রি-রেন্ডার বন্ধ থাকবে।
+      // ৩. 🔥 নিরাপত্তা চেক: ক্র্যাশ এড়াতে Timestamp ফিল্ড বাদ দিয়ে শুধু প্লেইন ডেটা তুলনা করা
+      // rData থেকে টাইমস্ট্যাম্প বা নন-এনকোডেবল অবজেক্ট বাদ দিয়ে একটি সেফ কপি তৈরি
+      Map<String, dynamic> safeOldMap = Map.from(roomData);
+      safeOldMap.removeWhere((key, value) => value is Timestamp || value is DateTime);
+
+      Map<String, dynamic> safeNewMap = Map.from(rData);
+      safeNewMap.removeWhere((key, value) => value is Timestamp || value is DateTime);
+
       bool isDataChanged = (roomName != newRoomName) ||
           (roomProfileImage != newRoomImage) ||
           (followerCount != newFollowerCount) ||
@@ -650,9 +753,7 @@ class _VoiceRoomState extends State<VoiceRoom>
           (isOwner != newIsOwner) ||
           (isAdmin != newIsAdmin) ||
           (adminList.length != newAdminList.length) ||
-          (jsonEncode(roomData) !=
-              jsonEncode(
-                  rData)); // পুরো রুম ডেটার পরিবর্তন নিখুঁতভাবে ধরার জন্য
+          (jsonEncode(safeOldMap) != jsonEncode(safeNewMap)); // ক্র্যাশ-মুক্ত এনকোডিং তুলনা
 
       if (isDataChanged) {
         setState(() {
@@ -671,7 +772,6 @@ class _VoiceRoomState extends State<VoiceRoom>
       }
     });
   }
-
   Future<void> _fetchMyuID() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -3952,6 +4052,7 @@ Widget _buildSingleAnimatedEmoji({
     // যদি থাকে, তবে আমরা ডাটাবেস আপডেট বা এগোরা বন্ধ কিছুই করবো না।
     if (FloatingBubbleService.isMinimized) {
       // নোট: এখানে return করার মানে হলো নিচের কোনো ক্লিনআপ কোড এক্সিকিউট হবে না।
+      
       super.dispose();
       return;
     }
@@ -3979,7 +4080,7 @@ Widget _buildSingleAnimatedEmoji({
     // ৩. ভিউয়ার লিস্ট থেকে ব্যবহারকারীকে সরিয়ে ফেলা
     _removeUserFromViewers();
     _clearUserLiveStatus();
-
+    _stopAndSaveDutyTime();
     // ৪. স্ট্রীম এবং লুপ বন্ধ করা (সবগুলো পুরোনো এবং নতুন সাবস্ক্রিপশন এখানে নিরাপদে বাতিল করা হলো)
     _seatSubscription?.cancel();
     _emojiSubscription?.cancel();

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shimmer/shimmer.dart';
+
 
 class UserBadgesRow extends StatelessWidget {
   final String userId; // ইউজারের আইডি বা ডকুমেন্ট আইডি
@@ -56,7 +56,8 @@ class UserBadgesRow extends StatelessWidget {
           bool hasTeamPanel = teamPanelName.isNotEmpty;
 
           bool hasTopRow = isOfficial || isSuperAdmin || isAgency;
-          bool hasBottomRow = isSuperHost || isVolunteer || isLovelyCouple || hasTeamPanel;
+          bool hasBottomRow =
+              isSuperHost || isVolunteer || isLovelyCouple || hasTeamPanel;
 
           // কোনো ব্যাজ না থাকলে ফিক্সড হাইট বাদ দিয়ে একদম শূন্য সাইজ রিটার্ন করবে, ফলে নিচের বার উপরে উঠে যাবে
           if (!hasTopRow && !hasBottomRow) {
@@ -69,7 +70,7 @@ class UserBadgesRow extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // ১. প্রথম সারি (পুরাতন ৩টি ভেইজ)
+                // ১. প্রথম সারি (অফিশিয়াল, সুপার অ্যাডমিন, এজেন্সি - কাস্টম ইমেজ ব্যাজ)
                 if (hasTopRow)
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -80,27 +81,27 @@ class UserBadgesRow extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
                           if (isOfficial) ...[
-                            _buildShimmerBadge("OFFICIAL",
-                                const [Colors.amber, Colors.orangeAccent]),
+                            _buildCustomImageBadge(
+                                "assets/images/official_badge.webp"), // 👈 আপনার অফিশিয়াল ব্যাজ ইমেজ পাথ
                           ],
                           if (isOfficial && (isSuperAdmin || isAgency))
                             const SizedBox(width: 8),
                           if (isSuperAdmin) ...[
-                            _buildShimmerBadge("SUPER ADMIN",
-                                const [Colors.purpleAccent, Colors.pinkAccent]),
+                            _buildCustomImageBadge(
+                                "assets/images/superadmin_badge.webp"), // 👈 সুপার অ্যাডমিন ব্যাজ
                           ],
                           if (isSuperAdmin && isAgency)
                             const SizedBox(width: 8),
                           if (isAgency) ...[
-                            _buildShimmerBadge("AGENCY",
-                                const [Colors.cyanAccent, Colors.blueAccent]),
+                            _buildCustomImageBadge(
+                                "assets/images/agency_badge.webp"), // 👈 এজেন্সি ব্যাজ
                           ],
                         ],
                       ),
                     ),
                   ),
 
-                // ২. দ্বিতীয় সারি (সুপার হোস্ট, ভলেন্টিয়ার, লাভলি কাপল, টিম প্যানেল)
+                // ২. দ্বিতীয় সারি (সুপার হোস্ট, ভলেন্টিয়ার, লাভলি কাপল এবং টিম প্যানেল)
                 if (hasBottomRow)
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -109,26 +110,27 @@ class UserBadgesRow extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
                         if (isSuperHost) ...[
-                          _buildShimmerBadge("SUPER HOST",
-                              const [Colors.greenAccent, Colors.tealAccent]),
+                          _buildCustomImageBadge(
+                              "assets/images/superhost_badge.webp"), // 👈 সুপার হোস্ট ব্যাজ
                         ],
-                        if (isSuperHost && (isVolunteer || isLovelyCouple || hasTeamPanel))
+                        if (isSuperHost &&
+                            (isVolunteer || isLovelyCouple || hasTeamPanel))
                           const SizedBox(width: 8),
                         if (isVolunteer) ...[
-                          _buildShimmerBadge("VOLUNTEER",
-                              const [Colors.deepPurpleAccent, Colors.indigoAccent]),
+                          _buildCustomImageBadge(
+                              "assets/images/volunteer_badge.webp"), // 👈 ভলেন্টিয়ার ব্যাজ
                         ],
                         if (isVolunteer && (isLovelyCouple || hasTeamPanel))
                           const SizedBox(width: 8),
                         if (isLovelyCouple) ...[
-                          _buildShimmerBadge("LOVELY COUPLE",
-                              const [Colors.pink, Colors.redAccent]),
+                          _buildCustomImageBadge(
+                              "assets/images/lovelycouple_badge.webp"), // 👈 লাভলি কাপল ব্যাজ
                         ],
                         if (isLovelyCouple && hasTeamPanel)
                           const SizedBox(width: 8),
                         if (hasTeamPanel) ...[
-                          _buildShimmerBadge(teamPanelName.toUpperCase(),
-                              const [Colors.amberAccent, Colors.yellow]),
+                          // 👈 এখানে শিমার ব্যাজের বদলে কাস্টম ইমেজ ব্যাকগ্রাউন্ডসহ টিম প্যানেল ব্যাজ কল করা হলো
+                          _buildTeamPanelBadge(teamPanelName.toUpperCase()),
                         ],
                       ],
                     ),
@@ -141,38 +143,54 @@ class UserBadgesRow extends StatelessWidget {
     );
   }
 
-  // জিক-জিক (Shimmer) এবং গোল্ডেন বর্ডার সহ ব্যাজ ডিজাইন উইজেট
-  Widget _buildShimmerBadge(String title, List<Color> gradientColors) {
+  Widget _buildCustomImageBadge(String assetPath, {double height = 30}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.4),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFFFFD700), // গোল্ডেন বর্ডার
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFFD700).withOpacity(0.3),
-            blurRadius: 8,
-            spreadRadius: 1,
+      height: height,
+      child: Image.asset(
+        assetPath,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+      ),
+    );
+  }
+
+  Widget _buildTeamPanelBadge(String teamName) {
+    return SizedBox(
+      height: 32, // অন্যান্য ব্যাজের সাইজের সাথে মিল রেখে হাইট
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // ১. ব্যাকগ্রাউন্ডে আপনার কাস্টম খালি ব্যাজ ইমেজ
+          Image.asset(
+            "assets/images/blank_badge.webp", // 👈 আপনার টিম প্যানেলের খালি ডিজাইনের ইমেজ পাথ
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) =>
+                const SizedBox.shrink(),
+          ),
+          // ২. ইমেজের ওপর ডাইনামিক টিম প্যানেলের নামটি বসানোর জন্য
+          Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal:
+                    16.0), // ইমেজ অনুযায়ী টেক্সটের জায়গা অ্যাডজাস্ট করার জন্য
+            child: Text(
+              teamName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 6.0,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 4.0,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
-      ),
-      child: Shimmer.fromColors(
-        baseColor: gradientColors[0],
-        highlightColor: Colors.white,
-        period: const Duration(milliseconds: 1500),
-        child: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-            height: 1.0,
-          ),
-        ),
       ),
     );
   }

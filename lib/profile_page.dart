@@ -2455,42 +2455,17 @@ class _ProfilePageState extends State<ProfilePage> {
         'url': 'assets/images/arvi1.jpg',
         'price': "6000"
       },
-      {
-        'name': 'dreem hush',
-        'url': 'assets/images/arvi2.jpg',
-        'price': "8000"
-      },
-      {
-        'name': 'dreem yan',
-        'url': 'assets/images/arvi3.jpg',
-        'price': "4000"
-      },
-      {
-        'name': 'dreem san',
-        'url': 'assets/images/arvi4.jpg',
-        'price': "6000"
-      },
-      {
-        'name': 'dreem kal',
-        'url': 'assets/images/arvi5.jpg',
-        'price': "7000"
-      },
-      {
-        'name': 'dreem jino',
-        'url': 'assets/images/arvi6.jpg',
-        'price': "8000"
-      },
-      {
-        'name': 'dreem pino',
-        'url': 'assets/images/arvi7.jpg',
-        'price': "7500"
-      },
+      {'name': 'dreem hush', 'url': 'assets/images/arvi2.jpg', 'price': "8000"},
+      {'name': 'dreem yan', 'url': 'assets/images/arvi3.jpg', 'price': "4000"},
+      {'name': 'dreem san', 'url': 'assets/images/arvi4.jpg', 'price': "6000"},
+      {'name': 'dreem kal', 'url': 'assets/images/arvi5.jpg', 'price': "7000"},
+      {'name': 'dreem jino', 'url': 'assets/images/arvi6.jpg', 'price': "8000"},
+      {'name': 'dreem pino', 'url': 'assets/images/arvi7.jpg', 'price': "7500"},
       {
         'name': 'dreem latani',
         'url': 'assets/images/arvi8.jpg',
         'price': "9000"
       },
-      
       {
         'name': 'dreemrose',
         'url': 'assets/images/roomlistwallpaper.webp',
@@ -4195,20 +4170,43 @@ class _ProfilePageState extends State<ProfilePage> {
                             clipBehavior: Clip.none,
                             children: [
                               // ১. ইউজার অবতার
+                              // ক্যাশ ব্যবহারের জন্য অবশ্যই cached_network_image প্যাকেজ ইমপোর্ট থাকতে হবে
+// import 'package:cached_network_image/cached_network_image.dart';
+
                               GestureDetector(
                                 onTap: isMe ? _pickProfileImage : null,
-                                child: CircleAvatar(
-                                  radius: 50,
-                                  backgroundColor: Colors.grey[900],
-                                  backgroundImage: (userImageURL.isNotEmpty &&
-                                          !userImageURL.startsWith('file:'))
-                                      ? NetworkImage(userImageURL)
-                                      : null,
-                                  child: (userImageURL.isEmpty ||
-                                          userImageURL.startsWith('file:'))
-                                      ? const Icon(Icons.person,
-                                          size: 50, color: Colors.white)
-                                      : null,
+                                child: ClipOval(
+                                  child: Container(
+                                    width:
+                                        100, // radius 50 মানে মোট সাইজ 100x100
+                                    height: 100,
+                                    color: Colors
+                                        .transparent, // পিছনের ব্যাকগ্রাউন্ড সম্পূর্ণ ট্রান্সপারেন্ট রাখার জন্য
+                                    child: (userImageURL.isNotEmpty &&
+                                            !userImageURL.startsWith('file:'))
+                                        ? CachedNetworkImage(
+                                            imageUrl: userImageURL,
+                                            fit: BoxFit.cover,
+                                            placeholder: (context, url) =>
+                                                const Center(
+                                              child: SizedBox(
+                                                width: 20,
+                                                height: 20,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        color: Colors.white70),
+                                              ),
+                                            ),
+                                            errorWidget:
+                                                (context, url, error) =>
+                                                    const Icon(Icons.person,
+                                                        size: 50,
+                                                        color: Colors.white),
+                                          )
+                                        : const Icon(Icons.person,
+                                            size: 50, color: Colors.white),
+                                  ),
                                 ),
                               ),
                               // ২. ফ্রেম (সাইজ ছোট করে অবতারের মাপে নিয়ে আসা হয়েছে)

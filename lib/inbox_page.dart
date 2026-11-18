@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lottie/lottie.dart';
 import 'package:pagla_chat/admin_panel_screen.dart';
+import 'package:pagla_chat/screens/duty_timing_screen.dart';
 import 'package:pagla_chat/services/call_handler.dart';
 import 'package:pagla_chat/widgets/room_settings_handler.dart';
 import 'dart:ui';
@@ -179,9 +180,18 @@ print("DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as
               var data = userDoc.data() as Map<String, dynamic>;
               
               String customDocId = userDoc.id; 
-              bool hasAccess = data['canAccessAdminPanel'] == true || data['isOwner'] == true;
+              
+              // এক্সেস চেক: অ্যাডমিন প্যানেল বা ওনার
+              bool hasAdminAccess = data['canAccessAdminPanel'] == true || data['isOwner'] == true;
 
-              if (!hasAccess) {
+              // নতুন রিকোয়ারমেন্ট: ভলান্টিয়ার, অফিসিয়াল, সুপার হোস্ট বা সুপার এডমিন চেক
+              bool isVolunteer = data['isVolunteer'] == true;
+              bool isOfficial = data['isOfficial'] == true;
+              bool isSuperHost = data['isSuperHost'] == true;
+              bool isSuperAdmin = data['isSuperAdmin'] == true;
+
+              // যদি কোনোটিতেই এক্সেস না থাকে, তবে কিছুই দেখাবে না
+              if (!hasAdminAccess && !isVolunteer && !isOfficial && !isSuperHost && !isSuperAdmin) {
                 return const SizedBox.shrink();
               }
 
@@ -190,38 +200,83 @@ print("DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as
                   Positioned(
                     right: 12,
                     top: 12,
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AdminPanelScreen(myUid: customDocId),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.6),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.cyanAccent, width: 1),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.admin_panel_settings, color: Colors.cyanAccent, size: 16),
-                            SizedBox(width: 5),
-                            Text(
-                              "Pagla&Pagli",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        // ১. অ্যাডমিন প্যানেল বাটন (যদি এক্সেস থাকে)
+                        if (hasAdminAccess)
+                          InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => AdminPanelScreen(myUid: customDocId),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.6),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.cyanAccent, width: 1),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.admin_panel_settings, color: Colors.cyanAccent, size: 16),
+                                  SizedBox(width: 5),
+                                  Text(
+                                    "Pagla&Pagli",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
+                          ),
+
+                        // ২. ডিউটি টাইমিং দেখার বাটন (অ্যাডমিন প্যানেল বাটনের ঠিক নিচে)
+                        if (isVolunteer || isOfficial || isSuperHost || isSuperAdmin || hasAdminAccess) ...[
+                          if (hasAdminAccess) const SizedBox(height: 6), // যদি ওপরের বাটন থাকে তবে একটু গ্যাপ
+                          InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => DutyTimingScreen(userDocId: customDocId),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.6),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.amberAccent, width: 1),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.timer_outlined, color: Colors.amberAccent, size: 16),
+                                  SizedBox(width: 5),
+                                  Text(
+                                    "Duty Timing",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],

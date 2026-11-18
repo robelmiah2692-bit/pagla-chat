@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   final String myUid;
@@ -18,7 +19,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
   late TabController _tabController;
 
   // 🛡️ স্পেশাল মালিকের আইডি দুটি এখানে ডিফাইন করা হলো
-  final List<String> specialOwnerIds = ['444333', '444222'];
+  final List<String> specialOwnerIds = ['444333', '444222','444444','454488'];
 
   @override
   void initState() {
@@ -350,32 +351,46 @@ void _showBlockedUsersList(BuildContext context) {
   );
 }
 
-  // 📌 সকল ট্যাগ ইউজার লিস্ট দেখার ডায়ালগ (Official, Super Host, Super Admin, Volunteer ইত্যাদি)
+ // 📌 সকল ট্যাগ ইউজার লিস্ট দেখার প্রিমিয়াম ডায়ালগ
   void _showTaggedUsersList(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF1E1E2C),
-          title: const Text("Tagged Special Users", style: TextStyle(color: Colors.amberAccent)),
+          backgroundColor: const Color(0xFF0F172A), // প্রিমিয়াম ডার্ক ব্যাকগ্রাউন্ড
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: const [
+              Icon(Icons.verified_user, color: Colors.amberAccent, size: 24),
+              SizedBox(width: 10),
+              Text(
+                "Tagged Special Users",
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
           content: SizedBox(
             width: double.maxFinite,
-            height: 400,
+            height: 450,
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('users')
                   .snapshots(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator(color: Colors.cyanAccent));
                 }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(child: Text("No tagged users found.", style: TextStyle(color: Colors.white70)));
+                }
+
                 var taggedDocs = snapshot.data!.docs.where((doc) {
                   var data = doc.data() as Map<String, dynamic>;
                   return (data['isOfficial'] == true) ||
                          (data['isSuperAdmin'] == true) ||
                          (data['isSuperHost'] == true) ||
-                         (data['isVolunteer'] == true) ;
-                         
+                         (data['isVolunteer'] == true);
                 }).toList();
 
                 if (taggedDocs.isEmpty) {
@@ -387,18 +402,110 @@ void _showBlockedUsersList(BuildContext context) {
                   itemBuilder: (context, index) {
                     var data = taggedDocs[index].data() as Map<String, dynamic>;
                     String name = data['name'] ?? 'Unknown';
-                    String uid = data['uID'] ?? taggedDocs[index].id;
-                    
-                    List<String> tags = [];
-                    if (data['isSuperAdmin'] == true) tags.add("Super Admin");
-                    if (data['isOfficial'] == true) tags.add("Official");
-                    if (data['isSuperHost'] == true) tags.add("Super Host");
-                    if (data['isVolunteer'] == true) tags.add("Volunteer");
-                    
+                    String uid = data['uID']?.toString() ?? taggedDocs[index].id;
+                    String profilePic = data['profilePic'] ?? ''; // রানিং প্রফাইল পিকচার
 
-                    return ListTile(
-                      title: Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      subtitle: Text("UID: $uid\nTags: ${tags.join(', ')}", style: const TextStyle(color: Colors.cyanAccent, fontSize: 12)),
+                    // 🔥 এখানে `var` ব্যবহার করায় কোনো ধরনের সিনট্যাক্স বা লাল দাগের সমস্যা হবে না
+                    var tags = [];
+                    if (data['isSuperAdmin'] == true) tags.add({"name": "Super Admin", "color": Colors.indigo});
+                    if (data['isOfficial'] == true) tags.add({"name": "Official", "color": Colors.amber});
+                    if (data['isSuperHost'] == true) tags.add({"name": "Super Host", "color": Colors.teal});
+                    if (data['isVolunteer'] == true) tags.add({"name": "Volunteer", "color": Colors.deepPurple});
+
+                    return Container(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: Row(
+                        children: [
+                          // 🖼️ ইউজারের রানিং প্রোফাইল পিকচার
+                          CircleAvatar(
+                            radius: 26,
+                            backgroundColor: Colors.white24,
+                            backgroundImage: profilePic.isNotEmpty ? NetworkImage(profilePic) : null,
+                            child: profilePic.isEmpty
+                                ? const Icon(Icons.person, color: Colors.white, size: 26)
+                                : null,
+                          ),
+                          const SizedBox(width: 12),
+                          
+                          // 📄 নাম, ইউআইডি এবং ট্যাগ সেকশন
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 3),
+                                
+                                // 📋 ইউআইডি কপি করার অপশন
+                                InkWell(
+                                  onTap: () {
+                                    // ক্লিপবোর্ডে ইউআইডি কপি করা
+                                    Clipboard.setData(ClipboardData(text: uid));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text("UID Copied: $uid"),
+                                        duration: const Duration(seconds: 1),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  },
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        "UID: $uid",
+                                        style: const TextStyle(color: Colors.cyanAccent, fontSize: 12),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.copy, color: Colors.cyanAccent, size: 12),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+
+                                // 🏷️ ট্যাগ ব্যাজগুলো
+                                Wrap(
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  children: tags.map((tag) {
+                                    Color tagColor = tag['color'] as Color;
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: tagColor.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: tagColor, width: 0.8),
+                                      ),
+                                      child: Text(
+                                        tag['name'] as String,
+                                        style: TextStyle(
+                                          color: tagColor,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                   },
                 );
@@ -408,14 +515,13 @@ void _showBlockedUsersList(BuildContext context) {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("Close", style: TextStyle(color: Colors.cyanAccent)),
+              child: const Text("Close", style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
             ),
           ],
         );
       },
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -486,203 +592,298 @@ void _showBlockedUsersList(BuildContext context) {
                   const SizedBox(height: 12),
 
                   Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            hintText: "Enter 6-digit UID",
-                            hintStyle: const TextStyle(color: Colors.white54),
-                            filled: true,
-                            fillColor: Colors.white.withOpacity(0.08),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                        ),
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: "Enter 6-digit UID",
+                        hintStyle: const TextStyle(color: Colors.white54),
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.08),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      const SizedBox(width: 10),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.cyan),
-                        onPressed: () => _searchUser(_searchController.text.trim()),
-                        child: const Text("Search", style: TextStyle(color: Colors.black)),
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 20),
-                  if (_isLoading)
-                    const Center(child: CircularProgressIndicator(color: Colors.cyanAccent))
-                  else if (_searchedUser != null) ...[
-                    Builder(builder: (context) {
-                      var data = _searchedUser!.data() as Map<String, dynamic>;
-                      String docId = _searchedUser!.id;
-                      String userUid = data['uID']?.toString() ?? docId;
-                      
-                      // 🛡️ চেক করা হচ্ছে ইউজারটি মালিকের আইডি কিনা
-                      bool isSpecialOwner = specialOwnerIds.contains(userUid);
+                  const SizedBox(width: 10),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.cyan),
+                    onPressed: () => _searchUser(_searchController.text.trim()),
+                    child: const Text("Search", style: TextStyle(color: Colors.black)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              if (_isLoading)
+                const Center(child: CircularProgressIndicator(color: Colors.cyanAccent))
+              else if (_searchedUser != null) ...[
+                Builder(builder: (context) {
+                  var data = _searchedUser!.data() as Map<String, dynamic>;
+                  String docId = _searchedUser!.id;
+                  String userUid = data['uID']?.toString() ?? docId;
+                  
+                  // 🛡️ চেক করা হচ্ছে ইউজারটি মালিকের আইডি কিনা
+                  bool isSpecialOwner = specialOwnerIds.contains(userUid);
 
-                      bool isBlocked = data['isBlocked'] ?? false;
-                      bool isDeviceBlocked = data['isDeviceBlocked'] ?? false;
-                      bool isVerified = data['isVerified'] ?? false;
-                      bool isOfficial = data['isOfficial'] ?? false;
-                      bool isSuperAdmin = data['isSuperAdmin'] ?? false;
-                      bool isSuperHost = data['isSuperHost'] ?? false;
-                      bool isVolunteer = data['isVolunteer'] ?? false; // ভলেন্টিয়ার ফিল্ড
-                      String gender = data['gender'] ?? "Unfixed";
+                  bool isBlocked = data['isBlocked'] ?? false;
+                  bool isDeviceBlocked = data['isDeviceBlocked'] ?? false;
+                  bool isVerified = data['isVerified'] ?? false;
+                  bool isOfficial = data['isOfficial'] ?? false;
+                  bool isSuperAdmin = data['isSuperAdmin'] ?? false;
+                  bool isSuperHost = data['isSuperHost'] ?? false;
+                  bool isVolunteer = data['isVolunteer'] ?? false; // ভলেন্টিয়ার ফিল্ড
+                  String gender = data['gender'] ?? "Unfixed";
 
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.4),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSpecialOwner ? Colors.amberAccent : Colors.cyanAccent.withOpacity(0.4),
-                            width: isSpecialOwner ? 2.0 : 1.0,
+                  // 🔥 নতুন তথ্যগুলো ফেচ করা
+                  String profilePic = data['profilePic'] ?? "";
+                  String deviceId = data['deviceId'] ?? "N/A";
+                  int totalMinutes = data['totalRoomMinutes'] ?? 0;
+                  double totalHours = (data['totalRoomHours'] ?? 0.0).toDouble();
+
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B), // প্রিমিয়াম ডার্ক ব্যাকগ্রাউন্ড
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isSpecialOwner ? Colors.amberAccent : Colors.cyanAccent.withOpacity(0.4),
+                        width: isSpecialOwner ? 2.0 : 1.0,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: isSpecialOwner ? Colors.amber.withOpacity(0.3) : Colors.cyanAccent.withOpacity(0.1),
+                          blurRadius: 12,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 🌟 মালিকের আইডি হলে স্পেশাল লেবেল শো করবে
+                        if (isSpecialOwner)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: Colors.amber,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              "👑 মালিকের আইডি (Owner ID)",
+                              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: isSpecialOwner ? Colors.amber.withOpacity(0.4) : Colors.pinkAccent.withOpacity(0.2),
-                              blurRadius: 10,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+
+                        // 🖼️ প্রোফাইল পিকচার, নাম এবং ইউআইডি সেকশন
+                        Row(
                           children: [
-                            // 🌟 কার্ডে মালিকের আইডি হলে স্পেশাল লেবেল শো করবে
-                            if (isSpecialOwner)
-                              Container(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.amber,
-                                  borderRadius: BorderRadius.circular(5),
-                                ),
-                                child: const Text(
-                                  "👑 মালিকের আইডি (Owner ID)",
-                                  style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12),
-                                ),
+                            CircleAvatar(
+                              radius: 30,
+                              backgroundColor: Colors.white24,
+                              backgroundImage: profilePic.isNotEmpty ? NetworkImage(profilePic) : null,
+                              child: profilePic.isEmpty
+                                  ? const Icon(Icons.person, color: Colors.white, size: 30)
+                                  : null,
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    data['name'] ?? 'N/A',
+                                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text("UID: $userUid", style: const TextStyle(color: Colors.cyanAccent, fontSize: 13)),
+                                  const SizedBox(height: 2),
+                                  Text("Gender: $gender", style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                ],
                               ),
-                            Text("Name: ${data['name'] ?? 'N/A'}", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                            Text("UID: $userUid", style: const TextStyle(color: Colors.white70)),
-                            Text("Gender: $gender", style: const TextStyle(color: Colors.cyanAccent)),
-                            Text("Status: ${isBlocked ? 'Blocked ❌' : 'Active ✅'}", style: TextStyle(color: isBlocked ? Colors.red : Colors.green)),
-                            Text("Device Status: ${isDeviceBlocked ? 'Device Blocked ❌' : 'Normal ✅'}", style: TextStyle(color: isDeviceBlocked ? Colors.red : Colors.green)),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                // Block / Unblock Button
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: isBlocked ? Colors.green : Colors.red),
-                                  onPressed: () => _updateUserField(docId, {'isBlocked': !isBlocked}, targetUid: userUid),
-                                  child: Text(isBlocked ? "Unblock" : "Block Permanent"),
-                                ),
-                                // 24 Hours Block
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                                  onPressed: () => _blockFor24Hours(docId, userUid),
-                                  child: const Text("Block 24h"),
-                                ),
-                                // One-click Device Block Button
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange),
-                                  onPressed: () => _blockDevice(docId, userUid),
-                                  child: const Text("Device Block"),
-                                ),
-                                // Verified Toggle
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                                  onPressed: () {
-                                    if (isSpecialOwner) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text("⚠️ Owner's tags cannot be removed!"), backgroundColor: Colors.redAccent),
-                                      );
-                                      return;
-                                    }
-                                    _updateUserField(docId, {'isVerified': !isVerified}, targetUid: userUid);
-                                  },
-                                  child: Text(isVerified ? "Remove Verified" : "Make Verified"),
-                                ),
-                                // Official Toggle
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
-                                  onPressed: () {
-                                    if (isSpecialOwner) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text("⚠️ Owner's tags cannot be removed!"), backgroundColor: Colors.redAccent),
-                                      );
-                                      return;
-                                    }
-                                    _updateUserField(docId, {'isOfficial': !isOfficial}, targetUid: userUid);
-                                  },
-                                  child: Text(isOfficial ? "Remove Official" : "Make Official"),
-                                ),
-                                // Super Admin Toggle
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
-                                  onPressed: () {
-                                    if (isSpecialOwner) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text("⚠️ Owner's roles cannot be removed!"), backgroundColor: Colors.redAccent),
-                                      );
-                                      return;
-                                    }
-                                    _updateUserField(docId, {'isSuperAdmin': !isSuperAdmin}, targetUid: userUid);
-                                  },
-                                  child: Text(isSuperAdmin ? "Remove Super Admin" : "Make Super Admin"),
-                                ),
-                                // Super Host Toggle
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
-                                  onPressed: () {
-                                    if (isSpecialOwner) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text("⚠️ Owner's roles cannot be removed!"), backgroundColor: Colors.redAccent),
-                                      );
-                                      return;
-                                    }
-                                    _updateUserField(docId, {'isSuperHost': !isSuperHost}, targetUid: userUid);
-                                  },
-                                  child: Text(isSuperHost ? "Remove Super Host" : "Make Super Host"),
-                                ),
-                                // 🌟 ভলেন্টিয়ার মেক এবং রিমুভ বাটন (Volunteer Make/Remove)
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
-                                  onPressed: () {
-                                    if (isSpecialOwner) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text("⚠️ Owner's roles cannot be removed!"), backgroundColor: Colors.redAccent),
-                                      );
-                                      return;
-                                    }
-                                    _updateUserField(docId, {'isVolunteer': !isVolunteer}, targetUid: userUid);
-                                  },
-                                  child: Text(isVolunteer ? "Remove Volunteer" : "Make Volunteer"),
-                                ),
-                                // Gender Switch (Male/Female Toggle)
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent),
-                                  onPressed: () {
-                                    if (isSpecialOwner) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text("⚠️ Owner's gender cannot be changed!"), backgroundColor: Colors.redAccent),
-                                      );
-                                      return;
-                                    }
-                                    String newGender = gender.toLowerCase() == 'male' ? 'Female' : 'Male';
-                                    _updateUserField(docId, {'gender': newGender}, targetUid: userUid);
-                                  },
-                                  child: Text("Set ${gender.toLowerCase() == 'male' ? 'Female' : 'Male'}"),
-                                ),
-                              ],
                             ),
                           ],
                         ),
-                      );
-                    }),
-                  ]
+                        const SizedBox(height: 14),
+                        const Divider(color: Colors.white12, height: 1),
+                        const SizedBox(height: 14),
+
+                        // ⏱️ ডিউটি টাইম এবং ডিভাইস আইডি ইনফো কার্ড
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white10),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.timer, color: Colors.amber, size: 18),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        "Duty Time: $totalHours Hours ($totalMinutes Min)",
+                                        style: const TextStyle(color: Colors.amberAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Icon(Icons.devices, color: Colors.cyanAccent, size: 16),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      "Device ID: $deviceId",
+                                      style: const TextStyle(color: Colors.white60, fontSize: 11),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // স্ট্যাটাস ইনফো
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("Status: ${isBlocked ? 'Blocked ❌' : 'Active ✅'}", 
+                                style: TextStyle(color: isBlocked ? Colors.redAccent : Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                            Text("Device: ${isDeviceBlocked ? 'Blocked ❌' : 'Normal ✅'}", 
+                                style: TextStyle(color: isDeviceBlocked ? Colors.redAccent : Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // অ্যাকশন বাটনগুলো
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            // Block / Unblock Button
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: isBlocked ? Colors.green : Colors.red),
+                              onPressed: () => _updateUserField(docId, {'isBlocked': !isBlocked}, targetUid: userUid),
+                              child: Text(isBlocked ? "Unblock" : "Block Permanent"),
+                            ),
+                            // 24 Hours Block
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 240, 39, 25)),
+                              onPressed: () => _blockFor24Hours(docId, userUid),
+                              child: const Text("Block 24h"),
+                            ),
+                            // One-click Device Block Button
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange),
+                              onPressed: () => _blockDevice(docId, userUid),
+                              child: const Text("Device Block"),
+                            ),
+                            // Verified Toggle
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                              onPressed: () {
+                                if (isSpecialOwner) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("⚠️ Owner's tags cannot be removed!"), backgroundColor: Colors.redAccent),
+                                  );
+                                  return;
+                                }
+                                _updateUserField(docId, {'isVerified': !isVerified}, targetUid: userUid);
+                              },
+                              child: Text(isVerified ? "Remove Verified" : "Make Verified"),
+                            ),
+                            // Official Toggle
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 2, 70, 82)),
+                              onPressed: () {
+                                if (isSpecialOwner) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("⚠️ Owner's tags cannot be removed!"), backgroundColor: Colors.redAccent),
+                                  );
+                                  return;
+                                }
+                                _updateUserField(docId, {'isOfficial': !isOfficial}, targetUid: userUid);
+                              },
+                              child: Text(isOfficial ? "Remove Official" : "Make Official"),
+                            ),
+                            // Super Admin Toggle
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
+                              onPressed: () {
+                                if (isSpecialOwner) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("⚠️ Owner's roles cannot be removed!"), backgroundColor: Colors.redAccent),
+                                  );
+                                  return;
+                                }
+                                _updateUserField(docId, {'isSuperAdmin': !isSuperAdmin}, targetUid: userUid);
+                              },
+                              child: Text(isSuperAdmin ? "Remove Super Admin" : "Make Super Admin"),
+                            ),
+                            // Super Host Toggle
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                              onPressed: () {
+                                if (isSpecialOwner) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("⚠️ Owner's roles cannot be removed!"), backgroundColor: Colors.redAccent),
+                                  );
+                                  return;
+                                }
+                                _updateUserField(docId, {'isSuperHost': !isSuperHost}, targetUid: userUid);
+                              },
+                              child: Text(isSuperHost ? "Remove Super Host" : "Make Super Host"),
+                            ),
+                            // 🌟 ভলেন্টিয়ার মেক এবং রিমুভ বাটন
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
+                              onPressed: () {
+                                if (isSpecialOwner) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("⚠️ Owner's roles cannot be removed!"), backgroundColor: Colors.redAccent),
+                                  );
+                                  return;
+                                }
+                                _updateUserField(docId, {'isVolunteer': !isVolunteer}, targetUid: userUid);
+                              },
+                              child: Text(isVolunteer ? "Remove Volunteer" : "Make Volunteer"),
+                            ),
+                            // Gender Switch (Male/Female Toggle)
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent),
+                              onPressed: () {
+                                if (isSpecialOwner) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("⚠️ Owner's gender cannot be changed!"), backgroundColor: Colors.redAccent),
+                                  );
+                                  return;
+                                }
+                                String newGender = gender.toLowerCase() == 'male' ? 'Female' : 'Male';
+                                _updateUserField(docId, {'gender': newGender}, targetUid: userUid);
+                              },
+                              child: Text("Set ${gender.toLowerCase() == 'male' ? 'Female' : 'Male'}"),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ]
                 ],
               ),
             ),

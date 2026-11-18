@@ -31,14 +31,14 @@ class _DonggiBabaGameWidgetState extends State<DonggiBabaGameWidget>
 
  // বেট অপশন এবং নতুন আপডেট করা মাল্টিপ্লায়ার
   final List<Map<String, dynamic>> betOptions = [
-    {'id': 'chicken', 'name': 'Chicken', 'multiplier': 20, 'icon': '🍗'},
-    {'id': 'octopus', 'name': 'Octopus', 'multiplier': 15, 'icon': '🐙'},
-    {'id': 'shrimp', 'name': 'Shrimp', 'multiplier': 10, 'icon': '🦐'},
+    {'id': 'chicken', 'name': 'Chicken', 'multiplier': 30, 'icon': '🍗'},
+    {'id': 'octopus', 'name': 'Octopus', 'multiplier': 25, 'icon': '🐙'},
+    {'id': 'shrimp', 'name': 'Shrimp', 'multiplier': 18, 'icon': '🦐'},
     {'id': 'fish', 'name': 'Fish', 'multiplier': 5, 'icon': '🐟'},
-    {'id': 'mushroom', 'name': 'Mushroom', 'multiplier': 5, 'icon': '🍄'},
-    {'id': 'watermelon', 'name': 'Watermelon', 'multiplier': 3, 'icon': '🍉'},
-    {'id': 'cabbage', 'name': 'Cabbage', 'multiplier': 2, 'icon': '🥬'},
-    {'id': 'carrot', 'name': 'Carrot', 'multiplier': 2, 'icon': '🥕'},
+    {'id': 'mushroom', 'name': 'Mushroom', 'multiplier': 13, 'icon': '🍄'},
+    {'id': 'watermelon', 'name': 'Watermelon', 'multiplier': 9, 'icon': '🍉'},
+    {'id': 'cabbage', 'name': 'Cabbage', 'multiplier': 6, 'icon': '🥬'},
+    {'id': 'carrot', 'name': 'Carrot', 'multiplier': 4, 'icon': '🥕'},
   ];
 
   int selectedChip = 1000;
@@ -290,59 +290,84 @@ Future<void> _triggerMasterWinnerSelection() async {
     if (!shouldSpin) return;
 
     final random = Random();
-    String winnerId;
+    String winnerId = 'carrot'; 
 
     // ১. সমস্ত অপশনের মধ্যে কোনটিতে সবচেয়ে বেশি বেট পড়েছে তা খুঁজে বের করা
     String? highestBetOptionId;
     int maxBetAmount = -1;
+    int totalUserBetInRound = 0;
     
-    betOptions.forEach((option) {
+    for (var option in betOptions) {
       String optId = option['id'].toString();
       int optBet = globalTotalBets[optId] ?? 0;
+      totalUserBetInRound += optBet;
       
       if (optBet > maxBetAmount) {
         maxBetAmount = optBet;
         highestBetOptionId = optId;
       }
-    });
+    }
 
-    // ২. হাউস প্রোটেকশন ও কড়া রিগিং লজিক (নতুন মাল্টিপ্লায়ার অনুযায়ী আপডেট করা):
-    // যে অপশনে সবথেকে বেশি বেট পড়েছে (highestBetOptionId), সেটি কিছুতেই উইনার হতে পারবে না!
-    bool forceRigHouseWin = true; 
+    // ২. নতুন কন্ডিশন: যদি মোট বেট ১০০০ ডায়মন্ডের বেশি হয়, তবে ১% চান্স দিয়ে কন্ট্রোল করা
+    bool isHeavyBet = totalUserBetInRound > 1000;
+    final String? topBetId = highestBetOptionId; // লোকাল নন-নাল টাইপ সেফ ভেরিয়েবল
 
-    if (forceRigHouseWin && highestBetOptionId != null) {
-      // সবচেয়ে বেশি বেট পড়া অপশনটি বাদ দিয়ে বাকিগুলোর লিস্ট তৈরি করা
-      List<String> safeOptions = betOptions
-          .map((e) => e['id'].toString())
-          .where((id) => id != highestBetOptionId)
-          .toList();
-
-      // হাই-টিয়ার অপশনগুলোর (যাদের গুণ বেশি যেমন ২০x, ১৫x, ১০x) আসার চান্স খুব নগ্নতম রাখা
-      List<String> highTier = ['chicken', 'octopus', 'shrimp'];
-      
-      // রেন্ডম চ্যান্স চেক (১০০০ এর মধ্যে হিসাব)
-      int chance = random.nextInt(1000);
-
-      if (chance < 8 && safeOptions.contains('chicken')) {
-        winnerId = 'chicken'; // ২০ গুণ খুব কম আসবে
-      } else if (chance < 15 && safeOptions.contains('octopus')) {
-        winnerId = 'octopus'; // ১৫ গুণ বিরল
-      } else if (chance < 25 && safeOptions.contains('shrimp')) {
-        winnerId = 'shrimp';  // ১০ গুণ কম আসবে
+    if (isHeavyBet) {
+      int heavyBetChance = random.nextInt(100); // ০ থেকে ৯৯ (১% চান্স)
+      if (heavyBetChance == 0 && topBetId != null) {
+        winnerId = topBetId; // ১% ভাগ্য জোরে জিতবে
       } else {
-        // বেশিরভাগ সময় লো-টিয়ার (যেমন ৫x, ৩x, ২x) বা যেগুলোতে বেট কম পড়েছে সেগুলো উইনার হবে
-        List<String> preferredOptions = safeOptions.where((id) => !highTier.contains(id)).toList();
-        
-        if (preferredOptions.isNotEmpty) {
-          winnerId = preferredOptions[random.nextInt(preferredOptions.length)];
+        // বাকি সময় হাউস প্রটেকশনের জন্য বেশি বেট করা অপশন বাদ দিয়ে অন্য লো-টিয়ার অপশন উইনার হবে
+        List<String> safeOptions = betOptions
+            .map((e) => e['id'].toString())
+            .where((id) => id != topBetId)
+            .toList();
+
+        if (safeOptions.isNotEmpty) {
+          List<String> lowTier = ['cabbage', 'carrot', 'fish', 'watermelon'];
+          List<String> availableLow = safeOptions.where((id) => lowTier.contains(id)).toList();
+          if (availableLow.isNotEmpty) {
+            winnerId = availableLow[random.nextInt(availableLow.length)];
+          } else {
+            winnerId = safeOptions[random.nextInt(safeOptions.length)];
+          }
         } else {
-          winnerId = safeOptions[random.nextInt(safeOptions.length)];
+          winnerId = 'carrot';
         }
       }
-    } else {
-      // ফলব্যাক সাধারণ লো-টিয়ার অপশন (যেমন ২x বা ৩x ওয়ালা অপশনগুলো)
-      List<String> lowTier = ['watermelon', 'cabbage', 'carrot'];
-      winnerId = lowTier[random.nextInt(lowTier.length)];
+    } 
+    else {
+      // হাউস প্রোটেকশন এবং রিগিং লজিক
+      bool forceRigHouseWin = true; 
+
+      if (forceRigHouseWin && topBetId != null) {
+        List<String> safeOptions = betOptions
+            .map((e) => e['id'].toString())
+            .where((id) => id != topBetId)
+            .toList();
+
+        List<String> highTier = ['chicken', 'octopus', 'shrimp'];
+        int chance = random.nextInt(1000);
+
+        if (chance < 8 && safeOptions.contains('chicken')) {
+          winnerId = 'chicken'; 
+        } else if (chance < 15 && safeOptions.contains('octopus')) {
+          winnerId = 'octopus'; 
+        } else if (chance < 25 && safeOptions.contains('shrimp')) {
+          winnerId = 'shrimp';  
+        } else {
+          List<String> preferredOptions = safeOptions.where((id) => !highTier.contains(id)).toList();
+          
+          if (preferredOptions.isNotEmpty) {
+            winnerId = preferredOptions[random.nextInt(preferredOptions.length)];
+          } else {
+            winnerId = safeOptions.isNotEmpty ? safeOptions[random.nextInt(safeOptions.length)] : 'carrot';
+          }
+        }
+      } else {
+        List<String> lowTier = ['watermelon', 'cabbage', 'carrot'];
+        winnerId = lowTier[random.nextInt(lowTier.length)];
+      }
     }
 
     // ফায়ারবেসে উইনার আইডি এবং উইনিং স্টেট আপডেট করা
