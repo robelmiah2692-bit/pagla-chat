@@ -47,6 +47,7 @@ import 'package:pagla_chat/user_badges_row.dart';
 import 'package:pagla_chat/viewer_ranking_widget.dart';
 
 import 'package:pagla_chat/widgets/entry_effect_handler.dart';
+import 'package:pagla_chat/widgets/sound_effect_bottom_sheet.dart';
 import 'package:pagla_chat/widgets/youtube_player_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
@@ -216,7 +217,7 @@ class _VoiceRoomState extends State<VoiceRoom>
   List<String> savedMusicPaths = [];
   DateTime? _roomEntryTime;
   bool _isTrackingTime = false;
-
+String? _currentPlayingSoundName;
   @override
   void initState() {
     super.initState();
@@ -331,7 +332,6 @@ class _VoiceRoomState extends State<VoiceRoom>
 
     // ২. ইউজার এবং রুম ডাটা চেক
     _fetchMyuID().then((_) {
-     
       bool isUserValidForXp =
           uID.isNotEmpty && FirebaseAuth.instance.currentUser != null;
 
@@ -612,24 +612,24 @@ class _VoiceRoomState extends State<VoiceRoom>
     } catch (e) {}
   }
 
-
-  
-
   // রুম এন্ট্রি বা পেজ ওপেন হওয়ার সাথে সাথে টাইমার চালু করা
   void _startDutyTimeTracking() {
     if (_isTrackingTime) return;
-    
+
     _roomEntryTime = DateTime.now();
     _isTrackingTime = true;
-    debugPrint("⏱️ [DutyTimer] SUCCESS: Started tracking time at: $_roomEntryTime");
+    debugPrint(
+        "⏱️ [DutyTimer] SUCCESS: Started tracking time at: $_roomEntryTime");
   }
 
   // রুম থেকে বের হওয়ার সময় বা dispose-এ সরাসরি Auth দিয়ে uID খুঁজে ফায়ারস্টোরে সেভ করা
   Future<void> _stopAndSaveDutyTime() async {
-    debugPrint("🛑 [DutyTimer] _stopAndSaveDutyTime called. isTracking: $_isTrackingTime");
+    debugPrint(
+        "🛑 [DutyTimer] _stopAndSaveDutyTime called. isTracking: $_isTrackingTime");
 
     if (!_isTrackingTime || _roomEntryTime == null) {
-      debugPrint("⚠️ [DutyTimer] Tracking skipped: Tracking not active or entry time is null.");
+      debugPrint(
+          "⚠️ [DutyTimer] Tracking skipped: Tracking not active or entry time is null.");
       return;
     }
 
@@ -655,15 +655,18 @@ class _VoiceRoomState extends State<VoiceRoom>
 
       // যদি এভাবে না পাওয়া যায়, তবে সরাসরি ডকুমেন্টের আইডি বা অন্য ফিল্ড চেক করা যেতে পারে
       if (resolvedUID.isEmpty) {
-        resolvedUID = userQuery.docs.isNotEmpty ? userQuery.docs.first.id : currentAuthUid;
+        resolvedUID = userQuery.docs.isNotEmpty
+            ? userQuery.docs.first.id
+            : currentAuthUid;
       }
 
       debugPrint("🔍 [DutyTimer] Resolved uID for saving time: $resolvedUID");
 
       Duration spentDuration = DateTime.now().difference(_roomEntryTime!);
       int spentSeconds = spentDuration.inSeconds;
-      
-      debugPrint("⏱️ [DutyTimer] Total time spent in room: $spentSeconds seconds");
+
+      debugPrint(
+          "⏱️ [DutyTimer] Total time spent in room: $spentSeconds seconds");
 
       _isTrackingTime = false;
       _roomEntryTime = null;
@@ -676,15 +679,17 @@ class _VoiceRoomState extends State<VoiceRoom>
 
       int minutesToAdd = (spentSeconds / 60).clamp(1, 99999).toInt();
 
-      debugPrint("🔥 [DutyTimer] Attempting to save $minutesToAdd minutes to Firestore for uID: $resolvedUID");
+      debugPrint(
+          "🔥 [DutyTimer] Attempting to save $minutesToAdd minutes to Firestore for uID: $resolvedUID");
 
       // সরাসরি সংগৃহীত resolvedUID দিয়ে ফায়ারস্টোরে আপডেট করা
-      DocumentReference userDocRef =
-          FirebaseFirestore.instance.collection('users').doc(resolvedUID.toString());
+      DocumentReference userDocRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(resolvedUID.toString());
 
       DocumentSnapshot snapshot = await userDocRef.get();
       int existingMinutes = 0;
-      
+
       if (snapshot.exists && snapshot.data() != null) {
         var data = snapshot.data() as Map<String, dynamic>;
         existingMinutes = data['totalRoomMinutes'] ?? 0;
@@ -700,11 +705,13 @@ class _VoiceRoomState extends State<VoiceRoom>
         'lastActiveTime': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      debugPrint("✅ [DutyTimer] SUCCESS! Saved total $totalMinutes minutes for uID: $resolvedUID");
+      debugPrint(
+          "✅ [DutyTimer] SUCCESS! Saved total $totalMinutes minutes for uID: $resolvedUID");
     } catch (e) {
       debugPrint("❌ [DutyTimer] Error saving time to Firestore: $e");
     }
   }
+
   void _fetchRoomData() {
     _roomDataSnapshotSub?.cancel(); // আগেরটা থাকলে ক্যানসেল করে নেওয়া হলো
     _roomDataSnapshotSub = FirebaseFirestore.instance
@@ -739,10 +746,12 @@ class _VoiceRoomState extends State<VoiceRoom>
       // ৩. 🔥 নিরাপত্তা চেক: ক্র্যাশ এড়াতে Timestamp ফিল্ড বাদ দিয়ে শুধু প্লেইন ডেটা তুলনা করা
       // rData থেকে টাইমস্ট্যাম্প বা নন-এনকোডেবল অবজেক্ট বাদ দিয়ে একটি সেফ কপি তৈরি
       Map<String, dynamic> safeOldMap = Map.from(roomData);
-      safeOldMap.removeWhere((key, value) => value is Timestamp || value is DateTime);
+      safeOldMap
+          .removeWhere((key, value) => value is Timestamp || value is DateTime);
 
       Map<String, dynamic> safeNewMap = Map.from(rData);
-      safeNewMap.removeWhere((key, value) => value is Timestamp || value is DateTime);
+      safeNewMap
+          .removeWhere((key, value) => value is Timestamp || value is DateTime);
 
       bool isDataChanged = (roomName != newRoomName) ||
           (roomProfileImage != newRoomImage) ||
@@ -753,7 +762,8 @@ class _VoiceRoomState extends State<VoiceRoom>
           (isOwner != newIsOwner) ||
           (isAdmin != newIsAdmin) ||
           (adminList.length != newAdminList.length) ||
-          (jsonEncode(safeOldMap) != jsonEncode(safeNewMap)); // ক্র্যাশ-মুক্ত এনকোডিং তুলনা
+          (jsonEncode(safeOldMap) !=
+              jsonEncode(safeNewMap)); // ক্র্যাশ-মুক্ত এনকোডিং তুলনা
 
       if (isDataChanged) {
         setState(() {
@@ -772,6 +782,7 @@ class _VoiceRoomState extends State<VoiceRoom>
       }
     });
   }
+
   Future<void> _fetchMyuID() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -2210,6 +2221,54 @@ class _VoiceRoomState extends State<VoiceRoom>
     setState(() => isPKActive = false);
   }
 
+// একটি অডিও প্লেয়ার ইন্সট্যান্স তৈরি করে নিন (গ্লোবাল বা স্টেট ক্লাসের ভেতরে)
+final AudioPlayer _soundEffectPlayer = AudioPlayer();
+
+// 🔥 সাউন্ড ইফেক্ট শিট ওপেন এবং প্লে করার নিখুঁত ফাংশন
+void _openSoundEffectMenu() {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setStateModal) {
+        return SoundEffectBottomSheet(
+          activePlayingSound: _currentPlayingSoundName,
+          onSoundSelected: (path, name) async {
+            debugPrint("🔊 Playing Sound Effect: $name ($path)");
+
+            setStateModal(() {
+              _currentPlayingSoundName = name;
+            });
+            setState(() {
+              _currentPlayingSoundName = name;
+            });
+
+            try {
+              // 🛑 আগের সাউন্ড থাকলে থামিয়ে দিবে, ফলে ওভারল্যাপ হবে না
+              await _soundEffectPlayer.stop();
+
+              // 🔥 অ্যাসেট থেকে সরাসরি সাউন্ড প্লে করা (মিউজিক প্লেয়ারকে বিন্দুমাত্র ডিস্টার্ব করবে না)
+              // পাথ যেমন: "assets/sounds/cheering.mp3" হলে audioplayers এ দিতে হয় "sounds/cheering.mp3" (যদি assets/ ফোল্ডার ডিফল্ট থাকে)
+              String cleanPath = path.replaceFirst('assets/', '');
+              await _soundEffectPlayer.play(AssetSource(cleanPath));
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("Playing: $name 🎶"),
+                  duration: const Duration(seconds: 1),
+                  backgroundColor: Colors.cyan.shade800,
+                ),
+              );
+            } catch (e) {
+              debugPrint("❌ Sound Effect Error: $e");
+            }
+          },
+        );
+      },
+    ),
+  );
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2823,6 +2882,7 @@ class _VoiceRoomState extends State<VoiceRoom>
                               ),
                             );
                           },
+
                           onGamesTap: () {
                             showModalBottomSheet(
                               context: context,
@@ -2834,6 +2894,10 @@ class _VoiceRoomState extends State<VoiceRoom>
                                 child: GamePanelView(roomId: widget.roomId),
                               ),
                             );
+                          },
+                          // 👈 ঠিক এই জায়গাটিতে সাউন্ড ইফেক্ট কলব্যাকটি বসিয়ে দেওয়া হলো:
+                          onSoundEffectTap: () {
+                            _openSoundEffectMenu();
                           },
                         ),
                       );
@@ -3887,137 +3951,137 @@ class _VoiceRoomState extends State<VoiceRoom>
   }
 
   Widget _buildStreamEmojiAnimations() {
-  return StreamBuilder<DatabaseEvent>(
-    stream: FirebaseDatabase.instance
-        .ref('rooms/${widget.roomId}/active_emojis')
-        .onValue,
-    builder: (context, snapshot) {
-      if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
-        return const SizedBox.shrink();
-      }
+    return StreamBuilder<DatabaseEvent>(
+      stream: FirebaseDatabase.instance
+          .ref('rooms/${widget.roomId}/active_emojis')
+          .onValue,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
+          return const SizedBox.shrink();
+        }
 
-      final rawData = snapshot.data!.snapshot.value;
-      Map<dynamic, dynamic> dataMap = {};
-      if (rawData is Map) {
-        dataMap = rawData;
-      } else {
-        return const SizedBox.shrink();
-      }
+        final rawData = snapshot.data!.snapshot.value;
+        Map<dynamic, dynamic> dataMap = {};
+        if (rawData is Map) {
+          dataMap = rawData;
+        } else {
+          return const SizedBox.shrink();
+        }
 
-      return StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('rooms')
-            .doc(widget.roomId)
-            .snapshots(),
-        builder: (context, roomSnapshot) {
-          int currentLayoutItemCount = 10;
-          if (roomSnapshot.hasData && roomSnapshot.data!.exists) {
-            var roomData = roomSnapshot.data!.data() as Map<String, dynamic>;
-            currentLayoutItemCount = roomData['seatLayoutCount'] ?? 10;
-          }
-
-          bool isBigTwoSeatLayout = (currentLayoutItemCount == 2);
-          double emojiSize = isBigTwoSeatLayout ? 150.0 : 65.0;
-          double offsetX = isBigTwoSeatLayout ? 70.0 : 32.0;
-          double offsetY = isBigTwoSeatLayout ? 50.0 : 41.0;
-
-          List<Widget> allEmojiWidgets = [];
-
-          // ডেটাম্যাপ লুপ করে প্রতিটি সিটের সবকটি ইউনিক ইমোজি আলাদা করে লিস্টে নেওয়া হচ্ছে
-          dataMap.forEach((seatKey, seatValue) {
-            int seatIndex = int.tryParse(seatKey.toString()) ?? -1;
-
-            if (seatIndex < 0 ||
-                seatIndex > 19 ||
-                seatIndex >= seatPositions.length) {
-              return;
+        return StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('rooms')
+              .doc(widget.roomId)
+              .snapshots(),
+          builder: (context, roomSnapshot) {
+            int currentLayoutItemCount = 10;
+            if (roomSnapshot.hasData && roomSnapshot.data!.exists) {
+              var roomData = roomSnapshot.data!.data() as Map<String, dynamic>;
+              currentLayoutItemCount = roomData['seatLayoutCount'] ?? 10;
             }
 
-            if (seatPositions[seatIndex] == Offset.zero) {
-              return;
-            }
+            bool isBigTwoSeatLayout = (currentLayoutItemCount == 2);
+            double emojiSize = isBigTwoSeatLayout ? 150.0 : 65.0;
+            double offsetX = isBigTwoSeatLayout ? 70.0 : 32.0;
+            double offsetY = isBigTwoSeatLayout ? 50.0 : 41.0;
 
-            // যদি সিটের ভেতরে সাব-ম্যাপ (ইউনিক পুশ কি) থাকে
-            if (seatValue is Map) {
-              seatValue.forEach((emojiPushId, emojiData) {
-                String assetPath = "";
-                if (emojiData is Map) {
-                  assetPath = emojiData['currentEmoji']?.toString() ?? "";
-                } else if (emojiData is String) {
-                  assetPath = emojiData;
-                }
+            List<Widget> allEmojiWidgets = [];
 
-                if (assetPath.isNotEmpty) {
-                  allEmojiWidgets.add(_buildSingleAnimatedEmoji(
-                    seatIndex: seatIndex,
-                    assetPath: assetPath,
-                    emojiSize: emojiSize,
-                    offsetX: offsetX,
-                    offsetY: offsetY,
-                    uniqueKey: emojiPushId.toString(),
-                  ));
-                }
-              });
-            }
-          });
+            // ডেটাম্যাপ লুপ করে প্রতিটি সিটের সবকটি ইউনিক ইমোজি আলাদা করে লিস্টে নেওয়া হচ্ছে
+            dataMap.forEach((seatKey, seatValue) {
+              int seatIndex = int.tryParse(seatKey.toString()) ?? -1;
 
-          return Stack(
-            children: allEmojiWidgets,
-          );
-        },
-      );
-    },
-  );
-}
+              if (seatIndex < 0 ||
+                  seatIndex > 19 ||
+                  seatIndex >= seatPositions.length) {
+                return;
+              }
+
+              if (seatPositions[seatIndex] == Offset.zero) {
+                return;
+              }
+
+              // যদি সিটের ভেতরে সাব-ম্যাপ (ইউনিক পুশ কি) থাকে
+              if (seatValue is Map) {
+                seatValue.forEach((emojiPushId, emojiData) {
+                  String assetPath = "";
+                  if (emojiData is Map) {
+                    assetPath = emojiData['currentEmoji']?.toString() ?? "";
+                  } else if (emojiData is String) {
+                    assetPath = emojiData;
+                  }
+
+                  if (assetPath.isNotEmpty) {
+                    allEmojiWidgets.add(_buildSingleAnimatedEmoji(
+                      seatIndex: seatIndex,
+                      assetPath: assetPath,
+                      emojiSize: emojiSize,
+                      offsetX: offsetX,
+                      offsetY: offsetY,
+                      uniqueKey: emojiPushId.toString(),
+                    ));
+                  }
+                });
+              }
+            });
+
+            return Stack(
+              children: allEmojiWidgets,
+            );
+          },
+        );
+      },
+    );
+  }
 
 // தனிগত একটি ইমোজি অ্যানিমেশনের জন্য হেল্পার উইজেট
-Widget _buildSingleAnimatedEmoji({
-  required int seatIndex,
-  required String assetPath,
-  required double emojiSize,
-  required double offsetX,
-  required double offsetY,
-  required String uniqueKey,
-}) {
-  bool isKissEmoji = assetPath.contains('kiss.json');
-  bool shouldFlip = isKissEmoji;
-  Offset pos = seatPositions[seatIndex];
+  Widget _buildSingleAnimatedEmoji({
+    required int seatIndex,
+    required String assetPath,
+    required double emojiSize,
+    required double offsetX,
+    required double offsetY,
+    required String uniqueKey,
+  }) {
+    bool isKissEmoji = assetPath.contains('kiss.json');
+    bool shouldFlip = isKissEmoji;
+    Offset pos = seatPositions[seatIndex];
 
-  return Positioned(
-    key: ValueKey(uniqueKey),
-    left: pos.dx - offsetX,
-    top: pos.dy - offsetY,
-    child: IgnorePointer(
-      child: TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: 1.0, end: 0.0),
-        duration: const Duration(seconds: 7), // ৭ সেকেন্ড লাইফটাইম
-        builder: (context, opacityValue, child) {
-          double smoothOpacity =
-              opacityValue < 0.25 ? opacityValue * 4 : 1.0;
+    return Positioned(
+      key: ValueKey(uniqueKey),
+      left: pos.dx - offsetX,
+      top: pos.dy - offsetY,
+      child: IgnorePointer(
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 1.0, end: 0.0),
+          duration: const Duration(seconds: 7), // ৭ সেকেন্ড লাইফটাইম
+          builder: (context, opacityValue, child) {
+            double smoothOpacity = opacityValue < 0.25 ? opacityValue * 4 : 1.0;
 
-          return Opacity(
-            opacity: smoothOpacity,
-            child: SizedBox(
-              width: emojiSize,
-              height: emojiSize,
-              child: Transform(
-                alignment: Alignment.center,
-                transform: Matrix4.identity()
-                  ..scale(shouldFlip ? -1.0 : 1.0, 1.0),
-                child: Lottie.asset(
-                  assetPath,
-                  repeat: true,
-                  animate: true,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            return Opacity(
+              opacity: smoothOpacity,
+              child: SizedBox(
+                width: emojiSize,
+                height: emojiSize,
+                child: Transform(
+                  alignment: Alignment.center,
+                  transform: Matrix4.identity()
+                    ..scale(shouldFlip ? -1.0 : 1.0, 1.0),
+                  child: Lottie.asset(
+                    assetPath,
+                    repeat: true,
+                    animate: true,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
+
 // এই উইজেটটি আপনার আইকন বাটন তৈরি করবে
   Widget buildCircularIcon(IconData icon, Color color, VoidCallback onTap) {
     return InkWell(
@@ -4052,7 +4116,7 @@ Widget _buildSingleAnimatedEmoji({
     // যদি থাকে, তবে আমরা ডাটাবেস আপডেট বা এগোরা বন্ধ কিছুই করবো না।
     if (FloatingBubbleService.isMinimized) {
       // নোট: এখানে return করার মানে হলো নিচের কোনো ক্লিনআপ কোড এক্সিকিউট হবে না।
-      
+
       super.dispose();
       return;
     }

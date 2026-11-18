@@ -3591,200 +3591,234 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildMySpecialTab() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
+    final String myAuthUID = FirebaseAuth.instance.currentUser?.uid ?? uIDValue;
+
+    return FutureBuilder<QuerySnapshot>(
+      // 🔥 authUID দিয়ে ইউজারের সঠিক ডকুমেন্ট আইডি (যেমন: 454488) খুঁজে বের করা
+      future: FirebaseFirestore.instance
           .collection('users')
-          .doc(uIDValue)
-          .collection('my_special')
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+          .where('authUID', isEqualTo: myAuthUID)
+          .limit(1)
+          .get(),
+      builder: (context, userDocSnapshot) {
+        if (!userDocSnapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        var mySpecialItems = snapshot.data!.docs;
-        if (mySpecialItems.isEmpty) {
+        if (userDocSnapshot.data!.docs.isEmpty) {
           return const Center(
-            child: Text("No have any special",
+            child: Text("User profile not found",
                 style: TextStyle(color: Colors.blueGrey, fontSize: 16)),
           );
         }
 
-        return GridView.builder(
-          padding: const EdgeInsets.all(12),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.70,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10),
-          itemCount: mySpecialItems.length,
-          itemBuilder: (context, index) {
-            var data = mySpecialItems[index].data() as Map<String, dynamic>;
-            String url = data['image_url'] ?? "";
-            String name = data['name'] ?? "Special Item";
-            String type = data['type'] ?? "Effect";
+        // সঠিক ডকুমেন্ট আইডি পেয়ে গেলাম (যেমন: 454488)
+        String correctUserDocId = userDocSnapshot.data!.docs.first.id;
 
-            bool isPicked = (activeSpecialUrl == url);
+        return StreamBuilder<QuerySnapshot>(
+          // 🔥 এখন সঠিক ডকুমেন্ট আইডির ভেতরের 'my_special' সাব-কালেকশন স্ট্রিম করা হচ্ছে
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(correctUserDocId)
+              .collection('my_special')
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-            Timestamp? expiryTimestamp = data['expiryDate'] as Timestamp?;
-            DateTime expiryDate = expiryTimestamp?.toDate() ?? DateTime.now();
-            Duration remaining = expiryDate.difference(DateTime.now());
+            var mySpecialItems = snapshot.data!.docs;
+            if (mySpecialItems.isEmpty) {
+              return const Center(
+                child: Text("No have any special",
+                    style: TextStyle(color: Colors.blueGrey, fontSize: 16)),
+              );
+            }
 
-            String timeText = remaining.inDays > 0
-                ? "${remaining.inDays} days left"
-                : "${remaining.inHours} hours left";
+            return GridView.builder(
+              padding: const EdgeInsets.all(12),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.70,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10),
+              itemCount: mySpecialItems.length,
+              itemBuilder: (context, index) {
+                var data = mySpecialItems[index].data() as Map<String, dynamic>;
+                String url = data['image_url'] ?? "";
+                String name = data['name'] ?? "Special Item";
+                String type = data['type'] ?? "Effect";
 
-            return Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(
-                    color:
-                        isPicked ? Colors.purpleAccent : Colors.purple.shade50,
-                    width: 2),
-                boxShadow: [
-                  const BoxShadow(color: Colors.black12, blurRadius: 5)
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // একই লজিক এখানেও ব্যবহার করুন
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: url.toLowerCase().contains('.json')
-                          ? LottieBuilder.network(
-                              url,
-                              fit: BoxFit.contain,
-                              animate: true,
-                              repeat: true,
-                              onLoaded: (composition) {},
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(Icons.error_outline,
-                                    color: Colors.red);
-                              },
-                            )
-                          : CachedNetworkImage(
-                              imageUrl: url,
-                              fit: BoxFit.contain,
-                              placeholder: (context, url) => Container(
-                                color: Colors.white10,
-                                child: const Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 1.5,
-                                      color: Colors.white70,
+                bool isPicked = (activeSpecialUrl == url);
+
+                Timestamp? expiryTimestamp = data['expiryDate'] as Timestamp?;
+                DateTime expiryDate =
+                    expiryTimestamp?.toDate() ?? DateTime.now();
+                Duration remaining = expiryDate.difference(DateTime.now());
+
+                String timeText = remaining.inDays > 0
+                    ? "${remaining.inDays} days left"
+                    : "${remaining.inHours} hours left";
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(
+                        color: isPicked
+                            ? Colors.purpleAccent
+                            : Colors.purple.shade50,
+                        width: 2),
+                    boxShadow: [
+                      const BoxShadow(color: Colors.black12, blurRadius: 5)
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: url.toLowerCase().contains('.json')
+                              ? LottieBuilder.network(
+                                  url,
+                                  fit: BoxFit.contain,
+                                  animate: true,
+                                  repeat: true,
+                                  onLoaded: (composition) {},
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return const Icon(Icons.error_outline,
+                                        color: Colors.red);
+                                  },
+                                )
+                              : CachedNetworkImage(
+                                  imageUrl: url,
+                                  fit: BoxFit.contain,
+                                  placeholder: (context, url) => Container(
+                                    color: Colors.white10,
+                                    child: const Center(
+                                      child: SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 1.5,
+                                          color: Colors.white70,
+                                        ),
+                                      ),
                                     ),
                                   ),
+                                  errorWidget: (context, url, error) =>
+                                      const Icon(
+                                    Icons.broken_image,
+                                    color: Colors.grey,
+                                  ),
                                 ),
-                              ),
-                              errorWidget: (context, url, error) => const Icon(
-                                Icons.broken_image,
-                                color: Colors.grey,
-                              ),
-                            ),
-                    ),
-                  ),
-                  Text(name,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: Colors.purple)),
-                  Text(type,
-                      style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Text(timeText,
-                        style: TextStyle(
-                            color: remaining.inDays < 2
-                                ? Colors.red
-                                : Colors.blueGrey,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500)),
-                  ),
-                  Padding(
-                    padding:
-                        const EdgeInsets.only(bottom: 10, left: 8, right: 8),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 30,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              isPicked ? Colors.redAccent : Colors.purpleAccent,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          elevation: 0,
                         ),
-                        onPressed: () async {
-                          String newUrl = isPicked ? "" : url;
-                          bool newStatus = !isPicked;
-                          String newName = isPicked ? "" : name;
-
-                          await FirebaseFirestore.instance
-                              .collection('users')
-                              .doc(uIDValue)
-                              .update({
-                            'activeSpecialUrl': newUrl,
-                            'hasSpecialEffect': newStatus,
-                            'activeSpecialName': newName,
-                          });
-
-                          QuerySnapshot marriageQuery = await FirebaseFirestore
-                              .instance
-                              .collection('marriages')
-                              .where('myAuthUID', isEqualTo: uIDValue)
-                              .limit(1)
-                              .get();
-
-                          if (marriageQuery.docs.isEmpty) {
-                            marriageQuery = await FirebaseFirestore.instance
-                                .collection('marriages')
-                                .where('partnerAuthUID', isEqualTo: uIDValue)
-                                .limit(1)
-                                .get();
-                          }
-
-                          if (marriageQuery.docs.isNotEmpty) {
-                            String marriageDocId = marriageQuery.docs.first.id;
-                            await FirebaseFirestore.instance
-                                .collection('marriages')
-                                .doc(marriageDocId)
-                                .update({
-                              'ringIcon': newUrl,
-                              'ringName': newName,
-                            });
-                          }
-
-                          setState(() {
-                            activeSpecialUrl = newUrl;
-                            hasSpecialEffect = newStatus;
-                          });
-
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(isPicked
-                                    ? "$name Unpicked!"
-                                    : "$name Picked & Applied! 💍✨"),
-                                backgroundColor:
-                                    isPicked ? Colors.orange : Colors.purple,
-                              ),
-                            );
-                          }
-                        },
-                        child: Text(isPicked ? "Unpick" : "Pick",
-                            style: const TextStyle(
-                                fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
-                    ),
+                      Text(name,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: Colors.purple)),
+                      Text(type,
+                          style: const TextStyle(
+                              fontSize: 10, color: Colors.grey)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Text(timeText,
+                            style: TextStyle(
+                                color: remaining.inDays < 2
+                                    ? Colors.red
+                                    : Colors.blueGrey,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500)),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(
+                            bottom: 10, left: 8, right: 8),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 30,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isPicked
+                                  ? Colors.redAccent
+                                  : Colors.purpleAccent,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                              elevation: 0,
+                            ),
+                            onPressed: () async {
+                              String newUrl = isPicked ? "" : url;
+                              bool newStatus = !isPicked;
+                              String newName = isPicked ? "" : name;
+
+                              await FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(correctUserDocId)
+                                  .update({
+                                'activeSpecialUrl': newUrl,
+                                'hasSpecialEffect': newStatus,
+                                'activeSpecialName': newName,
+                              });
+
+                              QuerySnapshot marriageQuery =
+                                  await FirebaseFirestore.instance
+                                      .collection('marriages')
+                                      .where('myAuthUID', isEqualTo: myAuthUID)
+                                      .limit(1)
+                                      .get();
+
+                              if (marriageQuery.docs.isEmpty) {
+                                marriageQuery = await FirebaseFirestore.instance
+                                    .collection('marriages')
+                                    .where('partnerAuthUID',
+                                        isEqualTo: myAuthUID)
+                                    .limit(1)
+                                    .get();
+                              }
+
+                              if (marriageQuery.docs.isNotEmpty) {
+                                String marriageDocId =
+                                    marriageQuery.docs.first.id;
+                                await FirebaseFirestore.instance
+                                    .collection('marriages')
+                                    .doc(marriageDocId)
+                                    .update({
+                                  'ringIcon': newUrl,
+                                  'ringName': newName,
+                                });
+                              }
+
+                              setState(() {
+                                activeSpecialUrl = newUrl;
+                                hasSpecialEffect = newStatus;
+                              });
+
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(isPicked
+                                        ? "$name Unpicked!"
+                                        : "$name Picked & Applied! 💍✨"),
+                                    backgroundColor: isPicked
+                                        ? Colors.orange
+                                        : Colors.purple,
+                                  ),
+                                );
+                              }
+                            },
+                            child: Text(isPicked ? "Unpick" : "Pick",
+                                style: const TextStyle(
+                                    fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             );
           },
         );

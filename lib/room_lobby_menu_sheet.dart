@@ -4,12 +4,14 @@ class RoomLobbyMenuSheet extends StatelessWidget {
   final VoidCallback onMusicTap;
   final VoidCallback onGiftToolsTap;
   final VoidCallback onGamesTap;
+  final VoidCallback onSoundEffectTap; // 👈 ১. নতুন সাউন্ড ইফেক্ট কলব্যাক যোগ করা হলো
 
   const RoomLobbyMenuSheet({
     Key? key,
     required this.onMusicTap,
     required this.onGiftToolsTap,
     required this.onGamesTap,
+    required this.onSoundEffectTap, // 👈 ২. কনস্ট্রাক্টরে রিকোয়ার্ড করা হলো
   }) : super(key: key);
 
   @override
@@ -75,6 +77,17 @@ class RoomLobbyMenuSheet extends StatelessWidget {
                 onTap: () {
                   Navigator.pop(context);
                   onGamesTap();
+                },
+              ),
+              // 👈 ৩. ঠিক এইখানে সাউন্ড ইফেক্টের নতুন বাটনটি যুক্ত করা হলো
+              _buildMenuItem(
+                context,
+                icon: Icons.volume_up_rounded,
+                label: "Sound Effect",
+                color: Colors.cyanAccent,
+                onTap: () {
+                  Navigator.pop(context);
+                  onSoundEffectTap();
                 },
               ),
             ],
