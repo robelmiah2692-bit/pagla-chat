@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:lottie/lottie.dart'; 
+import 'package:lottie/lottie.dart';
 import 'dart:math' as math;
 
 class GiftOverlayHandler extends StatelessWidget {
@@ -9,9 +9,9 @@ class GiftOverlayHandler extends StatelessWidget {
   final bool isFullScreenBinding;
   final String senderName;
   final String receiverName;
-  final String senderImage;   
-  final String receiverImage; 
-  
+  final String senderImage;
+  final String receiverImage;
+
   const GiftOverlayHandler({
     super.key,
     required this.isGiftAnimating,
@@ -19,30 +19,31 @@ class GiftOverlayHandler extends StatelessWidget {
     required this.isFullScreenBinding,
     required this.senderName,
     required this.receiverName,
-    this.senderImage = '',   
-    this.receiverImage = '', 
+    this.senderImage = '',
+    this.receiverImage = '',
   });
 
   @override
   Widget build(BuildContext context) {
-    if (!isGiftAnimating || currentGiftImage.isEmpty) return const SizedBox.shrink();
+    if (!isGiftAnimating || currentGiftImage.isEmpty)
+      return const SizedBox.shrink();
 
     // ==========================================================
-    // ভিডিও গিফটের থাম্বনেইল ইমেজ ফিল্টার চেক: 
+    // ভিডিও গিফটের থাম্বনেইল ইমেজ ফিল্টার চেক:
     // যদি লিংকটিতে 'tumbail', 'videogift' অথবা 'Th.' থাকে, তবে এটি ইমেজ ওভারলে হিসেবে দেখাবে না।
     // কারণ এটি ভিডিও গিফট এবং এর জন্য আলাদা ভিডিও প্লেয়ার কাজ করবে।
     // ==========================================================
-    bool isVideoThumbnail = currentGiftImage.contains('/tumbail/') || 
-                            currentGiftImage.toLowerCase().contains('th.') ||
-                            currentGiftImage.contains('videogift');
+    bool isVideoThumbnail = currentGiftImage.contains('/tumbail/') ||
+        currentGiftImage.toLowerCase().contains('th.') ||
+        currentGiftImage.contains('videogift');
     if (isVideoThumbnail) {
       return const SizedBox.shrink();
     }
 
     final double fullHeight = MediaQuery.of(context).size.height;
     final double fullWidth = MediaQuery.of(context).size.width;
-    final int animationType = math.Random().nextInt(3); 
-   
+    final int animationType = math.Random().nextInt(3);
+
     return IgnorePointer(
       ignoring: true,
       child: SizedBox(
@@ -51,26 +52,24 @@ class GiftOverlayHandler extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // ১. বিজলি চমকানো এবং ধামাকা ইফেক্ট (এটি সবার নিচে থাকবে)
-            _buildThunderStrikeEffect(),
-
             // ২. ফুল স্ক্রিন গিফট এবং নাম/ছবি
             TweenAnimationBuilder<double>(
               duration: const Duration(milliseconds: 1400),
               curve: Curves.fastOutSlowIn,
               tween: Tween<double>(begin: 0.0, end: 1.0),
               builder: (context, value, child) {
-                return _applyRandomAnimation(animationType, value, fullWidth, fullHeight, child!);
+                return _applyRandomAnimation(
+                    animationType, value, fullWidth, fullHeight, child!);
               },
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   // মেইন গিফট যা চারপাশ থেকে মিশে যাবে
                   _buildFullScreenSoftGift(context),
-                  
+
                   // নাম এবং প্রোফাইল ছবি
                   Positioned(
-                    bottom: 120, 
+                    bottom: 120,
                     child: _buildNameBadgeWithImages(),
                   ),
                 ],
@@ -82,33 +81,6 @@ class GiftOverlayHandler extends StatelessWidget {
     );
   }
 
-  // বিজলি চমকানোর মতো ধামাকা ইফেক্ট
-  Widget _buildThunderStrikeEffect() {
-    return TweenAnimationBuilder<double>(
-      duration: const Duration(milliseconds: 800),
-      tween: Tween(begin: 0.0, end: 1.0),
-      builder: (context, value, child) {
-        double flash = math.sin(value * math.pi * 5).abs(); 
-        return Opacity(
-          opacity: (flash * (1.0 - value)).clamp(0.0, 1.0),
-          child: Container(
-            width: double.infinity,
-            height: double.infinity,
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                colors: [
-                  Colors.white.withOpacity(0.8),
-                  Colors.blueAccent.withOpacity(0.3),
-                  Colors.transparent
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildFullScreenSoftGift(BuildContext context) {
     bool isLottie = currentGiftImage.toLowerCase().endsWith('.json');
 
@@ -117,7 +89,11 @@ class GiftOverlayHandler extends StatelessWidget {
         return RadialGradient(
           center: Alignment.center,
           radius: 0.65,
-          colors: [Colors.black, Colors.black.withOpacity(0.8), Colors.transparent],
+          colors: [
+            Colors.black,
+            Colors.black.withOpacity(0.8),
+            Colors.transparent
+          ],
           stops: const [0.0, 0.88, 1.0],
         ).createShader(rect);
       },
@@ -130,16 +106,20 @@ class GiftOverlayHandler extends StatelessWidget {
                 currentGiftImage,
                 fit: BoxFit.contain,
                 repeat: true,
-                errorBuilder: (context, error, stackTrace) =>
-                    const Icon(Icons.thunderstorm, size: 100, color: Colors.yellow),
+                errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.thunderstorm,
+                    size: 100,
+                    color: Colors.yellow),
               )
             : CachedNetworkImage(
                 imageUrl: currentGiftImage,
                 fit: BoxFit.contain,
                 alignment: Alignment.center,
                 placeholder: (context, url) => const SizedBox.shrink(),
-                errorWidget: (context, url, error) =>
-                    const Icon(Icons.thunderstorm, size: 100, color: Colors.yellow),
+                errorWidget: (context, url, error) => const Icon(
+                    Icons.thunderstorm,
+                    size: 100,
+                    color: Colors.yellow),
               ),
       ),
     );
@@ -149,13 +129,15 @@ class GiftOverlayHandler extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.6),
-        borderRadius: BorderRadius.circular(40),
-        border: Border.all(color: Colors.white24, width: 1.5),
-        boxShadow: [
-          BoxShadow(color: Colors.blueAccent.withOpacity(0.4), blurRadius: 20, spreadRadius: 2)
-        ]
-      ),
+          color: Colors.black.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(color: Colors.white24, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.blueAccent.withOpacity(0.4),
+                blurRadius: 20,
+                spreadRadius: 2)
+          ]),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -163,15 +145,17 @@ class GiftOverlayHandler extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             senderName,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
           ),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 10),
-            child: Icon(Icons.bolt, color: Colors.yellowAccent, size: 24), 
+            child: Icon(Icons.bolt, color: Colors.yellowAccent, size: 24),
           ),
           Text(
             receiverName,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
           ),
           const SizedBox(width: 8),
           _buildUserAvatar(receiverImage),
@@ -190,14 +174,17 @@ class GiftOverlayHandler extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
-        child: imageUrl.isNotEmpty 
-          ? CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover)
-          : Container(color: Colors.grey, child: const Icon(Icons.person, size: 20, color: Colors.white)),
+        child: imageUrl.isNotEmpty
+            ? CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover)
+            : Container(
+                color: Colors.grey,
+                child: const Icon(Icons.person, size: 20, color: Colors.white)),
       ),
     );
   }
 
-  Widget _applyRandomAnimation(int type, double value, double width, double height, Widget child) {
+  Widget _applyRandomAnimation(
+      int type, double value, double width, double height, Widget child) {
     if (type == 0) {
       return Transform.translate(
         offset: Offset(0, (1.0 - value) * 400),

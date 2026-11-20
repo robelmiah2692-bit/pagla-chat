@@ -706,29 +706,19 @@ void _sendDataMessage(
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // পুরো ব্যাকগ্রাউন্ড এবং অ্যাপবার জুড়ে ছবির মতো ভার্টিক্যাল লাইট বিম ও গ্লোয়িং লাভ ইফেক্ট থিম
+      // পুরো ব্যাকগ্রাউন্ডে অ্যাসেট ওয়ালপেপার ইমেজ
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(
-                  0xFF261007), // ওপরের অংশে উজ্জ্বল ডার্ক ব্রাউন ও গোল্ডেন গ্লো
-              Color(0xFF140804), // মিডল ডিপ কপার টোন
-              Color(0xFF050201), // একদম নিচে গাঢ় ব্ল্যাক-ব্রাউন
-            ],
+          image: DecorationImage(
+            image: AssetImage('assets/images/chat_wallpaper.webp'), // আপনার ওয়ালপেপার ইমেজের পাথ দিন
+            fit: BoxFit.cover,
           ),
         ),
         child: Stack(
           children: [
-            // ১. ছবির মতো ওপর থেকে নেমে আসা ভার্টিক্যাল লাইট বিম ও গ্লোয়িং লাভ ইফেক্টের ব্যাকগ্রাউন্ড লেয়ার
-            Positioned.fill(
-              child: CustomPaint(
-                painter: _LoveLightRaysPainter(),
-              ),
-            ),
-
+            // নিচে আপনার বাকি উইজেটগুলো আগের মতোই থাকবে
             // ২. মূল চ্যাট ইন্টারফেস ও অ্যাপবার অংশ
             Column(
               children: [

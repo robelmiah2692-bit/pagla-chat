@@ -355,72 +355,84 @@ class _SplashScreenState extends State<SplashScreen> {
     double screenWidth = MediaQuery.of(context).size.width;
     double logoSize = screenWidth * 0.28;
 
+    // =========================================================================
+    // 🎯 লোগো ও "PAGLA CHAT" লেখা কতটা নিচে নামাবেন তা এখান থেকে কন্ট্রোল করুন:
+    // 👉 সংখ্যাটি বাড়ালে (যেমন 90, 110, 130) আরও নিচে নামবে।
+    // 👉 কমালে (যেমন 40, 20) ওপরে উঠবে।
+    // =========================================================================
+    double topOffset = 420;
+
     return Scaffold(
       body: Container(
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
           image: DecorationImage(
-            image: AssetImage('assets/images/game_bg.webp'),
+            image: AssetImage('assets/images/splshwall.webp'),
             fit: BoxFit.cover,
           ),
         ),
         child: Stack(
           children: [
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset(
-                    'assets/logo.png',
-                    width: logoSize,
-                    height: logoSize,
-                    fit: BoxFit.contain,
-                  ),
-                  const SizedBox(height: 20),
-                  ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [
-                        Color(0xFFFFD700),
-                        Color(0xFFFFA500),
-                        Color(0xFFFF007F),
-                        Color(0xFF00FFFF),
-                      ],
-                      stops: [0.0, 0.4, 0.7, 1.0],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ).createShader(
-                        Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-                    child: const Text(
-                      "PAGLA CHAT",
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 4,
-                        color: Colors.white,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black54,
-                            blurRadius: 4,
-                            offset: Offset(0, 2),
-                          ),
+            Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: EdgeInsets.only(top: topOffset),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset(
+                      'assets/logo.png',
+                      width: logoSize,
+                      height: logoSize,
+                      fit: BoxFit.contain,
+                    ),
+                    const SizedBox(height: 20),
+                    ShaderMask(
+                      shaderCallback: (bounds) => const LinearGradient(
+                        colors: [
+                          Color(0xFFFFD700),
+                          Color(0xFFFFA500),
+                          Color(0xFFFF007F),
+                          Color(0xFF00FFFF),
                         ],
+                        stops: [0.0, 0.4, 0.7, 1.0],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ).createShader(
+                          Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+                      child: const Text(
+                        "PAGLA CHAT",
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 4,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black54,
+                              blurRadius: 4,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "LIVE VOICE CHAT",
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 3,
-                      color: Colors.white70,
+                    const SizedBox(height: 8),
+                    const Text(
+                      "LIVE VOICE CHAT",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 3,
+                        color: Colors.white70,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 25),
-                  const CircularProgressIndicator(color: Colors.cyanAccent),
-                ],
+                    const SizedBox(height: 25),
+                    const CircularProgressIndicator(color: Colors.cyanAccent),
+                  ],
+                ),
               ),
             ),
           ],
@@ -857,10 +869,10 @@ class _MainNavigationState extends State<MainNavigation>
 
     if (state == AppLifecycleState.resumed) {
       _updateUserPresence(true); // অ্যাপে ফিরে আসলে অনলাইন
-      _startHeartbeat(); // হার্টবিট পুনরায় চালু
+      _startHeartbeat(); // হার্টবিট পুনরায় চালু
     } else {
       _heartbeatTimer?.cancel(); // ব্যাকগ্রাউন্ডে গেলে টাইমার বন্ধ
-      _updateUserPresence(false); // সাথে সাথে অফলাইন করে দেওয়া
+      _updateUserPresence(false); // সাথে সাথে অফলাইন করে দেওয়া
     }
   }
 
@@ -872,8 +884,8 @@ class _MainNavigationState extends State<MainNavigation>
         'lastSeen': FieldValue.serverTimestamp(),
       };
 
-      // যদি অফলাইন হয়, তবে সরাসরি isOnline false করে দেবো
-      // আর যদি অনলাইন হয়, তবে true করব
+      // যদি অফলাইন হয়, তবে সরাসরি isOnline false করে দেবো
+      // আর যদি অনলাইন হয়, তবে true করব
       updateData['isOnline'] = isOnline;
 
       await FirebaseFirestore.instance
@@ -1008,15 +1020,15 @@ class _MainNavigationState extends State<MainNavigation>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildNavItem(0, Icons.home_rounded, "Home", false,
-                            currentUserId),
-                        _buildNavItem(1, Icons.video_collection_rounded,
+                        _buildNavItem(0, 'assets/images/nav_home.webp',
+                            "Home", false, currentUserId),
+                        _buildNavItem(1, 'assets/images/nav_reels.webp',
                             "Reels", false, currentUserId),
                         const SizedBox(width: 50),
-                        _buildNavItem(3, Icons.mail_rounded, "Message", true,
-                            currentUserId),
-                        _buildNavItem(4, Icons.person_rounded, "Profile", false,
-                            currentUserId),
+                        _buildNavItem(3, 'assets/images/nav_message.webp',
+                            "Message", true, currentUserId),
+                        _buildNavItem(4, 'assets/images/nav_profile.webp',
+                            "Profile", false, currentUserId),
                       ],
                     ),
                   ),
@@ -1029,41 +1041,14 @@ class _MainNavigationState extends State<MainNavigation>
                         _currentIndex = 2;
                       });
                     },
-                    child: Container(
+                    child: SizedBox(
                       width: 55,
                       height: 55,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFFFF2E93),
-                            Color(0xFF9C27B0),
-                            Color(0xFF00E5FF)
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF2E93).withOpacity(0.6),
-                            blurRadius: 15,
-                            spreadRadius: 3,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                        border: Border.all(
-                          color: _currentIndex == 2
-                              ? Colors.amberAccent
-                              : Colors.white,
-                          width: 2.5,
-                        ),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.mic_rounded,
-                          color: Colors.white,
-                          size: 28,
-                        ),
+                      child: Image.asset(
+                        'assets/images/nav_mic.webp',
+                        width: 55,
+                        height: 55,
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),
@@ -1076,9 +1061,25 @@ class _MainNavigationState extends State<MainNavigation>
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label, bool isInbox,
+  Widget _buildNavItem(int index, String assetPath, String label, bool isInbox,
       String currentUserId) {
     bool isSelected = _currentIndex == index;
+
+    Widget navImage = AnimatedScale(
+      scale: isSelected ? 1.08 : 1.0,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeInOut,
+      child: AnimatedOpacity(
+        opacity: isSelected ? 1.0 : 0.78,
+        duration: const Duration(milliseconds: 220),
+        child: Image.asset(
+          assetPath,
+          width: 34,
+          height: 30,
+          fit: BoxFit.contain,
+        ),
+      ),
+    );
 
     return GestureDetector(
       onTap: () {
@@ -1090,18 +1091,14 @@ class _MainNavigationState extends State<MainNavigation>
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             isInbox
                 ? (currentUserId.isEmpty
-                    ? Icon(icon,
-                        color: isSelected
-                            ? const Color(0xFFFF4081)
-                            : Colors.white60,
-                        size: 22)
+                    ? navImage
                     : StreamBuilder<QuerySnapshot>(
                         stream: FirebaseFirestore.instance
                             .collectionGroup('messages')
@@ -1110,11 +1107,7 @@ class _MainNavigationState extends State<MainNavigation>
                             .snapshots(),
                         builder: (context, snapshot) {
                           if (snapshot.hasError) {
-                            return Icon(icon,
-                                color: isSelected
-                                    ? const Color(0xFFFF4081)
-                                    : Colors.white60,
-                                size: 22);
+                            return navImage;
                           }
                           int unreadCount =
                               snapshot.hasData ? snapshot.data!.docs.length : 0;
@@ -1126,50 +1119,20 @@ class _MainNavigationState extends State<MainNavigation>
                                 : null,
                             isLabelVisible: unreadCount > 0,
                             backgroundColor: Colors.redAccent,
-                            child: ShaderMask(
-                              shaderCallback: (bounds) => const LinearGradient(
-                                colors: [
-                                  Color(0xFF00E5FF),
-                                  Color(0xFF7C4DFF),
-                                  Color(0xFFFF4081)
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ).createShader(bounds),
-                              child: Icon(
-                                icon,
-                                color: Colors.white,
-                                size: 22,
-                              ),
-                            ),
+                            child: navImage,
                           );
                         },
                       ))
-                : ShaderMask(
-                    shaderCallback: (bounds) => LinearGradient(
-                      colors: isSelected
-                          ? [
-                              const Color(0xFFFF4081),
-                              const Color(0xFFE040FB),
-                              const Color(0xFF00E5FF)
-                            ]
-                          : [Colors.white70, Colors.white38],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ).createShader(bounds),
-                    child: Icon(
-                      icon,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                  ),
-            const SizedBox(height: 2),
+                : navImage,
+            const SizedBox(height: 1),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: isSelected ? const Color(0xFFFF4081) : Colors.white60,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 9.5,
+                color: isSelected ? const Color(0xFFFF4081) : Colors.white70,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                fontSize: 8.0,
               ),
             ),
           ],
@@ -1178,7 +1141,6 @@ class _MainNavigationState extends State<MainNavigation>
     );
   }
 }
-
 // --- লগইন স্ক্রিন (গুগল সাইন-ইন ও ডিলিটেড ইউজার চেকিং লজিকসহ) ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -1202,6 +1164,13 @@ class _LoginScreenState extends State<LoginScreen> {
     double screenWidth = MediaQuery.of(context).size.width;
     double logoSize = screenWidth * 0.28; // লোগোর সাইজ রেসপনসিভ রাখার জন্য
 
+    // =========================================================================
+    // 🎯 লোগো, ওয়েলকাম লেখা ও গুগল বাটন কতটা নিচে নামাবেন তা এখান থেকে কন্ট্রোল করুন:
+    // 👉 সংখ্যাটি বাড়ালে (যেমন 110, 140) আরও নিচে নামবে।
+    // 👉 কমালে (যেমন 50, 30) ওপরে উঠবে।
+    // =========================================================================
+    double topOffset = 420;
+
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -1210,116 +1179,112 @@ class _LoginScreenState extends State<LoginScreen> {
         decoration: const BoxDecoration(
           image: DecorationImage(
             image: AssetImage(
-                'assets/images/game_bg.webp'), // আপনার ব্যাকগ্রাউন্ড ইমেজের পাথ এখানে দিন
+                'assets/images/splshwall.webp'), // আপনার ব্যাকগ্রাউন্ড ইমেজের পাথ এখানে দিন
             fit: BoxFit.cover,
           ),
         ),
-        child: Center(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(25.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // লোগো উইজেট (রকেট ও শিমার শাইনিং বাদ দেওয়া হয়েছে)
-                  SizedBox(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(25.0, topOffset, 25.0, 25.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // লোগো উইজেট (রকেট ও শিমার শাইনিং বাদ দেওয়া হয়েছে)
+                SizedBox(
+                  width: logoSize,
+                  height: logoSize,
+                  child: Image.asset(
+                    'assets/logo.png',
                     width: logoSize,
                     height: logoSize,
-                    child: Image.asset(
-                      'assets/logo.png',
-                      width: logoSize,
-                      height: logoSize,
-                      fit: BoxFit.contain,
-                    ),
+                    fit: BoxFit.contain,
                   ),
-                  const SizedBox(height: 25),
+                ),
+                const SizedBox(height: 10),
 
-                  ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [
-                        Color(0xFFFFD700), // ব্রাইট গোল্ডেন
-                        Color(0xFFFFA500), // ডিপ গোল্ড
-                        Color(0xFFFF007F), // নিয়ন পিংক/ম্যাজেন্টা
-                        Color(0xFF00FFFF), // সায়ান/ব্লু
+                ShaderMask(
+                  shaderCallback: (bounds) => const LinearGradient(
+                    colors: [
+                      Color(0xFFFFD700), // ব্রাইট গোল্ডেন
+                      Color(0xFFFFA500), // ডিপ গোল্ড
+                      Color(0xFFFF007F), // নিয়ন পিংক/ম্যাজেন্টা
+                      Color(0xFF00FFFF), // সায়ান/ব্লু
+                    ],
+                    stops: [0.0, 0.4, 0.7, 1.0],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ).createShader(
+                      Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+                  child: const Text(
+                    "—͟͟͞͞★ 𝓦𝓮𝓵𝓬𝓸𝓶𝓮 𝓣𝓸 𝓟𝓪𝓰𝓵𝓪𝓒𝓱𝓪𝓽 ☯",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors
+                          .white, // ShaderMask কাজ করার জন্য এটি হোয়াইট থাকতে হবে
+                      shadows: [
+                        Shadow(
+                          color: Colors.black54,
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
                       ],
-                      stops: [0.0, 0.4, 0.7, 1.0],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ).createShader(
-                        Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-                    child: const Text(
-                      "WELCOME TO PAGLA CHAT",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: Colors
-                            .white, // ShaderMask কাজ করার জন্য এটি হোয়াইট থাকতে হবে
-                        shadows: [
-                          Shadow(
-                            color: Colors.black54,
-                            blurRadius: 4,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
                     ),
                   ),
-                  const SizedBox(height: 40),
+                ),
+                const SizedBox(height: 15),
 
-                  // গুগল সাইন-ইন বাটন (মূল ফাংশনালিটি সহ)
-                  _buildSocialButton(
-                    text: "CONTINUE WITH GOOGLE",
-                    icon: Icons.g_mobiledata,
-                    color: Colors.white,
-                    onPressed: () async {
-                      // গুগল লগইন প্রসেস
-                      var user = await AuthService().signInWithGoogle();
+                // গুগল সাইন-ইন বাটন (মূল ফাংশনালিটি সহ)
+                _buildSocialButton(
+                  text: "CONTINUE WITH GOOGLE",
+                  onPressed: () async {
+                    // গুগল লগইন প্রসেস
+                    var user = await AuthService().signInWithGoogle();
 
-                      if (user != null && mounted) {
-                        // ১. প্রথমে চেক করুন ইউজার ডিলিট করা কি না
-                        bool deleted =
-                            await AuthService().isUserDeleted(user.email ?? "");
+                    if (user != null && mounted) {
+                      // ১. প্রথমে চেক করুন ইউজার ডিলিট করা কি না
+                      bool deleted =
+                          await AuthService().isUserDeleted(user.email ?? "");
 
-                        if (deleted) {
-                          // যদি ডিলিট করা থাকে, লগআউট করে দিন এবং মেসেজ দেখান
-                          await AuthService().signOut();
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                    "Your account has been deleted. Please contact the support team to recover it."),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
+                      if (deleted) {
+                        // যদি ডিলিট করা থাকে, লগআউট করে দিন এবং মেসেজ দেখান
+                        await AuthService().signOut();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  "Your account has been deleted. Please contact the support team to recover it."),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      } else {
+                        // ২. যদি ডিলিট করা না থাকে, তাহলে চেক করুন সে রেজিস্টার্ড কি না
+                        bool registered = await AuthService()
+                            .isUserRegistered(user.email ?? "");
+
+                        if (registered) {
+                          // পুরাতন ইউজার হলে সরাসরি মেইন অ্যাপে
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const SplashScreen()),
+                          );
                         } else {
-                          // ২. যদি ডিলিট করা না থাকে, তাহলে চেক করুন সে রেজিস্টার্ড কি না
-                          bool registered = await AuthService()
-                              .isUserRegistered(user.email ?? "");
-
-                          if (registered) {
-                            // পুরাতন ইউজার হলে সরাসরি মেইন অ্যাপে
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const SplashScreen()),
-                            );
-                          } else {
-                            // নতুন ইউজার হলে প্রোফাইল ক্রিয়েট পেইজে
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) =>
-                                      const CreateProfilePage()),
-                            );
-                          }
+                          // নতুন ইউজার হলে প্রোফাইল ক্রিয়েট পেইজে
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) =>
+                                    const CreateProfilePage()),
+                          );
                         }
                       }
-                    },
-                  ),
-                ],
-              ),
+                    }
+                  },
+                ),
+              ],
             ),
           ),
         ),
@@ -1327,31 +1292,128 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // বাটন তৈরির জন্য কমন উইজেট
-  Widget _buildSocialButton(
-      {required String text,
-      required IconData icon,
-      required Color color,
-      Color textColor = Colors.black,
-      required VoidCallback onPressed}) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: textColor,
-          minimumSize: const Size(double.infinity, 55),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 30),
-          const SizedBox(width: 10),
-          Text(text,
-              style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        ],
+  // অ্যাপ কালার থিম অনুযায়ী গুগল সাইন-ইন বাটন উইজেট
+  Widget _buildSocialButton({
+    required String text,
+    required VoidCallback onPressed,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: double.infinity,
+          height: 55,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF1A0B3B),
+                Color(0xFF2B1055),
+                Color(0xFF120829),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(
+              color: const Color(0xFF00E5FF).withOpacity(0.55),
+              width: 1.3,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF00E5FF).withOpacity(0.18),
+                blurRadius: 14,
+                spreadRadius: 1,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.55),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: CustomPaint(
+                  painter: _GoogleOriginalGPainter(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                text,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
+}
+
+// গুগলের চার রঙের অরিজিনাল 'G' লোগো আঁকার পেইন্টার
+class _GoogleOriginalGPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double strokeWidth = size.width * 0.21;
+    final Rect arcRect = Rect.fromLTWH(
+      strokeWidth / 2,
+      strokeWidth / 2,
+      size.width - strokeWidth,
+      size.height - strokeWidth,
+    );
+
+    final Paint paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.butt;
+
+    // লাল অংশ (ওপর-বাম থেকে ওপরে)
+    paint.color = const Color(0xFFEA4335);
+    canvas.drawArc(arcRect, -2.35, 1.30, false, paint);
+
+    // হলুদ অংশ (বাম দিক)
+    paint.color = const Color(0xFFFBBC05);
+    canvas.drawArc(arcRect, 2.15, 1.78, false, paint);
+
+    // সবুজ অংশ (নিচ থেকে ডান-নিচে)
+    paint.color = const Color(0xFF34A853);
+    canvas.drawArc(arcRect, 0.72, 1.43, false, paint);
+
+    // নীল অংশ (ডান দিকের কার্ভ)
+    paint.color = const Color(0xFF4285F4);
+    canvas.drawArc(arcRect, -0.55, 1.27, false, paint);
+
+    // G-এর মাঝখানের আনুভূমিক দাগ (নীল)
+    final Paint barPaint = Paint()
+      ..color = const Color(0xFF4285F4)
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.butt;
+
+    canvas.drawLine(
+      Offset(size.width * 0.52, size.height * 0.50),
+      Offset(size.width - strokeWidth * 0.35, size.height * 0.50),
+      barPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

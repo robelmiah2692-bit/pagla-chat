@@ -36,8 +36,7 @@ class _InboxPageState extends State<InboxPage> {
   String currentSixDigitId = "";
 // কল লিসেনার ডুপ্লিকেট এভয়েড করার জন্য ভ্যারিয়েবল
   bool _isCallListenerInitialized = false;
-  
-  
+
   @override
   void initState() {
     super.initState();
@@ -47,8 +46,9 @@ class _InboxPageState extends State<InboxPage> {
 
   Future<void> _fetchMyDetails() async {
     try {
-      print("DEBUG_LOG: Fetching my details from Firestore for authUID: $currentUserId");
-      
+      print(
+          "DEBUG_LOG: Fetching my details from Firestore for authUID: $currentUserId");
+
       // ১. প্রথমে authUID দিয়ে খোঁজা
       var userDoc = await FirebaseFirestore.instance
           .collection('users')
@@ -60,7 +60,8 @@ class _InboxPageState extends State<InboxPage> {
       if (userDoc.docs.isNotEmpty) {
         docId = userDoc.docs.first.id;
         setState(() {
-          currentSixDigitId = userDoc.docs.first.data()['uID']?.toString() ?? "";
+          currentSixDigitId =
+              userDoc.docs.first.data()['uID']?.toString() ?? "";
           print("DEBUG: Loaded my ID: $currentSixDigitId");
         });
       } else {
@@ -81,13 +82,13 @@ class _InboxPageState extends State<InboxPage> {
       // 🟢 ইনবক্স পেজেও কল শো করার জন্য এখানে কল লিসেনার যুক্ত করা হলো
       if (docId.isNotEmpty && !_isCallListenerInitialized && mounted) {
         _isCallListenerInitialized = true;
-         CallHandler.listenForIncomingCalls(context, docId);
+        CallHandler.listenForIncomingCalls(context, docId);
       }
-
     } catch (e) {
       print("Error fetching my details: $e");
     }
   }
+
   void _markAsRead(String chatId) async {
     try {
       print("DEBUG_LOG: _markAsRead triggered for chatId: $chatId");
@@ -99,7 +100,8 @@ class _InboxPageState extends State<InboxPage> {
           .collection('messages')
           .where('isRead', isEqualTo: false)
           .get();
-print("DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as read in chatId: $chatId");
+      print(
+          "DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as read in chatId: $chatId");
       for (var doc in unreadMessages.docs) {
         var data = doc.data();
         String dbReceiverId = (data['receiverId'] ?? "").toString();
@@ -120,10 +122,10 @@ print("DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF0F0C29), Color(0xFF302B63), Color(0xFF24243E)],
+          image: DecorationImage(
+            image: AssetImage(
+                'assets/images/wallpaperlist.webp'), // আপনার ওয়ালপেপার ইমেজের পাথ দিন
+            fit: BoxFit.cover,
           ),
         ),
         child: SafeArea(
@@ -139,152 +141,173 @@ print("DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as
     );
   }
 
- Widget _buildAppBar() {
-  final String authUid = FirebaseAuth.instance.currentUser?.uid ?? "";
+  Widget _buildAppBar() {
+    final String authUid = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-  return Container(
-    margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-    height: 100,
-    width: double.infinity,
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(20),
-      image: const DecorationImage(
-        image: CachedNetworkImageProvider(
-          "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/inboxbenar.jpg",
-        ),
-        fit: BoxFit.fill,
-      ),
-      border: Border.all(
-        color: Colors.amber.shade700,
-        width: 2,
-      ),
-    ),
-    child: authUid.isEmpty
-        ? const SizedBox.shrink()
-        : FutureBuilder<QuerySnapshot>(
-            future: FirebaseFirestore.instance
-                .collection('users')
-                .where('uid', isEqualTo: authUid)
-                .limit(1)
-                .get(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SizedBox.shrink();
-              }
-
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const SizedBox.shrink();
-              }
-
-              var userDoc = snapshot.data!.docs.first;
-              var data = userDoc.data() as Map<String, dynamic>;
-              
-              String customDocId = userDoc.id; 
-              
-              // এক্সেস চেক: অ্যাডমিন প্যানেল বা ওনার
-              bool hasAdminAccess = data['canAccessAdminPanel'] == true || data['isOwner'] == true;
-
-              // নতুন রিকোয়ারমেন্ট: ভলান্টিয়ার, অফিসিয়াল, সুপার হোস্ট বা সুপার এডমিন চেক
-              bool isVolunteer = data['isVolunteer'] == true;
-              bool isOfficial = data['isOfficial'] == true;
-              bool isSuperHost = data['isSuperHost'] == true;
-              bool isSuperAdmin = data['isSuperAdmin'] == true;
-
-              // যদি কোনোটিতেই এক্সেস না থাকে, তবে কিছুই দেখাবে না
-              if (!hasAdminAccess && !isVolunteer && !isOfficial && !isSuperHost && !isSuperAdmin) {
-                return const SizedBox.shrink();
-              }
-
-              return Stack(
-                children: [
-                  Positioned(
-                    right: 12,
-                    top: 12,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        // ১. অ্যাডমিন প্যানেল বাটন (যদি এক্সেস থাকে)
-                        if (hasAdminAccess)
-                          InkWell(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => AdminPanelScreen(myUid: customDocId),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.6),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: Colors.cyanAccent, width: 1),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Icon(Icons.admin_panel_settings, color: Colors.cyanAccent, size: 16),
-                                  SizedBox(width: 5),
-                                  Text(
-                                    "Pagla&Pagli",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                        // ২. ডিউটি টাইমিং দেখার বাটন (অ্যাডমিন প্যানেল বাটনের ঠিক নিচে)
-                        if (isVolunteer || isOfficial || isSuperHost || isSuperAdmin || hasAdminAccess) ...[
-                          if (hasAdminAccess) const SizedBox(height: 6), // যদি ওপরের বাটন থাকে তবে একটু গ্যাপ
-                          InkWell(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => DutyTimingScreen(userDocId: customDocId),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.6),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: Colors.amberAccent, width: 1),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Icon(Icons.timer_outlined, color: Colors.amberAccent, size: 16),
-                                  SizedBox(width: 5),
-                                  Text(
-                                    "Duty Timing",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            },
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+      height: 100,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        image: const DecorationImage(
+          image: CachedNetworkImageProvider(
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/inboxbenar.jpg",
           ),
-  );
-}
+          fit: BoxFit.fill,
+        ),
+        border: Border.all(
+          color: Colors.amber.shade700,
+          width: 2,
+        ),
+      ),
+      child: authUid.isEmpty
+          ? const SizedBox.shrink()
+          : FutureBuilder<QuerySnapshot>(
+              future: FirebaseFirestore.instance
+                  .collection('users')
+                  .where('uid', isEqualTo: authUid)
+                  .limit(1)
+                  .get(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SizedBox.shrink();
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+
+                var userDoc = snapshot.data!.docs.first;
+                var data = userDoc.data() as Map<String, dynamic>;
+
+                String customDocId = userDoc.id;
+
+                // এক্সেস চেক: অ্যাডমিন প্যানেল বা ওনার
+                bool hasAdminAccess = data['canAccessAdminPanel'] == true ||
+                    data['isOwner'] == true;
+
+                // নতুন রিকোয়ারমেন্ট: ভলান্টিয়ার, অফিসিয়াল, সুপার হোস্ট বা সুপার এডমিন চেক
+                bool isVolunteer = data['isVolunteer'] == true;
+                bool isOfficial = data['isOfficial'] == true;
+                bool isSuperHost = data['isSuperHost'] == true;
+                bool isSuperAdmin = data['isSuperAdmin'] == true;
+
+                // যদি কোনোটিতেই এক্সেস না থাকে, তবে কিছুই দেখাবে না
+                if (!hasAdminAccess &&
+                    !isVolunteer &&
+                    !isOfficial &&
+                    !isSuperHost &&
+                    !isSuperAdmin) {
+                  return const SizedBox.shrink();
+                }
+
+                return Stack(
+                  children: [
+                    Positioned(
+                      right: 12,
+                      top: 12,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          // ১. অ্যাডমিন প্যানেল বাটন (যদি এক্সেস থাকে)
+                          if (hasAdminAccess)
+                            InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        AdminPanelScreen(myUid: customDocId),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.6),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                      color: Colors.cyanAccent, width: 1),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: const [
+                                    Icon(Icons.admin_panel_settings,
+                                        color: Colors.cyanAccent, size: 16),
+                                    SizedBox(width: 5),
+                                    Text(
+                                      "Pagla&Pagli",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                          // ২. ডিউটি টাইমিং দেখার বাটন (অ্যাডমিন প্যানেল বাটনের ঠিক নিচে)
+                          if (isVolunteer ||
+                              isOfficial ||
+                              isSuperHost ||
+                              isSuperAdmin ||
+                              hasAdminAccess) ...[
+                            if (hasAdminAccess)
+                              const SizedBox(
+                                  height:
+                                      6), // যদি ওপরের বাটন থাকে তবে একটু গ্যাপ
+                            InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => DutyTimingScreen(
+                                        userDocId: customDocId),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.6),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                      color: Colors.amberAccent, width: 1),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: const [
+                                    Icon(Icons.timer_outlined,
+                                        color: Colors.amberAccent, size: 16),
+                                    SizedBox(width: 5),
+                                    Text(
+                                      "Duty Timing",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+    );
+  }
+
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -319,269 +342,284 @@ print("DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as
     );
   }
 
- Widget _buildUserList() {
-  print("DEBUG_LOG: _buildUserList called.");
+  Widget _buildUserList() {
+    print("DEBUG_LOG: _buildUserList called.");
 
-  // যদি ছয় ডিজিটের uID না থাকে, তবে আগে তা লোকাল বা স্টেট থেকে নিশ্চিত করতে হবে
-  if (currentSixDigitId.isEmpty) {
-    return const Center(
-      child: CircularProgressIndicator(color: Colors.pinkAccent),
-    );
-  }
+    // যদি ছয় ডিজিটের uID না থাকে, তবে আগে তা লোকাল বা স্টেট থেকে নিশ্চিত করতে হবে
+    if (currentSixDigitId.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.pinkAccent),
+      );
+    }
 
-  // যদি সার্চ বারে কিছু লেখা হয়, তবে সরাসরি users কালেকশন থেকে নতুন ইউজারদের নিয়ে আসবে
-  if (_searchQuery.isNotEmpty) {
-    return FutureBuilder<QuerySnapshot>(
-      future: FirebaseFirestore.instance.collection('users').get(),
-      builder: (context, searchSnapshot) {
-        if (!searchSnapshot.hasData) {
+    // যদি সার্চ বারে কিছু লেখা হয়, তবে সরাসরি users কালেকশন থেকে নতুন ইউজারদের নিয়ে আসবে
+    if (_searchQuery.isNotEmpty) {
+      return FutureBuilder<QuerySnapshot>(
+        future: FirebaseFirestore.instance.collection('users').get(),
+        builder: (context, searchSnapshot) {
+          if (!searchSnapshot.hasData) {
+            return const Center(
+              child: CircularProgressIndicator(color: Colors.pinkAccent),
+            );
+          }
+
+          var allUsers = searchSnapshot.data!.docs;
+
+          // নাম বা আইডি দিয়ে ফিল্টার করা
+          var matchedUsers = allUsers.where((doc) {
+            var data = doc.data() as Map<String, dynamic>;
+            String name = (data['name'] ?? "").toString().toLowerCase();
+            String customId = (data['uID'] ?? "").toString().toLowerCase();
+            String numericId =
+                (data['numericID'] ?? "").toString().toLowerCase();
+
+            // নিজের আইডি বাদ দিয়ে বাকিদের খুঁজবে
+            if (customId == currentSixDigitId) return false;
+
+            return name.contains(_searchQuery.toLowerCase()) ||
+                customId.contains(_searchQuery.toLowerCase()) ||
+                numericId.contains(_searchQuery.toLowerCase());
+          }).toList();
+
+          if (matchedUsers.isEmpty) {
+            return const Center(
+              child: Text(
+                "No users found",
+                style: TextStyle(color: Colors.white54, fontSize: 14),
+              ),
+            );
+          }
+
+          return ListView.builder(
+            itemCount: matchedUsers.length,
+            padding: const EdgeInsets.all(10),
+            itemBuilder: (context, index) {
+              var userDoc = matchedUsers[index];
+              var userData = userDoc.data() as Map<String, dynamic>;
+              String userId = userDoc.id;
+              String userSixDigitId = userData['uID']?.toString() ?? "";
+
+              // চ্যাট রুম আইডি তৈরি বা জেনারেট করার জন্য
+              List<String> ids = [currentSixDigitId, userSixDigitId];
+              ids.sort();
+              String generatedChatId = ids.join("_");
+
+              return _buildGlassChatTile(userData, userId, generatedChatId);
+            },
+          );
+        },
+      );
+    }
+
+    // সরাসরি chats কালেকশন থেকে স্ট্রিম নেব এবং লেটেস্ট মেসেজ অনুযায়ী সর্ট করব (আপনার পুরোনো নিখুঁত কোড)
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('chats')
+          .orderBy('lastMessageTimestamp', descending: true)
+          .snapshots(),
+      builder: (context, chatSnapshot) {
+        if (!chatSnapshot.hasData) {
           return const Center(
             child: CircularProgressIndicator(color: Colors.pinkAccent),
           );
         }
 
-        var allUsers = searchSnapshot.data!.docs;
-        
-        // নাম বা আইডি দিয়ে ফিল্টার করা
-        var matchedUsers = allUsers.where((doc) {
-          var data = doc.data() as Map<String, dynamic>;
-          String name = (data['name'] ?? "").toString().toLowerCase();
-          String customId = (data['uID'] ?? "").toString().toLowerCase();
-          String numericId = (data['numericID'] ?? "").toString().toLowerCase();
-          
-          // নিজের আইডি বাদ দিয়ে বাকিদের খুঁজবে
-          if (customId == currentSixDigitId) return false;
+        var chatDocs = chatSnapshot.data!.docs;
 
-          return name.contains(_searchQuery.toLowerCase()) ||
-                 customId.contains(_searchQuery.toLowerCase()) ||
-                 numericId.contains(_searchQuery.toLowerCase());
+        // যে সমস্ত চ্যাট ডকুমেন্টের আইডিতে বর্তমান ইউজারের ছয় ডিজিটের uID আছে বা অফিসিয়াল আইডি আছে
+        var myChats = chatDocs.where((doc) {
+          String chatId =
+              doc.id; // যেমন: "219616_686008" বা অফিসিয়াল চ্যাট আইডি
+          return chatId.contains(currentSixDigitId) ||
+              chatId.contains('paglachat_official') ||
+              chatId.contains('333444');
         }).toList();
 
-        if (matchedUsers.isEmpty) {
+        // ডুপ্লিকেট চ্যাট বা আইডি এভয়েড করার জন্য ইউনিক লিস্ট তৈরি করা
+        Set<String> seenUserIds = {};
+        var uniqueChats = <QueryDocumentSnapshot>[];
+
+        for (var chatDoc in myChats) {
+          String chatId = chatDoc.id;
+
+          bool isChatOfficial = chatId.contains('paglachat_official') ||
+              chatId.contains('333444');
+          String uniqueIdentifier = "";
+
+          if (isChatOfficial) {
+            uniqueIdentifier = "paglachat_official";
+          } else {
+            List<String> ids = chatId.split('_');
+            for (var id in ids) {
+              if (id != currentSixDigitId && id.isNotEmpty) {
+                uniqueIdentifier = id;
+                break;
+              }
+            }
+            if (uniqueIdentifier.isEmpty) {
+              uniqueIdentifier =
+                  chatId.replaceAll(currentSixDigitId, "").replaceAll("_", "");
+            }
+          }
+
+          // যদি এই আইডি ইতিপূর্বে লিস্টে না যোগ হয়ে থাকে, তবেই নেব (ডাবল এন্ট্রি রোধ করতে)
+          if (uniqueIdentifier.isNotEmpty &&
+              !seenUserIds.contains(uniqueIdentifier)) {
+            seenUserIds.add(uniqueIdentifier);
+            uniqueChats.add(chatDoc);
+          }
+        }
+
+        // অফিসিয়াল আইডি সবসময় সবার উপরে রাখার জন্য লিস্ট সর্ট করা, বাকিগুলো লেটেস্ট টাইমস্ট্যাম্প অনুযায়ী থাকবে
+        uniqueChats.sort((a, b) {
+          bool aIsOfficial =
+              a.id.contains('paglachat_official') || a.id.contains('333444');
+          bool bIsOfficial =
+              b.id.contains('paglachat_official') || b.id.contains('333444');
+
+          if (aIsOfficial && !bIsOfficial) return -1;
+          if (!aIsOfficial && bIsOfficial) return 1;
+
+          // টাইমস্ট্যাম্প দিয়ে ডিসেন্ডিং সর্টিং (যাতে লাস্ট মেসেজ করা ইউজার উপরে থাকে)
+          var aData = a.data() as Map<String, dynamic>?;
+          var bData = b.data() as Map<String, dynamic>?;
+
+          Timestamp? aTime = aData?['lastMessageTimestamp'] as Timestamp?;
+          Timestamp? bTime = bData?['lastMessageTimestamp'] as Timestamp?;
+
+          if (aTime == null && bTime == null) return 0;
+          if (aTime == null) return 1;
+          if (bTime == null) return -1;
+
+          return bTime.compareTo(aTime);
+        });
+
+        if (uniqueChats.isEmpty) {
           return const Center(
             child: Text(
-              "No users found",
+              "No chats found",
               style: TextStyle(color: Colors.white54, fontSize: 14),
             ),
           );
         }
 
         return ListView.builder(
-          itemCount: matchedUsers.length,
+          itemCount: uniqueChats.length,
           padding: const EdgeInsets.all(10),
           itemBuilder: (context, index) {
-            var userDoc = matchedUsers[index];
-            var userData = userDoc.data() as Map<String, dynamic>;
-            String userId = userDoc.id;
-            String userSixDigitId = userData['uID']?.toString() ?? "";
+            var chatDoc = uniqueChats[index];
+            String chatId = chatDoc.id;
 
-            // চ্যাট রুম আইডি তৈরি বা জেনারেট করার জন্য
-            List<String> ids = [currentSixDigitId, userSixDigitId];
-            ids.sort();
-            String generatedChatId = ids.join("_");
+            bool isChatOfficial = chatId.contains('paglachat_official') ||
+                chatId.contains('333444');
+            String otherSixDigitId = "";
 
-            return _buildGlassChatTile(userData, userId, generatedChatId);
+            if (isChatOfficial) {
+              otherSixDigitId = "paglachat_official";
+            } else {
+              List<String> ids = chatId.split('_');
+              for (var id in ids) {
+                if (id != currentSixDigitId && id.isNotEmpty) {
+                  otherSixDigitId = id;
+                  break;
+                }
+              }
+              if (otherSixDigitId.isEmpty) {
+                otherSixDigitId = chatId
+                    .replaceAll(currentSixDigitId, "")
+                    .replaceAll("_", "");
+              }
+            }
+
+            // ইউজার প্রোফাইল ডাটা ফেচ করার জন্য FutureBuilder (যা শুধু লিস্ট আইটেম রেন্ডার করবে)
+            return FutureBuilder<QuerySnapshot>(
+              future: isChatOfficial
+                  ? FirebaseFirestore.instance
+                      .collection('users')
+                      .where('uID', isEqualTo: 'paglachat_official')
+                      .limit(1)
+                      .get()
+                  : FirebaseFirestore.instance
+                      .collection('users')
+                      .where('uID', isEqualTo: otherSixDigitId)
+                      .limit(1)
+                      .get(),
+              builder: (context, userSnapshot) {
+                // যদি প্রথম কুয়েরিতে অফিসিয়াল আইডি না পাওয়া যায়, তবে numericID দিয়ে ব্যাকআপ চেক করব
+                if ((!userSnapshot.hasData ||
+                        userSnapshot.data!.docs.isEmpty) &&
+                    isChatOfficial) {
+                  return FutureBuilder<QuerySnapshot>(
+                    future: FirebaseFirestore.instance
+                        .collection('users')
+                        .where('numericID', isEqualTo: '333444')
+                        .limit(1)
+                        .get(),
+                    builder: (context, officialSnapshot) {
+                      if (!officialSnapshot.hasData ||
+                          officialSnapshot.data!.docs.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+
+                      var userDoc = officialSnapshot.data!.docs.first;
+                      var userData = userDoc.data() as Map<String, dynamic>;
+                      String userId = userDoc.id;
+
+                      // সার্চ কুয়েরি ফিল্টার
+                      String name =
+                          (userData['name'] ?? "").toString().toLowerCase();
+                      String customId =
+                          (userData['uID'] ?? "").toString().toLowerCase();
+                      if (_searchQuery.isNotEmpty) {
+                        if (!name.contains(_searchQuery.toLowerCase()) &&
+                            !customId.contains(_searchQuery.toLowerCase())) {
+                          return const SizedBox.shrink();
+                        }
+                      }
+
+                      return _buildGlassChatTile(userData, userId, chatId);
+                    },
+                  );
+                }
+
+                if (!userSnapshot.hasData || userSnapshot.data!.docs.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+
+                var userDoc = userSnapshot.data!.docs.first;
+                var userData = userDoc.data() as Map<String, dynamic>;
+                String userId = userDoc.id;
+
+                // অফিসিয়াল চেক
+                String friendSixDigitId = (userData['uID'] ?? "").toString();
+                String numericIdVal = (userData['numericID'] ?? "").toString();
+                bool isOfficial = friendSixDigitId == "paglachat_official" ||
+                    numericIdVal == "333444" ||
+                    userId == 'paglachat_official' ||
+                    isChatOfficial;
+
+                // সার্চ কুয়েরি ফিল্টার
+                String name = (userData['name'] ?? "").toString().toLowerCase();
+                String customId =
+                    (userData['uID'] ?? "").toString().toLowerCase();
+                if (_searchQuery.isNotEmpty && !isOfficial) {
+                  if (!name.contains(_searchQuery.toLowerCase()) &&
+                      !customId.contains(_searchQuery.toLowerCase())) {
+                    return const SizedBox.shrink();
+                  }
+                }
+
+                return _buildGlassChatTile(userData, userId, chatId);
+              },
+            );
           },
         );
       },
     );
   }
 
-  // সরাসরি chats কালেকশন থেকে স্ট্রিম নেব এবং লেটেস্ট মেসেজ অনুযায়ী সর্ট করব (আপনার পুরোনো নিখুঁত কোড)
-  return StreamBuilder<QuerySnapshot>(
-    stream: FirebaseFirestore.instance
-        .collection('chats')
-        .orderBy('lastMessageTimestamp', descending: true)
-        .snapshots(),
-    builder: (context, chatSnapshot) {
-      if (!chatSnapshot.hasData) {
-        return const Center(
-          child: CircularProgressIndicator(color: Colors.pinkAccent),
-        );
-      }
-
-      var chatDocs = chatSnapshot.data!.docs;
-
-      // যে সমস্ত চ্যাট ডকুমেন্টের আইডিতে বর্তমান ইউজারের ছয় ডিজিটের uID আছে বা অফিসিয়াল আইডি আছে
-      var myChats = chatDocs.where((doc) {
-        String chatId = doc.id; // যেমন: "219616_686008" বা অফিসিয়াল চ্যাট আইডি
-        return chatId.contains(currentSixDigitId) || 
-               chatId.contains('paglachat_official') || 
-               chatId.contains('333444');
-      }).toList();
-
-      // ডুপ্লিকেট চ্যাট বা আইডি এভয়েড করার জন্য ইউনিক লিস্ট তৈরি করা
-      Set<String> seenUserIds = {};
-      var uniqueChats = <QueryDocumentSnapshot>[];
-
-      for (var chatDoc in myChats) {
-        String chatId = chatDoc.id;
-        
-        bool isChatOfficial = chatId.contains('paglachat_official') || chatId.contains('333444');
-        String uniqueIdentifier = "";
-
-        if (isChatOfficial) {
-          uniqueIdentifier = "paglachat_official";
-        } else {
-          List<String> ids = chatId.split('_');
-          for (var id in ids) {
-            if (id != currentSixDigitId && id.isNotEmpty) {
-              uniqueIdentifier = id;
-              break;
-            }
-          }
-          if (uniqueIdentifier.isEmpty) {
-            uniqueIdentifier = chatId.replaceAll(currentSixDigitId, "").replaceAll("_", "");
-          }
-        }
-
-        // যদি এই আইডি ইতিপূর্বে লিস্টে না যোগ হয়ে থাকে, তবেই নেব (ডাবল এন্ট্রি রোধ করতে)
-        if (uniqueIdentifier.isNotEmpty && !seenUserIds.contains(uniqueIdentifier)) {
-          seenUserIds.add(uniqueIdentifier);
-          uniqueChats.add(chatDoc);
-        }
-      }
-
-      // অফিসিয়াল আইডি সবসময় সবার উপরে রাখার জন্য লিস্ট সর্ট করা, বাকিগুলো লেটেস্ট টাইমস্ট্যাম্প অনুযায়ী থাকবে
-      uniqueChats.sort((a, b) {
-        bool aIsOfficial = a.id.contains('paglachat_official') || a.id.contains('333444');
-        bool bIsOfficial = b.id.contains('paglachat_official') || b.id.contains('333444');
-        
-        if (aIsOfficial && !bIsOfficial) return -1;
-        if (!aIsOfficial && bIsOfficial) return 1;
-
-        // টাইমস্ট্যাম্প দিয়ে ডিসেন্ডিং সর্টিং (যাতে লাস্ট মেসেজ করা ইউজার উপরে থাকে)
-        var aData = a.data() as Map<String, dynamic>?;
-        var bData = b.data() as Map<String, dynamic>?;
-        
-        Timestamp? aTime = aData?['lastMessageTimestamp'] as Timestamp?;
-        Timestamp? bTime = bData?['lastMessageTimestamp'] as Timestamp?;
-
-        if (aTime == null && bTime == null) return 0;
-        if (aTime == null) return 1;
-        if (bTime == null) return -1;
-
-        return bTime.compareTo(aTime);
-      });
-
-      if (uniqueChats.isEmpty) {
-        return const Center(
-          child: Text(
-            "No chats found",
-            style: TextStyle(color: Colors.white54, fontSize: 14),
-          ),
-        );
-      }
-
-      return ListView.builder(
-        itemCount: uniqueChats.length,
-        padding: const EdgeInsets.all(10),
-        itemBuilder: (context, index) {
-          var chatDoc = uniqueChats[index];
-          String chatId = chatDoc.id;
-
-          bool isChatOfficial = chatId.contains('paglachat_official') || chatId.contains('333444');
-          String otherSixDigitId = "";
-
-          if (isChatOfficial) {
-            otherSixDigitId = "paglachat_official";
-          } else {
-            List<String> ids = chatId.split('_');
-            for (var id in ids) {
-              if (id != currentSixDigitId && id.isNotEmpty) {
-                otherSixDigitId = id;
-                break;
-              }
-            }
-            if (otherSixDigitId.isEmpty) {
-              otherSixDigitId = chatId.replaceAll(currentSixDigitId, "").replaceAll("_", "");
-            }
-          }
-
-          // ইউজার প্রোফাইল ডাটা ফেচ করার জন্য FutureBuilder (যা শুধু লিস্ট আইটেম রেন্ডার করবে)
-          return FutureBuilder<QuerySnapshot>(
-            future: isChatOfficial
-                ? FirebaseFirestore.instance
-                    .collection('users')
-                    .where('uID', isEqualTo: 'paglachat_official')
-                    .limit(1)
-                    .get()
-                : FirebaseFirestore.instance
-                    .collection('users')
-                    .where('uID', isEqualTo: otherSixDigitId)
-                    .limit(1)
-                    .get(),
-            builder: (context, userSnapshot) {
-              // যদি প্রথম কুয়েরিতে অফিসিয়াল আইডি না পাওয়া যায়, তবে numericID দিয়ে ব্যাকআপ চেক করব
-              if ((!userSnapshot.hasData || userSnapshot.data!.docs.isEmpty) && isChatOfficial) {
-                return FutureBuilder<QuerySnapshot>(
-                  future: FirebaseFirestore.instance
-                      .collection('users')
-                      .where('numericID', isEqualTo: '333444')
-                      .limit(1)
-                      .get(),
-                  builder: (context, officialSnapshot) {
-                    if (!officialSnapshot.hasData || officialSnapshot.data!.docs.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-                    
-                    var userDoc = officialSnapshot.data!.docs.first;
-                    var userData = userDoc.data() as Map<String, dynamic>;
-                    String userId = userDoc.id;
-
-                    // সার্চ কুয়েরি ফিল্টার
-                    String name = (userData['name'] ?? "").toString().toLowerCase();
-                    String customId = (userData['uID'] ?? "").toString().toLowerCase();
-                    if (_searchQuery.isNotEmpty) {
-                      if (!name.contains(_searchQuery.toLowerCase()) &&
-                          !customId.contains(_searchQuery.toLowerCase())) {
-                        return const SizedBox.shrink();
-                      }
-                    }
-
-                    return _buildGlassChatTile(userData, userId, chatId);
-                  },
-                );
-              }
-
-              if (!userSnapshot.hasData || userSnapshot.data!.docs.isEmpty) {
-                return const SizedBox.shrink();
-              }
-
-              var userDoc = userSnapshot.data!.docs.first;
-              var userData = userDoc.data() as Map<String, dynamic>;
-              String userId = userDoc.id;
-
-              // অফিসিয়াল চেক 
-              String friendSixDigitId = (userData['uID'] ?? "").toString();
-              String numericIdVal = (userData['numericID'] ?? "").toString();
-              bool isOfficial = friendSixDigitId == "paglachat_official" || 
-                                numericIdVal == "333444" || 
-                                userId == 'paglachat_official' ||
-                                isChatOfficial;
-
-              // সার্চ কুয়েরি ফিল্টার
-              String name = (userData['name'] ?? "").toString().toLowerCase();
-              String customId = (userData['uID'] ?? "").toString().toLowerCase();
-              if (_searchQuery.isNotEmpty && !isOfficial) {
-                if (!name.contains(_searchQuery.toLowerCase()) &&
-                    !customId.contains(_searchQuery.toLowerCase())) {
-                  return const SizedBox.shrink();
-                }
-              }
-
-              return _buildGlassChatTile(userData, userId, chatId);
-            },
-          );
-        },
-      );
-    },
-  );
-}
-             
   Stream<List<Map<String, dynamic>>> _getSortedUserStream(
       List<QueryDocumentSnapshot> users) async* {
-    
     String mySixDigitId = currentSixDigitId;
     if (mySixDigitId.isEmpty) {
       try {
@@ -629,9 +667,10 @@ print("DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as
           .limit(1)
           .get()
           .catchError((e) {
-            print("DEBUG_LOG_ERROR: Failed to fetch messages for chatId $chatId: $e");
-            return null;
-          });
+        print(
+            "DEBUG_LOG_ERROR: Failed to fetch messages for chatId $chatId: $e");
+        return null;
+      });
 
       // যদি কোনো মেসেজ না থাকে এবং অফিসিয়াল না হয়:
       // কিন্তু যদি ইউজার সার্চ বক্স কিছু লিখে সার্চ করে, তবে তাকে বাদ দেওয়া যাবে না যাতে নতুন ইউজারের আইডি দিয়ে সার্চ করলে পাওয়া যায়।
@@ -686,8 +725,9 @@ print("DEBUG_LOG: Found ${unreadMessages.docs.length} unread messages to mark as
     String displayId = isOfficial
         ? "paglachat_official"
         : (userData['uID'] ?? "N/A").toString();
-    String name =
-        isOfficial ? "👑𝐏𝐚𝐠𝐥𝐚𝐂𝐡𝐚𝐭𝐎𝐟𝐟𝐢𝐜𝐢𝐚𝐥⭐" : (userData['name'] ?? "User");
+    String name = isOfficial
+        ? "👑𝐏𝐚𝐠𝐥𝐚𝐂𝐡𝐚𝐭𝐎𝐟𝐟𝐢𝐜𝐢𝐚𝐥⭐"
+        : (userData['name'] ?? "User");
     String image = isOfficial
         ? "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newframe/logo.png"
         : (userData['profilePic'] ?? "");

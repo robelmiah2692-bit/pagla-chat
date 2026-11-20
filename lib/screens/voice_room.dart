@@ -217,7 +217,7 @@ class _VoiceRoomState extends State<VoiceRoom>
   List<String> savedMusicPaths = [];
   DateTime? _roomEntryTime;
   bool _isTrackingTime = false;
-String? _currentPlayingSoundName;
+  String? _currentPlayingSoundName;
   @override
   void initState() {
     super.initState();
@@ -2222,53 +2222,54 @@ String? _currentPlayingSoundName;
   }
 
 // একটি অডিও প্লেয়ার ইন্সট্যান্স তৈরি করে নিন (গ্লোবাল বা স্টেট ক্লাসের ভেতরে)
-final AudioPlayer _soundEffectPlayer = AudioPlayer();
+  final AudioPlayer _soundEffectPlayer = AudioPlayer();
 
 // 🔥 সাউন্ড ইফেক্ট শিট ওপেন এবং প্লে করার নিখুঁত ফাংশন
-void _openSoundEffectMenu() {
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.transparent,
-    isScrollControlled: true,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setStateModal) {
-        return SoundEffectBottomSheet(
-          activePlayingSound: _currentPlayingSoundName,
-          onSoundSelected: (path, name) async {
-            debugPrint("🔊 Playing Sound Effect: $name ($path)");
+  void _openSoundEffectMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setStateModal) {
+          return SoundEffectBottomSheet(
+            activePlayingSound: _currentPlayingSoundName,
+            onSoundSelected: (path, name) async {
+              debugPrint("🔊 Playing Sound Effect: $name ($path)");
 
-            setStateModal(() {
-              _currentPlayingSoundName = name;
-            });
-            setState(() {
-              _currentPlayingSoundName = name;
-            });
+              setStateModal(() {
+                _currentPlayingSoundName = name;
+              });
+              setState(() {
+                _currentPlayingSoundName = name;
+              });
 
-            try {
-              // 🛑 আগের সাউন্ড থাকলে থামিয়ে দিবে, ফলে ওভারল্যাপ হবে না
-              await _soundEffectPlayer.stop();
+              try {
+                // 🛑 আগের সাউন্ড থাকলে থামিয়ে দিবে, ফলে ওভারল্যাপ হবে না
+                await _soundEffectPlayer.stop();
 
-              // 🔥 অ্যাসেট থেকে সরাসরি সাউন্ড প্লে করা (মিউজিক প্লেয়ারকে বিন্দুমাত্র ডিস্টার্ব করবে না)
-              // পাথ যেমন: "assets/sounds/cheering.mp3" হলে audioplayers এ দিতে হয় "sounds/cheering.mp3" (যদি assets/ ফোল্ডার ডিফল্ট থাকে)
-              String cleanPath = path.replaceFirst('assets/', '');
-              await _soundEffectPlayer.play(AssetSource(cleanPath));
+                // 🔥 অ্যাসেট থেকে সরাসরি সাউন্ড প্লে করা (মিউজিক প্লেয়ারকে বিন্দুমাত্র ডিস্টার্ব করবে না)
+                // পাথ যেমন: "assets/sounds/cheering.mp3" হলে audioplayers এ দিতে হয় "sounds/cheering.mp3" (যদি assets/ ফোল্ডার ডিফল্ট থাকে)
+                String cleanPath = path.replaceFirst('assets/', '');
+                await _soundEffectPlayer.play(AssetSource(cleanPath));
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text("Playing: $name 🎶"),
-                  duration: const Duration(seconds: 1),
-                  backgroundColor: Colors.cyan.shade800,
-                ),
-              );
-            } catch (e) {
-              debugPrint("❌ Sound Effect Error: $e");
-            }
-          },
-        );
-      },
-    ),
-  );
-}
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("Playing: $name 🎶"),
+                    duration: const Duration(seconds: 1),
+                    backgroundColor: Colors.cyan.shade800,
+                  ),
+                );
+              } catch (e) {
+                debugPrint("❌ Sound Effect Error: $e");
+              }
+            },
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -4888,6 +4889,9 @@ void _openSoundEffectMenu() {
               double? avatarSize,
               double? frameSize,
             }) {
+              // ✅ শুধু 12 সিটের লেআউটে ট্রু হবে, বাকি লেআউটে ফলস থাকবে
+              final bool isSeat12 = currentLayoutItemCount == 12;
+
               var seatData = dbSeats[index.toString()] ?? dbSeats[index];
               bool isOccupied =
                   seatData != null ? (seatData['isOccupied'] == true) : false;
@@ -5923,21 +5927,26 @@ void _openSoundEffectMenu() {
                                 .none, // বাইরে ক্রাউন ওভারফ্লো করার জন্য এটি অত্যন্ত জরুরি
                             children: [
                               // 🔥 ইউজার না থাকলে সিটের ডিজাইন দেখাবে, আর বসলে সম্পূর্ণ হাইড (transparent) হয়ে যাবে
+                              // আপনার dynamicItemBuilder সিগনেচারে এই ঐচ্ছিক প্যারামিটারটি যোগ করুন:
+// bool isSeat12 = false,
+
+// ... ভেতরে গোল ব্লার Container-এর জায়গায়:
                               Container(
                                 width: seatSize,
                                 height: seatSize,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: isOccupied
+                                  // ✅ isSeat12 true হলে বা isOccupied true হলে গোল ব্লার ব্যাকগ্রাউন্ড/বর্ডার/শ্যাডো সম্পূর্ণ ট্রান্সপারেন্ট/হাইড
+                                  color: (isOccupied || isSeat12)
                                       ? Colors.transparent
                                       : Colors.white.withOpacity(0.1),
-                                  border: isOccupied
+                                  border: (isOccupied || isSeat12)
                                       ? null
                                       : Border.all(
                                           color: Colors.white.withOpacity(0.2),
                                           width: 1.5,
                                         ),
-                                  boxShadow: isOccupied
+                                  boxShadow: (isOccupied || isSeat12)
                                       ? []
                                       : [
                                           BoxShadow(
@@ -5949,8 +5958,9 @@ void _openSoundEffectMenu() {
                                         ],
                                 ),
                                 child: ClipOval(
-                                  child: isOccupied
-                                      ? const SizedBox.shrink()
+                                  child: (isOccupied || isSeat12)
+                                      ? const SizedBox
+                                          .shrink() // ✅ 12-সিট চেয়ারের ওপর কোনো BackdropFilter ব্লার থাকবে না
                                       : BackdropFilter(
                                           filter: ImageFilter.blur(
                                               sigmaX: 5, sigmaY: 5),
@@ -5967,7 +5977,6 @@ void _openSoundEffectMenu() {
                                         ),
                                 ),
                               ),
-
                               // 🔥 ইউজার প্রফাইল পিকচার অথবা লক/মাইক আইকন
                               SizedBox(
                                 width: seatSize,
@@ -6028,10 +6037,22 @@ void _openSoundEffectMenu() {
                                                 ),
                                               ),
                                             )
-                                          : const Icon(
+                                          : Icon(
                                               Icons.mic_rounded,
-                                              color: Colors.white24,
-                                              size: 28,
+                                              color: isSeat12
+                                                  ? Colors.white
+                                                      .withOpacity(0.85)
+                                                  : Colors.white24,
+                                              size: isSeat12 ? 22 : 28,
+                                              shadows: isSeat12
+                                                  ? const [
+                                                      Shadow(
+                                                        color: Colors.black87,
+                                                        blurRadius: 4,
+                                                        offset: Offset(0, 1),
+                                                      ),
+                                                    ]
+                                                  : null,
                                             ),
                                 ),
                               ),
@@ -6407,7 +6428,7 @@ void _openSoundEffectMenu() {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // 🔥 হোস্ট সিট দুটি কাছাকাছি আনার জন্য Row-এ MainAxisAlignment.center ব্যবহার করা হয়েছে
+                      // 🔥 হোস্ট সিট দুটি কাছাকাছি আনার জন্য Row-এ MainAxisAlignment.center ব্যবহার করা হয়েছে
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -6416,29 +6437,39 @@ void _openSoundEffectMenu() {
                             height: 90.0,
                             child: FittedBox(
                               fit: BoxFit.contain,
-                              child: dynamicItemBuilder(
-                                context,
-                                0,
-                                seatSize: 80.0,
-                                avatarSize: 55.0,
-                                frameSize: 90.0,
+                              child: _buildRoyalChairSeat(
+                                isHost: true,
+                                width: 80.0,
+                                height: 90.0,
+                                child: dynamicItemBuilder(
+                                  context,
+                                  0,
+                                  seatSize: 80.0,
+                                  avatarSize: 55.0,
+                                  frameSize: 90.0,
+                                ),
                               ),
                             ),
                           ),
                           const SizedBox(
                               width:
-                                  15), // 🟢 দুটি হোস্ট সিটের মাঝখানের দূরত্ব (প্রয়োজনে বাড়াতে/কমাতেন পারেন)
+                                  15), // 🟢 দুটি হোস্ট সিটের মাঝখানের দূরত্ব (প্রয়োজনে বাড়াতে/কমাতেন পারেন)
                           SizedBox(
                             width: 80.0,
                             height: 90.0,
                             child: FittedBox(
                               fit: BoxFit.contain,
-                              child: dynamicItemBuilder(
-                                context,
-                                1,
-                                seatSize: 80.0,
-                                avatarSize: 55.0,
-                                frameSize: 90.0,
+                              child: _buildRoyalChairSeat(
+                                isHost: true,
+                                width: 80.0,
+                                height: 90.0,
+                                child: dynamicItemBuilder(
+                                  context,
+                                  1,
+                                  seatSize: 80.0,
+                                  avatarSize: 55.0,
+                                  frameSize: 90.0,
+                                ),
                               ),
                             ),
                           ),
@@ -6447,7 +6478,7 @@ void _openSoundEffectMenu() {
 
                       const SizedBox(height: 20),
 
-                      // 🔥 নিচের প্রথম সারি (index 2 থেকে 6) - দূরত্ত বাড়ানোর জন্য spaceBetween দেওয়া হয়েছে
+                      // 🔥 নিচের প্রথম সারি (index 2 থেকে 6) - দূরত্ত বাড়ানোর জন্য spaceBetween দেওয়া হয়েছে
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: List.generate(
@@ -6457,12 +6488,18 @@ void _openSoundEffectMenu() {
                             height: 75.0,
                             child: FittedBox(
                               fit: BoxFit.contain,
-                              child: dynamicItemBuilder(
-                                context,
-                                index + 2,
-                                seatSize: 65.0,
-                                avatarSize: 60.0,
-                                frameSize: 95.0,
+                              child: _buildRoyalChairSeat(
+                                isHost: false,
+                                isBottomRow: false,
+                                width: 65.0,
+                                height: 75.0,
+                                child: dynamicItemBuilder(
+                                  context,
+                                  index + 2,
+                                  seatSize: 65.0,
+                                  avatarSize: 60.0,
+                                  frameSize: 95.0,
+                                ),
                               ),
                             ),
                           ),
@@ -6471,7 +6508,7 @@ void _openSoundEffectMenu() {
 
                       const SizedBox(height: 15),
 
-                      // 🔥 নিচের শেষ সারি (index 7 থেকে 11) - দূরত্ত বাড়ানোর জন্য spaceBetween দেওয়া হয়েছে
+                      // 🔥 নিচের শেষ সারি (index 7 থেকে 11) - আলাদা চেয়ার কন্ট্রোলের জন্য isBottomRow: true
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: List.generate(
@@ -6481,12 +6518,18 @@ void _openSoundEffectMenu() {
                             height: 75.0,
                             child: FittedBox(
                               fit: BoxFit.contain,
-                              child: dynamicItemBuilder(
-                                context,
-                                index + 7,
-                                seatSize: 65.0,
-                                avatarSize: 60.0,
-                                frameSize: 95.0,
+                              child: _buildRoyalChairSeat(
+                                isHost: false,
+                                isBottomRow: true,
+                                width: 65.0,
+                                height: 75.0,
+                                child: dynamicItemBuilder(
+                                  context,
+                                  index + 7,
+                                  seatSize: 65.0,
+                                  avatarSize: 60.0,
+                                  frameSize: 95.0,
+                                ),
                               ),
                             ),
                           ),
@@ -6638,6 +6681,90 @@ void _openSoundEffectMenu() {
           },
         );
       },
+    );
+  }
+
+
+  Widget _buildRoyalChairSeat({
+    required bool isHost,
+    bool isBottomRow = false, // ✅ নিচের সারির (index 7..11) জন্য আলাদা ফ্ল্যাগ
+    required double width,
+    required double height,
+    required Widget child,
+  }) {
+    final String chairAsset = isHost
+        ? 'assets/images/seat_host.webp'
+        : 'assets/images/seat_member.webp';
+
+    // =========================================================================
+    // 🎯 [১] চেয়ার ডানে-বামে (চওড়া) বড়-ছোট করার কন্ট্রোল:
+    // 👉 মান বাড়ালে চওড়া হবে, কমালে চিকন/ছোট হবে।
+    // =========================================================================
+    final double chairScaleWidth = isHost
+        ? 1.60 // হোস্ট সিট (index 0, 1)
+        : (isBottomRow
+            ? 1.60 // নিচের সারি (index 7..11) - আলাদা কন্ট্রোল
+            : 1.60); // ওপরের মেম্বার সারি (index 2..6)
+
+    // =========================================================================
+    // 🎯 [২] চেয়ার লম্বায় (উচ্চতায়) বড়-ছোট করার কন্ট্রোল:
+    // 👉 মান বাড়ালে লম্বায় বড় হবে, কমালে ছোট হবে।
+    // =========================================================================
+    final double chairScaleHeight = isHost
+        ? 1.40 // হোস্ট সিট (index 0, 1)
+        : (isBottomRow
+            ? 1.70 // নিচের সারি (index 7..11) - আলাদা কন্ট্রোল
+            : 1.70); // ওপরের মেম্বার সারি (index 2..6)
+
+    // =========================================================================
+    // 🎯 [৩] চেয়ার ওপরে-নিচে নেওয়ার কন্ট্রোল:
+    // 👉 ওপরে উঠাতে প্লাস (+) মান বাড়ান, নিচে নামাতে মাইনাস (-) মান দিন বা কমান।
+    // =========================================================================
+    final double chairBottomOffset = isHost
+        ? 18.0 // হোস্ট সিট (index 0, 1)
+        : (isBottomRow
+            ? -1.0 // নিচের সারি (index 7..11) - আলাদা কন্ট্রোল
+            : 10.0); // ওপরের মেম্বার সারি (index 2..6)
+
+    // =========================================================================
+    // 🎯 [৪] ইউজারের প্রোফাইল/সিট (`child`) ওপরে-নিচে করার কন্ট্রোল:
+    // 👉 ওপরে নিতে মাইনাস (-) দিন, নিচে নামাতে প্লাস (+) দিন।
+    // =========================================================================
+    final double userTopOffset = isHost ? -2.0 : 0.0;
+
+    return SizedBox(
+      width: width,
+      height: height,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          // ১. রাজকীয় ৩ডি চেয়ার ইমেজ
+          Positioned(
+            bottom: chairBottomOffset,
+            child: IgnorePointer(
+              child: Transform.scale(
+                scaleX: chairScaleWidth,
+                scaleY: chairScaleHeight,
+                child: SizedBox(
+                  width: width,
+                  height: height * 0.85,
+                  child: Image.asset(
+                    chairAsset,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // ২. ইউজারের প্রোফাইল / সিট উইজেট
+          Positioned(
+            top: userTopOffset,
+            child: child,
+          ),
+        ],
+      ),
     );
   }
 

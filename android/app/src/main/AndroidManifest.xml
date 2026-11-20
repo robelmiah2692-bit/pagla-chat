@@ -13,8 +13,10 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
    
+   <uses-feature android:name="android.hardware.wifi" android:required="false" />
+    
     <application
-        android:label="pagla_chat"
+        android:label="PaglaChat"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true"> 

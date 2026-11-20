@@ -1,10 +1,9 @@
 import 'dart:async';
-
+import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:lottie/lottie.dart';
 import 'package:pagla_chat/banner_feature_page.dart';
 import 'package:pagla_chat/profile_page.dart';
 import 'package:pagla_chat/services/search_helper.dart';
@@ -44,9 +43,16 @@ class _RoomListPageState extends State<RoomListPage>
     "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/officialall/daimondbenar.jpg", // এখানে তৃতীয় লিংক বসান
   ];
 
+  late final Stream<QuerySnapshot> _topGiftersStream;
+  List<QueryDocumentSnapshot> _cachedTopGifters = [];
   @override
   void initState() {
     super.initState();
+    _topGiftersStream = FirebaseFirestore.instance
+      .collection('users')
+      .orderBy('totalSpent', descending: true)
+      .limit(10)
+      .snapshots();
     _tabController = TabController(length: 3, vsync: this);
 
     _bubbleController = AnimationController(
@@ -256,341 +262,221 @@ class _RoomListPageState extends State<RoomListPage>
   }
 
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    backgroundColor: Colors.transparent,
-    body: Stack(
-      children: [
-        // 🔥 ১. একদম নিচে পুরো স্ক্রিন জুড়ে অ্যাসেট ওয়ালপেপার ইমেজ (অ্যাপবার সহ পুরো পেইজে থাকবে)
-        Positioned.fill(
-          child: Image.asset(
-            'assets/images/roomlistnew.webp', // আপনার অ্যাসেট পাথ
-            fit: BoxFit.cover,
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          // 🔥 ১. একদম নিচে পুরো স্ক্রিন জুড়ে অ্যাসেট ওয়ালপেপার ইমেজ (অ্যাপবার সহ পুরো পেইজে থাকবে)
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/wallpaperlist.webp', // আপনার অ্যাসেট পাথ
+              fit: BoxFit.cover,
+            ),
           ),
-        ),
 
-        // ২. মূল লেআউট (AppBar এবং Body একসাথে সাজানো যাতে কোনো লেআউট ত্রুটি বা কালো স্ক্রিন না আসে)
-        SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              // কাস্টম AppBar-এর বিকল্প Container ডিজাইন (যাতে লেআউট সাইজ নিয়ে কোনো সমস্যা না হয়)
-              Container(
-                padding: const EdgeInsets.only(top: 4, bottom: 4),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // উপরের মেইন রো (Leading, Title, Actions)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // বাম দিকের অনলাইন ইউজারদের ৩টি ফ্রেম অবতার
-                        SizedBox(
-                          width: 145,
-                          height: 42,
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: 8.0),
-                            child: StreamBuilder<QuerySnapshot>(
-                              stream: FirebaseFirestore.instance
-                                  .collection('users')
-                                  .where('isOnline', isEqualTo: true)
-                                  .snapshots(),
-                              builder: (context, snapshot) {
-                                List<String> avatarUrls = [];
-                                if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                                  for (var doc in snapshot.data!.docs) {
-                                    var data = doc.data() as Map<String, dynamic>;
-                                    if (data['profilePic'] != null &&
-                                        data['profilePic'].toString().isNotEmpty) {
-                                      avatarUrls.add(data['profilePic']);
+          // ২. মূল লেআউট (AppBar এবং Body একসাথে সাজানো যাতে কোনো লেআউট ত্রুটি বা কালো স্ক্রিন না আসে)
+          SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                // কাস্টম AppBar-এর বিকল্প Container ডিজাইন (যাতে লেআউট সাইজ নিয়ে কোনো সমস্যা না হয়)
+                Container(
+                  padding: const EdgeInsets.only(top: 4, bottom: 4),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // উপরের মেইন রো (Leading, Title, Actions)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // বাম দিকের অনলাইন ইউজারদের ৩টি ফ্রেম অবতার
+                          SizedBox(
+                            width:
+                                162, // রিপেল যেন না কাটে তাই সামান্য বাড়ানো হয়েছে
+                            height: 48,
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 6.0),
+                              child: StreamBuilder<QuerySnapshot>(
+                                stream: FirebaseFirestore.instance
+                                    .collection('users')
+                                    .where('isOnline', isEqualTo: true)
+                                    .snapshots(),
+                                builder: (context, snapshot) {
+                                  List<String> avatarUrls = [];
+                                  if (snapshot.hasData &&
+                                      snapshot.data!.docs.isNotEmpty) {
+                                    for (var doc in snapshot.data!.docs) {
+                                      var data =
+                                          doc.data() as Map<String, dynamic>;
+                                      if (data['profilePic'] != null &&
+                                          data['profilePic']
+                                              .toString()
+                                              .isNotEmpty) {
+                                        avatarUrls.add(data['profilePic']);
+                                      }
                                     }
                                   }
-                                }
 
-                                List<String> fallbackAvatars = [
-                                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
-                                  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
-                                  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
-                                  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100',
-                                ];
+                                  List<String> fallbackAvatars = [
+                                    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
+                                    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
+                                    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
+                                    'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100',
+                                  ];
 
-                                if (avatarUrls.length < 3) {
-                                  avatarUrls.addAll(fallbackAvatars);
-                                }
+                                  if (avatarUrls.length < 3) {
+                                    avatarUrls.addAll(fallbackAvatars);
+                                  }
 
-                                avatarUrls.shuffle();
-                                List<String> displayAvatars = avatarUrls.take(3).toList();
+                                  avatarUrls.shuffle();
+                                  List<String> displayAvatars =
+                                      avatarUrls.take(3).toList();
 
-                                return Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                  children: displayAvatars.map((url) {
-                                    return Container(
-                                      width: 38,
-                                      height: 38,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(
-                                            color: Colors.cyanAccent.withOpacity(0.9),
-                                            width: 1.5),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.cyanAccent.withOpacity(0.6),
-                                            blurRadius: 10,
-                                            spreadRadius: 2,
-                                          ),
-                                          BoxShadow(
-                                            color: Colors.blueAccent.withOpacity(0.3),
-                                            blurRadius: 16,
-                                            spreadRadius: 4,
-                                          ),
-                                        ],
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(9),
-                                        child: CachedNetworkImage(
-                                          imageUrl: url,
-                                          fit: BoxFit.cover,
-                                          placeholder: (context, url) => Container(
-                                            color: Colors.white12,
-                                            child: const Center(
-                                              child: SizedBox(
-                                                width: 12,
-                                                height: 12,
-                                                child: CircularProgressIndicator(
-                                                    strokeWidth: 1.5,
-                                                    color: Colors.cyanAccent),
-                                              ),
-                                            ),
-                                          ),
-                                          errorWidget: (context, url, error) =>
-                                              const Icon(Icons.person,
-                                                  color: Colors.white, size: 20),
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                );
-                              },
+                                  return Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceEvenly,
+                                    children: displayAvatars
+                                        .map((url) => RainbowRippleAvatar(
+                                            imageUrl: url, size: 34))
+                                        .toList(),
+                                  );
+                                },
+                              ),
                             ),
                           ),
-                        ),
+                          // মাঝখানের সার্চ বক্স (ইমেজ ডিজাইন)
+                          Expanded(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8.0),
+                              child: GestureDetector(
+                                onTap: () {
+                                  _showSearchDialog(context);
+                                },
+                                child: Image.asset(
+                                  'assets/images/search_bar.webp', // আপনার সার্চ ইমেজের পাথ
+                                  height: 38,
+                                  fit: BoxFit.fill,
+                                ),
+                              ),
+                            ),
+                          ),
 
-                        // মাঝখানের সার্চ বক্স
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          // ডান দিকের রুম তৈরির ইমেজ বাটন
+                          Padding(
+                            padding: const EdgeInsets.only(right: 12.0),
                             child: GestureDetector(
                               onTap: () {
-                                _showSearchDialog(context);
+                                _showCreateRoomDialog();
                               },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 10),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(25),
-                                  color: Colors.white.withOpacity(0.08),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.2),
-                                    width: 1.2,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.cyanAccent.withOpacity(0.1),
-                                      blurRadius: 8,
-                                      spreadRadius: 0.5,
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: const [
-                                    Icon(Icons.search_rounded,
-                                        color: Colors.cyanAccent, size: 16),
-                                    SizedBox(width: 5),
-                                    Expanded(
-                                      child: Text(
-                                        "Search uID / Room ID",
-                                        style: TextStyle(
-                                          color: Color.fromARGB(211, 52, 206, 245),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              child: Image.asset(
+                                'assets/images/create_room.webp', // আপনার ইমেজের সঠিক পাথ দিন
+                                width: 42,
+                                height: 42,
+                                fit: BoxFit.contain,
                               ),
                             ),
                           ),
-                        ),
-
-                        // ডান দিকের রুম তৈরির প্লাস বাটন
-                        Padding(
-                          padding: const EdgeInsets.only(right: 12.0),
-                          child: GestureDetector(
-                            onTap: () {
-                              _showCreateRoomDialog();
-                            },
-                            child: Container(
-                              width: 42,
-                              height: 42,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.white,
-                                    Colors.white.withOpacity(0.6),
-                                    Colors.grey.shade400,
-                                  ],
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.cyanAccent.withOpacity(0.4),
-                                    blurRadius: 10,
-                                    spreadRadius: 2,
-                                  ),
-                                ],
-                              ),
-                              padding: const EdgeInsets.all(2.5),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: const LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      Color(0xFF8E2DE2),
-                                      Color(0xFF4A00E0),
-                                      Color(0xFF00C6FF),
-                                    ],
-                                  ),
-                                ),
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    const Icon(
-                                      Icons.home_rounded,
-                                      color: Colors.white70,
-                                      size: 22,
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.black.withOpacity(0.3),
-                                      ),
-                                      child: const Icon(
-                                        Icons.add,
-                                        color: Colors.cyanAccent,
-                                        size: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    // নিচের ট্যাব বার (Live Room, Following, My Room)
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      padding: const EdgeInsets.all(4),
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.06),
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.12),
-                          width: 1.0,
-                        ),
+                        ],
                       ),
-                      child: TabBar(
-                        controller: _tabController,
-                        indicator: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Colors.purpleAccent, Colors.cyanAccent],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+
+                      const SizedBox(height: 6),
+
+                      // নিচের ট্যাব বার (Live Room, Following, My Room)
+                      Container(
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 4),
+                        padding: const EdgeInsets.all(4),
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.12),
+                            width: 1.0,
                           ),
-                          borderRadius: BorderRadius.circular(25),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.purpleAccent.withOpacity(0.4),
-                              blurRadius: 8,
-                              spreadRadius: 1,
+                        ),
+                        child: TabBar(
+                          controller: _tabController,
+                          indicator: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Colors.purpleAccent, Colors.cyanAccent],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(25),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.purpleAccent.withOpacity(0.4),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                          labelColor: Colors.black,
+                          unselectedLabelColor: Colors.white70,
+                          labelStyle: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                          unselectedLabelStyle: const TextStyle(
+                            fontWeight: FontWeight.normal,
+                            fontSize: 13,
+                          ),
+                          tabs: const [
+                            Tab(
+                              child: Align(
+                                alignment: Alignment.center,
+                                child: Text("Live Room"),
+                              ),
+                            ),
+                            Tab(
+                              child: Align(
+                                alignment: Alignment.center,
+                                child: Text("Following"),
+                              ),
+                            ),
+                            Tab(
+                              child: Align(
+                                alignment: Alignment.center,
+                                child: Text("My Room"),
+                              ),
                             ),
                           ],
                         ),
-                        labelColor: Colors.black,
-                        unselectedLabelColor: Colors.white70,
-                        labelStyle: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                        unselectedLabelStyle: const TextStyle(
-                          fontWeight: FontWeight.normal,
-                          fontSize: 13,
-                        ),
-                        tabs: const [
-                          Tab(
-                            child: Align(
-                              alignment: Alignment.center,
-                              child: Text("Live Room"),
-                            ),
-                          ),
-                          Tab(
-                            child: Align(
-                              alignment: Alignment.center,
-                              child: Text("Following"),
-                            ),
-                          ),
-                          Tab(
-                            child: Align(
-                              alignment: Alignment.center,
-                              child: Text("My Room"),
-                            ),
-                          ),
-                        ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
 
-              // বডির বাকি অংশ (Banner, Spenders, TabBarView)
-              Expanded(
-                child: Column(
-                  children: [
-                    _buildBanner(),
-                    _buildTopSpendersSection(),
-                    Expanded(
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildLiveRoomList(),
-                          _buildFollowingRoomList(currentLoggedInUID),
-                          _buildMyRoomList(),
-                        ],
+                // বডির বাকি অংশ (Banner, Spenders, TabBarView)
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildBanner(),
+                      _buildTopSpendersSection(),
+                      Expanded(
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _buildLiveRoomList(),
+                            _buildFollowingRoomList(currentLoggedInUID),
+                            _buildMyRoomList(),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
+
 // সাহায্যকারী সার্চ ডায়ালগ বা মেথড
   void _showSearchDialog(BuildContext context) {
     SearchHelper.showSearchDialog(context);
@@ -839,24 +725,12 @@ Widget build(BuildContext context) {
             ),
             child: Row(
               children: [
-                // ১. রুমের গোল ছবি (বর্ডারসহ)
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isMyRoom
-                          ? Colors.amberAccent
-                          : Colors.pinkAccent.withOpacity(0.6),
-                      width: 2,
-                    ),
-                    image: DecorationImage(
-                      image: CachedNetworkImageProvider(finalImage),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
+                // ১. রুমের গোল ছবি (ঘুরে ঘুরে রংধনু বর্ডার ও রিপেলসহ)
+                RainbowBoxRippleAvatar(
+                  imageUrl: finalImage,
+                  size: 64,
                 ),
+
                 const SizedBox(width: 12),
 
                 // ২. রুমের নাম, ডেসক্রিপশন ও অন্যান্য তথ্য
@@ -887,34 +761,8 @@ Widget build(BuildContext context) {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          // রুমের নামের পাশে সবুজ রঙের গ্লাস স্ট্যাটাস টেক্সট (PAGLA LIVE / MY ROOM)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color:
-                                  (isMyRoom ? Colors.amber : Colors.greenAccent)
-                                      .withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: (isMyRoom
-                                        ? Colors.amberAccent
-                                        : Colors.greenAccent)
-                                    .withOpacity(0.4),
-                                width: 0.8,
-                              ),
-                            ),
-                            child: Text(
-                              isMyRoom ? "MY ROOM" : "PAGLA LIVE",
-                              style: TextStyle(
-                                color: isMyRoom
-                                    ? Colors.amberAccent
-                                    : Colors.greenAccent,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
+                          // রুমের নামের পাশে সবুজ ব্লিংকিং ডট + LIVE + স্ট্রিমিং ওয়েভ এনিমেশন
+                          LiveStatusBadge(isMyRoom: isMyRoom),
                           const SizedBox(width: 6),
                           // লাইভ ইউজার কাউন্ট ব্যাজ
                           Container(
@@ -1086,88 +934,43 @@ Widget build(BuildContext context) {
             color: Colors.black.withOpacity(0.3),
           ),
           child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('users')
-                .orderBy('totalSpent', descending: true)
-                .limit(5)
-                .snapshots(),
+            stream: _topGiftersStream,
             builder: (context, snapshot) {
-              if (!snapshot.hasData) {
+              if (snapshot.hasData && snapshot.data != null) {
+                final newDocs = snapshot.data!.docs;
+                bool changed = newDocs.length != _cachedTopGifters.length;
+                if (!changed) {
+                  for (int i = 0; i < newDocs.length; i++) {
+                    if (newDocs[i].id != _cachedTopGifters[i].id) {
+                      changed = true;
+                      break;
+                    }
+                    final a =
+                        _cachedTopGifters[i].data() as Map<String, dynamic>?;
+                    final b = newDocs[i].data() as Map<String, dynamic>?;
+                    if (a?['totalSpent'] != b?['totalSpent'] ||
+                        a?['name'] != b?['name'] ||
+                        a?['profilePic'] != b?['profilePic']) {
+                      changed = true;
+                      break;
+                    }
+                  }
+                }
+                if (changed) {
+                  _cachedTopGifters = List<QueryDocumentSnapshot>.from(newDocs);
+                }
+              }
+
+              if (_cachedTopGifters.isEmpty && !snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              var topUsers = snapshot.data!.docs;
-
-              return ListView.builder(
-                scrollDirection: Axis.horizontal,
-                // গ্যাপ সমান রাখতে physics যোগ করা হয়েছে
-                physics: const NeverScrollableScrollPhysics(),
+              return Padding(
                 padding: const EdgeInsets.only(left: 10),
-                itemCount: topUsers.length,
-                itemBuilder: (context, index) {
-                  var userDoc = topUsers[index];
-                  var userData = userDoc.data() as Map<String, dynamic>;
-                  String uId = userDoc.id; // ডকুমেন্টের আইডি বা ইউজার আইডি
-                  String name = userData['name'] ?? "User";
-                  String pic = userData['profilePic'] ?? "";
-                  String frame = userData['activeFrameUrl'] ?? "";
-
-                  return Container(
-                    width: (MediaQuery.of(context).size.width - 60) /
-                        5, // স্ক্রিন অনুযায়ী সমান জায়গা ভাগ
-                    alignment: Alignment.center,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // প্রোফাইল পিকচারে ক্লিক করলে প্রোফাইলে যাওয়ার জন্য GestureDetector যোগ করা হয়েছে
-                        GestureDetector(
-                          onTap: () => _navigateToProfile(context, uId),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              CircleAvatar(
-                                radius: 26,
-                                backgroundColor: Colors.grey[900],
-                                backgroundImage: pic.isNotEmpty
-                                    ? CachedNetworkImageProvider(pic)
-                                        as ImageProvider
-                                    : null,
-                                child: pic.isEmpty
-                                    ? const Icon(Icons.person,
-                                        size: 26, color: Colors.white)
-                                    : null,
-                              ),
-                              // ফ্রেম লজিক: Lottie অথবা CachedNetworkImage
-                              if (frame.isNotEmpty)
-                                SizedBox(
-                                  width: 80,
-                                  height: 80,
-                                  child: frame.toLowerCase().endsWith('.json')
-                                      ? Lottie.network(frame)
-                                      : CachedNetworkImage(
-                                          imageUrl: frame,
-                                          fit: BoxFit.contain,
-                                          placeholder: (context, url) =>
-                                              const SizedBox.shrink(),
-                                          errorWidget:
-                                              (context, error, stackTrace) =>
-                                                  const SizedBox.shrink(),
-                                        ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(name,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500)),
-                      ],
-                    ),
-                  );
-                },
+                child: RotatingTopGiftersRow(
+                  docs: _cachedTopGifters,
+                  onUserTap: (ctx, id) => _navigateToProfile(ctx, id),
+                ),
               );
             },
           ),
@@ -1176,6 +979,7 @@ Widget build(BuildContext context) {
       ],
     );
   }
+
   // প্রোফাইলে নেভিগেট করার কার্যকরী ফাংশন (আপনার কোড অনুযায়ী যুক্ত করা হয়েছে)
   Future<void> _navigateToProfile(BuildContext context, String uId) async {
     String finalIdToPass = uId;
@@ -1200,6 +1004,788 @@ Widget build(BuildContext context) {
       context,
       MaterialPageRoute(
         builder: (context) => ProfilePage(userId: finalIdToPass),
+      ),
+    );
+  }
+}
+
+class RainbowRippleAvatar extends StatefulWidget {
+  final String imageUrl;
+  final double size;
+
+  const RainbowRippleAvatar({
+    super.key,
+    required this.imageUrl,
+    this.size = 36,
+  });
+
+  @override
+  State<RainbowRippleAvatar> createState() => _RainbowRippleAvatarState();
+}
+
+class _RainbowRippleAvatarState extends State<RainbowRippleAvatar>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  static const List<Color> _rainbowColors = [
+    Color(0xFFFF004C),
+    Color(0xFFFF7A00),
+    Color(0xFFFFE600),
+    Color(0xFF00F57A),
+    Color(0xFF00D2FF),
+    Color(0xFF7B2CBF),
+    Color(0xFFFF004C),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double outerSize = widget.size + 12;
+
+    return SizedBox(
+      width: outerSize,
+      height: outerSize,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final double progress = _controller.value;
+          final double rippleScale = 1.0 + (progress * 0.28);
+          final double rippleOpacity = (1.0 - progress).clamp(0.0, 1.0) * 0.65;
+
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              // 🌊 বাইরে ছড়িয়ে পড়া রংধনু রিপেল রিং
+              Transform.scale(
+                scale: rippleScale,
+                child: Opacity(
+                  opacity: rippleOpacity,
+                  child: Container(
+                    width: widget.size + 4,
+                    height: widget.size + 4,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(11),
+                      border: Border.all(
+                        color: _rainbowColors[
+                            (progress * (_rainbowColors.length - 1)).floor()],
+                        width: 1.8,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // 🌈 ঘুরে ঘুরে চলা রংধনু বর্ডার
+              Transform.rotate(
+                angle: progress * 6.28318530718, // 2 * pi
+                child: Container(
+                  width: widget.size + 4,
+                  height: widget.size + 4,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(11),
+                    gradient: const SweepGradient(
+                      colors: _rainbowColors,
+                    ),
+                  ),
+                ),
+              ),
+
+              // 🖼️ ভেতরের মূল অবতার ছবি (সোজা থাকবে)
+              Container(
+                width: widget.size,
+                height: widget.size,
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(9),
+                  child: CachedNetworkImage(
+                    imageUrl: widget.imageUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: Colors.white12,
+                      child: const Center(
+                        child: SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: Colors.cyanAccent,
+                          ),
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => const Icon(
+                      Icons.person,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class RainbowBoxRippleAvatar extends StatefulWidget {
+  final String imageUrl;
+  final double size;
+
+  const RainbowBoxRippleAvatar({
+    super.key,
+    required this.imageUrl,
+    this.size = 64,
+  });
+
+  @override
+  State<RainbowBoxRippleAvatar> createState() => _RainbowBoxRippleAvatarState();
+}
+
+class _RainbowBoxRippleAvatarState extends State<RainbowBoxRippleAvatar>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  static const List<Color> _rainbowColors = [
+    Color(0xFFFF004C),
+    Color(0xFFFF7A00),
+    Color(0xFFFFE600),
+    Color(0xFF00F57A),
+    Color(0xFF00D2FF),
+    Color(0xFF7B2CBF),
+    Color(0xFFFF004C),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double outerSize = widget.size + 16;
+
+    return SizedBox(
+      width: outerSize,
+      height: outerSize,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final double progress = _controller.value;
+          final double rippleScale = 1.0 + (progress * 0.22);
+          final double rippleOpacity = (1.0 - progress).clamp(0.0, 1.0) * 0.65;
+
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              // 🌊 বাইরে ছড়িয়ে পড়া রংধনু বক্স রিপেল
+              Transform.scale(
+                scale: rippleScale,
+                child: Opacity(
+                  opacity: rippleOpacity,
+                  child: Container(
+                    width: widget.size + 6,
+                    height: widget.size + 6,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: _rainbowColors[
+                            (progress * (_rainbowColors.length - 1)).floor()],
+                        width: 1.8,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // 🌈 ঘুরে ঘুরে চলা রংধনু বক্স বর্ডার
+              Transform.rotate(
+                angle: progress * 6.28318530718, // 2 * pi
+                child: Container(
+                  width: widget.size + 6,
+                  height: widget.size + 6,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: const SweepGradient(
+                      colors: _rainbowColors,
+                    ),
+                  ),
+                ),
+              ),
+
+              // 🖼️ ভেতরের রুম প্রফাইল ছবি (বক্স শেপ, একদম স্থির)
+              Container(
+                width: widget.size,
+                height: widget.size,
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(14),
+                  image: DecorationImage(
+                    image: CachedNetworkImageProvider(widget.imageUrl),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class RoyalLightningRippleAvatar extends StatefulWidget {
+  final String imageUrl;
+  final double radius;
+  final int rank; // 0 = 1st place (সবচেয়ে রাজকীয়), 1..4 = বাকি টপ গিফটার
+
+  const RoyalLightningRippleAvatar({
+    super.key,
+    required this.imageUrl,
+    this.radius = 24,
+    this.rank = 0,
+  });
+
+  @override
+  State<RoyalLightningRippleAvatar> createState() =>
+      _RoyalLightningRippleAvatarState();
+}
+
+class _RoyalLightningRippleAvatarState extends State<RoyalLightningRippleAvatar>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: widget.rank == 0 ? 1500 : 1900),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double boxSize = (widget.radius * 2) + 22;
+
+    return SizedBox(
+      width: boxSize,
+      height: boxSize,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              // ⚡ রাজকীয় বিজলি চমক ও রিপেল ক্যানভাস
+              CustomPaint(
+                size: Size(boxSize, boxSize),
+                painter: _RoyalLightningPainter(
+                  progress: _controller.value,
+                  radius: widget.radius,
+                  isTopOne: widget.rank == 0,
+                ),
+              ),
+
+              // 👑 ইউজারের প্রোফাইল ছবি
+              Container(
+                width: widget.radius * 2,
+                height: widget.radius * 2,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.grey[900],
+                  border: Border.all(
+                    color: widget.rank == 0
+                        ? const Color(0xFFFFD700)
+                        : const Color(0xFF00F5D4).withOpacity(0.85),
+                    width: widget.rank == 0 ? 1.8 : 1.3,
+                  ),
+                  image: widget.imageUrl.isNotEmpty
+                      ? DecorationImage(
+                          image: CachedNetworkImageProvider(widget.imageUrl),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: widget.imageUrl.isEmpty
+                    ? const Icon(Icons.person, size: 22, color: Colors.white)
+                    : null,
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _RoyalLightningPainter extends CustomPainter {
+  final double progress;
+  final double radius;
+  final bool isTopOne;
+
+  _RoyalLightningPainter({
+    required this.progress,
+    required this.radius,
+    required this.isTopOne,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Offset center = Offset(size.width / 2, size.height / 2);
+
+    // ১. রাজকীয় রিপেল রিং (বাইরে ছড়িয়ে গিয়ে মিলিয়ে যাবে)
+    final double rippleProgress = progress;
+    final double rippleRadius = radius + 1.5 + (rippleProgress * 7.5);
+    final double rippleOpacity =
+        ((1.0 - rippleProgress) * 0.75).clamp(0.0, 1.0);
+
+    final Color primaryGlow =
+        isTopOne ? const Color(0xFFFFD700) : const Color(0xFF00F5D4);
+    final Color secondaryGlow =
+        isTopOne ? const Color(0xFFFF6B00) : const Color(0xFF9B5DE5);
+
+    final Paint ripplePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = isTopOne ? 1.8 : 1.3
+      ..color = Color.lerp(primaryGlow, secondaryGlow, rippleProgress)!
+          .withOpacity(rippleOpacity);
+
+    canvas.drawCircle(center, rippleRadius, ripplePaint);
+
+    // ২. বিজলি চমকানোর মতো আঁকাবাঁকা স্পার্ক রেখা (প্রতি চক্রে ঝলক দিয়ে জ্বলে উঠবে)
+    final double flashIntensity = math.sin(progress * math.pi).clamp(0.0, 1.0);
+    if (flashIntensity > 0.15) {
+      final int boltCount = isTopOne ? 4 : 3;
+      final int seedBase = (progress * 12).floor();
+
+      for (int b = 0; b < boltCount; b++) {
+        final double baseAngle =
+            (b * (2 * math.pi / boltCount)) + (progress * math.pi * 0.8);
+        _drawLightningBolt(
+          canvas: canvas,
+          center: center,
+          startRadius: radius + 1.0,
+          endRadius: radius + (isTopOne ? 9.5 : 7.5),
+          baseAngle: baseAngle,
+          intensity: flashIntensity,
+          seed: seedBase + b * 37,
+          boltColor: b.isEven ? primaryGlow : const Color(0xFFFFF3B0),
+        );
+      }
+    }
+  }
+
+  void _drawLightningBolt({
+    required Canvas canvas,
+    required Offset center,
+    required double startRadius,
+    required double endRadius,
+    required double baseAngle,
+    required double intensity,
+    required int seed,
+    required Color boltColor,
+  }) {
+    final math.Random rng = math.Random(seed);
+    final int steps = 4;
+    final Path boltPath = Path();
+
+    for (int i = 0; i <= steps; i++) {
+      final double t = i / steps;
+      final double r = startRadius + ((endRadius - startRadius) * t);
+      final double jitter =
+          (i == 0 || i == steps) ? 0.0 : (rng.nextDouble() - 0.5) * 0.36;
+      final double angle = baseAngle + jitter;
+
+      final double x = center.dx + r * math.cos(angle);
+      final double y = center.dy + r * math.sin(angle);
+
+      if (i == 0) {
+        boltPath.moveTo(x, y);
+      } else {
+        boltPath.lineTo(x, y);
+      }
+    }
+
+    // বিজলির গ্লো
+    final Paint glowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.6
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.miter
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.2)
+      ..color = boltColor.withOpacity((0.65 * intensity).clamp(0.0, 1.0));
+
+    // বিজলির উজ্জ্বল কোর
+    final Paint corePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.15
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.miter
+      ..color = Colors.white.withOpacity((0.9 * intensity).clamp(0.0, 1.0));
+
+    canvas.drawPath(boltPath, glowPaint);
+    canvas.drawPath(boltPath, corePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RoyalLightningPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.radius != radius ||
+        oldDelegate.isTopOne != isTopOne;
+  }
+}
+
+class LiveStatusBadge extends StatefulWidget {
+  final bool isMyRoom;
+
+  const LiveStatusBadge({
+    super.key,
+    required this.isMyRoom,
+  });
+
+  @override
+  State<LiveStatusBadge> createState() => _LiveStatusBadgeState();
+}
+
+class _LiveStatusBadgeState extends State<LiveStatusBadge>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Color accentColor =
+        widget.isMyRoom ? Colors.amberAccent : Colors.greenAccent;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: accentColor.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: accentColor.withOpacity(0.4),
+          width: 0.8,
+        ),
+      ),
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final double v = _controller.value;
+          // সবুজ লাইটের মতো জ্বলা-নেভা (0.35 থেকে 1.0 এর মধ্যে স্মুথ পাল্স)
+          final double blinkGlow =
+              0.35 + (0.65 * (0.5 + 0.5 * math.sin(v * 2 * math.pi)));
+
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 🟢 জ্বলবে-নিভবে এমন সবুজ গোল ফোটা
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: accentColor.withOpacity(blinkGlow.clamp(0.0, 1.0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accentColor
+                          .withOpacity((blinkGlow * 0.85).clamp(0.0, 1.0)),
+                      blurRadius: 5 * blinkGlow,
+                      spreadRadius: 1 * blinkGlow,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+
+              // 📝 শুধু LIVE (অথবা MY ROOM)
+              Text(
+                widget.isMyRoom ? "MY ROOM" : "LIVE",
+                style: TextStyle(
+                  color: accentColor,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              // 📡 মিক্স কালার লাইভ স্ট্রিমিং ওয়েভ এনিমেশন (LIVE লেখার পরে)
+              if (!widget.isMyRoom) ...[
+                const SizedBox(width: 3),
+                CustomPaint(
+                  size: const Size(15, 11),
+                  painter: _LiveBroadcastWavePainter(
+                    progress: v,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _LiveBroadcastWavePainter extends CustomPainter {
+  final double progress;
+
+  static const List<Color> _waveMixColors = [
+    Color(0xFFFF2E93), // হট পিংক / ক্রিমসন
+    Color(0xFF00E5FF), // ব্রাইট সায়ান
+    Color(0xFFFFD600), // গোল্ডেন ইয়েলো
+  ];
+
+  _LiveBroadcastWavePainter({
+    required this.progress,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Offset center = Offset(size.width / 2, size.height / 2);
+
+    // ৩টি স্তরের মিক্স কালার ওয়েভ আর্ক (বাম ও ডান উভয় পাশে)
+    for (int i = 0; i < 3; i++) {
+      final double wavePhase = (progress + (i * 0.33)) % 1.0;
+      final double opacity = ((1.0 - wavePhase) * 0.98).clamp(0.0, 1.0);
+      final double radius = 2.6 + (i * 2.1) + (wavePhase * 0.9);
+
+      final Color baseWaveColor = _waveMixColors[i % _waveMixColors.length];
+
+      final Paint arcPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.25
+        ..strokeCap = StrokeCap.round
+        ..color = baseWaveColor.withOpacity(opacity);
+
+      // ডান দিকের আর্ক
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -0.55,
+        1.1,
+        false,
+        arcPaint,
+      );
+
+      // বাম দিকের আর্ক
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        math.pi - 0.55,
+        1.1,
+        false,
+        arcPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LiveBroadcastWavePainter oldDelegate) {
+    return oldDelegate.progress != progress;
+  }
+}
+class RotatingTopGiftersRow extends StatefulWidget {
+  final List<QueryDocumentSnapshot> docs;
+  final void Function(BuildContext context, String userId) onUserTap;
+
+  const RotatingTopGiftersRow({
+    super.key,
+    required this.docs,
+    required this.onUserTap,
+  });
+
+  @override
+  State<RotatingTopGiftersRow> createState() => _RotatingTopGiftersRowState();
+}
+
+class _RotatingTopGiftersRowState extends State<RotatingTopGiftersRow> {
+  Timer? _timer;
+  int _activeBatch = 0; // 0 = প্রথম ৫ জন (0..4), 1 = পরের ৫ জন (5..9)
+  late List<QueryDocumentSnapshot> _stableDocs;
+
+  @override
+  void initState() {
+    super.initState();
+    _stableDocs = List<QueryDocumentSnapshot>.from(widget.docs);
+    _syncRotationState();
+  }
+
+  @override
+  void didUpdateWidget(covariant RotatingTopGiftersRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_hasDocsChanged(oldWidget.docs, widget.docs)) {
+      _stableDocs = List<QueryDocumentSnapshot>.from(widget.docs);
+      _syncRotationState();
+    }
+  }
+
+  // আসলেই ডেটা বা র‍্যাঙ্ক বা স্কোর বদলেছে কি না তা যাচাই
+  bool _hasDocsChanged(
+    List<QueryDocumentSnapshot> prev,
+    List<QueryDocumentSnapshot> next,
+  ) {
+    if (prev.length != next.length) return true;
+    for (int i = 0; i < next.length; i++) {
+      if (prev[i].id != next[i].id) return true;
+      final Map<String, dynamic>? a = prev[i].data() as Map<String, dynamic>?;
+      final Map<String, dynamic>? b = next[i].data() as Map<String, dynamic>?;
+      if (a?['totalSpent'] != b?['totalSpent'] ||
+          a?['name'] != b?['name'] ||
+          a?['profilePic'] != b?['profilePic']) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void _syncRotationState() {
+    _timer?.cancel();
+    if (_stableDocs.length <= 5) {
+      if (_activeBatch != 0 && mounted) {
+        setState(() => _activeBatch = 0);
+      }
+      return;
+    }
+
+    _timer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted) return;
+      setState(() {
+        _activeBatch = _activeBatch == 0 ? 1 : 0;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final int total = _stableDocs.length;
+    if (total == 0) return const SizedBox.shrink();
+
+    final int startIndex = (_activeBatch == 1 && total > 5) ? 5 : 0;
+    final int endIndex = (startIndex + 5).clamp(0, total);
+    final List<QueryDocumentSnapshot> batchDocs =
+        _stableDocs.sublist(startIndex, endIndex);
+
+    final double itemWidth = (MediaQuery.of(context).size.width - 60) / 5;
+
+    return RepaintBoundary(
+      child: ClipRect(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 500),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            final bool isIncoming = child.key == ValueKey<int>(_activeBatch);
+
+            final Offset beginOffset = isIncoming
+                ? const Offset(0.0, 0.65) // নতুন ৫ জন নিচ থেকে উঠবে
+                : const Offset(0.0, -0.55); // আগের ৫ জন সরে গিয়ে হাইড হবে
+
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: beginOffset,
+                end: Offset.zero,
+              ).animate(animation),
+              child: FadeTransition(
+                opacity: animation,
+                child: child,
+              ),
+            );
+          },
+          child: Row(
+            key: ValueKey<int>(_activeBatch),
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: List.generate(batchDocs.length, (i) {
+              final int actualRank = startIndex + i;
+              final QueryDocumentSnapshot doc = batchDocs[i];
+              final Map<String, dynamic> userData =
+                  doc.data() as Map<String, dynamic>;
+
+              final String uId = doc.id;
+              final String name = userData['name'] ?? "User";
+              final String pic = userData['profilePic'] ?? "";
+
+              return SizedBox(
+                width: itemWidth,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: () => widget.onUserTap(context, uId),
+                      child: RoyalLightningRippleAvatar(
+                        imageUrl: pic,
+                        radius: 23,
+                        rank: actualRank,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ),
       ),
     );
   }

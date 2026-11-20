@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:pagla_chat/reels_interstitial_ad_manager.dart';
 import 'package:video_player/video_player.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'reels_ad_widget.dart'; // 🔥 আলাদা করা অ্যাড ফাইল
 
 class ReelsPage extends StatefulWidget {
@@ -31,10 +32,29 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _pageController = PageController();
+    _syncWakelock();
+  }
+
+  @override
+  void didUpdateWidget(covariant ReelsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive != widget.isActive) {
+      _syncWakelock();
+    }
+  }
+
+  void _syncWakelock() {
+    final bool shouldKeepAwake = widget.isActive && _isAppInForeground;
+    if (shouldKeepAwake) {
+      WakelockPlus.enable();
+    } else {
+      WakelockPlus.disable();
+    }
   }
 
   @override
   void dispose() {
+    WakelockPlus.disable(); // 🔒 পেজ বন্ধ হলে স্ক্রিন লক স্বাভাবিক করে দেওয়া
     WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     _currentIndexNotifier.dispose();
@@ -49,10 +69,12 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
       setState(() {
         _isAppInForeground = false;
       });
+      _syncWakelock();
     } else if (state == AppLifecycleState.resumed) {
       setState(() {
         _isAppInForeground = true;
       });
+      _syncWakelock();
     }
   }
 
@@ -880,8 +902,6 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
  @override
   Widget build(BuildContext context) {
     super.build(context);
-    final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final bool isLiked = widget.likes.contains(currentUserId);
 
     return GestureDetector(
       onTap: _togglePlayPause,
@@ -938,7 +958,7 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 🔥 ঠিক এই জায়গাতে পুরনো কোডগুলো মুছে ReelUserInfo বসানো হলো
+                      // 🔥 ঠিক এই জায়গাতে পুরনো কোডগুলো মুছে ReelUserInfo বসানো হলো
                       ReelUserInfo(
                         userId: widget.userId,
                         fallbackName: widget.userName,
@@ -961,20 +981,51 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      onPressed: () => _toggleLike(
-                          widget.postId, widget.userId, widget.likes),
-                      icon: Icon(
-                        isLiked
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        color: isLiked ? const Color(0xFFFF2E93) : Colors.white,
-                        size: 32,
-                      ),
-                    ),
-                    Text(
-                      '${widget.likes.length}',
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    // 🔥 ঠিক এই জায়গাতে পুরনো লাইক বাটন ও কাউন্ট মুছে StreamBuilder বসানো হলো
+                    StreamBuilder<DocumentSnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('stories')
+                          .doc(widget.postId)
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        List liveLikes = widget.likes;
+                        if (snapshot.hasData && snapshot.data!.exists) {
+                          final docData =
+                              snapshot.data!.data() as Map<String, dynamic>?;
+                          if (docData != null && docData['likes'] is List) {
+                            liveLikes = docData['likes'];
+                          }
+                        }
+
+                        final String currentUserId =
+                            FirebaseAuth.instance.currentUser?.uid ?? '';
+                        final bool isLiked = currentUserId.isNotEmpty &&
+                            liveLikes.contains(currentUserId);
+
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              onPressed: () => _toggleLike(
+                                  widget.postId, widget.userId, liveLikes),
+                              icon: Icon(
+                                isLiked
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                color: isLiked
+                                    ? const Color(0xFFFF2E93)
+                                    : Colors.white,
+                                size: 32,
+                              ),
+                            ),
+                            Text(
+                              '${liveLikes.length}',
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 12),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 15),
                     IconButton(

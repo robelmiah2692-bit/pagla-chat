@@ -551,7 +551,7 @@ class _HomePageState extends State<HomePage>
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('assets/images/homewallpepar.webp'),
+                image: AssetImage('assets/images/wallpaperlist.webp'),
                 fit: BoxFit.cover,
               ),
             ),
@@ -802,7 +802,7 @@ class _HomePageState extends State<HomePage>
                           child: Padding(
                             padding: EdgeInsets.only(top: 50),
                             child: Center(
-                                child: Text("No posts found in this category",
+                                child: Text("No post now",
                                     style: TextStyle(color: Colors.white38))),
                           ),
                         );
@@ -846,12 +846,21 @@ class _HomePageState extends State<HomePage>
         children: [
           const RewardAdsBoxWidget(),
           const SizedBox(height: 10),
-          FloatingActionButton(
-            onPressed: _showPostModal,
-            backgroundColor: Colors.cyanAccent.shade700,
-            elevation: 10,
-            child: const Icon(Icons.add_photo_alternate_outlined,
-                size: 28, color: Colors.white),
+          SizedBox(
+            width: 56,
+            height: 56,
+            child: GestureDetector(
+              onTap: _showPostModal,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.asset(
+                  'assets/images/post_btn.webp', // আপনার অ্যাসেট ইমেজের সঠিক পাথ দিন
+                  width: 56,
+                  height: 56,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
           ),
         ],
       ),

@@ -226,15 +226,12 @@ class _CallScreenState extends State<CallScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF1A1A2E),
-              Color(0xFF16213E),
-              Color(0xFF0D0D1A),
-            ],
+          image: DecorationImage(
+            image: AssetImage('assets/images/chat_wallpaper.webp'), // আপনার অ্যাসেট ইমেজের সঠিক পাথ দিন
+            fit: BoxFit.cover,
           ),
         ),
         child: SafeArea(
