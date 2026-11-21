@@ -1,9 +1,13 @@
+import 'dart:async';
+import 'dart:io' as io;
 import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:pagla_chat/profile_page.dart';
@@ -29,6 +33,12 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
   final ValueNotifier<int> _currentIndexNotifier = ValueNotifier<int>(0);
   bool _isAppInForeground = true;
 
+  final ValueNotifier<bool> _isFollowingTabNotifier =
+      ValueNotifier<bool>(false);
+  String _myResolvedUid = '';
+  Set<String> _followingIds = {};
+  StreamSubscription<QuerySnapshot>? _followingSub;
+
   List<QueryDocumentSnapshot> _shuffledVideoDocs = [];
   bool _isInitialized = false;
 
@@ -38,6 +48,7 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _pageController = PageController();
     _syncWakelock();
+    _initFollowingListener();
   }
 
   @override
@@ -63,6 +74,8 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     _currentIndexNotifier.dispose();
+    _followingSub?.cancel();
+    _isFollowingTabNotifier.dispose();
     super.dispose();
   }
 
@@ -94,6 +107,80 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
       duration: const Duration(milliseconds: 350),
       curve: Curves.easeInOut,
     );
+  }
+
+  Future<void> _initFollowingListener() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    String myUid = currentUser.uid;
+    try {
+      final byAuth = await FirebaseFirestore.instance
+          .collection('users')
+          .where('authUID', isEqualTo: currentUser.uid)
+          .limit(1)
+          .get();
+      if (byAuth.docs.isNotEmpty) {
+        myUid = byAuth.docs.first.data()['uID']?.toString().trim().isNotEmpty ==
+                true
+            ? byAuth.docs.first.data()['uID'].toString().trim()
+            : byAuth.docs.first.id;
+      }
+    } catch (e) {
+      debugPrint("Following myUid resolve error: $e");
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _myResolvedUid = myUid;
+    });
+
+    _followingSub?.cancel();
+    _followingSub = FirebaseFirestore.instance
+        .collection('users')
+        .doc(myUid)
+        .collection('followingList')
+        .snapshots()
+        .listen((snap) async {
+      final Set<String> ids = {};
+      for (final doc in snap.docs) {
+        final String id = doc.id.trim();
+        if (id.isEmpty) continue;
+        ids.add(id);
+
+        // যদি ওই ইউজারের ডকুমেন্টে authUID বা uID আলাদা থাকে, সেটাও লিস্টে যুক্ত করা
+        try {
+          final targetDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(id)
+              .get();
+          if (targetDoc.exists) {
+            final data = targetDoc.data();
+            final String? uIdField = data?['uID']?.toString().trim();
+            final String? authUidField = data?['authUID']?.toString().trim();
+            if (uIdField != null && uIdField.isNotEmpty) ids.add(uIdField);
+            if (authUidField != null && authUidField.isNotEmpty) {
+              ids.add(authUidField);
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (mounted) {
+        setState(() {
+          _followingIds = ids;
+        });
+      }
+    });
+  }
+
+  void _switchFeedTab(bool followingMode) {
+    if (_isFollowingTabNotifier.value == followingMode) return;
+    _isFollowingTabNotifier.value = followingMode;
+    _currentIndexNotifier.value = 0;
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(0);
+    }
   }
 
   @override
@@ -135,9 +222,10 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
             _shuffledVideoDocs = videoDocs;
             _isInitialized = true;
 
-            // 🔥 প্রথম ভিডিওটি লোড হওয়ার সাথে সাথেই পরবর্তী ভিডিওটি ব্যাকগ্রাউন্ডে প্রিলোড শুরু করবে
+            // 🔥 প্রথম ভিডিওটি লোড হওয়ার সাথে সাথেই পরবর্তী ভিডিওটি ব্যাকগ্রাউন্ডে প্রিলোড শুরু করবে
             if (_shuffledVideoDocs.length > 1) {
-              final nextData = _shuffledVideoDocs[1].data() as Map<String, dynamic>;
+              final nextData =
+                  _shuffledVideoDocs[1].data() as Map<String, dynamic>;
               String nextUrl = nextData['videoUrl'] ?? '';
               if (nextUrl.isNotEmpty) {
                 VideoCacheManager.preloadVideo(nextUrl);
@@ -154,75 +242,121 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
             );
           }
 
-          int totalItemsCount =
-              _shuffledVideoDocs.length + (_shuffledVideoDocs.length ~/ 3);
+          // 🔥 ঠিক এই জায়গায় Following / For You ট্যাব অনুযায়ী ফিল্টার ও PageView বসানো হলো
+          return ValueListenableBuilder<bool>(
+            valueListenable: _isFollowingTabNotifier,
+            builder: (context, isFollowingTab, _) {
+              final List<QueryDocumentSnapshot> activeVideoDocs = isFollowingTab
+                  ? _shuffledVideoDocs.where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final String postUserId =
+                          (data['userId'] ?? '').toString().trim();
+                      final String postUid =
+                          (data['uid'] ?? '').toString().trim();
+                      return (postUserId.isNotEmpty &&
+                              _followingIds.contains(postUserId)) ||
+                          (postUid.isNotEmpty &&
+                              _followingIds.contains(postUid));
+                    }).toList()
+                  : _shuffledVideoDocs;
 
-          return PageView.builder(
-            controller: _pageController,
-            scrollDirection: Axis.vertical,
-            itemCount: totalItemsCount,
-            onPageChanged: (index) {
-              _currentIndexNotifier.value = index;
-
-              if ((index + 1) % 4 == 0) {
-                ReelsInterstitialAdManager.showAd();
+              if (isFollowingTab && activeVideoDocs.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        "আপনি যাদের ফলো করেছেন তাদের কোনো ভিডিও নেই!",
+                        style: TextStyle(color: Colors.white70, fontSize: 15),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: () => _switchFeedTab(false),
+                        child: const Text(
+                          "Back to For You",
+                          style: TextStyle(color: Color(0xFF00FBFF)),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
               }
 
-              // 🔥 ইউজার যখনই পরবর্তী ভিডিওতে যাবে, তার পরের ভিডিওটি ব্যাকগ্রাউন্ডে প্রিলোড হবে
-              int currentVideoIndex = index - (index ~/ 4);
-              int nextVideoIndex = currentVideoIndex + 1;
-              if (nextVideoIndex < _shuffledVideoDocs.length) {
-                final nextData = _shuffledVideoDocs[nextVideoIndex].data() as Map<String, dynamic>;
-                String nextUrl = nextData['videoUrl'] ?? '';
-                if (nextUrl.isNotEmpty) {
-                  VideoCacheManager.preloadVideo(nextUrl);
-                }
-              }
-            },
-            itemBuilder: (context, index) {
-              bool isAdSlot = (index > 0 && (index + 1) % 4 == 0);
+              int totalItemsCount =
+                  activeVideoDocs.length + (activeVideoDocs.length ~/ 3);
 
-              if (isAdSlot) {
-                return const ReelsAdWidget();
-              }
+              return PageView.builder(
+                controller: _pageController,
+                scrollDirection: Axis.vertical,
+                itemCount: totalItemsCount,
+                onPageChanged: (index) {
+                  _currentIndexNotifier.value = index;
 
-              int videoIndex = index - (index ~/ 4);
-              if (videoIndex >= _shuffledVideoDocs.length) {
-                videoIndex = _shuffledVideoDocs.length - 1;
-              }
+                  if ((index + 1) % 4 == 0) {
+                    ReelsInterstitialAdManager.showAd();
+                  }
 
-              final doc = _shuffledVideoDocs[videoIndex];
-              final data = doc.data() as Map<String, dynamic>;
+                  // 🔥 ইউজার যখনই পরবর্তী ভিডিওতে যাবে, তার পরের ভিডিওটি ব্যাকগ্রাউন্ডে প্রিলোড হবে
+                  int currentVideoIndex = index - (index ~/ 4);
+                  int nextVideoIndex = currentVideoIndex + 1;
+                  if (nextVideoIndex < activeVideoDocs.length) {
+                    final nextData = activeVideoDocs[nextVideoIndex].data()
+                        as Map<String, dynamic>;
+                    String nextUrl = nextData['videoUrl'] ?? '';
+                    if (nextUrl.isNotEmpty) {
+                      VideoCacheManager.preloadVideo(nextUrl);
+                    }
+                  }
+                },
+                itemBuilder: (context, index) {
+                  bool isAdSlot = (index > 0 && (index + 1) % 4 == 0);
 
-              final String videoUrl = data['videoUrl'] ?? '';
-              final String userName = data['userName'] ?? 'User';
-              final String userImage = data['userImage'] ?? '';
-              final String caption = data['caption'] ?? '';
-              final List likes = data['likes'] ?? [];
-              final String docId = doc.id;
-              final String userId = data['userId'] ?? data['uid'] ?? '';
+                  if (isAdSlot) {
+                    return const ReelsAdWidget();
+                  }
 
-              return ValueListenableBuilder<int>(
-                valueListenable: _currentIndexNotifier,
-                builder: (context, currentIndex, child) {
-                  final bool isVideoActive =
-                      isPageActive && (currentIndex == index);
-                  final bool isPreloadTarget =
-                      isPageActive && (index == currentIndex + 1);
+                  int videoIndex = index - (index ~/ 4);
+                  if (videoIndex >= activeVideoDocs.length) {
+                    videoIndex = activeVideoDocs.length - 1;
+                  }
 
-                  return ReelVideoPlayerItem(
-                    videoUrl: videoUrl,
-                    userName: userName,
-                    userImage: userImage,
-                    caption: caption,
-                    likes: likes,
-                    docId: docId,
-                    userId: userId,
-                    postId: docId,
-                    isActive: isVideoActive,
-                    isPreload: isPreloadTarget,
-                    onVideoEnded: () {
-                      jumpToNextVideo(totalItemsCount);
+                  final doc = activeVideoDocs[videoIndex];
+                  final data = doc.data() as Map<String, dynamic>;
+
+                  final String videoUrl = data['videoUrl'] ?? '';
+                  final String userName = data['userName'] ?? 'User';
+                  final String userImage = data['userImage'] ?? '';
+                  final String caption = data['caption'] ?? '';
+                  final List likes = data['likes'] ?? [];
+                  final String docId = doc.id;
+                  final String userId = data['userId'] ?? data['uid'] ?? '';
+
+                  return ValueListenableBuilder<int>(
+                    valueListenable: _currentIndexNotifier,
+                    builder: (context, currentIndex, child) {
+                      final bool isVideoActive =
+                          isPageActive && (currentIndex == index);
+                      final bool isPreloadTarget =
+                          isPageActive && (index == currentIndex + 1);
+
+                      return ReelVideoPlayerItem(
+                        videoUrl: videoUrl,
+                        userName: userName,
+                        userImage: userImage,
+                        caption: caption,
+                        likes: likes,
+                        docId: docId,
+                        userId: userId,
+                        postId: docId,
+                        isActive: isVideoActive,
+                        isPreload: isPreloadTarget,
+                        isFollowingTab: isFollowingTab,
+                        onTabChanged: _switchFeedTab,
+                        onVideoEnded: () {
+                          jumpToNextVideo(totalItemsCount);
+                        },
+                      );
                     },
                   );
                 },
@@ -287,6 +421,8 @@ class ReelVideoPlayerItem extends StatefulWidget {
   final String postId;
   final bool isActive;
   final bool isPreload;
+  final bool isFollowingTab; // ✅ যুক্ত করা হলো
+  final ValueChanged<bool> onTabChanged; // ✅ যুক্ত করা হলো
   final VoidCallback onVideoEnded;
 
   const ReelVideoPlayerItem({
@@ -301,6 +437,8 @@ class ReelVideoPlayerItem extends StatefulWidget {
     required this.postId,
     required this.isActive,
     required this.isPreload,
+    this.isFollowingTab = false, // ✅ যুক্ত করা হলো
+    required this.onTabChanged, // ✅ যুক্ত করা হলো
     required this.onVideoEnded,
   });
 
@@ -429,7 +567,8 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
       }
     });
   }
-bool _isMuted = false; // সাউন্ড চালু (`false`) নাকি বন্ধ (`true`)
+
+  bool _isMuted = false; // সাউন্ড চালু (`false`) নাকি বন্ধ (`true`)
 
   void _applyVolumeState() {
     if (_isInitialized && _controller.value.isInitialized) {
@@ -443,6 +582,7 @@ bool _isMuted = false; // সাউন্ড চালু (`false`) নাকি
     });
     _applyVolumeState();
   }
+
   void _toggleLike(String pId, String postOwnerId, List currentLikes) async {
     DocumentReference ref =
         FirebaseFirestore.instance.collection('stories').doc(pId);
@@ -917,8 +1057,7 @@ bool _isMuted = false; // সাউন্ড চালু (`false`) নাকি
     } catch (e) {}
   }
 
-
-void _showReelVideoPostModal() {
+  void _showReelVideoPostModal() {
     final TextEditingController captionController = TextEditingController();
     XFile? pickedVideo;
     Uint8List? pickedWebBytes;
@@ -966,7 +1105,7 @@ void _showReelVideoPostModal() {
                   const Divider(color: Colors.white12),
                   const SizedBox(height: 6),
 
-                  // শুধু ভিডিও সিলেক্ট করার উইজেট (VIP ফ্রি করা হয়েছে)
+                  // শুধু ভিডিও সিলেক্ট করার উইজেট (VIP ফ্রি করা হয়েছে)
                   VideoPostWidget(
                     isVip: true,
                     onVideoSelected: (videoFile, webBytes) {
@@ -1014,31 +1153,47 @@ void _showReelVideoPostModal() {
                           ? null
                           : () async {
                               final user = FirebaseAuth.instance.currentUser;
-                              if (user == null) return;
+                              if (user == null || pickedVideo == null) return;
 
                               setModalState(() => isUploading = true);
 
                               try {
-                                // TODO: আপনার প্রজেক্টের FirebaseStorage / upload ফাংশন দিয়ে
-                                // pickedVideo (বা pickedWebBytes) আপলোড করে নিচে uploadedVideoUrl বসান:
-                                String uploadedVideoUrl = "";
+                                // ১. Firebase Storage-এ ভিডিও আপলোড করে Download URL নেওয়া
+                                final String fileExt =
+                                    pickedVideo!.name.contains('.')
+                                        ? pickedVideo!.name.split('.').last
+                                        : 'mp4';
+                                final String fileName =
+                                    'reel_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
 
-                                if (uploadedVideoUrl.isEmpty) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          "⚠️ ভিডিও আপলোড URL যুক্ত করুন (Firebase Storage পাথ)।",
-                                        ),
-                                        backgroundColor: Colors.orangeAccent,
-                                      ),
-                                    );
-                                  }
-                                  setModalState(() => isUploading = false);
-                                  return;
+                                final Reference storageRef = FirebaseStorage
+                                    .instance
+                                    .ref()
+                                    .child('reel_videos')
+                                    .child(fileName);
+
+                                UploadTask uploadTask;
+                                if (kIsWeb) {
+                                  final Uint8List bytes = pickedWebBytes ??
+                                      await pickedVideo!.readAsBytes();
+                                  uploadTask = storageRef.putData(
+                                    bytes,
+                                    SettableMetadata(
+                                        contentType: 'video/$fileExt'),
+                                  );
+                                } else {
+                                  uploadTask = storageRef.putFile(
+                                    io.File(pickedVideo!.path),
+                                    SettableMetadata(
+                                        contentType: 'video/$fileExt'),
+                                  );
                                 }
 
-                                // ইউজারের নাম ও ছবি বের করা
+                                final TaskSnapshot snapshot = await uploadTask;
+                                final String uploadedVideoUrl =
+                                    await snapshot.ref.getDownloadURL();
+
+                                // ২. ইউজারের নাম ও ছবি বের করা
                                 String uName = user.displayName ?? "User";
                                 String uPic = user.photoURL ?? "";
                                 String uIdCustom = user.uid;
@@ -1062,7 +1217,7 @@ void _showReelVideoPostModal() {
                                       uData['uID']?.toString() ?? user.uid;
                                 }
 
-                                // stories কালেকশনে শুধু ভিডিও রিল হিসেবে সেভ করা
+                                // ৩. stories কালেকশনে শুধু ভিডিও রিল হিসেবে সেভ করা
                                 await FirebaseFirestore.instance
                                     .collection('stories')
                                     .add({
@@ -1131,7 +1286,7 @@ void _showReelVideoPostModal() {
       },
     );
   }
- // আপনার _ReelVideoPlayerItemState ক্লাসে SingleTickerProviderStateMixin যুক্ত করুন:
+  // আপনার _ReelVideoPlayerItemState ক্লাসে SingleTickerProviderStateMixin যুক্ত করুন:
 // class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
 //     with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
 
@@ -1212,31 +1367,78 @@ void _showReelVideoPostModal() {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     // ---------------------------------------------------------
-                    // 🔘 নতুন UI: বাম পাশের রিফ্রেশ বাটন
-                    // 👉 পরে এখানে রিলস রিফ্রেশ করার রিয়েল ফাংশন বসাতে পারবেন
+                    // 🔘 নতুন UI: বাম পাশের LIVE বাটন ডিজাইন
+                    // 👉 ক্লিক করলে এখন "Coming Soon" দেখাবে; পরে ভিডিও লাইভ যুক্ত করবেন
                     // ---------------------------------------------------------
                     GestureDetector(
                       onTap: () {
-                        // TODO: রিলস রিফ্রেশ লজিক এখানে যুক্ত করুন
+                        // TODO: পরে এখানে ভিডিও লাইভ স্ক্রিন/লজিক যুক্ত করুন
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              '🎥 Video Live feature is Coming Soon!',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            backgroundColor: Color(0xFF1E1438),
+                            behavior: SnackBarBehavior.floating,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
                       },
                       child: Container(
-                        width: 34,
-                        height: 34,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.35),
-                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFFFF2E93),
+                              Color(0xFFFF1744),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.25),
+                            width: 1,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF2E93).withOpacity(0.35),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                        child: const Icon(
-                          Icons.refresh_rounded,
-                          color: Colors.white,
-                          size: 20,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            const Text(
+                              'LIVE',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-
                     // ---------------------------------------------------------
-                    // 🔘 নতুন UI: মাঝখানের "Following" ও "For You" ট্যাব
-                    // 👉 পরে এখানে ট্যাব সুইচ ও ফিড ফিল্টারের রিয়েল লজিক বসাতে পারবেন
+                    // 🔘 রিয়েল ফাংশন: মাঝখানের "Following" ও "For You" ট্যাব
+                    // 👉 Following: ফলো করা ইউজারদের ভিডিও | For You: সব ভিডিও
                     // ---------------------------------------------------------
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -1249,40 +1451,52 @@ void _showReelVideoPostModal() {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           GestureDetector(
-                            onTap: () {
-                              // TODO: Following ট্যাব অ্যাকশন এখানে যুক্ত করুন
-                            },
-                            child: Padding(
+                            onTap: () => widget.onTabChanged(true),
+                            child: Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: widget.isFollowingTab
+                                    ? Colors.white.withOpacity(0.18)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
                               child: Text(
                                 'Following',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.75),
+                                  color: widget.isFollowingTab
+                                      ? Colors.white
+                                      : Colors.white.withOpacity(0.75),
                                   fontSize: 14,
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: widget.isFollowingTab
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
                                 ),
                               ),
                             ),
                           ),
                           const SizedBox(width: 4),
                           GestureDetector(
-                            onTap: () {
-                              // TODO: For You ট্যাব অ্যাকশন এখানে যুক্ত করুন
-                            },
+                            onTap: () => widget.onTabChanged(false),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.18),
+                                color: !widget.isFollowingTab
+                                    ? Colors.white.withOpacity(0.18)
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(16),
                               ),
-                              child: const Text(
+                              child: Text(
                                 'For You',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: !widget.isFollowingTab
+                                      ? Colors.white
+                                      : Colors.white.withOpacity(0.75),
                                   fontSize: 14,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: !widget.isFollowingTab
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
                                 ),
                               ),
                             ),
@@ -1290,7 +1504,6 @@ void _showReelVideoPostModal() {
                         ],
                       ),
                     ),
-
                     // ---------------------------------------------------------
                     // 🔘 রিয়েল ফাংশন: ডান পাশের সবুজ "+ Post" পিল বাটন
                     // 👉 শুধু ভিডিও রিলস পোস্ট করার মোডাল ওপেন করবে
@@ -1478,14 +1691,37 @@ void _showReelVideoPostModal() {
                             ),
                             const SizedBox(width: 5),
                             Flexible(
-                              child: Text(
-                                'Original Sound - ${widget.userName}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w500,
-                                  shadows: [
-                                    Shadow(color: Colors.black87, blurRadius: 4),
+                              child: Text.rich(
+                                TextSpan(
+                                  children: [
+                                    const TextSpan(
+                                      text: 'Original Sound - ',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize:
+                                            10.0, // 👈 শুধু "Original Sound - " লেখার সাইজ এখান থেকে কমান
+                                        fontWeight: FontWeight.w400,
+                                        shadows: [
+                                          Shadow(
+                                              color: Colors.black87,
+                                              blurRadius: 4),
+                                        ],
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: widget.userName,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize:
+                                            10.0, // 👈 ইউজারের নামের সাইজ আগের মতোই থাকবে
+                                        fontWeight: FontWeight.w500,
+                                        shadows: [
+                                          Shadow(
+                                              color: Colors.black87,
+                                              blurRadius: 4),
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 ),
                                 maxLines: 1,
@@ -1518,7 +1754,7 @@ void _showReelVideoPostModal() {
                       ),
                     ),
 
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 5),
 
                     // ✅ পুরাতন লাইক বাটন ও লাইভ কাউন্ট (StreamBuilder + _toggleLike অক্ষত)
                     StreamBuilder<DocumentSnapshot>(
@@ -1562,7 +1798,7 @@ void _showReelVideoPostModal() {
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 3),
+                            const SizedBox(height: 1),
                             Text(
                               '${liveLikes.length}',
                               style: const TextStyle(
@@ -1579,14 +1815,14 @@ void _showReelVideoPostModal() {
                       },
                     ),
 
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 5),
 
-                    // ✅ পুরাতন কমেন্ট বাটন (_showCommentSheet অক্ষত)
+                    // ✅ পুরাতন কমেন্ট বাটন (_showCommentSheet অক্ষত) + রিয়েল-টাইম কমেন্ট সংখ্যা
                     IconButton(
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
-                      onPressed: () =>
-                          _showCommentSheet(context, widget.postId, widget.userId),
+                      onPressed: () => _showCommentSheet(
+                          context, widget.postId, widget.userId),
                       icon: const Icon(
                         Icons.mode_comment_rounded,
                         color: Colors.white,
@@ -1596,19 +1832,36 @@ void _showReelVideoPostModal() {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    const Text(
-                      'Comment',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        shadows: [
-                          Shadow(color: Colors.black54, blurRadius: 4),
-                        ],
-                      ),
-                    ),
+                    const SizedBox(height: 1),
+                    StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('stories')
+                          .doc(widget.postId.isNotEmpty
+                              ? widget.postId
+                              : widget.docId)
+                          .collection('comments')
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        final int count =
+                            snapshot.hasData ? snapshot.data!.docs.length : 0;
+                        final String countText = count >= 1000
+                            ? '${(count / 1000).toStringAsFixed(1)}K'
+                            : count.toString();
 
-                    const SizedBox(height: 14),
+                        return Text(
+                          countText,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            shadows: [
+                              Shadow(color: Colors.black54, blurRadius: 4),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 5),
 
                     // 🔘 নতুন UI: Save (বুকমার্ক) বাটন
                     // 👉 পরে এখানে পোস্ট সেভ/বুকমার্ক করার রিয়েল লজিক বসাতে পারবেন
@@ -1627,7 +1880,7 @@ void _showReelVideoPostModal() {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 1),
                     const Text(
                       'Save',
                       style: TextStyle(
@@ -1639,7 +1892,7 @@ void _showReelVideoPostModal() {
                       ),
                     ),
 
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 5),
 
                     // ✅ পুরাতন শেয়ার বাটন (অক্ষত)
                     IconButton(
@@ -1655,7 +1908,7 @@ void _showReelVideoPostModal() {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 1),
                     const Text(
                       'Share',
                       style: TextStyle(
@@ -1667,7 +1920,7 @@ void _showReelVideoPostModal() {
                       ),
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 5),
 
                     // 🔘 নতুন UI: More ("...") বাটন
                     // 👉 পরে এখানে রিপোর্ট/ডিলিট/অপশন মেনুর রিয়েল লজিক বসাতে পারবেন
@@ -1687,14 +1940,15 @@ void _showReelVideoPostModal() {
                       ),
                     ),
 
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 5),
 
                     // ---------------------------------------------------------
                     // 🔘 নতুন UI: থ্রি ডট ("...") এর নিচে ঘূর্ণায়মান মিউজিক ডিস্ক অ্যানিমেশন
                     // 👉 ভিডিও চললে ডিস্ক ঘুরবে, পজ হলে থেমে যাবে
                     // ---------------------------------------------------------
                     SpinningMusicDisc(
-                      isSpinning: _isInitialized && _isPlaying && widget.isActive,
+                      isSpinning:
+                          _isInitialized && _isPlaying && widget.isActive,
                       userId: widget.userId,
                       fallbackImage: widget.userImage,
                     ),
@@ -1857,7 +2111,8 @@ class _ReelPlusAvatarState extends State<ReelPlusAvatar> {
     setState(() => _isFollowBusy = true);
     try {
       await _followService.toggleFollowUser(targetUid, myUid);
-      if (mounted && (_myResolvedUid != myUid || _targetResolvedUid != targetUid)) {
+      if (mounted &&
+          (_myResolvedUid != myUid || _targetResolvedUid != targetUid)) {
         setState(() {
           _myResolvedUid = myUid;
           _targetResolvedUid = targetUid;
@@ -1886,7 +2141,8 @@ class _ReelPlusAvatarState extends State<ReelPlusAvatar> {
           height: 18,
           decoration: BoxDecoration(
             // ফলো করা থাকলে সবুজ/রয়্যাল টিক ব্যাজ, না থাকলে আগের পিংক "+" ব্যাজ
-            color: isFollowing ? const Color(0xFF1DB954) : const Color(0xFFFF2E93),
+            color:
+                isFollowing ? const Color(0xFF1DB954) : const Color(0xFFFF2E93),
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white, width: 1.2),
           ),
@@ -1952,7 +2208,7 @@ class _ReelPlusAvatarState extends State<ReelPlusAvatar> {
     );
   }
 
- @override
+  @override
   Widget build(BuildContext context) {
     final String activeTargetUid =
         _targetResolvedUid.isNotEmpty ? _targetResolvedUid : widget.userId;
@@ -2011,8 +2267,8 @@ class _ReelPlusAvatarState extends State<ReelPlusAvatar> {
               .doc(effectiveTargetUid)
               .snapshots(),
           builder: (context, followSnapshot) {
-            final bool isFollowing =
-                followSnapshot.hasData && (followSnapshot.data?.exists ?? false);
+            final bool isFollowing = followSnapshot.hasData &&
+                (followSnapshot.data?.exists ?? false);
 
             return _buildAvatarBody(
               imageUrl: displayImage,
@@ -2025,6 +2281,7 @@ class _ReelPlusAvatarState extends State<ReelPlusAvatar> {
     );
   }
 }
+
 // 🔥 থ্রি ডট ("...") এর নিচে পুরাতন দিনের মিউজিক প্লেয়ারের মতো ঘূর্ণায়মান আইকন/ডিস্ক
 class SpinningMusicDisc extends StatefulWidget {
   final bool isSpinning;
@@ -2135,8 +2392,9 @@ class _SpinningMusicDiscState extends State<SpinningMusicDisc>
         if (snapshot.hasData && snapshot.data!.exists) {
           var userData = snapshot.data!.data() as Map<String, dynamic>?;
           if (userData != null) {
-            displayImage =
-                userData['profilePic'] ?? userData['userImage'] ?? widget.fallbackImage;
+            displayImage = userData['profilePic'] ??
+                userData['userImage'] ??
+                widget.fallbackImage;
           }
         }
         return _buildDiscVisual(displayImage);
@@ -2203,8 +2461,10 @@ class ReelUserInfo extends StatelessWidget {
     }
 
     return StreamBuilder<DocumentSnapshot>(
-      stream:
-          FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .snapshots(),
       builder: (context, snapshot) {
         String displayName = fallbackName;
         String displayImage = fallbackImage;
@@ -2214,8 +2474,9 @@ class ReelUserInfo extends StatelessWidget {
           if (userData != null) {
             displayName =
                 userData['name'] ?? userData['userName'] ?? fallbackName;
-            displayImage =
-                userData['profilePic'] ?? userData['userImage'] ?? fallbackImage;
+            displayImage = userData['profilePic'] ??
+                userData['userImage'] ??
+                fallbackImage;
           }
         }
 
