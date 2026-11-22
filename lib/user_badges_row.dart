@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-
 class UserBadgesRow extends StatelessWidget {
   final String userId; // ইউজারের আইডি বা ডকুমেন্ট আইডি
 
@@ -29,7 +28,20 @@ class UserBadgesRow extends StatelessWidget {
             return const SizedBox.shrink();
           }
 
-          var userData = snapshot.data!.data() as Map<String, dynamic>;
+          final rawData = snapshot.data!.data();
+          if (rawData is! Map<String, dynamic>) {
+            return const SizedBox.shrink();
+          }
+          var userData = rawData;
+
+          // প্রথম সারির নতুন ব্যাজগুলো চেক: Owner -> Manager -> BD (Official এর ঠিক আগে)
+          bool isOwner =
+              (userData['isOwner'] == true) || (userData['role'] == 'owner');
+          bool isManager = (userData['isManager'] == true) ||
+              (userData['role'] == 'manager');
+          bool isBD = (userData['isBD'] == true) ||
+              (userData['isBd'] == true) ||
+              (userData['role'] == 'bd');
 
           // পুরাতন ডাটাবেজ থেকে চেক করার লজিক
           bool isOfficial = (userData['isOfficial'] == true) ||
@@ -55,7 +67,8 @@ class UserBadgesRow extends StatelessWidget {
           }
           bool hasTeamPanel = teamPanelName.isNotEmpty;
 
-          bool hasTopRow = isOfficial || isSuperAdmin || isAgency;
+          bool hasTopRow =
+              isOwner || isManager || isBD || isOfficial || isSuperAdmin || isAgency;
           bool hasBottomRow =
               isSuperHost || isVolunteer || isLovelyCouple || hasTeamPanel;
 
@@ -70,7 +83,7 @@ class UserBadgesRow extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // ১. প্রথম সারি (অফিশিয়াল, সুপার অ্যাডমিন, এজেন্সি - কাস্টম ইমেজ ব্যাজ)
+                // ১. প্রথম সারি (Owner -> Manager -> BD -> Official -> SuperAdmin -> Agency)
                 if (hasTopRow)
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -80,9 +93,33 @@ class UserBadgesRow extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
+                          if (isOwner) ...[
+                            _buildCustomImageBadge(
+                                "assets/images/owner_badge.webp"), // 👈 ওনার ব্যাজ ইমেজ পাথ
+                          ],
+                          if (isOwner &&
+                              (isManager ||
+                                  isBD ||
+                                  isOfficial ||
+                                  isSuperAdmin ||
+                                  isAgency))
+                            const SizedBox(width: 8),
+                          if (isManager) ...[
+                            _buildCustomImageBadge(
+                                "assets/images/manager_badge.webp"), // 👈 ম্যানেজার ব্যাজ ইমেজ পাথ
+                          ],
+                          if (isManager &&
+                              (isBD || isOfficial || isSuperAdmin || isAgency))
+                            const SizedBox(width: 8),
+                          if (isBD) ...[
+                            _buildCustomImageBadge(
+                                "assets/images/bd_badge.webp"), // 👈 বিডি ব্যাজ ইমেজ পাথ
+                          ],
+                          if (isBD && (isOfficial || isSuperAdmin || isAgency))
+                            const SizedBox(width: 8),
                           if (isOfficial) ...[
                             _buildCustomImageBadge(
-                                "assets/images/official_badge.webp"), // 👈 আপনার অফিশিয়াল ব্যাজ ইমেজ পাথ
+                                "assets/images/official_badge.webp"), // 👈 আপনার অফিশিয়াল ব্যাজ ইমেজ পাথ
                           ],
                           if (isOfficial && (isSuperAdmin || isAgency))
                             const SizedBox(width: 8),
@@ -171,7 +208,7 @@ class UserBadgesRow extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(
                 horizontal:
-                    16.0), // ইমেজ অনুযায়ী টেক্সটের জায়গা অ্যাডজাস্ট করার জন্য
+                    16.0), // ইমেজ অনুযায়ী টেক্সটের জায়গা অ্যাডজাস্ট করার জন্য
             child: Text(
               teamName,
               style: const TextStyle(

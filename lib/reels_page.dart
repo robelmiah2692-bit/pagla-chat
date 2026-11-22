@@ -5,15 +5,18 @@ import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:gal/gal.dart';
 import 'package:pagla_chat/profile_page.dart';
 import 'package:pagla_chat/reels_interstitial_ad_manager.dart';
 import 'package:pagla_chat/services/follow_service.dart';
 import 'package:pagla_chat/widgets/video_post_widget.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'reels_ad_widget.dart'; // 🔥 আলাদা করা অ্যাড ফাইল
@@ -1286,6 +1289,72 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
       },
     );
   }
+  
+  
+  bool _isSavingToGallery = false;
+
+  Future<void> _saveVideoToGallery(String videoUrl) async {
+    if (_isSavingToGallery) return;
+    if (videoUrl.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Video link not found!'),
+            backgroundColor: Colors.orangeAccent,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isSavingToGallery = true);
+
+    try {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⬇️ Saving video to gallery...'),
+            backgroundColor: Color(0xFF1E1438),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final String savePath =
+          '${tempDir.path}/paglachat_reel_${DateTime.now().millisecondsSinceEpoch}.mp4';
+
+      await Dio().download(videoUrl, savePath);
+      await Gal.putVideo(savePath, album: 'PaglaChat');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Video saved to gallery!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Save video to gallery error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Failed to save to gallery: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSavingToGallery = false);
+      }
+    }
+  }
   // আপনার _ReelVideoPlayerItemState ক্লাসে SingleTickerProviderStateMixin যুক্ত করুন:
 // class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
 //     with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
@@ -1653,12 +1722,43 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ✅ ইউজারের নাম (ছবি ছাড়া, রিয়েল-টাইম/ফলব্যাক নাম অক্ষত)
-                        ReelUserInfo(
-                          userId: widget.userId,
-                          fallbackName: widget.userName,
-                          fallbackImage: widget.userImage,
-                          showAvatar: false,
+                        // ✅ ইউজারের নাম (ছবি ছাড়া, রিয়েল-টাইম/ফলব্যাক নাম অক্ষত + স্পষ্টভাবে ফুটে থাকার ডিজাইন)
+                        ShaderMask(
+                          shaderCallback: (bounds) => const LinearGradient(
+                            colors: [
+                              Color(0xFFFFFFFF),
+                              Color(0xFF00FBFF),
+                              Color(0xFFFFD54F),
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ).createShader(bounds),
+                          child: DefaultTextStyle.merge(
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.3,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black,
+                                  blurRadius: 6,
+                                  offset: Offset(0, 1.5),
+                                ),
+                                Shadow(
+                                  color: Color(0xCC000000),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 0),
+                                ),
+                              ],
+                            ),
+                            child: ReelUserInfo(
+                              userId: widget.userId,
+                              fallbackName: widget.userName,
+                              fallbackImage: widget.userImage,
+                              showAvatar: false,
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 8),
 
@@ -1677,49 +1777,95 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-
                         const SizedBox(height: 8),
 
-                        // 🔘 নতুন UI: নিচের মিউজিক / অরিজিনাল সাউন্ড লাইন
+                       // 🔘 নতুন UI: নিচের মিউজিক / অরিজিনাল সাউন্ড লাইন (কালার ডিজাইন ঠিক, 3D ডেপথ বাদ)
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
-                              Icons.music_note_rounded,
-                              color: Colors.white,
-                              size: 15,
+                            ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [
+                                  Color(0xFF00FBFF),
+                                  Color(0xFF7B42F6),
+                                  Color(0xFFFF2E93),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds),
+                              child: const Icon(
+                                Icons.music_note_rounded,
+                                size: 15,
+                                color: Colors.white,
+                              ),
                             ),
                             const SizedBox(width: 5),
                             Flexible(
                               child: Text.rich(
                                 TextSpan(
                                   children: [
-                                    const TextSpan(
-                                      text: 'Original Sound - ',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize:
-                                            10.0, // 👈 শুধু "Original Sound - " লেখার সাইজ এখান থেকে কমান
-                                        fontWeight: FontWeight.w400,
-                                        shadows: [
-                                          Shadow(
-                                              color: Colors.black87,
-                                              blurRadius: 4),
-                                        ],
+                                    WidgetSpan(
+                                      alignment: PlaceholderAlignment.middle,
+                                      child: ShaderMask(
+                                        shaderCallback: (bounds) =>
+                                            const LinearGradient(
+                                          colors: [
+                                            Color(0xFF00FBFF),
+                                            Color(0xFF9D6BFF),
+                                            Color(0xFFFF2E93),
+                                          ],
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
+                                        ).createShader(bounds),
+                                        child: const Text(
+                                          'Original Sound - ',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10.0,
+                                            fontWeight: FontWeight.w500,
+                                            shadows: [
+                                              Shadow(
+                                                color: Colors.black87,
+                                                blurRadius: 4,
+                                              ),
+                                            ],
+                                          ),
+                                          maxLines: 1,
+                                          softWrap: false,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
                                     ),
-                                    TextSpan(
-                                      text: widget.userName,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize:
-                                            10.0, // 👈 ইউজারের নামের সাইজ আগের মতোই থাকবে
-                                        fontWeight: FontWeight.w500,
-                                        shadows: [
-                                          Shadow(
-                                              color: Colors.black87,
-                                              blurRadius: 4),
-                                        ],
+                                    WidgetSpan(
+                                      alignment: PlaceholderAlignment.middle,
+                                      child: ShaderMask(
+                                        shaderCallback: (bounds) =>
+                                            const LinearGradient(
+                                          colors: [
+                                            Color(0xFFFFD54F),
+                                            Color(0xFFFF8A00),
+                                            Color(0xFFFF2E93),
+                                          ],
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
+                                        ).createShader(bounds),
+                                        child: Text(
+                                          widget.userName,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10.0,
+                                            fontWeight: FontWeight.w700,
+                                            shadows: [
+                                              Shadow(
+                                                color: Colors.black87,
+                                                blurRadius: 4,
+                                              ),
+                                            ],
+                                          ),
+                                          maxLines: 1,
+                                          softWrap: false,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -1756,7 +1902,7 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
 
                     const SizedBox(height: 5),
 
-                    // ✅ পুরাতন লাইক বাটন ও লাইভ কাউন্ট (StreamBuilder + _toggleLike অক্ষত)
+                   // ✅ পুরাতন লাইক বাটন ও লাইভ কাউন্ট (StreamBuilder + _toggleLike অক্ষত) + 2-State 3D Design
                     StreamBuilder<DocumentSnapshot>(
                       stream: FirebaseFirestore.instance
                           .collection('stories')
@@ -1780,22 +1926,99 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
                         return Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: () => _toggleLike(
+                            GestureDetector(
+                              onTap: () => _toggleLike(
                                   widget.postId, widget.userId, liveLikes),
-                              icon: Icon(
-                                isLiked
-                                    ? Icons.favorite_rounded
-                                    : Icons.favorite_border_rounded,
-                                color: isLiked
-                                    ? const Color(0xFFFF2E93)
-                                    : Colors.white,
-                                size: 32,
-                                shadows: const [
-                                  Shadow(color: Colors.black54, blurRadius: 6),
-                                ],
+                              child: SizedBox(
+                                width: 44,
+                                height: 42,
+                                child: isLiked
+                                    // ❤️ Liked state: Real rich 3D heart color
+                                    ? Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          Transform.translate(
+                                            offset: const Offset(2.0, 2.5),
+                                            child: Icon(
+                                              Icons.favorite_rounded,
+                                              size: 33,
+                                              color: const Color(0xFF880E4F)
+                                                  .withOpacity(0.8),
+                                            ),
+                                          ),
+                                          ShaderMask(
+                                            shaderCallback: (bounds) =>
+                                                const LinearGradient(
+                                              colors: [
+                                                Color(0xFFFF5252),
+                                                Color(0xFFFF1744),
+                                                Color(0xFFD50000),
+                                              ],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            ).createShader(bounds),
+                                            child: const Icon(
+                                              Icons.favorite_rounded,
+                                              size: 33,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          Transform.translate(
+                                            offset: const Offset(-6.5, -5.5),
+                                            child: Container(
+                                              width: 6,
+                                              height: 3.5,
+                                              decoration: BoxDecoration(
+                                                color: Colors.white
+                                                    .withOpacity(0.75),
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    // 🎨 Unliked state: Same 3D color system as comment/message button
+                                    : Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          Transform.translate(
+                                            offset: const Offset(2.2, 2.6),
+                                            child: Icon(
+                                              Icons.favorite_rounded,
+                                              size: 32,
+                                              color: const Color(0xFFFF2E93)
+                                                  .withOpacity(0.75),
+                                            ),
+                                          ),
+                                          Transform.translate(
+                                            offset: const Offset(-1.5, 1.5),
+                                            child: Icon(
+                                              Icons.favorite_rounded,
+                                              size: 32,
+                                              color: const Color(0xFF00FBFF)
+                                                  .withOpacity(0.55),
+                                            ),
+                                          ),
+                                          ShaderMask(
+                                            shaderCallback: (bounds) =>
+                                                const LinearGradient(
+                                              colors: [
+                                                Color(0xFF00FBFF),
+                                                Color(0xFF7B42F6),
+                                                Color(0xFFFF2E93),
+                                              ],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            ).createShader(bounds),
+                                            child: const Icon(
+                                              Icons.favorite_rounded,
+                                              size: 32,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                               ),
                             ),
                             const SizedBox(height: 1),
@@ -1814,22 +2037,88 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
                         );
                       },
                     ),
-
                     const SizedBox(height: 5),
-
-                    // ✅ পুরাতন কমেন্ট বাটন (_showCommentSheet অক্ষত) + রিয়েল-টাইম কমেন্ট সংখ্যা
-                    IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () => _showCommentSheet(
+// ✅ পুরাতন কমেন্ট বাটন (_showCommentSheet অক্ষত) + 3D কালারিং স্টাইল + রিয়েল-টাইম সংখ্যা
+                    GestureDetector(
+                      onTap: () => _showCommentSheet(
                           context, widget.postId, widget.userId),
-                      icon: const Icon(
-                        Icons.mode_comment_rounded,
-                        color: Colors.white,
-                        size: 30,
-                        shadows: [
-                          Shadow(color: Colors.black54, blurRadius: 6),
-                        ],
+                      child: SizedBox(
+                        width: 44,
+                        height: 40,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // ১. পেছনের 3D অফসেট শ্যাডো লেয়ার (Cyan + Magenta depth)
+                            Transform.translate(
+                              offset: const Offset(2.2, 2.6),
+                              child: Icon(
+                                Icons.chat_bubble_rounded,
+                                size: 31,
+                                color: const Color(0xFFFF2E93).withOpacity(0.75),
+                              ),
+                            ),
+                            Transform.translate(
+                              offset: const Offset(-1.5, 1.5),
+                              child: Icon(
+                                Icons.chat_bubble_rounded,
+                                size: 31,
+                                color: const Color(0xFF00FBFF).withOpacity(0.55),
+                              ),
+                            ),
+                            // ২. মেইন কালারিং গ্রেডিয়েন্ট বডি
+                            ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [
+                                  Color(0xFF00FBFF),
+                                  Color(0xFF7B42F6),
+                                  Color(0xFFFF2E93),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds),
+                              child: const Icon(
+                                Icons.chat_bubble_rounded,
+                                size: 31,
+                                color: Colors.white,
+                              ),
+                            ),
+                            // ৩. উপরের 3D শাইন/হাইলাইট ও ভেতরের ডট ইন্ডিকেটর
+                            Transform.translate(
+                              offset: const Offset(0, -1.2),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 3.4,
+                                    height: 3.4,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2.2),
+                                  Container(
+                                    width: 3.4,
+                                    height: 3.4,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2.2),
+                                  Container(
+                                    width: 3.4,
+                                    height: 3.4,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 1),
@@ -1863,21 +2152,74 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
                     ),
                     const SizedBox(height: 5),
 
-                    // 🔘 নতুন UI: Save (বুকমার্ক) বাটন
-                    // 👉 পরে এখানে পোস্ট সেভ/বুকমার্ক করার রিয়েল লজিক বসাতে পারবেন
-                    IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () {
-                        // TODO: Save বাটনের রিয়েল ফাংশন এখানে যুক্ত করুন
-                      },
-                      icon: const Icon(
-                        Icons.bookmark_border_rounded,
-                        color: Colors.white,
-                        size: 30,
-                        shadows: [
-                          Shadow(color: Colors.black54, blurRadius: 6),
-                        ],
+                    // ✅ 3D কালারিং বাটন (কমেন্ট বাটনের সেইম কালার সিস্টেম) + ক্লিক করলে গ্যালারিতে ভিডিও সেভ
+                    GestureDetector(
+                      onTap: () => _saveVideoToGallery(widget.videoUrl),
+                      child: SizedBox(
+                        width: 44,
+                        height: 40,
+                        child: _isSavingToGallery
+                            ? const Center(
+                                child: SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    color: Color(0xFF00FBFF),
+                                  ),
+                                ),
+                              )
+                            : Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // ১. পেছনের 3D অফসেট শ্যাডো লেয়ার (Cyan + Magenta depth)
+                                  Transform.translate(
+                                    offset: const Offset(2.2, 2.6),
+                                    child: Icon(
+                                      Icons.bookmark_rounded,
+                                      size: 31,
+                                      color: const Color(0xFFFF2E93)
+                                          .withOpacity(0.75),
+                                    ),
+                                  ),
+                                  Transform.translate(
+                                    offset: const Offset(-1.5, 1.5),
+                                    child: Icon(
+                                      Icons.bookmark_rounded,
+                                      size: 31,
+                                      color: const Color(0xFF00FBFF)
+                                          .withOpacity(0.55),
+                                    ),
+                                  ),
+                                  // ২. মেইন কালারিং গ্রেডিয়েন্ট বডি (কমেন্ট বাটনের সেইম কালার)
+                                  ShaderMask(
+                                    shaderCallback: (bounds) =>
+                                        const LinearGradient(
+                                      colors: [
+                                        Color(0xFF00FBFF),
+                                        Color(0xFF7B42F6),
+                                        Color(0xFFFF2E93),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ).createShader(bounds),
+                                    child: const Icon(
+                                      Icons.bookmark_rounded,
+                                      size: 31,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  // ৩. উপরের 3D হাইলাইট ডাউনলোড/সেভ ইন্ডিকেটর
+                                  Transform.translate(
+                                    offset: const Offset(0, -1.5),
+                                    child: const Icon(
+                                      Icons.arrow_downward_rounded,
+                                      size: 13,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
                       ),
                     ),
                     const SizedBox(height: 1),
@@ -1894,18 +2236,54 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
 
                     const SizedBox(height: 5),
 
-                    // ✅ পুরাতন শেয়ার বাটন (অক্ষত)
-                    IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () {},
-                      icon: const Icon(
-                        Icons.share_rounded,
-                        color: Colors.white,
-                        size: 30,
-                        shadows: [
-                          Shadow(color: Colors.black54, blurRadius: 6),
-                        ],
+                    // ✅ পুরাতন শেয়ার বাটন (অক্ষত) + 3D কালারিং স্টাইল
+                    GestureDetector(
+                      onTap: () {},
+                      child: SizedBox(
+                        width: 44,
+                        height: 40,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Back 3D offset depth layers (Cyan + Magenta)
+                            Transform.translate(
+                              offset: const Offset(2.2, 2.6),
+                              child: Icon(
+                                Icons.share_rounded,
+                                size: 30,
+                                color: const Color(0xFFFF2E93)
+                                    .withOpacity(0.75),
+                              ),
+                            ),
+                            Transform.translate(
+                              offset: const Offset(-1.5, 1.5),
+                              child: Icon(
+                                Icons.share_rounded,
+                                size: 30,
+                                color: const Color(0xFF00FBFF)
+                                    .withOpacity(0.55),
+                              ),
+                            ),
+                            // Main 3D gradient icon body
+                            ShaderMask(
+                              shaderCallback: (bounds) =>
+                                  const LinearGradient(
+                                colors: [
+                                  Color(0xFF00FBFF),
+                                  Color(0xFF7B42F6),
+                                  Color(0xFFFF2E93),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds),
+                              child: const Icon(
+                                Icons.share_rounded,
+                                size: 30,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 1),
@@ -1919,7 +2297,6 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 5),
 
                     // 🔘 নতুন UI: More ("...") বাটন
@@ -2125,40 +2502,52 @@ class _ReelPlusAvatarState extends State<ReelPlusAvatar> {
     }
   }
 
-  Widget _buildFollowBadge({
+ Widget _buildFollowBadge({
     required bool isFollowing,
     required bool showBadge,
   }) {
     if (!showBadge) return const SizedBox.shrink();
 
     return Positioned(
-      bottom: 2,
+      bottom: 0,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _handleToggleFollow,
         child: Container(
-          width: 18,
-          height: 18,
-          decoration: BoxDecoration(
-            // ফলো করা থাকলে সবুজ/রয়্যাল টিক ব্যাজ, না থাকলে আগের পিংক "+" ব্যাজ
-            color:
-                isFollowing ? const Color(0xFF1DB954) : const Color(0xFFFF2E93),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 1.2),
-          ),
-          child: _isFollowBusy
-              ? const Padding(
-                  padding: EdgeInsets.all(3.5),
-                  child: CircularProgressIndicator(
-                    strokeWidth: 1.5,
-                    color: Colors.white,
-                  ),
-                )
-              : Icon(
-                  isFollowing ? Icons.check : Icons.add,
-                  color: Colors.white,
-                  size: 12,
+          // ক্লিক করার সুবিধা বাড়াতে হালকা প্যাডিংসহ ট্যাপ এরিয়া
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          color: Colors.transparent,
+          child: Container(
+            width: 24, // 👈 আগে ছিল 18, বড় করা হলো
+            height: 24, // 👈 আগে ছিল 18, বড় করা হলো
+            decoration: BoxDecoration(
+              color: isFollowing
+                  ? const Color(0xFF1DB954)
+                  : const Color(0xFFFF2E93),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.35),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
                 ),
+              ],
+            ),
+            child: _isFollowBusy
+                ? const Padding(
+                    padding: EdgeInsets.all(4.5),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.8,
+                      color: Colors.white,
+                    ),
+                  )
+                : Icon(
+                    isFollowing ? Icons.check : Icons.add,
+                    color: Colors.white,
+                    size: 16, // 👈 আগে ছিল 12, বড় করা হলো
+                  ),
+          ),
         ),
       ),
     );
@@ -2170,8 +2559,8 @@ class _ReelPlusAvatarState extends State<ReelPlusAvatar> {
     required bool showBadge,
   }) {
     return SizedBox(
-      width: 46,
-      height: 54,
+      width: 58, // 👈 আগে ছিল 46
+      height: 66, // 👈 আগে ছিল 54
       child: Stack(
         alignment: Alignment.topCenter,
         children: [
@@ -2179,11 +2568,18 @@ class _ReelPlusAvatarState extends State<ReelPlusAvatar> {
           GestureDetector(
             onTap: _openTargetProfile,
             child: Container(
-              width: 42,
-              height: 42,
+              width: 52, // 👈 আগে ছিল 42, প্রোফাইল পিক বড় করা হলো
+              height: 52, // 👈 আগে ছিল 42, প্রোফাইল পিক বড় করা হলো
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 1.5),
+                border: Border.all(color: Colors.white, width: 1.8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: ClipOval(
                 child: imageUrl.isNotEmpty
@@ -2191,9 +2587,9 @@ class _ReelPlusAvatarState extends State<ReelPlusAvatar> {
                         imageUrl: imageUrl,
                         fit: BoxFit.cover,
                         errorWidget: (_, __, ___) =>
-                            const Icon(Icons.person, color: Colors.white),
+                            const Icon(Icons.person, color: Colors.white, size: 28),
                       )
-                    : const Icon(Icons.person, color: Colors.white),
+                    : const Icon(Icons.person, color: Colors.white, size: 28),
               ),
             ),
           ),
