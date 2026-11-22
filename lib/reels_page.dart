@@ -302,6 +302,20 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
 
                   // 🔥 ইউজার যখনই পরবর্তী ভিডিওতে যাবে, তার পরের ভিডিওটি ব্যাকগ্রাউন্ডে প্রিলোড হবে
                   int currentVideoIndex = index - (index ~/ 4);
+                  final Set<String> keepUrls = {};
+
+                  for (int i = currentVideoIndex - 1;
+                      i <= currentVideoIndex + 2;
+                      i++) {
+                    if (i >= 0 && i < activeVideoDocs.length) {
+                      final d =
+                          activeVideoDocs[i].data() as Map<String, dynamic>;
+                      final String u = (d['videoUrl'] ?? '').toString();
+                      if (u.isNotEmpty) keepUrls.add(u);
+                    }
+                  }
+                  VideoCacheManager.keepOnlyUrls(keepUrls);
+
                   int nextVideoIndex = currentVideoIndex + 1;
                   if (nextVideoIndex < activeVideoDocs.length) {
                     final nextData = activeVideoDocs[nextVideoIndex].data()
@@ -374,45 +388,58 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
 
 class VideoCacheManager {
   static final Map<String, VideoPlayerController> _cache = {};
+  static final Set<String> _initializing = {};
 
   static VideoPlayerController getController(String url) {
     if (_cache.containsKey(url)) {
       return _cache[url]!;
-    } else {
-      final controller = VideoPlayerController.networkUrl(
-        Uri.parse(url),
-        formatHint: VideoFormat.other,
-      );
-      _cache[url] = controller;
-      return controller;
     }
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(url),
+      formatHint: VideoFormat.other,
+    );
+    _cache[url] = controller;
+    return controller;
   }
 
   // 🔥 ব্যাকগ্রাউন্ডে সাইলেন্টলি ভিডিও ইনিশিয়ালাইজ ও প্রিলোড করার মেথড
-  static void preloadVideo(String url) {
-    if (!_cache.containsKey(url) && url.isNotEmpty) {
-      final controller = VideoPlayerController.networkUrl(
-        Uri.parse(url),
-        formatHint: VideoFormat.other,
-      );
-      controller.initialize().then((_) {
-        _cache[url] = controller;
-      }).catchError((e) {
-        debugPrint("Preload error: $e");
-      });
+  static Future<void> preloadVideo(String url) async {
+    if (url.isEmpty || _cache.containsKey(url) || _initializing.contains(url)) {
+      return;
+    }
+    _initializing.add(url);
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(url),
+      formatHint: VideoFormat.other,
+    );
+    _cache[url] = controller;
+
+    try {
+      await controller.initialize();
+      await controller.setLooping(false);
+    } catch (e) {
+      debugPrint("Preload error: $e");
+      _cache.remove(url);
+      await controller.dispose();
+    } finally {
+      _initializing.remove(url);
+    }
+  }
+
+  // ✅ সক্রিয় (বর্তমান, আগের ও পরের) ভিডিও ছাড়া বাকি কন্ট্রোলার dispose করে মেমোরি ফ্রি করা
+  static void keepOnlyUrls(Set<String> keepUrls) {
+    final keysToRemove =
+        _cache.keys.where((url) => !keepUrls.contains(url)).toList();
+    for (final url in keysToRemove) {
+      final ctrl = _cache.remove(url);
+      ctrl?.dispose();
     }
   }
 
   static void disposeControllers(List<String> activeUrls) {
-    _cache.keys.toList().forEach((url) {
-      if (!activeUrls.contains(url)) {
-        _cache[url]?.dispose();
-        _cache.remove(url);
-      }
-    });
+    keepOnlyUrls(activeUrls.toSet());
   }
 }
-
 class ReelVideoPlayerItem extends StatefulWidget {
   final String videoUrl;
   final String userName;
@@ -467,40 +494,40 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
   }
 
   void _initVideoController() {
+    if (widget.videoUrl.isEmpty) return;
+
     _controller = VideoCacheManager.getController(widget.videoUrl);
+    _controller.removeListener(_videoListener);
+    _controller.addListener(_videoListener);
 
     if (_controller.value.isInitialized) {
-      if (mounted) {
-        setState(() {
-          _isInitialized = true;
-        });
-        if (!_controller.hasListeners) {
-          _controller.addListener(_videoListener);
-        }
-        _applyPlayState();
-      }
+      _isInitialized = true;
+      _controller.setLooping(false);
+      _applyVolumeState();
+      _applyPlayState();
+      if (mounted) setState(() {});
     } else {
       _controller.initialize().then((_) {
-        if (mounted) {
-          setState(() {
-            _isInitialized = true;
-          });
-          _controller.setLooping(false);
-          if (!_controller.hasListeners) {
-            _controller.addListener(_videoListener);
-          }
-          _applyPlayState();
-        }
+        if (!mounted) return;
+        _isInitialized = true;
+        _controller.setLooping(false);
+        _applyVolumeState();
+        _applyPlayState();
+        setState(() {});
       }).catchError((error) {
         debugPrint("Video initialization error: $error");
       });
     }
-
-    if (!_controller.hasListeners) {
-      _controller.addListener(_videoListener);
-    }
   }
 
+  @override
+  void dispose() {
+    if (_isInitialized) {
+      _controller.removeListener(_videoListener);
+      _controller.pause();
+    }
+    super.dispose();
+  }
   void _applyPlayState() {
     if (widget.isActive) {
       _hasEndedTriggered = false;
@@ -552,10 +579,7 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
     }
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
+  
 
   void _togglePlayPause() {
     setState(() {
@@ -2678,7 +2702,7 @@ class _ReelPlusAvatarState extends State<ReelPlusAvatar> {
   }
 }
 
-// 🔥 থ্রি ডট ("...") এর নিচে পুরাতন দিনের মিউজিক প্লেয়ারের মতো ঘূর্ণায়মান আইকন/ডিস্ক
+// 🔥 থ্রি ডট ("...") এর নিচে পুরাতন দিনের মিউজিক প্লেয়ারের মতো ঘূর্ণায়মান সিডি ডিস্ক
 class SpinningMusicDisc extends StatefulWidget {
   final bool isSpinning;
   final String userId;
@@ -2704,7 +2728,7 @@ class _SpinningMusicDiscState extends State<SpinningMusicDisc>
     super.initState();
     _spinController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 5),
+      duration: const Duration(seconds: 4),
     );
     if (widget.isSpinning) {
       _spinController.repeat();
@@ -2731,42 +2755,67 @@ class _SpinningMusicDiscState extends State<SpinningMusicDisc>
     return RotationTransition(
       turns: _spinController,
       child: Container(
-        width: 40,
-        height: 40,
-        padding: const EdgeInsets.all(6),
+        width: 48,
+        height: 48,
+        padding: const EdgeInsets.all(6.5), // ছবির চারপাশে সিডি ডিস্কের রঙিন রিফ্লেকশন বর্ডার
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: [Color(0xFF2B2B2B), Color(0xFF101010)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+          // ছবির মতো রঙিন CD/DVD হলোগ্রাফিক রেইনবো রিফ্লেকশন
+          gradient: const SweepGradient(
+            colors: [
+              Color(0xFF00E5FF), // Cyan
+              Color(0xFF00E676), // Green
+              Color(0xFFFFEA00), // Yellow
+              Color(0xFFFF3D00), // Orange/Red
+              Color(0xFFE040FB), // Magenta/Purple
+              Color(0xFF2979FF), // Blue
+              Color(0xFF00E5FF), // Loop back to Cyan
+            ],
+            stops: [0.0, 0.16, 0.32, 0.50, 0.68, 0.84, 1.0],
           ),
-          border: Border.all(color: Colors.white24, width: 1.5),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.75),
+            width: 1.2,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.45),
+              color: const Color(0xFF00E5FF).withOpacity(0.28),
+              blurRadius: 7,
+              spreadRadius: 0.5,
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.55),
               blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Container(
+          padding: const EdgeInsets.all(1.5), // সিডি সেন্টার রিং ডিভাইডার
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.grey.shade900,
-            image: imageUrl.isNotEmpty
-                ? DecorationImage(
-                    image: CachedNetworkImageProvider(imageUrl),
-                    fit: BoxFit.cover,
+            color: Colors.white.withOpacity(0.85),
+            border: Border.all(color: Colors.black87, width: 1.0),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.grey.shade900,
+              image: imageUrl.isNotEmpty
+                  ? DecorationImage(
+                      image: CachedNetworkImageProvider(imageUrl),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+            child: imageUrl.isEmpty
+                ? const Icon(
+                    Icons.music_note_rounded,
+                    color: Colors.white,
+                    size: 16,
                   )
                 : null,
           ),
-          child: imageUrl.isEmpty
-              ? const Icon(
-                  Icons.music_note_rounded,
-                  color: Colors.white,
-                  size: 16,
-                )
-              : null,
         ),
       ),
     );
@@ -2798,7 +2847,6 @@ class _SpinningMusicDiscState extends State<SpinningMusicDisc>
     );
   }
 }
-
 // 🔥 ইউজার ইনফো রিয়েল-টাইম দেখানোর উইজেট (showAvatar: false দিলে শুধু নাম দেখাবে)
 class ReelUserInfo extends StatelessWidget {
   final String userId;
