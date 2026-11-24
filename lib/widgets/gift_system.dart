@@ -15,7 +15,7 @@ import 'package:pagla_chat/data/free_gifts.dart';
 import 'package:pagla_chat/data/classic_gifts.dart';
 import 'package:pagla_chat/data/luxury_gifts.dart';
 import 'package:pagla_chat/data/pk_gifts.dart';
-
+import 'package:pagla_chat/services/diamond_recharge_view.dart';
 
 class GiftBottomSheet extends StatefulWidget {
   final String roomId;
@@ -68,10 +68,12 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     _boxScrollController.dispose();
     super.dispose();
   }
+
   // 🔥 নিরাপদ অটো-স্ক্রোল টাইমার লজিক
   void _startAutoScroll() {
     _autoScrollTimer?.cancel();
-    _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
+    _autoScrollTimer =
+        Timer.periodic(const Duration(milliseconds: 30), (timer) {
       if (!isRandomBoxSelected || !mounted) {
         return;
       }
@@ -88,8 +90,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       }
     });
   }
-  
-  
+
   void _showUserSelectionList() {
     List activeUsers = widget.currentSeats.where((s) {
       if (s == null) return false;
@@ -191,7 +192,8 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     Color getDynamicBodyColor() {
       if (selectedGift == null) return const Color.fromARGB(131, 4, 4, 122);
 
-      bool isFree = selectedGift!['price'] == null || (selectedGift!['price'] ?? 0) == 0;
+      bool isFree =
+          selectedGift!['price'] == null || (selectedGift!['price'] ?? 0) == 0;
       int price = (selectedGift!['price'] ?? 0);
 
       if (isFree) return Colors.green.withOpacity(0.08);
@@ -260,7 +262,8 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                   _buildGrid(luxuryGifts),
                   _buildGrid(classicGifts),
                   _buildGrid(romanticGifts),
-                  _buildGrid(crownGifts), // 🔥 আলাদা ফাইলে থাকা ক্রাউন গিফট লিস্ট এখানে পাস হবে
+                  _buildGrid(
+                      crownGifts), // 🔥 আলাদা ফাইলে থাকা ক্রাউন গিফট লিস্ট এখানে পাস হবে
                 ],
               ),
             ),
@@ -270,6 +273,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       ),
     );
   }
+
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -284,30 +288,129 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                 .snapshots(),
             builder: (context, snapshot) {
               int currentBalance = 0;
+              Map<String, dynamic> userData = {};
 
               if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                var userData =
+                userData =
                     snapshot.data!.docs.first.data() as Map<String, dynamic>;
                 currentBalance = userData['diamonds'] ?? 0;
               }
 
+              final bool isUserAgent = userData['isAgent'] == true;
+
               return Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.white10,
-                  borderRadius: BorderRadius.circular(15),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.cyanAccent.withOpacity(0.18),
+                      Colors.purpleAccent.withOpacity(0.14),
+                      Colors.black.withOpacity(0.45),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: Colors.cyanAccent.withOpacity(0.45),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    // 3D বটম ডেপথ শ্যাডো
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.65),
+                      offset: const Offset(0, 3.5),
+                      blurRadius: 0,
+                    ),
+                    // হালকা গ্লো ইফেক্ট
+                    BoxShadow(
+                      color: Colors.cyanAccent.withOpacity(0.22),
+                      offset: const Offset(0, 5),
+                      blurRadius: 10,
+                    ),
+                  ],
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text("💎", style: TextStyle(fontSize: 14)),
-                    const SizedBox(width: 5),
+                    const Text(
+                      "💎",
+                      style: TextStyle(
+                        fontSize: 15,
+                        shadows: [
+                          Shadow(color: Colors.cyanAccent, blurRadius: 8),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
                     Text(
                       "$currentBalance",
                       style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        letterSpacing: 0.4,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black87,
+                            offset: Offset(0, 1.5),
+                            blurRadius: 3,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    // ✅ 3D + বাটন (DiamondStoreView কল করবে)
+                    GestureDetector(
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => DiamondStoreView(
+                            userData: userData,
+                            isAgent: isUserAgent,
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFFFF5CA8),
+                              Colors.pinkAccent,
+                              Color(0xFF9C27B0),
+                            ],
+                          ),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.6),
+                            width: 1.1,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF6A1B9A),
+                              offset: const Offset(0, 2.5),
+                              blurRadius: 0,
+                            ),
+                            BoxShadow(
+                              color: Colors.pinkAccent.withOpacity(0.45),
+                              offset: const Offset(0, 3),
+                              blurRadius: 7,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.add,
                           color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14),
+                          size: 15,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -388,7 +491,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     );
   }
 
- // 🔥 বড় সংখ্যাকে ছোট ফরম্যাটে (যেমন: 100k, 1M) রূপান্তর করার ফাংশন
+  // 🔥 বড় সংখ্যাকে ছোট ফরম্যাটে (যেমন: 100k, 1M) রূপান্তর করার ফাংশন
   String _formatPrice(dynamic priceVal) {
     int price = 0;
     if (priceVal is int) {
@@ -432,11 +535,12 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       child: ListView.builder(
         controller: _boxScrollController,
         scrollDirection: Axis.horizontal,
-        physics: const NeverScrollableScrollPhysics(), // ইউজার হাত দিয়ে আটকাতে পারবে না, হেডলাইনের মতো নিজে চলবে
+        physics:
+            const NeverScrollableScrollPhysics(), // ইউজার হাত দিয়ে আটকাতে পারবে না, হেডলাইনের মতো নিজে চলবে
         itemCount: extendedGiftPool.length,
         itemBuilder: (context, index) {
           var gift = extendedGiftPool[index];
-          
+
           // 🔥 লটি ও ক্যাশ হ্যান্ডলিং প্রিভিউ লিস্টের জন্য
           String giftPath = (gift["lottieUrl"] ??
                   gift["image"] ??
@@ -446,7 +550,8 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
               .toString();
           bool isJson = giftPath.toLowerCase().endsWith('.json');
           bool isOnlineLottie = isJson &&
-              (giftPath.startsWith('http://') || giftPath.startsWith('https://'));
+              (giftPath.startsWith('http://') ||
+                  giftPath.startsWith('https://'));
 
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
@@ -482,17 +587,20 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                                     animate: false,
                                     fit: BoxFit.contain,
                                     addRepaintBoundary: true,
-                                    controller: const AlwaysStoppedAnimation(0.4),
+                                    controller:
+                                        const AlwaysStoppedAnimation(0.4),
                                   )
                                 : Lottie.asset(
                                     giftPath,
                                     animate: false,
                                     fit: BoxFit.contain,
                                     addRepaintBoundary: true,
-                                    controller: const AlwaysStoppedAnimation(0.4),
+                                    controller:
+                                        const AlwaysStoppedAnimation(0.4),
                                   ))
                             : CachedNetworkImage(
-                                imageUrl: gift['image'] ?? gift['icon'] ?? giftPath,
+                                imageUrl:
+                                    gift['image'] ?? gift['icon'] ?? giftPath,
                                 fit: BoxFit.cover,
                                 memCacheWidth: 150,
                                 memCacheHeight: 150,
@@ -511,7 +619,8 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                     left: 0,
                     right: 0,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 2, horizontal: 4),
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.6),
                         borderRadius: BorderRadius.circular(10),
@@ -542,7 +651,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
     );
   }
 
- Widget _buildGrid(List gifts, {bool isFreeTab = false}) {
+  Widget _buildGrid(List gifts, {bool isFreeTab = false}) {
     return GridView.builder(
       padding: const EdgeInsets.all(15),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -637,17 +746,19 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
                                 addRepaintBoundary: true,
                                 // লটি লোড হওয়ার সাথে সাথে মাঝখানের ফ্রেমে সেট করে দিবে
                                 onLoaded: (composition) {
-                                  // চাইলে composition.duration অনুযায়ী বা সরাসরি controller দিয়ে করা যায়, 
+                                  // চাইলে composition.duration অনুযায়ী বা সরাসরি controller দিয়ে করা যায়,
                                   // তবে নিচের সহজ উপায়টি লটিতে অটো কাজ করে:
                                 },
-                                controller: AlwaysStoppedAnimation(0.4), // 0.4 মানে লটির ৪০% বা মাঝামঝি পজিশন, দরকারমতো 0.3 থেকে 0.5 করতে পারেন
+                                controller: AlwaysStoppedAnimation(
+                                    0.4), // 0.4 মানে লটির ৪০% বা মাঝামঝি পজিশন, দরকারমতো 0.3 থেকে 0.5 করতে পারেন
                               )
                             : Lottie.asset(
                                 giftPath,
                                 animate: false,
                                 fit: BoxFit.contain,
                                 addRepaintBoundary: true,
-                                controller: const AlwaysStoppedAnimation(0.4), // মাঝখানের ফ্রেম আটকে রাখার জন্য
+                                controller: const AlwaysStoppedAnimation(
+                                    0.4), // মাঝখানের ফ্রেম আটকে রাখার জন্য
                               ))
                         : CachedNetworkImage(
                             imageUrl: gift['image'] ?? gift['icon'] ?? giftPath,
@@ -709,6 +820,7 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
       },
     );
   }
+
   Widget _buildBottomBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
@@ -761,92 +873,94 @@ class _GiftBottomSheetState extends State<GiftBottomSheet> {
   }
 
   void _handleSendAction() {
-  if (selectedGift == null) return;
+    if (selectedGift == null) return;
 
-  Map<String, dynamic> rawGift = selectedGift!;
+    Map<String, dynamic> rawGift = selectedGift!;
 
-  // ১. চেক করা এটি বক্স কি না
-  bool isBox = rawGift.containsKey('gifts') && rawGift['gifts'] is List;
+    // ১. চেক করা এটি বক্স কি না
+    bool isBox = rawGift.containsKey('gifts') && rawGift['gifts'] is List;
 
-  Map<String, dynamic> giftToSend;
-  int unitPrice = 0; // এটি সেন্ডারের কাছ থেকে কাটার জন্য মূল দাম (বক্স হলে বক্সের দাম, না হলে গিফটের দাম)
+    Map<String, dynamic> giftToSend;
+    int unitPrice =
+        0; // এটি সেন্ডারের কাছ থেকে কাটার জন্য মূল দাম (বক্স হলে বক্সের দাম, না হলে গিফটের দাম)
 
-  if (isBox) {
-    // বক্সের নিজস্ব দাম (যেমন: ১৩০০০)
-    unitPrice = (rawGift['price'] ?? 0) as int;
+    if (isBox) {
+      // বক্সের নিজস্ব দাম (যেমন: ১৩০০০)
+      unitPrice = (rawGift['price'] ?? 0) as int;
 
-    // কিন্তু স্ক্রিনে বা রিসিভারের কাছে পাঠানোর জন্য বক্সের ভেতর থেকে রেন্ডমলি একটি গিফট বেছে নেওয়া হলো
-    List<dynamic> boxGifts = rawGift['gifts'];
-    if (boxGifts.isNotEmpty) {
-      final random = Random();
-      giftToSend = Map<String, dynamic>.from(boxGifts[random.nextInt(boxGifts.length)]);
-      
-      // 🔑 অত্যন্ত গুরুত্বপূর্ণ: ভেতরের রেন্ডম গিফটের ভেতরে বক্সের আসল দাম এবং বক্সের আইডি বসিয়ে দেওয়া হলো,
-      // যাতে ব্যাকএন্ড বা হেল্পার ফাইল সেন্ডারের একাউন্ট কাটার সময় বক্সের দামটাই কাটে!
-      giftToSend['boxPrice'] = unitPrice; 
-      giftToSend['isBoxSend'] = true;
+      // কিন্তু স্ক্রিনে বা রিসিভারের কাছে পাঠানোর জন্য বক্সের ভেতর থেকে রেন্ডমলি একটি গিফট বেছে নেওয়া হলো
+      List<dynamic> boxGifts = rawGift['gifts'];
+      if (boxGifts.isNotEmpty) {
+        final random = Random();
+        giftToSend = Map<String, dynamic>.from(
+            boxGifts[random.nextInt(boxGifts.length)]);
+
+        // 🔑 অত্যন্ত গুরুত্বপূর্ণ: ভেতরের রেন্ডম গিফটের ভেতরে বক্সের আসল দাম এবং বক্সের আইডি বসিয়ে দেওয়া হলো,
+        // যাতে ব্যাকএন্ড বা হেল্পার ফাইল সেন্ডারের একাউন্ট কাটার সময় বক্সের দামটাই কাটে!
+        giftToSend['boxPrice'] = unitPrice;
+        giftToSend['isBoxSend'] = true;
+      } else {
+        giftToSend = rawGift;
+      }
     } else {
+      // সাধারণ গিফট হলে নিজের দামই unitPrice
+      unitPrice = (rawGift['price'] ?? 0) as int;
       giftToSend = rawGift;
     }
-  } else {
-    // সাধারণ গিফট হলে নিজের দামই unitPrice
-    unitPrice = (rawGift['price'] ?? 0) as int;
-    giftToSend = rawGift;
+
+    bool isFree = unitPrice == 0;
+
+    int multiplier = 1;
+    if (targetType == "All Mic") {
+      multiplier = widget.currentSeats.where((s) => s != null).length;
+    } else if (targetType == "All Room") {
+      multiplier = widget.viewerCount > 0 ? widget.viewerCount : 1;
+    }
+
+    // ✅ সেন্ডারের কাছ থেকে কাটার মোট দাম (বক্স হলে অবশ্যই বক্সের দাম অনুযায়ী কাটবে)
+    int totalPrice = unitPrice * selectedCount * multiplier;
+
+    if (!isFree && widget.diamondBalance < totalPrice) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text("Insufficient Diamonds! Need $totalPrice 💎",
+              style: const TextStyle(color: Colors.white))));
+      return;
+    }
+
+    if (isFree && targetType != "Target") {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Free gifts can only be sent to a specific user!")));
+      return;
+    }
+
+    String finalTargetValue;
+    if (targetType == "All Room" || targetType == "All Mic") {
+      finalTargetValue = targetType;
+    } else {
+      finalTargetValue = selectedTargetName ?? "Target";
+    }
+
+    bool isVideoGift =
+        giftToSend.containsKey('videoUrl') && giftToSend['videoUrl'] != null;
+
+    // এখানে giftToSend এর মধ্যে ভেতরের রেন্ডম গিফট যাচ্ছে, যা স্ক্রিনে ও রিসিভারের কাছে শো করবে
+    widget.onGiftSend(giftToSend, selectedCount, finalTargetValue);
+
+    if (isVideoGift) {
+      sendRoomVideoGift(giftToSend['videoUrl']);
+    }
+
+    if (isFree) {
+      setState(() {
+        dynamicFreeGifts.removeWhere((g) => g['id'] == giftToSend['id']);
+        selectedGift = null;
+        isRandomBoxSelected = false;
+      });
+    }
+
+    Navigator.pop(context);
   }
-
-  bool isFree = unitPrice == 0;
-
-  int multiplier = 1;
-  if (targetType == "All Mic") {
-    multiplier = widget.currentSeats.where((s) => s != null).length;
-  } else if (targetType == "All Room") {
-    multiplier = widget.viewerCount > 0 ? widget.viewerCount : 1;
-  }
-
-  // ✅ সেন্ডারের কাছ থেকে কাটার মোট দাম (বক্স হলে অবশ্যই বক্সের দাম অনুযায়ী কাটবে)
-  int totalPrice = unitPrice * selectedCount * multiplier;
-
-  if (!isFree && widget.diamondBalance < totalPrice) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        backgroundColor: Colors.redAccent,
-        content: Text("Insufficient Diamonds! Need $totalPrice 💎",
-            style: const TextStyle(color: Colors.white))));
-    return;
-  }
-
-  if (isFree && targetType != "Target") {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text("Free gifts can only be sent to a specific user!")));
-    return;
-  }
-
-  String finalTargetValue;
-  if (targetType == "All Room" || targetType == "All Mic") {
-    finalTargetValue = targetType;
-  } else {
-    finalTargetValue = selectedTargetName ?? "Target";
-  }
-
-  bool isVideoGift =
-      giftToSend.containsKey('videoUrl') && giftToSend['videoUrl'] != null;
-
-  // এখানে giftToSend এর মধ্যে ভেতরের রেন্ডম গিফট যাচ্ছে, যা স্ক্রিনে ও রিসিভারের কাছে শো করবে
-  widget.onGiftSend(giftToSend, selectedCount, finalTargetValue);
-
-  if (isVideoGift) {
-    sendRoomVideoGift(giftToSend['videoUrl']);
-  }
-
-  if (isFree) {
-    setState(() {
-      dynamicFreeGifts.removeWhere((g) => g['id'] == giftToSend['id']);
-      selectedGift = null;
-      isRandomBoxSelected = false;
-    });
-  }
-
-  Navigator.pop(context);
-}
 
   void sendRoomVideoGift(String giftUrl) {
     String path = '${widget.roomId}/latestVideoGift';

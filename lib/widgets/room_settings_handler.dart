@@ -1,4 +1,4 @@
-import 'package:cached_network_image/cached_network_image.dart';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,6 +7,12 @@ import 'package:pagla_chat/RoomLevelHelper.dart';
 class RoomSettingsHandler {
   static final _firestore = FirebaseFirestore.instance;
   static final _auth = FirebaseAuth.instance;
+
+  static const List<String> _freeWallpaperTitles = [
+    "Ocean Mist",
+    "Neon Pulse",
+    "Royal Dusk",
+  ];
 
   static void showSettings({
     required BuildContext context,
@@ -33,7 +39,7 @@ class RoomSettingsHandler {
         return Container(
           decoration: BoxDecoration(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-            // 🔥 আপনার পছন্দের ডায়ালগ কার্ডের সেইম আকর্ষণীয় মিক্সড কালার গ্রেডিয়েন্ট ব্যাকগ্রাউন্ড
+            // 🔥 আপনার পছন্দের ডায়ালগ কার্ডের সেইম আকর্ষণীয় মিক্সড কালার গ্রেডিয়েন্ট ব্যাকগ্রাউন্ড
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -45,88 +51,169 @@ class RoomSettingsHandler {
             ),
             border: Border.all(
               color: Colors.cyanAccent
-                  .withOpacity(0.3), // চারপাশের গ্লোয়িং বর্ডার
-              width: 1.2,
+                  .withOpacity(0.35), // চারপাশের গ্লোয়িং বর্ডার
+              width: 1.3,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.cyanAccent.withOpacity(0.2),
+                color: Colors.cyanAccent.withOpacity(0.22),
                 blurRadius: 25,
                 spreadRadius: 2,
               ),
               BoxShadow(
-                color: Colors.purpleAccent.withOpacity(0.2),
+                color: Colors.purpleAccent.withOpacity(0.22),
                 blurRadius: 25,
                 spreadRadius: 2,
               ),
             ],
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 14),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // 3D top handle pill
                 Container(
-                  width: 40,
+                  width: 46,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: Colors.white24,
+                    gradient: const LinearGradient(
+                      colors: [Colors.cyanAccent, Colors.purpleAccent],
+                    ),
                     borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.cyanAccent.withOpacity(0.45),
+                        blurRadius: 6,
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 20),
-                const Text(
-                  "Room Settings",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 25),
+                const SizedBox(height: 16),
 
-                // এখানে লেভেল বার বসানো হয়েছে
+                // 3D Room Settings Title
+                ShaderMask(
+                  shaderCallback: (bounds) => const LinearGradient(
+                    colors: [Colors.white, Colors.cyanAccent, Colors.amberAccent],
+                  ).createShader(bounds),
+                  child: const Text(
+                    "Room Settings",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                      shadows: [
+                        Shadow(color: Colors.black54, blurRadius: 6),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // 🔥 3D Room Level Bar
                 StreamBuilder<DocumentSnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('rooms')
                       .doc(roomId)
                       .snapshots(),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData || !snapshot.data!.exists)
+                    if (!snapshot.hasData || !snapshot.data!.exists) {
                       return const SizedBox();
+                    }
                     var roomData =
                         snapshot.data!.data() as Map<String, dynamic>;
                     int totalXp = roomData['totalXp'] ?? 0;
                     int level = RoomLevelHelper.calculateLevel(totalXp);
+                    double progress = ((totalXp % 250) / 250).clamp(0.0, 1.0);
 
                     return Container(
-                      margin: const EdgeInsets.symmetric(vertical: 10),
-                      padding: const EdgeInsets.all(10),
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(10),
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.white.withOpacity(0.10),
+                            Colors.white.withOpacity(0.03),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.amber.withOpacity(0.45),
+                          width: 1.1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.5),
+                            offset: const Offset(0, 4),
+                            blurRadius: 8,
+                          ),
+                          BoxShadow(
+                            color: Colors.amber.withOpacity(0.12),
+                            blurRadius: 12,
+                          ),
+                        ],
                       ),
                       child: Column(
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text("ROOM LEVEL: $level",
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 9, vertical: 3),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Colors.amber, Colors.orangeAccent],
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.amber.withOpacity(0.4),
+                                      offset: const Offset(0, 2),
+                                      blurRadius: 5,
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  "ROOM LEVEL: $level",
                                   style: const TextStyle(
-                                      color: Colors.amber,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12)),
-                              Text("${totalXp % 250} / 250 XP",
-                                  style: const TextStyle(
-                                      color: Colors.white70, fontSize: 10)),
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 11.5,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                "${totalXp % 250} / 250 XP",
+                                style: const TextStyle(
+                                  color: Colors.cyanAccent,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ],
                           ),
-                          const SizedBox(height: 5),
-                          LinearProgressIndicator(
-                            value: (totalXp % 250) / 250,
-                            backgroundColor: Colors.white24,
-                            color: Colors.amber,
+                          const SizedBox(height: 8),
+                          Container(
+                            height: 9,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.45),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white12),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: LinearProgressIndicator(
+                                value: progress,
+                                minHeight: 9,
+                                backgroundColor: Colors.transparent,
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                    Colors.amber),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -134,72 +221,156 @@ class RoomSettingsHandler {
                   },
                 ),
 
-                const SizedBox(height: 15),
+                const SizedBox(height: 16),
 
+                // 🔥 Free Wallpapers (নামসহ + 3D কার্ড)
                 if (isOwner || isAdmin) ...[
                   const Align(
                     alignment: Alignment.centerLeft,
                     child: Padding(
-                      padding: EdgeInsets.only(left: 15, bottom: 12),
+                      padding: EdgeInsets.only(left: 6, bottom: 10),
                       child: Text(
                         "Free Wallpapers",
                         style: TextStyle(
-                            color: Colors.purpleAccent,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500),
+                          color: Colors.purpleAccent,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                        ),
                       ),
                     ),
                   ),
-                  SizedBox(
-                    height: 100,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      itemCount: 3,
-                      itemBuilder: (context, index) {
-                        // লোকাল অ্যাসেট পাথ (যথা: assets/images/wallpaper-1.jpg)
-                        String wallPath =
-                            "assets/images/wallpaper-${index + 1}.webp";
+                  StreamBuilder<DocumentSnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('rooms')
+                        .doc(roomId)
+                        .snapshots(),
+                    builder: (context, wallSnap) {
+                      String activeWallpaper = '';
+                      if (wallSnap.hasData && wallSnap.data!.exists) {
+                        final wallData =
+                            wallSnap.data!.data() as Map<String, dynamic>?;
+                        activeWallpaper =
+                            (wallData?['currentWallpaper'] ?? '').toString();
+                      }
 
-                        return GestureDetector(
-                          onTap: () async {
-                            try {
-                              await _firestore
-                                  .collection('rooms')
-                                  .doc(roomId)
-                                  .update({
-                                'currentWallpaper': wallPath,
-                              });
-                              onSetWallpaper(wallPath);
-                            } catch (e) {
-                              _showMessage(
-                                  context, "Error saving wallpaper: $e");
-                            }
-                          },
-                          child: Container(
-                            width: 70,
-                            margin: const EdgeInsets.only(right: 12),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.white24),
-                              image: DecorationImage(
-                                image: AssetImage(wallPath),
-                                fit: BoxFit.cover,
+                      return SizedBox(
+                        height: 114,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          itemCount: 3,
+                          itemBuilder: (context, index) {
+                            // লোকাল অ্যাসেট পাথ (অপরিবর্তিত)
+                            String wallPath =
+                                "assets/images/wallpaper-${index + 1}.webp";
+                            String wallTitle = _freeWallpaperTitles[index];
+                            bool isSelectedWall = activeWallpaper == wallPath;
+
+                            return GestureDetector(
+                              onTap: () async {
+                                try {
+                                  await _firestore
+                                      .collection('rooms')
+                                      .doc(roomId)
+                                      .update({
+                                    'currentWallpaper': wallPath,
+                                  });
+                                  onSetWallpaper(wallPath);
+                                } catch (e) {
+                                  _showMessage(
+                                      context, "Error saving wallpaper: $e");
+                                }
+                              },
+                              child: Container(
+                                width: 82,
+                                margin: const EdgeInsets.only(right: 12),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: isSelectedWall
+                                        ? Colors.cyanAccent
+                                        : Colors.white30,
+                                    width: isSelectedWall ? 2.0 : 1.2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: isSelectedWall
+                                          ? Colors.cyanAccent.withOpacity(0.35)
+                                          : Colors.black.withOpacity(0.55),
+                                      offset: const Offset(0, 4),
+                                      blurRadius: 8,
+                                    ),
+                                  ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(13),
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      Image.asset(
+                                        wallPath,
+                                        fit: BoxFit.cover,
+                                      ),
+                                      Align(
+                                        alignment: Alignment.bottomCenter,
+                                        child: Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 4, horizontal: 4),
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.bottomCenter,
+                                              end: Alignment.topCenter,
+                                              colors: [
+                                                Colors.black.withOpacity(0.88),
+                                                Colors.transparent,
+                                              ],
+                                            ),
+                                          ),
+                                          child: Text(
+                                            wallTitle,
+                                            textAlign: TextAlign.center,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 5,
+                                        right: 5,
+                                        child: Icon(
+                                          isSelectedWall
+                                              ? Icons.check_circle
+                                              : Icons.check_circle_outline,
+                                          color: isSelectedWall
+                                              ? Colors.cyanAccent
+                                              : Colors.white54,
+                                          size: 18,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
-                            child: const Icon(Icons.check_circle_outline,
-                                color: Colors.white38, size: 20),
-                          ),
-                        );
-                      },
-                    ),
+                            );
+                          },
+                        ),
+                      );
+                    },
                   ),
-                  const SizedBox(height: 25),
+                  const SizedBox(height: 20),
                 ],
 
+                // 🔥 3D Seat Layout Settings
                 if (isOwner || isAdmin) ...[
                   const Padding(
-                    padding: EdgeInsets.only(left: 15, top: 5, bottom: 10),
+                    padding: EdgeInsets.only(left: 6, top: 4, bottom: 10),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
@@ -207,7 +378,8 @@ class RoomSettingsHandler {
                         style: TextStyle(
                           color: Colors.amberAccent,
                           fontSize: 15,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
                         ),
                       ),
                     ),
@@ -273,55 +445,105 @@ class RoomSettingsHandler {
                         bool isSelected = layoutCountVal == layoutCount;
                         bool unlocked = isLayoutUnlocked(layoutCount);
 
-                        return ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                isSelected ? Colors.amber : Colors.white10,
-                            foregroundColor:
-                                isSelected ? Colors.black : Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 8),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          onPressed: () async {
-                            if (unlocked) {
-                              try {
-                                await FirebaseFirestore.instance
-                                    .collection('rooms')
-                                    .doc(roomId)
-                                    .update({
-                                  'seatLayoutCount': layoutCount,
-                                });
-                              } catch (e) {
-                                print("Error updating layout: $e");
-                              }
-                            } else {
-                              _showSeatPurchaseDialog(
-                                  context, roomId, layoutCount, roomData);
-                            }
-                          },
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                buttonText,
-                                style: const TextStyle(
-                                    fontSize: 12, fontWeight: FontWeight.bold),
+                        return Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: GestureDetector(
+                              onTap: () async {
+                                if (unlocked) {
+                                  try {
+                                    await FirebaseFirestore.instance
+                                        .collection('rooms')
+                                        .doc(roomId)
+                                        .update({
+                                      'seatLayoutCount': layoutCount,
+                                    });
+                                  } catch (e) {
+                                    print("Error updating layout: $e");
+                                  }
+                                } else {
+                                  _showSeatPurchaseDialog(
+                                      context, roomId, layoutCount, roomData);
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 10),
+                                decoration: BoxDecoration(
+                                  gradient: isSelected
+                                      ? const LinearGradient(
+                                          colors: [
+                                            Color(0xFFFFE082),
+                                            Colors.amber,
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        )
+                                      : LinearGradient(
+                                          colors: [
+                                            Colors.white.withOpacity(0.14),
+                                            Colors.white.withOpacity(0.05),
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? Colors.amberAccent
+                                        : Colors.white24,
+                                    width: 1.1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: isSelected
+                                          ? Colors.orange.withOpacity(0.85)
+                                          : Colors.black.withOpacity(0.65),
+                                      offset: const Offset(0, 3.5),
+                                      blurRadius: 0,
+                                    ),
+                                    BoxShadow(
+                                      color: isSelected
+                                          ? Colors.amber.withOpacity(0.3)
+                                          : Colors.black.withOpacity(0.35),
+                                      offset: const Offset(0, 5),
+                                      blurRadius: 7,
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        buttonText,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: isSelected
+                                              ? Colors.black
+                                              : Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                    if (!unlocked) ...[
+                                      const SizedBox(width: 3),
+                                      const Icon(Icons.lock,
+                                          size: 13, color: Colors.redAccent),
+                                    ],
+                                  ],
+                                ),
                               ),
-                              if (!unlocked) ...[
-                                const SizedBox(width: 4),
-                                const Icon(Icons.lock,
-                                    size: 14, color: Colors.redAccent),
-                              ],
-                            ],
+                            ),
                           ),
                         );
                       }
 
                       return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 15),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: Column(
                           children: [
                             Row(
@@ -332,7 +554,7 @@ class RoomSettingsHandler {
                                 buildLayoutButton(12, "12 Seats"),
                               ],
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
@@ -346,46 +568,114 @@ class RoomSettingsHandler {
                       );
                     },
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 22),
                 ],
+
+                // 🔥 নিচের 3D অ্যাকশন বাটনগুলো
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     if (isOwner || isAdmin)
-                      _buildItem(isLocked ? Icons.lock : Icons.lock_open,
-                          isLocked ? "Unlock" : "Lock", Colors.amber, () {
-                        _handleFeaturePurchase(
-                            context, roomId, "room_lock", onToggleLock);
-                      }),
+                      _build3DActionButton(
+                        icon: isLocked ? Icons.lock : Icons.lock_open,
+                        label: isLocked ? "Unlock" : "Lock",
+                        color: Colors.amber,
+                        onTap: () {
+                          _handleFeaturePurchase(
+                              context, roomId, "room_lock", onToggleLock);
+                        },
+                      ),
                     if (isOwner || isAdmin)
-                      _buildItem(
-                          Icons.color_lens, "Themes", Colors.purpleAccent, () {
-                        // গ্যালারি লজিক বাদ দিয়ে নতুন থিমস ট্যাব/ডায়ালগ ওপেন করার ফাংশন
-                        _showThemesDialog(context, roomId, onSetWallpaper);
-                      }),
+                      _build3DActionButton(
+                        icon: Icons.color_lens,
+                        label: "Themes",
+                        color: Colors.purpleAccent,
+                        onTap: () {
+                          // গ্যালারি লজিক বাদ দিয়ে নতুন থিমস ট্যাব/ডায়ালগ ওপেন করার ফাংশন
+                          _showThemesDialog(context, roomId, onSetWallpaper);
+                        },
+                      ),
                     if (isOwner || isAdmin)
-                      _buildItem(
-                          Icons.delete_sweep, "Clear Chat", Colors.orangeAccent,
-                          () {
-                        Navigator.pop(context);
-                        onClearChat();
-                      }),
-                    _buildItem(
-                      Icons.share,
-                      "Share Room",
-                      Colors.greenAccent,
-                      () {
+                      _build3DActionButton(
+                        icon: Icons.delete_sweep,
+                        label: "Clear Chat",
+                        color: Colors.orangeAccent,
+                        onTap: () {
+                          Navigator.pop(context);
+                          onClearChat();
+                        },
+                      ),
+                    _build3DActionButton(
+                      icon: Icons.share,
+                      label: "Share Room",
+                      color: Colors.greenAccent,
+                      onTap: () {
                         onShareRoom(); // মেইন রুম ফাইল থেকে পাঠানো onShareRoom ফাংশনটি এখানে ট্রিগার হবে
                       },
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  static Widget _build3DActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  color.withOpacity(0.28),
+                  color.withOpacity(0.10),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: color.withOpacity(0.65), width: 1.2),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.35),
+                  offset: const Offset(0, 3.5),
+                  blurRadius: 0,
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.45),
+                  offset: const Offset(0, 6),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+            child: Icon(icon, color: color, size: 25),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

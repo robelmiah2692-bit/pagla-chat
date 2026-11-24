@@ -6684,7 +6684,6 @@ class _VoiceRoomState extends State<VoiceRoom>
     );
   }
 
-
   Widget _buildRoyalChairSeat({
     required bool isHost,
     bool isBottomRow = false, // ✅ নিচের সারির (index 7..11) জন্য আলাদা ফ্ল্যাগ

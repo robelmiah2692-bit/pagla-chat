@@ -73,10 +73,10 @@ class RoomFloatingBox extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 SizedBox(
-                  width: 44,
-                  height: 44,
+                  width: 50,
+                  height: 50,
                   child: Image.asset(
-                    'assets/images/gift_box.webp', // আপনার প্রজেক্টের এসেট পাথ এখানে দিন
+                    'assets/images/Gift_Box_Animated.gif', // আপনার প্রজেক্টের এসেট পাথ এখানে দিন
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
                       return const Center(
@@ -86,7 +86,7 @@ class RoomFloatingBox extends StatelessWidget {
                     },
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

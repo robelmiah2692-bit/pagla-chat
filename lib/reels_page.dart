@@ -300,22 +300,7 @@ class _ReelsPageState extends State<ReelsPage> with WidgetsBindingObserver {
                     ReelsInterstitialAdManager.showAd();
                   }
 
-                  // 🔥 ইউজার যখনই পরবর্তী ভিডিওতে যাবে, তার পরের ভিডিওটি ব্যাকগ্রাউন্ডে প্রিলোড হবে
-                  int currentVideoIndex = index - (index ~/ 4);
-                  final Set<String> keepUrls = {};
-
-                  for (int i = currentVideoIndex - 1;
-                      i <= currentVideoIndex + 2;
-                      i++) {
-                    if (i >= 0 && i < activeVideoDocs.length) {
-                      final d =
-                          activeVideoDocs[i].data() as Map<String, dynamic>;
-                      final String u = (d['videoUrl'] ?? '').toString();
-                      if (u.isNotEmpty) keepUrls.add(u);
-                    }
-                  }
-                  VideoCacheManager.keepOnlyUrls(keepUrls);
-
+                 int currentVideoIndex = index - (index ~/ 4);
                   int nextVideoIndex = currentVideoIndex + 1;
                   if (nextVideoIndex < activeVideoDocs.length) {
                     final nextData = activeVideoDocs[nextVideoIndex].data()
@@ -402,9 +387,10 @@ class VideoCacheManager {
     return controller;
   }
 
-  // 🔥 ব্যাকগ্রাউন্ডে সাইলেন্টলি ভিডিও ইনিশিয়ালাইজ ও প্রিলোড করার মেথড
   static Future<void> preloadVideo(String url) async {
-    if (url.isEmpty || _cache.containsKey(url) || _initializing.contains(url)) {
+    if (url.isEmpty ||
+        _cache.containsKey(url) ||
+        _initializing.contains(url)) {
       return;
     }
     _initializing.add(url);
@@ -420,25 +406,12 @@ class VideoCacheManager {
     } catch (e) {
       debugPrint("Preload error: $e");
       _cache.remove(url);
-      await controller.dispose();
     } finally {
       _initializing.remove(url);
     }
   }
 
-  // ✅ সক্রিয় (বর্তমান, আগের ও পরের) ভিডিও ছাড়া বাকি কন্ট্রোলার dispose করে মেমোরি ফ্রি করা
-  static void keepOnlyUrls(Set<String> keepUrls) {
-    final keysToRemove =
-        _cache.keys.where((url) => !keepUrls.contains(url)).toList();
-    for (final url in keysToRemove) {
-      final ctrl = _cache.remove(url);
-      ctrl?.dispose();
-    }
-  }
-
-  static void disposeControllers(List<String> activeUrls) {
-    keepOnlyUrls(activeUrls.toSet());
-  }
+  static void disposeControllers(List<String> activeUrls) {}
 }
 class ReelVideoPlayerItem extends StatefulWidget {
   final String videoUrl;
@@ -487,7 +460,7 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
   @override
   bool get wantKeepAlive => true;
 
-  @override
+ @override
   void initState() {
     super.initState();
     _initVideoController();
@@ -522,10 +495,12 @@ class _ReelVideoPlayerItemState extends State<ReelVideoPlayerItem>
 
   @override
   void dispose() {
-    if (_isInitialized) {
+    try {
       _controller.removeListener(_videoListener);
-      _controller.pause();
-    }
+      if (_controller.value.isInitialized) {
+        _controller.pause();
+      }
+    } catch (_) {}
     super.dispose();
   }
   void _applyPlayState() {

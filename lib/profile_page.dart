@@ -1918,6 +1918,37 @@ class _ProfilePageState extends State<ProfilePage> {
     // আপনার এন্ট্রি লিস্টের মতো করেই ফ্রেমের লিস্ট
     final List<Map<String, String>> frameList = [
       {
+        "name": "Love Wreath",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/Avtarframenoton/LoveWreathFrames.gif",
+        "price": "38000"
+      },
+      {
+        "name": "Fire King",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/Avtarframenoton/FireKingFrames.gif",
+        "price": "35000"
+      },
+      
+      {
+        "name": "Royal CrownFrame",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/Avtarframenoton/CrownFrameCollection.gif",
+        "price": "28000"
+      },
+      {
+        "name": "Angel Crown Heart",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/Avtarframenoton/AngelicCrownHeart.gif",
+        "price": "27000"
+      },
+     {
+        "name": "fire dragon",
+        "url":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/Avtarframenoton/firedragon.gif",
+        "price": "27500"
+      },
+     {
         "name": "Royal Gold 4 Star",
         "url":
             "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/newanimeframe/royal_blue.webp",
@@ -4209,37 +4240,49 @@ class _ProfilePageState extends State<ProfilePage> {
                                   ),
                                 ),
                               ),
-                              // ২. ফ্রেম (সাইজ ছোট করে অবতারের মাপে নিয়ে আসা হয়েছে)
+                              // ২. ফ্রেম (সাইজ ছোট করে অবতারের মাপে নিয়ে আসা হয়েছে)
                               if (activeFrameUrl.isNotEmpty &&
                                   !activeFrameUrl.startsWith('file:'))
                                 IgnorePointer(
                                   child: SizedBox(
                                     width: 0,
                                     height: 0,
-                                    child: OverflowBox(
-                                      minWidth:
-                                          120, // অবতারের সাইজের সাথে মিলিয়ে কমানো হলো
-                                      maxWidth: 120,
-                                      minHeight: 120,
-                                      maxHeight: 120,
-                                      child: activeFrameUrl.contains('.json')
-                                          ? Transform.scale(
-                                              scale: 1.0,
-                                              child: Lottie.network(
-                                                activeFrameUrl,
+                                    child: Transform.translate(
+                                      // 🔴 ফ্রেম উপরে-নিচে বা ডানে-বামে নেওয়ার জায়গা:
+                                      // প্রথম সংখ্যা (dx = 0.0): মাইনাস (-) দিলে বামে যাবে, প্লাস (+) দিলে ডানে যাবে
+                                      // দ্বিতীয় সংখ্যা (dy = 0.0): মাইনাস (-) দিলে উপরে যাবে, প্লাস (+) দিলে নিচে নামবে
+                                      offset: const Offset(0.0, -6.0),
+                                      child: OverflowBox(
+                                        // 🔴 ফ্রেমের সাইজ বাড়ানো/কমানোর জায়গা (সবগুলো একই সংখ্যা রাখুন):
+                                        // সংখ্যা বাড়ালে ফ্রেম বড় হবে, কমালে ফ্রেম ছোট হবে
+                                        minWidth:
+                                            155, // 🔵 ফ্রেমের সর্বনিম্ন প্রস্থ (সাইজ কমাতে/বাড়াতে বদলান)
+                                        maxWidth:
+                                            155, // 🔵 ফ্রেমের সর্বোচ্চ প্রস্থ (সাইজ কমাতে/বাড়াতে বদলান)
+                                        minHeight:
+                                            160, // 🔵 ফ্রেমের সর্বনিম্ন উচ্চতা (সাইজ কমাতে/বাড়াতে বদলান)
+                                        maxHeight:
+                                            160, // 🔵 ফ্রেমের সর্বোচ্চ উচ্চতা (সাইজ কমাতে/বাড়াতে বদলান)
+                                        child: activeFrameUrl.contains('.json')
+                                            ? Transform.scale(
+                                                // 🟡 Lottie ফ্রেমের ভেতর থেকে জুম বাড়াতে/কমাতে এই scale (1.0) বদলান
+                                                scale: 1.0,
+                                                child: Lottie.network(
+                                                  activeFrameUrl,
+                                                  fit: BoxFit.contain,
+                                                  errorBuilder: (c, e, s) =>
+                                                      const SizedBox(),
+                                                ),
+                                              )
+                                            : CachedNetworkImage(
+                                                imageUrl: activeFrameUrl,
                                                 fit: BoxFit.contain,
-                                                errorBuilder: (c, e, s) =>
+                                                placeholder: (context, url) =>
+                                                    const SizedBox(),
+                                                errorWidget: (c, e, s) =>
                                                     const SizedBox(),
                                               ),
-                                            )
-                                          : CachedNetworkImage(
-                                              imageUrl: activeFrameUrl,
-                                              fit: BoxFit.contain,
-                                              placeholder: (context, url) =>
-                                                  const SizedBox(),
-                                              errorWidget: (c, e, s) =>
-                                                  const SizedBox(),
-                                            ),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -5025,97 +5068,125 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-// ✨ ওয়ালেট পাস ক্লিক করলে যে পপআপ বা পেজটি ওপেন হবে
-  void _openWalletPassDetails(BuildContext context, dynamic userDiamonds) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF4A148C), Color(0xFF120826)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+// ✨ ওয়ালেট পাস ক্লিক করলে যে পপআপ বা পেজটি ওপেন হবে
+void _openWalletPassDetails(BuildContext context, dynamic userDiamonds) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF4A148C), Color(0xFF120826)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  "Wallet Pass Balance",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // পুরোনো অ্যাপ বারের সেইম প্রিমিয়াম গ্লাস ডিজাইন
-                Container(
-                  height: 45,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.purple.shade900.withOpacity(0.8),
-                        Colors.blue.shade900.withOpacity(0.8),
-                        Colors.black.withOpacity(0.6),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [
-                            Color(0xFF00E5FF),
-                            Color(0xFF7C4DFF),
-                            Color(0xFFFF4081)
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ).createShader(bounds),
-                        child: const Text(
-                          "💎",
-                          style: TextStyle(fontSize: 20),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "$userDiamonds",
-                        style: const TextStyle(
-                          color: Color(0xFFFFE082),
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Close",
-                      style: TextStyle(color: Colors.white70)),
-                ),
-              ],
-            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.2)),
           ),
-        );
-      },
-    );
-  }
-
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Wallet Pass Balance",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              // পুরোনো অ্যাপ বারের সেইম প্রিমিয়াম গ্লাস ডিজাইন + ডায়মন্ড কেনার (+) বাটন
+              Container(
+                height: 45,
+                padding: const EdgeInsets.only(left: 16, right: 8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.purple.shade900.withOpacity(0.8),
+                      Colors.blue.shade900.withOpacity(0.8),
+                      Colors.black.withOpacity(0.6),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ShaderMask(
+                      shaderCallback: (bounds) => const LinearGradient(
+                        colors: [
+                          Color(0xFF00E5FF),
+                          Color(0xFF7C4DFF),
+                          Color(0xFFFF4081)
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ).createShader(bounds),
+                      child: const Text(
+                        "💎",
+                        style: TextStyle(fontSize: 20),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      "$userDiamonds",
+                      style: const TextStyle(
+                        color: Color(0xFFFFE082),
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // ✅ নতুন + বাটন (DiamondStoreView কল করবে)
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.pop(context);
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => const DiamondStoreView(
+                            userData: {},
+                            isAgent: false,
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        decoration: const BoxDecoration(
+                          color: Colors.pinkAccent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.add,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Close",
+                    style: TextStyle(color: Colors.white70)),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
   // ✨ ১ম লাইনের বড় বাটনগুলোর ডিজাইন (শুধুমাত্র পুরো বক্স জুড়ে কাস্টম ইমেজ থাকবে)
   Widget _buildLargeActionBox(String assetPath, VoidCallback onTap) {
     return InkWell(
@@ -5694,8 +5765,7 @@ class _ProfilePageState extends State<ProfilePage> {
     double overlapDistance = anyFrameActive ? 10 : -20;
 
     // টোটাল উইডথ ও হাইট হিসাব (ফ্রেম না থাকলে অযথা বাড়তি উচ্চতা নেবে না)
-    double totalWidth =
-        (myVisualSize + partnerVisualSize) - overlapDistance;
+    double totalWidth = (myVisualSize + partnerVisualSize) - overlapDistance;
     double totalHeight =
         myVisualSize > partnerVisualSize ? myVisualSize : partnerVisualSize;
 
@@ -5994,6 +6064,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+
 // 💔 ম্যারেজ ডিটেইলস এবং ডিভোর্স বটম শিট (পপআপ বার)
   void _showDivorceBottomSheet({
     required BuildContext context,

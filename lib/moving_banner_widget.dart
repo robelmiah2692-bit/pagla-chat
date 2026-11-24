@@ -5,7 +5,11 @@ class MovingBannerWidget extends StatefulWidget {
   final String roomId;
   final Map<String, dynamic> roomData;
 
-  const MovingBannerWidget({super.key, required this.roomId, required this.roomData});
+  const MovingBannerWidget({
+    super.key,
+    required this.roomId,
+    required this.roomData,
+  });
 
   @override
   State<MovingBannerWidget> createState() => _MovingBannerWidgetState();
@@ -20,9 +24,15 @@ class _MovingBannerWidgetState extends State<MovingBannerWidget> {
     super.didChangeDependencies();
     if (!_isPositionInitialized) {
       double screenWidth = MediaQuery.of(context).size.width;
-      double screenHeight = MediaQuery.of(context).size.height;
-      // ব্লাস্ট বক্সের ঠিক বাম পাশে ডিফল্ট পজিশন
-      bannerPosition = Offset(screenWidth - 400, screenHeight - 300);
+
+      const double bannerWidth = 240;     // ব্যানারের আনুমানিক প্রস্থ (মাঝখানে রাখার জন্য)
+      const double topOffset = 85;        // 👈 ওপরে-নিচে নিতে (বাড়ালে নিচে, কমালে ওপরে)
+      const double horizontalOffset = 0;   // 👈 ডানে-বামে নিতে (ডানে নিতে +20, বামে নিতে -20)
+
+      double centeredX = ((screenWidth - bannerWidth) / 2) + horizontalOffset;
+      if (centeredX < 0) centeredX = 0;
+
+      bannerPosition = Offset(centeredX, topOffset);
       _isPositionInitialized = true;
     }
   }
@@ -34,7 +44,7 @@ class _MovingBannerWidgetState extends State<MovingBannerWidget> {
       top: bannerPosition.dy,
       child: Draggable(
         feedback: RoomTopGiftersBanner(
-          roomId: widget.roomId, 
+          roomId: widget.roomId,
           roomData: widget.roomData,
         ),
         childWhenDragging: Container(),
@@ -44,7 +54,7 @@ class _MovingBannerWidgetState extends State<MovingBannerWidget> {
           });
         },
         child: RoomTopGiftersBanner(
-          roomId: widget.roomId, 
+          roomId: widget.roomId,
           roomData: widget.roomData,
         ),
       ),

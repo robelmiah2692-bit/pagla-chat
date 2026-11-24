@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:pagla_chat/crazy_fruit_game.dart';
+import 'package:pagla_chat/services/diamond_recharge_view.dart';
 import 'package:pagla_chat/teen_patti_game_page.dart';
 import 'lucky_spin_view.dart';
 
@@ -25,6 +26,7 @@ class _GamePanelViewState extends State<GamePanelView> {
 
   String? selectedGame;
   int userBalance = 0;
+  Map<String, dynamic> _currentUserData = {}; // 👈 এই লাইনটি যোগ করুন
   int betAmount = 100;
   String gameState = "WAITING";
   List<Map<dynamic, dynamic>> luckyBets = [];
@@ -67,6 +69,7 @@ class _GamePanelViewState extends State<GamePanelView> {
             setState(() {
               // ডাইমন্ড দেখাচ্ছে না সমস্যা সমাধানের জন্য ডাটা টাইপ চেক করা হয়েছে
               var data = snapshot.data();
+
               userBalance =
                   int.tryParse(data?['diamonds']?.toString() ?? "0") ?? 0;
             });
@@ -165,12 +168,41 @@ class _GamePanelViewState extends State<GamePanelView> {
               border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)),
             ),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.diamond, color: Colors.cyanAccent, size: 20),
                 const SizedBox(width: 5),
                 Text("$userBalance",
                     style: const TextStyle(
                         color: Colors.white, fontWeight: FontWeight.bold)),
+                const SizedBox(width: 8),
+                // ✅ নতুন + বাটন (DiamondStoreView কল করবে)
+                GestureDetector(
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => DiamondStoreView(
+                        userData: _currentUserData,
+                        isAgent: _currentUserData['isAgent'] == true,
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: const BoxDecoration(
+                      color: Colors.pinkAccent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.add,
+                      color: Colors.white,
+                      size: 15,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -238,120 +270,127 @@ class _GamePanelViewState extends State<GamePanelView> {
   }
 
 // --- ২. গেম লবি আপডেট (সংশোধিত) ---
-Widget _buildGameLobby() {
-  return SingleChildScrollView(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-    child: Column(
-      children: [
-        const Text("SELECT A GAME",
-            style: TextStyle(
-                color: Colors.white54,
-                letterSpacing: 2,
-                fontWeight: FontWeight.bold)),
-        const SizedBox(height: 30),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 3,
-          mainAxisSpacing: 20,
-          crossAxisSpacing: 20,
-          children: [
-            // LUCKY গেমটি আগের মতোই
-            _gameIcon("LUCKY", "assets/images/Lucky_777.webp", Colors.orangeAccent, false),
-            // CRAZY FRUIT গেম
-            _gameIcon("CRAZY FRUIT", "assets/images/crazyfrut.png", Colors.yellow, false),
-            // TEEN PATTI গেম (কামিং সুন বাদ দিয়ে লাইভ করা হলো)
-            _gameIcon("TEEN PATTI", "assets/images/Ten_Patti.webp", Colors.amber, false),
-            _gameIcon("LODU", "assets/images/coming_soon.png", Colors.grey, true),
-            _gameIcon("RACING", "assets/images/coming_soon.png", Colors.grey, true),
-            _gameIcon("BATTLE", "assets/images/coming_soon.png", Colors.grey, true),
-          ],
-        ),
-      ],
-    ),
-  );
-}
+  Widget _buildGameLobby() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      child: Column(
+        children: [
+          const Text("SELECT A GAME",
+              style: TextStyle(
+                  color: Colors.white54,
+                  letterSpacing: 2,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(height: 30),
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 3,
+            mainAxisSpacing: 20,
+            crossAxisSpacing: 20,
+            children: [
+              // LUCKY গেমটি আগের মতোই
+              _gameIcon("LUCKY", "assets/images/Lucky_777.webp",
+                  Colors.orangeAccent, false),
+              // CRAZY FRUIT গেম
+              _gameIcon("CRAZY FRUIT", "assets/images/crazyfrut.png",
+                  Colors.yellow, false),
+              // TEEN PATTI গেম (কামিং সুন বাদ দিয়ে লাইভ করা হলো)
+              _gameIcon("TEEN PATTI", "assets/images/Ten_Patti.webp",
+                  Colors.amber, false),
+              _gameIcon(
+                  "LODU", "assets/images/coming_soon.png", Colors.grey, true),
+              _gameIcon(
+                  "RACING", "assets/images/coming_soon.png", Colors.grey, true),
+              _gameIcon(
+                  "BATTLE", "assets/images/coming_soon.png", Colors.grey, true),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
 // --- সংশোধিত গেম আইকন ফাংশন ---
-Widget _gameIcon(String name, String asset, Color color, bool isComingSoon) {
-  return GestureDetector(
-    onTap: () {
-      if (isComingSoon) {
-        _showError("Coming Soon! Stay tuned.");
-      } else if (name == "CRAZY FRUIT") {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => CrazyFruitGame(
-              userBalance: userBalance,
-              onUpdateBalance: (newBalance) {
-                FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(FirebaseAuth.instance.currentUser?.uid)
-                    .update({'diamonds': newBalance.toString()});
-              },
+  Widget _gameIcon(String name, String asset, Color color, bool isComingSoon) {
+    return GestureDetector(
+      onTap: () {
+        if (isComingSoon) {
+          _showError("Coming Soon! Stay tuned.");
+        } else if (name == "CRAZY FRUIT") {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CrazyFruitGame(
+                userBalance: userBalance,
+                onUpdateBalance: (newBalance) {
+                  FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(FirebaseAuth.instance.currentUser?.uid)
+                      .update({'diamonds': newBalance.toString()});
+                },
+              ),
             ),
-          ),
-        );
-      } else if (name == "TEEN PATTI") {
-        // 🔥 নতুন টেন পাত্তি গেম পেজে নেভিগেশন
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => TeenPattiGamePage(
-              roomId: widget.roomId,
-              currentUserId: FirebaseAuth.instance.currentUser?.uid ?? "",
+          );
+        } else if (name == "TEEN PATTI") {
+          // 🔥 নতুন টেন পাত্তি গেম পেজে নেভিগেশন
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TeenPattiGamePage(
+                roomId: widget.roomId,
+                currentUserId: FirebaseAuth.instance.currentUser?.uid ?? "",
+              ),
             ),
-          ),
-        );
-      } else if (name == "LUCKY") {
-        setState(() => selectedGame = name);
-      } else {
-        setState(() => selectedGame = name);
-      }
-    },
-    child: Column(
-      children: [
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: color.withOpacity(0.4), width: 1.5),
-              color: isComingSoon ? Colors.black38 : Colors.transparent,
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(13),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.asset(asset, fit: BoxFit.cover),
-                  if (isComingSoon)
-                    Container(
-                      color: Colors.black54,
-                      child: const Center(
-                        child: Text("Coming\nSoon",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold)),
+          );
+        } else if (name == "LUCKY") {
+          setState(() => selectedGame = name);
+        } else {
+          setState(() => selectedGame = name);
+        }
+      },
+      child: Column(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: color.withOpacity(0.4), width: 1.5),
+                color: isComingSoon ? Colors.black38 : Colors.transparent,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(13),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(asset, fit: BoxFit.cover),
+                    if (isComingSoon)
+                      Container(
+                        color: Colors.black54,
+                        child: const Center(
+                          child: Text("Coming\nSoon",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold)),
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 5),
-        Text(name,
-            style: TextStyle(
-                color: isComingSoon ? Colors.white38 : Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold)),
-      ],
-    ),
-  );
-}
+          const SizedBox(height: 5),
+          Text(name,
+              style: TextStyle(
+                  color: isComingSoon ? Colors.white38 : Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _subscription?.cancel();

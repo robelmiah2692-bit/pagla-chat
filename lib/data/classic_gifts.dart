@@ -12,36 +12,36 @@ List<Map<String, dynamic>> classicGifts = [
       // বক্সে কী কী গিফট থাকবে
 
       {
-        'id': 'lx_lottie_10',
-        'name': 'Lottie Gift 10',
-        'price': 499,
-        'lottieUrl':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(7).json', // সরাসরি .json ফাইলের লিংক
-        'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+        "id": "gift_699",
+        "name": "DragonAnimation-3",
+        "icon":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/mygiftnew/DragonAnimation-3.gif",
+        "price": 699,
+        "type": "gift"
       },
       {
-        'id': 'lx_lottie_11',
-        'name': 'Lottie Gift 11',
-        'price': 1099,
-        'lottieUrl':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(8).json', // সরাসরি .json ফাইলের লিংক
-        'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+        "id": "gift_1099",
+        "name": "DragonAnimation-3",
+        "icon":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/mygiftnew/Cat-Celebration-1.gif",
+        "price": 1099,
+        "type": "gift"
       },
       {
-        'id': 'lx_lottie_12',
-        'name': 'Lottie Gift 12',
-        'price': 2099,
-        'lottieUrl':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(9).json', // সরাসরি .json ফাইলের লিংক
-        'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+        "id": "gift_2099",
+        "name": "DragonAnimation-3",
+        "icon":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/mygiftnew/Magic_Castle.gif",
+        "price": 2099,
+        "type": "gift"
       },
       {
-        'id': 'lx_lottie_13',
-        'name': 'Lottie Gift 13',
-        'price': 3099,
-        'lottieUrl':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(10).json', // সরাসরি .json ফাইলের লিংক
-        'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+        "id": "gift_3099",
+        "name": "DragonAnimation-3",
+        "icon":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/mygiftnew/RoyalCrown.gif",
+        "price": 3099,
+        "type": "gift"
       },
       {
         'id': 'lx11',
@@ -76,44 +76,44 @@ List<Map<String, dynamic>> classicGifts = [
       // বক্সে কী কী গিফট থাকবে
 
       {
-        'id': 'lx_lottie_5',
-        'name': 'Lottie Gift 5',
-        'price': 499,
-        'lottieUrl':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(2).json', // সরাসরি .json ফাইলের লিংক
-        'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+        "id": "gift_499",
+        "name": "DragonAnimation-3",
+        "icon":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/mygiftnew/AirplaneFlyby.gif",
+        "price": 499,
+        "type": "gift"
       },
       {
-        'id': 'lx_lottie_6',
-        'name': 'Lottie Gift 6',
-        'price': 899,
-        'lottieUrl':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(3).json', // সরাসরি .json ফাইলের লিংক
-        'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+        "id": "gift_899",
+        "name": "DragonAnimation-3",
+        "icon":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/mygiftnew/Magic Burst-2.gif",
+        "price": 899,
+        "type": "gift"
       },
       {
-        'id': 'lx_lottie_7',
-        'name': 'Lottie Gift 7',
-        'price': 1599,
-        'lottieUrl':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(4).json', // সরাসরি .json ফাইলের লিংক
-        'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+        "id": "gift_1599",
+        "name": "DragonAnimation-3",
+        "icon":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/mygiftnew/Love_Rose_Ani.gif",
+        "price": 1599,
+        "type": "gift"
       },
       {
-        'id': 'lx_lottie_8',
-        'name': 'Lottie Gift 8',
-        'price': 3099,
-        'lottieUrl':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(5).json', // সরাসরি .json ফাইলের লিংক
-        'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+        "id": "gift_3099",
+        "name": "DragonAnimation-3",
+        "icon":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/mygiftnew/Fire_Phoenix_Animated_Gift.gif",
+        "price": 3099,
+        "type": "gift"
       },
       {
-        'id': 'lx_lottie_9',
-        'name': 'Lottie Gift 9',
-        'price': 5099,
-        'lottieUrl':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(6).json', // সরাসরি .json ফাইলের লিংক
-        'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+        "id": "gift_1999",
+        "name": "DragonAnimation-3",
+        "icon":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/mygiftnew/Royal_Yacht_Animated_Gift.gif",
+        "price": 1999,
+        "type": "gift"
       },
 
       {
@@ -148,36 +148,36 @@ List<Map<String, dynamic>> classicGifts = [
       // বক্সে কী কী গিফট থাকবে
 
       {
-        'id': 'lx_lottie_1',
-        'name': 'Lottie Gift 1',
-        'price': 730,
-        'lottieUrl':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/lotigiftflower.json', // সরাসরি .json ফাইলের লিংক
-        'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+        "id": "gift_899",
+        "name": "DragonAnimation-3",
+        "icon":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/mygiftnew/love_potion_20.gif",
+        "price": 899,
+        "type": "gift"
       },
       {
-        'id': 'lx_lottie_2',
-        'name': 'Lottie Gift 2',
-        'price': 2070,
-        'lottieUrl':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/Teddy%20Bear.json', // সরাসরি .json ফাইলের লিংক
-        'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+        "id": "gift_2099",
+        "name": "DragonAnimation-3",
+        "icon":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/mygiftnew/Magic_Castle.gif",
+        "price": 2099,
+        "type": "gift"
       },
       {
-        'id': 'lx_lottie_3',
-        'name': 'Lottie Gift 3',
-        'price': 4099,
-        'lottieUrl':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/Valentine%20date.json', // সরাসরি .json ফাইলের লিংক
-        'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+        "id": "gift_4040",
+        "name": "Royal_Super_Car_Animated_Gift",
+        "icon":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/mygiftnew/Royal_Super_Car_Animated_Gift.gif",
+        "price": 4040,
+        "type": "gift"
       },
       {
-        'id': 'lx_lottie_4',
-        'name': 'Lottie Gift 4',
-        'price': 6530,
-        'lottieUrl':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(1).json', // সরাসরি .json ফাইলের লিংক
-        'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+        "id": "gift_6530",
+        "name": "DragonAnimation-3",
+        "icon":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/mygiftnew/Diamond_Butterfly.gif",
+        "price": 6530,
+        "type": "gift"
       },
       {
         'id': 'lx8',
@@ -211,20 +211,20 @@ List<Map<String, dynamic>> classicGifts = [
       // বক্সে কী কী গিফট থাকবে
 
       {
-        'id': 'lx_lottie_18',
-        'name': 'Lottie Gift 18',
-        'price': 1599,
-        'lottieUrl':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(15).json', // সরাসরি .json ফাইলের লিংক
-        'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+        "id": "gift_1599",
+        "name": "DragonAnimation-3",
+        "icon":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/mygiftnew/Love_Rose_Ani.gif",
+        "price": 1599,
+        "type": "gift"
       },
       {
-        'id': 'lx_lottie_19',
-        'name': 'Lottie Gift 19',
-        'price': 3099,
-        'lottieUrl':
-            'https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/refs/heads/main/imagegift/gift1%20(16).json', // সরাসরি .json ফাইলের লিংক
-        'type': 'lottie' // টাইপ অবশ্যই 'lottie' দিতে হবে
+        "id": "gift_3070",
+        "name": "DragonAnimation-3",
+        "icon":
+            "https://raw.githubusercontent.com/robelmiah2692-bit/vip-badges/main/mygiftnew/Magic_Crystal_Heart.gif",
+        "price": 3070,
+        "type": "gift"
       },
       {
         'id': 'lx_lottie_20',

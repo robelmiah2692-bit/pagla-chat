@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:pagla_chat/RoomLevelHelper.dart';
 import 'room_event_manager_widget.dart'; // ইভেন্ট ম্যানেজারের ফাইল
 
 class ViewerRankingWidget extends StatefulWidget {
@@ -111,63 +112,132 @@ class _ViewerRankingWidgetState extends State<ViewerRankingWidget> with SingleTi
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // ১. বাম পাশে টফি বা ট্রফি আইকন এবং তার ঠিক নিচে ছোট টেক্সট
-              GestureDetector(
-                onTap: _openEventPage,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: const BoxDecoration(
-                    color: Colors.transparent, // ক্লিন ব্যাকগ্রাউন্ড
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // ওপরে রিয়েল গোল্ড গ্রেডিয়েন্ট ট্রফি আইকন
-                      ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [Color(0xFFFFD700), Color(0xFFFFA500), Color(0xFFFF8C00)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ).createShader(bounds),
-                        child: Icon(
-                          isEventLive ? Icons.fiber_manual_record : Icons.emoji_events,
-                          color: isEventLive ? const Color(0xFF42F50B) : Colors.white,
-                          size: 22,
-                        ),
+              // ১. বাম পাশে টফি বা ট্রফি আইকন এবং তার ঠিক নিচে ছোট টেক্সট + পাশে Lv.1..100 3D টেক্সট বাটন
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  GestureDetector(
+                    onTap: _openEventPage,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: const BoxDecoration(
+                        color: Colors.transparent, // ক্লিন ব্যাকগ্রাউন্ড
                       ),
-                      const SizedBox(height: 2),
-                      // ঠিক ট্রফির নিচে ছোট সাইজে 1k, 2k ফরম্যাটের রিয়াল গোল্ড কাউন্ট
-                      isEventLive
-                          ? FadeTransition(
-                              opacity: _shiningAnimation,
-                              child: const Text(
-                                "Live",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 9,
-                                ),
-                              ),
-                            )
-                          : ShaderMask(
-                              shaderCallback: (bounds) => const LinearGradient(
-                                colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ).createShader(bounds),
-                              child: Text(
-                                _formatNumber(_toffeeCount),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // ওপরে রিয়েল গোল্ড গ্রেডিয়েন্ট ট্রফি আইকন
+                          ShaderMask(
+                            shaderCallback: (bounds) => const LinearGradient(
+                              colors: [Color(0xFFFFD700), Color(0xFFFFA500), Color(0xFFFF8C00)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ).createShader(bounds),
+                            child: Icon(
+                              isEventLive ? Icons.fiber_manual_record : Icons.emoji_events,
+                              color: isEventLive ? const Color(0xFF42F50B) : Colors.white,
+                              size: 22,
                             ),
-                    ],
+                          ),
+                          const SizedBox(height: 2),
+                          // ঠিক ট্রফির নিচে ছোট সাইজে 1k, 2k ফরম্যাটের রিয়াল গোল্ড কাউন্ট
+                          isEventLive
+                              ? FadeTransition(
+                                  opacity: _shiningAnimation,
+                                  child: const Text(
+                                    "Live",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 9,
+                                    ),
+                                  ),
+                                )
+                              : ShaderMask(
+                                  shaderCallback: (bounds) => const LinearGradient(
+                                    colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ).createShader(bounds),
+                                  child: Text(
+                                    _formatNumber(_toffeeCount),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+
+                  const SizedBox(width: 8),
+
+                  // ✅ বক্স বা আইকন ছাড়া শুধু লেখার সাইজেই Lv.1 - Lv.100 3D টেক্সট
+                  StreamBuilder<DocumentSnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('rooms')
+                        .doc(widget.roomId)
+                        .snapshots(),
+                    builder: (context, roomSnap) {
+                      int totalXp = 0;
+                      if (roomSnap.hasData && roomSnap.data!.exists) {
+                        final data = roomSnap.data!.data() as Map<String, dynamic>?;
+                        final rawXp = data?['totalXp'] ?? widget.roomData['totalXp'] ?? 0;
+                        totalXp = rawXp is int
+                            ? rawXp
+                            : int.tryParse(rawXp.toString()) ?? 0;
+                      } else {
+                        final rawXp = widget.roomData['totalXp'] ?? 0;
+                        totalXp = rawXp is int
+                            ? rawXp
+                            : int.tryParse(rawXp.toString()) ?? 0;
+                      }
+
+                      final int level = RoomLevelHelper.calculateLevel(totalXp);
+
+                      return GestureDetector(
+                        onTap: _openEventPage,
+                        child: ShaderMask(
+                          shaderCallback: (bounds) => const LinearGradient(
+                            colors: [
+                              Color(0xFF00FBFF),
+                              Color(0xFFFFD54F),
+                              Color(0xFFFF2E93),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ).createShader(bounds),
+                          child: Text(
+                            "Lv.$level",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.4,
+                              shadows: [
+                                Shadow(
+                                  color: Color(0xFF4A148C),
+                                  offset: Offset(1.2, 1.5),
+                                  blurRadius: 0,
+                                ),
+                                Shadow(
+                                  color: Colors.black87,
+                                  offset: Offset(0, 2),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
               
               // ২. ডান পাশে ভিউয়ার লিস্ট এলাকা

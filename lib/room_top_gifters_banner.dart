@@ -24,7 +24,7 @@ class _RoomTopGiftersBannerState extends State<RoomTopGiftersBanner> {
   Timer? _autoScrollTimer;
   Timer? _fetchIntervalTimer;
   List<Map<String, dynamic>> _topGifters = [];
-  
+
   static const String _cacheKeyPrefix = 'cached_top_gifters_smooth_';
 
   @override
@@ -150,11 +150,14 @@ class _RoomTopGiftersBannerState extends State<RoomTopGiftersBanner> {
     bool showBanner = widget.roomData['showBanner'] ?? true;
     if (!showBanner) return const SizedBox.shrink();
 
+    // 👇 আপনার assets-এ রাখা ছবির পাথ এখানে বসাবেন
+    const String badgeAssetPath = 'assets/images/newbenar2.gif';
+
     return Material(
       color: Colors.transparent,
       child: SizedBox(
-        width: 160,
-        height: 38,
+        width: 200,
+        height: 90,
         child: PageView.builder(
           controller: _pageController,
           itemCount: _topGifters.isNotEmpty ? _topGifters.length : 1,
@@ -166,115 +169,111 @@ class _RoomTopGiftersBannerState extends State<RoomTopGiftersBanner> {
 
             return GestureDetector(
               onTap: () => _navigateToProfile(context, gifter['uid'] ?? ''),
-              // ভারী শিমার অ্যানিমেশন বাদ দিয়ে স্ক্রিনশটের মতো একটি প্রিমিয়াম ও হালকা ট্রান্সপারেন্ট ডিজাইন
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(25),
-                  border: Border.all(
-                    color: Colors.amberAccent.withOpacity(0.5),
-                    width: 1,
+              child: Stack(
+                alignment: Alignment.center,
+                clipBehavior: Clip.none,
+                children: [
+                  // ১. আপনার দেওয়া অ্যাসেট ব্যাজ ইমেজ/GIF
+                  Positioned.fill(
+                    child: Image.asset(
+                      badgeAssetPath,
+                      fit: BoxFit.fill,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const SizedBox.shrink(),
+                    ),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 4,
-                      spreadRadius: 1,
-                    )
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-                  child: Row(
-                    children: [
-                      // অবতার ও র‍্যাংক ব্যাজ
-                      Stack(
-                        alignment: Alignment.bottomRight,
-                        children: [
-                          Container(
-                            width: 30,
-                            height: 30,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                  color: Colors.amberAccent, width: 1.2),
-                            ),
-                            child: ClipOval(
-                              child: gifter['avatar'] != "" &&
-                                      gifter['avatar'] != null
-                                  ? CachedNetworkImage(
-                                      imageUrl: gifter['avatar'],
-                                      fit: BoxFit.cover,
-                                      placeholder: (context, url) =>
-                                          const SizedBox(
-                                              width: 12,
-                                              height: 12,
-                                              child: CircularProgressIndicator(
-                                                  strokeWidth: 1)),
-                                      errorWidget: (context, url, error) =>
-                                          const Icon(Icons.person,
-                                              color: Colors.white, size: 16),
-                                    )
-                                  : const Icon(Icons.person,
-                                      color: Colors.white, size: 16),
-                            ),
+
+                  // ২. ব্যাজের ভেতরের অংশে অবতার, নাম এবং নামের ঠিক পাশেই র‍্যাংক নম্বর
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      left: 20,
+                      right: 22,
+                      top: 0,
+                      bottom: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        // ১) অবতার
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: Colors.amberAccent, width: 1.2),
                           ),
-                          if (gifter['rank'] != null && gifter['rank'] > 0)
-                            Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(
-                                color: Colors.amber,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Text(
-                                "${gifter['rank']}",
-                                style: const TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 7,
-                                  fontWeight: FontWeight.bold,
+                          child: ClipOval(
+                            child: gifter['avatar'] != "" &&
+                                    gifter['avatar'] != null
+                                ? CachedNetworkImage(
+                                    imageUrl: gifter['avatar'],
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) =>
+                                        const SizedBox(
+                                            width: 10,
+                                            height: 12,
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 1)),
+                                    errorWidget: (context, url, error) =>
+                                        const Icon(Icons.person,
+                                            color: Colors.white, size: 14),
+                                  )
+                                : const Icon(Icons.person,
+                                    color: Colors.white, size: 14),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+
+                        // ২) নাম এবং ৩) নামের ঠিক পরেই লাগোয়া টপ গিফটার নম্বর (মাঝখানে ফাঁকা থাকবে না)
+                        Expanded(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  gifter['name'] ?? 'User',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    height: 1.0,
+                                    shadows: [
+                                      Shadow(
+                                          color: Colors.black, blurRadius: 3),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(width: 6),
-                      // নাম ও টপ স্পেন্ডার ইনফো
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              gifter['rank'] != null && gifter['rank'] > 0
-                                  ? "Top Gifter #${gifter['rank']}"
-                                  : "Top Spender",
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.amberAccent.withOpacity(0.9),
-                                fontSize: 7.5,
-                                fontWeight: FontWeight.w600,
-                                height: 1.0,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              gifter['name'] ?? 'User',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.bold,
-                                height: 1.0,
-                              ),
-                            ),
-                          ],
+                              if (gifter['rank'] != null &&
+                                  gifter['rank'] > 0) ...[
+                                const SizedBox(width: 4),
+                                Text(
+                                  "#${gifter['rank']}",
+                                  maxLines: 1,
+                                  softWrap: false,
+                                  overflow: TextOverflow.visible,
+                                  style: const TextStyle(
+                                    color: Color(0xFFFFE082),
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.0,
+                                    shadows: [
+                                      Shadow(
+                                          color: Colors.black, blurRadius: 3),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
             );
           },
